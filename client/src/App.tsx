@@ -24,6 +24,24 @@ import Community from "./pages/Community";
 import Analytics from "./pages/Analytics";
 import StakeholderHome from "./pages/StakeholderHome";
 import DeveloperPortal from "./pages/DeveloperPortal";
+import EliteFellowship from "./pages/EliteFellowship";
+import SafeTruthTool from "./pages/SafeTruthTool";
+import PaymentInstructions from "./pages/PaymentInstructions";
+import FAQ from "./pages/FAQ";
+import Contact from "./pages/Contact";
+import About from "./pages/About";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TrainingSchedules from "./pages/TrainingSchedules";
+import Resources from "./pages/Resources";
+import SuccessStories from "./pages/SuccessStories";
+import InstitutionalDashboard from "./pages/InstitutionalDashboard";
+import PricingCalculator from "./pages/PricingCalculator";
+import ROICalculator from "./pages/ROICalculator";
+import Achievements from "./pages/Achievements";
+import Leaderboard from "./pages/Leaderboard";
+import ReferralProgram from "./pages/ReferralProgram";
+import AHAeLearning from "./pages/AHAeLearning";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -48,8 +66,26 @@ function Router() {
           <Route path="/search" component={Search} />
           <Route path="/community" component={Community} />
           <Route path="/analytics" component={Analytics} />
-        <Route path="/stakeholder-home" component={StakeholderHome} />
+          <Route path="/stakeholder-home" component={StakeholderHome} />
         <Route path="/developer-portal" component={DeveloperPortal} />
+        <Route path="/elite-fellowship" component={EliteFellowship} />
+        <Route path="/safe-truth" component={SafeTruthTool} />
+        <Route path="/payment-instructions" component={PaymentInstructions} />
+        <Route path="/faq" component={FAQ} />
+        <Route path="/contact" component={Contact} />
+        <Route path="/about" component={About} />
+        <Route path="/terms" component={TermsOfService} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/training-schedules" component={TrainingSchedules} />
+        <Route path="/resources" component={Resources} />
+        <Route path="/success-stories" component={SuccessStories} />
+        <Route path="/institutional-dashboard" component={InstitutionalDashboard} />
+        <Route path="/pricing-calculator" component={PricingCalculator} />
+        <Route path="/roi-calculator" component={ROICalculator} />
+        <Route path="/achievements" component={Achievements} />
+        <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/referral-program" component={ReferralProgram} />
+        <Route path="/aha-elearning" component={AHAeLearning} />
           <Route path="/404" component={NotFound} />
           {/* Final fallback route */}
           <Route component={NotFound} />

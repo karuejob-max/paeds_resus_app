@@ -24,27 +24,27 @@
 - [x] Analytics & Reporting Dashboard
 - [x] Payment History page
 - [x] Learner Progress page
-- [ ] Elite Fellowship page (Head, Heart, Hands framework)
-- [ ] Safe-Truth tool page
-- [ ] Institutional accreditation page
-- [ ] Payment instructions page (M-Pesa & Bank Transfer)
-- [ ] Training schedules page
-- [ ] Success stories/blog page
-- [ ] Facility locator page
-- [ ] AHA elearning integration page
-- [ ] Certificate verification page
-- [ ] FAQ page
-- [ ] Support/Help page
-- [ ] Community page
-- [ ] Resources page
-- [ ] Contact page
-- [ ] Admin dashboard page
-- [ ] Cohort management page
-- [ ] Settings page
-- [ ] Profile page
-- [ ] About page
-- [ ] Terms of Service page
-- [ ] Privacy Policy page
+- [x] Elite Fellowship page (Head, Heart, Hands framework)
+- [x] Safe-Truth tool page
+- [x] Institutional accreditation page
+- [x] Payment instructions page (M-Pesa & Bank Transfer)
+- [x] Training schedules page
+- [x] Success stories/blog page
+- [x] Facility locator page
+- [x] AHA elearning integration page
+- [x] Certificate verification page
+- [x] FAQ page
+- [x] Support/Help page
+- [x] Community page
+- [x] Resources page
+- [x] Contact page
+- [x] Admin dashboard page
+- [x] Cohort management page
+- [x] Settings page
+- [x] Profile page
+- [x] About page
+- [x] Terms of Service page
+- [x] Privacy Policy page
 
 ## Phase 3: Social Media Integration
 - [x] Add social media links to Footer component
@@ -62,28 +62,28 @@
 - [ ] Implement payment status tracking
 
 ## Phase 5: Institutional Features
-- [ ] Build institutional dashboard
-- [ ] Create pricing calculator
-- [ ] Implement ROI calculator
-- [ ] Build bulk discount system
-- [ ] Create institutional contact form modal
-- [ ] Implement institutional inquiry database
-- [ ] Build staff invitation system
+- [x] Build institutional dashboard
+- [x] Create pricing calculator
+- [x] Implement ROI calculator
+- [x] Build bulk discount system
+- [x] Create institutional contact form modal
+- [x] Implement institutional inquiry database
+- [x] Build staff invitation system
 
 ## Phase 6: Certificate System
 - [x] Implement certificate generation
 - [x] Build certificate verification system
 - [x] Create certificate download functionality
-- [ ] Integrate AHA elearning platform
-- [ ] Build pre-course completion tracking
+- [x] Integrate AHA elearning platform
+- [x] Build pre-course completion tracking
 
 ## Phase 7: Learner Features
-- [ ] Build learner progress tracking
-- [ ] Implement badge system
-- [ ] Create leaderboard with rankings
-- [ ] Build social sharing for achievements
-- [ ] Implement referral program with M-Pesa rewards
-- [ ] Create learner onboarding wizard
+- [x] Build learner progress tracking
+- [x] Implement badge system
+- [x] Create leaderboard with rankings
+- [x] Build social sharing for achievements
+- [x] Implement referral program with M-Pesa rewards
+- [x] Create learner onboarding wizard
 
 ## Phase 8: Email Automation
 - [x] Set up AWS SES email service
