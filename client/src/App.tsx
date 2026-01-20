@@ -42,6 +42,7 @@ import Achievements from "./pages/Achievements";
 import Leaderboard from "./pages/Leaderboard";
 import ReferralProgram from "./pages/ReferralProgram";
 import AHAeLearning from "./pages/AHAeLearning";
+import Support from "./pages/Support";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -86,6 +87,7 @@ function Router() {
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/referral-program" component={ReferralProgram} />
         <Route path="/aha-elearning" component={AHAeLearning} />
+        <Route path="/support" component={Support} />
           <Route path="/404" component={NotFound} />
           {/* Final fallback route */}
           <Route component={NotFound} />

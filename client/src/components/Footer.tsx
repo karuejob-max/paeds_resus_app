@@ -1,5 +1,6 @@
 import { Facebook, Instagram, Linkedin, Twitter, Youtube, MessageCircle, Mail } from "lucide-react";
 import { Link } from "wouter";
+import { footerSections } from "@/const/navigation";
 
 export default function Footer() {
   const socialLinks = [
@@ -64,9 +65,9 @@ export default function Footer() {
 
   return (
     <footer className="bg-gray-900 text-gray-300 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
-        <div className="grid md:grid-cols-4 gap-8 mb-12">
+        <div className="grid md:grid-cols-5 gap-8 mb-12">
           {/* About */}
           <div>
             <h3 className="text-white font-bold mb-4">Paeds Resus</h3>
@@ -80,11 +81,41 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/" className="hover:text-white transition">Home</Link></li>
-              <li><Link href="/providers" className="hover:text-white transition">For Providers</Link></li>
-              <li><Link href="/institutional" className="hover:text-white transition">For Hospitals</Link></li>
-              <li><Link href="/parents" className="hover:text-white transition">For Parents</Link></li>
-              <li><Link href="/resources" className="hover:text-white transition">Resources</Link></li>
+              {footerSections.quickLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Learning */}
+          <div>
+            <h4 className="text-white font-bold mb-4">Learning</h4>
+            <ul className="space-y-2 text-sm">
+              {footerSections.learning.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Institutional */}
+          <div>
+            <h4 className="text-white font-bold mb-4">Institutional</h4>
+            <ul className="space-y-2 text-sm">
+              {footerSections.institutional.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -92,23 +123,13 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4">Support</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/faq" className="hover:text-white transition">FAQ</Link></li>
-              <li><Link href="/support" className="hover:text-white transition">Help Center</Link></li>
-              <li><Link href="/contact" className="hover:text-white transition">Contact Us</Link></li>
-              <li><Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-white transition">Terms of Service</Link></li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="text-white font-bold mb-4">Get In Touch</h4>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <a href="mailto:info@paedsresus.com" className="hover:text-white transition">info@paedsresus.com</a>
-              </li>
-              <li className="text-gray-400">Kenya</li>
+              {footerSections.support.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -134,6 +155,18 @@ export default function Footer() {
               </a>
             ))}
           </div>
+        </div>
+
+        {/* Contact Section */}
+        <div className="border-t border-gray-700 py-8 mb-8">
+          <h4 className="text-white font-bold mb-4">Get In Touch</h4>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Mail className="w-4 h-4" />
+            <a href="mailto:info@paedsresus.com" className="hover:text-white transition">
+              info@paedsresus.com
+            </a>
+          </div>
+          <p className="text-sm text-gray-400 mt-2">Kenya</p>
         </div>
 
         {/* Social Media Links */}
