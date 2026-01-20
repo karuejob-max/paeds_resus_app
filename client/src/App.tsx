@@ -43,6 +43,17 @@ import Leaderboard from "./pages/Leaderboard";
 import ReferralProgram from "./pages/ReferralProgram";
 import AHAeLearning from "./pages/AHAeLearning";
 import Support from "./pages/Support";
+import EnterpriseDashboard from "./pages/EnterpriseDashboard";
+import APIMarketplace from "./pages/APIMarketplace";
+import InstructorMarketplace from "./pages/InstructorMarketplace";
+import WhiteLabelPlatform from "./pages/WhiteLabelPlatform";
+import AnalyticsIntelligence from "./pages/AnalyticsIntelligence";
+import LiveTraining from "./pages/LiveTraining";
+import PartnerEcosystem from "./pages/PartnerEcosystem";
+import MobileApp from "./pages/MobileApp";
+import GlobalExpansion from "./pages/GlobalExpansion";
+import SocialImpact from "./pages/SocialImpact";
+import CertificationMarketplace from "./pages/CertificationMarketplace";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -88,6 +99,17 @@ function Router() {
         <Route path="/referral-program" component={ReferralProgram} />
         <Route path="/aha-elearning" component={AHAeLearning} />
         <Route path="/support" component={Support} />
+        <Route path="/enterprise-dashboard" component={EnterpriseDashboard} />
+        <Route path="/api-marketplace" component={APIMarketplace} />
+        <Route path="/instructor-marketplace" component={InstructorMarketplace} />
+        <Route path="/white-label" component={WhiteLabelPlatform} />
+        <Route path="/analytics-intelligence" component={AnalyticsIntelligence} />
+        <Route path="/live-training" component={LiveTraining} />
+        <Route path="/partner-ecosystem" component={PartnerEcosystem} />
+        <Route path="/mobile-app" component={MobileApp} />
+        <Route path="/global-expansion" component={GlobalExpansion} />
+        <Route path="/social-impact" component={SocialImpact} />
+        <Route path="/certification-marketplace" component={CertificationMarketplace} />
           <Route path="/404" component={NotFound} />
           {/* Final fallback route */}
           <Route component={NotFound} />
