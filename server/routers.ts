@@ -16,6 +16,10 @@ import { gamificationRouter } from "./routers/gamification";
 import { aiContentRouter } from "./routers/ai-content";
 import { analyticsRouter } from "./routers/analytics";
 import { searchRecommendationsRouter } from "./routers/search-recommendations";
+import { liveTrainingRouter } from "./routers/live-training";
+import { cmsRouter } from "./routers/cms";
+import { emailAutomationRouter } from "./routers/email-automation";
+import { reportingRouter } from "./routers/reporting";
 
 export const appRouter = router({
   system: systemRouter,
@@ -43,6 +47,10 @@ export const appRouter = router({
   aiContent: aiContentRouter,
   analytics: analyticsRouter,
   searchRecommendations: searchRecommendationsRouter,
+  liveTraining: liveTrainingRouter,
+  cms: cmsRouter,
+  emailAutomation: emailAutomationRouter,
+  reporting: reportingRouter,
 });
 
 export type AppRouter = typeof appRouter;
