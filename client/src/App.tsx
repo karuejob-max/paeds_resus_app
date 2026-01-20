@@ -22,6 +22,7 @@ import LearnerProgress from "./pages/LearnerProgress";
 import Search from "./pages/Search";
 import Community from "./pages/Community";
 import Analytics from "./pages/Analytics";
+import StakeholderHome from "./pages/StakeholderHome";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -46,6 +47,7 @@ function Router() {
           <Route path="/search" component={Search} />
           <Route path="/community" component={Community} />
           <Route path="/analytics" component={Analytics} />
+      <Route path="/stakeholder-home" component={StakeholderHome} />
           <Route path="/404" component={NotFound} />
           {/* Final fallback route */}
           <Route component={NotFound} />

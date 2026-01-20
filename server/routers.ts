@@ -8,6 +8,14 @@ import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
 import { securityRouter } from "./routers/security";
+import { googleWorkspaceRouter } from "./routers/google-workspace";
+import { personalizationRouter } from "./routers/personalization";
+import { paymentsRouter } from "./routers/payments";
+import { collaborationRouter } from "./routers/collaboration";
+import { gamificationRouter } from "./routers/gamification";
+import { aiContentRouter } from "./routers/ai-content";
+import { analyticsRouter } from "./routers/analytics";
+import { searchRecommendationsRouter } from "./routers/search-recommendations";
 
 export const appRouter = router({
   system: systemRouter,
@@ -27,6 +35,14 @@ export const appRouter = router({
   aiLearning: aiLearningRouter,
   notifications: notificationsRouter,
   security: securityRouter,
+  googleWorkspace: googleWorkspaceRouter,
+  personalization: personalizationRouter,
+  payments: paymentsRouter,
+  collaboration: collaborationRouter,
+  gamification: gamificationRouter,
+  aiContent: aiContentRouter,
+  analytics: analyticsRouter,
+  searchRecommendations: searchRecommendationsRouter,
 });
 
 export type AppRouter = typeof appRouter;
