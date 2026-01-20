@@ -17,7 +17,7 @@ export default function PaymentInstructions() {
   const mpesaDetails = {
     businessNumber: "174379",
     businessName: "Paeds Resus Limited",
-    amount: "Variable (as per enrollment)",
+    amount: "10,000 - 150,000 KES depending on course",
   };
 
   const bankDetails = {

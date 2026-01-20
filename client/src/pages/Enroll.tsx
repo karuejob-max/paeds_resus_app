@@ -10,6 +10,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
+import { individualCourses, fellowshipTiers, formatPrice } from "@/const/pricing";
 
 export default function Enroll() {
   const { user, isAuthenticated } = useAuth();
@@ -83,10 +84,10 @@ export default function Enroll() {
   }
 
   const programs = [
-    { value: "bls", label: "BLS (Basic Life Support) - 5,000 KES" },
-    { value: "acls", label: "ACLS (Advanced Cardiac Life Support) - 8,000 KES" },
-    { value: "pals", label: "PALS (Pediatric Advanced Life Support) - 10,000 KES" },
-    { value: "fellowship", label: "Elite Fellowship (12 weeks) - 50,000 KES" },
+    { value: "bls", label: "BLS (Basic Life Support) - 10,000 KES" },
+    { value: "acls", label: "ACLS (Advanced Cardiovascular Life Support) - 20,000 KES" },
+    { value: "pals", label: "PALS (Pediatric Advanced Life Support) - 20,000 KES" },
+    { value: "fellowship", label: "Bronze Fellowship - 70,000 KES" },
   ];
 
   return (

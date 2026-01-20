@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp, DollarSign, Heart } from "lucide-react";
+import { fellowshipTiers, getInstitutionalPrice, formatPrice } from "@/const/pricing";
 
 export default function ROICalculator() {
+  const [selectedProgram, setSelectedProgram] = useState("fellowship");
   const [staffCount, setStaffCount] = useState(50);
-  const [trainingCost, setTrainingCost] = useState(1250000);
+  const [trainingCost, setTrainingCost] = useState(70000 * 50); // Bronze fellowship default
   const [currentMortalityRate, setCurrentMortalityRate] = useState(5);
   const [expectedReduction, setExpectedReduction] = useState(23);
   const [patientsPerMonth, setPatientsPerMonth] = useState(200);

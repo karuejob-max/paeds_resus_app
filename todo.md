@@ -4,8 +4,22 @@
 - [x] Extend Drizzle schema with all required tables (enrollments, payments, certificates, institutional accounts, etc.)
 - [x] Set up database migrations
 - [x] Create database query helpers in server/db.ts
-- [ ] Configure AWS SES email service
-- [ ] Set up node-cron scheduler for automated tasks
+- [x] Configure AWS SES email service
+- [x] Set up node-cron scheduler for automated tasks
+
+## PRICING UPDATE COMPLETED
+- [x] BLS: 10,000 KES
+- [x] ACLS: 20,000 KES
+- [x] PALS: 20,000 KES
+- [x] Bronze Fellowship: 70,000 KES
+- [x] Silver Fellowship: 100,000 KES
+- [x] Gold Fellowship: 150,000 KES
+- [x] Centralized pricing configuration created
+- [x] Pricing Calculator page updated
+- [x] ROI Calculator page updated
+- [x] Enroll page updated
+- [x] Payment Instructions page updated
+- [x] Institutional bulk discount tiers implemented
 
 ## Phase 2: Pages & Components (30 Pages)
 - [x] Home/Landing page with hero section
