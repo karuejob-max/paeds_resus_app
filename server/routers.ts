@@ -20,6 +20,10 @@ import { liveTrainingRouter } from "./routers/live-training";
 import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
 import { reportingRouter } from "./routers/reporting";
+import { mobileRouter } from "./routers/mobile-features";
+import { enterpriseRouter } from "./routers/enterprise";
+import { advancedAnalyticsRouter } from "./routers/advanced-analytics";
+import { marketplaceRouter } from "./routers/marketplace";
 
 export const appRouter = router({
   system: systemRouter,
@@ -51,6 +55,10 @@ export const appRouter = router({
   cms: cmsRouter,
   emailAutomation: emailAutomationRouter,
   reporting: reportingRouter,
+  mobile: mobileRouter,
+  enterprise: enterpriseRouter,
+  advancedAnalytics: advancedAnalyticsRouter,
+  marketplace: marketplaceRouter,
 });
 
 export type AppRouter = typeof appRouter;
