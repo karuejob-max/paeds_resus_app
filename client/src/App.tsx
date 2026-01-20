@@ -54,6 +54,7 @@ import MobileApp from "./pages/MobileApp";
 import GlobalExpansion from "./pages/GlobalExpansion";
 import SocialImpact from "./pages/SocialImpact";
 import CertificationMarketplace from "./pages/CertificationMarketplace";
+import Payment from "./pages/Payment";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -73,6 +74,7 @@ function Router() {
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/institutional-management" component={InstitutionalManagement} />
           <Route path="/facilities" component={FacilityLocator} />
+          <Route path="/payment" component={Payment} />
           <Route path="/payments" component={PaymentHistory} />
           <Route path="/progress" component={LearnerProgress} />
           <Route path="/search" component={Search} />

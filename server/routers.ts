@@ -24,6 +24,7 @@ import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
 import { advancedAnalyticsRouter } from "./routers/advanced-analytics";
 import { marketplaceRouter } from "./routers/marketplace";
+import { mpesaRouter } from "./routers/mpesa";
 
 export const appRouter = router({
   system: systemRouter,
@@ -58,6 +59,7 @@ export const appRouter = router({
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
   advancedAnalytics: advancedAnalyticsRouter,
+  mpesa: mpesaRouter,
   marketplace: marketplaceRouter,
 });
 
