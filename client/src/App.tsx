@@ -12,6 +12,16 @@ import Institutional from "./pages/Institutional";
 import Parents from "./pages/Parents";
 import Enroll from "./pages/Enroll";
 import LearnerDashboard from "./pages/LearnerDashboard";
+import CertificateVerification from "./pages/CertificateVerification";
+import SMSManagement from "./pages/SMSManagement";
+import AdminDashboard from "./pages/AdminDashboard";
+import InstitutionalManagement from "./pages/InstitutionalManagement";
+import FacilityLocator from "./pages/FacilityLocator";
+import PaymentHistory from "./pages/PaymentHistory";
+import LearnerProgress from "./pages/LearnerProgress";
+import Search from "./pages/Search";
+import Community from "./pages/Community";
+import Analytics from "./pages/Analytics";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -26,6 +36,16 @@ function Router() {
           <Route path="/parents" component={Parents} />
           <Route path="/enroll" component={Enroll} />
           <Route path="/dashboard" component={LearnerDashboard} />
+          <Route path="/verify-certificate" component={CertificateVerification} />
+          <Route path="/sms-management" component={SMSManagement} />
+          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/institutional-management" component={InstitutionalManagement} />
+          <Route path="/facilities" component={FacilityLocator} />
+          <Route path="/payments" component={PaymentHistory} />
+          <Route path="/progress" component={LearnerProgress} />
+          <Route path="/search" component={Search} />
+          <Route path="/community" component={Community} />
+          <Route path="/analytics" component={Analytics} />
           <Route path="/404" component={NotFound} />
           {/* Final fallback route */}
           <Route component={NotFound} />

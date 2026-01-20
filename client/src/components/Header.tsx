@@ -4,6 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { getLoginUrl } from "@/const";
+import NotificationCenter from "./NotificationCenter";
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -12,8 +13,19 @@ export default function Header() {
   const navLinks = [
     { label: "For Providers", href: "/providers" },
     { label: "For Hospitals", href: "/institutional" },
+    { label: "Facilities", href: "/facilities" },
     { label: "Resources", href: "/resources" },
-    { label: "Support", href: "/support" },
+  ];
+
+  const authenticatedLinks = [
+    { label: "Verify Certificate", href: "/verify-certificate" },
+    { label: "Dashboard", href: "/dashboard" },
+  ];
+
+  const adminLinks = [
+    { label: "Admin", href: "/admin" },
+    { label: "Institutional", href: "/institutional-management" },
+    { label: "SMS", href: "/sms-management" },
   ];
 
   return (
@@ -41,15 +53,34 @@ export default function Header() {
             ))}
           </nav>
 
+          {/* Notifications */}
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center">
+              <NotificationCenter />
+            </div>
+          )}
+
           {/* Auth Buttons */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2">
             {isAuthenticated ? (
               <>
-                <Link href="/dashboard">
-                  <Button variant="outline">Dashboard</Button>
-                </Link>
+                {user?.role === "admin" && (
+                  <div className="flex gap-2 mr-2">
+                    {adminLinks.map((link) => (
+                      <Link key={link.href} href={link.href}>
+                        <Button variant="ghost" size="sm">{link.label}</Button>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {authenticatedLinks.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    <Button variant="outline" size="sm">{link.label}</Button>
+                  </Link>
+                ))}
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => logout()}
                 >
                   Logout
@@ -58,10 +89,10 @@ export default function Header() {
             ) : (
               <>
                 <a href={getLoginUrl()}>
-                  <Button variant="outline">Sign In</Button>
+                  <Button variant="outline" size="sm">Sign In</Button>
                 </a>
                 <a href={getLoginUrl()}>
-                  <Button className="bg-blue-900 hover:bg-blue-800">Get Started</Button>
+                  <Button className="bg-blue-900 hover:bg-blue-800" size="sm">Get Started</Button>
                 </a>
               </>
             )}
@@ -92,9 +123,24 @@ export default function Header() {
             <div className="pt-4 border-t space-y-2">
               {isAuthenticated ? (
                 <>
-                  <Link href="/dashboard">
-                    <Button variant="outline" className="w-full">Dashboard</Button>
-                  </Link>
+                  {user?.role === "admin" && (
+                    <div className="space-y-2 mb-2">
+                      {adminLinks.map((link) => (
+                        <Link key={link.href} href={link.href}>
+                          <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>
+                            {link.label}
+                          </Button>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  {authenticatedLinks.map((link) => (
+                    <Link key={link.href} href={link.href}>
+                      <Button variant="outline" className="w-full" onClick={() => setMobileMenuOpen(false)}>
+                        {link.label}
+                      </Button>
+                    </Link>
+                  ))}
                   <Button
                     variant="ghost"
                     className="w-full"
