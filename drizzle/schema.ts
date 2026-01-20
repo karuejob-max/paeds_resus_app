@@ -161,3 +161,18 @@ export const platformSettings = mysqlTable("platformSettings", {
 
 export type PlatformSetting = typeof platformSettings.$inferSelect;
 export type InsertPlatformSetting = typeof platformSettings.$inferInsert;
+
+// Referrals table
+export const referrals = mysqlTable("referrals", {
+  id: int("id").autoincrement().primaryKey(),
+  referrerId: int("referrerId").notNull(),
+  referredUserId: int("referredUserId").notNull(),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
+  rewardAmount: int("rewardAmount"), // in KES
+  rewardProcessedAt: timestamp("rewardProcessedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = typeof referrals.$inferInsert;
