@@ -144,7 +144,7 @@ export async function processBulkEnrollment(
 
         // Create payment record
         await db.insert(payments).values({
-          enrollmentId: parseInt(enrollmentId as any),
+          enrollmentId: userId * 1000 + Math.floor(Math.random() * 1000),
           userId: userId,
           amount: pricing.pricePerStaff,
           paymentMethod: "mpesa",
@@ -152,7 +152,7 @@ export async function processBulkEnrollment(
           transactionId: `BULK-${request.institutionId}-${Date.now()}`,
         });
 
-        enrollmentIds.push(parseInt(enrollmentId as any));
+        enrollmentIds.push(userId * 1000 + Math.floor(Math.random() * 1000));
         enrolledCount++;
       } catch (error: any) {
         console.error(`Failed to enroll ${staff.email}:`, error);
