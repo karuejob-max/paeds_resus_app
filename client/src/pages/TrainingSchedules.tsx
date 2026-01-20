@@ -16,7 +16,7 @@ export default function TrainingSchedules() {
       enrolled: 24,
       level: "Advanced",
       format: "Hybrid (Online + In-person)",
-      price: "KES 45,000",
+      price: "KES 70,000",
       status: "Filling Fast",
     },
     {
@@ -30,7 +30,7 @@ export default function TrainingSchedules() {
       enrolled: 18,
       level: "Intermediate",
       format: "In-person",
-      price: "KES 25,000",
+      price: "KES 20,000",
       status: "Available",
     },
     {
@@ -44,7 +44,7 @@ export default function TrainingSchedules() {
       enrolled: 12,
       level: "Intermediate",
       format: "In-person",
-      price: "KES 15,000",
+      price: "KES 10,000",
       status: "Available",
     },
     {
@@ -58,7 +58,7 @@ export default function TrainingSchedules() {
       enrolled: 14,
       level: "Intermediate",
       format: "In-person",
-      price: "KES 18,000",
+      price: "KES 15,000",
       status: "Almost Full",
     },
     {
@@ -72,7 +72,7 @@ export default function TrainingSchedules() {
       enrolled: 8,
       level: "Advanced",
       format: "Hybrid",
-      price: "KES 45,000",
+      price: "KES 70,000",
       status: "Available",
     },
     {
@@ -86,7 +86,7 @@ export default function TrainingSchedules() {
       enrolled: 35,
       level: "Advanced",
       format: "Online",
-      price: "KES 12,000",
+      price: "KES 10,000",
       status: "Available",
     },
   ];
@@ -163,8 +163,8 @@ export default function TrainingSchedules() {
               <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
                 <option>All Prices</option>
                 <option>Under 20,000 KES</option>
-                <option>20,000 - 50,000 KES</option>
-                <option>Above 50,000 KES</option>
+                <option>50,000 - 100,000 KES</option>
+                <option>Above 100,000 KES</option>
               </select>
             </div>
           </div>

@@ -8,11 +8,11 @@ export default function Institutional() {
   const [staffCount, setStaffCount] = useState(50);
 
   const calculatePrice = (count: number) => {
-    if (count <= 20) return 5000;
-    if (count <= 50) return 4500;
-    if (count <= 100) return 4000;
-    if (count <= 200) return 3500;
-    return 3000;
+    if (count <= 20) return 10000;
+    if (count <= 50) return 9000;
+    if (count <= 100) return 8000;
+    if (count <= 200) return 7000;
+    return 6000;
   };
 
   const calculateROI = (count: number) => {
@@ -55,11 +55,11 @@ export default function Institutional() {
   ];
 
   const pricingTiers = [
-    { staff: 20, price: 5000, discount: 0 },
-    { staff: 50, price: 4500, discount: 10 },
-    { staff: 100, price: 4000, discount: 20 },
-    { staff: 200, price: 3500, discount: 30 },
-    { staff: "500+", price: 3000, discount: 40 },
+    { staff: 20, price: 10000, discount: 0 },
+    { staff: 50, price: 9000, discount: 10 },
+    { staff: 100, price: 8000, discount: 20 },
+    { staff: 200, price: 7000, discount: 30 },
+    { staff: "500+", price: 6000, discount: 40 },
   ];
 
   return (

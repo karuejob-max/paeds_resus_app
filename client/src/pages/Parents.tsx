@@ -136,14 +136,14 @@ export default function Parents() {
               {
                 title: "Online Course",
                 duration: "Self-paced",
-                price: "2,000 KES",
+                price: "3,000 KES",
                 description: "Learn theory online at your own pace",
                 features: ["Video lessons", "Quizzes", "Certificate", "Lifetime access"],
               },
               {
                 title: "Hands-On Workshop",
                 duration: "1 day",
-                price: "3,500 KES",
+                price: "5,000 KES",
                 description: "Practice CPR on mannequins with expert guidance",
                 features: ["Live instruction", "Practice CPR", "Certificate", "Q&A session"],
                 featured: true,
@@ -151,7 +151,7 @@ export default function Parents() {
               {
                 title: "Family Package",
                 duration: "1 day",
-                price: "5,000 KES",
+                price: "8,000 KES",
                 description: "Train up to 4 family members together",
                 features: ["Group training", "Family discount", "Certificates", "Support materials"],
               },

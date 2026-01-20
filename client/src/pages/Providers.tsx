@@ -8,7 +8,7 @@ export default function Providers() {
     {
       name: "BLS (Basic Life Support)",
       duration: "1 day",
-      price: "5,000 KES",
+      price: "10,000 KES",
       description: "Essential skills for all healthcare providers. Learn CPR, AED use, and basic airway management.",
       topics: ["CPR Techniques", "AED Operation", "Airway Management", "Recovery Position"],
       icon: Heart,
@@ -16,7 +16,7 @@ export default function Providers() {
     {
       name: "ACLS (Advanced Cardiac Life Support)",
       duration: "2 days",
-      price: "8,000 KES",
+      price: "20,000 KES",
       description: "Advanced cardiac emergency management. Build on BLS with advanced interventions.",
       topics: ["Cardiac Rhythms", "Medication Administration", "Advanced Airway", "Post-Resuscitation Care"],
       icon: Brain,
@@ -24,7 +24,7 @@ export default function Providers() {
     {
       name: "PALS (Pediatric Advanced Life Support)",
       duration: "2 days",
-      price: "10,000 KES",
+      price: "20,000 KES",
       description: "Specialized pediatric resuscitation. Master child-specific emergency protocols.",
       topics: ["Pediatric Assessment", "Shock Management", "Arrhythmia Recognition", "Medication Dosing"],
       icon: Zap,
@@ -32,7 +32,7 @@ export default function Providers() {
     {
       name: "Elite Fellowship",
       duration: "12 weeks",
-      price: "50,000 KES",
+      price: "70,000 KES (Bronze)",
       description: "Comprehensive mastery program. Become a resuscitation expert and trainer.",
       topics: ["Head-to-Toe Assessment", "Heart Failure Management", "Hands-On Simulation", "Teaching Skills"],
       icon: Award,

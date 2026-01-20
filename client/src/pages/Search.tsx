@@ -41,7 +41,7 @@ const mockCourses: Course[] = [
     rating: 4.8,
     reviews: 245,
     students: 1200,
-    price: 5000,
+    price: 10000,
     instructor: "Dr. Sarah Mwangi",
     image: "https://via.placeholder.com/300x200?text=BLS",
     tags: ["CPR", "Pediatric", "Emergency"],
@@ -56,7 +56,7 @@ const mockCourses: Course[] = [
     rating: 4.9,
     reviews: 189,
     students: 890,
-    price: 7500,
+    price: 20000,
     instructor: "Prof. James Kipchoge",
     image: "https://via.placeholder.com/300x200?text=ACLS",
     tags: ["Cardiac", "Advanced", "Protocols"],
@@ -71,7 +71,7 @@ const mockCourses: Course[] = [
     rating: 4.7,
     reviews: 156,
     students: 750,
-    price: 6000,
+    price: 20000,
     instructor: "Dr. Emily Okonkwo",
     image: "https://via.placeholder.com/300x200?text=PALS",
     tags: ["Pediatric", "PALS", "Emergency"],
@@ -86,7 +86,7 @@ const mockCourses: Course[] = [
     rating: 4.6,
     reviews: 123,
     students: 560,
-    price: 6500,
+    price: 15000,
     instructor: "Dr. Michael Kariuki",
     image: "https://via.placeholder.com/300x200?text=Airway",
     tags: ["Airway", "Intubation", "Advanced"],
@@ -101,7 +101,7 @@ const mockCourses: Course[] = [
     rating: 4.8,
     reviews: 198,
     students: 920,
-    price: 5500,
+    price: 12000,
     instructor: "Dr. Grace Njoroge",
     image: "https://via.placeholder.com/300x200?text=NRP",
     tags: ["Neonatal", "Newborn", "Resuscitation"],
@@ -116,7 +116,7 @@ const mockCourses: Course[] = [
     rating: 4.5,
     reviews: 142,
     students: 680,
-    price: 6800,
+    price: 18000,
     instructor: "Dr. David Mwangi",
     image: "https://via.placeholder.com/300x200?text=Trauma",
     tags: ["Trauma", "Emergency", "Management"],
@@ -127,7 +127,7 @@ export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 150000]);
   const [sortBy, setSortBy] = useState<"rating" | "students" | "price" | "newest">(
     "rating"
   );
@@ -302,14 +302,14 @@ export default function Search() {
                 </div>
 
                 {/* Clear Filters */}
-                {(selectedCategory || selectedLevel || priceRange[1] < 10000) && (
+                {(selectedCategory || selectedLevel || priceRange[1] < 150000) && (
                   <Button
                     variant="outline"
                     className="w-full"
                     onClick={() => {
                       setSelectedCategory(null);
                       setSelectedLevel(null);
-                      setPriceRange([0, 10000]);
+                      setPriceRange([0, 150000]);
                     }}
                   >
                     Clear Filters

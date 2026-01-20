@@ -7,19 +7,55 @@
 - [x] Configure AWS SES email service
 - [x] Set up node-cron scheduler for automated tasks
 
-## PRICING UPDATE COMPLETED
+## COMPREHENSIVE PRICING AUDIT & UPDATE COMPLETED
+
+### Individual Course Pricing (Updated):
 - [x] BLS: 10,000 KES
 - [x] ACLS: 20,000 KES
 - [x] PALS: 20,000 KES
 - [x] Bronze Fellowship: 70,000 KES
 - [x] Silver Fellowship: 100,000 KES
 - [x] Gold Fellowship: 150,000 KES
-- [x] Centralized pricing configuration created
-- [x] Pricing Calculator page updated
-- [x] ROI Calculator page updated
-- [x] Enroll page updated
-- [x] Payment Instructions page updated
-- [x] Institutional bulk discount tiers implemented
+
+### Parent/Caregiver Courses (Updated):
+- [x] Online Course: 3,000 KES
+- [x] Hands-On Workshop: 5,000 KES
+- [x] Family Package: 8,000 KES
+
+### Institutional Pricing (Updated):
+- [x] Per-staff pricing: 10,000 KES (20 staff) → 6,000 KES (500+ staff)
+- [x] Bulk discount tiers: 0% → 40% off
+- [x] Starter plan: 10,000 KES per staff
+- [x] Professional plan: 9,000 KES per staff
+- [x] Enterprise plan: 8,000 KES per staff
+
+### Referral Program Rewards (Updated):
+- [x] Bronze tier (1-5 referrals): 7,000 KES per referral
+- [x] Silver tier (6-15 referrals): 10,000 KES per referral
+- [x] Gold tier (16-30 referrals): 15,000 KES per referral
+- [x] Platinum tier (30+ referrals): 20,000 KES per referral
+
+### Pages Updated:
+- [x] Providers page - All course prices updated
+- [x] Parents page - All parent course prices updated
+- [x] EliteFellowship page - All fellowship tier prices updated
+- [x] TrainingSchedules page - All schedule prices updated
+- [x] Institutional page - Per-staff pricing and tiers updated
+- [x] InstitutionalManagement page - All plan prices updated
+- [x] Search page - All course search prices updated
+- [x] ReferralProgram page - All referral rewards updated
+- [x] Pricing Calculator page - Updated with new pricing
+- [x] ROI Calculator page - Updated with new pricing
+- [x] Enroll page - Updated with new course pricing
+- [x] Payment Instructions page - Updated pricing range
+- [x] Centralized pricing configuration created (const/pricing.ts)
+
+### Verification:
+- [x] Build successful with zero errors
+- [x] All outdated pricing removed
+- [x] Consistent pricing across all pages
+- [x] Price ranges updated in filters
+- [x] Institutional discount calculations verified
 
 ## Phase 2: Pages & Components (30 Pages)
 - [x] Home/Landing page with hero section

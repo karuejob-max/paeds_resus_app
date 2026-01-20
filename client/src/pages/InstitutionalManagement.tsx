@@ -85,19 +85,19 @@ export default function InstitutionalManagement() {
     {
       name: "Starter",
       staffCount: "1-50",
-      pricePerStaff: 5000,
+      pricePerStaff: 10000,
       features: ["BLS Training", "Basic Support", "1 Year Access"],
     },
     {
       name: "Professional",
       staffCount: "51-200",
-      pricePerStaff: 4500,
+      pricePerStaff: 9000,
       features: ["BLS + ACLS", "Priority Support", "2 Year Access", "Bulk Discount"],
     },
     {
       name: "Enterprise",
       staffCount: "200+",
-      pricePerStaff: 4000,
+      pricePerStaff: 8000,
       features: [
         "All Programs",
         "Dedicated Manager",

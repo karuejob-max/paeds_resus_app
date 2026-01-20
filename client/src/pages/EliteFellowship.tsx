@@ -78,7 +78,7 @@ export default function EliteFellowship() {
     {
       name: "Bronze Fellow",
       duration: "3 months",
-      price: "KES 45,000",
+      price: "KES 70,000",
       features: [
         "Online course modules",
         "2 in-person workshops",
@@ -89,7 +89,7 @@ export default function EliteFellowship() {
     {
       name: "Silver Fellow",
       duration: "6 months",
-      price: "KES 85,000",
+      price: "KES 100,000",
       features: [
         "All Bronze features",
         "4 in-person workshops",
