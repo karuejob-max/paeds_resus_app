@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,83 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Enrollment queries
+export async function createEnrollment(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(enrollments).values(data);
+  return result;
+}
+
+export async function getEnrollmentsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(enrollments).where(eq(enrollments.userId, userId));
+}
+
+// Payment queries
+export async function createPayment(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(payments).values(data);
+}
+
+export async function getPaymentsByEnrollmentId(enrollmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(payments).where(eq(payments.enrollmentId, enrollmentId));
+}
+
+// Certificate queries
+export async function createCertificate(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(certificates).values(data);
+}
+
+export async function getCertificateByVerificationCode(code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(certificates).where(eq(certificates.verificationCode, code)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Institutional Inquiry queries
+export async function createInstitutionalInquiry(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(institutionalInquiries).values(data);
+}
+
+export async function getInstitutionalInquiries() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(institutionalInquiries);
+}
+
+// SMS Reminder queries
+export async function createSmsReminder(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(smsReminders).values(data);
+}
+
+export async function getPendingSmsReminders() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(smsReminders).where(eq(smsReminders.status, "pending"));
+}
+
+// Learner Progress queries
+export async function createLearnerProgress(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(learnerProgress).values(data);
+}
+
+export async function getLearnerProgressByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(learnerProgress).where(eq(learnerProgress.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
