@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, Video, BookOpen, Award } from "lucide-react";
+import { Download, FileText, Video, BookOpen, Award, GraduationCap } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Resources() {
   const resources = [
@@ -128,6 +130,60 @@ export default function Resources() {
           <p className="text-xl text-gray-600 mb-8">
             Download guides, videos, and study materials to enhance your learning
           </p>
+        </div>
+      </section>
+
+      {/* Learning Programs Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-blue-50 border-b border-blue-200">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-2xl font-bold mb-8 text-center">Learning Programs</h2>
+          <div className="grid md:grid-cols-5 gap-4">
+            <Link href="/elite-fellowship">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardContent className="pt-6 text-center">
+                  <div className="text-4xl mb-3">🎓</div>
+                  <h3 className="font-semibold text-sm">Elite Fellowship</h3>
+                  <p className="text-xs text-gray-600 mt-1">Mastery program</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/safe-truth">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardContent className="pt-6 text-center">
+                  <div className="text-4xl mb-3">🛠️</div>
+                  <h3 className="font-semibold text-sm">Safe-Truth Tool</h3>
+                  <p className="text-xs text-gray-600 mt-1">Assessment tool</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/training-schedules">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardContent className="pt-6 text-center">
+                  <div className="text-4xl mb-3">📅</div>
+                  <h3 className="font-semibold text-sm">Training Schedules</h3>
+                  <p className="text-xs text-gray-600 mt-1">Upcoming courses</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/aha-elearning">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardContent className="pt-6 text-center">
+                  <div className="text-4xl mb-3">❤️</div>
+                  <h3 className="font-semibold text-sm">AHA eLearning</h3>
+                  <p className="text-xs text-gray-600 mt-1">Online courses</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/success-stories">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardContent className="pt-6 text-center">
+                  <div className="text-4xl mb-3">⭐</div>
+                  <h3 className="font-semibold text-sm">Success Stories</h3>
+                  <p className="text-xs text-gray-600 mt-1">Learn from others</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </div>
       </section>
 

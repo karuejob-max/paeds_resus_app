@@ -13,7 +13,7 @@ export interface NavItem {
   requiresAdmin?: boolean;
 }
 
-// Main navigation items for Header
+// Main navigation items for Header - Consolidated (removed redundant dropdowns)
 export const mainNavItems: NavItem[] = [
   { label: "For Providers", href: "/providers", category: "main" },
   { label: "For Hospitals", href: "/institutional", category: "main" },
@@ -23,6 +23,12 @@ export const mainNavItems: NavItem[] = [
   { label: "About", href: "/about", category: "main" },
   { label: "Contact", href: "/contact", category: "main" },
 ];
+
+// NOTE: Learning, Institutional, and Support dropdowns removed from header
+// These items are now accessible from their respective pages via tabs/sections
+// Learning items → Elite Fellowship page
+// Institutional items → Institutional page tabs
+// Support items → Support/Contact pages
 
 // Authenticated user navigation
 export const authenticatedNavItems: NavItem[] = [

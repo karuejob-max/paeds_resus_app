@@ -1297,3 +1297,36 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Check form dropdowns
 - [ ] Test header navigation
 - [ ] Mobile responsiveness check
+
+
+---
+
+## Phase 26: Header Navigation Restructuring
+
+### Navigation Audit & Consolidation
+- [x] Remove Learning dropdown (move to dedicated pages)
+- [x] Remove Institutional dropdown (move to Institutional page tabs)
+- [x] Remove Resources dropdown (move to Resources page)
+- [x] Keep main navigation: For Providers, For Hospitals, For Parents, Facilities, About, Contact
+- [x] Create unified Account dropdown for authenticated users
+- [x] Add Account menu items: Dashboard, My Progress, My Achievements, Leaderboard, Referral Program, My Certificates, Payment History
+
+### Header Redesign
+- [x] Redesign Header.tsx for cleaner layout
+- [x] Consolidate navigation constants
+- [x] Update mobile hamburger menu
+- [x] Ensure desktop/mobile parity
+- [x] Add breadcrumb navigation component
+
+### Page-Level Navigation
+- [x] Add tabs/sections to Institutional page (Institutional Management Tools)
+- [x] Add tabs/sections to Resources page (Learning Programs section)
+- [ ] Add tabs/sections to Learning/Elite Fellowship page
+- [x] Update breadcrumb navigation across all pages
+
+### Testing & Validation
+- [ ] Test desktop navigation
+- [ ] Test mobile navigation
+- [ ] Verify all links work
+- [ ] Check responsive design
+- [ ] Validate no functionality lost

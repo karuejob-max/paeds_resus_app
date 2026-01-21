@@ -2,15 +2,31 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import NotificationCenter from "./NotificationCenter";
-import { mainNavItems, learningNavItems, institutionalNavItems, supportNavItems, authenticatedNavItems, adminNavItems } from "@/const/navigation";
+import { mainNavItems, adminNavItems } from "@/const/navigation";
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+
+  // Authenticated user menu items
+  const accountMenuItems = [
+    { label: "Dashboard", href: "/dashboard", icon: "📊" },
+    { label: "My Progress", href: "/progress", icon: "📈" },
+    { label: "My Achievements", href: "/achievements", icon: "🏆" },
+    { label: "Leaderboard", href: "/leaderboard", icon: "🎯" },
+    { label: "Referral Program", href: "/referral-program", icon: "🤝" },
+    { label: "My Certificates", href: "/verify-certificate", icon: "📜" },
+    { label: "Payment History", href: "/payments", icon: "💳" },
+  ];
+
+  const handleNavClick = () => {
+    setMobileMenuOpen(false);
+    setAccountDropdownOpen(false);
+  };
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -36,110 +52,98 @@ export default function Header() {
                 </span>
               </Link>
             ))}
-
-            {/* Learning Dropdown */}
-            <div className="relative group">
-              <button className="px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition text-sm flex items-center gap-1">
-                Learning <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="absolute left-0 mt-0 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                {learningNavItems.map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    <div className="px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition cursor-pointer border-b last:border-b-0">
-                      <div className="font-medium text-sm">{link.label}</div>
-                      {link.description && <div className="text-xs text-gray-500">{link.description}</div>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Institutional Dropdown */}
-            <div className="relative group">
-              <button className="px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition text-sm flex items-center gap-1">
-                Institutional <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="absolute left-0 mt-0 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                {institutionalNavItems.map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    <div className="px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition cursor-pointer border-b last:border-b-0">
-                      <div className="font-medium text-sm">{link.label}</div>
-                      {link.description && <div className="text-xs text-gray-500">{link.description}</div>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Support Dropdown */}
-            <div className="relative group">
-              <button className="px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition text-sm flex items-center gap-1">
-                Support <ChevronDown className="w-4 h-4" />
-              </button>
-              <div className="absolute left-0 mt-0 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                {supportNavItems.map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    <div className="px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition cursor-pointer border-b last:border-b-0">
-                      <div className="font-medium text-sm">{link.label}</div>
-                      {link.description && <div className="text-xs text-gray-500">{link.description}</div>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </nav>
 
-          {/* Notifications */}
-          {isAuthenticated && (
-            <div className="hidden md:flex items-center">
-              <NotificationCenter />
-            </div>
-          )}
+          {/* Right Section: Notifications + Auth */}
+          <div className="hidden md:flex items-center gap-3">
+            {/* Notifications */}
+            {isAuthenticated && <NotificationCenter />}
 
-          {/* Auth Buttons */}
-          <div className="hidden md:flex items-center gap-2">
+            {/* Auth Section */}
             {isAuthenticated ? (
               <>
+                {/* Admin Links */}
                 {user?.role === "admin" && (
-                  <div className="flex gap-2 mr-2">
+                  <div className="flex gap-2 border-r pr-3">
                     {adminNavItems.map((link) => (
                       <Link key={link.href} href={link.href}>
-                        <Button variant="ghost" size="sm" className="text-xs">{link.label}</Button>
+                        <Button variant="ghost" size="sm" className="text-xs">
+                          {link.label}
+                        </Button>
                       </Link>
                     ))}
                   </div>
                 )}
-                {authenticatedNavItems.slice(0, 2).map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    <Button variant="outline" size="sm" className="text-xs">{link.label}</Button>
-                  </Link>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => logout()}
-                  className="text-xs"
-                >
-                  Logout
-                </Button>
+
+                {/* Account Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition text-sm"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Account
+                    <ChevronDown className={`w-4 h-4 transition ${accountDropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {accountDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                      <div className="p-2">
+                        {/* User Info */}
+                        <div className="px-4 py-3 border-b">
+                          <p className="font-semibold text-sm text-gray-900">{user?.name}</p>
+                          <p className="text-xs text-gray-500">{user?.email}</p>
+                        </div>
+
+                        {/* Menu Items */}
+                        {accountMenuItems.map((item) => (
+                          <Link key={item.href} href={item.href}>
+                            <div
+                              className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition cursor-pointer rounded"
+                              onClick={() => setAccountDropdownOpen(false)}
+                            >
+                              <span className="mr-2">{item.icon}</span>
+                              {item.label}
+                            </div>
+                          </Link>
+                        ))}
+
+                        {/* Logout */}
+                        <div className="border-t pt-2 mt-2">
+                          <button
+                            onClick={() => {
+                              logout();
+                              setAccountDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>
                 <a href={getLoginUrl()}>
-                  <Button variant="outline" size="sm">Sign In</Button>
+                  <Button variant="outline" size="sm">
+                    Sign In
+                  </Button>
                 </a>
                 <a href={getLoginUrl()}>
-                  <Button className="bg-blue-900 hover:bg-blue-800" size="sm">Get Started</Button>
+                  <Button className="bg-blue-900 hover:bg-blue-800" size="sm">
+                    Get Started
+                  </Button>
                 </a>
               </>
             )}
           </div>
 
           {/* Mobile Menu Button */}
-          <button
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
+          <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -152,111 +156,74 @@ export default function Header() {
               <Link key={link.href} href={link.href}>
                 <span
                   className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={handleNavClick}
                 >
                   {link.label}
                 </span>
               </Link>
             ))}
 
-            <div className="border-t pt-2 mt-2">
-              <button
-                className="w-full text-left px-3 py-2 text-gray-700 hover:bg-blue-50 rounded transition flex items-center justify-between"
-                onClick={() => setOpenDropdown(openDropdown === "learning" ? null : "learning")}
-              >
-                Learning <ChevronDown className={`w-4 h-4 transition ${openDropdown === "learning" ? "rotate-180" : ""}`} />
-              </button>
-              {openDropdown === "learning" && (
-                <div className="pl-4 space-y-1">
-                  {learningNavItems.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <span
-                        className="block px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {link.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t pt-2">
-              <button
-                className="w-full text-left px-3 py-2 text-gray-700 hover:bg-blue-50 rounded transition flex items-center justify-between"
-                onClick={() => setOpenDropdown(openDropdown === "institutional" ? null : "institutional")}
-              >
-                Institutional <ChevronDown className={`w-4 h-4 transition ${openDropdown === "institutional" ? "rotate-180" : ""}`} />
-              </button>
-              {openDropdown === "institutional" && (
-                <div className="pl-4 space-y-1">
-                  {institutionalNavItems.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <span
-                        className="block px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {link.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t pt-2">
-              <button
-                className="w-full text-left px-3 py-2 text-gray-700 hover:bg-blue-50 rounded transition flex items-center justify-between"
-                onClick={() => setOpenDropdown(openDropdown === "support" ? null : "support")}
-              >
-                Support <ChevronDown className={`w-4 h-4 transition ${openDropdown === "support" ? "rotate-180" : ""}`} />
-              </button>
-              {openDropdown === "support" && (
-                <div className="pl-4 space-y-1">
-                  {supportNavItems.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <span
-                        className="block px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 rounded transition cursor-pointer"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {link.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
+            {/* Authenticated User Section */}
             {isAuthenticated && (
-              <div className="border-t pt-2 mt-2 space-y-2">
-                {authenticatedNavItems.map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    <Button variant="outline" className="w-full justify-start text-xs" onClick={() => setMobileMenuOpen(false)}>
-                      {link.label}
-                    </Button>
+              <div className="border-t pt-2 mt-2 space-y-1">
+                <div className="px-3 py-2 text-sm font-semibold text-gray-900">{user?.name}</div>
+
+                {/* Account Menu Items */}
+                {accountMenuItems.map((item) => (
+                  <Link key={item.href} href={item.href}>
+                    <span
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
+                      onClick={handleNavClick}
+                    >
+                      <span className="mr-2">{item.icon}</span>
+                      {item.label}
+                    </span>
                   </Link>
                 ))}
-                <Button
-                  variant="ghost"
-                  className="w-full"
+
+                {/* Admin Links */}
+                {user?.role === "admin" && (
+                  <div className="border-t pt-2 mt-2 space-y-1">
+                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">Admin</div>
+                    {adminNavItems.map((link) => (
+                      <Link key={link.href} href={link.href}>
+                        <span
+                          className="block px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
+                          onClick={handleNavClick}
+                        >
+                          {link.label}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Logout */}
+                <button
                   onClick={() => {
                     logout();
-                    setMobileMenuOpen(false);
+                    handleNavClick();
                   }}
+                  className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2 text-left"
                 >
+                  <LogOut className="w-4 h-4" />
                   Logout
-                </Button>
+                </button>
               </div>
             )}
 
+            {/* Unauthenticated User Section */}
             {!isAuthenticated && (
               <div className="border-t pt-2 mt-2 space-y-2">
                 <a href={getLoginUrl()} className="block">
-                  <Button variant="outline" className="w-full">Sign In</Button>
+                  <Button variant="outline" className="w-full">
+                    Sign In
+                  </Button>
                 </a>
                 <a href={getLoginUrl()} className="block">
-                  <Button className="w-full bg-blue-900 hover:bg-blue-800">Get Started</Button>
+                  <Button className="w-full bg-blue-900 hover:bg-blue-800">
+                    Get Started
+                  </Button>
                 </a>
               </div>
             )}

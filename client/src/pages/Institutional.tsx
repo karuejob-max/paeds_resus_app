@@ -3,7 +3,7 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight } from "lucide-react";
+import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings } from "lucide-react";
 import { Link } from "wouter";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
@@ -131,6 +131,51 @@ export default function Institutional() {
               onClose={() => setSelectedCourse(null)}
             />
           )}
+        </div>
+      </section>
+
+      {/* Institutional Features Links */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold mb-8 text-center">Institutional Management Tools</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            <Link href="/institutional-dashboard">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardHeader>
+                  <div className="text-4xl mb-3">📊</div>
+                  <CardTitle>Institutional Dashboard</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 text-sm mb-4">Manage your institution, track staff progress, and monitor training outcomes</p>
+                  <Button variant="outline" className="w-full">Access Dashboard</Button>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/pricing-calculator">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardHeader>
+                  <div className="text-4xl mb-3">💰</div>
+                  <CardTitle>Pricing Calculator</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 text-sm mb-4">Calculate training costs with bulk discounts and see ROI projections</p>
+                  <Button variant="outline" className="w-full">Calculate Pricing</Button>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/roi-calculator">
+              <Card className="hover:shadow-lg transition cursor-pointer">
+                <CardHeader>
+                  <div className="text-4xl mb-3">📈</div>
+                  <CardTitle>ROI Calculator</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 text-sm mb-4">Calculate return on investment and financial impact of training</p>
+                  <Button variant="outline" className="w-full">Calculate ROI</Button>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </div>
       </section>
 
