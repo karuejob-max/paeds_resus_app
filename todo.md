@@ -1661,3 +1661,59 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Update footer to remove provider channels
 - [ ] Test navigation and links
 - [ ] Verify SEO optimization
+
+
+## Phase 30: Real-Time Chat Support for Onboarding
+
+### 30.1: Database Schema & Architecture
+- [x] Create chat_conversations table
+- [x] Create chat_messages table
+- [x] Create support_agents table
+- [x] Add indexes for performance
+- [x] Design WebSocket connection strategy
+- [x] Plan message persistence strategy
+
+### 30.2: Backend Chat System
+- [x] Create chat router with tRPC procedures
+- [x] Implement message creation and retrieval
+- [x] Add real-time message broadcasting
+- [x] Implement typing indicators
+- [x] Add read receipt functionality
+- [x] Create conversation management
+- [x] Add automated responses for common questions
+
+### 30.3: Provider Chat Widget
+- [x] Create ChatWidget component
+- [x] Add floating chat button (bottom-right)
+- [x] Implement message input and display
+- [x] Add typing indicators
+- [x] Implement message history
+- [x] Add offline message queue
+- [x] Style with brand colors (teal/orange)
+
+### 30.4: Support Agent Dashboard
+- [x] Create AgentDashboard component
+- [x] Show active conversations list
+- [x] Implement conversation view with messages
+- [x] Add agent status (online/offline/away)
+- [x] Implement message sending
+- [x] Add conversation assignment
+- [x] Show queue metrics
+
+### 30.5: Chat Analytics & Features
+- [ ] Track conversation metrics
+- [ ] Implement average response time
+- [ ] Add conversation resolution tracking
+- [ ] Create chat history search
+- [ ] Implement canned responses
+- [ ] Add conversation tags
+- [ ] Create agent performance metrics
+
+### 30.6: Integration & Testing
+- [ ] Integrate chat widget into onboarding pages
+- [ ] Test real-time messaging
+- [ ] Test offline functionality
+- [ ] Load test with multiple concurrent chats
+- [ ] Test mobile responsiveness
+- [ ] Verify accessibility
+- [ ] Test error handling

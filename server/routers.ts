@@ -21,6 +21,7 @@ import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
 import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { institutionOnboardingRouter } from "./routers/institution-onboarding";
+import { chatSupportRouter } from "./routers/chat-support";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -65,6 +66,7 @@ export const appRouter = router({
   emailAutomation: emailAutomationRouter,
   emailCampaigns: emailCampaignsRouter,
   institutionOnboarding: institutionOnboardingRouter,
+  chatSupport: chatSupportRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
