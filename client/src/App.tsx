@@ -101,44 +101,44 @@ function Router() {
           <Route path="/community" component={Community} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/stakeholder-home" component={StakeholderHome} />
-        <Route path="/developer-portal" component={DeveloperPortal} />
-        <Route path="/elite-fellowship" component={EliteFellowship} />
-        <Route path="/safe-truth" component={SafeTruth} />
-        <Route path="/safetruth-tool" component={SafeTruthTool} />
-        <Route path="/accreditation" component={AccreditationDashboard} />
-        <Route path="/facility/:id" component={FacilityProfile} />
-        <Route path="/facilities" component={FacilityDirectory} />
-        <Route path="/payment-instructions" component={PaymentInstructions} />
-        <Route path="/faq" component={FAQ} />
-        <Route path="/contact" component={Contact} />
-        <Route path="/about" component={About} />
-        <Route path="/terms" component={TermsOfService} />
-        <Route path="/privacy" component={PrivacyPolicy} />
-        <Route path="/training-schedules" component={TrainingSchedules} />
-        <Route path="/resources" component={Resources} />
-        <Route path="/success-stories" component={SuccessStories} />
-        <Route path="/institutional-dashboard" component={InstitutionalDashboard} />
-        <Route path="/pricing-calculator" component={PricingCalculator} />
-        <Route path="/roi-calculator" component={ROICalculator} />
-        <Route path="/achievements" component={Achievements} />
-        <Route path="/leaderboard" component={Leaderboard} />
-        <Route path="/referral-program" component={ReferralProgram} />
-        <Route path="/aha-elearning" component={AHAeLearning} />
-        <Route path="/support" component={Support} />
-        <Route path="/enterprise-dashboard" component={EnterpriseDashboard} />
-        <Route path="/api-marketplace" component={APIMarketplace} />
-        <Route path="/instructor-marketplace" component={InstructorMarketplace} />
-        <Route path="/white-label" component={WhiteLabelPlatform} />
-        <Route path="/analytics-intelligence" component={AnalyticsIntelligence} />
-        <Route path="/live-training" component={LiveTraining} />
-        <Route path="/partner-ecosystem" component={PartnerEcosystem} />
-        <Route path="/mobile-app" component={MobileApp} />
-        <Route path="/global-expansion" component={GlobalExpansion} />
-        <Route path="/social-impact" component={SocialImpact} />
-        <Route path="/certification-marketplace" component={CertificationMarketplace} />
-        <Route path="/404" component={NotFound} />
-        {/* Final fallback route */}
-        <Route component={NotFound} />
+          <Route path="/developer-portal" component={DeveloperPortal} />
+          <Route path="/elite-fellowship" component={EliteFellowship} />
+          <Route path="/safe-truth" component={SafeTruth} />
+          <Route path="/safetruth-tool" component={SafeTruthTool} />
+          <Route path="/accreditation" component={AccreditationDashboard} />
+          <Route path="/facility/:id" component={FacilityProfile} />
+          <Route path="/facility-directory" component={FacilityDirectory} />
+          <Route path="/payment-instructions" component={PaymentInstructions} />
+          <Route path="/faq" component={FAQ} />
+          <Route path="/contact" component={Contact} />
+          <Route path="/about" component={About} />
+          <Route path="/terms" component={TermsOfService} />
+          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/training-schedules" component={TrainingSchedules} />
+          <Route path="/resources" component={Resources} />
+          <Route path="/success-stories" component={SuccessStories} />
+          <Route path="/institutional-dashboard" component={InstitutionalDashboard} />
+          <Route path="/pricing-calculator" component={PricingCalculator} />
+          <Route path="/roi-calculator" component={ROICalculator} />
+          <Route path="/achievements" component={Achievements} />
+          <Route path="/leaderboard" component={Leaderboard} />
+          <Route path="/referral-program" component={ReferralProgram} />
+          <Route path="/aha-elearning" component={AHAeLearning} />
+          <Route path="/support" component={Support} />
+          <Route path="/enterprise-dashboard" component={EnterpriseDashboard} />
+          <Route path="/api-marketplace" component={APIMarketplace} />
+          <Route path="/instructor-marketplace" component={InstructorMarketplace} />
+          <Route path="/white-label" component={WhiteLabelPlatform} />
+          <Route path="/analytics-intelligence" component={AnalyticsIntelligence} />
+          <Route path="/live-training" component={LiveTraining} />
+          <Route path="/partner-ecosystem" component={PartnerEcosystem} />
+          <Route path="/mobile-app" component={MobileApp} />
+          <Route path="/global-expansion" component={GlobalExpansion} />
+          <Route path="/social-impact" component={SocialImpact} />
+          <Route path="/certification-marketplace" component={CertificationMarketplace} />
+          <Route path="/404" component={NotFound} />
+          {/* Final fallback route */}
+          <Route component={NotFound} />
       </Switch>
       </main>
       <Footer />

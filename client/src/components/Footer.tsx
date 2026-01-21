@@ -64,14 +64,17 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-gray-900 text-gray-300 py-12 px-4">
+    <footer className="bg-[#0d3333] text-gray-300 py-12 px-4 border-t-4 border-[#ff6633]">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
         <div className="grid md:grid-cols-5 gap-8 mb-12">
           {/* About */}
           <div>
-            <h3 className="text-white font-bold mb-4">Paeds Resus</h3>
-            <p className="text-sm text-gray-400 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-10 h-10" />
+              <h3 className="text-white font-bold">Paeds Resus</h3>
+            </div>
+            <p className="text-sm text-gray-300 mb-4">
               Transforming paediatric emergency care across Kenya through clinical excellence and nurse-led resuscitation.
             </p>
             <p className="text-sm text-gray-400">© 2026 Paeds Resus Limited. All rights reserved.</p>
@@ -79,11 +82,11 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-bold mb-4">Quick Links</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Quick Links</h4>
             <ul className="space-y-2 text-sm">
               {footerSections.quickLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                  <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}
                   </Link>
                 </li>
@@ -93,11 +96,11 @@ export default function Footer() {
 
           {/* Learning */}
           <div>
-            <h4 className="text-white font-bold mb-4">Learning</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Learning</h4>
             <ul className="space-y-2 text-sm">
               {footerSections.learning.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                  <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}
                   </Link>
                 </li>
@@ -107,11 +110,11 @@ export default function Footer() {
 
           {/* Institutional */}
           <div>
-            <h4 className="text-white font-bold mb-4">Institutional</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Institutional</h4>
             <ul className="space-y-2 text-sm">
               {footerSections.institutional.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                  <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}
                   </Link>
                 </li>
@@ -121,11 +124,11 @@ export default function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-white font-bold mb-4">Support</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Support</h4>
             <ul className="space-y-2 text-sm">
               {footerSections.support.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-gray-400 hover:text-white transition">
+                  <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}
                   </Link>
                 </li>
@@ -135,9 +138,9 @@ export default function Footer() {
         </div>
 
         {/* Provider Channels Section */}
-        <div className="border-t border-gray-700 py-8 mb-8">
-          <h4 className="text-white font-bold mb-4">Healthcare Provider Channels</h4>
-          <p className="text-sm text-gray-400 mb-4">Join our exclusive channels for resources, updates, and professional development:</p>
+        <div className="border-t border-gray-600 py-8 mb-8">
+          <h4 className="text-white font-bold mb-4 text-[#ff6633]">Healthcare Provider Channels</h4>
+          <p className="text-sm text-gray-300 mb-4">Join our exclusive channels for resources, updates, and professional development:</p>
           <div className="grid md:grid-cols-3 gap-4">
             {providerChannels.map((channel) => (
               <a
@@ -145,24 +148,24 @@ export default function Footer() {
                 href={channel.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-gray-800 hover:bg-gray-700 p-4 rounded transition"
+                className="bg-[#1a4d4d] hover:bg-[#0d3333] border border-[#ff6633] p-4 rounded transition"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <channel.icon className="w-5 h-5 text-blue-400" />
+                  <channel.icon className="w-5 h-5 text-[#ff6633]" />
                   <span className="text-white font-semibold text-sm">{channel.name}</span>
                 </div>
-                <p className="text-xs text-gray-400">{channel.description}</p>
+                <p className="text-xs text-gray-300">{channel.description}</p>
               </a>
             ))}
           </div>
         </div>
 
         {/* Contact Section */}
-        <div className="border-t border-gray-700 py-8 mb-8">
-          <h4 className="text-white font-bold mb-4">Get In Touch</h4>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Mail className="w-4 h-4" />
-            <a href="mailto:paedsresus254@gmail.com" className="hover:text-white transition">
+        <div className="border-t border-gray-600 py-8 mb-8">
+          <h4 className="text-white font-bold mb-4 text-[#ff6633]">Get In Touch</h4>
+          <div className="flex items-center gap-2 text-sm text-gray-300">
+            <Mail className="w-4 h-4 text-[#ff6633]" />
+            <a href="mailto:paedsresus254@gmail.com" className="hover:text-[#ff6633] transition">
               paedsresus254@gmail.com
             </a>
           </div>
@@ -170,8 +173,8 @@ export default function Footer() {
         </div>
 
         {/* Social Media Links */}
-        <div className="border-t border-gray-700 pt-8">
-          <h4 className="text-white font-bold mb-4">Follow Us</h4>
+        <div className="border-t border-gray-600 pt-8">
+          <h4 className="text-white font-bold mb-4 text-[#ff6633]">Follow Us</h4>
           <div className="flex gap-6">
             {socialLinks.map((social) => (
               <a
@@ -179,7 +182,7 @@ export default function Footer() {
                 href={social.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`text-gray-400 transition ${social.color}`}
+                className={`text-gray-400 hover:text-[#ff6633] transition`}
                 title={social.name}
               >
                 <social.icon className="w-6 h-6" />

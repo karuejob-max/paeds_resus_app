@@ -29,16 +29,14 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-4">
+    <header className="bg-white shadow-md sticky top-0 z-50 border-b-4 border-[#1a4d4d]">
+      <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="w-10 h-10 bg-blue-900 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">PR</span>
-              </div>
-              <span className="font-bold text-lg text-gray-900 hidden sm:inline">Paeds Resus</span>
+            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition">
+              <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-12 h-12" />
+              <span className="font-bold text-lg text-[#1a4d4d] hidden sm:inline">Paeds Resus</span>
             </div>
           </Link>
 
@@ -47,7 +45,7 @@ export default function Header() {
             {/* Main Links */}
             {mainNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
-                <span className="px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition cursor-pointer text-sm">
+                <span className="px-3 py-2 text-gray-700 hover:text-[#1a4d4d] hover:bg-orange-50 rounded transition cursor-pointer text-sm font-medium">
                   {link.label}
                 </span>
               </Link>
@@ -79,7 +77,7 @@ export default function Header() {
                 <div className="relative">
                   <button
                     onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-gray-100 rounded transition text-sm"
+                    className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-[#1a4d4d] hover:bg-orange-50 rounded transition text-sm font-medium"
                   >
                     <LayoutDashboard className="w-4 h-4" />
                     Account
@@ -99,7 +97,7 @@ export default function Header() {
                         {accountMenuItems.map((item) => (
                           <Link key={item.href} href={item.href}>
                             <div
-                              className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition cursor-pointer rounded"
+                              className="px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] transition cursor-pointer rounded"
                               onClick={() => setAccountDropdownOpen(false)}
                             >
                               <span className="mr-2">{item.icon}</span>
@@ -129,12 +127,12 @@ export default function Header() {
             ) : (
               <>
                 <a href={getLoginUrl()}>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="border-[#1a4d4d] text-[#1a4d4d] hover:bg-orange-50">
                     Sign In
                   </Button>
                 </a>
                 <a href={getLoginUrl()}>
-                  <Button className="bg-blue-900 hover:bg-blue-800" size="sm">
+                  <Button className="bg-[#ff6633] hover:bg-[#e55a22]" size="sm">
                     Get Started
                   </Button>
                 </a>
@@ -155,7 +153,7 @@ export default function Header() {
             {mainNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
-                  className="block px-3 py-2 text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
+                  className="block px-3 py-2 text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer font-medium"
                   onClick={handleNavClick}
                 >
                   {link.label}
@@ -166,13 +164,13 @@ export default function Header() {
             {/* Authenticated User Section */}
             {isAuthenticated && (
               <div className="border-t pt-2 mt-2 space-y-1">
-                <div className="px-3 py-2 text-sm font-semibold text-gray-900">{user?.name}</div>
+                <div className="px-3 py-2 text-sm font-semibold text-[#1a4d4d]">{user?.name}</div>
 
                 {/* Account Menu Items */}
                 {accountMenuItems.map((item) => (
                   <Link key={item.href} href={item.href}>
                     <span
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer"
                       onClick={handleNavClick}
                     >
                       <span className="mr-2">{item.icon}</span>
@@ -188,7 +186,7 @@ export default function Header() {
                     {adminNavItems.map((link) => (
                       <Link key={link.href} href={link.href}>
                         <span
-                          className="block px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded transition cursor-pointer"
+                          className="block px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer"
                           onClick={handleNavClick}
                         >
                           {link.label}
@@ -216,12 +214,12 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="border-t pt-2 mt-2 space-y-2">
                 <a href={getLoginUrl()} className="block">
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full border-[#1a4d4d] text-[#1a4d4d] hover:bg-orange-50">
                     Sign In
                   </Button>
                 </a>
                 <a href={getLoginUrl()} className="block">
-                  <Button className="w-full bg-blue-900 hover:bg-blue-800">
+                  <Button className="w-full bg-[#ff6633] hover:bg-[#e55a22]">
                     Get Started
                   </Button>
                 </a>
