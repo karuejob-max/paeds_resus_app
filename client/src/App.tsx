@@ -56,6 +56,7 @@ import SocialImpact from "./pages/SocialImpact";
 import CertificationMarketplace from "./pages/CertificationMarketplace";
 import Payment from "./pages/Payment";
 import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
+import MarketingCampaign from "./pages/MarketingCampaign";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -76,7 +77,8 @@ function Router() {
           <Route path="/institutional-management" component={InstitutionalManagement} />
           <Route path="/facilities" component={FacilityLocator} />
           <Route path="/payment" component={Payment} />
-          <Route path="/payment-dashboard" component={AdminPaymentDashboard} />
+          <Route path="/admin-payment-dashboard" component={AdminPaymentDashboard} />
+          <Route path="/marketing-campaign" component={MarketingCampaign} />
           <Route path="/payments" component={PaymentHistory} />
           <Route path="/progress" component={LearnerProgress} />
           <Route path="/search" component={Search} />

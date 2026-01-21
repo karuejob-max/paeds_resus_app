@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, Brain, Zap, Clock, Users, Award, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";

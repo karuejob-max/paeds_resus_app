@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress } from "../drizzle/schema";
+import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -168,4 +168,236 @@ export async function getLearnerProgressByUserId(userId: number) {
   if (!db) throw new Error("Database not available");
   const result = await db.select().from(learnerProgress).where(eq(learnerProgress.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+// User Feedback queries
+export async function createUserFeedback(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(userFeedback).values(data);
+}
+
+export async function getUserFeedback(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(userFeedback).where(eq(userFeedback.userId, userId));
+}
+
+export async function getNewFeedback(limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(userFeedback).where(eq(userFeedback.status, "new")).orderBy(desc(userFeedback.createdAt)).limit(limit);
+}
+
+// Analytics Events queries
+export async function trackAnalyticsEvent(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(analyticsEvents).values(data);
+}
+
+export async function getAnalyticsEventsByUserId(userId: number, limit = 100) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.userId, userId)).orderBy(desc(analyticsEvents.createdAt)).limit(limit);
+}
+
+export async function getAnalyticsEventsBySessionId(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.sessionId, sessionId)).orderBy(desc(analyticsEvents.createdAt));
+}
+
+// Experiments queries
+export async function createExperiment(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(experiments).values(data);
+}
+
+export async function getExperimentByName(name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(experiments).where(eq(experiments.experimentName, name)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getActiveExperiments() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(experiments).where(eq(experiments.status, "running"));
+}
+
+// Experiment Assignments queries
+export async function assignUserToExperiment(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(experimentAssignments).values(data);
+}
+
+export async function getUserExperimentAssignment(experimentId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(experimentAssignments).where(and(eq(experimentAssignments.experimentId, experimentId), eq(experimentAssignments.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Performance Metrics queries
+export async function recordPerformanceMetric(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(performanceMetrics).values(data);
+}
+
+export async function getRecentPerformanceMetrics(limit = 100) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(performanceMetrics).orderBy(desc(performanceMetrics.createdAt)).limit(limit);
+}
+
+export async function getPerformanceMetricsByEndpoint(endpoint: string, limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(performanceMetrics).where(eq(performanceMetrics.endpoint, endpoint)).orderBy(desc(performanceMetrics.createdAt)).limit(limit);
+}
+
+// Error Tracking queries
+export async function trackError(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(errorTracking).values(data);
+}
+
+export async function getRecentErrors(limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(errorTracking).where(eq(errorTracking.status, "new")).orderBy(desc(errorTracking.createdAt)).limit(limit);
+}
+
+export async function getCriticalErrors() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(errorTracking).where(eq(errorTracking.severity, "critical")).orderBy(desc(errorTracking.createdAt));
+}
+
+// Support Tickets queries
+export async function createSupportTicket(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(supportTickets).values(data);
+}
+
+export async function getSupportTicketsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(supportTickets).where(eq(supportTickets.userId, userId)).orderBy(desc(supportTickets.createdAt));
+}
+
+export async function getOpenSupportTickets(limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(supportTickets).where(eq(supportTickets.status, "open")).orderBy(desc(supportTickets.createdAt)).limit(limit);
+}
+
+export async function getSupportTicketByNumber(ticketNumber: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(supportTickets).where(eq(supportTickets.ticketNumber, ticketNumber)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Support Ticket Messages queries
+export async function addSupportTicketMessage(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(supportTicketMessages).values(data);
+}
+
+export async function getSupportTicketMessages(ticketId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId)).orderBy(desc(supportTicketMessages.createdAt));
+}
+
+// Feature Flags queries
+export async function createFeatureFlag(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(featureFlags).values(data);
+}
+
+export async function getFeatureFlagByName(flagName: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(featureFlags).where(eq(featureFlags.flagName, flagName)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getAllFeatureFlags() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(featureFlags);
+}
+
+// User Cohorts queries
+export async function createUserCohort(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(userCohorts).values(data);
+}
+
+export async function getUserCohortByName(cohortName: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(userCohorts).where(eq(userCohorts.cohortName, cohortName)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function addUserToCohort(cohortId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(userCohortMembers).values({ cohortId, userId });
+}
+
+export async function getCohortMembers(cohortId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(userCohortMembers).where(eq(userCohortMembers.cohortId, cohortId));
+}
+
+// Conversion Funnel Events queries
+export async function trackConversionFunnelEvent(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(conversionFunnelEvents).values(data);
+}
+
+export async function getFunnelEventsBySessionId(sessionId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(conversionFunnelEvents).where(eq(conversionFunnelEvents.sessionId, sessionId)).orderBy(desc(conversionFunnelEvents.createdAt));
+}
+
+// NPS Survey Responses queries
+export async function recordNpsSurveyResponse(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(npsSurveyResponses).values(data);
+}
+
+export async function getNpsSurveyResponses(limit = 100) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.select().from(npsSurveyResponses).orderBy(desc(npsSurveyResponses.createdAt)).limit(limit);
+}
+
+export async function calculateNPS() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const responses = await db.select().from(npsSurveyResponses);
+  const promoters = responses.filter(r => r.score >= 9).length;
+  const detractors = responses.filter(r => r.score <= 6).length;
+  const total = responses.length;
+  if (total === 0) return 0;
+  return Math.round(((promoters - detractors) / total) * 100);
 }

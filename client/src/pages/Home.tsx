@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, Brain, Zap, Users, Award, TrendingUp } from "lucide-react";
@@ -6,6 +7,7 @@ import { getLoginUrl } from "@/const";
 import { Link } from "wouter";
 
 export default function Home() {
+  useScrollToTop();
   const { user, isAuthenticated } = useAuth();
 
   return (
@@ -37,9 +39,11 @@ export default function Home() {
                         Get Started
                       </Button>
                     </a>
-                    <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                      Learn More
-                    </Button>
+                    <Link href="/about">
+                      <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+                        Learn More
+                      </Button>
+                    </Link>
                   </>
                 )}
               </div>
@@ -110,11 +114,58 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Parent/Caregiver Featured Section */}
+      <section className="py-16 px-4 bg-gradient-to-r from-purple-50 to-pink-50">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h2 className="text-4xl font-bold mb-6 text-purple-900">Protect Your Family</h2>
+              <p className="text-xl text-gray-700 mb-4">Parents and caregivers can learn life-saving skills to protect children in emergencies.</p>
+              <p className="text-gray-600 mb-8">Our courses teach you how to recognize emergencies, perform basic life support, and respond effectively when every second counts.</p>
+              <Link href="/parents">
+                <Button size="lg" className="bg-purple-900 hover:bg-purple-800">Learn Life-Saving Skills</Button>
+              </Link>
+            </div>
+            <div className="bg-white rounded-lg p-8 shadow-lg">
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <Heart className="w-5 h-5 text-purple-900" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Hands-On Training</h3>
+                    <p className="text-sm text-gray-600">Learn practical skills you can use immediately</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <Award className="w-5 h-5 text-purple-900" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Certification</h3>
+                    <p className="text-sm text-gray-600">Get recognized for your life-saving knowledge</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <Zap className="w-5 h-5 text-purple-900" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Peace of Mind</h3>
+                    <p className="text-sm text-gray-600">Know you can help in an emergency</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Audience Selection Section */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-12">Who Are You?</h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <h2 className="text-4xl font-bold text-center mb-12">Choose Your Path</h2>
+          <div className="grid md:grid-cols-2 gap-8">
             {/* Individual Provider */}
             <Link href="/providers">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow">
@@ -145,23 +196,6 @@ export default function Home() {
                 <CardContent>
                   <p className="text-gray-600 mb-6">Train your staff. Reduce mortality. Get bulk discounts.</p>
                   <Button className="w-full">Get Pricing</Button>
-                </CardContent>
-              </Card>
-            </Link>
-
-            {/* Parent/Caregiver */}
-            <Link href="/parents">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                    <Heart className="w-6 h-6 text-purple-900" />
-                  </div>
-                  <CardTitle>Parent/Caregiver</CardTitle>
-                  <CardDescription>Protect Your Family</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-6">Learn life-saving skills. Protect your children.</p>
-                  <Button className="w-full">Learn More</Button>
                 </CardContent>
               </Card>
             </Link>

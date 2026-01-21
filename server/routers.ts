@@ -25,6 +25,12 @@ import { enterpriseRouter } from "./routers/enterprise";
 import { advancedAnalyticsRouter } from "./routers/advanced-analytics";
 import { marketplaceRouter } from "./routers/marketplace";
 import { mpesaRouter } from "./routers/mpesa";
+import { feedbackRouter } from "./routers/feedback";
+import { eventsRouter } from "./routers/events";
+import { performanceRouter } from "./routers/performance";
+import { supportRouter } from "./routers/support";
+import { dashboardsRouter } from "./routers/dashboards";
+import { predictionsRouter } from "./routers/predictions";
 
 export const appRouter = router({
   system: systemRouter,
@@ -61,6 +67,12 @@ export const appRouter = router({
   advancedAnalytics: advancedAnalyticsRouter,
   mpesa: mpesaRouter,
   marketplace: marketplaceRouter,
+  feedback: feedbackRouter,
+  events: eventsRouter,
+  performance: performanceRouter,
+  support: supportRouter,
+  dashboards: dashboardsRouter,
+  predictions: predictionsRouter,
 });
 
 export type AppRouter = typeof appRouter;

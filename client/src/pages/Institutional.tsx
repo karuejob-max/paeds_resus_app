@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight } from "lucide-react";
