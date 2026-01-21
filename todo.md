@@ -1981,3 +1981,11 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Test event submission end-to-end
 - [ ] Verify delay calculations
 - [ ] Test institutional dashboard integration
+
+## Phase 41: Fix "Start Logging Events" Button Issues
+- [x] Fix SafeTruth page "Start Logging Events" button to scroll to logger
+- [x] Verify SafeTruthTool page "Start Assessment" button already functional (uses setActiveTab)
+- [x] Verify ParentHub links work correctly (uses Link component)
+- [x] Verify Parents page links work correctly (uses Link component)
+- [x] Test all navigation between Safe-Truth related pages
+- [x] Ensure both parent and provider roles can access buttons

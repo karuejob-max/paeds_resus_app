@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -5,6 +6,12 @@ import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "luc
 import SafeTruthLogger from "@/components/SafeTruthLogger";
 
 export default function SafeTruth() {
+  const loggerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToLogger = () => {
+    loggerRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9f9] to-white">
       {/* Hero Section */}
@@ -79,7 +86,7 @@ export default function SafeTruth() {
         </div>
 
         {/* Event Logger */}
-        <div className="mb-12">
+        <div className="mb-12" ref={loggerRef}>
           <SafeTruthLogger />
         </div>
 
@@ -186,7 +193,7 @@ export default function SafeTruth() {
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Every event you log contributes to our understanding of how to improve pediatric emergency care and save more children's lives.
           </p>
-          <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+          <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={scrollToLogger}>
             Start Logging Events
           </Button>
         </div>
