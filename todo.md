@@ -1717,3 +1717,92 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Test mobile responsiveness
 - [ ] Verify accessibility
 - [ ] Test error handling
+
+
+## Phase 31: Platform Restructuring & Paeds Resus AI Assistant
+
+### 31.1: Navigation & Information Architecture Restructuring
+- [x] Add Safe-Truth as primary navigation item (not hidden in Resources)
+- [x] Update header navigation to feature Safe-Truth prominently
+- [x] Remove provider channels from footer
+- [x] Update footer structure
+- [x] Update navigation constants
+
+### 31.2: Resources Page Reorganization & Authentication
+- [x] Add authentication gate to Resources page (require login)
+- [x] Create segmented Resources sections (Parent/Caregiver vs Healthcare Provider)
+- [x] Move provider channels from footer to Provider Resources
+- [x] Organize provider resources by category
+- [x] Add provider resource descriptions
+- [x] Create parent/caregiver resource library
+- [x] Implement role-based resource visibility
+
+### 31.3: Paeds Resus AI Assistant Backend
+- [x] Design AI assistant architecture
+- [x] Build knowledge base for organization context
+- [x] Implement clinical decision support framework
+- [x] Create troubleshooting knowledge base
+- [x] Build learning/feedback system
+- [x] Integrate with LLM service
+- [x] Create 7 tRPC procedures (sendMessage, getClinicalSupport, getTroubleshootingHelp, etc.)
+- [x] Implement context awareness (onboarding, clinical, troubleshooting, general)
+
+### 31.4: AI Assistant Widget Component
+- [x] Create PaedsAIAssistant component
+- [x] Replace WhatsApp widget with AI widget
+- [x] Design AI assistant UI (floating button with pulse)
+- [x] Create conversation interface
+- [x] Add typing indicators
+- [x] Implement message history
+- [x] Add context selector (General, Clinical, Troubleshooting, Onboarding)
+- [x] Add feedback buttons (helpful/not helpful)
+- [x] Add copy message functionality
+- [x] Integrated into App.tsx (available on all pages)
+
+### 31.5: Clinical Decision Support Features
+- [ ] Build clinical protocol suggestions
+- [ ] Create symptom checker
+- [ ] Implement evidence-based recommendations
+- [ ] Add drug interaction checker
+- [ ] Create dosage calculator
+- [ ] Build emergency protocol quick reference
+- [ ] Add pediatric assessment tools
+- [ ] Create vital signs interpreter
+- [ ] Add differential diagnosis helper
+- [ ] Build procedure guides
+
+### 31.6: Learning & Feedback System
+- [ ] Track AI interactions and outcomes
+- [ ] Implement feedback collection
+- [ ] Build analytics dashboard
+- [ ] Create improvement recommendations
+- [ ] Implement A/B testing framework
+- [ ] Add user satisfaction tracking
+- [ ] Build performance metrics
+- [ ] Create continuous improvement loop
+- [ ] Implement feature usage analytics
+- [ ] Build organizational insights
+
+### 31.7: Integration & Testing
+- [ ] Integrate AI assistant into all pages
+- [ ] Test authentication gates
+- [ ] Test resource segmentation
+- [ ] Test AI response quality
+- [ ] Test clinical accuracy
+- [ ] Load test AI service
+- [ ] Test mobile responsiveness
+- [ ] Test accessibility
+- [ ] Verify security
+- [ ] End-to-end testing
+
+### 31.8: Deployment & Monitoring
+- [ ] Deploy navigation changes
+- [ ] Deploy Resources page
+- [ ] Deploy AI assistant
+- [ ] Monitor AI performance
+- [ ] Track user engagement
+- [ ] Monitor error rates
+- [ ] Collect user feedback
+- [ ] Iterate based on feedback
+- [ ] Document changes
+- [ ] Create user guides

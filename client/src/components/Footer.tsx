@@ -42,26 +42,7 @@ export default function Footer() {
     },
   ];
 
-  const providerChannels = [
-    {
-      name: "Telegram - Resources",
-      icon: MessageCircle,
-      url: "https://t.me/paedsresuscriticalcare",
-      description: "Books, guidelines, and updates on paediatric emergencies",
-    },
-    {
-      name: "Telegram - Cardiology",
-      icon: MessageCircle,
-      url: "https://t.me/paedsresus",
-      description: "Paediatric cardiology resources",
-    },
-    {
-      name: "WhatsApp Channel",
-      icon: MessageCircle,
-      url: "https://whatsapp.com/channel/0029Vaax0toBadmcRFz4S81r",
-      description: "Healthcare provider updates and resources",
-    },
-  ];
+  // Provider channels moved to Resources page
 
   return (
     <footer className="bg-[#0d3333] text-gray-300 py-12 px-4 border-t-4 border-[#ff6633]">
@@ -137,28 +118,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Provider Channels Section */}
-        <div className="border-t border-gray-600 py-8 mb-8">
-          <h4 className="text-white font-bold mb-4 text-[#ff6633]">Healthcare Provider Channels</h4>
-          <p className="text-sm text-gray-300 mb-4">Join our exclusive channels for resources, updates, and professional development:</p>
-          <div className="grid md:grid-cols-3 gap-4">
-            {providerChannels.map((channel) => (
-              <a
-                key={channel.name}
-                href={channel.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#1a4d4d] hover:bg-[#0d3333] border border-[#ff6633] p-4 rounded transition"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <channel.icon className="w-5 h-5 text-[#ff6633]" />
-                  <span className="text-white font-semibold text-sm">{channel.name}</span>
-                </div>
-                <p className="text-xs text-gray-300">{channel.description}</p>
-              </a>
-            ))}
-          </div>
-        </div>
+        {/* Provider Channels moved to Resources page - removed from footer */}
 
         {/* Contact Section */}
         <div className="border-t border-gray-600 py-8 mb-8">

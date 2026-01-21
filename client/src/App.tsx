@@ -62,7 +62,7 @@ import CertificationMarketplace from "./pages/CertificationMarketplace";
 import Payment from "./pages/Payment";
 import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
 import MarketingCampaign from "./pages/MarketingCampaign";
-import FloatingWhatsAppWidget from "./components/FloatingWhatsAppWidget";
+import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 
 function ScrollToTop() {
@@ -144,7 +144,7 @@ function Router() {
       </Switch>
       </main>
       <Footer />
-      <FloatingWhatsAppWidget />
+      <PaedsAIAssistant />
       <ChatWidget />
     </div>
   );

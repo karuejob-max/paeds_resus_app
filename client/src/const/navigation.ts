@@ -15,6 +15,7 @@ export interface NavItem {
 
 // Main navigation items for Header - Consolidated (removed redundant dropdowns)
 export const mainNavItems: NavItem[] = [
+  { label: "Safe-Truth", href: "/safe-truth", category: "main" },
   { label: "For Providers", href: "/providers", category: "main" },
   { label: "For Hospitals", href: "/institutional", category: "main" },
   { label: "For Parents", href: "/parents", category: "main" },
@@ -105,6 +106,12 @@ export const footerSections = {
     { label: "Institutional Dashboard", href: "/institutional-dashboard" },
     { label: "Pricing Calculator", href: "/pricing-calculator" },
     { label: "ROI Calculator", href: "/roi-calculator" },
+  ],
+  providerResources: [
+    { label: "Clinical Protocols", href: "/resources/protocols" },
+    { label: "Training Materials", href: "/resources/training" },
+    { label: "Assessment Tools", href: "/resources/tools" },
+    { label: "Case Studies", href: "/resources/case-studies" },
   ],
 };
 
