@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, Heart, Activity, Lock } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function SafeTruthLogger() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const { role: selectedRole, isLoading: roleLoading } = useUserRole();
   const [step, setStep] = useState<"event" | "chain" | "gaps" | "review">("event");
   const [isAnonymous, setIsAnonymous] = useState(false);
 
@@ -99,6 +101,19 @@ export default function SafeTruthLogger() {
     }
   };
 
+  // Loading state
+  if (loading || roleLoading) {
+    return (
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 rounded-lg">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-gray-600 text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Authentication check
   if (!user) {
     return (
@@ -119,8 +134,18 @@ export default function SafeTruthLogger() {
   }
 
   // Role check - Safe-Truth for healthcare providers and parents
-  const isProvider = user.providerType || user.role === "admin";
-  const isParent = user.userType === "parent";
+  // Use the selected role from localStorage (set by RoleSelectionPrompt)
+  const isProvider = selectedRole === "provider";
+  const isParent = selectedRole === "parent";
+  
+  // Debug logging
+  console.log("SafeTruthLogger - Access Check:", { 
+    userId: user?.id, 
+    selectedRole,
+    isProvider, 
+    isParent,
+    hasAccess: isProvider || isParent
+  });
   
   if (!isProvider && !isParent) {
     return (
