@@ -1869,3 +1869,44 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Test footer reorganization
 - [ ] Cross-browser testing
 - [ ] Mobile responsiveness testing
+
+
+## Phase 34: Dynamic Navigation, Email Integration & Analytics
+
+### 34.1: Dynamic Navigation Filtering by Role
+- [ ] Create useUserRole hook to get current role from localStorage
+- [ ] Create navigation filtering utility function
+- [ ] Update Header component to filter navigation items by role
+- [ ] Update Footer component to filter footer links by role
+- [ ] Hide provider-only pages from parents
+- [ ] Hide parent-only pages from providers
+- [ ] Hide institutional pages from individual users
+- [ ] Show all pages to institutional admins
+- [ ] Test navigation filtering across all user types
+- [ ] Ensure role switching updates navigation immediately
+
+### 34.2: Email Service Integration
+- [ ] Choose email provider (SendGrid or Mailgun)
+- [ ] Create email service configuration
+- [ ] Build email templates (provider activation, course completion, churn alert)
+- [ ] Create tRPC procedures for email sending
+- [ ] Integrate with provider onboarding flow
+- [ ] Integrate with course completion flow
+- [ ] Integrate with churn detection system
+- [ ] Add email delivery tracking
+- [ ] Create email preferences management
+- [ ] Test email delivery end-to-end
+
+### 34.3: Institutional Analytics Dashboard
+- [ ] Create InstitutionalAnalytics page component
+- [ ] Build provider activation metrics
+- [ ] Build course completion analytics
+- [ ] Build Safe-Truth event analytics
+- [ ] Build retention cohort analysis
+- [ ] Build churn prediction metrics
+- [ ] Create data visualization charts
+- [ ] Add date range filtering
+- [ ] Add export functionality (CSV, PDF)
+- [ ] Create real-time dashboard updates
+- [ ] Add institutional admin access control
+- [ ] Test analytics accuracy and performance

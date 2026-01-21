@@ -62,6 +62,7 @@ import CertificationMarketplace from "./pages/CertificationMarketplace";
 import Payment from "./pages/Payment";
 import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
 import MarketingCampaign from "./pages/MarketingCampaign";
+import InstitutionalAnalytics from "./pages/InstitutionalAnalytics";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -118,8 +119,9 @@ function Router() {
           <Route path="/progress" component={LearnerProgress} />
           <Route path="/search" component={Search} />
           <Route path="/community" component={Community} />
-          <Route path="/analytics" component={Analytics} />
-          <Route path="/stakeholder-home" component={StakeholderHome} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/institutional-analytics" component={InstitutionalAnalytics} />
+      <Route path="/stakeholder-home" component={StakeholderHome} />
           <Route path="/developer-portal" component={DeveloperPortal} />
           <Route path="/elite-fellowship" component={EliteFellowship} />
           <Route path="/safe-truth" component={SafeTruth} />
