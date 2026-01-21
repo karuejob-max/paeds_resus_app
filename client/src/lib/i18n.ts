@@ -36,7 +36,7 @@ export const translations: Record<Language, TranslationStrings> = {
     navigation: {
       home: "Home",
       forProviders: "For Providers",
-      forHospitals: "For Hospitals",
+      forInstitutions: "For Institutions",
       facilities: "Facilities",
       resources: "Resources",
       admin: "Admin",
@@ -143,7 +143,7 @@ export const translations: Record<Language, TranslationStrings> = {
     navigation: {
       home: "Nyumbani",
       forProviders: "Kwa Wazazi wa Huduma",
-      forHospitals: "Kwa Hospitali",
+      forInstitutions: "Kwa Taasisi",
       facilities: "Vituo",
       resources: "Rasilimali",
       admin: "Msimamizi",
@@ -250,7 +250,7 @@ export const translations: Record<Language, TranslationStrings> = {
     navigation: {
       home: "Accueil",
       forProviders: "Pour les Prestataires",
-      forHospitals: "Pour les Hôpitaux",
+      forInstitutions: "Pour les Institutions",
       facilities: "Établissements",
       resources: "Ressources",
       admin: "Admin",
@@ -357,7 +357,7 @@ export const translations: Record<Language, TranslationStrings> = {
     navigation: {
       home: "Inicio",
       forProviders: "Para Proveedores",
-      forHospitals: "Para Hospitales",
+      forInstitutions: "Para Instituciones",
       facilities: "Instalaciones",
       resources: "Recursos",
       admin: "Admin",
@@ -464,7 +464,7 @@ export const translations: Record<Language, TranslationStrings> = {
     navigation: {
       home: "الرئيسية",
       forProviders: "للمزودين",
-      forHospitals: "للمستشفيات",
+      forInstitutions: "للمؤسسات",
       facilities: "المرافق",
       resources: "الموارد",
       admin: "الإدارة",

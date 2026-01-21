@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { filterNavItems } from "@/lib/navigationFilter";
+import { isNavItemVisible } from "@/lib/contentVisibility";
 import NotificationCenter from "./NotificationCenter";
 import RoleSelector from "./RoleSelector";
 import { mainNavItems, adminNavItems } from "@/const/navigation";
@@ -65,7 +66,7 @@ export default function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1">
             {/* Main Links */}
-            {filteredNavItems.map((link) => (
+            {filteredNavItems.filter((item) => isNavItemVisible(item.label, role)).map((link) => (
               <Link key={link.href} href={link.href}>
                 <span className="px-3 py-2 text-gray-700 hover:text-[#1a4d4d] hover:bg-orange-50 rounded transition cursor-pointer text-sm font-medium">
                   {link.label}
@@ -175,7 +176,7 @@ export default function Header() {
         {mobileMenuOpen && (
           <nav className="md:hidden mt-4 space-y-2 pb-4 max-h-96 overflow-y-auto">
             {/* Main Links */}
-            {filteredNavItems.map((link) => (
+            {filteredNavItems.filter((item) => isNavItemVisible(item.label, role)).map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
                   className="block px-3 py-2 text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer font-medium"

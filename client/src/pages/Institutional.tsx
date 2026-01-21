@@ -76,9 +76,9 @@ export default function Institutional() {
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-5xl font-bold mb-6">For Hospitals & Institutions</h1>
+          <h1 className="text-5xl font-bold mb-6">For Institutions</h1>
           <p className="text-xl text-orange-100 max-w-2xl">
-            Transform your institution's resuscitation capacity. 50+ hospitals already partner with us to reduce preventable child deaths.
+            Transform your institution's resuscitation capacity. 50+ institutions already partner with us to reduce preventable child deaths.
           </p>
         </div>
       </section>
@@ -426,7 +426,7 @@ export default function Institutional() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold mb-6">Transform Your Institution</h2>
           <p className="text-xl text-green-100 mb-8">
-            Join 50+ hospitals reducing preventable child deaths through evidence-based training.
+            Join 50+ institutions reducing preventable child deaths through evidence-based training.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link href="/contact">

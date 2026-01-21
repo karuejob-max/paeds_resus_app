@@ -264,6 +264,23 @@
 - [x] Verify all styling is consistent
 - [x] Test on mobile and desktop
 
+## Phase 36: Multi-Sector Institutional Platform Transformation
+- [x] Connect role selector to content filtering (hide/show pages based on role)
+- [x] Create content visibility configuration by role
+- [x] Update navigation to respect role-based visibility
+- [x] Rename "Hospitals" to "Institutions" across all pages
+- [x] Update Institutional page with new terminology
+- [ ] Add institution type selector (Medical/Educational/Corporate/NGO/Faith-Based)
+- [ ] Create institution type-specific landing sections
+- [ ] Build institutional accreditation system with templates
+- [ ] Create sector-specific accreditation certificates
+- [ ] Implement sector-specific pricing tiers
+- [ ] Build sector-specific ROI calculators
+- [ ] Create compliance documentation by sector
+- [ ] Add case studies for each sector
+- [ ] Test role-based content filtering across all pages
+- [ ] Verify pricing calculations by sector
+
 ## Phase 27: Branding & Logo Implementation
 - [x] Copy logo to public assets
 - [x] Update global CSS with brand colors (teal #1a4d4d, orange #ff6633)

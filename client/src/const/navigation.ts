@@ -17,7 +17,7 @@ export interface NavItem {
 export const mainNavItems: NavItem[] = [
   { label: "Safe-Truth", href: "/safe-truth", category: "main" },
   { label: "For Providers", href: "/providers", category: "main" },
-  { label: "For Hospitals", href: "/institutional", category: "main" },
+  { label: "For Institutions", href: "/institutional", category: "main" },
   { label: "For Parents", href: "/parents", category: "main" },
   { label: "Facilities", href: "/facilities", category: "main" },
   { label: "Resources", href: "/resources", category: "main" },
@@ -84,7 +84,7 @@ export const footerSections = {
   quickLinks: [
     { label: "Home", href: "/" },
     { label: "For Providers", href: "/providers" },
-    { label: "For Hospitals", href: "/institutional" },
+    { label: "For Institutions", href: "/institutional" },
     { label: "For Parents", href: "/parents" },
     { label: "Resources", href: "/resources" },
   ],
