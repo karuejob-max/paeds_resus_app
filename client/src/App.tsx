@@ -62,6 +62,7 @@ import CertificationMarketplace from "./pages/CertificationMarketplace";
 import Payment from "./pages/Payment";
 import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
 import MarketingCampaign from "./pages/MarketingCampaign";
+import FloatingWhatsAppWidget from "./components/FloatingWhatsAppWidget";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -142,6 +143,7 @@ function Router() {
       </Switch>
       </main>
       <Footer />
+      <FloatingWhatsAppWidget />
     </div>
   );
 }

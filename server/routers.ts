@@ -19,6 +19,7 @@ import { searchRecommendationsRouter } from "./routers/search-recommendations";
 import { liveTrainingRouter } from "./routers/live-training";
 import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
+import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -61,6 +62,7 @@ export const appRouter = router({
   liveTraining: liveTrainingRouter,
   cms: cmsRouter,
   emailAutomation: emailAutomationRouter,
+  emailCampaigns: emailCampaignsRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,

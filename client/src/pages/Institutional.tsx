@@ -74,50 +74,50 @@ export default function Institutional() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-green-900 to-green-800 text-white py-16 px-4">
+      <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-5xl font-bold mb-6">For Hospitals & Institutions</h1>
-          <p className="text-xl text-green-100 max-w-2xl">
+          <p className="text-xl text-orange-100 max-w-2xl">
             Transform your institution's resuscitation capacity. 50+ hospitals already partner with us to reduce preventable child deaths.
           </p>
         </div>
       </section>
 
       {/* Available Courses Section */}
-      <section className="py-16 px-4 bg-blue-50">
+      <section className="py-16 px-4 bg-gradient-to-b from-white to-orange-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Available Training Programs</h2>
+          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Available Training Programs</h2>
           <p className="text-center text-gray-600 mb-8">Click on any course to calculate pricing for your institution</p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {getAllCourses().map((course) => (
               <Card
                 key={course.id}
-                className="border-2 border-blue-200 hover:shadow-lg hover:border-blue-400 transition cursor-pointer"
+                className="border-t-4 border-[#ff6633] hover:shadow-lg transition cursor-pointer"
                 onClick={() => setSelectedCourse(course.id)}
               >
                 <CardHeader>
-                  <CardTitle className="text-blue-900">{course.name}</CardTitle>
+                  <CardTitle className="text-[#1a4d4d]">{course.name}</CardTitle>
                   <CardDescription>{course.duration}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-gray-700">{course.description}</p>
-                  <div className="bg-blue-50 p-3 rounded">
-                    <p className="text-sm font-semibold text-blue-900 mb-2">Topics Covered:</p>
+                  <div className="bg-[#ff6633]/5 p-3 rounded">
+                    <p className="text-sm font-semibold text-[#1a4d4d] mb-2">Topics Covered:</p>
                     <ul className="text-xs space-y-1">
                       {course.topics.slice(0, 4).map((topic) => (
                         <li key={topic} className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <CheckCircle2 className="w-4 h-4 text-[#ff6633]" />
                           {topic}
                         </li>
                       ))}
                       {course.topics.length > 4 && (
-                        <li className="text-blue-600 font-medium">+{course.topics.length - 4} more...</li>
+                        <li className="text-[#ff6633] font-medium">+{course.topics.length - 4} more...</li>
                       )}
                     </ul>
                   </div>
                   <div className="border-t pt-3">
-                    <p className="font-bold text-green-900">{course.basePrice.toLocaleString()} KES base price</p>
-                    <Button className="w-full mt-3 bg-blue-600 hover:bg-blue-700">Calculate Cost</Button>
+                    <p className="font-bold text-[#1a4d4d]">{course.basePrice.toLocaleString()} KES base price</p>
+                    <Button className="w-full mt-3 bg-[#ff6633] hover:bg-[#e55a22]">Calculate Cost</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -136,43 +136,43 @@ export default function Institutional() {
       </section>
 
       {/* Institutional Features Links */}
-      <section className="py-16 px-4 bg-gray-50">
+      <section className="py-16 px-4 bg-gradient-to-r from-[#1a4d4d]/5 to-[#ff6633]/5">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">Institutional Management Tools</h2>
+          <h2 className="text-3xl font-bold mb-8 text-center text-[#1a4d4d]">Institutional Management Tools</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <Link href="/institutional-dashboard">
-              <Card className="hover:shadow-lg transition cursor-pointer">
+              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
                 <CardHeader>
                   <div className="text-4xl mb-3">📊</div>
-                  <CardTitle>Institutional Dashboard</CardTitle>
+                  <CardTitle className="text-[#1a4d4d]">Institutional Dashboard</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 text-sm mb-4">Manage your institution, track staff progress, and monitor training outcomes</p>
-                  <Button variant="outline" className="w-full">Access Dashboard</Button>
+                  <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Access Dashboard</Button>
                 </CardContent>
               </Card>
             </Link>
             <Link href="/pricing-calculator">
-              <Card className="hover:shadow-lg transition cursor-pointer">
+              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#1a4d4d]">
                 <CardHeader>
                   <div className="text-4xl mb-3">💰</div>
-                  <CardTitle>Pricing Calculator</CardTitle>
+                  <CardTitle className="text-[#1a4d4d]">Pricing Calculator</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 text-sm mb-4">Calculate training costs with bulk discounts and see ROI projections</p>
-                  <Button variant="outline" className="w-full">Calculate Pricing</Button>
+                  <Button variant="outline" className="w-full border-[#1a4d4d] text-[#1a4d4d] hover:bg-[#1a4d4d]/10">Calculate Pricing</Button>
                 </CardContent>
               </Card>
             </Link>
             <Link href="/roi-calculator">
-              <Card className="hover:shadow-lg transition cursor-pointer">
+              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
                 <CardHeader>
                   <div className="text-4xl mb-3">📈</div>
-                  <CardTitle>ROI Calculator</CardTitle>
+                  <CardTitle className="text-[#1a4d4d]">ROI Calculator</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 text-sm mb-4">Calculate return on investment and financial impact of training</p>
-                  <Button variant="outline" className="w-full">Calculate ROI</Button>
+                  <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Calculate ROI</Button>
                 </CardContent>
               </Card>
             </Link>
@@ -181,17 +181,17 @@ export default function Institutional() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 px-4">
+      <section className="py-16 px-4 bg-gradient-to-b from-orange-50 to-white">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Why Institutions Choose Us</h2>
+          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Why Institutions Choose Us</h2>
           <div className="grid md:grid-cols-4 gap-8">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <Card key={feature.title}>
+                <Card key={feature.title} className="border-l-4 border-[#ff6633]">
                   <CardHeader>
-                    <Icon className="w-8 h-8 text-green-900 mb-4" />
-                    <CardTitle>{feature.title}</CardTitle>
+                    <Icon className="w-8 h-8 text-[#ff6633] mb-4" />
+                    <CardTitle className="text-[#1a4d4d]">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-600 text-sm">{feature.description}</p>
@@ -204,19 +204,19 @@ export default function Institutional() {
       </section>
 
       {/* Pricing Calculator Section */}
-      <section className="py-16 px-4 bg-gray-50">
+      <section className="py-16 px-4 bg-gradient-to-r from-[#1a4d4d]/5 to-[#ff6633]/5">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Pricing Calculator</h2>
+          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Pricing Calculator</h2>
           <div className="grid md:grid-cols-2 gap-12">
             {/* Calculator */}
-            <Card>
+            <Card className="border-t-4 border-[#ff6633]">
               <CardHeader>
-                <CardTitle>Calculate Your Cost</CardTitle>
+                <CardTitle className="text-[#1a4d4d]">Calculate Your Cost</CardTitle>
                 <CardDescription>Adjust staff count to see pricing</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Number of Staff: {staffCount}</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#1a4d4d]">Number of Staff: {staffCount}</label>
                   <input
                     type="range"
                     min="10"
