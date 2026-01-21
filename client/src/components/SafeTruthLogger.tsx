@@ -118,8 +118,11 @@ export default function SafeTruthLogger() {
     );
   }
 
-  // Role check - Safe-Truth for users with providerType
-  if (!user.providerType && user.role !== "admin") {
+  // Role check - Safe-Truth for healthcare providers and parents
+  const isProvider = user.providerType || user.role === "admin";
+  const isParent = user.userType === "parent";
+  
+  if (!isProvider && !isParent) {
     return (
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 rounded-lg">
         <Card className="border-l-4 border-orange-500">
@@ -130,7 +133,7 @@ export default function SafeTruthLogger() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600">Safe-Truth is for healthcare providers only.</p>
+            <p className="text-gray-600">Safe-Truth is for healthcare providers and parents only.</p>
           </CardContent>
         </Card>
       </div>
@@ -144,7 +147,9 @@ export default function SafeTruthLogger() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Safe-Truth Logger</h1>
           <p className="text-gray-600">
-            Report pediatric emergency events in a safe, confidential space. Your insights help us improve care for all children.
+            {isProvider && !isParent && "Report pediatric emergency events in a safe, confidential space. Your clinical insights help us improve care for all children."}
+            {isParent && !isProvider && "Share your child's healthcare journey to help us understand and improve hospital care for all children."}
+            {isProvider && isParent && "Report events or share your healthcare journey in a safe, confidential space."}
           </p>
         </div>
 

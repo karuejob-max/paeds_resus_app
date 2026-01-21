@@ -1989,3 +1989,11 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [x] Verify Parents page links work correctly (uses Link component)
 - [x] Test all navigation between Safe-Truth related pages
 - [x] Ensure both parent and provider roles can access buttons
+
+## Phase 42: Fix SafeTruthLogger Access Control
+- [x] Fix SafeTruthLogger access control to allow parents (userType === "parent")
+- [x] Fix SafeTruthLogger access control to allow providers (providerType set)
+- [x] Update error message to include both parent and provider access
+- [x] Add role-specific header messaging for parents vs providers
+- [x] Verify both roles can now access the logger component
+- [x] Test access control logic with different user types
