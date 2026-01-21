@@ -37,6 +37,7 @@ import { supportRouter } from "./routers/support";
 import { dashboardsRouter } from "./routers/dashboards";
 import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
+import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 
 export const appRouter = router({
   system: systemRouter,
@@ -85,6 +86,7 @@ export const appRouter = router({
   dashboards: dashboardsRouter,
   predictions: predictionsRouter,
   email: emailRouter,
+  parentSafeTruth: parentSafeTruthRouter,
 });
 
 export type AppRouter = typeof appRouter;
