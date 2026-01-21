@@ -63,6 +63,9 @@ import Payment from "./pages/Payment";
 import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
 import MarketingCampaign from "./pages/MarketingCampaign";
 import InstitutionalAnalytics from "./pages/InstitutionalAnalytics";
+import ParentHub from "./pages/ParentHub";
+import ParentSafeTruth from "./pages/ParentSafeTruth";
+import RemembranceModule from "./pages/RemembranceModule";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -120,8 +123,11 @@ function Router() {
           <Route path="/search" component={Search} />
           <Route path="/community" component={Community} />
       <Route path="/analytics" component={Analytics} />
-      <Route path="/institutional-analytics" component={InstitutionalAnalytics} />
-      <Route path="/stakeholder-home" component={StakeholderHome} />
+          <Route path="/institutional-analytics" component={InstitutionalAnalytics} />
+          <Route path="/parent-hub" component={ParentHub} />
+          <Route path="/parent-safe-truth" component={ParentSafeTruth} />
+          <Route path="/remembrance" component={RemembranceModule} />
+          <Route path="/stakeholder-home" component={StakeholderHome} />
           <Route path="/developer-portal" component={DeveloperPortal} />
           <Route path="/elite-fellowship" component={EliteFellowship} />
           <Route path="/safe-truth" component={SafeTruth} />

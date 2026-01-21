@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Stethoscope, Users, Building2, X } from "lucide-react";
-// Role selection stored in localStorage
 
 interface RoleSelectionPromptProps {
   onRoleSelected: (role: "parent" | "provider" | "institution") => void;
@@ -13,18 +12,21 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
   const [selectedRole, setSelectedRole] = useState<"parent" | "provider" | "institution" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Role preference saved to localStorage
-
   const handleRoleSelect = async (role: "parent" | "provider" | "institution") => {
     setIsLoading(true);
     try {
-      // Save role preference to localStorage
       localStorage.setItem("userRole", role);
       setSelectedRole(role);
       
-      // Notify parent component
+      const routeMap: Record<string, string> = {
+        parent: "/parent-hub",
+        provider: "/providers",
+        institution: "/institutional",
+      };
+      
       setTimeout(() => {
         onRoleSelected(role);
+        window.location.href = routeMap[role];
       }, 500);
     } catch (error) {
       console.error("Error updating role:", error);
@@ -97,20 +99,16 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
                       : "border-gray-200 hover:border-[#ff6633] hover:bg-gray-50"
                   } ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                 >
-                  {/* Icon */}
                   <div
                     className={`w-12 h-12 rounded-lg bg-gradient-to-br ${role.color} flex items-center justify-center mb-4`}
                   >
                     <Icon className="w-6 h-6 text-white" />
                   </div>
 
-                  {/* Label */}
                   <h3 className="font-semibold text-gray-900 mb-2">{role.label}</h3>
 
-                  {/* Description */}
                   <p className="text-sm text-gray-600 mb-4">{role.description}</p>
 
-                  {/* Selection indicator */}
                   {isSelected && (
                     <div className="flex items-center gap-2 text-[#ff6633] font-medium text-sm">
                       <div className="w-5 h-5 rounded-full bg-[#ff6633] flex items-center justify-center">
@@ -124,14 +122,12 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
             })}
           </div>
 
-          {/* Info message */}
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900">
               💡 <strong>Tip:</strong> You can change this preference anytime in your account settings or by using the toggle on the Resources page.
             </p>
           </div>
 
-          {/* Confirmation button */}
           {selectedRole && (
             <div className="mt-6 flex justify-end gap-3">
               <Button

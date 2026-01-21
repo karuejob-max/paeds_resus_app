@@ -1939,3 +1939,21 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Create real-time dashboard updates
 - [ ] Add institutional admin access control
 - [ ] Test analytics accuracy and performance
+
+
+## Phase 38: Role-Based Routing & Parent Safe-Truth System
+- [ ] Implement role-based routing after role selection
+- [ ] Create ParentHub landing page
+- [ ] Create ProviderDashboard landing page
+- [ ] Create InstitutionalDashboard landing page
+- [ ] Build parent Safe-Truth system with timeline capture
+- [ ] Create ParentSafeTruth component with event timeline
+- [ ] Add event types for parent journey (arrival, symptoms, interventions, etc.)
+- [ ] Build Remembrance & Learning module for parents who lost children
+- [ ] Create RemembranceModule component with grief support resources
+- [ ] Integrate parent feedback into institutional dashboard
+- [ ] Build analytics for parent experience data
+- [ ] Create pattern detection for system delays and gaps
+- [ ] Test role-based routing across all roles
+- [ ] Verify parent Safe-Truth data capture
+- [ ] Test Remembrance module functionality
