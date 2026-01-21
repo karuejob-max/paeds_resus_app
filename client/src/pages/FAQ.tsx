@@ -114,7 +114,7 @@ export default function FAQ() {
       category: "Certificates",
       question: "Can I get a physical copy of my certificate?",
       answer:
-        "Yes, we can send a physical certificate for an additional fee. Contact support@paedsresus.com with your certificate number and mailing address.",
+        "Yes, we can send a physical certificate for an additional fee. Contact paedsresus254@gmail.com with your certificate number and mailing address.",
     },
     {
       id: "certificate-4",
@@ -128,7 +128,7 @@ export default function FAQ() {
       category: "Support",
       question: "How do I contact customer support?",
       answer:
-        "You can reach us via email (support@paedsresus.com), phone (+254 712 345 678), or live chat on our website. We respond within 24 hours.",
+        "You can reach us via email (paedsresus254@gmail.com), phone (+254 706 781 260), or live chat on our website. We respond within 24 hours.",
     },
     {
       id: "support-2",
@@ -149,7 +149,7 @@ export default function FAQ() {
       category: "Support",
       question: "Can I change my enrolled program?",
       answer:
-        "Yes, you can switch programs within 7 days of enrollment. After 7 days, please contact support@paedsresus.com to discuss options.",
+        "Yes, you can switch programs within 7 days of enrollment. After 7 days, please contact paedsresus254@gmail.com to discuss options."
     },
     {
       id: "technical-1",
@@ -308,7 +308,7 @@ export default function FAQ() {
             <Card>
               <CardContent className="pt-6">
                 <h3 className="font-semibold mb-2">Email Support</h3>
-                <p className="text-gray-600 mb-4">support@paedsresus.com</p>
+                <p className="text-gray-600 mb-4">paedsresus254@gmail.com</p>
                 <Button variant="outline" className="w-full">
                   Send Email
                 </Button>
@@ -317,7 +317,7 @@ export default function FAQ() {
             <Card>
               <CardContent className="pt-6">
                 <h3 className="font-semibold mb-2">Phone Support</h3>
-                <p className="text-gray-600 mb-4">+254 712 345 678</p>
+                <p className="text-gray-600 mb-4">+254 706 781 260</p>
                 <Button variant="outline" className="w-full">
                   Call Us
                 </Button>

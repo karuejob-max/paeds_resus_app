@@ -54,14 +54,14 @@ export default function Contact() {
       icon: Mail,
       title: "Email",
       description: "Send us an email anytime",
-      details: "support@paedsresus.com",
+      details: "paedsresus254@gmail.com",
       subtext: "Response within 24 hours",
     },
     {
       icon: Phone,
       title: "Phone",
       description: "Call our support team",
-      details: "+254 712 345 678",
+      details: "+254 706 781 260",
       subtext: "Mon-Fri, 8am-5pm EAT",
     },
     {
@@ -176,7 +176,7 @@ export default function Contact() {
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="+254 712 345 678"
+                      placeholder="+254 706 781 260"
                     />
                   </div>
                   <div className="space-y-2">
@@ -265,11 +265,11 @@ export default function Contact() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Phone</p>
-                  <p className="font-semibold">+254 712 345 678</p>
+                  <p className="font-semibold">+254 706 781 260</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Email</p>
-                  <p className="font-semibold">support@paedsresus.com</p>
+                  <p className="font-semibold">paedsresus254@gmail.com</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Hours</p>

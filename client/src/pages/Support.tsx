@@ -9,15 +9,15 @@ export default function Support() {
       icon: Mail,
       title: "Email Support",
       description: "Send us an email and we'll respond within 24 hours",
-      contact: "support@paedsresus.com",
-      link: "mailto:support@paedsresus.com",
+      contact: "paedsresus254@gmail.com",
+      link: "mailto:paedsresus254@gmail.com",
     },
     {
       icon: Phone,
       title: "Phone Support",
       description: "Call us during business hours (Mon-Fri, 9am-5pm EAT)",
-      contact: "+254 712 345678",
-      link: "tel:+254712345678",
+      contact: "+254 706 781 260",
+      link: "tel:+254706781260",
     },
     {
       icon: MessageSquare,
@@ -168,7 +168,7 @@ export default function Support() {
                     Can't find what you're looking for? Our support team is here to help. Reach out to us through any of the channels above and we'll get back to you as soon as possible.
                   </p>
                   <div className="flex gap-3">
-                    <a href="mailto:support@paedsresus.com">
+                    <a href="mailto:paedsresus254@gmail.com">
                       <Button className="bg-blue-600 hover:bg-blue-700">
                         Email Support
                       </Button>

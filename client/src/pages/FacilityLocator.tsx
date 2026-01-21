@@ -78,7 +78,7 @@ export default function FacilityLocator() {
       name: "Paeds Resus Training Center",
       type: "training_center",
       address: "Westlands, Nairobi",
-      phone: "+254 712 345678",
+      phone: "+254 706 781 260",
       email: "training@paedsresus.com",
       lat: -1.2656,
       lng: 36.8045,

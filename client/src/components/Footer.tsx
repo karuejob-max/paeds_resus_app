@@ -162,8 +162,8 @@ export default function Footer() {
           <h4 className="text-white font-bold mb-4">Get In Touch</h4>
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Mail className="w-4 h-4" />
-            <a href="mailto:info@paedsresus.com" className="hover:text-white transition">
-              info@paedsresus.com
+            <a href="mailto:paedsresus254@gmail.com" className="hover:text-white transition">
+              paedsresus254@gmail.com
             </a>
           </div>
           <p className="text-sm text-gray-400 mt-2">Kenya</p>

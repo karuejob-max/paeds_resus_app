@@ -178,7 +178,7 @@ export default function PrivacyPolicy() {
               </p>
               <p>
                 <strong>Email:</strong> privacy@paedsresus.com<br />
-                <strong>Phone:</strong> +254 712 345 678<br />
+                <strong>Phone:</strong> +254 706 781 260<br />
                 <strong>Address:</strong> Nairobi, Kenya
               </p>
             </CardContent>

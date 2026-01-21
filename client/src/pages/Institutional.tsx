@@ -75,6 +75,62 @@ export default function Institutional() {
         </div>
       </section>
 
+      {/* Available Courses Section */}
+      <section className="py-16 px-4 bg-blue-50">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold mb-12 text-center">Available Training Programs</h2>
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            {[
+              {
+                name: "BLS (Basic Life Support)",
+                duration: "2 days",
+                price: "6,000 KES per person",
+                description: "Fundamental resuscitation techniques for all healthcare staff",
+                topics: ["CPR techniques", "Airway management", "Emergency response", "Team coordination"],
+              },
+              {
+                name: "ACLS (Advanced Cardiac Life Support)",
+                duration: "3 days",
+                price: "8,000 KES per person",
+                description: "Advanced cardiac emergency management for experienced providers",
+                topics: ["Arrhythmia recognition", "Medication protocols", "Advanced airway", "Post-resuscitation care"],
+              },
+              {
+                name: "Paeds Elite Fellowship",
+                duration: "3-12 months",
+                price: "15,000-40,000 KES per person",
+                description: "Comprehensive pediatric resuscitation certification program",
+                topics: ["Pediatric physiology", "Trauma management", "Neonatal resuscitation", "Leadership skills"],
+              },
+            ].map((course) => (
+              <Card key={course.name} className="border-2 border-blue-200 hover:shadow-lg transition">
+                <CardHeader>
+                  <CardTitle className="text-blue-900">{course.name}</CardTitle>
+                  <CardDescription>{course.duration}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-700">{course.description}</p>
+                  <div className="bg-blue-50 p-3 rounded">
+                    <p className="text-sm font-semibold text-blue-900 mb-2">Topics Covered:</p>
+                    <ul className="text-xs space-y-1">
+                      {course.topics.map((topic) => (
+                        <li key={topic} className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          {topic}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="border-t pt-3">
+                    <p className="font-bold text-green-900">{course.price}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -121,10 +177,20 @@ export default function Institutional() {
                     onChange={(e) => setStaffCount(Number(e.target.value))}
                     className="w-full"
                   />
+                  <p className="text-xs text-gray-500 mt-2">Slide to adjust your institution size</p>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex justify-between mb-2">
+                <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                  <div className="text-xs text-gray-600 bg-white p-2 rounded">
+                    <p className="font-semibold mb-1">How we calculate:</p>
+                    <p>Base price: 10,000 KES per person</p>
+                    <p>Bulk discount applied based on staff count</p>
+                    <p>20-50 staff: 10% discount = 9,000 KES</p>
+                    <p>50-100 staff: 20% discount = 8,000 KES</p>
+                    <p>100-200 staff: 30% discount = 7,000 KES</p>
+                    <p>200+ staff: 40% discount = 6,000 KES</p>
+                  </div>
+                  <div className="flex justify-between mb-2 border-t pt-2">
                     <span className="text-gray-600">Price per person:</span>
                     <span className="font-bold">{calculatePrice(staffCount).toLocaleString()} KES</span>
                   </div>

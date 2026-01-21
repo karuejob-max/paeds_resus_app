@@ -68,7 +68,7 @@ export default function PaymentInstructions() {
               <CardContent className="pt-6">
                 <Phone className="w-8 h-8 text-purple-600 mb-3" />
                 <h3 className="font-semibold mb-2">Support</h3>
-                <p className="text-sm text-gray-600">Call +254 712 345 678 for assistance</p>
+                <p className="text-sm text-gray-600">Call +254 706 781 260 for assistance</p>
               </CardContent>
             </Card>
           </div>
@@ -366,7 +366,7 @@ export default function PaymentInstructions() {
               <CardContent className="pt-6">
                 <Phone className="w-8 h-8 text-blue-600 mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">Phone</h3>
-                <p className="text-gray-600">+254 712 345 678</p>
+                <p className="text-gray-600">+254 706 781 260</p>
                 <p className="text-sm text-gray-500">Mon-Fri, 8am-5pm EAT</p>
               </CardContent>
             </Card>
