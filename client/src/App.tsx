@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
@@ -64,6 +64,8 @@ import AdminPaymentDashboard from "./pages/AdminPaymentDashboard";
 import MarketingCampaign from "./pages/MarketingCampaign";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
+import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
+import { useAuth } from "./_core/hooks/useAuth";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -76,6 +78,21 @@ function ScrollToTop() {
 }
 
 function Router() {
+  const { user } = useAuth();
+  const [showRolePrompt, setShowRolePrompt] = useState(false);
+
+  // Show role selection prompt on first login if no role is set
+  useEffect(() => {
+    if (user && !localStorage.getItem("userRole")) {
+      setShowRolePrompt(true);
+    }
+  }, [user]);
+
+  const handleRoleSelected = (role: "parent" | "provider" | "institution") => {
+    localStorage.setItem("userRole", role);
+    setShowRolePrompt(false);
+  };
+
   // make sure to consider if you need authentication for certain routes
   return (
     <div className="flex flex-col min-h-screen">
@@ -146,6 +163,12 @@ function Router() {
       <Footer />
       <PaedsAIAssistant />
       <ChatWidget />
+      {showRolePrompt && (
+        <RoleSelectionPrompt
+          onRoleSelected={handleRoleSelected}
+          onClose={() => setShowRolePrompt(false)}
+        />
+      )}
     </div>
   );
 }

@@ -103,9 +103,9 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Support */}
+          {/* Support & Contact */}
           <div>
-            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Support</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Support & Contact</h4>
             <ul className="space-y-2 text-sm">
               {footerSections.support.map((link) => (
                 <li key={link.href}>
@@ -114,26 +114,23 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              <li className="pt-2 border-t border-gray-600">
+                <a href="mailto:paedsresus254@gmail.com" className="text-gray-400 hover:text-[#ff6633] transition flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#ff6633]" />
+                  Email Us
+                </a>
+              </li>
+              <li>
+                <p className="text-gray-400 text-xs mt-2">paedsresus254@gmail.com</p>
+              </li>
             </ul>
           </div>
         </div>
 
         {/* Provider Channels moved to Resources page - removed from footer */}
 
-        {/* Contact Section */}
-        <div className="border-t border-gray-600 py-8 mb-8">
-          <h4 className="text-white font-bold mb-4 text-[#ff6633]">Get In Touch</h4>
-          <div className="flex items-center gap-2 text-sm text-gray-300">
-            <Mail className="w-4 h-4 text-[#ff6633]" />
-            <a href="mailto:paedsresus254@gmail.com" className="hover:text-[#ff6633] transition">
-              paedsresus254@gmail.com
-            </a>
-          </div>
-          <p className="text-sm text-gray-400 mt-2">Kenya</p>
-        </div>
-
         {/* Social Media Links */}
-        <div className="border-t border-gray-600 pt-8">
+        <div className="border-t border-gray-600 py-8">
           <h4 className="text-white font-bold mb-4 text-[#ff6633]">Follow Us</h4>
           <div className="flex gap-6">
             {socialLinks.map((social) => (
@@ -148,6 +145,11 @@ export default function Footer() {
                 <social.icon className="w-6 h-6" />
               </a>
             ))}
+          </div>
+
+          {/* Footer Bottom */}
+          <div className="border-t border-gray-600 mt-8 pt-8 text-center text-sm text-gray-400">
+            <p>© 2026 Paeds Resus Limited. All rights reserved. | Kenya</p>
           </div>
         </div>
       </div>

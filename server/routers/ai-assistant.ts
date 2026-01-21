@@ -2,6 +2,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
+import { AI_SYSTEM_PROMPT, COMMON_QUESTIONS, EMERGENCY_CONTACTS } from "../knowledge-base";
 
 /**
  * Paeds Resus AI Assistant Router
@@ -20,34 +21,8 @@ export const aiAssistantRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Build system prompt with organizational context
-        const systemPrompt = `You are Paeds Resus AI, an intelligent clinical decision support assistant for Paeds Resus Limited, a pediatric emergency care organization in Kenya.
-
-Your role is to:
-1. Provide evidence-based clinical guidance for pediatric emergencies
-2. Help providers troubleshoot onboarding and platform issues
-3. Offer real-time clinical decision support
-4. Learn from provider interactions to improve the organization
-5. Provide accurate, actionable recommendations
-
-Organization Context:
-- Paeds Resus Limited: Transforming pediatric emergency care in Kenya
-- Focus: Clinical excellence, systemic transparency, nurse-led resuscitation
-- Mission: "No Child Should Die From Preventable Causes"
-- Approach: Head, Heart, Hands framework (knowledge, compassion, skills)
-
-Clinical Guidelines:
-- Follow evidence-based pediatric protocols (PALS, NRP, WHO guidelines)
-- Consider Kenya's healthcare context and resource availability
-- Prioritize safety and evidence-based practice
-- Always recommend professional medical consultation when appropriate
-
-Response Guidelines:
-- Be concise and actionable
-- Use clinical terminology appropriately
-- Provide references to protocols when relevant
-- Ask clarifying questions when needed
-- Flag urgent situations requiring immediate professional help`;
+        // Use enhanced system prompt from knowledge base
+        const systemPrompt = AI_SYSTEM_PROMPT;
 
         // Call LLM with context
         const response = await invokeLLM({
@@ -243,51 +218,24 @@ ${input.query ? `Specific Question: ${input.query}` : ""}`;
     )
     .query(async ({ input }) => {
       try {
+        // Use knowledge base FAQs
         const faqs = {
-          onboarding: [
-            {
-              question: "How do I activate my provider account?",
-              answer: "Check your email for the activation link. Click it and set your password. If you don't see the email, check spam or contact support.",
-            },
-            {
-              question: "How do I reset my password?",
-              answer: "Click 'Forgot Password' on the login page. Enter your email and follow the instructions sent to your inbox.",
-            },
-            {
-              question: "How do I enroll in a course?",
-              answer: "Go to the Courses section, select your desired course, and click 'Enroll'. Payment will be processed immediately.",
-            },
-          ],
-          clinical: [
-            {
-              question: "What is the recommended dosage for pediatric epinephrine?",
-              answer: "0.01 mg/kg IV/IO (1:10,000 concentration). Refer to PALS guidelines for age-specific recommendations.",
-            },
-            {
-              question: "When should I perform chest compressions?",
-              answer: "When a child is unresponsive and not breathing normally. Start CPR immediately and call for help.",
-            },
-          ],
-          technical: [
-            {
-              question: "Why can't I access the Safe-Truth tool?",
-              answer: "Ensure you're logged in and have the necessary permissions. Try clearing your browser cache or using a different browser.",
-            },
-            {
-              question: "How do I download resources?",
-              answer: "Go to Resources, select your resource, and click the Download button. Files will be saved to your Downloads folder.",
-            },
-          ],
-          general: [
-            {
-              question: "What is Paeds Resus?",
-              answer: "Paeds Resus Limited is transforming pediatric emergency care in Kenya through clinical excellence, systemic transparency, and nurse-led resuscitation.",
-            },
-            {
-              question: "How do I contact support?",
-              answer: "Email us at paedsresus254@gmail.com or use the Contact page on our website.",
-            },
-          ],
+          onboarding: COMMON_QUESTIONS.filter(q => q.category === "Onboarding").map(q => ({
+            question: q.question,
+            answer: q.answer,
+          })),
+          clinical: COMMON_QUESTIONS.filter(q => q.category === "Clinical").map(q => ({
+            question: q.question,
+            answer: q.answer,
+          })),
+          technical: COMMON_QUESTIONS.filter(q => q.category === "Technical").map(q => ({
+            question: q.question,
+            answer: q.answer,
+          })),
+          general: COMMON_QUESTIONS.filter(q => q.category === "General").map(q => ({
+            question: q.question,
+            answer: q.answer,
+          })),
         };
 
         return {
