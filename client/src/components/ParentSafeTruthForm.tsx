@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
 
 export default function ParentSafeTruthForm() {
   const [step, setStep] = useState(1);
@@ -14,6 +15,8 @@ export default function ParentSafeTruthForm() {
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [submittedData, setSubmittedData] = useState<any>(null);
   
   const submitMutation = trpc.safeTruthEvents.logEvent.useMutation();
 
@@ -41,67 +44,81 @@ export default function ParentSafeTruthForm() {
       };
 
       await submitMutation.mutateAsync(submitData);
+      setSubmittedData(submitData);
+      setShowConfirmation(true);
       setSuccess(true);
       setTimeout(() => {
         setStep(1);
         setFormData({});
         setSuccess(false);
-      }, 2000);
+      }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submission failed");
     }
   };
 
+  const handleCloseModal = () => {
+    setShowConfirmation(false);
+  };
+
   // Step 1: Child & Event Info
   if (step === 1) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Child's Healthcare Journey</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <Label>Event Date</Label>
-            <input
-              type="date"
-              value={formData.eventDate || ""}
-              onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md"
-            />
-          </div>
+      <>
+        <SubmissionConfirmationModal
+          isOpen={showConfirmation}
+          isProvider={false}
+          data={submittedData || { eventDate: new Date().toISOString(), childAge: 0, isAnonymous }}
+          onClose={handleCloseModal}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Child's Healthcare Journey</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <Label>Event Date</Label>
+              <input
+                type="date"
+                value={formData.eventDate || ""}
+                onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
 
-          <div>
-            <Label>Child's Age at the time (years)</Label>
-            <input
-              type="number"
-              min="0"
-              max="18"
-              value={formData.childAge || ""}
-              onChange={(e) => setFormData({ ...formData, childAge: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md"
-            />
-          </div>
+            <div>
+              <Label>Child's Age at the time (years)</Label>
+              <input
+                type="number"
+                min="0"
+                max="18"
+                value={formData.childAge || ""}
+                onChange={(e) => setFormData({ ...formData, childAge: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
 
-          <div>
-            <Label>Where did this happen?</Label>
-            <RadioGroup value={formData.location || ""} onValueChange={(v) => setFormData({ ...formData, location: v })}>
-              {["Home", "School", "Hospital", "Other"].map((loc) => (
-                <div key={loc} className="flex items-center space-x-2">
-                  <RadioGroupItem value={loc} id={loc} />
-                  <Label htmlFor={loc}>{loc}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+            <div>
+              <Label>Where did this happen?</Label>
+              <RadioGroup value={formData.location || ""} onValueChange={(v) => setFormData({ ...formData, location: v })}>
+                {["Home", "School", "Hospital", "Other"].map((loc) => (
+                  <div key={loc} className="flex items-center space-x-2">
+                    <RadioGroupItem value={loc} id={loc} />
+                    <Label htmlFor={loc}>{loc}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox checked={isAnonymous} onCheckedChange={(v) => setIsAnonymous(v as boolean)} id="anon" />
-            <Label htmlFor="anon">Share your story anonymously</Label>
-          </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox checked={isAnonymous} onCheckedChange={(v) => setIsAnonymous(v as boolean)} id="anon" />
+              <Label htmlFor="anon">Share your story anonymously</Label>
+            </div>
 
-          <Button onClick={() => setStep(2)} className="w-full">Next</Button>
-        </CardContent>
-      </Card>
+            <Button onClick={() => setStep(2)} className="w-full">Next</Button>
+          </CardContent>
+        </Card>
+      </>
     );
   }
 

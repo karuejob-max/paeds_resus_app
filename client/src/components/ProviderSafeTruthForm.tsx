@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
 
 export default function ProviderSafeTruthForm() {
   const [step, setStep] = useState(1);
@@ -14,6 +15,8 @@ export default function ProviderSafeTruthForm() {
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [submittedData, setSubmittedData] = useState<any>(null);
   
   const submitMutation = trpc.safeTruthEvents.logEvent.useMutation();
 
@@ -41,66 +44,84 @@ export default function ProviderSafeTruthForm() {
       };
 
       await submitMutation.mutateAsync(submitData);
+      setSubmittedData({
+        ...submitData,
+        algorithm: formData.algorithm,
+        outcome: formData.outcome,
+      });
+      setShowConfirmation(true);
       setSuccess(true);
       setTimeout(() => {
         setStep(1);
         setFormData({});
         setSuccess(false);
-      }, 2000);
+      }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submission failed");
     }
   };
 
+  const handleCloseModal = () => {
+    setShowConfirmation(false);
+  };
+
   // Step 1: Basic Info & Algorithm Selection
   if (step === 1) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Event Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <Label>Event Date & Time</Label>
-            <input
-              type="datetime-local"
-              value={formData.eventDate || ""}
-              onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md"
-            />
-          </div>
+      <>
+        <SubmissionConfirmationModal
+          isOpen={showConfirmation}
+          isProvider={true}
+          data={submittedData || { eventDate: new Date().toISOString(), childAge: 0, isAnonymous, algorithm: formData.algorithm }}
+          onClose={handleCloseModal}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Event Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <Label>Event Date & Time</Label>
+              <input
+                type="datetime-local"
+                value={formData.eventDate || ""}
+                onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
 
-          <div>
-            <Label>Patient Age (years)</Label>
-            <input
-              type="number"
-              min="0"
-              value={formData.patientAge || ""}
-              onChange={(e) => setFormData({ ...formData, patientAge: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md"
-            />
-          </div>
+            <div>
+              <Label>Patient Age (years)</Label>
+              <input
+                type="number"
+                min="0"
+                value={formData.patientAge || ""}
+                onChange={(e) => setFormData({ ...formData, patientAge: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
 
-          <div>
-            <Label>Primary Algorithm</Label>
-            <RadioGroup value={formData.algorithm || ""} onValueChange={(v) => setFormData({ ...formData, algorithm: v })}>
-              {["Cardiac Arrest", "Tachyarrhythmia", "Bradycardia", "Respiratory Failure", "Shock", "Other"].map((algo) => (
-                <div key={algo} className="flex items-center space-x-2">
-                  <RadioGroupItem value={algo} id={algo} />
-                  <Label htmlFor={algo}>{algo}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+            <div>
+              <Label>Primary Algorithm</Label>
+              <RadioGroup value={formData.algorithm || ""} onValueChange={(v) => setFormData({ ...formData, algorithm: v })}>
+                {["Cardiac Arrest", "Tachyarrhythmia", "Bradycardia", "Respiratory Failure", "Shock", "Other"].map((algo) => (
+                  <div key={algo} className="flex items-center space-x-2">
+                    <RadioGroupItem value={algo} id={algo} />
+                    <Label htmlFor={algo}>{algo}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox checked={isAnonymous} onCheckedChange={(v) => setIsAnonymous(v as boolean)} id="anon" />
-            <Label htmlFor="anon">Submit anonymously</Label>
-          </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox checked={isAnonymous} onCheckedChange={(v) => setIsAnonymous(v as boolean)} id="anon" />
+              <Label htmlFor="anon">Submit anonymously</Label>
+            </div>
 
-          <Button onClick={() => setStep(2)} className="w-full">Next</Button>
-        </CardContent>
-      </Card>
+            <Button onClick={() => setStep(2)} className="w-full">Next</Button>
+          </CardContent>
+        </Card>
+      </>
     );
   }
 
@@ -236,12 +257,12 @@ export default function ProviderSafeTruthForm() {
     );
   }
 
-  // Step 4: Interventions
+  // Step 4: Interventions & Outcomes
   if (step === 4) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Interventions</CardTitle>
+          <CardTitle>Interventions & Outcomes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
@@ -285,8 +306,32 @@ export default function ProviderSafeTruthForm() {
 
             <div className="flex items-center space-x-2">
               <Checkbox checked={formData.medicationsGiven} onCheckedChange={(v) => setFormData({ ...formData, medicationsGiven: v })} id="meds" />
-              <Label htmlFor="meds">Medications given (Epinephrine/Amiodarone)</Label>
+              <Label htmlFor="meds">Medications administered</Label>
             </div>
+          </div>
+
+          <div>
+            <Label>Outcome</Label>
+            <RadioGroup value={formData.outcome || ""} onValueChange={(v) => setFormData({ ...formData, outcome: v })}>
+              {["Discharged Intact", "Discharged with Deficit", "Transferred", "Died"].map((outcome) => (
+                <div key={outcome} className="flex items-center space-x-2">
+                  <RadioGroupItem value={outcome} id={outcome} />
+                  <Label htmlFor={outcome}>{outcome}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div>
+            <Label>Neurological Status</Label>
+            <RadioGroup value={formData.neuroStatus || ""} onValueChange={(v) => setFormData({ ...formData, neuroStatus: v })}>
+              {["Alert", "Responsive to Commands", "Responsive to Pain", "Unresponsive"].map((status) => (
+                <div key={status} className="flex items-center space-x-2">
+                  <RadioGroupItem value={status} id={status} />
+                  <Label htmlFor={status}>{status}</Label>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
 
           <div className="flex gap-2">
@@ -298,42 +343,28 @@ export default function ProviderSafeTruthForm() {
     );
   }
 
-  // Step 5: Outcome & Gaps
+  // Step 5: System Gaps
   if (step === 5) {
-    const gaps = ["Knowledge Gap", "Resources Gap", "Leadership Gap", "Communication Gap", "Protocol Gap", "Equipment Gap", "Training Gap", "Staffing Gap", "Infrastructure Gap"];
+    const gaps = [
+      "Knowledge Gap",
+      "Resources Gap",
+      "Leadership Gap",
+      "Communication Gap",
+      "Protocol Gap",
+      "Equipment Gap",
+      "Training Gap",
+      "Staffing Gap",
+      "Infrastructure Gap",
+    ];
 
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Outcome & System Gaps</CardTitle>
+          <CardTitle>System Gaps & Improvements</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <Label>Outcome</Label>
-            <RadioGroup value={formData.outcome || ""} onValueChange={(v) => setFormData({ ...formData, outcome: v })}>
-              {["Discharged Intact", "Discharged with Deficit", "Transferred", "Died"].map((o) => (
-                <div key={o} className="flex items-center space-x-2">
-                  <RadioGroupItem value={o} id={o} />
-                  <Label htmlFor={o}>{o}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          <div>
-            <Label>Neurological Status</Label>
-            <RadioGroup value={formData.neuroStatus || ""} onValueChange={(v) => setFormData({ ...formData, neuroStatus: v })}>
-              {["Alert", "Responsive to Commands", "Responsive to Pain", "Unresponsive"].map((n) => (
-                <div key={n} className="flex items-center space-x-2">
-                  <RadioGroupItem value={n} id={n} />
-                  <Label htmlFor={n}>{n}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          <div>
-            <Label>System Gaps Identified</Label>
+            <Label>What system gaps did you identify? (Select all that apply)</Label>
             <div className="space-y-2">
               {gaps.map((gap) => (
                 <div key={gap} className="flex items-center space-x-2">
@@ -358,12 +389,12 @@ export default function ProviderSafeTruthForm() {
             <Button onClick={() => setStep(4)} variant="outline" className="flex-1">Back</Button>
             <Button onClick={handleSubmit} disabled={submitMutation.isPending} className="flex-1">
               {submitMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Submit
+              Submit Event
             </Button>
           </div>
 
           {error && <Alert className="bg-red-50"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
-          {success && <Alert className="bg-green-50"><CheckCircle2 className="h-4 w-4" /><AlertDescription>Submitted successfully!</AlertDescription></Alert>}
+          {success && <Alert className="bg-green-50"><CheckCircle2 className="h-4 w-4" /><AlertDescription>Event submitted successfully!</AlertDescription></Alert>}
         </CardContent>
       </Card>
     );

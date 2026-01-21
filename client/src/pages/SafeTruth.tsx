@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "lucide-react";
-import SafeTruthLogger from "@/components/SafeTruthLogger";
+import ProviderSafeTruthForm from "@/components/ProviderSafeTruthForm";
 
 export default function SafeTruth() {
   const loggerRef = useRef<HTMLDivElement>(null);
@@ -87,7 +87,7 @@ export default function SafeTruth() {
 
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
-          <SafeTruthLogger />
+          <ProviderSafeTruthForm />
         </div>
 
         {/* How It Works */}
