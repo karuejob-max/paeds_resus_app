@@ -146,4 +146,5 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/about": ["Home", "About"],
   "/terms": ["Home", "Legal", "Terms of Service"],
   "/privacy": ["Home", "Legal", "Privacy Policy"],
+  "/accreditation": ["Home", "Accreditation", "Program"],
 };
