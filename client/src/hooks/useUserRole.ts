@@ -23,8 +23,17 @@ export function useUserRole() {
       }
     };
 
+    // Also listen for custom events from setUserRole
+    const handleRoleChange = (e: CustomEvent) => {
+      setRole(e.detail as UserRole);
+    };
+
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener("userRoleChanged", handleRoleChange as EventListener);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("userRoleChanged", handleRoleChange as EventListener);
+    };
   }, []);
 
   const setUserRole = (newRole: UserRole) => {
@@ -34,6 +43,10 @@ export function useUserRole() {
       localStorage.removeItem("userRole");
     }
     setRole(newRole);
+    
+    // Dispatch custom event to notify other components
+    const event = new CustomEvent("userRoleChanged", { detail: newRole });
+    window.dispatchEvent(event);
   };
 
   return {
