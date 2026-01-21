@@ -88,7 +88,9 @@ export default function Enroll() {
     { value: "bls", label: "BLS (Basic Life Support) - 10,000 KES" },
     { value: "acls", label: "ACLS (Advanced Cardiovascular Life Support) - 20,000 KES" },
     { value: "pals", label: "PALS (Pediatric Advanced Life Support) - 20,000 KES" },
-    { value: "fellowship", label: "Bronze Fellowship - 70,000 KES" },
+    { value: "bronze", label: "Bronze Elite Fellowship - 70,000 KES" },
+    { value: "silver", label: "Silver Elite Fellowship - 100,000 KES" },
+    { value: "gold", label: "Gold Elite Fellowship - 150,000 KES" },
   ];
 
   return (

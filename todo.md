@@ -1255,3 +1255,45 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Test video playback
 - [ ] Mobile responsiveness check
 - [ ] Cross-browser testing
+
+
+---
+
+## Phase 25: Pricing Accuracy & UX Improvements
+
+### Pricing Corrections
+- [x] Update BLS base price to 10,000 KES
+- [x] Update ACLS base price to 20,000 KES
+- [x] Add PALS course at 20,000 KES
+- [x] Add Bronze Fellowship at 70,000 KES
+- [x] Add Silver Fellowship at 100,000 KES
+- [x] Add Gold Fellowship at 150,000 KES
+- [x] Synchronize pricing across all pages
+
+### Course-Specific Calculators
+- [x] Create clickable course cards
+- [x] Build course selection modal/page
+- [x] Implement course-specific pricing calculator
+- [x] Add bulk discount calculations per course
+- [x] Track course selection in analytics
+
+### Missing Fellowship Tiers
+- [x] Add Silver Fellowship to Provider page
+- [x] Add Gold Fellowship to Provider page
+- [x] Add Silver Fellowship to application form dropdown
+- [x] Add Gold Fellowship to application form dropdown
+- [x] Update course descriptions
+
+### Header Navigation Reorganization
+- [x] Add Parent/Caregiver navigation option
+- [ ] Optimize header layout for space
+- [ ] Reposition "Paeds Resus" branding
+- [ ] Maintain mobile responsiveness
+- [ ] Test all navigation links
+
+### Testing & Validation
+- [ ] Verify all pricing is correct
+- [ ] Test course calculators
+- [ ] Check form dropdowns
+- [ ] Test header navigation
+- [ ] Mobile responsiveness check

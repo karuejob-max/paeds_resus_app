@@ -31,13 +31,29 @@ export default function Providers() {
       icon: Zap,
     },
     {
-      name: "Elite Fellowship",
-      duration: "12 weeks",
-      price: "70,000 KES (Bronze)",
+      name: "Bronze Elite Fellowship",
+      duration: "3 months",
+      price: "70,000 KES",
       description: "Comprehensive mastery program. Become a resuscitation expert and trainer.",
       topics: ["Head-to-Toe Assessment", "Heart Failure Management", "Hands-On Simulation", "Teaching Skills"],
       icon: Award,
     },
+    {
+      name: "Silver Elite Fellowship",
+      duration: "6 months",
+      price: "100,000 KES",
+      description: "Advanced certification with clinical mentorship. Develop leadership and research skills.",
+      topics: ["Advanced Resuscitation", "Clinical Mentorship", "Research Methodology", "Team Leadership"],
+      icon: Award,
+    },
+    {
+      name: "Gold Elite Fellowship",
+      duration: "12 months",
+      price: "150,000 KES",
+      description: "Mastery-level program with institutional leadership focus. Become a change agent.",
+      topics: ["Mastery-Level Skills", "Institutional Leadership", "Program Development", "Strategic Planning"],
+      icon: Award,
+    }
   ];
 
   const benefits = [
@@ -79,7 +95,7 @@ export default function Providers() {
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold mb-12 text-center">Our Programs</h2>
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {programs.map((program) => {
               const Icon = program.icon;
               return (

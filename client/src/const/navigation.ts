@@ -17,6 +17,7 @@ export interface NavItem {
 export const mainNavItems: NavItem[] = [
   { label: "For Providers", href: "/providers", category: "main" },
   { label: "For Hospitals", href: "/institutional", category: "main" },
+  { label: "For Parents", href: "/parents", category: "main" },
   { label: "Facilities", href: "/facilities", category: "main" },
   { label: "Resources", href: "/resources", category: "main" },
   { label: "About", href: "/about", category: "main" },

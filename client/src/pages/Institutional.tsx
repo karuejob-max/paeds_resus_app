@@ -7,10 +7,13 @@ import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight } fr
 import { Link } from "wouter";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
+import CourseCalculator from "@/components/CourseCalculator";
+import { COURSES, getAllCourses } from "@/lib/courseData";
 
 export default function Institutional() {
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
 
   const calculatePrice = (count: number) => {
     if (count <= 20) return 10000;
@@ -83,31 +86,14 @@ export default function Institutional() {
       <section className="py-16 px-4 bg-blue-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold mb-12 text-center">Available Training Programs</h2>
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {[
-              {
-                name: "BLS (Basic Life Support)",
-                duration: "2 days",
-                price: "6,000 KES per person",
-                description: "Fundamental resuscitation techniques for all healthcare staff",
-                topics: ["CPR techniques", "Airway management", "Emergency response", "Team coordination"],
-              },
-              {
-                name: "ACLS (Advanced Cardiac Life Support)",
-                duration: "3 days",
-                price: "8,000 KES per person",
-                description: "Advanced cardiac emergency management for experienced providers",
-                topics: ["Arrhythmia recognition", "Medication protocols", "Advanced airway", "Post-resuscitation care"],
-              },
-              {
-                name: "Paeds Elite Fellowship",
-                duration: "3-12 months",
-                price: "15,000-40,000 KES per person",
-                description: "Comprehensive pediatric resuscitation certification program",
-                topics: ["Pediatric physiology", "Trauma management", "Neonatal resuscitation", "Leadership skills"],
-              },
-            ].map((course) => (
-              <Card key={course.name} className="border-2 border-blue-200 hover:shadow-lg transition">
+          <p className="text-center text-gray-600 mb-8">Click on any course to calculate pricing for your institution</p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            {getAllCourses().map((course) => (
+              <Card
+                key={course.id}
+                className="border-2 border-blue-200 hover:shadow-lg hover:border-blue-400 transition cursor-pointer"
+                onClick={() => setSelectedCourse(course.id)}
+              >
                 <CardHeader>
                   <CardTitle className="text-blue-900">{course.name}</CardTitle>
                   <CardDescription>{course.duration}</CardDescription>
@@ -117,21 +103,34 @@ export default function Institutional() {
                   <div className="bg-blue-50 p-3 rounded">
                     <p className="text-sm font-semibold text-blue-900 mb-2">Topics Covered:</p>
                     <ul className="text-xs space-y-1">
-                      {course.topics.map((topic) => (
+                      {course.topics.slice(0, 4).map((topic) => (
                         <li key={topic} className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-green-600" />
                           {topic}
                         </li>
                       ))}
+                      {course.topics.length > 4 && (
+                        <li className="text-blue-600 font-medium">+{course.topics.length - 4} more...</li>
+                      )}
                     </ul>
                   </div>
                   <div className="border-t pt-3">
-                    <p className="font-bold text-green-900">{course.price}</p>
+                    <p className="font-bold text-green-900">{course.basePrice.toLocaleString()} KES base price</p>
+                    <Button className="w-full mt-3 bg-blue-600 hover:bg-blue-700">Calculate Cost</Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          {/* Course Calculator Modal */}
+          {selectedCourse && COURSES[selectedCourse] && (
+            <CourseCalculator
+              course={COURSES[selectedCourse]}
+              isOpen={!!selectedCourse}
+              onClose={() => setSelectedCourse(null)}
+            />
+          )}
         </div>
       </section>
 
