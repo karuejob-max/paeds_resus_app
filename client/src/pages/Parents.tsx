@@ -44,21 +44,21 @@ export default function Parents() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-purple-900 to-purple-800 text-white py-16 px-4">
+      <section className="bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-5xl font-bold mb-6">For Parents & Caregivers</h1>
-          <p className="text-xl text-purple-100 max-w-2xl">
+          <p className="text-xl text-teal-100 max-w-2xl">
             Every parent should know CPR. Learn life-saving skills to protect your children and family. Our parent-friendly courses make emergency response accessible to everyone.
           </p>
         </div>
       </section>
 
       {/* Why It Matters */}
-      <section className="py-16 px-4 bg-red-50">
+      <section className="py-16 px-4 bg-orange-50">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-red-100 border-l-4 border-red-600 p-6 rounded">
-            <h3 className="text-2xl font-bold text-red-900 mb-4">Why Every Parent Needs to Know CPR</h3>
-            <ul className="space-y-3 text-red-800">
+          <div className="bg-orange-100 border-l-4 border-[#ff6633] p-6 rounded">
+            <h3 className="text-2xl font-bold text-orange-900 mb-4">Why Every Parent Needs to Know CPR</h3>
+            <ul className="space-y-3 text-orange-800">
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-1" />
                 <span><strong>First 4 minutes matter:</strong> CPR performed in the first 4 minutes can double or triple survival chances</span>

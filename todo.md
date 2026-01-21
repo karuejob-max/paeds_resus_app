@@ -252,6 +252,18 @@
 - [ ] Mobile responsiveness testing
 - [ ] Load testing and optimization
 
+## Phase 35: Critical UX Fixes & Role Selector Implementation
+- [x] Fix Safe-Truth "Start Logging Events" button functionality
+- [x] Apply Paeds Resus brand colors to Safe-Truth page
+- [x] Apply Paeds Resus brand colors to Parents page
+- [x] Add click-outside handler to account dropdown
+- [x] Create RoleSelector component for header
+- [x] Implement role dropdown in header with color coding
+- [x] Add smart page redirects on role change
+- [x] Test role switching across all pages
+- [x] Verify all styling is consistent
+- [x] Test on mobile and desktop
+
 ## Phase 27: Branding & Logo Implementation
 - [x] Copy logo to public assets
 - [x] Update global CSS with brand colors (teal #1a4d4d, orange #ff6633)

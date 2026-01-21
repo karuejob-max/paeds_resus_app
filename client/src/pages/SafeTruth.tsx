@@ -6,9 +6,9 @@ import SafeTruthLogger from "@/components/SafeTruthLogger";
 
 export default function SafeTruth() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f0f9f9] to-white">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12 px-4">
+      <div className="bg-gradient-to-r from-[#1a4d4d] to-[#0d3333] text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <Shield className="w-8 h-8" />

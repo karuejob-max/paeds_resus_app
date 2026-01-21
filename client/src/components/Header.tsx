@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -7,6 +7,7 @@ import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { filterNavItems } from "@/lib/navigationFilter";
 import NotificationCenter from "./NotificationCenter";
+import RoleSelector from "./RoleSelector";
 import { mainNavItems, adminNavItems } from "@/const/navigation";
 
 export default function Header() {
@@ -14,9 +15,24 @@ export default function Header() {
   const { role } = useUserRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const accountDropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter navigation items based on user role
   const filteredNavItems = filterNavItems(mainNavItems, role);
+
+  // Close account dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target as Node)) {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    if (accountDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [accountDropdownOpen]);
 
   // Authenticated user menu items
   const accountMenuItems = [
@@ -58,8 +74,11 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Right Section: Notifications + Auth */}
+          {/* Right Section: Role Selector + Notifications + Auth */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Role Selector */}
+            {isAuthenticated && <RoleSelector />}
+
             {/* Notifications */}
             {isAuthenticated && <NotificationCenter />}
 
@@ -80,7 +99,7 @@ export default function Header() {
                 )}
 
                 {/* Account Dropdown */}
-                <div className="relative">
+                <div className="relative" ref={accountDropdownRef}>
                   <button
                     onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                     className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-[#1a4d4d] hover:bg-orange-50 rounded transition text-sm font-medium"
