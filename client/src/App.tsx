@@ -27,6 +27,8 @@ import StakeholderHome from "./pages/StakeholderHome";
 import DeveloperPortal from "./pages/DeveloperPortal";
 import EliteFellowship from "./pages/EliteFellowship";
 import SafeTruthTool from "./pages/SafeTruthTool";
+import SafeTruth from "./pages/SafeTruth";
+import AccreditationDashboard from "./pages/AccreditationDashboard";
 import PaymentInstructions from "./pages/PaymentInstructions";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
@@ -99,7 +101,9 @@ function Router() {
           <Route path="/stakeholder-home" component={StakeholderHome} />
         <Route path="/developer-portal" component={DeveloperPortal} />
         <Route path="/elite-fellowship" component={EliteFellowship} />
-        <Route path="/safe-truth" component={SafeTruthTool} />
+        <Route path="/safe-truth" component={SafeTruth} />
+        <Route path="/safetruth-tool" component={SafeTruthTool} />
+        <Route path="/accreditation" component={AccreditationDashboard} />
         <Route path="/payment-instructions" component={PaymentInstructions} />
         <Route path="/faq" component={FAQ} />
         <Route path="/contact" component={Contact} />

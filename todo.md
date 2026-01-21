@@ -1511,3 +1511,38 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Validate data privacy and anonymization
 - [ ] Performance testing with large datasets
 - [ ] User acceptance testing with pilot facilities
+
+
+---
+
+## Phase 30: Safe-Truth Feature Integration
+
+### Safe-Truth Logger Navigation Integration
+- [x] Create SafeTruth page component
+- [x] Add SafeTruth route to App.tsx
+- [ ] Add "Log Event" link to main navigation
+- [ ] Add quick-access button to user dashboard
+- [x] Create SafeTruth page header and intro
+- [x] Integrate SafeTruthLogger component into page
+- [ ] Add analytics tracking for event logging
+
+### Role-Based Recommendation Engine
+- [ ] Create safetruth.recommendations tRPC router
+- [x] Build clinician recommendation generator
+- [x] Build nurse recommendation generator
+- [x] Build facility manager recommendation generator
+- [x] Build parent/caregiver recommendation generator
+- [x] Implement gap-based recommendations
+- [ ] Create recommendation display component
+- [ ] Add recommendation notification system
+
+### Facility Accreditation Dashboard
+- [x] Create AccreditationDashboard page
+- [x] Build facility score visualization
+- [x] Display pCOSCA rate trends
+- [x] Show system gap remediation progress
+- [x] Create accreditation application form
+- [x] Build accreditation status tracker
+- [x] Create accredited facilities directory
+- [x] Add facility badge generation
+- [ ] Implement public facility profile pages
