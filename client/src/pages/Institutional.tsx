@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings } from "lucide-react";
 import { Link } from "wouter";
+import ProtectedPageWrapper from "@/components/ProtectedPageWrapper";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
 import CourseCalculator from "@/components/CourseCalculator";
@@ -72,7 +73,8 @@ export default function Institutional() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <ProtectedPageWrapper allowedRoles={["institution"]} pageTitle="Institutional Programs">
+      <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -464,6 +466,7 @@ export default function Institutional() {
           <InstitutionalLeadForm />
         </div>
       </section>
-    </div>
+      </div>
+    </ProtectedPageWrapper>
   );
 }

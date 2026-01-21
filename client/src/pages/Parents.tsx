@@ -3,6 +3,7 @@ import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, AlertCircle, BookOpen, Video, Users, Shield, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
+import ProtectedPageWrapper from "@/components/ProtectedPageWrapper";
 
 export default function Parents() {
   const modules = [
@@ -42,7 +43,8 @@ export default function Parents() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <ProtectedPageWrapper allowedRoles={["parent"]} pageTitle="Parent Resources">
+      <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -235,6 +237,7 @@ export default function Parents() {
           </Link>
         </div>
       </section>
-    </div>
+      </div>
+    </ProtectedPageWrapper>
   );
 }

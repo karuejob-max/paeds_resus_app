@@ -3,6 +3,7 @@ import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, Brain, Zap, Clock, Users, Award, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
+import ProtectedPageWrapper from "@/components/ProtectedPageWrapper";
 
 export default function Providers() {
   const programs = [
@@ -80,7 +81,8 @@ export default function Providers() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <ProtectedPageWrapper allowedRoles={["provider"]} pageTitle="Provider Programs">
+      <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -209,6 +211,7 @@ export default function Providers() {
           </Link>
         </div>
       </section>
-    </div>
+      </div>
+    </ProtectedPageWrapper>
   );
 }

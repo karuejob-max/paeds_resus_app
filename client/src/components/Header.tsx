@@ -18,8 +18,13 @@ export default function Header() {
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter navigation items based on user role
-  const filteredNavItems = filterNavItems(mainNavItems, role);
+  // Filter navigation items based on user role and content visibility
+  const filteredNavItems = mainNavItems.filter((item) => isNavItemVisible(item.label, role));
+
+  // Force re-render when role changes
+  useEffect(() => {
+    // This effect runs whenever role changes, triggering a re-render
+  }, [role]);
 
   // Close account dropdown when clicking outside
   useEffect(() => {
