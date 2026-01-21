@@ -70,13 +70,31 @@ export default function SafeTruthLogger() {
     );
   };
 
+  const submitEventMutation = trpc.safeTruthEvents.logEvent.useMutation();
+
   const handleSubmit = async () => {
     try {
       console.log("Submitting Safe-Truth event with provider:", user?.id);
-      // TODO: Wire up to actual tRPC endpoint
-      alert("Event logged successfully! Your report has been submitted confidentially.");
-      setStep("event");
+      
+      const result = await submitEventMutation.mutateAsync({
+        eventDate,
+        childAge: parseInt(childAge),
+        eventType,
+        presentation,
+        isAnonymous,
+        chainOfSurvival,
+        systemGaps,
+        gapDetails,
+        outcome,
+        neurologicalStatus,
+      });
+      
+      if (result.success) {
+        alert(result.message);
+        setStep("event");
+      }
     } catch (error) {
+      console.error("Error submitting event:", error);
       alert("Failed to submit event. Please try again.");
     }
   };

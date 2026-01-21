@@ -1806,3 +1806,66 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [ ] Iterate based on feedback
 - [ ] Document changes
 - [ ] Create user guides
+
+
+## Phase 32: Critical Fixes & Enhanced Access Control
+
+### 32.1: Safe-Truth Event Logging Fix
+- [ ] Investigate SafeTruthLogger component event submission
+- [ ] Check tRPC endpoint for event creation
+- [ ] Verify authentication/authorization flow
+- [ ] Test event logging end-to-end
+- [ ] Add error handling and user feedback
+
+### 32.2: Role-Based Access Control & Decluttering
+- [ ] Create role selection prompt on first login
+- [ ] Store user role preference in database
+- [ ] Implement role-based navigation filtering:
+  * Parent/Caregiver: Hide "For Providers", "For Hospitals", "Institutional Mgmt"
+  * Healthcare Provider: Hide "For Parents", "For Hospitals"
+  * Institution: Show all relevant sections
+- [ ] Add role toggle at top of Resources page
+- [ ] Update header navigation dynamically based on role
+- [ ] Hide irrelevant CTAs based on user role
+- [ ] Test role switching functionality
+
+### 32.3: Enhance AI Knowledge Base
+- [ ] Extract all website content (pages, FAQs, resources)
+- [ ] Create comprehensive system prompt with:
+  * Paeds Resus mission, values, protocols
+  * Website content and features
+  * Evidence-based clinical guidelines (PALS, NRP, WHO)
+  * Kenya healthcare context
+- [ ] Implement safety guardrails:
+  * Disclaimer on clinical advice
+  * Escalation prompts for urgent scenarios
+  * "Consult professional" recommendations
+  * Audit trail logging
+- [ ] Add specialized knowledge bases:
+  * Pediatric emergency protocols
+  * Onboarding troubleshooting
+  * Platform features and navigation
+- [ ] Test AI responses for accuracy and safety
+
+### 32.4: Reposition AI Widget to Middle-Right
+- [ ] Update PaedsAIAssistant component positioning
+- [ ] Change from bottom-left to middle-right margin
+- [ ] Adjust z-index to avoid conflicts
+- [ ] Test responsiveness on mobile/tablet
+- [ ] Verify no overlap with other UI elements
+
+### 32.5: Reorganize Footer
+- [ ] Move "Get In Touch" section to Support/Contact area
+- [ ] Remove empty footer row
+- [ ] Update footer structure
+- [ ] Verify all links still work
+- [ ] Test footer on mobile
+
+### 32.6: Testing & Quality Assurance
+- [ ] Test Safe-Truth event logging
+- [ ] Test role-based access control
+- [ ] Test role switching
+- [ ] Test AI widget positioning
+- [ ] Test footer reorganization
+- [ ] Cross-browser testing
+- [ ] Mobile responsiveness testing

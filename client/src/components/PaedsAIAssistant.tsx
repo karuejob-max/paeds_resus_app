@@ -108,7 +108,7 @@ export default function PaedsAIAssistant() {
       {!isOpen && (
         <button
           onClick={handleOpenAssistant}
-          className="fixed bottom-6 left-6 w-14 h-14 bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] hover:shadow-lg text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-40 group"
+          className="fixed right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] hover:shadow-lg text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-40 group"
           title="Paeds Resus AI Assistant"
         >
           <Sparkles className="w-6 h-6" />
@@ -118,7 +118,7 @@ export default function PaedsAIAssistant() {
 
       {/* AI Assistant Window */}
       {isOpen && (
-        <div className="fixed bottom-6 left-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200">
+        <div className="fixed right-6 top-1/2 -translate-y-1/2 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1a4d4d] to-[#0d3333] text-white p-4 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-3">

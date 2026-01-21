@@ -23,6 +23,7 @@ import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { institutionOnboardingRouter } from "./routers/institution-onboarding";
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
+import { safeTruthEventsRouter } from "./routers/safetruth-events";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -69,6 +70,7 @@ export const appRouter = router({
   institutionOnboarding: institutionOnboardingRouter,
   chatSupport: chatSupportRouter,
   aiAssistant: aiAssistantRouter,
+  safeTruthEvents: safeTruthEventsRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
