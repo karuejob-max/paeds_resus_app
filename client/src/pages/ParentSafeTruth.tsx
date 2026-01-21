@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Plus, Trash2, Heart } from "lucide-react";
+import { Clock, Plus, Trash2, Heart, Loader2 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import ProtectedPageWrapper from "@/components/ProtectedPageWrapper";
 
 interface TimelineEvent {
   id: string;
@@ -12,7 +14,7 @@ interface TimelineEvent {
   description: string;
 }
 
-export default function ParentSafeTruth() {
+function ParentSafeTruthContent() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [childOutcome, setChildOutcome] = useState<"discharged" | "referred" | "passed-away" | null>(null);
   const [currentEvent, setCurrentEvent] = useState({
@@ -20,6 +22,9 @@ export default function ParentSafeTruth() {
     time: "",
     description: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const eventTypes = [
     { value: "arrival", label: "Arrived at Hospital" },
@@ -56,11 +61,37 @@ export default function ParentSafeTruth() {
   };
 
   const handleSubmit = async () => {
-    // TODO: Submit to tRPC endpoint
-    console.log("Submitting parent Safe-Truth:", {
-      events,
-      childOutcome,
-    });
+    if (!childOutcome || events.length === 0) {
+      setSubmitError("Please select child outcome and add at least one event");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const mutation = trpc.parentSafeTruth.submitTimeline.useMutation();
+      await mutation.mutateAsync({
+        events: events.map((e) => ({
+          eventType: e.eventType as any,
+          time: e.time,
+          description: e.description,
+        })),
+        childOutcome: childOutcome as any,
+        parentName: "",
+        parentEmail: "",
+        isAnonymous: true,
+      });
+
+      setSubmitSuccess(true);
+      setEvents([]);
+      setChildOutcome(null);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch (error: any) {
+      setSubmitError(error.message || "Failed to submit timeline");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -199,14 +230,39 @@ export default function ParentSafeTruth() {
           </CardContent>
         </Card>
 
+        {/* Error Message */}
+        {submitError && (
+          <Card className="mb-8 border-2 border-red-500 bg-red-50">
+            <CardContent className="pt-6">
+              <p className="text-red-900 font-medium">{submitError}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Success Message */}
+        {submitSuccess && (
+          <Card className="mb-8 border-2 border-green-500 bg-green-50">
+            <CardContent className="pt-6">
+              <p className="text-green-900 font-medium">✓ Your story has been submitted successfully. Thank you for helping us improve care!</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Submit Section */}
         <div className="flex gap-4">
           <Button
             onClick={handleSubmit}
-            disabled={events.length === 0 || !childOutcome}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3"
+            disabled={events.length === 0 || !childOutcome || isSubmitting}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 disabled:opacity-50"
           >
-            Submit Your Story
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              "Submit Your Story"
+            )}
           </Button>
           <Button variant="outline" className="flex-1">
             Save as Draft
@@ -224,5 +280,13 @@ export default function ParentSafeTruth() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ParentSafeTruth() {
+  return (
+    <ProtectedPageWrapper allowedRoles={["parent"]}>
+      <ParentSafeTruthContent />
+    </ProtectedPageWrapper>
   );
 }

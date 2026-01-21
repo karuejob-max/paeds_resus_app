@@ -22,12 +22,15 @@ export const pageVisibility: PageVisibility = {
   "/parent-courses": ["parent"],
   "/parent-resources": ["parent"],
   "/family-package": ["parent"],
+  "/parent-hub": ["parent"],
+  "/parent-safe-truth": ["parent"],
+  "/remembrance": ["parent"],
 
   // Healthcare Provider specific
   "/providers": ["provider"],
   "/elite-fellowship": ["provider"],
-  "/safe-truth": ["provider"],
-  "/safetruth-tool": ["provider"],
+  "/safe-truth": ["provider", "parent"],
+  "/safetruth-tool": ["provider", "parent"],
   "/clinical-protocols": ["provider"],
   "/provider-resources": ["provider"],
   "/provider-channels": ["provider"],
@@ -97,7 +100,7 @@ export interface NavItemVisibility {
 }
 
 export const navItemVisibility: NavItemVisibility = {
-  "Safe-Truth": ["provider"],
+  "Safe-Truth": ["provider", "parent"],
   "Elite Fellowship": ["provider"],
   "For Providers": ["provider"],
   "For Institutions": ["institution"],
@@ -105,6 +108,8 @@ export const navItemVisibility: NavItemVisibility = {
   "Institutional Management": ["institution"],
   "Provider Resources": ["provider"],
   "Parent Resources": ["parent"],
+  "Parent Hub": ["parent"],
+  "Remembrance": ["parent"],
   Resources: "all",
   Facilities: "all",
   "Training Schedules": "all",
@@ -149,7 +154,7 @@ export interface FeatureVisibility {
 }
 
 export const featureVisibility: FeatureVisibility = {
-  "Safe-Truth Logging": ["provider"],
+  "Safe-Truth Logging": ["provider", "parent"],
   "Clinical Protocols": ["provider"],
   "Provider Analytics": ["provider"],
   "Institutional Dashboard": ["institution"],
@@ -158,6 +163,8 @@ export const featureVisibility: FeatureVisibility = {
   "ROI Calculator": ["institution"],
   "Parent Courses": ["parent"],
   "Family Resources": ["parent"],
+  "Parent Safe-Truth": ["parent"],
+  "Remembrance Module": ["parent"],
   "AI Assistant": "all",
   "Chat Support": "all",
   "Certificate Verification": "all",
