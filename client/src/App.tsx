@@ -30,6 +30,7 @@ import SafeTruthTool from "./pages/SafeTruthTool";
 import SafeTruth from "./pages/SafeTruth";
 import AccreditationDashboard from "./pages/AccreditationDashboard";
 import { FacilityProfile } from "./pages/FacilityProfile";
+import { FacilityDirectory } from "./pages/FacilityDirectory";
 import PaymentInstructions from "./pages/PaymentInstructions";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
@@ -106,6 +107,7 @@ function Router() {
         <Route path="/safetruth-tool" component={SafeTruthTool} />
         <Route path="/accreditation" component={AccreditationDashboard} />
         <Route path="/facility/:id" component={FacilityProfile} />
+        <Route path="/facilities" component={FacilityDirectory} />
         <Route path="/payment-instructions" component={PaymentInstructions} />
         <Route path="/faq" component={FAQ} />
         <Route path="/contact" component={Contact} />

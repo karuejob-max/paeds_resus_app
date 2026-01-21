@@ -9,6 +9,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
 import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getAllCourses } from "@/lib/courseData";
+import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
 
 export default function Institutional() {
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
@@ -446,6 +447,21 @@ export default function Institutional() {
               </Button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Lead Capture Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Ready to Transform Your Facility?
+            </h2>
+            <p className="text-lg text-gray-600">
+              Get a personalized quote for your institution. Our team will contact you within 24 hours.
+            </p>
+          </div>
+          <InstitutionalLeadForm />
         </div>
       </section>
     </div>

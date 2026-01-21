@@ -1,6 +1,7 @@
 import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { notificationService } from "../notifications";
+import { sendRecommendationNotification } from "../services/notification.service";
 
 export const notificationsRouter = router({
   /**
@@ -98,6 +99,37 @@ export const notificationsRouter = router({
       preferences,
     };
   }),
+
+  /**
+   * Send recommendation notification
+   */
+  sendRecommendations: protectedProcedure
+    .input(
+      z.object({
+        recommendations: z.array(
+          z.object({
+            title: z.string(),
+            content: z.string(),
+            priority: z.enum(["low", "medium", "high"]),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const success = await sendRecommendationNotification(ctx.user.id, input.recommendations);
+        return {
+          success,
+          message: success ? "Recommendations sent" : "Failed to send recommendations",
+        };
+      } catch (error) {
+        console.error("Error sending recommendation notification:", error);
+        return {
+          success: false,
+          message: "Error sending recommendations",
+        };
+      }
+    }),
 
   /**
    * Update notification preferences
