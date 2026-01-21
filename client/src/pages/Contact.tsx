@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Clock, Send } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 
 export default function Contact() {
@@ -78,6 +79,13 @@ export default function Contact() {
       details: "Available on website",
       subtext: "Real-time support",
     },
+    {
+      icon: MessageCircle,
+      title: "WhatsApp",
+      description: "Instant messaging support",
+      details: "+254 706 781 260",
+      subtext: "Fastest response time",
+    },
   ];
 
   const contactTypes = [
@@ -110,17 +118,26 @@ export default function Contact() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">Ways to Reach Us</h2>
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-5 gap-6">
             {contactChannels.map((channel) => {
               const Icon = channel.icon;
               return (
                 <Card key={channel.title} className="text-center hover:shadow-lg transition-shadow">
-                  <CardContent className="pt-6">
+                  <CardContent className="pt-6 flex flex-col h-full">
                     <Icon className="w-10 h-10 text-blue-600 mx-auto mb-4" />
                     <h3 className="font-semibold text-lg mb-2">{channel.title}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{channel.description}</p>
+                    <p className="text-sm text-gray-600 mb-4 flex-grow">{channel.description}</p>
                     <p className="font-mono font-semibold text-gray-900 mb-1">{channel.details}</p>
-                    <p className="text-xs text-gray-500">{channel.subtext}</p>
+                    <p className="text-xs text-gray-500 mb-4">{channel.subtext}</p>
+                    {channel.title === "WhatsApp" && (
+                      <WhatsAppButton
+                        phoneNumber="254706781260"
+                        message="Hello Paeds Resus, I would like to inquire about your training programs."
+                        size="sm"
+                        className="w-full"
+                        label="Open Chat"
+                      />
+                    )}
                   </CardContent>
                 </Card>
               );

@@ -1,11 +1,15 @@
 import { useState } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
+import WhatsAppButton from "@/components/WhatsAppButton";
+import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
 
 export default function Institutional() {
+  const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
 
   const calculatePrice = (count: number) => {
@@ -174,7 +178,12 @@ export default function Institutional() {
                     max="500"
                     step="10"
                     value={staffCount}
-                    onChange={(e) => setStaffCount(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newCount = Number(e.target.value);
+                      setStaffCount(newCount);
+                      const price = calculatePrice(newCount);
+                      trackPricingCalculatorUsed(newCount, price * newCount);
+                    }}
                     className="w-full"
                   />
                   <p className="text-xs text-gray-500 mt-2">Slide to adjust your institution size</p>
@@ -282,6 +291,47 @@ export default function Institutional() {
         </div>
       </section>
 
+      {/* Video Testimonials */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold mb-12 text-center">Hospital Partner Testimonials</h2>
+          <VideoTestimonialGrid
+            testimonials={[
+              {
+                id: "knh-1",
+                title: "Transforming Emergency Care at KNH",
+                hospitalName: "Kenyatta National Hospital",
+                speakerName: "Dr. James Kipchoge",
+                speakerRole: "Head of Pediatric Emergency Department",
+                videoUrl: "https://example.com/knh-testimonial.mp4",
+                description: "How Paeds Resus training reduced preventable child deaths by 45% in our emergency department.",
+                duration: "3:45",
+              },
+              {
+                id: "aga-khan-1",
+                title: "Building Regional Training Excellence",
+                hospitalName: "Aga Khan University Hospital",
+                speakerName: "Dr. Amina Hassan",
+                speakerRole: "Director of Nursing Education",
+                videoUrl: "https://example.com/aga-khan-testimonial.mp4",
+                description: "Becoming a regional training center through Paeds Resus Elite Fellowship program.",
+                duration: "2:30",
+              },
+              {
+                id: "mombasa-1",
+                title: "Zero Preventable Deaths Achievement",
+                hospitalName: "Mombasa County Hospital",
+                speakerName: "Dr. Mohamed Ali",
+                speakerRole: "Chief Medical Officer",
+                videoUrl: "https://example.com/mombasa-testimonial.mp4",
+                description: "Our journey to achieving zero preventable child deaths in 6 months with evidence-based protocols.",
+                duration: "2:15",
+              },
+            ]}
+          />
+        </div>
+      </section>
+
       {/* Case Studies */}
       <section className="py-16 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
@@ -333,12 +383,19 @@ export default function Institutional() {
           <p className="text-xl text-green-100 mb-8">
             Join 50+ hospitals reducing preventable child deaths through evidence-based training.
           </p>
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center flex-wrap">
             <Link href="/contact">
               <Button size="lg" className="bg-white text-green-900 hover:bg-green-50">
                 Get in Touch
               </Button>
             </Link>
+            <WhatsAppButton
+              phoneNumber="254706781260"
+              message="Hello Paeds Resus, I am interested in institutional training for my hospital."
+              size="lg"
+              className="bg-green-500 hover:bg-green-600 text-white"
+              label="Chat on WhatsApp"
+            />
             <Link href="/resources">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
                 View Resources

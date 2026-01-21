@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HelpCircle, Mail, MessageSquare, Phone, Clock, BookOpen, AlertCircle } from "lucide-react";
+import { HelpCircle, Mail, MessageSquare, Phone, Clock, BookOpen, AlertCircle, MessageCircle } from "lucide-react";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export default function Support() {
   const supportChannels = [
@@ -32,6 +33,13 @@ export default function Support() {
       description: "Browse our comprehensive help documentation",
       contact: "Explore articles and guides",
       link: "/faq",
+    },
+    {
+      icon: MessageCircle,
+      title: "WhatsApp Support",
+      description: "Chat with us on WhatsApp for instant support",
+      contact: "+254 706 781 260",
+      link: "https://wa.me/254706781260",
     },
   ];
 
@@ -102,7 +110,7 @@ export default function Support() {
       <section className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl font-bold mb-6">Get in Touch</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
             {supportChannels.map((channel, idx) => {
               const Icon = channel.icon;
               return (
@@ -118,11 +126,21 @@ export default function Support() {
                     <p className="text-sm font-medium text-gray-900 mb-4">
                       {channel.contact}
                     </p>
-                    <a href={channel.link}>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-sm">
-                        Contact
-                      </Button>
-                    </a>
+                    {channel.title === "WhatsApp Support" ? (
+                      <WhatsAppButton
+                        phoneNumber="254706781260"
+                        message="Hello Paeds Resus, I need support with my account."
+                        size="sm"
+                        className="w-full"
+                        label="Open WhatsApp"
+                      />
+                    ) : (
+                      <a href={channel.link}>
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-sm">
+                          Contact
+                        </Button>
+                      </a>
+                    )}
                   </CardContent>
                 </Card>
               );
