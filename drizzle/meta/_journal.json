@@ -29,6 +29,20 @@
       "when": 1768986478850,
       "tag": "0003_abandoned_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1769001113765,
+      "tag": "0004_simple_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1769001194883,
+      "tag": "0005_fair_lake",
+      "breakpoints": true
     }
   ]
 }

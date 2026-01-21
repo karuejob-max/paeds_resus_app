@@ -386,3 +386,256 @@ export const npsSurveyResponses = mysqlTable("npsSurveyResponses", {
 
 export type NpsSurveyResponse = typeof npsSurveyResponses.$inferSelect;
 export type InsertNpsSurveyResponse = typeof npsSurveyResponses.$inferInsert;
+
+
+// ============================================
+// SAFE-TRUTH PLATFORM TABLES
+// ============================================
+
+// User Roles and Workstation Information
+export const userProfiles = mysqlTable("userProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  primaryRole: mysqlEnum("primaryRole", [
+    "clinician",
+    "nurse",
+    "paramedic",
+    "facility_manager",
+    "parent_caregiver",
+    "government",
+    "insurance",
+    "other",
+  ]),
+  workstation: mysqlEnum("workstation", [
+    "emergency_department",
+    "icu",
+    "ward",
+    "clinic",
+    "home",
+    "other",
+  ]),
+  facilityId: int("facilityId"), // for institutional users
+  facilityName: varchar("facilityName", { length: 255 }),
+  yearsOfExperience: int("yearsOfExperience").default(0),
+  specialization: varchar("specialization", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = typeof userProfiles.$inferInsert;
+
+// Safe-Truth Events (pediatric emergency cases)
+export const safetruthEvents = mysqlTable("safetruthEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  facilityId: int("facilityId"),
+  facilityName: varchar("facilityName", { length: 255 }),
+  eventDate: timestamp("eventDate").notNull(),
+  childAge: int("childAge").default(0), // in months
+  childAgeGroup: mysqlEnum("childAgeGroup", [
+    "newborn_0_3m",
+    "infant_3_12m",
+    "toddler_1_3y",
+    "preschool_3_5y",
+    "school_5_12y",
+    "adolescent_12_18y",
+  ]),
+  eventType: mysqlEnum("eventType", [
+    "cardiac_arrest",
+    "respiratory_failure",
+    "severe_sepsis",
+    "trauma",
+    "drowning",
+    "choking",
+    "other",
+  ]).notNull(),
+  initialPresentation: text("initialPresentation"), // detailed description
+  isAnonymous: boolean("isAnonymous").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SafetruthEvent = typeof safetruthEvents.$inferSelect;
+export type InsertSafetruthEvent = typeof safetruthEvents.$inferInsert;
+
+// Chain of Survival Checkpoints
+export const chainOfSurvivalCheckpoints = mysqlTable("chainOfSurvivalCheckpoints", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: int("eventId").notNull(),
+  recognitionCompleted: boolean("recognitionCompleted").default(false),
+  recognitionNotes: text("recognitionNotes"),
+  activationCompleted: boolean("activationCompleted").default(false),
+  activationNotes: text("activationNotes"),
+  cprCompleted: boolean("cprCompleted").default(false),
+  cprQuality: mysqlEnum("cprQuality", ["excellent", "good", "adequate", "poor", "not_performed"]),
+  cprNotes: text("cprNotes"),
+  defibrillationCompleted: boolean("defibrillationCompleted").default(false),
+  defibrillationNotes: text("defibrillationNotes"),
+  advancedCareCompleted: boolean("advancedCareCompleted").default(false),
+  advancedCareDetails: text("advancedCareDetails"),
+  postResuscitationCompleted: boolean("postResuscitationCompleted").default(false),
+  postResuscitationNotes: text("postResuscitationNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ChainOfSurvivalCheckpoint = typeof chainOfSurvivalCheckpoints.$inferSelect;
+export type InsertChainOfSurvivalCheckpoint = typeof chainOfSurvivalCheckpoints.$inferInsert;
+
+// Event Outcomes
+export const eventOutcomes = mysqlTable("eventOutcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: int("eventId").notNull().unique(),
+  outcome: mysqlEnum("outcome", [
+    "pCOSCA",
+    "ROSC_with_disability",
+    "ROSC_unknown",
+    "mortality",
+    "ongoing_resuscitation",
+  ]).notNull(),
+  neurologicalStatus: mysqlEnum("neurologicalStatus", [
+    "intact",
+    "mild_impairment",
+    "moderate_impairment",
+    "severe_impairment",
+    "unknown",
+  ]),
+  timeToROSC: int("timeToROSC"), // in seconds
+  hospitalStayDays: int("hospitalStayDays"),
+  dischargeDiagnosis: text("dischargeDiagnosis"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EventOutcome = typeof eventOutcomes.$inferSelect;
+export type InsertEventOutcome = typeof eventOutcomes.$inferInsert;
+
+// System Gaps Identified
+export const systemGaps = mysqlTable("systemGaps", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: int("eventId").notNull(),
+  gapCategory: mysqlEnum("gapCategory", [
+    "knowledge_gap",
+    "resources_gap",
+    "leadership_gap",
+    "communication_gap",
+    "protocol_gap",
+    "equipment_gap",
+    "training_gap",
+    "staffing_gap",
+    "infrastructure_gap",
+    "other",
+  ]).notNull(),
+  severity: mysqlEnum("severity", ["low", "medium", "high", "critical"]).default("medium"),
+  description: text("description").notNull(),
+  impact: text("impact"), // how this gap affected the outcome
+  remediationStatus: mysqlEnum("remediationStatus", [
+    "identified",
+    "in_progress",
+    "resolved",
+    "not_applicable",
+  ]).default("identified"),
+  remediationDate: timestamp("remediationDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SystemGap = typeof systemGaps.$inferSelect;
+export type InsertSystemGap = typeof systemGaps.$inferInsert;
+
+// User Insights and Recommendations
+export const userInsights = mysqlTable("userInsights", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  insightType: mysqlEnum("insightType", [
+    "performance_metric",
+    "peer_comparison",
+    "gap_recommendation",
+    "improvement_suggestion",
+    "milestone_achievement",
+    "alert",
+  ]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  actionable: boolean("actionable").default(true),
+  actionUrl: text("actionUrl"), // link to take action
+  priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium"),
+  isRead: boolean("isRead").default(false),
+  readAt: timestamp("readAt"),
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type UserInsight = typeof userInsights.$inferSelect;
+export type InsertUserInsight = typeof userInsights.$inferInsert;
+
+// Facility Scores (hidden scoring system)
+export const facilityScores = mysqlTable("facilityScores", {
+  id: int("id").autoincrement().primaryKey(),
+  facilityId: int("facilityId").notNull().unique(),
+  facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  pCOSCARate: decimal("pCOSCARate", { precision: 5, scale: 2 }).default("0"), // percentage
+  totalEventsReported: int("totalEventsReported").default(0),
+  systemGapRemediationSpeed: int("systemGapRemediationSpeed").default(0), // average days to remediate
+  staffEngagementScore: decimal("staffEngagementScore", { precision: 5, scale: 2 }).default("0"), // 0-100
+  eventReportingFrequency: int("eventReportingFrequency").default(0), // events per month
+  insightAdoptionRate: decimal("insightAdoptionRate", { precision: 5, scale: 2 }).default("0"), // percentage
+  overallScore: decimal("overallScore", { precision: 5, scale: 2 }).default("0"), // 0-100 composite score
+  scoreVisibility: mysqlEnum("scoreVisibility", ["hidden", "visible_to_facility", "public"]).default("hidden"),
+  lastUpdatedAt: timestamp("lastUpdatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FacilityScore = typeof facilityScores.$inferSelect;
+export type InsertFacilityScore = typeof facilityScores.$inferInsert;
+
+// Accreditation Applications
+export const accreditationApplications = mysqlTable("accreditationApplications", {
+  id: int("id").autoincrement().primaryKey(),
+  facilityId: int("facilityId").notNull(),
+  facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  contactPerson: varchar("contactPerson", { length: 255 }).notNull(),
+  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+  contactPhone: varchar("contactPhone", { length: 20 }).notNull(),
+  applicationDate: timestamp("applicationDate").defaultNow().notNull(),
+  status: mysqlEnum("status", [
+    "submitted",
+    "under_review",
+    "approved",
+    "rejected",
+    "accredited",
+    "revoked",
+  ]).default("submitted"),
+  reviewerNotes: text("reviewerNotes"),
+  facilityScore: decimal("facilityScore", { precision: 5, scale: 2 }),
+  badgeAwarded: boolean("badgeAwarded").default(false),
+  badgeAwardedDate: timestamp("badgeAwardedDate"),
+  accreditationExpiryDate: timestamp("accreditationExpiryDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AccreditationApplication = typeof accreditationApplications.$inferSelect;
+export type InsertAccreditationApplication = typeof accreditationApplications.$inferInsert;
+
+// Accredited Facilities Directory
+export const accreditedFacilities = mysqlTable("accreditedFacilities", {
+  id: int("id").autoincrement().primaryKey(),
+  facilityId: int("facilityId").notNull().unique(),
+  facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  location: varchar("location", { length: 255 }),
+  county: varchar("county", { length: 255 }),
+  contactPhone: varchar("contactPhone", { length: 20 }),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  pCOSCARate: decimal("pCOSCARate", { precision: 5, scale: 2 }),
+  accreditationDate: timestamp("accreditationDate").notNull(),
+  expiryDate: timestamp("expiryDate"),
+  badgeUrl: text("badgeUrl"),
+  publicProfile: boolean("publicProfile").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AccreditedFacility = typeof accreditedFacilities.$inferSelect;
+export type InsertAccreditedFacility = typeof accreditedFacilities.$inferInsert;
