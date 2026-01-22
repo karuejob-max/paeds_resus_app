@@ -1,0 +1,161 @@
+CREATE TABLE `certificationExams` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`staffMemberId` int NOT NULL,
+	`courseId` int NOT NULL,
+	`examType` enum('written','practical','combined') NOT NULL,
+	`examDate` timestamp NOT NULL,
+	`score` int,
+	`passingScore` int DEFAULT 80,
+	`status` enum('scheduled','completed','passed','failed','retake_scheduled') DEFAULT 'scheduled',
+	`certificateIssued` boolean DEFAULT false,
+	`certificateUrl` text,
+	`verificationCode` varchar(255),
+	`expiryDate` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `certificationExams_id` PRIMARY KEY(`id`),
+	CONSTRAINT `certificationExams_verificationCode_unique` UNIQUE(`verificationCode`)
+);
+--> statement-breakpoint
+CREATE TABLE `contracts` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`contractNumber` varchar(255) NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`quotationId` int NOT NULL,
+	`userId` int NOT NULL,
+	`contractType` enum('service_agreement','training_agreement','data_sharing_agreement') NOT NULL,
+	`startDate` timestamp NOT NULL,
+	`endDate` timestamp NOT NULL,
+	`totalValue` int NOT NULL,
+	`paymentTerms` text,
+	`termsAndConditions` text,
+	`dataPrivacyTerms` text,
+	`supportTerms` text,
+	`cancellationPolicy` text,
+	`status` enum('draft','pending_signature','signed','active','completed','terminated') DEFAULT 'draft',
+	`signedAt` timestamp,
+	`signatureUrl` text,
+	`signedByName` varchar(255),
+	`signedByEmail` varchar(320),
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `contracts_id` PRIMARY KEY(`id`),
+	CONSTRAINT `contracts_contractNumber_unique` UNIQUE(`contractNumber`)
+);
+--> statement-breakpoint
+CREATE TABLE `incidents` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`incidentDate` timestamp NOT NULL,
+	`incidentType` enum('cardiac_arrest','respiratory_failure','severe_sepsis','shock','trauma','other') NOT NULL,
+	`patientAge` int,
+	`responseTime` int,
+	`staffInvolved` text,
+	`protocolsUsed` text,
+	`outcome` enum('pCOSCA','ROSC','mortality','ongoing_resuscitation','unknown') NOT NULL,
+	`neurologicalStatus` enum('intact','mild_impairment','moderate_impairment','severe_impairment','unknown'),
+	`systemGapsIdentified` text,
+	`improvementsImplemented` text,
+	`notes` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `incidents_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `institutionalAnalytics` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`totalStaffEnrolled` int DEFAULT 0,
+	`totalStaffCertified` int DEFAULT 0,
+	`averageCompletionTime` int,
+	`certificationRate` int,
+	`incidentsHandled` int DEFAULT 0,
+	`livesImprovedEstimate` int DEFAULT 0,
+	`averageResponseTime` int,
+	`survivalRateImprovement` int,
+	`systemGapsResolved` int DEFAULT 0,
+	`lastUpdated` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `institutionalAnalytics_id` PRIMARY KEY(`id`),
+	CONSTRAINT `institutionalAnalytics_institutionalAccountId_unique` UNIQUE(`institutionalAccountId`)
+);
+--> statement-breakpoint
+CREATE TABLE `institutionalStaffMembers` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`userId` int,
+	`staffName` varchar(255) NOT NULL,
+	`staffEmail` varchar(320) NOT NULL,
+	`staffPhone` varchar(20),
+	`staffRole` enum('doctor','nurse','paramedic','midwife','lab_tech','respiratory_therapist','support_staff','other') NOT NULL,
+	`department` varchar(255),
+	`yearsOfExperience` int DEFAULT 0,
+	`assignedCourses` text,
+	`enrollmentStatus` enum('pending','enrolled','in_progress','completed','dropped') DEFAULT 'pending',
+	`enrollmentDate` timestamp,
+	`completionDate` timestamp,
+	`certificationStatus` enum('not_started','in_progress','certified','expired','renewal_pending') DEFAULT 'not_started',
+	`certificationDate` timestamp,
+	`certificationExpiryDate` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `institutionalStaffMembers_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `quotations` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`quotationNumber` varchar(255) NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`userId` int NOT NULL,
+	`staffCount` int NOT NULL,
+	`courseSelections` text,
+	`basePricePerStaff` int NOT NULL,
+	`discountPercentage` int DEFAULT 0,
+	`totalPrice` int NOT NULL,
+	`paymentTerms` enum('one_time','monthly','quarterly','semi_annual','annual') DEFAULT 'one_time',
+	`installmentCount` int DEFAULT 1,
+	`installmentAmount` int,
+	`implementationTimeline` varchar(255),
+	`validityPeriod` int DEFAULT 30,
+	`validUntil` timestamp,
+	`status` enum('draft','sent','viewed','accepted','rejected','expired') DEFAULT 'draft',
+	`sentAt` timestamp,
+	`acceptedAt` timestamp,
+	`notes` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `quotations_id` PRIMARY KEY(`id`),
+	CONSTRAINT `quotations_quotationNumber_unique` UNIQUE(`quotationNumber`)
+);
+--> statement-breakpoint
+CREATE TABLE `trainingAttendance` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`trainingScheduleId` int NOT NULL,
+	`staffMemberId` int NOT NULL,
+	`attendanceStatus` enum('registered','attended','absent','cancelled') DEFAULT 'registered',
+	`skillsAssessmentScore` int,
+	`feedback` text,
+	`certificateIssued` boolean DEFAULT false,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `trainingAttendance_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `trainingSchedules` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`institutionalAccountId` int NOT NULL,
+	`courseId` int NOT NULL,
+	`trainingType` enum('online','hands_on','hybrid') NOT NULL,
+	`scheduledDate` timestamp NOT NULL,
+	`startTime` varchar(10),
+	`endTime` varchar(10),
+	`location` varchar(255),
+	`instructorId` int,
+	`instructorName` varchar(255),
+	`maxCapacity` int NOT NULL,
+	`enrolledCount` int DEFAULT 0,
+	`status` enum('scheduled','in_progress','completed','cancelled') DEFAULT 'scheduled',
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `trainingSchedules_id` PRIMARY KEY(`id`)
+);

@@ -21,6 +21,7 @@ import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
 import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { institutionOnboardingRouter } from "./routers/institution-onboarding";
+// Remove this import - we'll use the new institution router instead
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
 import { safeTruthEventsRouter } from "./routers/safetruth-events";
@@ -38,6 +39,7 @@ import { dashboardsRouter } from "./routers/dashboards";
 import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
 import { parentSafeTruthRouter } from "./routers/parent-safetruth";
+import { institutionRouter } from "./routers/institution";
 
 export const appRouter = router({
   system: systemRouter,
@@ -69,7 +71,7 @@ export const appRouter = router({
   cms: cmsRouter,
   emailAutomation: emailAutomationRouter,
   emailCampaigns: emailCampaignsRouter,
-  institutionOnboarding: institutionOnboardingRouter,
+  // institutionOnboarding: institutionOnboardingRouter, // Replaced by institution router
   chatSupport: chatSupportRouter,
   aiAssistant: aiAssistantRouter,
   safeTruthEvents: safeTruthEventsRouter,
@@ -85,8 +87,9 @@ export const appRouter = router({
   support: supportRouter,
   dashboards: dashboardsRouter,
   predictions: predictionsRouter,
-  email: emailRouter,
+  email:  emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
+  institution: institutionRouter,
 });
 
 export type AppRouter = typeof appRouter;

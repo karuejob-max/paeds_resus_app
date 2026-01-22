@@ -8,6 +8,8 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Institutional from "./pages/Institutional";
+import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
+import InstitutionalPortal from "./pages/InstitutionalPortal";
 import Enroll from "./pages/Enroll";
 import LearnerDashboard from "./pages/LearnerDashboard";
 import SafeTruth from "./pages/SafeTruth";
@@ -55,13 +57,13 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/enroll" component={Enroll} />
           <Route path="/payment" component={Payment} />
-          <Route path="/dashboard" component={LearnerDashboard} />
+          <Route path="/learner-dashboard" component={LearnerDashboard} />
           <Route path="/safe-truth" component={SafeTruth} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/institutional" component={Institutional} />
-          
-          {/* Fallback */}
-          <Route path="/404" component={NotFound} />
+          <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
+          <Route path="/institutional-portal" component={InstitutionalPortal} />
+          <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
       </main>

@@ -50,6 +50,13 @@
       "when": 1769108859054,
       "tag": "0006_small_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1769110078827,
+      "tag": "0007_flimsy_snowbird",
+      "breakpoints": true
     }
   ]
 }

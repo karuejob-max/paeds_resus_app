@@ -722,3 +722,190 @@ export const userProgress = mysqlTable("userProgress", {
 
 export type UserProgress = typeof userProgress.$inferSelect;
 export type InsertUserProgress = typeof userProgress.$inferInsert;
+
+
+// ============================================
+// INSTITUTIONAL PORTAL TABLES
+// ============================================
+
+// Institutional Staff Members
+export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId"),
+  staffName: varchar("staffName", { length: 255 }).notNull(),
+  staffEmail: varchar("staffEmail", { length: 320 }).notNull(),
+  staffPhone: varchar("staffPhone", { length: 20 }),
+  staffRole: mysqlEnum("staffRole", ["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).notNull(),
+  department: varchar("department", { length: 255 }),
+  yearsOfExperience: int("yearsOfExperience").default(0),
+  assignedCourses: text("assignedCourses"), // JSON array of course IDs
+  enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "enrolled", "in_progress", "completed", "dropped"]).default("pending"),
+  enrollmentDate: timestamp("enrollmentDate"),
+  completionDate: timestamp("completionDate"),
+  certificationStatus: mysqlEnum("certificationStatus", ["not_started", "in_progress", "certified", "expired", "renewal_pending"]).default("not_started"),
+  certificationDate: timestamp("certificationDate"),
+  certificationExpiryDate: timestamp("certificationExpiryDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InstitutionalStaffMember = typeof institutionalStaffMembers.$inferSelect;
+export type InsertInstitutionalStaffMember = typeof institutionalStaffMembers.$inferInsert;
+
+// Quotations
+export const quotations = mysqlTable("quotations", {
+  id: int("id").autoincrement().primaryKey(),
+  quotationNumber: varchar("quotationNumber", { length: 255 }).unique().notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId").notNull(),
+  staffCount: int("staffCount").notNull(),
+  courseSelections: text("courseSelections"), // JSON array of selected courses
+  basePricePerStaff: int("basePricePerStaff").notNull(), // in cents (KES)
+  discountPercentage: int("discountPercentage").default(0),
+  totalPrice: int("totalPrice").notNull(), // in cents (KES)
+  paymentTerms: mysqlEnum("paymentTerms", ["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("one_time"),
+  installmentCount: int("installmentCount").default(1),
+  installmentAmount: int("installmentAmount"), // in cents (KES)
+  implementationTimeline: varchar("implementationTimeline", { length: 255 }), // e.g., "8 weeks"
+  validityPeriod: int("validityPeriod").default(30), // days
+  validUntil: timestamp("validUntil"),
+  status: mysqlEnum("status", ["draft", "sent", "viewed", "accepted", "rejected", "expired"]).default("draft"),
+  sentAt: timestamp("sentAt"),
+  acceptedAt: timestamp("acceptedAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Quotation = typeof quotations.$inferSelect;
+export type InsertQuotation = typeof quotations.$inferInsert;
+
+// Contracts
+export const contracts = mysqlTable("contracts", {
+  id: int("id").autoincrement().primaryKey(),
+  contractNumber: varchar("contractNumber", { length: 255 }).unique().notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  quotationId: int("quotationId").notNull(),
+  userId: int("userId").notNull(),
+  contractType: mysqlEnum("contractType", ["service_agreement", "training_agreement", "data_sharing_agreement"]).notNull(),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  totalValue: int("totalValue").notNull(), // in cents (KES)
+  paymentTerms: text("paymentTerms"), // JSON object with payment schedule
+  termsAndConditions: text("termsAndConditions"),
+  dataPrivacyTerms: text("dataPrivacyTerms"),
+  supportTerms: text("supportTerms"),
+  cancellationPolicy: text("cancellationPolicy"),
+  status: mysqlEnum("status", ["draft", "pending_signature", "signed", "active", "completed", "terminated"]).default("draft"),
+  signedAt: timestamp("signedAt"),
+  signatureUrl: text("signatureUrl"),
+  signedByName: varchar("signedByName", { length: 255 }),
+  signedByEmail: varchar("signedByEmail", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Contract = typeof contracts.$inferSelect;
+export type InsertContract = typeof contracts.$inferInsert;
+
+// Training Schedules
+export const trainingSchedules = mysqlTable("trainingSchedules", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  courseId: int("courseId").notNull(),
+  trainingType: mysqlEnum("trainingType", ["online", "hands_on", "hybrid"]).notNull(),
+  scheduledDate: timestamp("scheduledDate").notNull(),
+  startTime: varchar("startTime", { length: 10 }), // HH:MM format
+  endTime: varchar("endTime", { length: 10 }), // HH:MM format
+  location: varchar("location", { length: 255 }),
+  instructorId: int("instructorId"),
+  instructorName: varchar("instructorName", { length: 255 }),
+  maxCapacity: int("maxCapacity").notNull(),
+  enrolledCount: int("enrolledCount").default(0),
+  status: mysqlEnum("status", ["scheduled", "in_progress", "completed", "cancelled"]).default("scheduled"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TrainingSchedule = typeof trainingSchedules.$inferSelect;
+export type InsertTrainingSchedule = typeof trainingSchedules.$inferInsert;
+
+// Training Attendance
+export const trainingAttendance = mysqlTable("trainingAttendance", {
+  id: int("id").autoincrement().primaryKey(),
+  trainingScheduleId: int("trainingScheduleId").notNull(),
+  staffMemberId: int("staffMemberId").notNull(),
+  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled"]).default("registered"),
+  skillsAssessmentScore: int("skillsAssessmentScore"), // 0-100
+  feedback: text("feedback"),
+  certificateIssued: boolean("certificateIssued").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TrainingAttendance = typeof trainingAttendance.$inferSelect;
+export type InsertTrainingAttendance = typeof trainingAttendance.$inferInsert;
+
+// Certification Exams
+export const certificationExams = mysqlTable("certificationExams", {
+  id: int("id").autoincrement().primaryKey(),
+  staffMemberId: int("staffMemberId").notNull(),
+  courseId: int("courseId").notNull(),
+  examType: mysqlEnum("examType", ["written", "practical", "combined"]).notNull(),
+  examDate: timestamp("examDate").notNull(),
+  score: int("score"), // 0-100
+  passingScore: int("passingScore").default(80),
+  status: mysqlEnum("status", ["scheduled", "completed", "passed", "failed", "retake_scheduled"]).default("scheduled"),
+  certificateIssued: boolean("certificateIssued").default(false),
+  certificateUrl: text("certificateUrl"),
+  verificationCode: varchar("verificationCode", { length: 255 }).unique(),
+  expiryDate: timestamp("expiryDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CertificationExam = typeof certificationExams.$inferSelect;
+export type InsertCertificationExam = typeof certificationExams.$inferInsert;
+
+// Incidents (Real-world emergency events)
+export const incidents = mysqlTable("incidents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  incidentDate: timestamp("incidentDate").notNull(),
+  incidentType: mysqlEnum("incidentType", ["cardiac_arrest", "respiratory_failure", "severe_sepsis", "shock", "trauma", "other"]).notNull(),
+  patientAge: int("patientAge"), // in months
+  responseTime: int("responseTime"), // in seconds
+  staffInvolved: text("staffInvolved"), // JSON array of staff IDs
+  protocolsUsed: text("protocolsUsed"), // JSON array of protocol names
+  outcome: mysqlEnum("outcome", ["pCOSCA", "ROSC", "mortality", "ongoing_resuscitation", "unknown"]).notNull(),
+  neurologicalStatus: mysqlEnum("neurologicalStatus", ["intact", "mild_impairment", "moderate_impairment", "severe_impairment", "unknown"]),
+  systemGapsIdentified: text("systemGapsIdentified"), // JSON array of gap descriptions
+  improvementsImplemented: text("improvementsImplemented"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Incident = typeof incidents.$inferSelect;
+export type InsertIncident = typeof incidents.$inferInsert;
+
+// Institutional Analytics (Aggregated metrics)
+export const institutionalAnalytics = mysqlTable("institutionalAnalytics", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull().unique(),
+  totalStaffEnrolled: int("totalStaffEnrolled").default(0),
+  totalStaffCertified: int("totalStaffCertified").default(0),
+  averageCompletionTime: int("averageCompletionTime"), // in days
+  certificationRate: int("certificationRate"), // percentage
+  incidentsHandled: int("incidentsHandled").default(0),
+  livesImprovedEstimate: int("livesImprovedEstimate").default(0),
+  averageResponseTime: int("averageResponseTime"), // in seconds
+  survivalRateImprovement: int("survivalRateImprovement"), // percentage
+  systemGapsResolved: int("systemGapsResolved").default(0),
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InstitutionalAnalytics = typeof institutionalAnalytics.$inferSelect;
+export type InsertInstitutionalAnalytics = typeof institutionalAnalytics.$inferInsert;
