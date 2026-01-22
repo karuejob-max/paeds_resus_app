@@ -58,6 +58,7 @@ import { aiAdaptiveLearningRouter } from "./routers/ai-adaptive-learning";
 import { automatedGradingRouter } from "./routers/automated-grading";
 import { autonomousOperationsRouter } from "./routers/autonomous-operations";
 import { executionTrackingRouter } from "./routers/execution-tracking";
+import { revenueGenerationRouter } from "./routers/revenue-generation";
 import { regionalHubsRouter } from "./routers/regional-hubs";
 import { complianceAutomationRouter } from "./routers/compliance-automation";
 import { clinicalDecisionSupportRouter } from "./routers/clinical-decision-support";
@@ -134,6 +135,7 @@ export const appRouter = router({
   automatedGrading: automatedGradingRouter,
   autonomousOperations: autonomousOperationsRouter,
   executionTracking: executionTrackingRouter,
+  revenueGeneration: revenueGenerationRouter,
   regionalHubs: regionalHubsRouter,
   complianceAutomation: complianceAutomationRouter,
   clinicalDecisionSupport: clinicalDecisionSupportRouter,
