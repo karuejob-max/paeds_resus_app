@@ -48,6 +48,7 @@ import { mobileSyncRouter } from "./routers/mobile-sync";
 import { incidentAlertsRouter } from "./routers/incident-alerts";
 import { emrIntegrationRouter } from "./routers/emr-integration";
 import { telemedicineRouter } from "./routers/telemedicine";
+import { curriculumRouter } from "./routers/curriculum";
 import { regionalHubsRouter } from "./routers/regional-hubs";
 import { complianceAutomationRouter } from "./routers/compliance-automation";
 import { clinicalDecisionSupportRouter } from "./routers/clinical-decision-support";
@@ -114,6 +115,7 @@ export const appRouter = router({
   incidentAlerts: incidentAlertsRouter,
   emrIntegration: emrIntegrationRouter,
   telemedicine: telemedicineRouter,
+  curriculum: curriculumRouter,
   regionalHubs: regionalHubsRouter,
   complianceAutomation: complianceAutomationRouter,
   clinicalDecisionSupport: clinicalDecisionSupportRouter,
