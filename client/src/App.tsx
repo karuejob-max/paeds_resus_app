@@ -15,6 +15,10 @@ import LearnerDashboard from "./pages/LearnerDashboard";
 import SafeTruth from "./pages/SafeTruth";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
 import Payment from "./pages/Payment";
+import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
+import CourseBLS from "./pages/CourseBLS";
+import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
+import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -63,6 +67,10 @@ function Router() {
           <Route path="/institutional" component={Institutional} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           <Route path="/institutional-portal" component={InstitutionalPortal} />
+          <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
+          <Route path="/course/bls" component={CourseBLS} />
+          <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
+          <Route path="/advanced-analytics" component={AdvancedAnalytics} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

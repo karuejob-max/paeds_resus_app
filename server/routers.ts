@@ -20,7 +20,7 @@ import { liveTrainingRouter } from "./routers/live-training";
 import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
 import { emailCampaignsRouter } from "./routers/email-campaigns";
-import { institutionOnboardingRouter } from "./routers/institution-onboarding";
+// import { institutionOnboardingRouter } from "./routers/institution-onboarding"; // Replaced by institution router
 // Remove this import - we'll use the new institution router instead
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
@@ -40,6 +40,8 @@ import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
 import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { institutionRouter } from "./routers/institution";
+import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
+import { productionSecurityRouter } from "./routers/production-security";
 
 export const appRouter = router({
   system: systemRouter,
@@ -90,6 +92,8 @@ export const appRouter = router({
   email:  emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   institution: institutionRouter,
+  institutionalNotifications: institutionalNotificationsRouter,
+  productionSecurity: productionSecurityRouter,
 });
 
 export type AppRouter = typeof appRouter;
