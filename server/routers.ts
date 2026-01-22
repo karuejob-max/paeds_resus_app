@@ -49,6 +49,13 @@ import { incidentAlertsRouter } from "./routers/incident-alerts";
 import { emrIntegrationRouter } from "./routers/emr-integration";
 import { telemedicineRouter } from "./routers/telemedicine";
 import { curriculumRouter } from "./routers/curriculum";
+import { videoGenerationRouter } from "./routers/video-generation";
+import { liveInstructorRouter } from "./routers/live-instructor";
+import { hospitalLeaderboardsRouter } from "./routers/hospital-leaderboards";
+import { realTimeAnalyticsRouter } from "./routers/real-time-analytics";
+import { smsWhatsappRouter } from "./routers/sms-whatsapp";
+import { aiAdaptiveLearningRouter } from "./routers/ai-adaptive-learning";
+import { automatedGradingRouter } from "./routers/automated-grading";
 import { regionalHubsRouter } from "./routers/regional-hubs";
 import { complianceAutomationRouter } from "./routers/compliance-automation";
 import { clinicalDecisionSupportRouter } from "./routers/clinical-decision-support";
@@ -116,6 +123,13 @@ export const appRouter = router({
   emrIntegration: emrIntegrationRouter,
   telemedicine: telemedicineRouter,
   curriculum: curriculumRouter,
+  videoGeneration: videoGenerationRouter,
+  liveInstructor: liveInstructorRouter,
+  hospitalLeaderboards: hospitalLeaderboardsRouter,
+  realTimeAnalytics: realTimeAnalyticsRouter,
+  smsWhatsapp: smsWhatsappRouter,
+  aiAdaptiveLearning: aiAdaptiveLearningRouter,
+  automatedGrading: automatedGradingRouter,
   regionalHubs: regionalHubsRouter,
   complianceAutomation: complianceAutomationRouter,
   clinicalDecisionSupport: clinicalDecisionSupportRouter,
