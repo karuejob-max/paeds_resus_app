@@ -50,6 +50,12 @@ import { emrIntegrationRouter } from "./routers/emr-integration";
 import { telemedicineRouter } from "./routers/telemedicine";
 import { regionalHubsRouter } from "./routers/regional-hubs";
 import { complianceAutomationRouter } from "./routers/compliance-automation";
+import { clinicalDecisionSupportRouter } from "./routers/clinical-decision-support";
+import { patientMonitoringRouter } from "./routers/patient-monitoring";
+import { researchSynthesisRouter } from "./routers/research-synthesis";
+import { capacityBuildingRouter } from "./routers/capacity-building";
+import { qualityImprovementRouter } from "./routers/quality-improvement";
+import { continentalScalingRouter } from "./routers/continental-scaling";
 
 export const appRouter = router({
   system: systemRouter,
@@ -110,6 +116,12 @@ export const appRouter = router({
   telemedicine: telemedicineRouter,
   regionalHubs: regionalHubsRouter,
   complianceAutomation: complianceAutomationRouter,
+  clinicalDecisionSupport: clinicalDecisionSupportRouter,
+  patientMonitoring: patientMonitoringRouter,
+  researchSynthesis: researchSynthesisRouter,
+  capacityBuilding: capacityBuildingRouter,
+  qualityImprovement: qualityImprovementRouter,
+  continentalScaling: continentalScalingRouter,
 });
 
 export type AppRouter = typeof appRouter;
