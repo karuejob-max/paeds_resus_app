@@ -464,6 +464,22 @@ This is a state-of-the-art platform ready to save children's lives globally.
 - [x] Build developer tools
 - [x] Create extension guidelines
 
+## Phase 46: MVP REBUILD - RUTHLESS SIMPLIFICATION
+- [ ] Delete 50+ non-MVP pages (keep only 8 core pages)
+- [ ] Rebuild App.tsx with simplified routing
+- [ ] Create MobileNav with bottom tab bar
+- [ ] Create role-based dashboard routing
+- [ ] Implement working M-Pesa payment flow
+- [ ] Create BLS course with 5 modules
+- [ ] Verify Safe-Truth end-to-end submission
+- [ ] Build role-based dashboards (Parent, Provider, Institution)
+- [ ] Optimize all pages for mobile
+- [ ] Add loading states and error handling
+- [ ] Implement form validation
+- [ ] Test certificate generation
+- [ ] Performance optimization
+- [ ] Final MVP launch checkpoint
+
 
 ---
 

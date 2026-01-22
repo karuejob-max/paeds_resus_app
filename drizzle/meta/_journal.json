@@ -43,6 +43,13 @@
       "when": 1769001194883,
       "tag": "0005_fair_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1769108859054,
+      "tag": "0006_small_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

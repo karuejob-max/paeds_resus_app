@@ -639,3 +639,86 @@ export const accreditedFacilities = mysqlTable("accreditedFacilities", {
 
 export type AccreditedFacility = typeof accreditedFacilities.$inferSelect;
 export type InsertAccreditedFacility = typeof accreditedFacilities.$inferInsert;
+
+
+// Courses table
+export const courses = mysqlTable("courses", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship"]).notNull(),
+  duration: int("duration"), // in minutes
+  level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default("beginner"),
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Course = typeof courses.$inferSelect;
+export type InsertCourse = typeof courses.$inferInsert;
+
+// Modules table
+export const modules = mysqlTable("modules", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("courseId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  content: text("content"), // HTML content
+  duration: int("duration"), // in minutes
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Module = typeof modules.$inferSelect;
+export type InsertModule = typeof modules.$inferInsert;
+
+// Quizzes table
+export const quizzes = mysqlTable("quizzes", {
+  id: int("id").autoincrement().primaryKey(),
+  moduleId: int("moduleId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  passingScore: int("passingScore").default(70), // percentage
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Quiz = typeof quizzes.$inferSelect;
+export type InsertQuiz = typeof quizzes.$inferInsert;
+
+// Quiz Questions table
+export const quizQuestions = mysqlTable("quizQuestions", {
+  id: int("id").autoincrement().primaryKey(),
+  quizId: int("quizId").notNull(),
+  question: text("question").notNull(),
+  questionType: mysqlEnum("questionType", ["multiple_choice", "true_false", "short_answer"]).default("multiple_choice"),
+  options: text("options"), // JSON array of options
+  correctAnswer: text("correctAnswer"), // JSON
+  explanation: text("explanation"),
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QuizQuestion = typeof quizQuestions.$inferSelect;
+export type InsertQuizQuestion = typeof quizQuestions.$inferInsert;
+
+// User Progress table
+export const userProgress = mysqlTable("userProgress", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  moduleId: int("moduleId").notNull(),
+  quizId: int("quizId"),
+  status: mysqlEnum("status", ["not_started", "in_progress", "completed"]).default("not_started"),
+  score: int("score"), // percentage
+  attempts: int("attempts").default(0),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserProgress = typeof userProgress.$inferSelect;
+export type InsertUserProgress = typeof userProgress.$inferInsert;

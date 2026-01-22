@@ -1,29 +1,25 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Award, TrendingUp, Users, Calendar, Download, Share2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, BookOpen, FileText, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 
 export default function LearnerDashboard() {
   const { user, isAuthenticated } = useAuth();
-  const [, setLocation] = useLocation();
-
-  const enrollments = trpc.enrollment.getByUserId.useQuery(undefined, {
-    enabled: isAuthenticated,
-  });
+  const { role: selectedRole } = useUserRole();
+  const [, navigate] = useLocation();
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Sign In to View Dashboard</CardTitle>
-            <CardDescription>Access your learning progress and certificates</CardDescription>
+            <CardTitle>Sign In Required</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="text-sm text-slate-600 mb-4">Sign in to access your dashboard</p>
             <a href={getLoginUrl()}>
               <Button className="w-full bg-blue-900 hover:bg-blue-800">Sign In</Button>
             </a>
@@ -33,267 +29,149 @@ export default function LearnerDashboard() {
     );
   }
 
-  // Mock learner progress data
-  const mockProgress = {
-    currentProgram: "PALS (Pediatric Advanced Life Support)",
-    progressPercentage: 65,
-    modulesCompleted: 13,
-    totalModules: 20,
-    badges: ["Quick Learner", "Perfect Score", "Active Participant"],
-    leaderboardRank: 12,
-    totalLearners: 487,
-    lastActivityAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-  };
-
-  const modules = [
-    { name: "Module 1: Pediatric Assessment", completed: true, score: 95 },
-    { name: "Module 2: Airway Management", completed: true, score: 88 },
-    { name: "Module 3: Shock Recognition", completed: true, score: 92 },
-    { name: "Module 4: Arrhythmia Recognition", completed: true, score: 85 },
-    { name: "Module 5: Medication Administration", completed: false, score: null },
-    { name: "Module 6: Post-Resuscitation Care", completed: false, score: null },
-  ];
-
-  const upcomingEvents = [
-    {
-      type: "Live Session",
-      title: "Advanced Airway Techniques",
-      date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      instructor: "Dr. Jane Kipchoge",
-    },
-    {
-      type: "Quiz",
-      title: "Module 5 Assessment",
-      date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      instructor: "Self-paced",
-    },
-    {
-      type: "Practical",
-      title: "Simulation Training",
-      date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      instructor: "PICU Training Center",
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Welcome back, {user?.name}!</h1>
-          <p className="text-gray-600">Track your learning progress and achievements</p>
-        </div>
+        <h1 className="text-4xl font-bold text-slate-900 mb-2">Welcome, {user?.name}!</h1>
+        <p className="text-lg text-slate-600 mb-8">
+          {selectedRole === "parent"
+            ? "Share your healthcare journey and help improve pediatric care"
+            : selectedRole === "provider"
+            ? "Log clinical events and contribute to system improvements"
+            : "Manage your institution's training programs"}
+        </p>
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        {!selectedRole ? (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{mockProgress.progressPercentage}%</div>
-              <p className="text-xs text-gray-500 mt-1">Current program</p>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <AlertCircle className="w-16 h-16 text-orange-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Select Your Role</h2>
+                <p className="text-slate-600 mb-6">Choose how you'll use the platform</p>
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button onClick={() => navigate("/")}>Go Back</Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Modules Completed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{mockProgress.modulesCompleted}/{mockProgress.totalModules}</div>
-              <p className="text-xs text-gray-500 mt-1">Learning units</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Badges Earned</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{mockProgress.badges.length}</div>
-              <p className="text-xs text-gray-500 mt-1">Achievements</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Leaderboard Rank</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">#{mockProgress.leaderboardRank}</div>
-              <p className="text-xs text-gray-500 mt-1">of {mockProgress.totalLearners}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Current Program */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Program</CardTitle>
-                <CardDescription>{mockProgress.currentProgram}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">Overall Progress</span>
-                    <span className="text-sm font-bold">{mockProgress.progressPercentage}%</span>
-                  </div>
-                  <Progress value={mockProgress.progressPercentage} className="h-2" />
-                </div>
-
-                <div className="flex gap-4">
-                  <Button className="flex-1 bg-blue-900 hover:bg-blue-800">Continue Learning</Button>
-                  <Button variant="outline" className="flex-1">View Resources</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Modules */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Learning Modules</CardTitle>
-                <CardDescription>Complete all modules to finish the program</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {modules.map((module, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                            module.completed
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {module.completed ? "✓" : index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{module.name}</p>
-                          {module.score && (
-                            <p className="text-sm text-gray-500">Score: {module.score}%</p>
-                          )}
-                        </div>
-                      </div>
-                      {module.completed && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                          Completed
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Upcoming Events */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Events</CardTitle>
-                <CardDescription>Don't miss these important dates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {upcomingEvents.map((event, index) => (
-                    <div key={index} className="flex items-start gap-4 pb-4 border-b last:border-b-0">
-                      <div className="flex-shrink-0">
-                        <Calendar className="w-5 h-5 text-blue-900" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                            {event.type}
-                          </span>
-                        </div>
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-gray-500">
-                          {event.date.toLocaleDateString()} • {event.instructor}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-8">
-            {/* Badges */}
+        ) : selectedRole === "parent" ? (
+          <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5" />
-                  Badges Earned
+                  <FileText className="w-5 h-5" />
+                  Your Stories
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {mockProgress.badges.map((badge) => (
-                    <div key={badge} className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 text-yellow-700" />
-                      </div>
-                      <span className="text-sm font-medium">{badge}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Leaderboard */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center mb-4">
-                  <div className="text-4xl font-bold text-blue-900">#{mockProgress.leaderboardRank}</div>
-                  <p className="text-sm text-gray-500">out of {mockProgress.totalLearners} learners</p>
-                </div>
-                <Button variant="outline" className="w-full">View Full Leaderboard</Button>
-              </CardContent>
-            </Card>
-
-            {/* Share Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Share Your Progress</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full gap-2">
-                  <Share2 className="w-4 h-4" />
-                  Share on Social Media
-                </Button>
-                <Button variant="outline" className="w-full gap-2">
-                  <Download className="w-4 h-4" />
-                  Download Certificate
+                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
+                <p className="text-slate-600 mb-4">Healthcare journey events shared</p>
+                <Button className="w-full" onClick={() => navigate("/parent-safe-truth")}>
+                  Share Your Story
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Help */}
             <Card>
               <CardHeader>
-                <CardTitle>Need Help?</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Community Impact
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full">Contact Support</Button>
-                <Button variant="outline" className="w-full">View FAQ</Button>
+              <CardContent>
+                <p className="text-3xl font-bold text-green-600 mb-2">3</p>
+                <p className="text-slate-600 mb-4">System improvements identified</p>
+                <Button variant="outline" className="w-full">View Impact</Button>
               </CardContent>
             </Card>
           </div>
-        </div>
+        ) : selectedRole === "provider" ? (
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Events Logged
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
+                <p className="text-slate-600 mb-4">Clinical events submitted</p>
+                <Button className="w-full" onClick={() => navigate("/safe-truth")}>
+                  Log Event
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  Certification
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-600 mb-4">BLS Certification</p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/payment")}
+                >
+                  Enroll Now
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  System Gaps
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-orange-600 mb-2">5</p>
+                <p className="text-slate-600">Gaps identified from events</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Staff Members
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
+                <p className="text-slate-600">Enrolled in training</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Completion Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-green-600 mb-2">0%</p>
+                <p className="text-slate-600">Course completion</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Certifications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-purple-600 mb-2">0</p>
+                <p className="text-slate-600">Issued</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
