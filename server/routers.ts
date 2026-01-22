@@ -42,6 +42,14 @@ import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { institutionRouter } from "./routers/institution";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
+import { predictiveAnalyticsRouter } from "./routers/predictive-analytics";
+import { localizationRouter } from "./routers/localization";
+import { mobileSyncRouter } from "./routers/mobile-sync";
+import { incidentAlertsRouter } from "./routers/incident-alerts";
+import { emrIntegrationRouter } from "./routers/emr-integration";
+import { telemedicineRouter } from "./routers/telemedicine";
+import { regionalHubsRouter } from "./routers/regional-hubs";
+import { complianceAutomationRouter } from "./routers/compliance-automation";
 
 export const appRouter = router({
   system: systemRouter,
@@ -94,6 +102,14 @@ export const appRouter = router({
   institution: institutionRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
+  predictiveAnalytics: predictiveAnalyticsRouter,
+  localization: localizationRouter,
+  mobileSync: mobileSyncRouter,
+  incidentAlerts: incidentAlertsRouter,
+  emrIntegration: emrIntegrationRouter,
+  telemedicine: telemedicineRouter,
+  regionalHubs: regionalHubsRouter,
+  complianceAutomation: complianceAutomationRouter,
 });
 
 export type AppRouter = typeof appRouter;
