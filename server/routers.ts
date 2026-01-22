@@ -60,6 +60,7 @@ import { autonomousOperationsRouter } from "./routers/autonomous-operations";
 import { executionTrackingRouter } from "./routers/execution-tracking";
 import { revenueGenerationRouter } from "./routers/revenue-generation";
 import { kaizenContinuousImprovementRouter } from "./routers/kaizen-continuous-improvement";
+import { alutaContinuaRouter } from "./routers/aluta-continua";
 import { regionalHubsRouter } from "./routers/regional-hubs";
 import { complianceAutomationRouter } from "./routers/compliance-automation";
 import { clinicalDecisionSupportRouter } from "./routers/clinical-decision-support";
@@ -138,6 +139,7 @@ export const appRouter = router({
   executionTracking: executionTrackingRouter,
   revenueGeneration: revenueGenerationRouter,
   kaizen: kaizenContinuousImprovementRouter,
+  alutaContinua: alutaContinuaRouter,
   regionalHubs: regionalHubsRouter,
   complianceAutomation: complianceAutomationRouter,
   clinicalDecisionSupport: clinicalDecisionSupportRouter,
