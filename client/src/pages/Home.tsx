@@ -2,14 +2,15 @@ import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, Brain, Zap, Users, Award, TrendingUp, AlertCircle, BarChart3, Lightbulb } from "lucide-react";
+import { Heart, Brain, Zap, Users, Award, TrendingUp, AlertCircle, BarChart3, ArrowRight } from "lucide-react";
 import { getLoginUrl } from "@/const";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 
 export default function Home() {
   useScrollToTop();
   const { user, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const [livesSaved, setLivesSaved] = useState(47382);
   const [usersActive, setUsersActive] = useState(2847);
 
@@ -22,10 +23,27 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Handle dashboard navigation
+  const handleDashboardClick = () => {
+    if (isAuthenticated) {
+      navigate("/predictive-intervention");
+    } else {
+      window.location.href = getLoginUrl();
+    }
+  };
+
+  const handleLearningClick = () => {
+    if (isAuthenticated) {
+      navigate("/personalized-learning");
+    } else {
+      window.location.href = getLoginUrl();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* ML-First Hero Section */}
-      <section className="relative bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4 overflow-hidden">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-20 px-4 overflow-hidden">
         {/* Animated background */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
@@ -46,7 +64,7 @@ export default function Home() {
               </h1>
 
               <p className="text-xl text-blue-100 mb-4">
-                AI-powered predictive interventions, personalized training, and autonomous optimization helping healthcare workers prevent child deaths before they happen.
+                AI-powered predictive interventions help healthcare workers prevent child deaths before they happen.
               </p>
 
               <p className="text-lg text-blue-200 mb-8 flex items-center gap-2">
@@ -54,25 +72,43 @@ export default function Home() {
                 <span>Trusted by {usersActive.toLocaleString()} healthcare workers across Africa</span>
               </p>
 
+              {/* Primary CTA */}
               <div className="flex gap-4 mb-8">
                 {isAuthenticated ? (
-                  <Link href="/dashboard">
-                    <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 font-semibold">
-                      Go to Dashboard
+                  <>
+                    <Button
+                      size="lg"
+                      className="bg-white text-blue-900 hover:bg-blue-50 font-semibold"
+                      onClick={handleDashboardClick}
+                    >
+                      View Predictive Alerts
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
-                  </Link>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-white text-white hover:bg-white/10 font-semibold"
+                      onClick={handleLearningClick}
+                    >
+                      My Learning Path
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <a href={getLoginUrl()}>
                       <Button size="lg" className="bg-[#ff6633] text-white hover:bg-[#e55a22] font-semibold">
-                        Join Now - It's Free
+                        Get Started - It's Free
+                        <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </a>
-                    <Link href="/about">
-                      <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 font-semibold">
-                        See How It Works
-                      </Button>
-                    </Link>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-white text-white hover:bg-white/10 font-semibold"
+                      onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                    >
+                      Learn More
+                    </Button>
                   </>
                 )}
               </div>
@@ -147,12 +183,12 @@ export default function Home() {
       </section>
 
       {/* How ML Works Section */}
-      <section className="py-20 px-4 bg-gray-50">
+      <section id="how-it-works" className="py-20 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4 text-gray-900">How Our AI Works</h2>
             <p className="text-xl text-gray-600">
-              Machine learning at every layer of the platform to maximize impact and scale
+              Machine learning at every layer to maximize impact and scale
             </p>
           </div>
 
@@ -164,7 +200,7 @@ export default function Home() {
                 <CardTitle>Predictive Interventions</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   AI analyzes patient data to predict deterioration 24+ hours in advance, enabling healthcare workers to intervene before crises occur.
                 </p>
                 <div className="mt-4 p-3 bg-red-50 rounded text-sm text-red-700">
@@ -180,7 +216,7 @@ export default function Home() {
                 <CardTitle>Personalized Learning</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   ML generates unique learning paths for each healthcare worker based on their learning style, pace, and patient population.
                 </p>
                 <div className="mt-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
@@ -196,7 +232,7 @@ export default function Home() {
                 <CardTitle>Autonomous Optimization</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   AI continuously optimizes pricing, referral bonuses, feature rollouts, and resource allocation to maximize growth and impact.
                 </p>
                 <div className="mt-4 p-3 bg-yellow-50 rounded text-sm text-yellow-700">
@@ -220,7 +256,7 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Feature 1 */}
-            <Card className="border-l-4 border-l-red-500">
+            <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-500" />
@@ -236,11 +272,20 @@ export default function Home() {
                   <li>✓ 24-hour advance warning</li>
                   <li>✓ Automated escalation protocols</li>
                 </ul>
+                {isAuthenticated && (
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={handleDashboardClick}
+                  >
+                    View Alerts
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
             {/* Feature 2 */}
-            <Card className="border-l-4 border-l-blue-500">
+            <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Brain className="w-5 h-5 text-blue-500" />
@@ -256,11 +301,20 @@ export default function Home() {
                   <li>✓ Content recommended by ML</li>
                   <li>✓ 20% faster completion</li>
                 </ul>
+                {isAuthenticated && (
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={handleLearningClick}
+                  >
+                    Start Learning
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
             {/* Feature 3 */}
-            <Card className="border-l-4 border-l-green-500">
+            <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-500" />
@@ -280,7 +334,7 @@ export default function Home() {
             </Card>
 
             {/* Feature 4 */}
-            <Card className="border-l-4 border-l-yellow-500">
+            <Card className="border-l-4 border-l-yellow-500 hover:shadow-lg transition">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-yellow-500" />
@@ -322,14 +376,14 @@ export default function Home() {
 
             <Card>
               <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-green-600 mb-2">2,847</div>
+                <div className="text-4xl font-bold text-green-600 mb-2">{usersActive.toLocaleString()}</div>
                 <p className="text-gray-600">Active Healthcare Workers</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-red-600 mb-2">47K+</div>
+                <div className="text-4xl font-bold text-red-600 mb-2">{(livesSaved / 1000).toFixed(1)}K+</div>
                 <p className="text-gray-600">Lives Saved This Month</p>
               </CardContent>
             </Card>
@@ -337,7 +391,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Final CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold mb-6">
@@ -348,17 +402,42 @@ export default function Home() {
           </p>
 
           {!isAuthenticated && (
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <a href={getLoginUrl()}>
                 <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold">
                   Get Started Free
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </a>
-              <Link href="/about">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 font-semibold">
-                  Learn More
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white text-white hover:bg-white/10 font-semibold"
+                onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Learn More
+              </Button>
+            </div>
+          )}
+
+          {isAuthenticated && (
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Button
+                size="lg"
+                className="bg-white text-blue-600 hover:bg-blue-50 font-semibold"
+                onClick={handleDashboardClick}
+              >
+                View Predictive Alerts
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white text-white hover:bg-white/10 font-semibold"
+                onClick={handleLearningClick}
+              >
+                My Learning Path
+              </Button>
             </div>
           )}
         </div>

@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
+import { Menu, X, ChevronDown, LayoutDashboard, LogOut, Brain, AlertCircle } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { filterNavItems } from "@/lib/navigationFilter";
 import { isNavItemVisible } from "@/lib/contentVisibility";
@@ -51,6 +51,13 @@ export default function Header() {
     { label: "Payment History", href: "/payments", icon: "💳" },
   ];
 
+  // ML Dashboard items (shown for healthcare providers)
+  const mlDashboardItems = [
+    { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
+    { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
+    { label: "Kaizen Dashboard", href: "/kaizen-dashboard", icon: "📊" },
+  ];
+
   const handleNavClick = () => {
     setMobileMenuOpen(false);
     setAccountDropdownOpen(false);
@@ -78,6 +85,20 @@ export default function Header() {
                 </span>
               </Link>
             ))}
+
+            {/* ML Dashboards for authenticated users */}
+            {isAuthenticated && (
+              <div className="flex gap-1 ml-4 pl-4 border-l border-gray-300">
+                {mlDashboardItems.map((item) => (
+                  <Link key={item.href} href={item.href}>
+                    <span className="px-3 py-2 text-gray-700 hover:text-[#1a4d4d] hover:bg-blue-50 rounded transition cursor-pointer text-sm font-medium flex items-center gap-1">
+                      <span>{item.icon}</span>
+                      {item.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </nav>
 
           {/* Right Section: Role Selector + Notifications + Auth */}
@@ -192,6 +213,23 @@ export default function Header() {
               </Link>
             ))}
 
+            {/* ML Dashboards for mobile */}
+            {isAuthenticated && (
+              <div className="border-t pt-2 mt-2">
+                <div className="px-3 py-2 text-xs font-semibold text-[#1a4d4d] uppercase">ML Dashboards</div>
+                {mlDashboardItems.map((item) => (
+                  <Link key={item.href} href={item.href}>
+                    <span
+                      className="block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-[#1a4d4d] rounded transition cursor-pointer font-medium"
+                      onClick={handleNavClick}
+                    >
+                      {item.icon} {item.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
             {/* Authenticated User Section */}
             {isAuthenticated && (
               <div className="border-t pt-2 mt-2 space-y-1">
@@ -201,31 +239,13 @@ export default function Header() {
                 {accountMenuItems.map((item) => (
                   <Link key={item.href} href={item.href}>
                     <span
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer"
+                      className="block px-3 py-2 text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer text-sm"
                       onClick={handleNavClick}
                     >
-                      <span className="mr-2">{item.icon}</span>
-                      {item.label}
+                      {item.icon} {item.label}
                     </span>
                   </Link>
                 ))}
-
-                {/* Admin Links */}
-                {user?.role === "admin" && (
-                  <div className="border-t pt-2 mt-2 space-y-1">
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">Admin</div>
-                    {adminNavItems.map((link) => (
-                      <Link key={link.href} href={link.href}>
-                        <span
-                          className="block px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#1a4d4d] rounded transition cursor-pointer"
-                          onClick={handleNavClick}
-                        >
-                          {link.label}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
 
                 {/* Logout */}
                 <button
@@ -233,7 +253,7 @@ export default function Header() {
                     logout();
                     handleNavClick();
                   }}
-                  className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2 text-left"
+                  className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded transition text-sm flex items-center gap-2"
                 >
                   <LogOut className="w-4 h-4" />
                   Logout
@@ -241,15 +261,15 @@ export default function Header() {
               </div>
             )}
 
-            {/* Unauthenticated User Section */}
+            {/* Not Authenticated */}
             {!isAuthenticated && (
               <div className="border-t pt-2 mt-2 space-y-2">
-                <a href={getLoginUrl()} className="block">
+                <a href={getLoginUrl()} onClick={handleNavClick}>
                   <Button variant="outline" className="w-full border-[#1a4d4d] text-[#1a4d4d] hover:bg-orange-50">
                     Sign In
                   </Button>
                 </a>
-                <a href={getLoginUrl()} className="block">
+                <a href={getLoginUrl()} onClick={handleNavClick}>
                   <Button className="w-full bg-[#ff6633] hover:bg-[#e55a22]">
                     Get Started
                   </Button>

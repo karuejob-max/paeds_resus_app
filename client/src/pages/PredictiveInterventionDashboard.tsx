@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, Clock, TrendingUp, Users, Activity, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, TrendingUp, Activity, Zap, Home, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 
 interface PatientRisk {
   id: string;
@@ -13,99 +14,75 @@ interface PatientRisk {
   timeToDeterioration: string;
   recommendedAction: string;
   severity: "CRITICAL" | "HIGH" | "MEDIUM";
-  lastUpdated: Date;
-}
-
-interface InterventionOutcome {
-  patientId: string;
-  predicted: boolean;
-  actual: boolean;
-  timestamp: Date;
 }
 
 export default function PredictiveInterventionDashboard() {
-  const [patients, setPatients] = useState<PatientRisk[]>([]);
-  const [outcomes, setOutcomes] = useState<InterventionOutcome[]>([]);
-  const [modelAccuracy, setModelAccuracy] = useState(87);
-  const [interventionsToday, setInterventionsToday] = useState(12);
-  const [livesImpacted, setLivesImpacted] = useState(47);
+  const [patients] = useState<PatientRisk[]>([
+    {
+      id: "P001",
+      name: "Amara Okonkwo",
+      age: 3,
+      condition: "Sepsis Risk",
+      riskScore: 94,
+      confidence: 0.94,
+      timeToDeterioration: "12 hours",
+      recommendedAction: "Start broad-spectrum antibiotics, increase IV fluids, monitor vitals every 2 hours",
+      severity: "CRITICAL",
+    },
+    {
+      id: "P002",
+      name: "Kofi Mensah",
+      age: 5,
+      condition: "Respiratory Distress",
+      riskScore: 87,
+      confidence: 0.87,
+      timeToDeterioration: "18 hours",
+      recommendedAction: "Increase oxygen delivery, prepare for intubation, call respiratory team",
+      severity: "HIGH",
+    },
+    {
+      id: "P003",
+      name: "Zainab Hassan",
+      age: 2,
+      condition: "Dehydration",
+      riskScore: 72,
+      confidence: 0.89,
+      timeToDeterioration: "24 hours",
+      recommendedAction: "Increase IV rehydration rate, monitor electrolytes, check urine output",
+      severity: "HIGH",
+    },
+  ]);
 
-  // Simulate real-time patient risk data
-  useEffect(() => {
-    const mockPatients: PatientRisk[] = [
-      {
-        id: "P001",
-        name: "Amara K.",
-        age: 3,
-        condition: "Respiratory Distress",
-        riskScore: 94,
-        confidence: 0.94,
-        timeToDeterioration: "4-6 hours",
-        recommendedAction: "Start oxygen therapy, monitor SpO2 every 15 min",
-        severity: "CRITICAL",
-        lastUpdated: new Date(),
-      },
-      {
-        id: "P002",
-        name: "Juma M.",
-        age: 5,
-        condition: "Suspected Sepsis",
-        riskScore: 87,
-        confidence: 0.87,
-        timeToDeterioration: "6-12 hours",
-        recommendedAction: "Start antibiotics, IV fluids, blood cultures",
-        severity: "HIGH",
-        lastUpdated: new Date(),
-      },
-      {
-        id: "P003",
-        name: "Grace N.",
-        age: 2,
-        condition: "Malaria with Complications",
-        riskScore: 76,
-        confidence: 0.76,
-        timeToDeterioration: "8-24 hours",
-        recommendedAction: "Artemisinin therapy, monitor glucose, manage seizures",
-        severity: "HIGH",
-        lastUpdated: new Date(),
-      },
-      {
-        id: "P004",
-        name: "David O.",
-        age: 4,
-        condition: "Acute Gastroenteritis",
-        riskScore: 45,
-        confidence: 0.85,
-        timeToDeterioration: "24-48 hours",
-        recommendedAction: "Rehydration therapy, electrolyte monitoring",
-        severity: "MEDIUM",
-        lastUpdated: new Date(),
-      },
-    ];
+  const [confirmedActions, setConfirmedActions] = useState<string[]>([]);
 
-    setPatients(mockPatients);
-
-    // Simulate outcomes
-    const mockOutcomes: InterventionOutcome[] = [
-      { patientId: "P005", predicted: true, actual: true, timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-      { patientId: "P006", predicted: true, actual: true, timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000) },
-      { patientId: "P007", predicted: false, actual: false, timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000) },
-      { patientId: "P008", predicted: true, actual: true, timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000) },
-    ];
-
-    setOutcomes(mockOutcomes);
-  }, []);
+  const handleConfirmAction = (patientId: string) => {
+    setConfirmedActions([...confirmedActions, patientId]);
+    alert(`Action confirmed for patient. Healthcare team has been notified.`);
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "CRITICAL":
-        return "bg-red-100 border-red-300 text-red-900";
+        return "border-l-4 border-l-red-600 bg-red-50";
       case "HIGH":
-        return "bg-orange-100 border-orange-300 text-orange-900";
+        return "border-l-4 border-l-orange-600 bg-orange-50";
       case "MEDIUM":
-        return "bg-yellow-100 border-yellow-300 text-yellow-900";
+        return "border-l-4 border-l-yellow-600 bg-yellow-50";
       default:
-        return "bg-gray-100 border-gray-300 text-gray-900";
+        return "border-l-4 border-l-gray-600 bg-gray-50";
+    }
+  };
+
+  const getSeverityBadge = (severity: string) => {
+    switch (severity) {
+      case "CRITICAL":
+        return "bg-red-100 text-red-800";
+      case "HIGH":
+        return "bg-orange-100 text-orange-800";
+      case "MEDIUM":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -122,11 +99,21 @@ export default function PredictiveInterventionDashboard() {
     }
   };
 
+  const criticalCount = patients.filter((p) => p.severity === "CRITICAL").length;
+  const highCount = patients.filter((p) => p.severity === "HIGH").length;
+  const mediumCount = patients.filter((p) => p.severity === "MEDIUM").length;
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="mb-4 gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </Button>
+          </Link>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Predictive Intervention Dashboard
           </h1>
@@ -135,18 +122,17 @@ export default function PredictiveInterventionDashboard() {
           </p>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {/* Summary Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Model Accuracy</p>
-                  <div className="text-3xl font-bold text-blue-600">{modelAccuracy}%</div>
+                  <p className="text-sm text-gray-600 mb-2">Critical Alerts</p>
+                  <div className="text-3xl font-bold text-red-600">{criticalCount}</div>
                 </div>
-                <TrendingUp className="w-8 h-8 text-blue-400" />
+                <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
-              <p className="text-xs text-gray-500 mt-2">Based on 1,247 predictions</p>
             </CardContent>
           </Card>
 
@@ -154,229 +140,208 @@ export default function PredictiveInterventionDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Interventions Today</p>
-                  <div className="text-3xl font-bold text-green-600">{interventionsToday}</div>
+                  <p className="text-sm text-gray-600 mb-2">High Priority</p>
+                  <div className="text-3xl font-bold text-orange-600">{highCount}</div>
+                </div>
+                <AlertCircle className="w-8 h-8 text-orange-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Medium Priority</p>
+                  <div className="text-3xl font-bold text-yellow-600">{mediumCount}</div>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Actions Confirmed</p>
+                  <div className="text-3xl font-bold text-green-600">{confirmedActions.length}</div>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-400" />
               </div>
-              <p className="text-xs text-gray-500 mt-2">Successful predictions</p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Lives Impacted</p>
-                  <div className="text-3xl font-bold text-red-600">{livesImpacted}</div>
-                </div>
-                <Activity className="w-8 h-8 text-red-400" />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">This month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Active Alerts</p>
-                  <div className="text-3xl font-bold text-orange-600">{patients.length}</div>
-                </div>
-                <Zap className="w-8 h-8 text-orange-400" />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Requiring attention</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Critical Alerts Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Critical Patient Alerts</h2>
-          <div className="space-y-4">
-            {patients
-              .filter((p) => p.severity === "CRITICAL")
-              .map((patient) => (
-                <Card key={patient.id} className={`border-2 ${getSeverityColor(patient.severity)}`}>
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
-                      {/* Patient Info */}
-                      <div className="md:col-span-1">
-                        <div className="flex items-start gap-3">
-                          {getSeverityIcon(patient.severity)}
-                          <div>
-                            <p className="font-semibold text-lg">{patient.name}</p>
-                            <p className="text-sm text-gray-600">{patient.age} years old</p>
-                            <p className="text-sm font-medium mt-1">{patient.condition}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Risk Assessment */}
-                      <div className="md:col-span-1">
-                        <p className="text-xs text-gray-600 mb-1">Risk Score</p>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-red-600 h-2 rounded-full"
-                              style={{ width: `${patient.riskScore}%` }}
-                            ></div>
-                          </div>
-                          <span className="font-bold text-red-600">{patient.riskScore}%</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Confidence: {(patient.confidence * 100).toFixed(0)}%
-                        </p>
-                      </div>
-
-                      {/* Time to Deterioration */}
-                      <div className="md:col-span-1">
-                        <p className="text-xs text-gray-600 mb-1">Time to Deterioration</p>
-                        <p className="font-semibold text-red-600">{patient.timeToDeterioration}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Last updated: {patient.lastUpdated.toLocaleTimeString()}
-                        </p>
-                      </div>
-
-                      {/* Recommended Action */}
-                      <div className="md:col-span-2">
-                        <p className="text-xs text-gray-600 mb-1">Recommended Intervention</p>
-                        <p className="font-medium text-gray-900">{patient.recommendedAction}</p>
-                        <div className="flex gap-2 mt-3">
-                          <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                            Confirm Action
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            View History
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-        </div>
-
-        {/* High Priority Alerts */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">High Priority Alerts</h2>
-          <div className="space-y-3">
-            {patients
-              .filter((p) => p.severity === "HIGH")
-              .map((patient) => (
-                <Card key={patient.id} className={`border-2 ${getSeverityColor(patient.severity)}`}>
-                  <CardContent className="pt-4 pb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                      <div className="flex items-center gap-3">
-                        {getSeverityIcon(patient.severity)}
-                        <div>
-                          <p className="font-semibold">{patient.name}</p>
-                          <p className="text-sm text-gray-600">{patient.condition}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-600">Risk Score</p>
-                        <p className="font-bold text-orange-600">{patient.riskScore}%</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-gray-600">Time to Deterioration</p>
-                        <p className="font-semibold">{patient.timeToDeterioration}</p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
-                          Take Action
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
         </div>
 
         {/* Model Performance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Accuracy Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Model Accuracy Breakdown</CardTitle>
-              <CardDescription>Performance on recent predictions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">True Positives</span>
-                    <span className="text-sm font-bold text-green-600">94%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: "94%" }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">True Negatives</span>
-                    <span className="text-sm font-bold text-blue-600">89%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-500 h-2 rounded-full" style={{ width: "89%" }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">False Positives</span>
-                    <span className="text-sm font-bold text-yellow-600">6%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-yellow-500 h-2 rounded-full" style={{ width: "6%" }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">False Negatives</span>
-                    <span className="text-sm font-bold text-red-600">1%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-red-500 h-2 rounded-full" style={{ width: "1%" }}></div>
-                  </div>
-                </div>
+        <Card className="mb-8 bg-blue-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              Model Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Overall Accuracy</p>
+                <p className="text-2xl font-bold text-blue-600">87%</p>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">True Positive Rate</p>
+                <p className="text-2xl font-bold text-green-600">94%</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">False Positive Rate</p>
+                <p className="text-2xl font-bold text-orange-600">11%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Recent Outcomes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Prediction Outcomes</CardTitle>
-              <CardDescription>Last 24 hours</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {outcomes.map((outcome, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm font-medium">Patient {outcome.patientId}</p>
-                      <p className="text-xs text-gray-500">
-                        {outcome.timestamp.toLocaleTimeString()}
-                      </p>
+        {/* Patient Alerts */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900">Patient Risk Alerts</h2>
+
+          {patients.map((patient) => (
+            <Card key={patient.id} className={getSeverityColor(patient.severity)}>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {/* Patient Info */}
+                  <div>
+                    <div className="flex items-start gap-3">
+                      {getSeverityIcon(patient.severity)}
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{patient.name}</h3>
+                        <p className="text-sm text-gray-600">Age: {patient.age} years</p>
+                        <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold ${getSeverityBadge(patient.severity)}`}>
+                          {patient.severity}
+                        </span>
+                      </div>
                     </div>
-                    {outcome.predicted === outcome.actual ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-red-600" />
-                    )}
                   </div>
-                ))}
+
+                  {/* Condition & Risk */}
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Condition</p>
+                    <p className="text-lg font-semibold text-gray-900 mb-3">{patient.condition}</p>
+                    <p className="text-sm text-gray-600 mb-1">Risk Score</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-gray-300 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            patient.riskScore >= 80
+                              ? "bg-red-600"
+                              : patient.riskScore >= 70
+                                ? "bg-orange-600"
+                                : "bg-yellow-600"
+                          }`}
+                          style={{ width: `${patient.riskScore}%` }}
+                        ></div>
+                      </div>
+                      <span className="font-bold text-gray-900">{patient.riskScore}%</span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">Confidence: {(patient.confidence * 100).toFixed(0)}%</p>
+                  </div>
+
+                  {/* Time & Action */}
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Time to Deterioration</p>
+                    <p className="text-lg font-bold text-red-600 mb-3 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {patient.timeToDeterioration}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-1">Recommended Action</p>
+                    <p className="text-sm text-gray-900">{patient.recommendedAction}</p>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="flex flex-col gap-2">
+                    {confirmedActions.includes(patient.id) ? (
+                      <div className="flex items-center gap-2 text-green-600 font-semibold p-3 bg-green-100 rounded">
+                        <CheckCircle className="w-5 h-5" />
+                        Action Confirmed
+                      </div>
+                    ) : (
+                      <Button
+                        className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+                        onClick={() => handleConfirmAction(patient.id)}
+                      >
+                        Confirm Action
+                      </Button>
+                    )}
+                    <Link href="/kaizen-dashboard">
+                      <Button variant="outline" className="w-full">
+                        View History
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Recent Outcomes */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Recent Intervention Outcomes</CardTitle>
+            <CardDescription>Validation of predictions vs. actual outcomes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b">
+                <div>
+                  <p className="font-semibold text-gray-900">Sepsis Prediction - Kofi Mensah</p>
+                  <p className="text-sm text-gray-600">Predicted 18 hours before onset</p>
+                </div>
+                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                  ✓ Prevented
+                </span>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="flex items-center justify-between pb-4 border-b">
+                <div>
+                  <p className="font-semibold text-gray-900">Respiratory Distress - Amara Okonkwo</p>
+                  <p className="text-sm text-gray-600">Predicted 24 hours before onset</p>
+                </div>
+                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                  ✓ Prevented
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-gray-900">Dehydration - Zainab Hassan</p>
+                  <p className="text-sm text-gray-600">Predicted 12 hours before onset</p>
+                </div>
+                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                  ✓ Prevented
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Navigation */}
+        <div className="mt-8 flex gap-4 justify-center flex-wrap">
+          <Link href="/">
+            <Button variant="outline" className="gap-2">
+              <Home className="w-4 h-4" />
+              Back to Home
+            </Button>
+          </Link>
+          <Link href="/personalized-learning">
+            <Button className="gap-2">
+              View Learning Path
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </Button>
+          </Link>
+          <Link href="/kaizen-dashboard">
+            <Button variant="outline" className="gap-2">
+              Kaizen Dashboard
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
