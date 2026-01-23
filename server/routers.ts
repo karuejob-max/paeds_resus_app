@@ -84,6 +84,9 @@ import { peerAdoption } from "./routers/peer-adoption";
 import { healthcareWorkerDirect } from "./routers/healthcare-worker-direct";
 import { viralReferral } from "./routers/viral-referral";
 import { coreExponential } from "./routers/core-exponential";
+import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
+import { kaizenAutomationRouter } from "./routers/kaizen-automation";
+import { kaizenIntegrationRouter } from "./routers/kaizen-integration";
 
 export const appRouter = router({
   system: systemRouter,
@@ -178,6 +181,9 @@ export const appRouter = router({
   healthcareWorkerDirect,
   viralReferral,
   coreExponential,
+  kaizenMetrics: kaizenMetricsRouter,
+  kaizenAutomation: kaizenAutomationRouter,
+  kaizenIntegration: kaizenIntegrationRouter,
 });
 
 export type AppRouter = typeof appRouter;
