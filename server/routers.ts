@@ -76,6 +76,11 @@ import { exponentialScaling } from "./routers/exponential-scaling";
 import { aiPersonalization } from "./routers/ai-personalization";
 import { globalCoordination } from "./routers/global-coordination";
 import { autonomousGlobalOps } from "./routers/autonomous-global-ops";
+import { directHospitalOnboarding } from "./routers/direct-hospital-onboarding";
+import { healthcareWorkerCommunity } from "./routers/healthcare-worker-community";
+import { directRevenue } from "./routers/direct-revenue";
+import { realTimeImpact } from "./routers/real-time-impact";
+import { peerAdoption } from "./routers/peer-adoption";
 
 export const appRouter = router({
   system: systemRouter,
@@ -162,6 +167,11 @@ export const appRouter = router({
   aiPersonalization,
   globalCoordination,
   autonomousGlobalOps,
+  directHospitalOnboarding,
+  healthcareWorkerCommunity,
+  directRevenue,
+  realTimeImpact,
+  peerAdoption,
 });
 
 export type AppRouter = typeof appRouter;
