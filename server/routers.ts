@@ -87,6 +87,9 @@ import { coreExponential } from "./routers/core-exponential";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { kaizenAutomationRouter } from "./routers/kaizen-automation";
 import { kaizenIntegrationRouter } from "./routers/kaizen-integration";
+import { kaizenRealMetricsRouter } from "./routers/kaizen-real-metrics";
+import { kaizenFeedbackLoopRouter } from "./routers/kaizen-feedback-loop";
+import { kaizenTOCRouter } from "./routers/kaizen-toc";
 
 export const appRouter = router({
   system: systemRouter,
@@ -184,6 +187,9 @@ export const appRouter = router({
   kaizenMetrics: kaizenMetricsRouter,
   kaizenAutomation: kaizenAutomationRouter,
   kaizenIntegration: kaizenIntegrationRouter,
+  kaizenRealMetrics: kaizenRealMetricsRouter,
+  kaizenFeedbackLoop: kaizenFeedbackLoopRouter,
+  kaizenTOC: kaizenTOCRouter,
 });
 
 export type AppRouter = typeof appRouter;
