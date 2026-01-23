@@ -83,6 +83,7 @@ import { realTimeImpact } from "./routers/real-time-impact";
 import { peerAdoption } from "./routers/peer-adoption";
 import { healthcareWorkerDirect } from "./routers/healthcare-worker-direct";
 import { viralReferral } from "./routers/viral-referral";
+import { coreExponential } from "./routers/core-exponential";
 
 export const appRouter = router({
   system: systemRouter,
@@ -176,6 +177,7 @@ export const appRouter = router({
   peerAdoption,
   healthcareWorkerDirect,
   viralReferral,
+  coreExponential,
 });
 
 export type AppRouter = typeof appRouter;
