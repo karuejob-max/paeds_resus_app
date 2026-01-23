@@ -69,6 +69,13 @@ import { researchSynthesisRouter } from "./routers/research-synthesis";
 import { capacityBuildingRouter } from "./routers/capacity-building";
 import { qualityImprovementRouter } from "./routers/quality-improvement";
 import { continentalScalingRouter } from "./routers/continental-scaling";
+import { aiContentGeneration } from "./routers/ai-content-generation";
+import { globalInfrastructure } from "./routers/global-infrastructure";
+import { predictiveIntervention } from "./routers/predictive-intervention";
+import { exponentialScaling } from "./routers/exponential-scaling";
+import { aiPersonalization } from "./routers/ai-personalization";
+import { globalCoordination } from "./routers/global-coordination";
+import { autonomousGlobalOps } from "./routers/autonomous-global-ops";
 
 export const appRouter = router({
   system: systemRouter,
@@ -148,6 +155,13 @@ export const appRouter = router({
   capacityBuilding: capacityBuildingRouter,
   qualityImprovement: qualityImprovementRouter,
   continentalScaling: continentalScalingRouter,
+  aiContentGeneration,
+  globalInfrastructure,
+  predictiveIntervention,
+  exponentialScaling,
+  aiPersonalization,
+  globalCoordination,
+  autonomousGlobalOps,
 });
 
 export type AppRouter = typeof appRouter;
