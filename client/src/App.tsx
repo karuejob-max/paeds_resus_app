@@ -20,6 +20,8 @@ import CourseBLS from "./pages/CourseBLS";
 import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import KaizenDashboard from "./pages/KaizenDashboard";
+import PredictiveInterventionDashboard from "./pages/PredictiveInterventionDashboard";
+import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -73,6 +75,8 @@ function Router() {
           <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
           <Route path="/kaizen-dashboard" component={KaizenDashboard} />
+          <Route path="/predictive-intervention" component={PredictiveInterventionDashboard} />
+          <Route path="/personalized-learning" component={PersonalizedLearningDashboard} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
