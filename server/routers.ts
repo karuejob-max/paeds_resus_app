@@ -91,6 +91,7 @@ import { kaizenRealMetricsRouter } from "./routers/kaizen-real-metrics";
 import { kaizenFeedbackLoopRouter } from "./routers/kaizen-feedback-loop";
 import { kaizenTOCRouter } from "./routers/kaizen-toc";
 import { mlRouter } from "./routers/ml-orchestration";
+import { autonomousOrchestrationRouter } from "./routers/autonomous-orchestration";
 
 export const appRouter = router({
   system: systemRouter,
@@ -192,6 +193,7 @@ export const appRouter = router({
   kaizenFeedbackLoop: kaizenFeedbackLoopRouter,
   kaizenTOC: kaizenTOCRouter,
   ml: mlRouter,
+  autonomousOrchestration: autonomousOrchestrationRouter,
 });
 
 export type AppRouter = typeof appRouter;
