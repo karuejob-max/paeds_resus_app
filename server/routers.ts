@@ -81,6 +81,8 @@ import { healthcareWorkerCommunity } from "./routers/healthcare-worker-community
 import { directRevenue } from "./routers/direct-revenue";
 import { realTimeImpact } from "./routers/real-time-impact";
 import { peerAdoption } from "./routers/peer-adoption";
+import { healthcareWorkerDirect } from "./routers/healthcare-worker-direct";
+import { viralReferral } from "./routers/viral-referral";
 
 export const appRouter = router({
   system: systemRouter,
@@ -172,6 +174,8 @@ export const appRouter = router({
   directRevenue,
   realTimeImpact,
   peerAdoption,
+  healthcareWorkerDirect,
+  viralReferral,
 });
 
 export type AppRouter = typeof appRouter;
