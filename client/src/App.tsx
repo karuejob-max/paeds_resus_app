@@ -23,6 +23,7 @@ import KaizenDashboard from "./pages/KaizenDashboard";
 import PredictiveInterventionDashboard from "./pages/PredictiveInterventionDashboard";
 import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard";
 import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
+import PatientDetail from "./pages/PatientDetail";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -78,7 +79,8 @@ function Router() {
           <Route path="/kaizen-dashboard" component={KaizenDashboard} />
           <Route path="/predictive-intervention" component={PredictiveInterventionDashboard} />
           <Route path="/personalized-learning" component={PersonalizedLearningDashboard} />
-      <Route path="/personal-impact" component={PersonalImpactDashboard} />
+          <Route path="/personal-impact" component={PersonalImpactDashboard} />
+          <Route path="/patient/:id" component={PatientDetail} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
