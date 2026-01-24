@@ -1068,3 +1068,94 @@ export const providerPerformanceMetrics = mysqlTable("providerPerformanceMetrics
 
 export type ProviderPerformanceMetric = typeof providerPerformanceMetrics.$inferSelect;
 export type InsertProviderPerformanceMetric = typeof providerPerformanceMetrics.$inferInsert;
+
+
+// ============ PHASE A: VITAL SIGNS & INTERVENTION TRACKING ============
+
+// Vital Signs History table - Track all vital sign measurements with timestamps
+export const vitalSignsHistory = mysqlTable("vitalSignsHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  userId: int("userId").notNull(), // Provider who recorded
+  heartRate: int("heartRate"), // beats per minute
+  respiratoryRate: int("respiratoryRate"), // breaths per minute
+  systolicBP: int("systolicBP"), // mmHg
+  diastolicBP: int("diastolicBP"), // mmHg
+  oxygenSaturation: int("oxygenSaturation"), // percentage (0-100)
+  temperature: decimal("temperature", { precision: 5, scale: 2 }), // Celsius
+  weight: decimal("weight", { precision: 6, scale: 2 }), // kg
+  height: decimal("height", { precision: 6, scale: 2 }), // cm
+  age: int("age"), // years
+  ageMonths: int("ageMonths"), // additional months for infants
+  riskScore: int("riskScore"), // 0-100 calculated risk score
+  riskLevel: mysqlEnum("riskLevel", ["CRITICAL", "HIGH", "MEDIUM", "LOW"]).notNull(),
+  symptoms: text("symptoms"), // JSON array of symptoms
+  notes: text("notes"),
+  recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VitalSignsHistory = typeof vitalSignsHistory.$inferSelect;
+export type InsertVitalSignsHistory = typeof vitalSignsHistory.$inferInsert;
+
+// Reference Ranges table - Age-weight-based normal ranges for vital signs
+export const referenceRanges = mysqlTable("referenceRanges", {
+  id: int("id").autoincrement().primaryKey(),
+  ageMin: int("ageMin"), // years
+  ageMax: int("ageMax"), // years
+  weightMin: decimal("weightMin", { precision: 6, scale: 2 }), // kg
+  weightMax: decimal("weightMax", { precision: 6, scale: 2 }), // kg
+  heartRateMin: int("heartRateMin"),
+  heartRateMax: int("heartRateMax"),
+  respiratoryRateMin: int("respiratoryRateMin"),
+  respiratoryRateMax: int("respiratoryRateMax"),
+  systolicBPMin: int("systolicBPMin"),
+  systolicBPMax: int("systolicBPMax"),
+  diastolicBPMin: int("diastolicBPMin"),
+  diastolicBPMax: int("diastolicBPMax"),
+  oxygenSaturationMin: int("oxygenSaturationMin"),
+  temperatureMin: decimal("temperatureMin", { precision: 5, scale: 2 }),
+  temperatureMax: decimal("temperatureMax", { precision: 5, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ReferenceRange = typeof referenceRanges.$inferSelect;
+export type InsertReferenceRange = typeof referenceRanges.$inferInsert;
+
+// Intervention Log table - Track all interventions (medications, procedures, monitoring)
+export const interventionLog = mysqlTable("interventionLog", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  userId: int("userId").notNull(), // Provider who performed intervention
+  interventionType: mysqlEnum("interventionType", ["medication", "procedure", "monitoring", "referral", "other"]).notNull(),
+  interventionName: varchar("interventionName", { length: 255 }).notNull(), // e.g., "Epinephrine", "IV insertion"
+  dosage: varchar("dosage", { length: 100 }), // e.g., "0.01 mg/kg"
+  route: varchar("route", { length: 100 }), // e.g., "IV", "IM", "PO"
+  indication: text("indication"), // Why this intervention was given
+  outcome: varchar("outcome", { length: 255 }), // e.g., "successful", "failed", "pending"
+  notes: text("notes"),
+  performedAt: timestamp("performedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InterventionLog = typeof interventionLog.$inferSelect;
+export type InsertInterventionLog = typeof interventionLog.$inferInsert;
+
+// Risk Score History table - Track risk score changes over time
+export const riskScoreHistory = mysqlTable("riskScoreHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  vitalSignsHistoryId: int("vitalSignsHistoryId").notNull(),
+  riskScore: int("riskScore"), // 0-100
+  riskLevel: mysqlEnum("riskLevel", ["CRITICAL", "HIGH", "MEDIUM", "LOW"]).notNull(),
+  riskFactors: text("riskFactors"), // JSON array of factors contributing to risk
+  deteriorationPattern: varchar("deteriorationPattern", { length: 100 }), // e.g., "stable", "improving", "deteriorating"
+  timeToDeterioration: int("timeToDeterioration"), // hours until predicted deterioration
+  recommendations: text("recommendations"), // JSON array of recommended actions
+  calculatedAt: timestamp("calculatedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RiskScoreHistory = typeof riskScoreHistory.$inferSelect;
+export type InsertRiskScoreHistory = typeof riskScoreHistory.$inferInsert;

@@ -71,6 +71,13 @@
       "when": 1769242008250,
       "tag": "0009_classy_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1769245661081,
+      "tag": "0010_cultured_garia",
+      "breakpoints": true
     }
   ]
 }
