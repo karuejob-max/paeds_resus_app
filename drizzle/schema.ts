@@ -1492,3 +1492,120 @@ export const alertStatistics = mysqlTable("alertStatistics", {
 });
 export type AlertStatistics = typeof alertStatistics.$inferSelect;
 export type InsertAlertStatistics = typeof alertStatistics.$inferInsert;
+
+
+// ============================================================================
+// DIFFERENTIAL DIAGNOSIS ENGINE
+// ============================================================================
+
+export const medicalConditions = mysqlTable("medicalConditions", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  icdCode: varchar("icdCode", { length: 20 }), // ICD-10 code
+  category: mysqlEnum("category", [
+    "infectious",
+    "nutritional",
+    "metabolic",
+    "cardiovascular",
+    "respiratory",
+    "gastrointestinal",
+    "neurological",
+    "endocrine",
+    "hematologic",
+    "other",
+  ]).notNull(),
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe", "critical"]).default("moderate"),
+  prevalence: varchar("prevalence", { length: 50 }), // e.g., "common", "rare"
+  ageGroupsAffected: text("ageGroupsAffected"), // JSON array: ["0-1", "1-3", "3-6", "6-12", "12-18"]
+  commonSymptoms: text("commonSymptoms"), // JSON array of symptom IDs
+  criticalVitalSigns: text("criticalVitalSigns"), // JSON: {heartRate: {min, max}, temp: {min, max}, ...}
+  treatmentApproach: text("treatmentApproach"),
+  emergencyActions: text("emergencyActions"), // JSON array of emergency steps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type MedicalCondition = typeof medicalConditions.$inferSelect;
+export type InsertMedicalCondition = typeof medicalConditions.$inferInsert;
+
+export const symptoms = mysqlTable("symptoms", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: mysqlEnum("category", [
+    "fever",
+    "cough",
+    "diarrhea",
+    "vomiting",
+    "rash",
+    "lethargy",
+    "seizure",
+    "difficulty_breathing",
+    "abdominal_pain",
+    "other",
+  ]).notNull(),
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe"]).default("mild"),
+  duration: varchar("duration", { length: 100 }), // e.g., "acute", "chronic"
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Symptom = typeof symptoms.$inferSelect;
+export type InsertSymptom = typeof symptoms.$inferInsert;
+
+export const conditionSymptomMapping = mysqlTable("conditionSymptomMapping", {
+  id: int("id").primaryKey().autoincrement(),
+  conditionId: int("conditionId").notNull(),
+  symptomId: int("symptomId").notNull(),
+  frequency: mysqlEnum("frequency", ["always", "often", "sometimes", "rare"]).default("often"),
+  importance: int("importance").default(50), // 0-100 weight for diagnosis scoring
+});
+export type ConditionSymptomMapping = typeof conditionSymptomMapping.$inferSelect;
+export type InsertConditionSymptomMapping = typeof conditionSymptomMapping.$inferInsert;
+
+export const diagnosisHistory = mysqlTable("diagnosisHistory", {
+  id: int("id").primaryKey().autoincrement(),
+  patientId: int("patientId").notNull(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  symptoms: text("symptoms"), // JSON array of symptom IDs
+  vitalSigns: text("vitalSigns"), // JSON of vital signs at time of diagnosis
+  suggestedConditions: text("suggestedConditions"), // JSON array of suggested conditions with scores
+  selectedCondition: int("selectedCondition"), // Condition ID provider selected
+  selectedConditionName: varchar("selectedConditionName", { length: 255 }),
+  confidence: decimal("confidence", { precision: 5, scale: 2 }), // 0-100
+  aiExplanation: text("aiExplanation"), // LLM explanation of diagnosis
+  providerNotes: text("providerNotes"),
+  outcome: mysqlEnum("outcome", ["confirmed", "ruled_out", "pending", "unknown"]).default("pending"),
+  outcomeCondition: int("outcomeCondition"), // Actual condition if confirmed
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type DiagnosisHistory = typeof diagnosisHistory.$inferSelect;
+export type InsertDiagnosisHistory = typeof diagnosisHistory.$inferInsert;
+
+export const diagnosisAccuracy = mysqlTable("diagnosisAccuracy", {
+  id: int("id").primaryKey().autoincrement(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  conditionId: int("conditionId").notNull(),
+  totalDiagnoses: int("totalDiagnoses").default(0),
+  correctDiagnoses: int("correctDiagnoses").default(0),
+  accuracy: decimal("accuracy", { precision: 5, scale: 2 }).default("0"), // 0-100%
+  averageConfidence: decimal("averageConfidence", { precision: 5, scale: 2 }).default("0"),
+  period: mysqlEnum("period", ["all_time", "monthly", "quarterly"]).default("all_time"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type DiagnosisAccuracy = typeof diagnosisAccuracy.$inferSelect;
+export type InsertDiagnosisAccuracy = typeof diagnosisAccuracy.$inferInsert;
+
+export const differentialDiagnosisScores = mysqlTable("differentialDiagnosisScores", {
+  id: int("id").primaryKey().autoincrement(),
+  diagnosisHistoryId: int("diagnosisHistoryId").notNull(),
+  conditionId: int("conditionId").notNull(),
+  conditionName: varchar("conditionName", { length: 255 }),
+  score: decimal("score", { precision: 5, scale: 2 }).notNull(), // 0-100
+  matchedSymptoms: int("matchedSymptoms").default(0),
+  totalSymptoms: int("totalSymptoms").default(0),
+  vitalSignMatch: decimal("vitalSignMatch", { precision: 5, scale: 2 }).default("0"), // 0-100
+  reasoning: text("reasoning"),
+  rank: int("rank"), // 1 = most likely, 2 = second, etc.
+});
+export type DifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inferSelect;
+export type InsertDifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inferInsert;
