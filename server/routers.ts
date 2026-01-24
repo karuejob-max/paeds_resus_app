@@ -94,6 +94,7 @@ import { mlRouter } from "./routers/ml-orchestration";
 import { autonomousOrchestrationRouter } from "./routers/autonomous-orchestration";
 import { patientRouter } from "./routers/patients";
 import { interventionRouter } from "./routers/interventions";
+import { providerRouter } from "./routers/provider";
 
 export const appRouter = router({
   system: systemRouter,
@@ -198,6 +199,7 @@ export const appRouter = router({
   autonomousOrchestration: autonomousOrchestrationRouter,
   patients: patientRouter,
   interventions: interventionRouter,
+  provider: providerRouter,
 });
 
 export type AppRouter = typeof appRouter;

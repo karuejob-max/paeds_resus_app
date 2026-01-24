@@ -1016,3 +1016,55 @@ export type InsertAssessment = typeof assessments.$inferInsert;
 
 // Note: referrals, achievements, leaderboardRankings tables already exist above
 // Using existing tables for referral system and leaderboards
+
+
+// ============ PROVIDER PROFILE SYSTEM ============
+// Provider Profile table - Extended profile for healthcare providers
+export const providerProfiles = mysqlTable("providerProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(), // One profile per user
+  licenseNumber: varchar("licenseNumber", { length: 255 }),
+  licenseExpiry: timestamp("licenseExpiry"),
+  specialization: varchar("specialization", { length: 255 }), // e.g., "Pediatrics", "Emergency Medicine"
+  yearsOfExperience: int("yearsOfExperience"),
+  facilityName: varchar("facilityName", { length: 255 }),
+  facilityType: mysqlEnum("facilityType", ["primary_health_center", "health_post", "district_hospital", "private_clinic", "ngo_clinic", "other"]),
+  facilityRegion: varchar("facilityRegion", { length: 255 }), // e.g., "Nairobi", "Kisumu"
+  facilityCountry: varchar("facilityCountry", { length: 255 }).default("Kenya"),
+  facilityPhone: varchar("facilityPhone", { length: 20 }),
+  facilityEmail: varchar("facilityEmail", { length: 320 }),
+  averagePatientLoad: int("averagePatientLoad"), // Patients per day
+  profileCompleted: boolean("profileCompleted").default(false),
+  profileCompletionPercentage: int("profileCompletionPercentage").default(0),
+  bio: text("bio"),
+  certifications: text("certifications"), // JSON array of certifications
+  languages: text("languages"), // JSON array of languages
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProviderProfile = typeof providerProfiles.$inferSelect;
+export type InsertProviderProfile = typeof providerProfiles.$inferInsert;
+
+// Provider Performance Metrics table
+export const providerPerformanceMetrics = mysqlTable("providerPerformanceMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  period: mysqlEnum("period", ["daily", "weekly", "monthly", "yearly"]).notNull(),
+  decisionsLogged: int("decisionsLogged").default(0),
+  diagnosticAccuracy: decimal("diagnosticAccuracy", { precision: 5, scale: 2 }).default("0"), // 0-100%
+  avgDecisionTime: int("avgDecisionTime"), // seconds
+  protocolAdherence: decimal("protocolAdherence", { precision: 5, scale: 2 }).default("0"), // 0-100%
+  patientSurvivalRate: decimal("patientSurvivalRate", { precision: 5, scale: 2 }).default("0"), // 0-100%
+  livesSavedCount: int("livesSavedCount").default(0),
+  patientsMonitoredCount: int("patientsMonitoredCount").default(0),
+  coursesCompleted: int("coursesCompleted").default(0),
+  certificationsEarned: int("certificationsEarned").default(0),
+  referralsMade: int("referralsMade").default(0),
+  earnings: int("earnings").default(0), // in cents (KES)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProviderPerformanceMetric = typeof providerPerformanceMetrics.$inferSelect;
+export type InsertProviderPerformanceMetric = typeof providerPerformanceMetrics.$inferInsert;

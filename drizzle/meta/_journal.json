@@ -64,6 +64,13 @@
       "when": 1769234988118,
       "tag": "0008_mighty_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1769242008250,
+      "tag": "0009_classy_vector",
+      "breakpoints": true
     }
   ]
 }

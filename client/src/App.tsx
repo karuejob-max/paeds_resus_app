@@ -24,6 +24,7 @@ import PredictiveInterventionDashboard from "./pages/PredictiveInterventionDashb
 import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard";
 import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
 import PatientDetail from "./pages/PatientDetail";
+import ProviderProfile from "./pages/ProviderProfile";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -81,6 +82,7 @@ function Router() {
           <Route path="/personalized-learning" component={PersonalizedLearningDashboard} />
           <Route path="/personal-impact" component={PersonalImpactDashboard} />
           <Route path="/patient/:id" component={PatientDetail} />
+          <Route path="/provider-profile" component={ProviderProfile} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
