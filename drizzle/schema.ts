@@ -1268,3 +1268,102 @@ export const cprProtocols = mysqlTable("cprProtocols", {
 
 export type CprProtocol = typeof cprProtocols.$inferSelect;
 export type InsertCprProtocol = typeof cprProtocols.$inferInsert;
+
+
+// Emergency Protocols table - Store clinical protocols for common pediatric emergencies
+export const emergencyProtocols = mysqlTable("emergencyProtocols", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(), // e.g., "Severe Diarrhea", "Pneumonia", "Malaria", "Meningitis", "Shock"
+  category: mysqlEnum("category", ["diarrhea", "pneumonia", "malaria", "meningitis", "shock"]).notNull(),
+  description: text("description"),
+  ageMin: int("ageMin"), // months
+  ageMax: int("ageMax"), // months
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe", "critical"]),
+  estimatedMortality: decimal("estimatedMortality", { precision: 5, scale: 2 }), // percentage
+  keySymptoms: text("keySymptoms"), // JSON array of symptoms
+  redFlags: text("redFlags"), // JSON array of danger signs
+  diagnosticCriteria: text("diagnosticCriteria"), // JSON object with criteria
+  initialAssessment: text("initialAssessment"), // Initial steps to take
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EmergencyProtocol = typeof emergencyProtocols.$inferSelect;
+export type InsertEmergencyProtocol = typeof emergencyProtocols.$inferInsert;
+
+// Protocol Steps table - Store individual steps within each protocol
+export const protocolSteps = mysqlTable("protocolSteps", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: int("protocolId").notNull(),
+  stepNumber: int("stepNumber").notNull(), // 1, 2, 3, etc.
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  action: text("action"), // What the provider should do
+  expectedOutcome: text("expectedOutcome"), // What should happen after this step
+  timeframe: varchar("timeframe", { length: 100 }), // e.g., "Immediately", "Within 5 minutes"
+  vitalSignThreshold: text("vitalSignThreshold"), // JSON object with vital sign criteria
+  nextStepIfYes: int("nextStepIfYes"), // Protocol step ID if condition met
+  nextStepIfNo: int("nextStepIfNo"), // Protocol step ID if condition not met
+  medications: text("medications"), // JSON array of medications for this step
+  investigations: text("investigations"), // JSON array of tests/investigations
+  warnings: text("warnings"), // JSON array of warnings/contraindications
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProtocolStep = typeof protocolSteps.$inferSelect;
+export type InsertProtocolStep = typeof protocolSteps.$inferInsert;
+
+// Protocol Adherence Log table - Track provider adherence to protocols
+export const protocolAdherenceLog = mysqlTable("protocolAdherenceLog", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  providerId: int("providerId").notNull(),
+  protocolId: int("protocolId").notNull(),
+  startTime: timestamp("startTime").defaultNow().notNull(),
+  endTime: timestamp("endTime"),
+  status: mysqlEnum("status", ["started", "in_progress", "completed", "abandoned"]).default("started"),
+  stepsCompleted: int("stepsCompleted").default(0),
+  totalSteps: int("totalSteps"),
+  adherenceScore: decimal("adherenceScore", { precision: 5, scale: 2 }), // 0-100%
+  deviations: text("deviations"), // JSON array of protocol deviations
+  outcome: mysqlEnum("outcome", ["improved", "stable", "deteriorated", "transferred", "unknown"]),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProtocolAdherenceLog = typeof protocolAdherenceLog.$inferSelect;
+export type InsertProtocolAdherenceLog = typeof protocolAdherenceLog.$inferInsert;
+
+// Protocol Decision Points table - Store decision trees within protocols
+export const protocolDecisionPoints = mysqlTable("protocolDecisionPoints", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: int("protocolId").notNull(),
+  stepId: int("stepId").notNull(),
+  question: text("question").notNull(), // e.g., "Is child having seizures?"
+  yesAction: text("yesAction"), // What to do if yes
+  noAction: text("noAction"), // What to do if no
+  yesNextStep: int("yesNextStep"), // Next step ID if yes
+  noNextStep: int("noNextStep"), // Next step ID if no
+  vitalSignCriteria: text("vitalSignCriteria"), // JSON object with vital sign thresholds
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProtocolDecisionPoint = typeof protocolDecisionPoints.$inferSelect;
+export type InsertProtocolDecisionPoint = typeof protocolDecisionPoints.$inferInsert;
+
+// Protocol Recommendations table - AI-generated protocol recommendations based on patient data
+export const protocolRecommendations = mysqlTable("protocolRecommendations", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  providerId: int("providerId").notNull(),
+  protocolId: int("protocolId").notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 2 }), // 0-100%
+  matchingSymptoms: text("matchingSymptoms"), // JSON array of matching symptoms
+  matchingVitalSigns: text("matchingVitalSigns"), // JSON array of matching vital signs
+  reasoning: text("reasoning"), // Why this protocol is recommended
+  priority: mysqlEnum("priority", ["critical", "high", "medium", "low"]).default("medium"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProtocolRecommendation = typeof protocolRecommendations.$inferSelect;
+export type InsertProtocolRecommendation = typeof protocolRecommendations.$inferInsert;

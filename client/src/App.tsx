@@ -25,6 +25,7 @@ import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard
 import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
 import PatientDetail from "./pages/PatientDetail";
 import ProviderProfile from "./pages/ProviderProfile";
+import { EmergencyProtocols } from "./pages/EmergencyProtocols";
 import PatientsList from "./pages/PatientsList";
 import Referral from "./pages/Referral";
 import { BottomNav } from "./components/BottomNav";
@@ -86,6 +87,7 @@ function Router() {
           <Route path="/personal-impact" component={PersonalImpactDashboard} />
           <Route path="/patient/:id" component={PatientDetail} />
           <Route path="/provider-profile" component={ProviderProfile} />
+      <Route path="/protocols" component={EmergencyProtocols} />
           <Route path="/patients" component={PatientsList} />
           <Route path="/referral" component={Referral} />
           <Route path="/not-found" component={NotFound} />
