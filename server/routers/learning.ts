@@ -2,6 +2,7 @@ import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { eq, and, desc } from "drizzle-orm";
+import { invokeLLM } from "../_core/llm";
 import {
   courses,
   modules,
@@ -295,4 +296,240 @@ export const learningRouter = router({
       ).length,
     };
   }),
+
+  // Get personalized learning path
+  getPersonalizedPath: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      const enrollment = await (db as any)
+        .select()
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.id, input.enrollmentId),
+            eq(enrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (!enrollment[0]) throw new Error("Enrollment not found");
+      const programCourses = await (db as any)
+        .select()
+        .from(courses)
+        .where(eq(courses.programType, input.programType as any))
+        .orderBy(courses.order);
+      const courseProgress = await Promise.all(
+        programCourses.map(async (course: any) => {
+          const progress = await (db as any)
+            .select()
+            .from(userProgress)
+            .where(
+              and(
+                eq(userProgress.userId, ctx.user.id),
+                eq(userProgress.enrollmentId, input.enrollmentId)
+              )
+            );
+          const completedModules = progress.filter(
+            (p: any) => p.status === "completed"
+          ).length;
+          const totalModules = await (db as any)
+            .select()
+            .from(modules)
+            .where(eq(modules.courseId, course.id));
+          return {
+            ...course,
+            completedModules,
+            totalModules: totalModules.length,
+            progressPercentage:
+              totalModules.length > 0
+                ? Math.round((completedModules / totalModules.length) * 100)
+                : 0,
+          };
+        })
+      );
+      return { enrollment: enrollment[0], courses: courseProgress };
+    }),
+
+  // Get learning statistics
+  getLearningStats: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      const progress = await (db as any)
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId)
+          )
+        );
+      const completedModules = progress.filter(
+        (p: any) => p.status === "completed"
+      ).length;
+      const totalAttempts = progress.reduce((sum: number, p: any) => sum + p.attempts, 0);
+      const averageScore =
+        progress.length > 0
+          ? Math.round(
+              progress.reduce((sum: number, p: any) => sum + (p.score || 0), 0) /
+                progress.length
+            )
+          : 0;
+      const firstProgressDate =
+        progress.length > 0 ? progress[0].createdAt : new Date();
+      const daysSinceStart = Math.max(
+        1,
+        Math.floor(
+          (new Date().getTime() - new Date(firstProgressDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      );
+      const learningVelocity = (completedModules / daysSinceStart).toFixed(2);
+      return {
+        completedModules,
+        totalAttempts,
+        averageScore,
+        learningVelocity: parseFloat(learningVelocity),
+        daysSinceStart,
+        estimatedCompletionDays: Math.ceil(
+          (100 - completedModules) / parseFloat(learningVelocity)
+        ),
+      };
+    }),
+
+  // Submit quiz
+  submitQuiz: protectedProcedure
+    .input(
+      z.object({
+        quizId: z.number(),
+        moduleId: z.number(),
+        enrollmentId: z.number(),
+        answers: z.array(
+          z.object({
+            questionId: z.number(),
+            answer: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      const questions = await (db as any)
+        .select()
+        .from(quizQuestions)
+        .where(eq(quizQuestions.quizId, input.quizId));
+      let correctCount = 0;
+      questions.forEach((question: any) => {
+        const userAnswer = input.answers.find(
+          (a) => a.questionId === question.id
+        );
+        if (
+          userAnswer &&
+          userAnswer.answer === JSON.parse(question.correctAnswer)
+        ) {
+          correctCount++;
+        }
+      });
+      const score = Math.round((correctCount / questions.length) * 100);
+      const quiz = await (db as any)
+        .select()
+        .from(quizzes)
+        .where(eq(quizzes.id, input.quizId))
+        .limit(1);
+      const passed = score >= (quiz[0]?.passingScore || 70);
+      const existingProgress = await (db as any)
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.moduleId, input.moduleId),
+            eq(userProgress.quizId, input.quizId)
+          )
+        )
+        .limit(1);
+      if (existingProgress[0]) {
+        await (db as any)
+          .update(userProgress)
+          .set({
+            score,
+            attempts: existingProgress[0].attempts + 1,
+            status: passed ? "completed" : "in_progress",
+            completedAt: passed ? new Date() : null,
+          })
+          .where(eq(userProgress.id, existingProgress[0].id));
+      } else {
+        await (db as any)
+          .insert(userProgress)
+          .values({
+            userId: ctx.user.id,
+            enrollmentId: input.enrollmentId,
+            moduleId: input.moduleId,
+            quizId: input.quizId,
+            score,
+            attempts: 1,
+            status: passed ? "completed" : "in_progress",
+            completedAt: passed ? new Date() : null,
+          });
+      }
+      return {
+        score,
+        passed,
+        passingScore: quiz[0]?.passingScore || 70,
+        correctAnswers: correctCount,
+        totalQuestions: questions.length,
+      };
+    }),
+
+  // Mark module as complete
+  markModuleComplete: protectedProcedure
+    .input(
+      z.object({
+        moduleId: z.number(),
+        enrollmentId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      const existingProgress = await (db as any)
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.moduleId, input.moduleId),
+            eq(userProgress.enrollmentId, input.enrollmentId)
+          )
+        )
+        .limit(1);
+      if (existingProgress[0]) {
+        await (db as any)
+          .update(userProgress)
+          .set({
+            status: "completed",
+            completedAt: new Date(),
+          })
+          .where(eq(userProgress.id, existingProgress[0].id));
+      } else {
+        await (db as any)
+          .insert(userProgress)
+          .values({
+            userId: ctx.user.id,
+            enrollmentId: input.enrollmentId,
+            moduleId: input.moduleId,
+            status: "completed",
+            completedAt: new Date(),
+          });
+      }
+      return { success: true };
+    }),
 });
