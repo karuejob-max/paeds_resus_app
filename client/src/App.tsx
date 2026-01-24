@@ -25,6 +25,9 @@ import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard
 import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
 import PatientDetail from "./pages/PatientDetail";
 import ProviderProfile from "./pages/ProviderProfile";
+import PatientsList from "./pages/PatientsList";
+import Referral from "./pages/Referral";
+import { BottomNav } from "./components/BottomNav";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
 import RoleSelectionPrompt from "./components/RoleSelectionPrompt";
@@ -61,7 +64,7 @@ function Router() {
     <div className="flex flex-col min-h-screen">
       <ScrollToTop />
       <Header />
-      <main className="flex-1">
+      <main className="flex-1 pb-24">
         <Switch>
           {/* Core MVP Routes */}
           <Route path="/" component={Home} />
@@ -83,10 +86,13 @@ function Router() {
           <Route path="/personal-impact" component={PersonalImpactDashboard} />
           <Route path="/patient/:id" component={PatientDetail} />
           <Route path="/provider-profile" component={ProviderProfile} />
+          <Route path="/patients" component={PatientsList} />
+          <Route path="/referral" component={Referral} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
       </main>
+      <BottomNav />
       <Footer />
       <PaedsAIAssistant />
       <ChatWidget />
