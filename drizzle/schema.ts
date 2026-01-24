@@ -1681,3 +1681,95 @@ export const investigationTrends = mysqlTable("investigationTrends", {
 });
 export type InvestigationTrend = typeof investigationTrends.$inferSelect;
 export type InsertInvestigationTrend = typeof investigationTrends.$inferInsert;
+
+
+// ============================================
+// PERFORMANCE DASHBOARD TABLES
+// ============================================
+
+// Provider Statistics Table
+export const providerStats = mysqlTable("providerStats", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  totalPatientsServed: int("totalPatientsServed").default(0),
+  totalInterventions: int("totalInterventions").default(0),
+  averageResponseTime: decimal("averageResponseTime", { precision: 10, scale: 2 }).default("0"), // in minutes
+  successRate: decimal("successRate", { precision: 5, scale: 2 }).default("0"), // percentage 0-100
+  patientsImproved: int("patientsImproved").default(0),
+  certificationsCompleted: int("certificationsCompleted").default(0),
+  trainingHoursCompleted: int("trainingHoursCompleted").default(0),
+  performanceScore: decimal("performanceScore", { precision: 5, scale: 2 }).default("0"), // 0-100
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ProviderStat = typeof providerStats.$inferSelect;
+export type InsertProviderStat = typeof providerStats.$inferInsert;
+
+// Leaderboard Rankings Table
+export const leaderboardRankings = mysqlTable("leaderboardRankings", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  category: varchar("category", { length: 255 }).notNull(), // 'performance', 'interventions', 'patients_served', 'training'
+  rank: int("rank").notNull(),
+  score: decimal("score", { precision: 10, scale: 2 }).notNull(),
+  percentile: decimal("percentile", { precision: 5, scale: 2 }).default("0"), // 0-100
+  previousRank: int("previousRank"),
+  rankChange: int("rankChange").default(0), // positive = improvement
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type LeaderboardRanking = typeof leaderboardRankings.$inferSelect;
+export type InsertLeaderboardRanking = typeof leaderboardRankings.$inferInsert;
+
+// Performance Achievements Table
+export const achievements = mysqlTable("achievements", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  achievementType: varchar("achievementType", { length: 255 }).notNull(), // 'milestone', 'badge', 'certification', 'record'
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 255 }), // emoji or icon reference
+  earnedAt: timestamp("earnedAt").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertAchievement = typeof achievements.$inferInsert;
+
+// Performance History Table (for trend analysis)
+export const performanceHistory = mysqlTable("performanceHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  metricType: varchar("metricType", { length: 255 }).notNull(), // 'success_rate', 'response_time', 'patients_served', etc.
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  recordedAt: timestamp("recordedAt").defaultNow(),
+});
+export type PerformanceHistoryRecord = typeof performanceHistory.$inferSelect;
+export type InsertPerformanceHistoryRecord = typeof performanceHistory.$inferInsert;
+
+// Team Performance Table (for institutional comparisons)
+export const teamPerformance = mysqlTable("teamPerformance", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull().unique(),
+  teamName: varchar("teamName", { length: 255 }),
+  totalStaffCount: int("totalStaffCount").default(0),
+  averagePerformanceScore: decimal("averagePerformanceScore", { precision: 5, scale: 2 }).default("0"),
+  totalPatientsServed: int("totalPatientsServed").default(0),
+  totalInterventions: int("totalInterventions").default(0),
+  teamRank: int("teamRank"),
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TeamPerformance = typeof teamPerformance.$inferSelect;
+export type InsertTeamPerformance = typeof teamPerformance.$inferInsert;
+
+// Real-time Performance Events Table
+export const performanceEvents = mysqlTable("performanceEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  eventType: varchar("eventType", { length: 255 }).notNull(), // 'intervention_completed', 'patient_improved', 'training_completed', etc.
+  eventData: text("eventData"), // JSON stringified
+  severity: varchar("severity", { length: 50 }), // 'info', 'warning', 'critical'
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PerformanceEvent = typeof performanceEvents.$inferSelect;
+export type InsertPerformanceEvent = typeof performanceEvents.$inferInsert;

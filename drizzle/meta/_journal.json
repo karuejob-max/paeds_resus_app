@@ -120,6 +120,13 @@
       "when": 1769250267563,
       "tag": "0016_sturdy_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1769253586446,
+      "tag": "0017_curved_scarecrow",
+      "breakpoints": true
     }
   ]
 }
