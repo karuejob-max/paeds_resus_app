@@ -1159,3 +1159,112 @@ export const riskScoreHistory = mysqlTable("riskScoreHistory", {
 
 export type RiskScoreHistory = typeof riskScoreHistory.$inferSelect;
 export type InsertRiskScoreHistory = typeof riskScoreHistory.$inferInsert;
+
+
+// CPR Clock Sessions table - Track CPR sessions for each patient
+export const cprSessions = mysqlTable("cprSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  providerId: int("providerId").notNull(),
+  startTime: timestamp("startTime").defaultNow().notNull(),
+  endTime: timestamp("endTime"),
+  status: mysqlEnum("status", ["active", "completed", "abandoned"]).default("active").notNull(),
+  outcome: mysqlEnum("outcome", ["ROSC", "pCOSCA", "mortality", "ongoing"]).default("ongoing"),
+  totalDuration: int("totalDuration"), // seconds
+  cprQuality: mysqlEnum("cprQuality", ["excellent", "good", "adequate", "poor"]),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CprSession = typeof cprSessions.$inferSelect;
+export type InsertCprSession = typeof cprSessions.$inferInsert;
+
+// CPR Clock Events table - Track individual events during CPR (compressions, medications, etc.)
+export const cprEvents = mysqlTable("cprEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  cprSessionId: int("cprSessionId").notNull(),
+  eventType: mysqlEnum("eventType", ["compression_cycle", "medication", "defibrillation", "airway", "note", "outcome"]).notNull(),
+  eventTime: int("eventTime"), // seconds from start of CPR
+  description: text("description"),
+  value: varchar("value", { length: 255 }), // e.g., compression rate, medication name
+  metadata: text("metadata"), // JSON object for additional data
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CprEvent = typeof cprEvents.$inferSelect;
+export type InsertCprEvent = typeof cprEvents.$inferInsert;
+
+// Medications table - Pediatric emergency medications with weight-based dosing
+export const emergencyMedications = mysqlTable("emergencyMedications", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(), // e.g., "Epinephrine"
+  category: mysqlEnum("category", ["vasopressor", "antiarrhythmic", "sedative", "paralytic", "reversal", "other"]).notNull(),
+  dosagePerKg: decimal("dosagePerKg", { precision: 10, scale: 3 }), // mg/kg
+  maxDose: decimal("maxDose", { precision: 10, scale: 3 }), // maximum dose in mg
+  route: mysqlEnum("route", ["IV", "IO", "IM", "ET", "IN"]).notNull(),
+  concentration: varchar("concentration", { length: 100 }), // e.g., "1:10000"
+  interval: int("interval"), // seconds between doses (e.g., 300 for q5min)
+  indication: text("indication"), // when to use this medication
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type EmergencyMedication = typeof emergencyMedications.$inferSelect;
+export type InsertEmergencyMedication = typeof emergencyMedications.$inferInsert;
+
+// Medication Administration Log table - Track medications given during CPR
+export const medicationLog = mysqlTable("medicationLog", {
+  id: int("id").autoincrement().primaryKey(),
+  cprSessionId: int("cprSessionId").notNull(),
+  medicationId: int("medicationId").notNull(),
+  administeredAt: int("administeredAt"), // seconds from start of CPR
+  dose: decimal("dose", { precision: 10, scale: 3 }), // actual dose given in mg
+  dosePerKg: decimal("dosePerKg", { precision: 10, scale: 3 }), // calculated dose per kg
+  route: mysqlEnum("route", ["IV", "IO", "IM", "ET", "IN"]).notNull(),
+  administeredBy: int("administeredBy"), // provider ID
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MedicationLog = typeof medicationLog.$inferSelect;
+export type InsertMedicationLog = typeof medicationLog.$inferInsert;
+
+// Defibrillator Events table - Track defibrillation attempts
+export const defibrillatorEvents = mysqlTable("defibrillatorEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  cprSessionId: int("cprSessionId").notNull(),
+  eventTime: int("eventTime"), // seconds from start of CPR
+  rhythm: mysqlEnum("rhythm", ["VF", "pulseless_VT", "asystole", "PEA", "sinus", "unknown"]).notNull(),
+  shockDelivered: boolean("shockDelivered").default(false),
+  energyLevel: int("energyLevel"), // joules (e.g., 2, 4, 8 J/kg)
+  energyPerKg: decimal("energyPerKg", { precision: 10, scale: 3 }), // J/kg
+  outcome: mysqlEnum("outcome", ["ROSC", "no_change", "deterioration"]),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DefibrillatorEvent = typeof defibrillatorEvents.$inferSelect;
+export type InsertDefibrillatorEvent = typeof defibrillatorEvents.$inferInsert;
+
+// CPR Protocols table - Store standard CPR protocols by age group
+export const cprProtocols = mysqlTable("cprProtocols", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(), // e.g., "Infant CPR", "Pediatric CPR"
+  ageMin: int("ageMin"), // months
+  ageMax: int("ageMax"), // months
+  weightMin: decimal("weightMin", { precision: 10, scale: 3 }), // kg
+  weightMax: decimal("weightMax", { precision: 10, scale: 3 }), // kg
+  compressionRate: varchar("compressionRate", { length: 100 }), // e.g., "100-120 bpm"
+  compressionDepth: varchar("compressionDepth", { length: 100 }), // e.g., "4-5 cm"
+  ventilationRate: varchar("ventilationRate", { length: 100 }), // e.g., "12-20 breaths/min"
+  handPosition: text("handPosition"), // description of hand position
+  paddleSize: varchar("paddleSize", { length: 100 }), // e.g., "Pediatric pads"
+  initialEnergy: int("initialEnergy"), // joules
+  subsequentEnergy: int("subsequentEnergy"), // joules
+  medications: text("medications"), // JSON array of recommended medications
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CprProtocol = typeof cprProtocols.$inferSelect;
+export type InsertCprProtocol = typeof cprProtocols.$inferInsert;
