@@ -1609,3 +1609,5 @@ export const differentialDiagnosisScores = mysqlTable("differentialDiagnosisScor
 });
 export type DifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inferSelect;
 export type InsertDifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inferInsert;
+
+

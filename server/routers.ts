@@ -53,6 +53,7 @@ import { cprClockRouter } from "./routers/cprClock";
 import { emergencyProtocolsRouter } from "./routers/emergencyProtocols";
 import { alertsRouter } from "./routers/alerts";
 import { diagnosisRouter } from "./routers/diagnosis";
+import { learningRouter } from "./routers/learning";
 import { curriculumRouter } from "./routers/curriculum";
 import { videoGenerationRouter } from "./routers/video-generation";
 import { liveInstructorRouter } from "./routers/live-instructor";
@@ -163,6 +164,7 @@ export const appRouter = router({
   emergencyProtocols: emergencyProtocolsRouter,
   alerts: alertsRouter,
   diagnosis: diagnosisRouter,
+  learning: learningRouter,
   curriculum: curriculumRouter,
   videoGeneration: videoGenerationRouter,
   liveInstructor: liveInstructorRouter,
