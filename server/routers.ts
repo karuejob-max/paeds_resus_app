@@ -92,6 +92,8 @@ import { kaizenFeedbackLoopRouter } from "./routers/kaizen-feedback-loop";
 import { kaizenTOCRouter } from "./routers/kaizen-toc";
 import { mlRouter } from "./routers/ml-orchestration";
 import { autonomousOrchestrationRouter } from "./routers/autonomous-orchestration";
+import { patientRouter } from "./routers/patients";
+import { interventionRouter } from "./routers/interventions";
 
 export const appRouter = router({
   system: systemRouter,
@@ -194,6 +196,8 @@ export const appRouter = router({
   kaizenTOC: kaizenTOCRouter,
   ml: mlRouter,
   autonomousOrchestration: autonomousOrchestrationRouter,
+  patients: patientRouter,
+  interventions: interventionRouter,
 });
 
 export type AppRouter = typeof appRouter;

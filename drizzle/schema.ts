@@ -909,3 +909,110 @@ export const institutionalAnalytics = mysqlTable("institutionalAnalytics", {
 
 export type InstitutionalAnalytics = typeof institutionalAnalytics.$inferSelect;
 export type InsertInstitutionalAnalytics = typeof institutionalAnalytics.$inferInsert;
+
+// ============ WEEK 1 MVP: PATIENT DATA, INTERVENTIONS, IMPACT ============
+
+// Patients table
+export const patients = mysqlTable("patients", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  hospitalId: int("hospitalId"),
+  name: varchar("name", { length: 255 }).notNull(),
+  age: int("age"),
+  gender: mysqlEnum("gender", ["male", "female", "other"]),
+  diagnosis: varchar("diagnosis", { length: 255 }),
+  patientId: varchar("patientId", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Patient = typeof patients.$inferSelect;
+export type InsertPatient = typeof patients.$inferInsert;
+
+// Patient Vitals table
+export const patientVitals = mysqlTable("patientVitals", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  heartRate: int("heartRate"),
+  respiratoryRate: int("respiratoryRate"),
+  systolicBP: int("systolicBP"),
+  diastolicBP: int("diastolicBP"),
+  oxygenSaturation: int("oxygenSaturation"),
+  temperature: decimal("temperature", { precision: 5, scale: 2 }),
+  symptoms: text("symptoms"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PatientVital = typeof patientVitals.$inferSelect;
+export type InsertPatientVital = typeof patientVitals.$inferInsert;
+
+// Interventions table
+export const interventions = mysqlTable("interventions", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull(),
+  userId: int("userId").notNull(),
+  interventionType: varchar("interventionType", { length: 100 }).notNull(),
+  description: text("description"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Intervention = typeof interventions.$inferSelect;
+export type InsertIntervention = typeof interventions.$inferInsert;
+
+// Outcomes table
+export const outcomes = mysqlTable("outcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  interventionId: int("interventionId").notNull(),
+  patientId: int("patientId").notNull(),
+  outcome: mysqlEnum("outcome", ["improved", "stable", "deteriorated", "died"]).notNull(),
+  timeToOutcome: int("timeToOutcome"), // hours
+  notes: text("notes"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Outcome = typeof outcomes.$inferSelect;
+export type InsertOutcome = typeof outcomes.$inferInsert;
+
+// Impact Metrics table
+export const impactMetrics = mysqlTable("impactMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  period: mysqlEnum("period", ["daily", "weekly", "monthly"]).notNull(),
+  interventionsLogged: int("interventionsLogged").default(0),
+  outcomesLogged: int("outcomesLogged").default(0),
+  livesSaved: int("livesSaved").default(0),
+  coursesCompleted: int("coursesCompleted").default(0),
+  certificationsEarned: int("certificationsEarned").default(0),
+  referralsMade: int("referralsMade").default(0),
+  viralCoefficient: decimal("viralCoefficient", { precision: 5, scale: 2 }).default("0"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ImpactMetric = typeof impactMetrics.$inferSelect;
+export type InsertImpactMetric = typeof impactMetrics.$inferInsert;
+
+// ============ WEEK 2-3: LEARNING, COURSES, REFERRALS, LEADERBOARDS ============
+
+// Assessments table
+export const assessments = mysqlTable("assessments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  assessmentType: varchar("assessmentType", { length: 50 }).notNull(), // 'safe_truth', 'baseline'
+  responses: text("responses"), // JSON
+  score: int("score"),
+  recommendedCourses: text("recommendedCourses"), // JSON
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Assessment = typeof assessments.$inferSelect;
+export type InsertAssessment = typeof assessments.$inferInsert;
+
+// Note: courses, modules, quizzes tables already exist above
+// Adding new tables for ML-driven learning system
+
+// Note: referrals, achievements, leaderboardRankings tables already exist above
+// Using existing tables for referral system and leaderboards
