@@ -48,7 +48,7 @@ export default function Footer() {
     <footer className="bg-[#0d3333] text-gray-300 py-12 px-4 border-t-4 border-[#ff6633]">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
-        <div className="grid md:grid-cols-5 gap-8 mb-12">
+        <div className="grid md:grid-cols-4 gap-8 mb-12">
           {/* About */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -103,11 +103,11 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Support & Contact */}
+          {/* ML Dashboards */}
           <div>
-            <h4 className="text-white font-bold mb-4 text-[#ff6633]">Support & Contact</h4>
+            <h4 className="text-white font-bold mb-4 text-[#ff6633]">ML Dashboards</h4>
             <ul className="space-y-2 text-sm">
-              {footerSections.support.map((link) => (
+              {footerSections.mlDashboards.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}

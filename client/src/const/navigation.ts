@@ -1,6 +1,6 @@
 /**
- * Comprehensive Navigation Configuration
- * All pages and their navigation structure
+ * Navigation Configuration - ONLY WORKING PAGES
+ * Removed all broken/non-existent links
  */
 
 export interface NavItem {
@@ -13,145 +13,98 @@ export interface NavItem {
   requiresAdmin?: boolean;
 }
 
-// Main navigation items for Header - Consolidated (removed redundant dropdowns)
+// Main navigation items for Header - ONLY WORKING PAGES
 export const mainNavItems: NavItem[] = [
   { label: "Safe-Truth", href: "/safe-truth", category: "main" },
-  { label: "For Providers", href: "/providers", category: "main" },
   { label: "For Institutions", href: "/institutional", category: "main" },
-  { label: "For Parents", href: "/parents", category: "main" },
-  { label: "Facilities", href: "/facilities", category: "main" },
-  { label: "Resources", href: "/resources", category: "main" },
-  { label: "About", href: "/about", category: "main" },
-  { label: "Contact", href: "/contact", category: "main" },
+  { label: "For Parents", href: "/parent-safe-truth", category: "main" },
+  { label: "Courses", href: "/course/bls", category: "main" },
 ];
 
-// NOTE: Learning, Institutional, and Support dropdowns removed from header
-// These items are now accessible from their respective pages via tabs/sections
-// Learning items → Elite Fellowship page
-// Institutional items → Institutional page tabs
-// Support items → Support/Contact pages
-
-// Authenticated user navigation
+// Authenticated user navigation - ONLY WORKING PAGES
 export const authenticatedNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", requiresAuth: true },
-  { label: "My Progress", href: "/progress", requiresAuth: true },
-  { label: "My Achievements", href: "/achievements", requiresAuth: true },
-  { label: "Leaderboard", href: "/leaderboard", requiresAuth: true },
-  { label: "Referral Program", href: "/referral-program", requiresAuth: true },
-  { label: "My Certificates", href: "/verify-certificate", requiresAuth: true },
-  { label: "Payment History", href: "/payments", requiresAuth: true },
+  { label: "Learner Dashboard", href: "/learner-dashboard", requiresAuth: true },
+  { label: "Payment", href: "/payment", requiresAuth: true },
 ];
 
-// Admin navigation items
+// Admin navigation items - ONLY WORKING PAGES
 export const adminNavItems: NavItem[] = [
-  { label: "Admin Dashboard", href: "/admin", requiresAdmin: true },
-  { label: "Institutional Mgmt", href: "/institutional-management", requiresAdmin: true },
-  { label: "SMS Management", href: "/sms-management", requiresAdmin: true },
-  { label: "Analytics", href: "/analytics", requiresAdmin: true },
+  { label: "Hospital Admin", href: "/hospital-admin-dashboard", requiresAdmin: true },
+  { label: "Advanced Analytics", href: "/advanced-analytics", requiresAdmin: true },
 ];
 
-// Learning & Development
+// Learning & Development - ONLY WORKING PAGES
 export const learningNavItems: NavItem[] = [
-  { label: "Elite Fellowship", href: "/elite-fellowship", description: "Head, Heart, Hands framework" },
   { label: "Safe-Truth Tool", href: "/safe-truth", description: "Interactive assessment tool" },
-  { label: "Training Schedules", href: "/training-schedules", description: "View upcoming training" },
-  { label: "AHA eLearning", href: "/aha-elearning", description: "American Heart Association courses" },
-  { label: "Success Stories", href: "/success-stories", description: "Learn from others" },
+  { label: "BLS Course", href: "/course/bls", description: "Basic Life Support training" },
 ];
 
-// Institutional Features
+// Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institutional Dashboard", href: "/institutional-dashboard", description: "Manage your institution" },
-  { label: "Pricing Calculator", href: "/pricing-calculator", description: "Calculate costs" },
-  { label: "ROI Calculator", href: "/roi-calculator", description: "Calculate return on investment" },
+  { label: "Institutional Portal", href: "/institutional-portal", description: "Manage your institution" },
+  { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
-// Support & Information
+// Support & Information - ONLY WORKING PAGES
 export const supportNavItems: NavItem[] = [
-  { label: "FAQ", href: "/faq", description: "Frequently asked questions" },
-  { label: "Help Center", href: "/support", description: "Get help and support" },
-  { label: "Contact Us", href: "/contact", description: "Get in touch with us" },
+  // No support pages implemented yet
 ];
 
-// Legal & Compliance
+// Legal & Compliance - ONLY WORKING PAGES
 export const legalNavItems: NavItem[] = [
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Privacy Policy", href: "/privacy" },
+  // No legal pages implemented yet
 ];
 
-// Footer sections
+// Footer sections - ONLY WORKING PAGES
 export const footerSections = {
   quickLinks: [
     { label: "Home", href: "/" },
-    { label: "For Providers", href: "/providers" },
+    { label: "Safe-Truth", href: "/safe-truth" },
     { label: "For Institutions", href: "/institutional" },
-    { label: "For Parents", href: "/parents" },
-    { label: "Resources", href: "/resources" },
+    { label: "For Parents", href: "/parent-safe-truth" },
   ],
   learning: [
-    { label: "Elite Fellowship", href: "/elite-fellowship" },
     { label: "Safe-Truth Tool", href: "/safe-truth" },
-    { label: "Training Schedules", href: "/training-schedules" },
-    { label: "AHA eLearning", href: "/aha-elearning" },
-    { label: "Success Stories", href: "/success-stories" },
-  ],
-  support: [
-    { label: "FAQ", href: "/faq" },
-    { label: "Help Center", href: "/support" },
-    { label: "Contact Us", href: "/contact" },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
+    { label: "BLS Course", href: "/course/bls" },
   ],
   institutional: [
-    { label: "Institutional Dashboard", href: "/institutional-dashboard" },
-    { label: "Pricing Calculator", href: "/pricing-calculator" },
-    { label: "ROI Calculator", href: "/roi-calculator" },
+    { label: "Institutional Portal", href: "/institutional-portal" },
+    { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
-  providerResources: [
-    { label: "Clinical Protocols", href: "/resources/protocols" },
-    { label: "Training Materials", href: "/resources/training" },
-    { label: "Assessment Tools", href: "/resources/tools" },
-    { label: "Case Studies", href: "/resources/case-studies" },
+  mlDashboards: [
+    { label: "Predictive Alerts", href: "/predictive-intervention" },
+    { label: "Learning Path", href: "/personalized-learning" },
+    { label: "Kaizen Dashboard", href: "/kaizen-dashboard" },
   ],
 };
 
-// Dashboard sidebar navigation for authenticated users
+// Dashboard sidebar navigation for authenticated users - ONLY WORKING PAGES
 export const dashboardNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: "📊" },
-  { label: "My Progress", href: "/progress", icon: "📈" },
-  { label: "My Achievements", href: "/achievements", icon: "🏆" },
-  { label: "Leaderboard", href: "/leaderboard", icon: "🎯" },
-  { label: "Referral Program", href: "/referral-program", icon: "🤝" },
-  { label: "My Certificates", href: "/verify-certificate", icon: "📜" },
-  { label: "Payment History", href: "/payments", icon: "💳" },
-  { label: "Learning Paths", href: "/elite-fellowship", icon: "🎓" },
-  { label: "AHA Courses", href: "/aha-elearning", icon: "❤️" },
-  { label: "Community", href: "/community", icon: "👥" },
-  { label: "Search Courses", href: "/search", icon: "🔍" },
+  { label: "Learner Dashboard", href: "/learner-dashboard", icon: "📊" },
+  { label: "Payment", href: "/payment", icon: "💳" },
+  { label: "Safe-Truth", href: "/safe-truth", icon: "🔍" },
+  { label: "BLS Course", href: "/course/bls", icon: "❤️" },
+  { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
+  { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
+  { label: "Kaizen Dashboard", href: "/kaizen-dashboard", icon: "📈" },
 ];
 
-// Breadcrumb navigation helper
+// Breadcrumb navigation helper - ONLY WORKING PAGES
 export const breadcrumbMap: Record<string, string[]> = {
-  "/elite-fellowship": ["Home", "Learning", "Elite Fellowship"],
-  "/safe-truth": ["Home", "Learning", "Safe-Truth Tool"],
-  "/training-schedules": ["Home", "Learning", "Training Schedules"],
-  "/aha-elearning": ["Home", "Learning", "AHA eLearning"],
-  "/success-stories": ["Home", "Learning", "Success Stories"],
-  "/institutional-dashboard": ["Home", "Institutional", "Dashboard"],
-  "/pricing-calculator": ["Home", "Institutional", "Pricing Calculator"],
-  "/roi-calculator": ["Home", "Institutional", "ROI Calculator"],
-  "/achievements": ["Home", "Learning", "My Achievements"],
-  "/leaderboard": ["Home", "Learning", "Leaderboard"],
-  "/referral-program": ["Home", "Learning", "Referral Program"],
-  "/progress": ["Home", "Learning", "My Progress"],
-  "/dashboard": ["Home", "My Account", "Dashboard"],
-  "/verify-certificate": ["Home", "My Account", "Certificates"],
-  "/payments": ["Home", "My Account", "Payment History"],
-  "/faq": ["Home", "Support", "FAQ"],
-  "/support": ["Home", "Support", "Help Center"],
-  "/contact": ["Home", "Support", "Contact Us"],
-  "/about": ["Home", "About"],
-  "/terms": ["Home", "Legal", "Terms of Service"],
-  "/privacy": ["Home", "Legal", "Privacy Policy"],
-  "/accreditation": ["Home", "Accreditation", "Program"],
+  "/": ["Home"],
+  "/safe-truth": ["Home", "Safe-Truth"],
+  "/parent-safe-truth": ["Home", "Parent Resources"],
+  "/course/bls": ["Home", "Courses", "BLS"],
+  "/institutional": ["Home", "Institutions"],
+  "/institutional-portal": ["Home", "Institutions", "Portal"],
+  "/institutional-onboarding": ["Home", "Institutions", "Onboarding"],
+  "/learner-dashboard": ["Home", "Dashboard"],
+  "/payment": ["Home", "Payment"],
+  "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
+  "/advanced-analytics": ["Home", "Admin", "Analytics"],
+  "/safe-truth-analytics": ["Home", "Analytics"],
+  "/kaizen-dashboard": ["Home", "Kaizen"],
+  "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
+  "/personalized-learning": ["Home", "ML", "Learning Path"],
+  "/enroll": ["Home", "Enroll"],
 };
