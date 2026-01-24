@@ -55,6 +55,7 @@ import { alertsRouter } from "./routers/alerts";
 import { diagnosisRouter } from "./routers/diagnosis";
 import { learningRouter } from "./routers/learning";
 import { outcomesRouter } from "./routers/outcomes";
+import { investigationsRouter } from "./routers/investigations";
 import { curriculumRouter } from "./routers/curriculum";
 import { videoGenerationRouter } from "./routers/video-generation";
 import { liveInstructorRouter } from "./routers/live-instructor";
@@ -167,6 +168,7 @@ export const appRouter = router({
   diagnosis: diagnosisRouter,
   learning: learningRouter,
   outcomes: outcomesRouter,
+  investigations: investigationsRouter,
   curriculum: curriculumRouter,
   videoGeneration: videoGenerationRouter,
   liveInstructor: liveInstructorRouter,

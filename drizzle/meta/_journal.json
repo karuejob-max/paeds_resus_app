@@ -113,6 +113,13 @@
       "when": 1769247837096,
       "tag": "0015_panoramic_harry_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1769250267563,
+      "tag": "0016_sturdy_captain_cross",
+      "breakpoints": true
     }
   ]
 }

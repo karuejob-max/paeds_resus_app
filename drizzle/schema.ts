@@ -1611,3 +1611,73 @@ export type DifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inf
 export type InsertDifferentialDiagnosisScore = typeof differentialDiagnosisScores.$inferInsert;
 
 
+
+
+// Investigation Analysis tables
+export const investigations = mysqlTable("investigations", {
+  id: int("id").primaryKey().autoincrement(),
+  patientId: int("patientId").notNull(),
+  providerId: int("providerId").notNull(),
+  investigationType: mysqlEnum("investigationType", ["lab", "imaging", "other"]).notNull(),
+  testName: varchar("testName", { length: 255 }).notNull(),
+  description: text("description"),
+  uploadedAt: timestamp("uploadedAt").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Investigation = typeof investigations.$inferSelect;
+export type InsertInvestigation = typeof investigations.$inferInsert;
+
+export const investigationResults = mysqlTable("investigationResults", {
+  id: int("id").primaryKey().autoincrement(),
+  investigationId: int("investigationId").notNull(),
+  resultType: mysqlEnum("resultType", ["numeric", "text", "image", "other"]).notNull(),
+  resultName: varchar("resultName", { length: 255 }).notNull(),
+  resultValue: text("resultValue"),
+  unit: varchar("unit", { length: 100 }),
+  normalRange: varchar("normalRange", { length: 255 }),
+  isAbnormal: boolean("isAbnormal").default(false),
+  severity: mysqlEnum("severity", ["normal", "mild", "moderate", "severe"]).default("normal"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InvestigationResult = typeof investigationResults.$inferSelect;
+export type InsertInvestigationResult = typeof investigationResults.$inferInsert;
+
+export const investigationAnalysis = mysqlTable("investigationAnalysis", {
+  id: int("id").primaryKey().autoincrement(),
+  investigationId: int("investigationId").notNull(),
+  aiInterpretation: text("aiInterpretation"),
+  confidence: decimal("confidence", { precision: 5, scale: 2 }).default("0"), // 0-100
+  differentialDiagnoses: text("differentialDiagnoses"), // JSON array
+  recommendations: text("recommendations"), // JSON array
+  clinicalSignificance: text("clinicalSignificance"),
+  followUpSuggestions: text("followUpSuggestions"),
+  analyzedAt: timestamp("analyzedAt").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InvestigationAnalysis = typeof investigationAnalysis.$inferSelect;
+export type InsertInvestigationAnalysis = typeof investigationAnalysis.$inferInsert;
+
+export const investigationHistory = mysqlTable("investigationHistory", {
+  id: int("id").primaryKey().autoincrement(),
+  patientId: int("patientId").notNull(),
+  providerId: int("providerId").notNull(),
+  testName: varchar("testName", { length: 255 }).notNull(),
+  result: text("result"),
+  interpretation: text("interpretation"),
+  date: timestamp("date").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InvestigationHistory = typeof investigationHistory.$inferSelect;
+export type InsertInvestigationHistory = typeof investigationHistory.$inferInsert;
+
+export const investigationTrends = mysqlTable("investigationTrends", {
+  id: int("id").primaryKey().autoincrement(),
+  patientId: int("patientId").notNull(),
+  testName: varchar("testName", { length: 255 }).notNull(),
+  trend: mysqlEnum("trend", ["improving", "stable", "deteriorating"]).notNull(),
+  changePercent: decimal("changePercent", { precision: 8, scale: 2 }),
+  daysAnalyzed: int("daysAnalyzed"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InvestigationTrend = typeof investigationTrends.$inferSelect;
+export type InsertInvestigationTrend = typeof investigationTrends.$inferInsert;
