@@ -107,22 +107,26 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4 text-[#ff6633]">ML Dashboards</h4>
             <ul className="space-y-2 text-sm">
-              {footerSections.mlDashboards.map((link) => (
+              {footerSections.mlDashboards && footerSections.mlDashboards.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-gray-400 hover:text-[#ff6633] transition">
                     {link.label}
                   </Link>
                 </li>
               ))}
-              <li className="pt-2 border-t border-gray-600">
-                <a href="mailto:paedsresus254@gmail.com" className="text-gray-400 hover:text-[#ff6633] transition flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-[#ff6633]" />
-                  Email Us
-                </a>
-              </li>
-              <li>
-                <p className="text-gray-400 text-xs mt-2">paedsresus254@gmail.com</p>
-              </li>
+              {footerSections.mlDashboards && (
+                <>
+                  <li className="pt-2 border-t border-gray-600">
+                    <a href="mailto:paedsresus254@gmail.com" className="text-gray-400 hover:text-[#ff6633] transition flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-[#ff6633]" />
+                      Email Us
+                    </a>
+                  </li>
+                  <li>
+                    <p className="text-gray-400 text-xs mt-2">paedsresus254@gmail.com</p>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         </div>
