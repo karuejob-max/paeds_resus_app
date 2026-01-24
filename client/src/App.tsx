@@ -28,6 +28,7 @@ import ProviderProfile from "./pages/ProviderProfile";
 import { EmergencyProtocols } from "./pages/EmergencyProtocols";
 import PatientsList from "./pages/PatientsList";
 import Referral from "./pages/Referral";
+import InvestigationsPage from "./pages/Investigations";
 import { BottomNav } from "./components/BottomNav";
 import PaedsAIAssistant from "@/components/PaedsAIAssistant";
 import ChatWidget from "./components/ChatWidget";
@@ -89,6 +90,7 @@ function Router() {
           <Route path="/provider-profile" component={ProviderProfile} />
       <Route path="/protocols" component={EmergencyProtocols} />
           <Route path="/patients" component={PatientsList} />
+          <Route path="/investigations/:patientId" component={InvestigationsPage} />
           <Route path="/referral" component={Referral} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
