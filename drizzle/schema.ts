@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1367,3 +1367,128 @@ export const protocolRecommendations = mysqlTable("protocolRecommendations", {
 
 export type ProtocolRecommendation = typeof protocolRecommendations.$inferSelect;
 export type InsertProtocolRecommendation = typeof protocolRecommendations.$inferInsert;
+
+
+// ============================================================================
+// REAL-TIME ALERTS & NOTIFICATIONS
+// ============================================================================
+
+export const alertConfigurations = mysqlTable("alertConfigurations", {
+  id: int("id").primaryKey().autoincrement(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  alertType: mysqlEnum("alertType", [
+    "critical_risk_score",
+    "vital_sign_change",
+    "patient_deterioration",
+    "intervention_reminder",
+    "protocol_recommendation",
+    "peer_comparison",
+    "learning_milestone",
+  ]).notNull(),
+  riskScoreThreshold: int("riskScoreThreshold").default(70), // Alert when risk score > threshold
+  vitalSignThresholds: text("vitalSignThresholds"), // JSON: {heartRate: {min, max}, temp: {min, max}, ...}
+  enabled: boolean("enabled").default(true),
+  soundEnabled: boolean("soundEnabled").default(true),
+  vibrationEnabled: boolean("vibrationEnabled").default(true),
+  pushNotificationEnabled: boolean("pushNotificationEnabled").default(true),
+  emailNotificationEnabled: boolean("emailNotificationEnabled").default(false),
+  quietHoursStart: varchar("quietHoursStart", { length: 5 }), // HH:MM format
+  quietHoursEnd: varchar("quietHoursEnd", { length: 5 }), // HH:MM format
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type AlertConfiguration = typeof alertConfigurations.$inferSelect;
+export type InsertAlertConfiguration = typeof alertConfigurations.$inferInsert;
+
+export const alerts = mysqlTable("alerts", {
+  id: int("id").primaryKey().autoincrement(),
+  patientId: int("patientId").notNull(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  alertType: mysqlEnum("alertType", [
+    "critical_risk_score",
+    "vital_sign_change",
+    "patient_deterioration",
+    "intervention_reminder",
+    "protocol_recommendation",
+    "peer_comparison",
+    "learning_milestone",
+  ]).notNull(),
+  severity: mysqlEnum("severity", ["critical", "high", "medium", "low"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  data: text("data"), // JSON: additional context (vital signs, risk score, etc.)
+  isRead: boolean("isRead").default(false),
+  isAcknowledged: boolean("isAcknowledged").default(false),
+  acknowledgedAt: timestamp("acknowledgedAt"),
+  actionTaken: varchar("actionTaken", { length: 255 }), // What action provider took
+  actionTakenAt: timestamp("actionTakenAt"),
+  status: mysqlEnum("status", ["pending", "delivered", "read", "acknowledged", "dismissed"]).default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt"), // Alert expires after this time
+});
+export type Alert = typeof alerts.$inferSelect;
+export type InsertAlert = typeof alerts.$inferInsert;
+
+export const alertDeliveryLog = mysqlTable("alertDeliveryLog", {
+  id: int("id").primaryKey().autoincrement(),
+  alertId: int("alertId").notNull(),
+  deliveryMethod: mysqlEnum("deliveryMethod", [
+    "push_notification",
+    "email",
+    "sms",
+    "in_app",
+    "websocket",
+  ]).notNull(),
+  status: mysqlEnum("status", ["pending", "sent", "delivered", "failed"]).default("pending"),
+  errorMessage: text("errorMessage"),
+  sentAt: timestamp("sentAt"),
+  deliveredAt: timestamp("deliveredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AlertDeliveryLog = typeof alertDeliveryLog.$inferSelect;
+export type InsertAlertDeliveryLog = typeof alertDeliveryLog.$inferInsert;
+
+export const alertSubscriptions = mysqlTable("alertSubscriptions", {
+  id: int("id").primaryKey().autoincrement(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  patientId: int("patientId").notNull(),
+  subscriptionType: mysqlEnum("subscriptionType", [
+    "all_alerts",
+    "critical_only",
+    "vital_signs_only",
+    "protocol_only",
+  ]).default("all_alerts"),
+  isActive: boolean("isActive").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type AlertSubscription = typeof alertSubscriptions.$inferSelect;
+export type InsertAlertSubscription = typeof alertSubscriptions.$inferInsert;
+
+export const alertHistory = mysqlTable("alertHistory", {
+  id: int("id").primaryKey().autoincrement(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  alertsReceivedToday: int("alertsReceivedToday").default(0),
+  alertsAcknowledgedToday: int("alertsAcknowledgedToday").default(0),
+  criticalAlertsToday: int("criticalAlertsToday").default(0),
+  averageResponseTime: int("averageResponseTime"), // milliseconds
+  lastAlertTime: timestamp("lastAlertTime"),
+  dateField: date("date").notNull(),
+});
+export type AlertHistory = typeof alertHistory.$inferSelect;
+export type InsertAlertHistory = typeof alertHistory.$inferInsert;
+
+export const alertStatistics = mysqlTable("alertStatistics", {
+  id: int("id").primaryKey().autoincrement(),
+  providerId: varchar("providerId", { length: 255 }).notNull(),
+  alertType: varchar("alertType", { length: 100 }).notNull(),
+  totalAlerts: int("totalAlerts").default(0),
+  acknowledgedAlerts: int("acknowledgedAlerts").default(0),
+  dismissedAlerts: int("dismissedAlerts").default(0),
+  actionTakenAlerts: int("actionTakenAlerts").default(0),
+  averageTimeToAcknowledge: int("averageTimeToAcknowledge"), // milliseconds
+  period: mysqlEnum("period", ["daily", "weekly", "monthly"]).notNull(),
+  dateField: date("date").notNull(),
+});
+export type AlertStatistics = typeof alertStatistics.$inferSelect;
+export type InsertAlertStatistics = typeof alertStatistics.$inferInsert;

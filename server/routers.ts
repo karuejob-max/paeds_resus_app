@@ -51,6 +51,7 @@ import { telemedicineRouter } from "./routers/telemedicine";
 import { vitalsRouter } from "./routers/vitals";
 import { cprClockRouter } from "./routers/cprClock";
 import { emergencyProtocolsRouter } from "./routers/emergencyProtocols";
+import { alertsRouter } from "./routers/alerts";
 import { curriculumRouter } from "./routers/curriculum";
 import { videoGenerationRouter } from "./routers/video-generation";
 import { liveInstructorRouter } from "./routers/live-instructor";
@@ -159,6 +160,7 @@ export const appRouter = router({
   vitals: vitalsRouter,
   cprClock: cprClockRouter,
   emergencyProtocols: emergencyProtocolsRouter,
+  alerts: alertsRouter,
   curriculum: curriculumRouter,
   videoGeneration: videoGenerationRouter,
   liveInstructor: liveInstructorRouter,
