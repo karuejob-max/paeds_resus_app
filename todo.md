@@ -2757,3 +2757,26 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - **Enrollment Friction:** 2-step checkout vs 5+ form fields expected to increase completion by 60%+
 - **Navigation Clarity:** Simplified nav from 12 items to 4 expected to reduce bounce rate by 25%+
 - **Trust:** Prominent trust signals expected to increase institutional inquiries by 50%+
+
+
+## Session 4: Information Architecture Audit & Restructuring (IN PROGRESS)
+
+### Critical Issues Identified:
+1. [ ] Homepage looks like developer dashboard (3 role cards, no hero)
+2. [ ] CPR clock and simulators on homepage (should be in learning platform)
+3. [ ] Safe-Truth is input form (should be analysis layer aggregating provider data)
+4. [ ] Differential diagnosis shown upfront (should only appear after S&O entry)
+5. [ ] Too much irrelevant information shown before user needs it
+6. [ ] No clear primary CTA on homepage
+
+### Fixes Required:
+1. [ ] Redesign homepage with compelling hero + single CTA
+2. [ ] Move CPR clock to learning platform only
+3. [ ] Move simulators to learning platform only
+4. [ ] Restructure Safe-Truth as analysis layer (not input)
+5. [ ] Implement progressive disclosure for clinical tools
+6. [ ] Hide differential diagnosis until S&O findings entered
+7. [ ] Create provider dashboard with patient assessment workflow
+8. [ ] Separate learning platform from clinical tools
+9. [ ] Implement correct user journeys per role
+10. [ ] Test all workflows and verify information architecture
