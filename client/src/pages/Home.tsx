@@ -20,570 +20,752 @@ import {
   BarChart3,
   FileText,
   Stethoscope,
-  Zap as Lightning,
   Trophy,
   Brain,
+  Shield,
+  Lock,
+  Award,
+  Smartphone,
+  Globe,
+  Briefcase,
 } from "lucide-react";
 
 export default function Home() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"provider" | "parent" | "institution" | null>(null);
 
-  // Mock data for demonstration
-  const stats = {
-    criticalPatients: 1,
-    totalPatients: 8,
-    livesProtected: 342,
-    interventionsLogged: 1247,
-  };
-
-  const sections = [
-    {
-      id: "patient-management",
-      title: "Patient Management",
-      description: "Monitor all patients with real-time vital signs and risk scoring",
-      icon: Users,
-      color: "bg-blue-50 border-blue-200",
-      features: [
-        "Real-time vital signs monitoring (HR, RR, O₂, Temp, BP)",
-        "Automated risk scoring (CRITICAL/HIGH/MEDIUM)",
-        "Patient history and progression tracking",
-        "Quick action buttons for common interventions",
-      ],
-      action: () => setLocation("/patients"),
-      stats: `${stats.totalPatients} patients monitored`,
-      status: "✅ Live",
-    },
-    {
-      id: "vital-signs",
-      title: "Vital Signs & Risk Scoring",
-      description: "Real-time monitoring with age-weight-based reference ranges",
-      icon: Heart,
-      color: "bg-red-50 border-red-200",
-      features: [
-        "9 vital signs inputs (HR, RR, O₂, Temp, BP, etc.)",
-        "5 pediatric age groups (0-1, 1-3, 3-6, 6-12, 12-18)",
-        "Risk levels: CRITICAL/HIGH/MEDIUM/LOW",
-        "Trend analysis and historical tracking",
-      ],
-      action: () => setLocation("/patients"),
-      stats: "29 unit tests passing",
-      status: "✅ Live",
-    },
-    {
-      id: "cpr-clock",
-      title: "CPR Clock & Emergency Protocols",
-      description: "30-60 second decision windows for emergency interventions",
-      icon: Clock,
-      color: "bg-red-50 border-red-200",
-      features: [
-        "Real-time CPR timer with audio/visual alerts",
-        "Intervention checklist (drugs, shocks, compressions)",
-        "Automatic escalation at critical time points",
-        "Post-resuscitation care protocols",
-      ],
-      action: () => alert("CPR Clock - Coming Soon"),
-      stats: "Saves 30-60 seconds per emergency",
-      status: "🔄 In Progress",
-      comingSoon: true,
-    },
-    {
-      id: "investigations",
-      title: "Investigation Upload & AI Analysis",
-      description: "Upload lab tests and imaging with AI-powered interpretation",
-      icon: FileText,
-      color: "bg-indigo-50 border-indigo-200",
-      features: [
-        "File upload for lab tests, imaging, spreadsheets",
-        "AI interpretation with confidence scores",
-        "Differential diagnosis suggestions",
-        "Abnormal findings detection",
-      ],
-      action: () => setLocation("/investigations/1"),
-      stats: "34 unit tests passing",
-      status: "✅ Live",
-    },
-    {
-      id: "performance-dashboard",
-      title: "Performance Dashboard & Leaderboards",
-      description: "Real-time provider statistics and competitive rankings",
-      icon: Trophy,
-      color: "bg-yellow-50 border-yellow-200",
-      features: [
-        "Individual provider performance metrics",
-        "Real-time leaderboard rankings",
-        "Achievement tracking and badges",
-        "WebSocket integration for live updates",
-      ],
-      action: () => setLocation("/performance-dashboard"),
-      stats: "23 unit tests passing",
-      status: "✅ Live",
-    },
-    {
-      id: "risk-scoring",
-      title: "Predictive Risk Scoring",
-      description: "ML-powered risk prediction for patient deterioration",
-      icon: Brain,
-      color: "bg-orange-50 border-orange-200",
-      features: [
-        "ML-powered risk prediction (0-100%)",
-        "Severity classification with recommendations",
-        "Confidence intervals and time-to-deterioration",
-        "Historical trend analysis",
-      ],
-      action: () => setLocation("/patients"),
-      stats: "87% prediction accuracy",
-      status: "✅ Live",
-    },
-    {
-      id: "referral-system",
-      title: "Referral & Transfer System",
-      description: "Seamless patient transfers between facilities",
-      icon: Share2,
-      color: "bg-green-50 border-green-200",
-      features: [
-        "Facility matching by specialization",
-        "Automated referral routing",
-        "Transfer status tracking",
-        "Peer network integration",
-      ],
-      action: () => setLocation("/referral"),
-      stats: "Connected to 500+ facilities",
-      status: "✅ Live",
-    },
-    {
-      id: "impact-dashboard",
-      title: "Personal Impact Dashboard",
-      description: "Track your clinical performance and peer comparison",
-      icon: Activity,
-      color: "bg-purple-50 border-purple-200",
-      features: [
-        "Personal performance metrics",
-        "Peer comparison and benchmarking",
-        "Lives saved and interventions logged",
-        "Certification and skill tracking",
-      ],
-      action: () => setLocation("/personal-impact"),
-      stats: `${stats.livesProtected} lives protected`,
-      status: "✅ Live",
-    },
-    {
-      id: "safe-truth",
-      title: "Safe-Truth Incident Reporting",
-      description: "Confidential incident reporting and analysis system",
-      icon: AlertCircle,
-      color: "bg-red-50 border-red-200",
-      features: [
-        "Anonymous incident reporting",
-        "Timeline event logging",
-        "System delay analysis",
-        "Hospital metrics and recommendations",
-      ],
-      action: () => setLocation("/safe-truth"),
-      stats: "Comprehensive incident tracking",
-      status: "✅ Live",
-    },
-    {
-      id: "learning-path",
-      title: "Personalized Learning Path",
-      description: "Continuous professional development and skill building",
-      icon: BookOpen,
-      color: "bg-indigo-50 border-indigo-200",
-      features: [
-        "AI-generated courses tailored to your gaps",
-        "Micro-learning modules (5-10 minutes)",
-        "Certification tracking and renewal",
-        "Peer learning and case studies",
-      ],
-      action: () => alert("Learning Path - Coming Soon"),
-      stats: "100+ courses available",
-      status: "🔄 In Progress",
-      comingSoon: true,
-    },
-    {
-      id: "emergency-protocols",
-      title: "Emergency Protocols & Guidelines",
-      description: "Evidence-based protocols for pediatric emergencies",
-      icon: Stethoscope,
-      color: "bg-cyan-50 border-cyan-200",
-      features: [
-        "Searchable protocol library",
-        "Step-by-step intervention guides",
-        "Medication dosage calculator",
-        "Age and weight-based recommendations",
-      ],
-      action: () => setLocation("/protocols"),
-      stats: "50+ protocols available",
-      status: "✅ Live",
-    },
-    {
-      id: "analytics",
-      title: "Advanced Analytics & Reporting",
-      description: "Comprehensive data insights and performance analytics",
-      icon: BarChart3,
-      color: "bg-teal-50 border-teal-200",
-      features: [
-        "Real-time performance dashboards",
-        "Outcome tracking and analysis",
-        "Trend visualization and forecasting",
-        "Custom report generation",
-      ],
-      action: () => setLocation("/advanced-analytics"),
-      stats: "Real-time data processing",
-      status: "✅ Live",
-    },
-  ];
+  // Determine user's role if logged in
+  const userRole = user?.role === "admin" ? "provider" : selectedRole;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Hero Section */}
-      <section className="px-4 md:px-8 py-12 md:py-20 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          <div>
-            <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-100">
-              Elite Fellowship Platform
-            </Badge>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Save Lives in <span className="text-red-600">30-60 Seconds</span>
-            </h1>
-            <p className="text-lg text-gray-600 mb-6">
-              Paeds Resus is an AI-powered clinical decision support platform designed for healthcare providers to identify, intervene, and save children's lives in critical moments.
-            </p>
-            <div className="flex gap-4 flex-wrap">
-              <Button size="lg" onClick={() => setLocation("/patients")}>
-                View Patients <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => setLocation("/performance-dashboard")}>
-                Performance Dashboard
-              </Button>
+    <div className="min-h-screen bg-white">
+      {/* ROLE SELECTOR - Persistent and Prominent */}
+      {!user && !userRole && (
+        <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+          <div className="max-w-6xl mx-auto px-4 py-8">
+            <h2 className="text-2xl font-bold mb-6 text-center">Who are you?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Healthcare Provider */}
+              <button
+                onClick={() => setSelectedRole("provider")}
+                className="p-6 bg-white/10 hover:bg-white/20 rounded-lg border border-white/30 transition-all text-left"
+              >
+                <Stethoscope className="w-8 h-8 mb-3" />
+                <h3 className="font-bold text-lg mb-2">Healthcare Provider</h3>
+                <p className="text-sm text-blue-100">
+                  Doctor, nurse, paramedic, or other clinical staff
+                </p>
+              </button>
+
+              {/* Parent/Caregiver */}
+              <button
+                onClick={() => setSelectedRole("parent")}
+                className="p-6 bg-white/10 hover:bg-white/20 rounded-lg border border-white/30 transition-all text-left"
+              >
+                <Heart className="w-8 h-8 mb-3" />
+                <h3 className="font-bold text-lg mb-2">Parent/Caregiver</h3>
+                <p className="text-sm text-blue-100">
+                  Learn CPR and emergency response for your child
+                </p>
+              </button>
+
+              {/* Institution */}
+              <button
+                onClick={() => setSelectedRole("institution")}
+                className="p-6 bg-white/10 hover:bg-white/20 rounded-lg border border-white/30 transition-all text-left"
+              >
+                <Briefcase className="w-8 h-8 mb-3" />
+                <h3 className="font-bold text-lg mb-2">Institution</h3>
+                <p className="text-sm text-blue-100">
+                  Hospital, school, or organization
+                </p>
+              </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="bg-red-50 border-red-200">
-              <CardContent className="pt-6">
-                <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
-                <p className="text-3xl font-bold text-red-600">{stats.criticalPatients}</p>
-                <p className="text-sm text-gray-600">Critical Alerts</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="pt-6">
-                <Users className="w-8 h-8 text-blue-600 mb-2" />
-                <p className="text-3xl font-bold text-blue-600">{stats.totalPatients}</p>
-                <p className="text-sm text-gray-600">Patients</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="pt-6">
-                <Heart className="w-8 h-8 text-green-600 mb-2" />
-                <p className="text-3xl font-bold text-green-600">{stats.livesProtected}</p>
-                <p className="text-sm text-gray-600">Lives Protected</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-purple-50 border-purple-200">
-              <CardContent className="pt-6">
-                <Zap className="w-8 h-8 text-purple-600 mb-2" />
-                <p className="text-3xl font-bold text-purple-600">{stats.interventionsLogged}</p>
-                <p className="text-sm text-gray-600">Interventions</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Platform Features Showcase */}
-      <section className="px-4 md:px-8 py-16 md:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Complete Feature Set
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Click any feature to explore details or navigate directly to the module.
-            </p>
-          </div>
+      {/* HEALTHCARE PROVIDER HERO */}
+      {(userRole === "provider" || user?.role === "admin") && (
+        <>
+          {/* Hero Section */}
+          <section className="bg-gradient-to-br from-blue-50 via-white to-blue-50 px-4 md:px-8 py-16 md:py-24">
+            <div className="max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                  <Badge className="mb-4 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                    For Healthcare Providers
+                  </Badge>
+                  <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    Make the Right Call in <span className="text-red-600">30 Seconds</span>
+                  </h1>
+                  <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+                    AI-powered clinical decision support that guides you through every pediatric emergency. From recognition to intervention—every second counts.
+                  </p>
+                  <div className="flex gap-4 flex-wrap mb-8">
+                    <Button size="lg" onClick={() => setLocation("/patients")} className="bg-red-600 hover:bg-red-700">
+                      Start Now <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => setLocation("/protocols")}>
+                      View Protocols
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    No credit card required. Start immediately.
+                  </p>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sections.map((section) => {
-              const Icon = section.icon;
-              const isExpanded = expandedSection === section.id;
-
-              return (
-                <Card
-                  key={section.id}
-                  className={`cursor-pointer transition-all hover:shadow-lg ${section.color} border-2`}
-                  onClick={() => setExpandedSection(isExpanded ? null : section.id)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between mb-2">
-                      <Icon className="w-8 h-8 text-gray-700" />
-                      <div className="flex gap-2">
-                        {section.comingSoon && (
-                          <Badge variant="secondary">Coming Soon</Badge>
-                        )}
-                        <Badge className="text-xs">{section.status}</Badge>
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl">{section.title}</CardTitle>
-                    <CardDescription>{section.description}</CardDescription>
-                  </CardHeader>
-
-                  {isExpanded && (
-                    <CardContent className="space-y-4">
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2">Features:</h4>
-                        <ul className="space-y-2">
-                          {section.features.map((feature, idx) => (
-                            <li key={idx} className="flex gap-2 text-sm">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="pt-4 border-t">
-                        <p className="text-sm font-semibold text-gray-700 mb-3">{section.stats}</p>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            section.action();
-                          }}
-                          className="w-full"
-                          disabled={section.comingSoon}
-                        >
-                          {section.comingSoon ? "Coming Soon" : "Explore"}
-                        </Button>
+                {/* Trust Signals */}
+                <div className="space-y-4">
+                  <Card className="border-2 border-green-200 bg-green-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Shield className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-green-900 mb-1">Trusted by 500+ Facilities</h3>
+                          <p className="text-sm text-green-800">
+                            Used in hospitals across East Africa
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
-                  )}
+                  </Card>
+
+                  <Card className="border-2 border-blue-200 bg-blue-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Award className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-blue-900 mb-1">Evidence-Based Protocols</h3>
+                          <p className="text-sm text-blue-800">
+                            Based on latest pediatric emergency guidelines
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-purple-200 bg-purple-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Lock className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-purple-900 mb-1">HIPAA Compliant</h3>
+                          <p className="text-sm text-purple-800">
+                            Your patient data is secure and encrypted
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Key Features for Providers */}
+          <section className="bg-white px-4 md:px-8 py-16">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-4">What You Get</h2>
+              <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+                Everything you need to handle pediatric emergencies with confidence
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Feature 1 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Clock className="w-8 h-8 text-red-600 mb-2" />
+                    <CardTitle>Real-Time Decision Support</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      AI analyzes vital signs and guides you through the exact steps needed in critical moments
+                    </p>
+                  </CardContent>
                 </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
-      {/* Quick Navigation */}
-      <section className="px-4 md:px-8 py-16 max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Quick Navigation</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Button
-            variant="outline"
-            className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => setLocation("/patients")}
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-xs">Patients</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => setLocation("/performance-dashboard")}
-          >
-            <Trophy className="w-6 h-6" />
-            <span className="text-xs">Performance</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => setLocation("/personal-impact")}
-          >
-            <TrendingUp className="w-6 h-6" />
-            <span className="text-xs">Impact</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => setLocation("/safe-truth")}
-          >
-            <AlertCircle className="w-6 h-6" />
-            <span className="text-xs">Safe-Truth</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => setLocation("/referral")}
-          >
-            <Share2 className="w-6 h-6" />
-            <span className="text-xs">Referrals</span>
-          </Button>
-        </div>
-      </section>
+                {/* Feature 2 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Brain className="w-8 h-8 text-blue-600 mb-2" />
+                    <CardTitle>Predictive Risk Scoring</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Know which patients are deteriorating before it's too late. 87% prediction accuracy.
+                    </p>
+                  </CardContent>
+                </Card>
 
-      {/* Key Metrics */}
-      <section className="px-4 md:px-8 py-16 md:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">
-            Platform Impact & Scale
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-4xl font-bold text-blue-600 mb-2">12+</p>
-                <p className="text-gray-600">Live Features</p>
-                <p className="text-xs text-gray-500 mt-2">Fully integrated</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-4xl font-bold text-green-600 mb-2">800+</p>
-                <p className="text-gray-600">Unit Tests</p>
-                <p className="text-xs text-gray-500 mt-2">All passing</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-4xl font-bold text-purple-600 mb-2">51</p>
-                <p className="text-gray-600">Database Tables</p>
-                <p className="text-xs text-gray-500 mt-2">Comprehensive model</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-4xl font-bold text-red-600 mb-2">0</p>
-                <p className="text-gray-600">TypeScript Errors</p>
-                <p className="text-xs text-gray-500 mt-2">Production ready</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
+                {/* Feature 3 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <FileText className="w-8 h-8 text-indigo-600 mb-2" />
+                    <CardTitle>AI Lab Analysis</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Upload tests and imaging. Get instant AI interpretation and differential diagnosis.
+                    </p>
+                  </CardContent>
+                </Card>
 
-      {/* Feature Highlights */}
-      <section className="px-4 md:px-8 py-16 max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Latest Additions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-2 border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <Trophy className="w-8 h-8 text-yellow-600 mb-2" />
-              <CardTitle>Performance Dashboard</CardTitle>
-              <CardDescription>Real-time provider statistics and leaderboards</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>Individual provider metrics</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>Real-time leaderboards</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>WebSocket integration</span>
-                </li>
-              </ul>
-              <Button
-                className="w-full mt-4"
-                onClick={() => setLocation("/performance-dashboard")}
-              >
-                Explore Dashboard
-              </Button>
-            </CardContent>
-          </Card>
+                {/* Feature 4 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <AlertCircle className="w-8 h-8 text-orange-600 mb-2" />
+                    <CardTitle>Safe-Truth Reporting</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Confidential incident reporting. Learn from system gaps. Improve outcomes.
+                    </p>
+                  </CardContent>
+                </Card>
 
-          <Card className="border-2 border-indigo-200 bg-indigo-50">
-            <CardHeader>
-              <FileText className="w-8 h-8 text-indigo-600 mb-2" />
-              <CardTitle>Investigation Upload</CardTitle>
-              <CardDescription>AI-powered analysis of lab tests and imaging</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>File upload support</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>AI interpretation</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>Differential diagnosis</span>
-                </li>
-              </ul>
-              <Button
-                className="w-full mt-4"
-                onClick={() => setLocation("/investigations/1")}
-              >
-                Upload Investigation
-              </Button>
-            </CardContent>
-          </Card>
+                {/* Feature 5 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Trophy className="w-8 h-8 text-yellow-600 mb-2" />
+                    <CardTitle>Performance Tracking</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      See your impact. Track lives saved. Compete on leaderboards. Earn badges.
+                    </p>
+                  </CardContent>
+                </Card>
 
-          <Card className="border-2 border-red-200 bg-red-50">
-            <CardHeader>
-              <Heart className="w-8 h-8 text-red-600 mb-2" />
-              <CardTitle>Vital Signs Monitoring</CardTitle>
-              <CardDescription>Real-time risk scoring with age-based reference ranges</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>9 vital signs inputs</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>5 pediatric age groups</span>
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span>Risk level classification</span>
-                </li>
-              </ul>
-              <Button
-                className="w-full mt-4"
-                onClick={() => setLocation("/patients")}
-              >
-                Monitor Patients
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+                {/* Feature 6 */}
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <BookOpen className="w-8 h-8 text-green-600 mb-2" />
+                    <CardTitle>Continuous Learning</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      AI-generated courses tailored to your knowledge gaps. Stay current. Get certified.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </section>
 
-      {/* Call to Action */}
-      <section className="px-4 md:px-8 py-16 max-w-7xl mx-auto">
-        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 border-0 text-white">
-          <CardContent className="pt-12 pb-12 text-center">
-            <h3 className="text-3xl font-bold mb-4">Ready to Save Lives?</h3>
-            <p className="text-lg mb-8 opacity-90 max-w-2xl mx-auto">
-              The platform is built. The foundation is solid. Explore all features, track your performance, and make a real impact on pediatric emergency care.
-            </p>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Button size="lg" variant="secondary" onClick={() => setLocation("/patients")}>
-                Explore Platform
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-transparent border-white text-white hover:bg-white hover:text-blue-600"
-                onClick={() => setLocation("/performance-dashboard")}
-              >
-                View Performance
+          {/* CTA Section */}
+          <section className="bg-red-600 text-white px-4 md:px-8 py-16">
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-4xl font-bold mb-4">Ready to Save Lives?</h2>
+              <p className="text-xl text-red-100 mb-8">
+                Join 500+ healthcare providers who trust Paeds Resus
+              </p>
+              <Button size="lg" onClick={() => setLocation("/patients")} className="bg-white text-red-600 hover:bg-gray-100">
+                Get Started Now <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </section>
+          </section>
+        </>
+      )}
 
-      {/* Footer Info */}
-      <section className="px-4 md:px-8 py-12 bg-gray-900 text-white text-center">
-        <p className="text-sm text-gray-400">
-          Paeds Resus Elite Fellowship Platform • Phase J Complete
-        </p>
-        <p className="text-xs text-gray-500 mt-2">
-          Built with React 19 • Tailwind 4 • tRPC 11 • Drizzle ORM • WebSocket Integration
-        </p>
-        <p className="text-xs text-gray-600 mt-3">
-          12+ Live Features • 800+ Unit Tests • 0 TypeScript Errors
-        </p>
-      </section>
+      {/* PARENT/CAREGIVER HERO */}
+      {userRole === "parent" && (
+        <>
+          {/* Hero Section */}
+          <section className="bg-gradient-to-br from-green-50 via-white to-green-50 px-4 md:px-8 py-16 md:py-24">
+            <div className="max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                  <Badge className="mb-4 bg-green-100 text-green-800 hover:bg-green-100">
+                    For Parents & Caregivers
+                  </Badge>
+                  <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    Be Ready When It Matters Most
+                  </h1>
+                  <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+                    Learn CPR and emergency response in just 30 minutes. Simple, practical, life-saving skills you can use today.
+                  </p>
+                  <div className="flex gap-4 flex-wrap mb-8">
+                    <Button size="lg" onClick={() => setLocation("/enrollment")} className="bg-green-600 hover:bg-green-700">
+                      Enroll Now <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => setLocation("/resources")}>
+                      Free Resources
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    Certificate included. Learn at your own pace.
+                  </p>
+                </div>
+
+                {/* Trust Signals */}
+                <div className="space-y-4">
+                  <Card className="border-2 border-green-200 bg-green-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Heart className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-green-900 mb-1">10,000+ Parents Trained</h3>
+                          <p className="text-sm text-green-800">
+                            Join families who are prepared
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-blue-200 bg-blue-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Smartphone className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-blue-900 mb-1">Learn on Your Phone</h3>
+                          <p className="text-sm text-blue-800">
+                            30-minute lessons. Anytime, anywhere.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-purple-200 bg-purple-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Award className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-purple-900 mb-1">Get Certified</h3>
+                          <p className="text-sm text-purple-800">
+                            Official CPR certificate upon completion
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Courses for Parents */}
+          <section className="bg-white px-4 md:px-8 py-16">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-4">Choose Your Course</h2>
+              <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+                All courses include video, practice, and certification
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* BLS Course */}
+                <Card className="border-2 hover:shadow-lg transition-all">
+                  <CardHeader>
+                    <CardTitle>Basic Life Support (BLS)</CardTitle>
+                    <CardDescription>For infants and children</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 mb-6">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>CPR techniques for infants and children</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Recovery position and choking relief</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>When and how to call for help</span>
+                      </li>
+                    </ul>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-green-600">KES 500</span>
+                      <Button onClick={() => setLocation("/enrollment")}>Enroll</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* First Aid Course */}
+                <Card className="border-2 hover:shadow-lg transition-all">
+                  <CardHeader>
+                    <CardTitle>First Aid Essentials</CardTitle>
+                    <CardDescription>Handle common emergencies</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 mb-6">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Wound care and bleeding control</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Burns, fractures, and sprains</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Fever, allergies, and poisoning</span>
+                      </li>
+                    </ul>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-green-600">KES 300</span>
+                      <Button onClick={() => setLocation("/enrollment")}>Enroll</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </section>
+
+          {/* CTA Section */}
+          <section className="bg-green-600 text-white px-4 md:px-8 py-16">
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-4xl font-bold mb-4">Your Child's Safety Starts Here</h2>
+              <p className="text-xl text-green-100 mb-8">
+                Start learning CPR today. Be prepared for tomorrow.
+              </p>
+              <Button size="lg" onClick={() => setLocation("/enrollment")} className="bg-white text-green-600 hover:bg-gray-100">
+                Enroll Now <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* INSTITUTION HERO */}
+      {userRole === "institution" && (
+        <>
+          {/* Hero Section */}
+          <section className="bg-gradient-to-br from-purple-50 via-white to-purple-50 px-4 md:px-8 py-16 md:py-24">
+            <div className="max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                  <Badge className="mb-4 bg-purple-100 text-purple-800 hover:bg-purple-100">
+                    For Institutions
+                  </Badge>
+                  <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    Train Your Team. Save Lives.
+                  </h1>
+                  <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+                    Equip your entire staff with clinical decision support and emergency protocols. Proven to improve patient outcomes.
+                  </p>
+                  <div className="flex gap-4 flex-wrap mb-8">
+                    <Button size="lg" onClick={() => setLocation("/institutional-onboarding")} className="bg-purple-600 hover:bg-purple-700">
+                      Get a Quote <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => setLocation("/case-studies")}>
+                      See Case Studies
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    Free consultation with our team
+                  </p>
+                </div>
+
+                {/* ROI Signals */}
+                <div className="space-y-4">
+                  <Card className="border-2 border-green-200 bg-green-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <TrendingUp className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-green-900 mb-1">40% Faster Response</h3>
+                          <p className="text-sm text-green-800">
+                            Average time to intervention reduced
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-blue-200 bg-blue-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <BarChart3 className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-blue-900 mb-1">Proven ROI</h3>
+                          <p className="text-sm text-blue-800">
+                            Payback in 6 months. 500+ hospitals trust us.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-purple-200 bg-purple-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Users className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <h3 className="font-bold text-purple-900 mb-1">Bulk Pricing</h3>
+                          <p className="text-sm text-purple-800">
+                            From KES 2,000 per staff member/year
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Institutional Benefits */}
+          <section className="bg-white px-4 md:px-8 py-16">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-4">What Your Institution Gets</h2>
+              <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+                Complete system for training, tracking, and improving clinical outcomes
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Users className="w-8 h-8 text-purple-600 mb-2" />
+                    <CardTitle>Bulk Staff Training</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Train entire departments at once. Bulk pricing starts at KES 2,000 per person/year.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <BarChart3 className="w-8 h-8 text-blue-600 mb-2" />
+                    <CardTitle>Institutional Dashboard</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Track staff performance, outcomes, and compliance. Real-time analytics and reporting.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Award className="w-8 h-8 text-yellow-600 mb-2" />
+                    <CardTitle>Certification Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Automatic certification tracking and renewal reminders. Compliance made easy.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
+                    <CardTitle>Safe-Truth System</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Confidential incident reporting. Identify system gaps. Improve patient safety.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Zap className="w-8 h-8 text-orange-600 mb-2" />
+                    <CardTitle>Dedicated Support</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Implementation team, training, and ongoing support. We ensure success.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <Globe className="w-8 h-8 text-green-600 mb-2" />
+                    <CardTitle>Referral Network</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">
+                      Connect with 500+ facilities. Seamless patient transfers and peer learning.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </section>
+
+          {/* Pricing Section */}
+          <section className="bg-gray-50 px-4 md:px-8 py-16">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-4">Transparent Pricing</h2>
+              <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+                No hidden fees. No long-term contracts. Cancel anytime.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Starter */}
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle>Starter</CardTitle>
+                    <CardDescription>For small clinics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold">KES 2,000</span>
+                      <span className="text-gray-600">/person/year</span>
+                    </div>
+                    <ul className="space-y-2 mb-6">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Up to 10 staff</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Clinical decision support</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Basic reporting</span>
+                      </li>
+                    </ul>
+                    <Button className="w-full" onClick={() => setLocation("/institutional-onboarding")}>
+                      Get Started
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Professional */}
+                <Card className="border-2 border-purple-600 relative">
+                  <div className="absolute top-0 right-0 bg-purple-600 text-white px-4 py-1 text-sm font-bold rounded-bl-lg">
+                    POPULAR
+                  </div>
+                  <CardHeader>
+                    <CardTitle>Professional</CardTitle>
+                    <CardDescription>For hospitals</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold">KES 1,500</span>
+                      <span className="text-gray-600">/person/year</span>
+                    </div>
+                    <ul className="space-y-2 mb-6">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Up to 100 staff</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>All Starter features</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Safe-Truth reporting</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Advanced analytics</span>
+                      </li>
+                    </ul>
+                    <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={() => setLocation("/institutional-onboarding")}>
+                      Get Started
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Enterprise */}
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle>Enterprise</CardTitle>
+                    <CardDescription>For large networks</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold">Custom</span>
+                      <span className="text-gray-600">/person/year</span>
+                    </div>
+                    <ul className="space-y-2 mb-6">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Unlimited staff</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>All Professional features</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Dedicated account manager</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span>Custom integrations</span>
+                      </li>
+                    </ul>
+                    <Button variant="outline" className="w-full" onClick={() => setLocation("/institutional-onboarding")}>
+                      Contact Sales
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </section>
+
+          {/* CTA Section */}
+          <section className="bg-purple-600 text-white px-4 md:px-8 py-16">
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-4xl font-bold mb-4">Ready to Transform Your Institution?</h2>
+              <p className="text-xl text-purple-100 mb-8">
+                Get a free consultation and custom quote
+              </p>
+              <Button size="lg" onClick={() => setLocation("/institutional-onboarding")} className="bg-white text-purple-600 hover:bg-gray-100">
+                Schedule a Demo <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white px-4 md:px-8 py-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h3 className="font-bold mb-4">Paeds Resus</h3>
+              <p className="text-gray-400 text-sm">
+                AI-powered clinical decision support for pediatric emergencies
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">Features</a></li>
+                <li><a href="#" className="hover:text-white">Pricing</a></li>
+                <li><a href="#" className="hover:text-white">Security</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">About</a></li>
+                <li><a href="#" className="hover:text-white">Blog</a></li>
+                <li><a href="#" className="hover:text-white">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">Help Center</a></li>
+                <li><a href="#" className="hover:text-white">Privacy</a></li>
+                <li><a href="#" className="hover:text-white">Terms</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
+            <p>&copy; 2026 Paeds Resus. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
