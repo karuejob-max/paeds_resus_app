@@ -20,10 +20,11 @@ export default function Home() {
   const [, setLocation] = useLocation();
 
   // If user is logged in, redirect to appropriate dashboard
-  if (isAuthenticated) {
-    if (user?.role === "admin" || user?.role === "provider") {
+  if (isAuthenticated && user) {
+    const role = user.role as string;
+    if (role === "admin" || role === "provider") {
       setLocation("/provider-dashboard");
-    } else if (user?.role === "parent") {
+    } else if (role === "parent") {
       setLocation("/learner-dashboard");
     } else {
       setLocation("/institutional-dashboard");
