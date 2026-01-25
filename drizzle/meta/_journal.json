@@ -127,6 +127,20 @@
       "when": 1769253586446,
       "tag": "0017_curved_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1769379207899,
+      "tag": "0018_motionless_thaddeus_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1769379309685,
+      "tag": "0019_great_banshee",
+      "breakpoints": true
     }
   ]
 }

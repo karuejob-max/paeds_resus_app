@@ -1,7 +1,14 @@
 import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
-import { parentSafeTruthEvents, parentSafeTruthSubmissions, systemDelayAnalysis, hospitalImprovementMetrics } from "../../drizzle/parent-safetruth-schema";
+import { TRPCError } from "@trpc/server";
+import { 
+  parentSafeTruthEvents, 
+  parentSafeTruthSubmissions, 
+  systemDelayAnalysis, 
+  hospitalImprovementMetrics 
+} from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { getDb } from "../db";
 
 const eventSchema = z.object({
   eventType: z.enum([
@@ -35,15 +42,16 @@ export const parentSafeTruthRouter = router({
         parentName: z.string().optional(),
         parentEmail: z.string().email().optional(),
         isAnonymous: z.boolean().default(true),
-        hospitalId: z.string().optional(),
+        hospitalId: z.number().optional(),
         events: z.array(eventSchema).min(1),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const db = require("../db").db;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       // Create submission
-      const submission = await db
+      const result = await db
         .insert(parentSafeTruthSubmissions)
         .values({
           userId: ctx.user.id,
@@ -53,26 +61,24 @@ export const parentSafeTruthRouter = router({
           childOutcome: input.childOutcome,
           arrivalTime: new Date(input.events[0].time),
           dischargeOrReferralTime: new Date(input.events[input.events.length - 1].time),
-          isAnonymous: input.isAnonymous ? 1 : 0,
+          isAnonymous: input.isAnonymous,
           parentName: input.parentName,
           parentEmail: input.parentEmail,
           status: "submitted",
-        })
-        .execute();
+        });
 
-      const submissionId = submission.insertId.toString();
+      const submissionId = (result as any)[0].insertId || (result as any).insertId;
 
       // Insert events
       for (const event of input.events) {
         await db
           .insert(parentSafeTruthEvents)
           .values({
-            submissionId,
+            submissionId: submissionId,
             eventType: event.eventType as any,
             eventTime: new Date(event.time),
             description: event.description,
-          })
-          .execute();
+          });
       }
 
       // Analyze delays
@@ -80,6 +86,8 @@ export const parentSafeTruthRouter = router({
 
       return {
         submissionId,
+        eventCount: input.events.length,
+        systemGapsIdentified: analysis?.gaps ? Object.values(analysis.gaps).filter(Boolean).length : 0,
         analysis,
         message: "Your story has been submitted successfully. Thank you for helping us improve care.",
       };
@@ -87,33 +95,33 @@ export const parentSafeTruthRouter = router({
 
   // Get parent's submissions
   getMySubmissions: protectedProcedure.query(async ({ ctx }) => {
-    const db = require("../db").db;
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     const submissions = await db
       .select()
       .from(parentSafeTruthSubmissions)
-      .where(eq(parentSafeTruthSubmissions.userId as any, ctx.user.id))
-      .orderBy(desc(parentSafeTruthSubmissions.createdAt))
-      .execute();
+      .where(eq(parentSafeTruthSubmissions.userId, ctx.user.id))
+      .orderBy(desc(parentSafeTruthSubmissions.createdAt));
 
     return submissions;
   }),
 
   // Get submission details with events
   getSubmissionDetails: protectedProcedure
-    .input(z.object({ submissionId: z.string() }))
+    .input(z.object({ submissionId: z.number() }))
     .query(async ({ input, ctx }) => {
-      const db = require("../db").db;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      const submission: any = await db
+      const submission = await db
         .select()
         .from(parentSafeTruthSubmissions)
         .where(
           and(
-            eq(parentSafeTruthSubmissions.id as any, input.submissionId),
-            eq(parentSafeTruthSubmissions.userId as any, ctx.user.id)
+            eq(parentSafeTruthSubmissions.id, input.submissionId),
+            eq(parentSafeTruthSubmissions.userId, ctx.user.id)
           )
-        )
-        .execute();
+        );
 
       if (!submission.length) {
         throw new Error("Submission not found");
@@ -122,65 +130,63 @@ export const parentSafeTruthRouter = router({
       const events = await db
         .select()
         .from(parentSafeTruthEvents)
-        .where(eq(parentSafeTruthEvents.submissionId as any, input.submissionId))
-        .orderBy(parentSafeTruthEvents.eventTime)
-        .execute();
+        .where(eq(parentSafeTruthEvents.submissionId, input.submissionId))
+        .orderBy(parentSafeTruthEvents.eventTime);
 
       const analysis = await db
         .select()
         .from(systemDelayAnalysis)
-        .where(eq(systemDelayAnalysis.submissionId as any, input.submissionId))
-        .execute();
+        .where(eq(systemDelayAnalysis.submissionId, input.submissionId));
 
       return {
         submission: submission[0],
         events,
-        analysis: analysis[0],
+        analysis: analysis[0] || null,
       };
     }),
 
   // Get hospital improvement metrics
   getHospitalMetrics: protectedProcedure
-    .input(z.object({ hospitalId: z.string() }))
+    .input(z.object({ hospitalId: z.number() }))
     .query(async ({ input }) => {
-      const db = require("../db").db;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const metrics = await db
         .select()
         .from(hospitalImprovementMetrics)
-        .where(eq(hospitalImprovementMetrics.hospitalId as any, input.hospitalId))
-        .execute();
+        .where(eq(hospitalImprovementMetrics.hospitalId, input.hospitalId));
 
       return metrics[0] || null;
     }),
 
   // Get delay analysis for hospital
   getHospitalDelayAnalysis: protectedProcedure
-    .input(z.object({ hospitalId: z.string() }))
+    .input(z.object({ hospitalId: z.number() }))
     .query(async ({ input }) => {
-      const db = require("../db").db;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const analyses = await db
         .select()
         .from(systemDelayAnalysis)
-        .where(eq(systemDelayAnalysis.hospitalId as any, input.hospitalId))
-        .orderBy(desc(systemDelayAnalysis.createdAt))
-        .execute();
+        .where(eq(systemDelayAnalysis.hospitalId, input.hospitalId))
+        .orderBy(desc(systemDelayAnalysis.createdAt));
 
       return analyses;
     }),
 });
 
 // Helper function to analyze system delays
-async function analyzeSystemDelays(submissionId: string, hospitalId?: string) {
-  const db = require("../db").db;
+async function analyzeSystemDelays(submissionId: number, hospitalId?: number) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
   const events = await db
     .select()
     .from(parentSafeTruthEvents)
-    .where(eq(parentSafeTruthEvents.submissionId as any, submissionId))
-    .orderBy(parentSafeTruthEvents.eventTime)
-    .execute();
+    .where(eq(parentSafeTruthEvents.submissionId, submissionId))
+    .orderBy(parentSafeTruthEvents.eventTime);
 
   if (events.length < 2) {
     return null;
@@ -249,18 +255,17 @@ async function analyzeSystemDelays(submissionId: string, hospitalId?: string) {
         hospitalId,
         arrivalToDoctorDelay: delays.arrivalToDoctorDelay,
         doctorToInterventionDelay: delays.doctorToInterventionDelay,
-        hasMonitoringGap: hasMonitoringGap ? 1 : 0,
-        hasCommunicationGap: hasCommunicationGap ? 1 : 0,
-        hasInterventionDelay: hasInterventionDelay ? 1 : 0,
+        hasMonitoringGap: hasMonitoringGap,
+        hasCommunicationGap: hasCommunicationGap,
+        hasInterventionDelay: hasInterventionDelay,
         recommendations: JSON.stringify(recommendations),
         improvementAreas: JSON.stringify(
           Object.entries(delays)
             .filter(([, v]) => v && v > 0)
             .map(([k]) => k)
         ),
-        severityScore: (severityScore / 10).toString(),
-      })
-      .execute();
+        severityScore: (severityScore / 10).toString() as any,
+      });
   }
 
   return {

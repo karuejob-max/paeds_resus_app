@@ -1773,3 +1773,187 @@ export const performanceEvents = mysqlTable("performanceEvents", {
 });
 export type PerformanceEvent = typeof performanceEvents.$inferSelect;
 export type InsertPerformanceEvent = typeof performanceEvents.$inferInsert;
+
+
+// ============================================================================
+// PARENT SAFE-TRUTH REPORTING SYSTEM
+// ============================================================================
+
+// Parent Safe-Truth Events Table
+export const parentSafeTruthEvents = mysqlTable("parentSafeTruthEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  submissionId: int("submissionId").notNull(),
+  eventType: mysqlEnum("eventType", [
+    "arrival",
+    "symptoms",
+    "doctor-seen",
+    "intervention",
+    "oxygen",
+    "communication",
+    "fluids",
+    "concern-raised",
+    "monitoring",
+    "medication",
+    "referral-decision",
+    "referral-organized",
+    "transferred",
+    "update",
+  ]).notNull(),
+  eventTime: timestamp("eventTime").notNull(),
+  description: text("description").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ParentSafeTruthEvent = typeof parentSafeTruthEvents.$inferSelect;
+export type InsertParentSafeTruthEvent = typeof parentSafeTruthEvents.$inferInsert;
+
+// Parent Safe-Truth Submissions Table
+export const parentSafeTruthSubmissions = mysqlTable("parentSafeTruthSubmissions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  hospitalId: int("hospitalId"),
+  childName: varchar("childName", { length: 255 }),
+  childAge: int("childAge"),
+  childOutcome: mysqlEnum("childOutcome", ["discharged", "referred", "passed-away"]).notNull(),
+  arrivalTime: timestamp("arrivalTime").notNull(),
+  dischargeOrReferralTime: timestamp("dischargeOrReferralTime"),
+  totalDurationMinutes: int("totalDurationMinutes"),
+  communicationGaps: int("communicationGaps").default(0),
+  interventionDelays: int("interventionDelays").default(0),
+  monitoringGaps: int("monitoringGaps").default(0),
+  delayAnalysis: text("delayAnalysis"), // JSON string
+  improvements: text("improvements"), // JSON string
+  isAnonymous: boolean("isAnonymous").default(true),
+  parentName: varchar("parentName", { length: 255 }),
+  parentEmail: varchar("parentEmail", { length: 255 }),
+  status: mysqlEnum("status", ["draft", "submitted", "reviewed", "archived"]).default("submitted"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferSelect;
+export type InsertParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferInsert;
+
+// System Delay Analysis Results Table
+export const systemDelayAnalysis = mysqlTable("systemDelayAnalysis", {
+  id: int("id").autoincrement().primaryKey(),
+  submissionId: int("submissionId").notNull(),
+  hospitalId: int("hospitalId").notNull(),
+  arrivalToDoctorDelay: int("arrivalToDoctorDelay"),
+  doctorToInterventionDelay: int("doctorToInterventionDelay"),
+  interventionToMonitoringDelay: int("interventionToMonitoringDelay"),
+  communicationDelay: int("communicationDelay"),
+  hasMonitoringGap: boolean("hasMonitoringGap").default(false),
+  hasCommunicationGap: boolean("hasCommunicationGap").default(false),
+  hasInterventionDelay: boolean("hasInterventionDelay").default(false),
+  recommendations: text("recommendations"), // JSON array
+  improvementAreas: text("improvementAreas"), // JSON array
+  severityScore: decimal("severityScore", { precision: 3, scale: 1 }), // 0-10 scale
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SystemDelayAnalysis = typeof systemDelayAnalysis.$inferSelect;
+export type InsertSystemDelayAnalysis = typeof systemDelayAnalysis.$inferInsert;
+
+// Hospital Improvement Metrics (aggregated from parent feedback)
+export const hospitalImprovementMetrics = mysqlTable("hospitalImprovementMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  hospitalId: int("hospitalId").notNull().unique(),
+  totalSubmissions: int("totalSubmissions").default(0),
+  avgArrivalToDoctorDelay: decimal("avgArrivalToDoctorDelay", { precision: 5, scale: 1 }),
+  avgDoctorToInterventionDelay: decimal("avgDoctorToInterventionDelay", { precision: 5, scale: 1 }),
+  communicationGapPercentage: decimal("communicationGapPercentage", { precision: 5, scale: 1 }),
+  monitoringGapPercentage: decimal("monitoringGapPercentage", { precision: 5, scale: 1 }),
+  improvementTrend: mysqlEnum("improvementTrend", ["improving", "stable", "declining"]),
+  lastAnalyzedAt: timestamp("lastAnalyzedAt"),
+  topImprovementAreas: text("topImprovementAreas"), // JSON array
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type HospitalImprovementMetrics = typeof hospitalImprovementMetrics.$inferSelect;
+export type InsertHospitalImprovementMetrics = typeof hospitalImprovementMetrics.$inferInsert;
+
+
+// ============================================================================
+// CHAT SUPPORT SYSTEM
+// ============================================================================
+
+// Chat Conversations Table
+export const chatConversations = mysqlTable("chatConversations", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  agentId: int("agentId"),
+  topic: mysqlEnum("topic", ["activation_help", "password_reset", "course_enrollment", "payment_issue", "technical_support", "other"]).notNull(),
+  priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
+  status: mysqlEnum("status", ["open", "assigned", "in_progress", "resolved", "closed"]).default("open"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type InsertChatConversation = typeof chatConversations.$inferInsert;
+
+// Chat Messages Table
+export const chatMessages = mysqlTable("chatMessages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  senderId: int("senderId").notNull(),
+  senderType: mysqlEnum("senderType", ["user", "agent", "system"]).notNull(),
+  content: text("content").notNull(),
+  messageType: mysqlEnum("messageType", ["text", "file", "system"]).default("text"),
+  isRead: boolean("isRead").default(false),
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = typeof chatMessages.$inferInsert;
+
+// Support Agents Table
+export const supportAgents = mysqlTable("supportAgents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  agentName: varchar("agentName", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["available", "busy", "offline"]).default("offline"),
+  activeConversations: int("activeConversations").default(0),
+  totalResolved: int("totalResolved").default(0),
+  avgResolutionTime: int("avgResolutionTime"), // in minutes
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SupportAgent = typeof supportAgents.$inferSelect;
+export type InsertSupportAgent = typeof supportAgents.$inferInsert;
+
+// Canned Responses Table
+export const cannedResponses = mysqlTable("cannedResponses", {
+  id: int("id").autoincrement().primaryKey(),
+  agentId: int("agentId"),
+  title: varchar("title", { length: 255 }).notNull(),
+  shortcut: varchar("shortcut", { length: 50 }).unique(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CannedResponse = typeof cannedResponses.$inferSelect;
+export type InsertCannedResponse = typeof cannedResponses.$inferInsert;
+
+// Chat Analytics Table
+export const chatAnalytics = mysqlTable("chatAnalytics", {
+  id: int("id").autoincrement().primaryKey(),
+  agentId: int("agentId").notNull(),
+  totalConversations: int("totalConversations").default(0),
+  resolvedConversations: int("resolvedConversations").default(0),
+  avgResolutionTime: int("avgResolutionTime"), // in minutes
+  avgCustomerSatisfaction: decimal("avgCustomerSatisfaction", { precision: 3, scale: 2 }), // 0-5 scale
+  totalMessagesHandled: int("totalMessagesHandled").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ChatAnalytics = typeof chatAnalytics.$inferSelect;
+export type InsertChatAnalytics = typeof chatAnalytics.$inferInsert;
