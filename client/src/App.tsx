@@ -39,6 +39,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { CPRClock } from "./components/CPRClock";
 import { LearningPath } from "./components/LearningPath";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
+import BreathingAssessment from "./pages/BreathingAssessment";
+import CirculationAssessment from "./pages/CirculationAssessment";
+import DisabilityAssessment from "./pages/DisabilityAssessment";
+import ExposureAssessment from "./pages/ExposureAssessment";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -83,6 +87,11 @@ function Router() {
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           <Route path="/institutional-portal" component={InstitutionalPortal} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
+          <Route path="/clinical-assessment" component={ClinicalAssessment} />
+          <Route path="/breathing-assessment" component={BreathingAssessment} />
+          <Route path="/circulation-assessment" component={CirculationAssessment} />
+          <Route path="/disability-assessment" component={DisabilityAssessment} />
+          <Route path="/exposure-assessment" component={ExposureAssessment} />
           <Route path="/course/bls" component={CourseBLS} />
           <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />

@@ -116,6 +116,118 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CLINICAL ASSESSMENT DEMO - Try Now */}
+      <section className="px-4 md:px-8 py-20 bg-blue-50">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold text-center mb-4">Try Clinical Assessment Now</h2>
+          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+            Experience real-time clinical decision support. Start with a pediatric patient assessment:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Airway Assessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-red-600">A</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Airway Assessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Evaluate airway patency, responsiveness, and interventions needed.
+                  </p>
+                  <a href="/clinical-assessment">
+                    <Button className="w-full bg-red-600 hover:bg-red-700">
+                      Start Assessment
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Breathing Assessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-blue-600">B</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Breathing Assessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Assess respiratory rate, oxygen saturation, and breathing patterns.
+                  </p>
+                  <a href="/breathing-assessment">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      Start Assessment
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Circulation Assessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-green-600">C</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Circulation Assessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Evaluate heart rate, blood pressure, and shock detection.
+                  </p>
+                  <a href="/circulation-assessment">
+                    <Button className="w-full bg-green-600 hover:bg-green-700">
+                      Start Assessment
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Disability Assessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-purple-600">D</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Disability Assessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Evaluate neurological status and Glasgow Coma Scale.
+                  </p>
+                  <a href="/disability-assessment">
+                    <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                      Start Assessment
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Exposure Assessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-orange-600">E</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Exposure Assessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Full body examination and environmental assessment.
+                  </p>
+                  <a href="/exposure-assessment">
+                    <Button className="w-full bg-orange-600 hover:bg-orange-700">
+                      Start Assessment
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* FEATURES - What You Get */}
       <section className="px-4 md:px-8 py-20">
         <div className="max-w-6xl mx-auto">
