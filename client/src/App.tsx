@@ -38,6 +38,7 @@ import { useAuth } from "./_core/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { CPRClock } from "./components/CPRClock";
 import { LearningPath } from "./components/LearningPath";
+import ClinicalAssessment from "./pages/ClinicalAssessment";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -98,6 +99,7 @@ function Router() {
           <Route path="/cpr-clock/:patientId" component={(props: any) => <CPRClock patientId={parseInt(props.patientId)} patientName={`Patient ${props.patientId}`} />} />
           <Route path="/learning-path/:enrollmentId" component={(props: any) => <LearningPath enrollmentId={parseInt(props.enrollmentId)} programType="bls" />} />
           <Route path="/referral" component={Referral} />
+          <Route path="/clinical-assessment" component={ClinicalAssessment} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
