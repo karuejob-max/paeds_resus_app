@@ -43,6 +43,9 @@ import BreathingAssessment from "./pages/BreathingAssessment";
 import CirculationAssessment from "./pages/CirculationAssessment";
 import DisabilityAssessment from "./pages/DisabilityAssessment";
 import ExposureAssessment from "./pages/ExposureAssessment";
+import ProblemIdentification from "./pages/ProblemIdentification";
+import TargetedSolutions from "./pages/TargetedSolutions";
+import Reassessment from "./pages/Reassessment";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -92,6 +95,9 @@ function Router() {
           <Route path="/circulation-assessment" component={CirculationAssessment} />
           <Route path="/disability-assessment" component={DisabilityAssessment} />
           <Route path="/exposure-assessment" component={ExposureAssessment} />
+          <Route path="/problem-identification" component={ProblemIdentification} />
+          <Route path="/targeted-solutions" component={TargetedSolutions} />
+          <Route path="/reassessment" component={Reassessment} />
           <Route path="/course/bls" component={CourseBLS} />
           <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />

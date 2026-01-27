@@ -425,3 +425,63 @@ export default function Home() {
     </div>
   );
 }
+
+            {/* Problem Identification */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-indigo-600">🔍</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Problem Identification</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Analyze findings and identify clinical problems.
+                  </p>
+                  <a href="/problem-identification">
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
+                      Identify Problems
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Targeted Solutions */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-teal-600">✓</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Targeted Solutions</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Step-by-step management for each problem.
+                  </p>
+                  <a href="/targeted-solutions">
+                    <Button className="w-full bg-teal-600 hover:bg-teal-700">
+                      View Solutions
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reassessment */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-cyan-600">🔄</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2">Reassessment</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    15-minute follow-up and escalation logic.
+                  </p>
+                  <a href="/reassessment">
+                    <Button className="w-full bg-cyan-600 hover:bg-cyan-700">
+                      Reassess
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
