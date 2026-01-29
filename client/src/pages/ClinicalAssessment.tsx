@@ -9,8 +9,11 @@ import { AlertCircle, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-r
 import { CPRClock } from '@/components/CPRClock';
 import { RealTimeFeedback } from '@/components/RealTimeFeedback';
 import { ReassessmentPrompt, type ReassessmentResponse } from '@/components/ReassessmentPrompt';
+import { ActionCard, type Action } from '@/components/ActionCard';
 import { getPhaseValidation } from '@/lib/phaseValidation';
 import { getReassessmentAction } from '@/lib/reassessmentLogic';
+import { getPhaseActions, getNextAction, type PhaseAssessment } from '@/lib/actionSequencing';
+import { createAuditTrail, recordActionCompletion, generateAuditSummary, calculateEfficiencyScore } from '@/lib/actionTracking';
 
 interface FeedbackAlert {
   type: 'critical' | 'warning' | 'info' | 'action';
@@ -119,6 +122,11 @@ const ClinicalAssessment: React.FC = () => {
   const [showReassessment, setShowReassessment] = useState(false);
   const [interventionsCompleted, setInterventionsCompleted] = useState<string[]>([]);
   const [lastReassessmentResponse, setLastReassessmentResponse] = useState<ReassessmentResponse | null>(null);
+  const [phaseActions, setPhaseActions] = useState<Action[]>([]);
+  const [completedActionIds, setCompletedActionIds] = useState<string[]>([]);
+  const [currentActionIndex, setCurrentActionIndex] = useState(0);
+  const [auditTrail, setAuditTrail] = useState<any>(null);
+  const [showActionEngine, setShowActionEngine] = useState(false);
 
   // Add real-time feedback alert
   const addFeedback = (alert: FeedbackAlert) => {
@@ -136,10 +144,10 @@ const ClinicalAssessment: React.FC = () => {
       // Infant: (age in months + 9) / 2
       return (totalMonths + 9) / 2;
     } else if (totalMonths < 60) {
-      // Children 1-5 years: (age in years + 4) × 2
+      // Children 1-5 years: (age in years + 4) * 2
       return (years + 4) * 2;
     } else {
-      // Children > 5 years: age in years × 4
+      // Children > 5 years: age in years * 4
       return years * 4;
     }
   };
@@ -299,7 +307,7 @@ const ClinicalAssessment: React.FC = () => {
               frequency: 'Over 15 minutes, repeat x3 max (60 mL/kg total)',
               reassessmentCriteria: [
                 `Urine output: ${patientData.ageYears < 1 ? '2-4' : patientData.ageYears < 5 ? '1-2' : '0.5-1'} mL/kg/hr`,
-                'Temperature gradient <3°C',
+                'Temperature gradient <3 deg C',
                 'HR decreasing',
                 'BP improving',
               ],
@@ -469,6 +477,56 @@ const ClinicalAssessment: React.FC = () => {
   const handleInterventionComplete = () => {
     // After intervention, MANDATORY reassessment
     setShowReassessment(true);
+  };
+
+  // Initialize single-action engine when phase assessment completes
+  const initializeSingleActionEngine = () => {
+    if (!auditTrail) {
+      const trail = createAuditTrail(
+        `case-${Date.now()}`,
+        { years: patientData.ageYears, months: patientData.ageMonths },
+        weight
+      );
+      setAuditTrail(trail);
+    }
+
+    const phaseAssessment: PhaseAssessment = {
+      phase: currentPhase as any,
+      findings: assessment,
+      weight,
+      age: { years: patientData.ageYears, months: patientData.ageMonths },
+    };
+
+    const actions = getPhaseActions(phaseAssessment);
+    setPhaseActions(actions);
+    setCompletedActionIds([]);
+    setCurrentActionIndex(0);
+    setShowActionEngine(true);
+  };
+
+  // Handle single action completion
+  const handleActionComplete = (actionId: string, notes?: string) => {
+    const action = phaseActions.find((a) => a.id === actionId);
+    if (!action) return;
+
+    setCompletedActionIds([...completedActionIds, actionId]);
+    setInterventionsCompleted([...interventionsCompleted, action.title]);
+
+    if (auditTrail) {
+      const updatedTrail = recordActionCompletion(
+        auditTrail,
+        actionId,
+        action.title,
+        action.phase,
+        notes
+      );
+      setAuditTrail(updatedTrail);
+    }
+
+    if (completedActionIds.length + 1 === phaseActions.length) {
+      setShowActionEngine(false);
+      setShowReassessment(true);
+    }
   };
 
   const handleNewCase = () => {
@@ -999,7 +1057,7 @@ const ClinicalAssessment: React.FC = () => {
             
             <div className="space-y-6">
               <div>
-                <Label className="text-gray-300">Temperature (°C)</Label>
+                <Label className="text-gray-300">Temperature (deg C)</Label>
                 <Input
                   type="number"
                   value={assessment.temperature || ''}
@@ -1057,8 +1115,27 @@ const ClinicalAssessment: React.FC = () => {
           </Card>
         )}
 
+        {/* SINGLE-ACTION ENGINE STEP */}
+        {showActionEngine && phaseActions.length > 0 && currentPhase && (
+          <div className="space-y-4">
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-white mb-2">Phase: {currentPhase.toUpperCase()}</h2>
+              <p className="text-gray-300">Complete actions sequentially before reassessing</p>
+            </div>
+            {phaseActions.map((action, idx) => (
+              <ActionCard
+                key={action.id}
+                action={action}
+                totalActions={phaseActions.length}
+                onComplete={handleActionComplete}
+                isCompleted={completedActionIds.includes(action.id)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* INTERVENTIONS STEP */}
-        {step === 'interventions' && (
+        {step === 'interventions' && !showActionEngine && (
           <div className="space-y-4">
             {interventions.length === 0 ? (
               <Card className="bg-slate-800 border-slate-700 p-8">
