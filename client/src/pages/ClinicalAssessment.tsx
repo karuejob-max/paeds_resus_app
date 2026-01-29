@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
+import { CPRClock } from '@/components/CPRClock';
 
 interface PatientData {
   ageYears: number;
@@ -97,6 +98,10 @@ const ClinicalAssessment: React.FC = () => {
   const [currentPhase, setCurrentPhase] = useState<'airway' | 'breathing' | 'circulation' | 'disability' | 'exposure' | null>(null);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [startTime] = useState(new Date());
+  const [emergencyActivated, setEmergencyActivated] = useState(false);
+  const [emergencyActivationTime, setEmergencyActivationTime] = useState<Date | null>(null);
+  const [cprActive, setCprActive] = useState(false);
+  const [cprStartTime, setCprStartTime] = useState<Date | null>(null);
 
   // Calculate weight from age
   const calculateWeight = (years: number, months: number): number => {
@@ -599,11 +604,46 @@ const ClinicalAssessment: React.FC = () => {
                 </div>
               </div>
 
+              {/* Emergency Activation Button */}
+              {(assessment.breathingAdequate === false || assessment.pulsePresent === false || assessment.responsiveness === 'unresponsive') && (
+                <div className="bg-red-900 border-2 border-red-500 p-4 rounded">
+                  <Button
+                    onClick={() => {
+                      setEmergencyActivated(true);
+                      setEmergencyActivationTime(new Date());
+                      if (assessment.breathingAdequate === false && assessment.pulsePresent === false) {
+                        setCprActive(true);
+                        setCprStartTime(new Date());
+                      }
+                    }}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-6 text-lg font-bold"
+                  >
+                    ACTIVATE CRASH CART - EMERGENCY RESPONSE TEAM
+                  </Button>
+                  {emergencyActivated && (
+                    <p className="text-red-200 text-sm mt-2">
+                      Emergency activated at {emergencyActivationTime?.toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <Button onClick={handleContinue} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg">
                 Continue <ChevronRight className="ml-2" />
               </Button>
             </div>
           </Card>
+        )}
+
+        {/* CPR CLOCK - Show when cardiac arrest detected */}
+        {cprActive && cprStartTime && (
+          <CPRClock
+            patientId={1}
+            patientName={`${patientData.ageYears}y ${patientData.ageMonths}m old child`}
+            patientAge={patientData.ageMonths}
+            patientWeight={patientData.weight || calculateWeight(patientData.ageYears, patientData.ageMonths)}
+            onSessionEnd={() => setCprActive(false)}
+          />
         )}
 
         {/* ABCDE ASSESSMENT STEPS */}
