@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { CPRClock } from '@/components/CPRClock';
 import { RealTimeFeedback } from '@/components/RealTimeFeedback';
+import { getPhaseValidation } from '@/lib/phaseValidation';
 
 interface FeedbackAlert {
   type: 'critical' | 'warning' | 'info' | 'action';
