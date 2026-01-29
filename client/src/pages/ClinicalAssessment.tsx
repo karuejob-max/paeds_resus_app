@@ -1,480 +1,751 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, AlertTriangle, ArrowRight, RotateCcw, Zap, Clock } from 'lucide-react';
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+import { ArrowRight, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 
 interface PatientData {
-  age: { years: number; months: number };
-  weight: number;
-  calculatedParameters: {
-    minUrineOutput: number;
-    normalSystolicBP: { min: number; max: number };
-    normalHeartRateMin: number;
-    normalHeartRateMax: number;
-    normalRRMin: number;
-    normalRRMax: number;
-    ettSize: number;
-    suctionCatheterSize: number;
-    fluidBolus: number;
-    epinephrineIV: number;
-    epinephrineIO: number;
-    amiodarone: number;
-  };
+  ageYears: number | null;
+  ageMonths: number | null;
+  weight: number | null;
 }
 
-interface ClinicalIntervention {
+interface AirwayData {
+  avpu: string | null;
+  auscultation: string | null; // 'normal', 'stridor', 'wheeze', 'crackles'
+  patency: string | null; // 'patent', 'at-risk', 'obstructed'
+  secretions: string | null; // 'none', 'mild', 'moderate', 'severe'
+  obstructionType: string | null; // 'upper', 'lower', 'bilateral-crackles'
+}
+
+interface BreathingData {
+  isBreathing: boolean | null;
+  respiratoryRate: number | null;
+  spO2: number | null;
+  workOfBreathing: string | null; // 'normal', 'mild', 'moderate', 'severe'
+}
+
+interface CirculationData {
+  hasPulse: boolean | null;
+  centralPulseCharacter: string | null; // 'strong', 'normal', 'weak', 'absent'
+  peripheralPulseCharacter: string | null; // 'present-strong', 'present-weak', 'absent'
+  heartRate: number | null;
+  systolicBP: number | null;
+  skinPerfusion: string | null; // 'warm', 'cool', 'cold'
+  capillaryRefill: number | null; // seconds
+  urineOutput: string | null; // 'normal', 'oliguria', 'anuria'
+  heartSounds: string | null; // 'normal', 'murmur', 'gallop', 'muffled'
+  shockType: string | null; // 'none', 'hypovolemic', 'septic-warm', 'septic-cold', 'cardiogenic', 'anaphylactic'
+  fluidBolusCount: number; // Track number of boluses given (max 3 per FEAST)
+  fluidOverloadSigns: string[]; // ['hepatomegaly', 'crackles', 'jvd', 'edema']
+}
+
+interface DisabilityData {
+  avpu: string | null; // 'alert', 'verbal', 'pain', 'unresponsive'
+  pupilSize: string | null; // 'normal', 'dilated', 'pinpoint'
+  pupilReactivity: string | null; // 'brisk', 'sluggish', 'fixed'
+  pupilSymmetry: string | null; // 'equal', 'unequal'
+  seizurePresent: boolean | null;
+  bloodGlucose: number | null;
+  glucoseUnit: 'mmol/L' | 'mg/dL'; // Default mmol/L
+}
+
+interface ExposureData {
+  temperature: number | null;
+  rash: boolean | null;
+  rashType: string | null; // 'petechial', 'maculopapular', 'urticaria'
+  skinIntegrity: string | null; // 'normal', 'bruising', 'burns', 'lacerations', 'abrasions'
+  abdominal: string | null; // 'soft', 'distended', 'tender', 'hepatomegaly', 'splenomegaly'
+  extremities: string | null; // 'normal', 'swelling', 'deformity', 'neurovascular-compromise'
+}
+
+interface RealTimeProblem {
   id: string;
   name: string;
   severity: 'critical' | 'high' | 'moderate' | 'low';
   evidence: string[];
   interventions: string[];
-  actionTaken?: boolean;
+  reassessmentCriteria: string;
+  status: 'identified' | 'intervened' | 'resolved' | 'worsened';
 }
 
-type WorkflowStep =
-  | 'patient_data'
-  | 'signs_of_life'
-  | 'airway'
-  | 'breathing'
-  | 'circulation'
-  | 'disability'
-  | 'exposure'
-  | 'case_completion';
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
 export default function ClinicalAssessment() {
-  const [step, setStep] = useState<WorkflowStep>('patient_data');
-  const [caseStartTime] = useState(new Date());
-  const [blsAlsActivated, setBlsAlsActivated] = useState(false);
-  const [activeIntervention, setActiveIntervention] = useState<ClinicalIntervention | null>(null);
-  const [completedInterventions, setCompletedInterventions] = useState<string[]>([]);
+  const [step, setStep] = useState<
+    | 'patient_data'
+    | 'signs_of_life'
+    | 'airway'
+    | 'breathing'
+    | 'circulation'
+    | 'circulation_reassess'
+    | 'disability'
+    | 'exposure'
+    | 'problem_synthesis'
+    | 'case_completion'
+  >('patient_data');
 
-  // Patient data
   const [patientData, setPatientData] = useState<PatientData>({
-    age: { years: 0, months: 0 },
-    weight: 0,
-    calculatedParameters: {
-      minUrineOutput: 0,
-      normalSystolicBP: { min: 0, max: 0 },
-      normalHeartRateMin: 0,
-      normalHeartRateMax: 0,
-      normalRRMin: 0,
-      normalRRMax: 0,
-      ettSize: 0,
-      suctionCatheterSize: 0,
-      fluidBolus: 0,
-      epinephrineIV: 0,
-      epinephrineIO: 0,
-      amiodarone: 0,
-    },
+    ageYears: null,
+    ageMonths: null,
+    weight: null,
   });
 
-  // Assessment data
-  const [signsOfLife, setSignsOfLife] = useState({
-    breathing: null as boolean | null,
-    pulse: null as boolean | null,
+  const [airwayData, setAirwayData] = useState<AirwayData>({
+    avpu: null,
+    auscultation: null,
+    patency: null,
+    secretions: null,
+    obstructionType: null,
   });
 
-  const [airwayData, setAirwayData] = useState({
-    patency: null as string | null,
-    secretions: false,
-    obstructionType: null as string | null,
+  const [breathingData, setBreathingData] = useState<BreathingData>({
+    isBreathing: null,
+    respiratoryRate: null,
+    spO2: null,
+    workOfBreathing: null,
   });
 
-  const [breathingData, setBreathingData] = useState({
-    isBreathing: null as boolean | null,
-    respiratoryRate: null as number | null,
-    spO2: null as number | null,
+  const [circulationData, setCirculationData] = useState<CirculationData>({
+    hasPulse: null,
+    centralPulseCharacter: null,
+    peripheralPulseCharacter: null,
+    heartRate: null,
+    systolicBP: null,
+    skinPerfusion: null,
+    capillaryRefill: null,
+    urineOutput: null,
+    heartSounds: null,
+    shockType: null,
+    fluidBolusCount: 0,
+    fluidOverloadSigns: [],
   });
 
-  const [circulationData, setCirculationData] = useState({
-    hasPulse: null as boolean | null,
-    heartRate: null as number | null,
-    systolicBP: null as number | null,
-    skinPerfusion: null as string | null,
+  const [disabilityData, setDisabilityData] = useState<DisabilityData>({
+    avpu: null,
+    pupilSize: null,
+    pupilReactivity: null,
+    pupilSymmetry: null,
+    seizurePresent: null,
+    bloodGlucose: null,
+    glucoseUnit: 'mmol/L', // Default mmol/L
   });
 
-  const [disabilityData, setDisabilityData] = useState({
-    avpu: null as string | null,
-    bloodGlucose: null as number | null,
-    glucoseUnit: 'mg/dL' as 'mg/dL' | 'mmol/L',
+  const [exposureData, setExposureData] = useState<ExposureData>({
+    temperature: null,
+    rash: null,
+    rashType: null,
+    skinIntegrity: null,
+    abdominal: null,
+    extremities: null,
   });
 
-  const [exposureData, setExposureData] = useState({
-    temperature: null as number | null,
-    rash: false,
-  });
+  const [realTimeProblems, setRealTimeProblems] = useState<RealTimeProblem[]>([]);
+  const [interventionAlert, setInterventionAlert] = useState<RealTimeProblem | null>(null);
+  const [startTime] = useState(new Date());
 
-  // ============================================================================
-  // GLUCOSE UNIT CONVERSION
-  // ============================================================================
+  // Calculate weight from age
+  const calculatedWeight = useMemo(() => {
+    if (patientData.weight) return patientData.weight;
 
-  const convertGlucose = (value: number, fromUnit: 'mg/dL' | 'mmol/L', toUnit: 'mg/dL' | 'mmol/L'): number => {
-    if (fromUnit === toUnit) return value;
-    if (fromUnit === 'mg/dL' && toUnit === 'mmol/L') {
-      return Math.round((value / 18) * 10) / 10;
+    const totalMonths = (patientData.ageYears || 0) * 12 + (patientData.ageMonths || 0);
+
+    if (totalMonths === 0) return null;
+    if (totalMonths < 12) {
+      // Infants: (age in months + 9) / 2
+      return (totalMonths + 9) / 2;
+    } else if (totalMonths < 60) {
+      // Children 1-5 years: (age in years + 4) × 2
+      const years = totalMonths / 12;
+      return (years + 4) * 2;
+    } else {
+      // Children >5 years: age in years × 4
+      const years = totalMonths / 12;
+      return years * 4;
     }
-    if (fromUnit === 'mmol/L' && toUnit === 'mg/dL') {
-      return Math.round(value * 18);
-    }
-    return value;
-  };
+  }, [patientData]);
 
-  const getGlucoseNormalRange = (unit: 'mg/dL' | 'mmol/L'): { min: number; max: number } => {
-    if (unit === 'mg/dL') {
-      return { min: 70, max: 100 };
-    }
-    return { min: 3.9, max: 5.6 };
-  };
+  // Calculate parameters
+  const parameters = useMemo(() => {
+    if (!calculatedWeight) return null;
 
-  // ============================================================================
-  // WEIGHT CALCULATION (AHA ECC 2020)
-  // ============================================================================
-
-  const calculateWeightFromAge = (years: number, months: number): number => {
-    const totalMonths = years * 12 + months;
-    if (totalMonths < 12) return (totalMonths + 9) / 2;
-    if (totalMonths < 60) return (years + 4) * 2;
-    return years * 4;
-  };
-
-  const calculateParameters = (weight: number, years: number): PatientData['calculatedParameters'] => {
     return {
-      minUrineOutput: weight * 1,
-      normalSystolicBP: {
-        min: Math.max(70, 90 + 2 * years - 10),
-        max: 90 + 2 * years + 10,
-      },
-      normalHeartRateMin: years < 1 ? 100 : years < 3 ? 95 : years < 6 ? 80 : 70,
-      normalHeartRateMax: years < 1 ? 160 : years < 3 ? 150 : years < 6 ? 140 : 100,
-      normalRRMin: years < 1 ? 30 : years < 3 ? 25 : years < 6 ? 20 : 16,
-      normalRRMax: years < 1 ? 60 : years < 3 ? 40 : years < 6 ? 30 : 20,
-      ettSize: Math.round((years / 4 + 4) * 10) / 10,
-      suctionCatheterSize: Math.round((years / 4 + 4) * 2 * 10) / 10,
-      fluidBolus: weight * 20,
-      epinephrineIV: weight * 0.01,
-      epinephrineIO: weight * 0.1,
-      amiodarone: weight * 5,
+      weight: calculatedWeight,
+      ettSize: (patientData.ageYears || 0) / 4 + 4,
+      suctionCatheter: (patientData.ageYears || 0) / 2 + 8,
+      fluidBolus: calculatedWeight * 10, // 10 mL/kg per FEAST
+      epinephrineIV: (calculatedWeight * 0.01).toFixed(2),
+      epinephrineIO: (calculatedWeight * 0.1).toFixed(2),
+      amiodarone: (calculatedWeight * 5).toFixed(0),
+      dextrose10: `${(calculatedWeight * 2).toFixed(1)}-${(calculatedWeight * 5).toFixed(1)}`, // 2-5 mL/kg of 10%
     };
+  }, [calculatedWeight, patientData.ageYears]);
+
+  // Age-based normal ranges
+  const normalRanges = useMemo(() => {
+    const years = patientData.ageYears || 0;
+    const months = patientData.ageMonths || 0;
+    const totalMonths = years * 12 + months;
+
+    if (totalMonths < 3) {
+      return { hr: '100-160', rr: '30-60', sbp: '50-70' };
+    } else if (totalMonths < 6) {
+      return { hr: '100-160', rr: '25-55', sbp: '50-70' };
+    } else if (totalMonths < 12) {
+      return { hr: '80-140', rr: '25-45', sbp: '50-70' };
+    } else if (totalMonths < 36) {
+      return { hr: '80-130', rr: '20-40', sbp: '80-100' };
+    } else if (totalMonths < 72) {
+      return { hr: '70-110', rr: '20-30', sbp: '95-105' };
+    } else if (totalMonths < 144) {
+      return { hr: '60-100', rr: '18-25', sbp: '100-120' };
+    } else {
+      return { hr: '60-100', rr: '12-20', sbp: '110-135' };
+    }
+  }, [patientData.ageYears, patientData.ageMonths]);
+
+  // Check for real-time problems and interventions
+  const checkAirwayProblems = () => {
+    const problems: RealTimeProblem[] = [];
+
+    if (airwayData.auscultation === 'stridor') {
+      problems.push({
+        id: 'stridor',
+        name: 'Upper Airway Obstruction (Stridor)',
+        severity: 'high',
+        evidence: ['Stridor on auscultation', 'Possible croup, epiglottitis, foreign body, anaphylaxis'],
+        interventions: [
+          'Keep child calm - position of comfort',
+          'Supplemental oxygen - non-rebreather mask',
+          `Dexamethasone: 0.6 mg/kg IV/IM (max 10 mg)`,
+          'Nebulized epinephrine (if severe): 0.5 mL of 1:1000 in 3 mL NS',
+          `Prepare for intubation - ETT size: ${parameters?.ettSize.toFixed(1)} mm`,
+        ],
+        reassessmentCriteria: 'Reassess stridor severity, work of breathing, response to dexamethasone',
+        status: 'identified',
+      });
+    }
+
+    if (airwayData.auscultation === 'wheeze') {
+      problems.push({
+        id: 'wheeze',
+        name: 'Lower Airway Obstruction (Wheeze)',
+        severity: 'high',
+        evidence: ['Wheeze on auscultation', 'Possible asthma, bronchiolitis, anaphylaxis, aspiration'],
+        interventions: [
+          'Supplemental oxygen - target SpO2 >90%',
+          'Albuterol nebulizer: 2.5-5 mg in 3 mL NS (repeat every 20 min if needed)',
+          'Systemic steroids: Dexamethasone 0.6 mg/kg or Prednisone 1-2 mg/kg',
+          'Consider IV access for medications if severe',
+          `Prepare for intubation - ETT size: ${parameters?.ettSize.toFixed(1)} mm`,
+        ],
+        reassessmentCriteria: 'Reassess wheeze, SpO2, work of breathing, response to albuterol',
+        status: 'identified',
+      });
+    }
+
+    if (airwayData.auscultation === 'crackles') {
+      problems.push({
+        id: 'crackles',
+        name: 'Pulmonary Edema or Pneumonia',
+        severity: 'high',
+        evidence: ['Crackles on auscultation', 'Possible pulmonary edema, pneumonia'],
+        interventions: [
+          'Supplemental oxygen - target SpO2 >90%',
+          'Position upright - reduces work of breathing',
+          'Diuretics (if pulmonary edema): Furosemide 1 mg/kg IV',
+          'Antibiotics (if pneumonia): Ceftriaxone 50-80 mg/kg/day',
+          'Monitor for deterioration - prepare for intubation',
+        ],
+        reassessmentCriteria: 'Reassess crackles, SpO2, work of breathing, response to treatment',
+        status: 'identified',
+      });
+    }
+
+    return problems;
   };
 
-  // ============================================================================
-  // REAL-TIME INTERVENTION DETECTION
-  // ============================================================================
+  const checkBreathingProblems = () => {
+    const problems: RealTimeProblem[] = [];
 
-  const detectAirwayIntervention = (): ClinicalIntervention | null => {
-    if (airwayData.patency === 'obstructed') {
-      return {
-        id: 'airway_obstruction',
-        name: '🚨 AIRWAY OBSTRUCTION - STOP AND INTERVENE',
-        severity: 'critical',
-        evidence: ['Complete airway obstruction detected'],
-        interventions: [
-          'Position child upright immediately',
-          'Prepare for emergency airway management',
-          'Notify anesthesia/ENT immediately',
-          'Have emergency tracheostomy kit available',
-          'Consider emergency needle cricothyrotomy if complete obstruction',
-        ],
-      };
-    }
-
-    if (airwayData.patency === 'at_risk' && airwayData.obstructionType === 'upper_airway') {
-      return {
-        id: 'upper_airway_obstruction',
-        name: '⚠️ UPPER AIRWAY OBSTRUCTION (Stridor) - INTERVENE',
-        severity: 'high',
-        evidence: ['Stridor present - upper airway obstruction'],
-        interventions: [
-          'Provide supplemental oxygen immediately',
-          'Nebulized epinephrine: 0.5 mL of 1:1000 in 3-5 mL NS',
-          'Prepare for emergency airway management',
-          'Monitor closely for complete obstruction',
-          `ETT Size: ${patientData.calculatedParameters.ettSize.toFixed(1)} mm`,
-        ],
-      };
-    }
-
-    if (airwayData.patency === 'at_risk' && airwayData.obstructionType === 'lower_airway') {
-      return {
-        id: 'lower_airway_obstruction',
-        name: '⚠️ LOWER AIRWAY OBSTRUCTION (Wheeze) - INTERVENE',
-        severity: 'high',
-        evidence: ['Wheezing present - lower airway obstruction'],
-        interventions: [
-          'Provide supplemental oxygen immediately',
-          'Albuterol nebulizer: 2.5-5 mg in 3 mL NS',
-          'Consider systemic steroids (dexamethasone 0.6 mg/kg)',
-          'Prepare for potential intubation',
-          `ETT Size: ${patientData.calculatedParameters.ettSize.toFixed(1)} mm`,
-        ],
-      };
-    }
-
-    return null;
-  };
-
-  const detectBreathingIntervention = (): ClinicalIntervention | null => {
-    if (!breathingData.isBreathing) {
-      return {
+    if (breathingData.isBreathing === false) {
+      problems.push({
         id: 'apnea',
-        name: '🚨 APNEA - NO BREATHING - STOP AND INTERVENE',
+        name: '🚨 APNEA - NO BREATHING',
         severity: 'critical',
         evidence: ['No spontaneous breathing detected'],
         interventions: [
-          'Begin bag-valve-mask ventilation NOW',
-          'Rate: ' + (patientData.age.years < 1 ? '40-60' : patientData.age.years < 8 ? '20' : '12-16') + ' breaths/min',
-          `ETT Size: ${patientData.calculatedParameters.ettSize.toFixed(1)} mm`,
-          'Prepare for intubation',
-          'Obtain IV/IO access',
-          'Consider causes: airway obstruction, CNS depression, neuromuscular',
+          'START BAG-VALVE-MASK VENTILATION NOW',
+          'Rate: 20 breaths/min (1 breath every 3 seconds)',
+          'Obtain IV/IO access immediately',
+          `Prepare for intubation - ETT size: ${parameters?.ettSize.toFixed(1)} mm`,
+          'Identify cause: CNS depression, airway obstruction, neuromuscular, cardiac',
+          'Consider medications: Naloxone 0.1 mg/kg IV (if opioid), Flumazenil 0.01 mg/kg IV (if benzodiazepine)',
         ],
-      };
+        reassessmentCriteria: 'Immediate reassessment after starting ventilation - check chest rise, SpO2',
+        status: 'identified',
+      });
     }
 
-    if (breathingData.respiratoryRate !== null && breathingData.respiratoryRate < patientData.calculatedParameters.normalRRMin) {
-      return {
-        id: 'bradypnea',
-        name: '🚨 BRADYPNEA (Slow Breathing) - INTERVENE',
-        severity: 'critical',
-        evidence: [`RR ${breathingData.respiratoryRate} (normal: ${patientData.calculatedParameters.normalRRMin}-${patientData.calculatedParameters.normalRRMax})`],
-        interventions: [
-          'Provide supplemental oxygen immediately',
-          'Begin assisted ventilation',
-          'Assess for CNS depression or neuromuscular weakness',
-          'Prepare for intubation if deteriorating',
-        ],
-      };
-    }
-
-    if (breathingData.spO2 !== null && breathingData.spO2 < 90) {
-      return {
-        id: 'hypoxemia',
-        name: '🚨 HYPOXEMIA (SpO2 <90%) - STOP AND INTERVENE',
-        severity: 'critical',
-        evidence: [`SpO2 ${breathingData.spO2}% (target: >94%)`],
-        interventions: [
-          'Provide high-flow oxygen (15 L/min) immediately',
-          'Assess airway patency',
-          'Consider assisted ventilation',
-          'Prepare for intubation if SpO2 <85%',
-          'Check pulse oximeter placement',
-        ],
-      };
-    }
-
-    if (breathingData.respiratoryRate !== null && breathingData.respiratoryRate > patientData.calculatedParameters.normalRRMax) {
-      return {
+    if (
+      breathingData.respiratoryRate &&
+      breathingData.respiratoryRate > parseInt(normalRanges.rr.split('-')[1])
+    ) {
+      problems.push({
         id: 'tachypnea',
-        name: '⚠️ TACHYPNEA (Fast Breathing) - MONITOR',
+        name: 'Tachypnea (Elevated Respiratory Rate)',
         severity: 'moderate',
-        evidence: [`RR ${breathingData.respiratoryRate} (normal: ${patientData.calculatedParameters.normalRRMin}-${patientData.calculatedParameters.normalRRMax})`],
-        interventions: [
-          'Provide supplemental oxygen',
-          'Assess for metabolic acidosis',
-          'Monitor for respiratory fatigue',
-          'Consider underlying causes: fever, pain, anxiety, metabolic',
+        evidence: [
+          `RR ${breathingData.respiratoryRate} (normal: ${normalRanges.rr})`,
+          'Possible hypoxia, acidosis, pain, fever, shock',
         ],
-      };
+        interventions: [
+          'Identify cause: Hypoxia, acidosis, pain, fever, shock',
+          'Supplemental oxygen - target SpO2 >90%',
+          'Treat underlying cause based on assessment',
+        ],
+        reassessmentCriteria: 'Reassess RR and SpO2 after oxygen and treatment',
+        status: 'identified',
+      });
     }
 
-    return null;
+    if (breathingData.spO2 && breathingData.spO2 < 90) {
+      problems.push({
+        id: 'hypoxia',
+        name: 'Hypoxia (SpO2 <90%)',
+        severity: 'high',
+        evidence: [`SpO2 ${breathingData.spO2}%`],
+        interventions: [
+          'Supplemental oxygen - non-rebreather mask (10-15 L/min)',
+          'Assess airway: Stridor? Wheeze? Crackles?',
+          'Treat based on findings',
+          'Prepare for intubation if SpO2 remains <90%',
+        ],
+        reassessmentCriteria: 'Reassess SpO2 after oxygen - target >90%',
+        status: 'identified',
+      });
+    }
+
+    return problems;
   };
 
-  const detectCirculationIntervention = (): ClinicalIntervention | null => {
-    if (circulationData.systolicBP !== null && circulationData.systolicBP < patientData.calculatedParameters.normalSystolicBP.min) {
-      return {
-        id: 'hypotension_shock',
-        name: '🚨 HYPOTENSION/SHOCK - STOP AND INTERVENE',
+  const checkCirculationProblems = () => {
+    const problems: RealTimeProblem[] = [];
+
+    if (circulationData.hasPulse === false) {
+      problems.push({
+        id: 'cardiac-arrest',
+        name: '🚨 CARDIAC ARREST - NO PULSE',
+        severity: 'critical',
+        evidence: ['No pulse detected'],
+        interventions: [
+          'START CPR NOW - Begin chest compressions',
+          'Activate Emergency Response - Call for help',
+          'Get Defibrillator - AED/Manual defibrillator',
+          'Obtain IV/IO access',
+          'Start CPR Clock - Begin resuscitation protocol',
+        ],
+        reassessmentCriteria: 'Reassess pulse every 2 minutes during CPR',
+        status: 'identified',
+      });
+    }
+
+    // Shock detection
+    const isSystolicBPLow =
+      circulationData.systolicBP &&
+      circulationData.systolicBP < parseInt(normalRanges.sbp.split('-')[0]);
+
+    const isPerfusionPoor =
+      circulationData.centralPulseCharacter === 'weak' ||
+      circulationData.peripheralPulseCharacter === 'absent' ||
+      circulationData.skinPerfusion === 'cool' ||
+      circulationData.skinPerfusion === 'cold';
+
+    if (isSystolicBPLow || isPerfusionPoor) {
+      // Determine shock type
+      let shockType = 'Unknown';
+      let interventions: string[] = [];
+
+      if (
+        circulationData.centralPulseCharacter === 'strong' &&
+        circulationData.skinPerfusion === 'warm'
+      ) {
+        shockType = 'Septic Shock (Warm)';
+        interventions = [
+          'Fluid bolus: 10 mL/kg IV over 15 minutes',
+          `Volume: ${parameters?.fluidBolus.toFixed(0)} mL`,
+          'Antibiotics within 1 hour: Ceftriaxone 50-80 mg/kg/day + Gentamicin 7.5 mg/kg/day',
+          'Identify source: UTI, pneumonia, meningitis, etc.',
+          'REASSESS after bolus: Check BP, perfusion, signs of fluid overload',
+        ];
+      } else if (
+        circulationData.centralPulseCharacter === 'weak' ||
+        circulationData.skinPerfusion === 'cool'
+      ) {
+        shockType = 'Hypovolemic or Cold Septic Shock';
+        interventions = [
+          'Fluid bolus: 10 mL/kg IV over 15 minutes',
+          `Volume: ${parameters?.fluidBolus.toFixed(0)} mL`,
+          'Identify and stop bleeding if hemorrhage',
+          'Obtain IV/IO access - large bore if possible',
+          'Monitor urine output - target 1 mL/kg/hr',
+          'REASSESS after bolus: Check BP, perfusion, signs of fluid overload',
+        ];
+      }
+
+      if (circulationData.heartSounds === 'gallop' || circulationData.heartSounds === 'murmur') {
+        shockType = 'Cardiogenic Shock - DO NOT BOLUS';
+        interventions = [
+          '⚠️ DO NOT GIVE FLUID BOLUS - Risk of pulmonary edema',
+          'Identify cause: Arrhythmia, myocarditis, heart failure',
+          'Treat arrhythmia: Adenosine for SVT, defibrillation for VF/VT',
+          'Diuretics: Furosemide 1 mg/kg IV (if pulmonary edema)',
+          'Inotropes: Dobutamine 5-20 mcg/kg/min IV',
+          'Cardiology consultation if available',
+        ];
+      }
+
+      problems.push({
+        id: 'shock',
+        name: `Shock - ${shockType}`,
         severity: 'critical',
         evidence: [
-          `SBP ${circulationData.systolicBP} (normal: ${patientData.calculatedParameters.normalSystolicBP.min}-${patientData.calculatedParameters.normalSystolicBP.max})`,
-          circulationData.skinPerfusion === 'cool' ? 'Cool extremities' : '',
-        ].filter(Boolean),
-        interventions: [
-          'Obtain IV/IO access immediately',
-          `Fluid bolus: ${patientData.calculatedParameters.fluidBolus.toFixed(0)} mL (20 mL/kg) over 15 min`,
-          'Elevate legs (Trendelenburg position)',
-          'Assess perfusion after bolus',
-          `If no improvement: Epinephrine IV ${patientData.calculatedParameters.epinephrineIV.toFixed(2)} mg`,
-          'Identify and treat underlying cause',
+          `SBP ${circulationData.systolicBP} (normal: ${normalRanges.sbp})`,
+          `Central pulse: ${circulationData.centralPulseCharacter}`,
+          `Peripheral pulse: ${circulationData.peripheralPulseCharacter}`,
+          `Skin perfusion: ${circulationData.skinPerfusion}`,
         ],
-      };
+        interventions,
+        reassessmentCriteria: 'MANDATORY: Reassess BP, perfusion, urine output after each bolus',
+        status: 'identified',
+      });
     }
 
-    if (circulationData.heartRate !== null && circulationData.heartRate > patientData.calculatedParameters.normalHeartRateMax) {
-      return {
-        id: 'tachycardia',
-        name: '⚠️ TACHYCARDIA - ASSESS CAUSE',
-        severity: 'moderate',
-        evidence: [`HR ${circulationData.heartRate} (normal: ${patientData.calculatedParameters.normalHeartRateMin}-${patientData.calculatedParameters.normalHeartRateMax})`],
-        interventions: [
-          'Assess for underlying cause: pain, fever, hypovolemia, anxiety',
-          'Provide oxygen if SpO2 low',
-          'Establish IV access',
-          'Monitor cardiac rhythm',
-          'Treat underlying cause',
-        ],
-      };
-    }
-
-    return null;
+    return problems;
   };
 
-  const detectDisabilityIntervention = (): ClinicalIntervention | null => {
-    if (disabilityData.bloodGlucose !== null && disabilityData.bloodGlucose < 60) {
-      return {
-        id: 'hypoglycemia',
-        name: '🚨 HYPOGLYCEMIA - INTERVENE',
-        severity: 'high',
-        evidence: [`Blood glucose ${disabilityData.bloodGlucose} mg/dL (normal: 70-100)`],
-        interventions: [
-          'If IV access: 0.5 g/kg dextrose IV (D25W or D50W)',
-          'If no IV: Glucose gel or juice PO',
-          'Recheck glucose in 15 minutes',
-          'Identify cause (sepsis, malnutrition, medication)',
-        ],
-      };
-    }
+  const checkDisabilityProblems = () => {
+    const problems: RealTimeProblem[] = [];
 
-    return null;
-  };
-
-  const detectExposureIntervention = (): ClinicalIntervention | null => {
-    if (exposureData.rash && exposureData.temperature !== null && exposureData.temperature > 38) {
-      return {
-        id: 'sepsis_rash',
-        name: '🚨 FEVER + RASH - SEPSIS PROTOCOL',
+    if (disabilityData.seizurePresent === true) {
+      problems.push({
+        id: 'seizure',
+        name: '🚨 SEIZURE - ACTIVE',
         severity: 'critical',
-        evidence: ['Fever with rash - possible meningococcal sepsis'],
+        evidence: ['Seizure activity detected'],
         interventions: [
-          'Activate sepsis protocol immediately',
-          `Ceftriaxone: ${(patientData.weight * 80).toFixed(0)} mg IV/IO (80 mg/kg, max 4g)`,
-          'Obtain blood cultures before antibiotics',
-          'Start IV fluid resuscitation',
-          'Notify infectious diseases',
-          'Consider ICU admission',
+          'Protect from injury - move away from hazards, do NOT restrain',
+          'Position on side - prevent aspiration',
+          'Supplemental oxygen - target SpO2 >90%',
+          'TIME THE SEIZURE - note start time',
+          'First-line medication (if seizure >5 min):',
+          'Lorazepam 0.1 mg/kg IV (max 4 mg) OR Diazepam 0.1-0.3 mg/kg IV (max 10 mg)',
+          'Second-line medication (if continues):',
+          'Phenytoin 15-20 mg/kg IV (slow infusion over 20 min)',
+          'Prepare for intubation if status epilepticus',
+          'Identify cause: Fever, hypoglycemia, infection, trauma, toxin',
         ],
-      };
+        reassessmentCriteria: 'Reassess seizure activity, consciousness, vital signs',
+        status: 'identified',
+      });
     }
 
-    return null;
+    const glucoseValue = disabilityData.bloodGlucose;
+    const isHypoglycemic =
+      disabilityData.glucoseUnit === 'mmol/L'
+        ? glucoseValue && glucoseValue < 3.9
+        : glucoseValue && glucoseValue < 70;
+
+    if (isHypoglycemic) {
+      problems.push({
+        id: 'hypoglycemia',
+        name: 'Hypoglycemia',
+        severity: 'high',
+        evidence: [
+          `Blood glucose: ${glucoseValue} ${disabilityData.glucoseUnit}`,
+          `Normal: ${disabilityData.glucoseUnit === 'mmol/L' ? '3.9-5.6' : '70-100'}`,
+        ],
+        interventions: [
+          'Dextrose IV immediately:',
+          `2-5 mL/kg of 10% dextrose (${parameters?.dextrose10} mL for this child)`,
+          'Recheck glucose in 5 minutes - repeat if still low',
+          'Identify cause: Malnutrition, sepsis, liver disease, medication',
+          'Continuous monitoring - glucose can drop again',
+        ],
+        reassessmentCriteria: 'Recheck glucose 5 minutes after dextrose - target >3.9 mmol/L',
+        status: 'identified',
+      });
+    }
+
+    if (disabilityData.pupilSymmetry === 'unequal') {
+      problems.push({
+        id: 'increased-icp',
+        name: 'Possible Increased Intracranial Pressure',
+        severity: 'high',
+        evidence: ['Unequal pupils', 'Possible brain injury, stroke, or increased ICP'],
+        interventions: [
+          'Head elevation: 30 degrees',
+          'Avoid hypoxia & hypercarbia: SpO2 >90%, PaCO2 35-40 mmHg',
+          'Osmotic therapy: Mannitol 0.25-1 g/kg IV or 3% hypertonic saline',
+          'Sedation & analgesia if intubated',
+          'Avoid hyperthermia - treat fever',
+          'Neurosurgery consultation if available',
+        ],
+        reassessmentCriteria: 'Reassess pupils, consciousness, vital signs',
+        status: 'identified',
+      });
+    }
+
+    return problems;
   };
 
-  // ============================================================================
-  // HANDLERS
-  // ============================================================================
+  const checkExposureProblems = () => {
+    const problems: RealTimeProblem[] = [];
 
-  const handlePatientDataSubmit = () => {
-    let weight = patientData.weight;
-    if (weight === 0) {
-      weight = calculateWeightFromAge(patientData.age.years, patientData.age.months);
+    if (exposureData.rashType === 'petechial') {
+      problems.push({
+        id: 'meningococcemia',
+        name: '🚨 PETECHIAL RASH - MENINGOCOCCEMIA EMERGENCY',
+        severity: 'critical',
+        evidence: ['Petechial rash present', 'High risk for meningococcal sepsis'],
+        interventions: [
+          'Antibiotics IMMEDIATELY (do NOT wait for LP):',
+          'Ceftriaxone 50-80 mg/kg/day IV (max 4 g/day)',
+          'PLUS Vancomycin 15-20 mg/kg IV',
+          'Fluid bolus: 20 mL/kg IV (likely in septic shock)',
+          'Vasopressors: Epinephrine if hypotensive after fluids',
+          'Supportive care: Oxygen, monitoring, ICU admission',
+          'Contact tracing: Prophylaxis for close contacts (Rifampin)',
+        ],
+        reassessmentCriteria: 'Reassess BP, perfusion, signs of shock resolution',
+        status: 'identified',
+      });
     }
 
-    const params = calculateParameters(weight, patientData.age.years);
-    setPatientData({
-      ...patientData,
-      weight,
-      calculatedParameters: params,
-    });
+    if (
+      exposureData.rash === true &&
+      exposureData.temperature &&
+      exposureData.temperature > 38
+    ) {
+      problems.push({
+        id: 'fever-with-rash',
+        name: 'Fever with Rash - Possible Serious Infection',
+        severity: 'high',
+        evidence: [
+          `Temperature: ${exposureData.temperature}°C`,
+          `Rash type: ${exposureData.rashType}`,
+        ],
+        interventions: [
+          'Identify rash type: Petechial (meningococcemia), Maculopapular (viral), Urticaria (anaphylaxis)',
+          'If petechial: See Meningococcemia protocol above',
+          'Antipyretics: Paracetamol 15 mg/kg or Ibuprofen 10 mg/kg',
+          'Investigate: Blood culture, urinalysis, CXR, LP if meningitis suspected',
+          'Antibiotics if sepsis suspected',
+        ],
+        reassessmentCriteria: 'Reassess temperature, rash progression, vital signs',
+        status: 'identified',
+      });
+    }
 
+    return problems;
+  };
+
+  // Synthesize all problems
+  const synthesizeProblems = () => {
+    const allProblems = [
+      ...checkAirwayProblems(),
+      ...checkBreathingProblems(),
+      ...checkCirculationProblems(),
+      ...checkDisabilityProblems(),
+      ...checkExposureProblems(),
+    ];
+
+    // Sort by severity
+    const severityOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
+    allProblems.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+    setRealTimeProblems(allProblems);
+
+    // Show first critical/high problem as alert
+    const criticalProblem = allProblems.find((p) => p.severity === 'critical' || p.severity === 'high');
+    if (criticalProblem) {
+      setInterventionAlert(criticalProblem);
+    }
+  };
+
+  // Handlers
+  const handlePatientDataContinue = () => {
+    if (patientData.ageYears === null && patientData.ageMonths === null) {
+      alert('Please enter patient age');
+      return;
+    }
     setStep('signs_of_life');
   };
 
-  const handleSignsOfLife = (breathing: boolean, pulse: boolean) => {
-    setSignsOfLife({ breathing, pulse });
+  const handleSignsOfLifeContinue = () => {
+    // Determine if child has signs of life
+    const hasBreathing = breathingData.isBreathing === true;
+    const hasPulse = circulationData.hasPulse === true;
 
-    if (!breathing && !pulse) {
-      setBlsAlsActivated(true);
-      setActiveIntervention({
-        id: 'cardiac_arrest',
-        name: '🚨 CARDIAC ARREST - BLS/ALS PROTOCOL',
+    if (!hasBreathing && !hasPulse) {
+      // BLS/ALS pathway - show intervention alert
+      const blsAlert: RealTimeProblem = {
+        id: 'bls-als',
+        name: '🚨 NO SIGNS OF LIFE - ACTIVATE BLS/ALS',
         severity: 'critical',
         evidence: ['No breathing', 'No pulse'],
         interventions: [
-          'Start chest compressions immediately',
-          `Compression rate: ${patientData.age.years < 1 ? '100-120' : '100-120'} compressions/min`,
-          `Compression depth: ${patientData.age.years < 1 ? '1.5 inches (4 cm)' : '2 inches (5 cm) or 1/3 chest depth'}`,
-          'Provide 2 rescue breaths after every 30 compressions',
+          'START CPR NOW - Begin chest compressions',
+          'Activate Emergency Response - Call for help',
+          'Get Defibrillator - AED/Manual defibrillator',
           'Obtain IV/IO access',
-          `Epinephrine IV: ${patientData.calculatedParameters.epinephrineIV.toFixed(2)} mg every 3-5 min`,
-          `ETT Size: ${patientData.calculatedParameters.ettSize.toFixed(1)} mm`,
-          'Activate emergency response team',
+          'Start CPR Clock - Begin resuscitation protocol',
         ],
-      });
+        reassessmentCriteria: 'Reassess pulse every 2 minutes during CPR',
+        status: 'identified',
+      };
+      setInterventionAlert(blsAlert);
+      setRealTimeProblems([blsAlert]);
+      setStep('case_completion');
     } else {
+      // Continue to ABCDE assessment
       setStep('airway');
     }
   };
 
-  const handleAirwayComplete = () => {
-    const intervention = detectAirwayIntervention();
-    if (intervention) {
-      setActiveIntervention(intervention);
+  const handleAirwayContinue = () => {
+    const problems = checkAirwayProblems();
+    if (problems.length > 0) {
+      setInterventionAlert(problems[0]);
+      setRealTimeProblems(problems);
+      // Wait for intervention completion before continuing
     } else {
       setStep('breathing');
     }
   };
 
-  const handleBreathingComplete = () => {
-    const intervention = detectBreathingIntervention();
-    if (intervention) {
-      setActiveIntervention(intervention);
+  const handleBreathingContinue = () => {
+    const problems = checkBreathingProblems();
+    if (problems.length > 0) {
+      setInterventionAlert(problems[0]);
+      setRealTimeProblems(problems);
     } else {
       setStep('circulation');
     }
   };
 
-  const handleCirculationComplete = () => {
-    const intervention = detectCirculationIntervention();
-    if (intervention) {
-      setActiveIntervention(intervention);
+  const handleCirculationContinue = () => {
+    const problems = checkCirculationProblems();
+    if (problems.length > 0) {
+      setInterventionAlert(problems[0]);
+      setRealTimeProblems(problems);
+      // Check if shock detected - if yes, show reassessment step
+      if (problems.some((p) => p.id === 'shock')) {
+        setStep('circulation_reassess');
+      }
     } else {
       setStep('disability');
     }
   };
 
-  const handleDisabilityComplete = () => {
-    const intervention = detectDisabilityIntervention();
-    if (intervention) {
-      setActiveIntervention(intervention);
-    } else {
-      setStep('exposure');
+  const handleFluidBolus = () => {
+    // Give 10 mL/kg bolus
+    const newBolusCount = circulationData.fluidBolusCount + 1;
+    setCirculationData({ ...circulationData, fluidBolusCount: newBolusCount });
+
+    if (newBolusCount >= 3) {
+      // Max 3 boluses per FEAST trial
+      setInterventionAlert({
+        id: 'max-bolus',
+        name: 'Maximum Fluid Boluses Reached (FEAST Trial)',
+        severity: 'high',
+        evidence: ['3 boluses of 10 mL/kg given'],
+        interventions: [
+          'Reassess for fluid overload signs: Hepatomegaly, crackles, JVD, edema',
+          'If fluid overload present: Start inotropes/pressors (Milrinone, Dobutamine, Epinephrine)',
+          'If still in shock without overload: Consider other causes (sepsis, cardiogenic)',
+          'Prepare for ICU transfer if available',
+        ],
+        reassessmentCriteria: 'Reassess clinical status, vital signs, fluid overload signs',
+        status: 'identified',
+      });
     }
   };
 
-  const handleExposureComplete = () => {
-    const intervention = detectExposureIntervention();
-    if (intervention) {
-      setActiveIntervention(intervention);
+  const handleCirculationReassessmentContinue = () => {
+    // Check for fluid overload or shock resolution
+    const hasFluidOverload =
+      circulationData.fluidOverloadSigns.length > 0 ||
+      circulationData.heartSounds === 'gallop';
+
+    if (hasFluidOverload) {
+      setInterventionAlert({
+        id: 'fluid-overload',
+        name: 'Fluid Overload Detected - Switch to Inotropes/Pressors',
+        severity: 'high',
+        evidence: [
+          `Signs: ${circulationData.fluidOverloadSigns.join(', ')}`,
+          'Heart sounds: ' + circulationData.heartSounds,
+        ],
+        interventions: [
+          'STOP fluid boluses',
+          'Start inotropes/pressors:',
+          'Milrinone 0.25-0.75 mcg/kg/min IV (inodilator)',
+          'OR Dobutamine 5-20 mcg/kg/min IV (inotrope)',
+          'OR Epinephrine 0.1-1 mcg/kg/min IV (if severe)',
+          'Monitor BP, HR, perfusion closely',
+          'Consider ICU transfer',
+        ],
+        reassessmentCriteria: 'Reassess BP, perfusion, urine output, fluid overload signs',
+        status: 'identified',
+      });
+    } else if (circulationData.systolicBP && circulationData.systolicBP < parseInt(normalRanges.sbp.split('-')[0])) {
+      // Still in shock - can give another bolus if <3 given
+      if (circulationData.fluidBolusCount < 3) {
+        setInterventionAlert({
+          id: 'persistent-shock',
+          name: 'Persistent Shock - Give Another Fluid Bolus',
+          severity: 'critical',
+          evidence: [`SBP still ${circulationData.systolicBP} (normal: ${normalRanges.sbp})`],
+          interventions: [
+            `Give another 10 mL/kg bolus (${parameters?.fluidBolus.toFixed(0)} mL)`,
+            'Reassess after bolus: BP, perfusion, fluid overload signs',
+            `Bolus count: ${circulationData.fluidBolusCount + 1}/3`,
+          ],
+          reassessmentCriteria: 'Reassess BP, perfusion after bolus',
+          status: 'identified',
+        });
+      } else {
+        // Max boluses reached, still in shock
+        setInterventionAlert({
+          id: 'refractory-shock',
+          name: 'Refractory Shock - Inotropes/Pressors Required',
+          severity: 'critical',
+          evidence: ['Shock persists after 3 fluid boluses'],
+          interventions: [
+            'Start inotropes/pressors:',
+            'Epinephrine 0.1-1 mcg/kg/min IV',
+            'Milrinone 0.25-0.75 mcg/kg/min IV',
+            'Dobutamine 5-20 mcg/kg/min IV',
+            'Consider ICU transfer',
+            'Investigate for other causes: Sepsis, cardiogenic, anaphylaxis',
+          ],
+          reassessmentCriteria: 'Reassess BP, perfusion, vital signs',
+          status: 'identified',
+        });
+      }
     } else {
-      setStep('case_completion');
+      // Shock resolved
+      setStep('disability');
     }
   };
 
   const handleInterventionComplete = () => {
-    if (activeIntervention) {
-      setCompletedInterventions([...completedInterventions, activeIntervention.id]);
-    }
-    setActiveIntervention(null);
+    setInterventionAlert(null);
 
-    // Continue to next step sequentially (A->B->C->D->E)
-    if (step === 'signs_of_life' && blsAlsActivated) {
-      setStep('case_completion');
-    } else if (step === 'airway') {
+    // Determine next step based on current step
+    if (step === 'airway') {
       setStep('breathing');
     } else if (step === 'breathing') {
       setStep('circulation');
@@ -483,74 +754,17 @@ export default function ClinicalAssessment() {
     } else if (step === 'disability') {
       setStep('exposure');
     } else if (step === 'exposure') {
-      setStep('case_completion');
+      synthesizeProblems();
+      setStep('problem_synthesis');
     }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 border-red-300 text-red-900';
-      case 'high':
-        return 'bg-orange-100 border-orange-300 text-orange-900';
-      case 'moderate':
-        return 'bg-yellow-100 border-yellow-300 text-yellow-900';
-      default:
-        return 'bg-blue-100 border-blue-300 text-blue-900';
-    }
-  };
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-
-  if (activeIntervention) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
-        <div className="max-w-2xl mx-auto">
-          <Card className={`border-2 ${getSeverityColor(activeIntervention.severity)}`}>
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Zap className="w-8 h-8" />
-                {activeIntervention.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-semibold mb-2">Evidence:</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  {activeIntervention.evidence.map((e, i) => (
-                    <li key={i}>{e}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Immediate Actions:</h3>
-                <ul className="list-decimal list-inside space-y-2">
-                  {activeIntervention.interventions.map((action, i) => (
-                    <li key={i} className="font-medium">
-                      {action}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="pt-4 space-y-2">
-                <Button
-                  onClick={handleInterventionComplete}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg"
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  Intervention Complete - Continue Assessment
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+  const handleCaseCompletion = () => {
+    const elapsedMinutes = Math.floor((new Date().getTime() - startTime.getTime()) / 60000);
+    alert(
+      `Case completed in ${elapsedMinutes} minutes. Patient: ${patientData.ageYears}y ${patientData.ageMonths}m, Weight: ${calculatedWeight?.toFixed(1)} kg`
     );
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
@@ -560,12 +774,57 @@ export default function ClinicalAssessment() {
           <p className="text-gray-300">Pediatric Resuscitation - Real-time Decision Support</p>
         </div>
 
+        {/* INTERVENTION ALERT */}
+        {interventionAlert && (
+          <Card className="mb-6 border-2 border-red-500 bg-red-900/20">
+            <CardHeader>
+              <CardTitle className="text-red-400 flex items-center gap-2">
+                <AlertCircle className="w-6 h-6" />
+                {interventionAlert.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-300 mb-2">Evidence:</p>
+                <ul className="text-sm text-gray-300 space-y-1">
+                  {interventionAlert.evidence.map((e, i) => (
+                    <li key={i}>• {e}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-300 mb-2">Immediate Actions:</p>
+                <ul className="text-sm text-gray-200 space-y-1">
+                  {interventionAlert.interventions.map((i, idx) => (
+                    <li key={idx} className="font-semibold">
+                      {idx + 1}. {i}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-300">Reassessment Criteria:</p>
+                <p className="text-sm text-gray-200">{interventionAlert.reassessmentCriteria}</p>
+              </div>
+
+              <Button
+                onClick={handleInterventionComplete}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Intervention Complete - Continue Assessment
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* PATIENT DATA */}
         {step === 'patient_data' && (
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
               <CardTitle>Step 1: Patient Data</CardTitle>
-              <CardDescription>Enter patient age and weight (system will calculate if blank)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -573,12 +832,9 @@ export default function ClinicalAssessment() {
                   <Label className="text-gray-300">Age (Years)</Label>
                   <Input
                     type="number"
-                    value={patientData.age.years}
+                    value={patientData.ageYears || ''}
                     onChange={(e) =>
-                      setPatientData({
-                        ...patientData,
-                        age: { ...patientData.age, years: parseInt(e.target.value) || 0 },
-                      })
+                      setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || null })
                     }
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -587,12 +843,9 @@ export default function ClinicalAssessment() {
                   <Label className="text-gray-300">Age (Months)</Label>
                   <Input
                     type="number"
-                    value={patientData.age.months}
+                    value={patientData.ageMonths || ''}
                     onChange={(e) =>
-                      setPatientData({
-                        ...patientData,
-                        age: { ...patientData.age, months: parseInt(e.target.value) || 0 },
-                      })
+                      setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || null })
                     }
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -606,16 +859,32 @@ export default function ClinicalAssessment() {
                   placeholder="Leave blank to auto-calculate"
                   value={patientData.weight || ''}
                   onChange={(e) =>
-                    setPatientData({
-                      ...patientData,
-                      weight: parseFloat(e.target.value) || 0,
-                    })
+                    setPatientData({ ...patientData, weight: parseFloat(e.target.value) || null })
                   }
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
 
-              <Button onClick={handlePatientDataSubmit} className="w-full bg-orange-600 hover:bg-orange-700">
+              {calculatedWeight && (
+                <div className="bg-green-900/30 border border-green-600 p-3 rounded">
+                  <p className="text-green-300 font-semibold">Auto-Calculated Parameters:</p>
+                  <div className="text-sm text-green-200 grid grid-cols-2 gap-2 mt-2">
+                    <div>Weight: {calculatedWeight.toFixed(1)} kg</div>
+                    <div>ETT: {parameters?.ettSize.toFixed(1)} mm</div>
+                    <div>Suction: {parameters?.suctionCatheter.toFixed(1)} Fr</div>
+                    <div>Fluid Bolus: {parameters?.fluidBolus.toFixed(0)} mL</div>
+                    <div>Epi IV: {parameters?.epinephrineIV} mg</div>
+                    <div>Epi IO: {parameters?.epinephrineIO} mg</div>
+                    <div>Amiodarone: {parameters?.amiodarone} mg</div>
+                    <div>Dextrose 10%: {parameters?.dextrose10} mL</div>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={handlePatientDataContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Signs of Life <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
@@ -626,26 +895,23 @@ export default function ClinicalAssessment() {
         {step === 'signs_of_life' && (
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
-              <CardTitle>Step 2: Signs of Life</CardTitle>
-              <CardDescription>
-                Patient: {patientData.age.years}y {patientData.age.months}m | Weight: {patientData.weight.toFixed(1)} kg
-              </CardDescription>
+              <CardTitle>Step 2: Signs of Life Check</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label className="text-gray-300 block mb-3">Is the child BREATHING?</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
-                    onClick={() => handleSignsOfLife(true, signsOfLife.pulse !== null ? signsOfLife.pulse : true)}
-                    variant={signsOfLife.breathing === true ? 'default' : 'outline'}
-                    className={signsOfLife.breathing === true ? 'bg-green-600' : ''}
+                    onClick={() => setBreathingData({ ...breathingData, isBreathing: true })}
+                    variant={breathingData.isBreathing === true ? 'default' : 'outline'}
+                    className={breathingData.isBreathing === true ? 'bg-green-600' : ''}
                   >
                     ✓ YES
                   </Button>
                   <Button
-                    onClick={() => handleSignsOfLife(false, signsOfLife.pulse !== null ? signsOfLife.pulse : true)}
-                    variant={signsOfLife.breathing === false ? 'default' : 'outline'}
-                    className={signsOfLife.breathing === false ? 'bg-red-600' : ''}
+                    onClick={() => setBreathingData({ ...breathingData, isBreathing: false })}
+                    variant={breathingData.isBreathing === false ? 'default' : 'outline'}
+                    className={breathingData.isBreathing === false ? 'bg-red-600' : ''}
                   >
                     ✗ NO
                   </Button>
@@ -656,21 +922,28 @@ export default function ClinicalAssessment() {
                 <Label className="text-gray-300 block mb-3">Does the child have a PULSE?</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
-                    onClick={() => handleSignsOfLife(signsOfLife.breathing !== null ? signsOfLife.breathing : true, true)}
-                    variant={signsOfLife.pulse === true ? 'default' : 'outline'}
-                    className={signsOfLife.pulse === true ? 'bg-green-600' : ''}
+                    onClick={() => setCirculationData({ ...circulationData, hasPulse: true })}
+                    variant={circulationData.hasPulse === true ? 'default' : 'outline'}
+                    className={circulationData.hasPulse === true ? 'bg-green-600' : ''}
                   >
                     ✓ YES
                   </Button>
                   <Button
-                    onClick={() => handleSignsOfLife(signsOfLife.breathing !== null ? signsOfLife.breathing : true, false)}
-                    variant={signsOfLife.pulse === false ? 'default' : 'outline'}
-                    className={signsOfLife.pulse === false ? 'bg-red-600' : ''}
+                    onClick={() => setCirculationData({ ...circulationData, hasPulse: false })}
+                    variant={circulationData.hasPulse === false ? 'default' : 'outline'}
+                    className={circulationData.hasPulse === false ? 'bg-red-600' : ''}
                   >
                     ✗ NO
                   </Button>
                 </div>
               </div>
+
+              <Button
+                onClick={handleSignsOfLifeContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                Continue <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -683,9 +956,28 @@ export default function ClinicalAssessment() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label className="text-gray-300 block mb-3">Auscultation (Listen with Stethoscope)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['normal', 'stridor', 'wheeze', 'crackles'].map((option) => (
+                    <Button
+                      key={option}
+                      onClick={() => setAirwayData({ ...airwayData, auscultation: option })}
+                      variant={airwayData.auscultation === option ? 'default' : 'outline'}
+                      className={airwayData.auscultation === option ? 'bg-blue-600' : ''}
+                    >
+                      {option === 'normal' && 'Normal'}
+                      {option === 'stridor' && 'Stridor'}
+                      {option === 'wheeze' && 'Wheeze'}
+                      {option === 'crackles' && 'Crackles'}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <Label className="text-gray-300 block mb-3">Airway Patency</Label>
-                <div className="grid grid-cols-1 gap-2">
-                  {['patent', 'at_risk', 'obstructed'].map((option) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {['patent', 'at-risk', 'obstructed'].map((option) => (
                     <Button
                       key={option}
                       onClick={() => setAirwayData({ ...airwayData, patency: option })}
@@ -693,33 +985,17 @@ export default function ClinicalAssessment() {
                       className={airwayData.patency === option ? 'bg-orange-600' : ''}
                     >
                       {option === 'patent' && '✓ Patent'}
-                      {option === 'at_risk' && '⚠️ At Risk'}
+                      {option === 'at-risk' && '⚠️ At Risk'}
                       {option === 'obstructed' && '✗ Obstructed'}
                     </Button>
                   ))}
                 </div>
               </div>
 
-              {airwayData.patency === 'at_risk' && (
-                <div>
-                  <Label className="text-gray-300 block mb-3">Type of Obstruction</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {['upper_airway', 'lower_airway'].map((option) => (
-                      <Button
-                        key={option}
-                        onClick={() => setAirwayData({ ...airwayData, obstructionType: option })}
-                        variant={airwayData.obstructionType === option ? 'default' : 'outline'}
-                        className={airwayData.obstructionType === option ? 'bg-orange-600' : ''}
-                      >
-                        {option === 'upper_airway' && 'Upper Airway (Stridor)'}
-                        {option === 'lower_airway' && 'Lower Airway (Wheeze)'}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Button onClick={handleAirwayComplete} className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button
+                onClick={handleAirwayContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Breathing <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
@@ -760,9 +1036,16 @@ export default function ClinicalAssessment() {
                     <Input
                       type="number"
                       value={breathingData.respiratoryRate || ''}
-                      onChange={(e) => setBreathingData({ ...breathingData, respiratoryRate: parseInt(e.target.value) || null })}
+                      onChange={(e) =>
+                        setBreathingData({
+                          ...breathingData,
+                          respiratoryRate: parseInt(e.target.value) || null,
+                        })
+                      }
+                      placeholder={`Normal: ${normalRanges.rr}`}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Normal: {normalRanges.rr}</p>
                   </div>
 
                   <div>
@@ -770,14 +1053,24 @@ export default function ClinicalAssessment() {
                     <Input
                       type="number"
                       value={breathingData.spO2 || ''}
-                      onChange={(e) => setBreathingData({ ...breathingData, spO2: parseInt(e.target.value) || null })}
+                      onChange={(e) =>
+                        setBreathingData({
+                          ...breathingData,
+                          spO2: parseInt(e.target.value) || null,
+                        })
+                      }
+                      placeholder="Normal: >95%"
                       className="bg-slate-700 border-slate-600 text-white"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Target: {'>'} 90%</p>
                   </div>
                 </>
               )}
 
-              <Button onClick={handleBreathingComplete} className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button
+                onClick={handleBreathingContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Circulation <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
@@ -814,13 +1107,76 @@ export default function ClinicalAssessment() {
               {circulationData.hasPulse && (
                 <>
                   <div>
+                    <Label className="text-gray-300 block mb-3">Central Pulse Character</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['strong', 'normal', 'weak', 'absent'].map((option) => (
+                        <Button
+                          key={option}
+                          onClick={() =>
+                            setCirculationData({
+                              ...circulationData,
+                              centralPulseCharacter: option,
+                            })
+                          }
+                          variant={
+                            circulationData.centralPulseCharacter === option ? 'default' : 'outline'
+                          }
+                          className={
+                            circulationData.centralPulseCharacter === option ? 'bg-blue-600' : ''
+                          }
+                          size="sm"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-300 block mb-3">Peripheral Pulse Character</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['present-strong', 'present-weak', 'absent'].map((option) => (
+                        <Button
+                          key={option}
+                          onClick={() =>
+                            setCirculationData({
+                              ...circulationData,
+                              peripheralPulseCharacter: option,
+                            })
+                          }
+                          variant={
+                            circulationData.peripheralPulseCharacter === option
+                              ? 'default'
+                              : 'outline'
+                          }
+                          className={
+                            circulationData.peripheralPulseCharacter === option
+                              ? 'bg-blue-600'
+                              : ''
+                          }
+                          size="sm"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
                     <Label className="text-gray-300">Heart Rate (bpm)</Label>
                     <Input
                       type="number"
                       value={circulationData.heartRate || ''}
-                      onChange={(e) => setCirculationData({ ...circulationData, heartRate: parseInt(e.target.value) || null })}
+                      onChange={(e) =>
+                        setCirculationData({
+                          ...circulationData,
+                          heartRate: parseInt(e.target.value) || null,
+                        })
+                      }
+                      placeholder={`Normal: ${normalRanges.hr}`}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Normal: {normalRanges.hr}</p>
                   </div>
 
                   <div>
@@ -828,9 +1184,16 @@ export default function ClinicalAssessment() {
                     <Input
                       type="number"
                       value={circulationData.systolicBP || ''}
-                      onChange={(e) => setCirculationData({ ...circulationData, systolicBP: parseInt(e.target.value) || null })}
+                      onChange={(e) =>
+                        setCirculationData({
+                          ...circulationData,
+                          systolicBP: parseInt(e.target.value) || null,
+                        })
+                      }
+                      placeholder={`Normal: ${normalRanges.sbp}`}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Normal: {normalRanges.sbp}</p>
                   </div>
 
                   <div>
@@ -839,9 +1202,15 @@ export default function ClinicalAssessment() {
                       {['warm', 'cool', 'cold'].map((option) => (
                         <Button
                           key={option}
-                          onClick={() => setCirculationData({ ...circulationData, skinPerfusion: option })}
+                          onClick={() =>
+                            setCirculationData({
+                              ...circulationData,
+                              skinPerfusion: option,
+                            })
+                          }
                           variant={circulationData.skinPerfusion === option ? 'default' : 'outline'}
                           className={circulationData.skinPerfusion === option ? 'bg-orange-600' : ''}
+                          size="sm"
                         >
                           {option === 'warm' && '✓ Warm'}
                           {option === 'cool' && '⚠️ Cool'}
@@ -850,11 +1219,148 @@ export default function ClinicalAssessment() {
                       ))}
                     </div>
                   </div>
+
+                  <div>
+                    <Label className="text-gray-300 block mb-3">Heart Sounds</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['normal', 'murmur', 'gallop', 'muffled'].map((option) => (
+                        <Button
+                          key={option}
+                          onClick={() =>
+                            setCirculationData({
+                              ...circulationData,
+                              heartSounds: option,
+                            })
+                          }
+                          variant={circulationData.heartSounds === option ? 'default' : 'outline'}
+                          className={circulationData.heartSounds === option ? 'bg-purple-600' : ''}
+                          size="sm"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-300 block mb-3">Fluid Overload Signs</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['hepatomegaly', 'crackles', 'jvd', 'edema'].map((option) => (
+                        <Button
+                          key={option}
+                          onClick={() => {
+                            const newSigns = circulationData.fluidOverloadSigns.includes(option)
+                              ? circulationData.fluidOverloadSigns.filter((s) => s !== option)
+                              : [...circulationData.fluidOverloadSigns, option];
+                            setCirculationData({
+                              ...circulationData,
+                              fluidOverloadSigns: newSigns,
+                            });
+                          }}
+                          variant={
+                            circulationData.fluidOverloadSigns.includes(option)
+                              ? 'default'
+                              : 'outline'
+                          }
+                          className={
+                            circulationData.fluidOverloadSigns.includes(option)
+                              ? 'bg-red-600'
+                              : ''
+                          }
+                          size="sm"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
 
-              <Button onClick={handleCirculationComplete} className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button
+                onClick={handleCirculationContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Disability <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* CIRCULATION REASSESSMENT */}
+        {step === 'circulation_reassess' && (
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle>Circulation Reassessment - Shock Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-yellow-900/30 border border-yellow-600 p-3 rounded">
+                <p className="text-yellow-300 font-semibold">FEAST Trial Protocol</p>
+                <p className="text-sm text-yellow-200 mt-2">
+                  Give fluid boluses in 10 mL/kg aliquots with reassessment after each bolus.
+                </p>
+                <p className="text-sm text-yellow-200">
+                  Bolus count: {circulationData.fluidBolusCount}/3
+                </p>
+              </div>
+
+              <Button
+                onClick={handleFluidBolus}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={circulationData.fluidBolusCount >= 3}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Give 10 mL/kg Fluid Bolus ({parameters?.fluidBolus.toFixed(0)} mL)
+              </Button>
+
+              <div>
+                <Label className="text-gray-300 block mb-3">After Bolus - Reassess:</Label>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-gray-300 text-sm">Systolic BP (mmHg)</Label>
+                    <Input
+                      type="number"
+                      value={circulationData.systolicBP || ''}
+                      onChange={(e) =>
+                        setCirculationData({
+                          ...circulationData,
+                          systolicBP: parseInt(e.target.value) || null,
+                        })
+                      }
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-300 text-sm">Skin Perfusion</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['warm', 'cool', 'cold'].map((option) => (
+                        <Button
+                          key={option}
+                          onClick={() =>
+                            setCirculationData({
+                              ...circulationData,
+                              skinPerfusion: option,
+                            })
+                          }
+                          variant={circulationData.skinPerfusion === option ? 'default' : 'outline'}
+                          className={circulationData.skinPerfusion === option ? 'bg-orange-600' : ''}
+                          size="sm"
+                        >
+                          {option === 'warm' && '✓ Warm'}
+                          {option === 'cool' && '⚠️ Cool'}
+                          {option === 'cold' && '✗ Cold'}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleCirculationReassessmentContinue}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                Reassess & Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
           </Card>
@@ -887,17 +1393,29 @@ export default function ClinicalAssessment() {
               </div>
 
               <div>
+                <Label className="text-gray-300 block mb-3">Seizure Present?</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => setDisabilityData({ ...disabilityData, seizurePresent: true })}
+                    variant={disabilityData.seizurePresent === true ? 'default' : 'outline'}
+                    className={disabilityData.seizurePresent === true ? 'bg-red-600' : ''}
+                  >
+                    ✗ YES
+                  </Button>
+                  <Button
+                    onClick={() => setDisabilityData({ ...disabilityData, seizurePresent: false })}
+                    variant={disabilityData.seizurePresent === false ? 'default' : 'outline'}
+                    className={disabilityData.seizurePresent === false ? 'bg-green-600' : ''}
+                  >
+                    ✓ NO
+                  </Button>
+                </div>
+              </div>
+
+              <div>
                 <div className="flex justify-between items-center mb-2">
                   <Label className="text-gray-300">Blood Glucose ({disabilityData.glucoseUnit})</Label>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => setDisabilityData({ ...disabilityData, glucoseUnit: 'mg/dL' })}
-                      variant={disabilityData.glucoseUnit === 'mg/dL' ? 'default' : 'outline'}
-                      className={disabilityData.glucoseUnit === 'mg/dL' ? 'bg-blue-600 h-8' : 'h-8'}
-                    >
-                      mg/dL
-                    </Button>
                     <Button
                       size="sm"
                       onClick={() => setDisabilityData({ ...disabilityData, glucoseUnit: 'mmol/L' })}
@@ -906,22 +1424,48 @@ export default function ClinicalAssessment() {
                     >
                       mmol/L
                     </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setDisabilityData({ ...disabilityData, glucoseUnit: 'mg/dL' })}
+                      variant={disabilityData.glucoseUnit === 'mg/dL' ? 'default' : 'outline'}
+                      className={disabilityData.glucoseUnit === 'mg/dL' ? 'bg-blue-600 h-8' : 'h-8'}
+                    >
+                      mg/dL
+                    </Button>
                   </div>
                 </div>
                 <Input
                   type="number"
                   step="0.1"
                   value={disabilityData.bloodGlucose || ''}
-                  onChange={(e) => setDisabilityData({ ...disabilityData, bloodGlucose: parseFloat(e.target.value) || null })}
-                  placeholder={disabilityData.glucoseUnit === 'mg/dL' ? 'e.g., 95' : 'e.g., 5.3'}
+                  onChange={(e) =>
+                    setDisabilityData({
+                      ...disabilityData,
+                      bloodGlucose: parseFloat(e.target.value) || null,
+                    })
+                  }
+                  placeholder={disabilityData.glucoseUnit === 'mmol/L' ? 'e.g., 5.0' : 'e.g., 90'}
                   className="bg-slate-700 border-slate-600 text-white"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  {disabilityData.glucoseUnit === 'mg/dL' ? 'Normal: 70-100 mg/dL' : 'Normal: 3.9-5.6 mmol/L'}
+                  {disabilityData.glucoseUnit === 'mmol/L'
+                    ? 'Normal: 3.9-5.6 mmol/L'
+                    : 'Normal: 70-100 mg/dL'}
                 </p>
               </div>
 
-              <Button onClick={handleDisabilityComplete} className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button
+                onClick={() => {
+                  const problems = checkDisabilityProblems();
+                  if (problems.length > 0) {
+                    setInterventionAlert(problems[0]);
+                    setRealTimeProblems(problems);
+                  } else {
+                    setStep('exposure');
+                  }
+                }}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Exposure <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
@@ -941,7 +1485,13 @@ export default function ClinicalAssessment() {
                   type="number"
                   step="0.1"
                   value={exposureData.temperature || ''}
-                  onChange={(e) => setExposureData({ ...exposureData, temperature: parseFloat(e.target.value) || null })}
+                  onChange={(e) =>
+                    setExposureData({
+                      ...exposureData,
+                      temperature: parseFloat(e.target.value) || null,
+                    })
+                  }
+                  placeholder="Normal: 36.5-37.5"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
@@ -951,23 +1501,92 @@ export default function ClinicalAssessment() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     onClick={() => setExposureData({ ...exposureData, rash: true })}
-                    variant={exposureData.rash ? 'default' : 'outline'}
-                    className={exposureData.rash ? 'bg-red-600' : ''}
+                    variant={exposureData.rash === true ? 'default' : 'outline'}
+                    className={exposureData.rash === true ? 'bg-red-600' : ''}
                   >
-                    ✓ YES
+                    ✗ YES
                   </Button>
                   <Button
                     onClick={() => setExposureData({ ...exposureData, rash: false })}
-                    variant={!exposureData.rash ? 'default' : 'outline'}
-                    className={!exposureData.rash ? 'bg-green-600' : ''}
+                    variant={exposureData.rash === false ? 'default' : 'outline'}
+                    className={exposureData.rash === false ? 'bg-green-600' : ''}
                   >
-                    ✗ NO
+                    ✓ NO
                   </Button>
                 </div>
               </div>
 
-              <Button onClick={handleExposureComplete} className="w-full bg-orange-600 hover:bg-orange-700">
-                Complete Assessment <CheckCircle2 className="w-4 h-4 ml-2" />
+              {exposureData.rash && (
+                <div>
+                  <Label className="text-gray-300 block mb-3">Rash Type</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['petechial', 'maculopapular', 'urticaria'].map((option) => (
+                      <Button
+                        key={option}
+                        onClick={() => setExposureData({ ...exposureData, rashType: option })}
+                        variant={exposureData.rashType === option ? 'default' : 'outline'}
+                        className={exposureData.rashType === option ? 'bg-purple-600' : ''}
+                        size="sm"
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={() => {
+                  const problems = checkExposureProblems();
+                  if (problems.length > 0) {
+                    setInterventionAlert(problems[0]);
+                    setRealTimeProblems(problems);
+                  }
+                  synthesizeProblems();
+                  setStep('problem_synthesis');
+                }}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                Complete Assessment <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PROBLEM SYNTHESIS */}
+        {step === 'problem_synthesis' && (
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle>Step 8: Clinical Problem Synthesis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {realTimeProblems.length === 0 ? (
+                <p className="text-green-300">No critical problems identified. Continue monitoring.</p>
+              ) : (
+                <div className="space-y-4">
+                  {realTimeProblems.map((problem) => (
+                    <div
+                      key={problem.id}
+                      className={`p-3 rounded border-2 ${
+                        problem.severity === 'critical'
+                          ? 'border-red-500 bg-red-900/20'
+                          : problem.severity === 'high'
+                            ? 'border-orange-500 bg-orange-900/20'
+                            : 'border-yellow-500 bg-yellow-900/20'
+                      }`}
+                    >
+                      <p className="font-semibold text-white">{problem.name}</p>
+                      <p className="text-sm text-gray-300 mt-1">Severity: {problem.severity}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                onClick={() => setStep('case_completion')}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Complete Case <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
           </Card>
@@ -977,41 +1596,25 @@ export default function ClinicalAssessment() {
         {step === 'case_completion' && (
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
-              <CardTitle>Case Completed</CardTitle>
+              <CardTitle>Case Completion</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-green-900 border border-green-700 rounded p-4">
-                <p className="text-green-100">
-                  ✓ Assessment complete. Total time: {Math.round((new Date().getTime() - caseStartTime.getTime()) / 1000)} seconds
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-gray-300">
-                  <strong>Patient:</strong> {patientData.age.years}y {patientData.age.months}m, {patientData.weight.toFixed(1)} kg
-                </p>
-                <p className="text-gray-300">
-                  <strong>Interventions Completed:</strong> {completedInterventions.length}
-                </p>
-                {blsAlsActivated && <p className="text-red-300"><strong>BLS/ALS Protocol Activated</strong></p>}
+              <div className="bg-green-900/30 border border-green-600 p-4 rounded">
+                <p className="text-green-300 font-semibold mb-2">Case Summary</p>
+                <div className="text-sm text-green-200 space-y-1">
+                  <p>Patient: {patientData.ageYears}y {patientData.ageMonths}m</p>
+                  <p>Weight: {calculatedWeight?.toFixed(1)} kg</p>
+                  <p>Problems Identified: {realTimeProblems.length}</p>
+                  <p>Time Elapsed: {Math.floor((new Date().getTime() - startTime.getTime()) / 60000)} minutes</p>
+                </div>
               </div>
 
               <Button
-                onClick={() => {
-                  setStep('patient_data');
-                  setSignsOfLife({ breathing: null, pulse: null });
-                  setAirwayData({ patency: null, secretions: false, obstructionType: null });
-                  setBreathingData({ isBreathing: null, respiratoryRate: null, spO2: null });
-                  setCirculationData({ hasPulse: null, heartRate: null, systolicBP: null, skinPerfusion: null });
-                  setDisabilityData({ avpu: null, bloodGlucose: null, glucoseUnit: 'mg/dL' });
-                  setExposureData({ temperature: null, rash: false });
-                  setBlsAlsActivated(false);
-                  setCompletedInterventions([]);
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={handleCaseCompletion}
+                className="w-full bg-green-600 hover:bg-green-700"
               >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Start New Case
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Save Case & Complete
               </Button>
             </CardContent>
           </Card>
