@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { CPRClock } from '@/components/CPRClock';
 import { RealTimeFeedback } from '@/components/RealTimeFeedback';
+import { ReassessmentPrompt, type ReassessmentResponse } from '@/components/ReassessmentPrompt';
 import { getPhaseValidation } from '@/lib/phaseValidation';
+import { getReassessmentAction } from '@/lib/reassessmentLogic';
 
 interface FeedbackAlert {
   type: 'critical' | 'warning' | 'info' | 'action';
@@ -114,6 +116,9 @@ const ClinicalAssessment: React.FC = () => {
   const [feedbackAlerts, setFeedbackAlerts] = useState<FeedbackAlert[]>([]);
   const [fluidBolusCount, setFluidBolusCount] = useState(0);
   const [lastBolusMl, setLastBolusMl] = useState(0);
+  const [showReassessment, setShowReassessment] = useState(false);
+  const [interventionsCompleted, setInterventionsCompleted] = useState<string[]>([]);
+  const [lastReassessmentResponse, setLastReassessmentResponse] = useState<ReassessmentResponse | null>(null);
 
   // Add real-time feedback alert
   const addFeedback = (alert: FeedbackAlert) => {
@@ -462,8 +467,8 @@ const ClinicalAssessment: React.FC = () => {
   };
 
   const handleInterventionComplete = () => {
-    // After intervention, return to reassessment
-    setStep('reassessment');
+    // After intervention, MANDATORY reassessment
+    setShowReassessment(true);
   };
 
   const handleNewCase = () => {
@@ -1124,6 +1129,53 @@ const ClinicalAssessment: React.FC = () => {
               ))
             )}
           </div>
+        )}
+
+        {/* MANDATORY REASSESSMENT PROMPT */}
+        {showReassessment && (
+          <ReassessmentPrompt
+            phase={currentPhase || 'unknown'}
+            interventionsDone={interventionsCompleted}
+            onReassessment={(response: ReassessmentResponse, vitals?: any) => {
+              setLastReassessmentResponse(response);
+              setShowReassessment(false);
+              
+              const action = getReassessmentAction(response, currentPhase || '', interventionsCompleted.length);
+              
+              // Add feedback based on response
+              addFeedback({
+                type: response === 'better' ? 'info' : response === 'worse' ? 'critical' : 'warning',
+                title: action.title,
+                message: action.guidance,
+                actionItems: action.nextSteps,
+              });
+              
+              // Route based on response
+              if (response === 'better') {
+                // Continue to next phase
+                setStep('case_complete');
+              } else if (response === 'same' || response === 'unable') {
+                // Escalate - try different intervention
+                setInterventionsCompleted([]);
+                setStep('interventions');
+              } else if (response === 'worse') {
+                // Emergency escalation
+                setEmergencyActivated(true);
+                setEmergencyActivationTime(new Date());
+                addFeedback({
+                  type: 'critical',
+                  title: 'EMERGENCY ESCALATION ACTIVATED',
+                  message: 'Patient deteriorating. Activate emergency response immediately.',
+                  actionItems: ['Call for help', 'Prepare for advanced interventions', 'Consider ICU transfer'],
+                });
+              }
+            }}
+            onCancel={() => {
+              setShowReassessment(false);
+              setInterventionsCompleted([]);
+              setStep('interventions');
+            }}
+          />
         )}
 
         {/* REASSESSMENT STEP */}
