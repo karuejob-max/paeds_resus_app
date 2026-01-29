@@ -7,6 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { CPRClock } from '@/components/CPRClock';
+import { RealTimeFeedback } from '@/components/RealTimeFeedback';
+
+interface FeedbackAlert {
+  type: 'critical' | 'warning' | 'info' | 'action';
+  title: string;
+  message: string;
+  actionItems?: string[];
+}
 
 interface PatientData {
   ageYears: number;
@@ -102,6 +110,17 @@ const ClinicalAssessment: React.FC = () => {
   const [emergencyActivationTime, setEmergencyActivationTime] = useState<Date | null>(null);
   const [cprActive, setCprActive] = useState(false);
   const [cprStartTime, setCprStartTime] = useState<Date | null>(null);
+  const [feedbackAlerts, setFeedbackAlerts] = useState<FeedbackAlert[]>([]);
+  const [fluidBolusCount, setFluidBolusCount] = useState(0);
+  const [lastBolusMl, setLastBolusMl] = useState(0);
+
+  // Add real-time feedback alert
+  const addFeedback = (alert: FeedbackAlert) => {
+    setFeedbackAlerts((prev) => [...prev, alert]);
+    setTimeout(() => {
+      setFeedbackAlerts((prev) => prev.slice(1));
+    }, 8000);
+  };
 
   // Calculate weight from age
   const calculateWeight = (years: number, months: number): number => {
@@ -481,6 +500,8 @@ const ClinicalAssessment: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <RealTimeFeedback alerts={feedbackAlerts} />
+      
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Clinical Assessment</h1>
@@ -708,14 +729,34 @@ const ClinicalAssessment: React.FC = () => {
                 <Label className="text-gray-300 block mb-4">Breathing Adequate?</Label>
                 <div className="flex gap-4">
                   <Button
-                    onClick={() => setAssessment({ ...assessment, breathingAdequate: true })}
+                    onClick={() => {
+                      setAssessment({ ...assessment, breathingAdequate: true });
+                      addFeedback({
+                        type: 'info',
+                        title: 'Breathing Adequate',
+                        message: 'Continue with ABCDE assessment. Monitor for any deterioration.',
+                      });
+                    }}
                     variant={assessment.breathingAdequate === true ? 'default' : 'outline'}
                     className="flex-1"
                   >
                     YES
                   </Button>
                   <Button
-                    onClick={() => setAssessment({ ...assessment, breathingAdequate: false })}
+                    onClick={() => {
+                      setAssessment({ ...assessment, breathingAdequate: false });
+                      addFeedback({
+                        type: 'critical',
+                        title: 'BREATHING INADEQUACY DETECTED',
+                        message: 'Child is apneic or severely compromised. Immediate intervention required.',
+                        actionItems: [
+                          'Provide high-flow oxygen (FiO2 0.6-1.0)',
+                          'Assess for airway obstruction',
+                          'Consider mechanical ventilation if no improvement',
+                          'Identify underlying cause (asthma, pneumonia, metabolic acidosis)',
+                        ],
+                      });
+                    }}
                     variant={assessment.breathingAdequate === false ? 'default' : 'outline'}
                     className="flex-1"
                   >

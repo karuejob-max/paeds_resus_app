@@ -2788,3 +2788,18 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 8. [ ] Separate learning platform from clinical tools
 9. [ ] Implement correct user journeys per role
 10. [ ] Test all workflows and verify information architecture
+
+
+## Phase 47: Protocol Corrections & Real-Time Dynamic Feedback
+- [x] Fix Hydrocortisone dose in catecholamine-refractory shock protocol
+- [x] Implement Dehydration management with Plans A/B/C (ORS vs RL vs IV fluids)
+- [x] Add diazepam as first-line Status Epilepticus option
+- [x] Add mechanical ventilation criteria and guidance
+- [x] Implement real-time dynamic feedback system after interventions
+- [x] Update protocol file with all corrections
+- [x] Add breathing inadequacy assessment for ventilation decisions
+- [x] Create RealTimeFeedback component
+- [ ] Add fluid bolus reassessment prompts (every 10mls/kg) in UI
+- [ ] Set crystalloid defaults (RL primary, NS fallback) in UI
+- [ ] Implement immediate intervention prompts in UI (before reassessing D)
+- [ ] Test complete workflow with new protocols
