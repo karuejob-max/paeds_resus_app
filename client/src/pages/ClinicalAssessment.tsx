@@ -10,6 +10,9 @@ import { CPRClock } from '@/components/CPRClock';
 import { RealTimeFeedback } from '@/components/RealTimeFeedback';
 import { ReassessmentPrompt, type ReassessmentResponse } from '@/components/ReassessmentPrompt';
 import { ActionCard, type Action } from '@/components/ActionCard';
+import { HandoverModal } from '@/components/HandoverModal';
+import { generateSBARHandover } from '@/lib/sbarHandover';
+import { extractHandoverData } from '@/lib/assessmentToHandover';
 import { getPhaseValidation } from '@/lib/phaseValidation';
 import { getReassessmentAction } from '@/lib/reassessmentLogic';
 import { getPhaseActions, getNextAction, type PhaseAssessment } from '@/lib/actionSequencing';
@@ -80,6 +83,8 @@ interface Intervention {
 
 const ClinicalAssessment: React.FC = () => {
   const [step, setStep] = useState<'patient_data' | 'signs_of_life' | 'abcde' | 'interventions' | 'reassessment' | 'case_complete'>('patient_data');
+  const [showHandover, setShowHandover] = useState(false);
+  const [currentHandover, setCurrentHandover] = useState<any>(null);
   const [patientData, setPatientData] = useState<PatientData>({
     ageYears: 0,
     ageMonths: 0,
@@ -1300,6 +1305,7 @@ const ClinicalAssessment: React.FC = () => {
 
         {/* CASE COMPLETE STEP */}
         {step === 'case_complete' && (
+          <>
           <Card className="bg-slate-800 border-slate-700 p-8">
             <h2 className="text-2xl font-bold text-white mb-6">Case Completed</h2>
             
@@ -1318,14 +1324,51 @@ const ClinicalAssessment: React.FC = () => {
                 <p className="text-gray-300">Time elapsed: {Math.round((new Date().getTime() - startTime.getTime()) / 1000)} seconds</p>
               </div>
 
-              <Button
-                onClick={handleNewCase}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
-              >
-                Start New Case
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    const assessmentData = extractHandoverData({
+                      patientName: 'Patient',
+                      age: patientData.ageYears,
+                      ageMonths: patientData.ageMonths,
+                      weight: weight,
+                      chiefComplaint: 'Emergency presentation',
+                      heartRate: assessment.heartRate || undefined,
+                      respiratoryRate: assessment.respiratoryRate || undefined,
+                      bloodPressure: assessment.systolicBP ? `${assessment.systolicBP}/60` : undefined,
+                      temperature: assessment.temperature || undefined,
+                      oxygenSaturation: assessment.spO2 || undefined,
+                      glucose: assessment.glucose || undefined,
+                      consciousness: assessment.consciousness || 'alert',
+                      breathing: assessment.breathingAdequate ? 'adequate' : 'inadequate',
+                      circulation: assessment.pulsePresent ? 'present' : 'absent',
+                      airwayPatency: assessment.airwayPatency || 'patent',
+                      perfusionStatus: assessment.skinPerfusion || 'normal',
+                    });
+                    const handover = generateSBARHandover(assessmentData);
+                    setCurrentHandover(handover);
+                    setShowHandover(true);
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                >
+                  Generate Handover
+                </Button>
+                <Button
+                  onClick={handleNewCase}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
+                >
+                  Start New Case
+                </Button>
+              </div>
             </div>
           </Card>
+
+          <HandoverModal 
+            isOpen={showHandover} 
+            handover={currentHandover} 
+            onClose={() => setShowHandover(false)}
+          />
+          </>
         )}
       </div>
     </div>
