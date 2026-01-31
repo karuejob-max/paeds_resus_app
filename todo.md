@@ -2913,3 +2913,105 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 - [x] Integrate modal trigger and handover data flow
 - [x] Test handover generation with complete assessment flow
 - [x] All tests passing for handover integration (58/58 tests passing)
+
+
+## Phase 56: UX AUDIT - Critical Gaps Identified (GPS-Like Experience Redesign)
+
+### DNA Violations Identified:
+
+**CRITICAL VIOLATION 1: Delayed Feedback (Not Real-Time)**
+- [ ] Current: User completes ALL assessments → THEN sees recommendations
+- [ ] DNA Promise: "One patient, one moment, one best next step" (Section 1.2.6)
+- [ ] DNA Promise: "One immediate priority action" + "visible timer" (Section 5.2)
+- [ ] FIX NEEDED: Trigger interventions THE MOMENT a critical finding is entered
+
+**CRITICAL VIOLATION 2: Too Many Clicks to Critical Actions**
+- [ ] Current: Patient Data → Signs of Life → Airway → Breathing → Circulation → Disability → Exposure → THEN interventions
+- [ ] DNA Promise: "One recommendation at a time" (Section 10.1)
+- [ ] DNA Promise: "No branching menus during emergencies" (Section 10.1)
+- [ ] FIX NEEDED: Immediate intervention card appears when critical finding detected
+
+**CRITICAL VIOLATION 3: Not GPS-Like Experience**
+- [ ] Current: Feels like a form/questionnaire, not a guide
+- [ ] DNA Promise: "Lower-priority logic is suppressed until higher threats are addressed" (Section 6.1)
+- [ ] DNA Promise: "Reassessment triggers" after every intervention (Section 7.1)
+- [ ] FIX NEEDED: Redesign to show ONE THING at a time with immediate action
+
+### Current Flow (BROKEN):
+```
+Patient Data → Signs of Life → A → B → C → D → E → Interventions → Reassess
+(User clicks through 7+ screens before getting help)
+```
+
+### Required Flow (GPS-Like):
+```
+Patient Data → Signs of Life
+  ↓ (if critical finding detected)
+  IMMEDIATE ACTION CARD (one action)
+  ↓ (after action complete)
+  REASSESS (Better/Same/Worse)
+  ↓ (if better, continue assessment)
+  Next Assessment Question
+  ↓ (if critical finding detected)
+  IMMEDIATE ACTION CARD (one action)
+  ... repeat ...
+```
+
+### Redesign Tasks:
+- [ ] Remove step-by-step wizard pattern
+- [ ] Implement "assessment-intervention-reassessment" micro-loop
+- [ ] Show ONE question at a time (not full phase screens)
+- [ ] Trigger immediate intervention when critical finding detected
+- [ ] Block progression until intervention acknowledged
+- [ ] Add visible countdown timers for reassessment
+- [ ] Implement "Why this?" expandable rationale for each action
+- [ ] Add severity-based visual hierarchy (red = act now, yellow = monitor, green = continue)
+
+
+
+## Phase 57: GPS-Like Clinical Workflow Redesign (COMPLETE)
+
+### Completed Tasks:
+- [x] Complete redesign of ClinicalAssessment component
+- [x] Implement single-question-at-a-time UI (not full phase screens)
+- [x] Trigger immediate intervention when critical finding detected
+- [x] Show ONE action at a time with clear instruction, dose, route
+- [x] Add "Why this?" expandable rationale for each action (DNA 10.2)
+- [x] Implement reassessment micro-loops (Better/Same/Worse) after each action
+- [x] Add visible countdown timers for reassessment
+- [x] Implement severity-based visual hierarchy (critical=red, urgent=yellow)
+- [x] Block progression until intervention acknowledged
+- [x] Write 50 comprehensive vitest tests for GPS workflow
+- [x] All 50 tests passing (100% pass rate)
+- [x] All 1067 tests passing across entire platform
+
+### New Architecture:
+```
+Patient Setup (age/weight)
+     ↓
+"Is child breathing?" 
+     ↓ NO
+IMMEDIATE: "START BAG-VALVE-MASK VENTILATION NOW"
+  - Clear instruction
+  - Weight-based dose
+  - Rationale expandable
+  - Timer countdown
+     ↓ (action acknowledged)
+REASSESS: "Better / Same / Worse"
+     ↓ Better
+"Does child have pulse?"
+     ↓ YES
+Continue to next question...
+```
+
+### DNA Compliance Verified:
+- [x] Safety > Speed > Completeness (Section 1.2.1)
+- [x] One patient, one moment, one best next step (Section 1.2.6)
+- [x] One immediate priority action + visible timer (Section 5.2)
+- [x] One recommendation at a time (Section 10.1)
+- [x] No branching menus during emergencies (Section 10.1)
+- [x] Mandatory reassessment after every intervention (Section 8.1)
+- [x] Weight-based dosing with caps (Section 9.1)
+- [x] IV preferred but alternatives supported (Section 9.2)
+- [x] "Why this?" expandable rationale (Section 10.2)
+
