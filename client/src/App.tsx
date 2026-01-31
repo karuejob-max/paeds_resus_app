@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
+import NRPAssessment from "./pages/NRPAssessment";
 import { Toaster } from "@/components/ui/sonner";
 
 function ScrollToTop() {
@@ -25,6 +26,9 @@ function Router() {
           {/* Clinical Assessment - Main Route */}
           <Route path="/" component={ClinicalAssessment} />
           <Route path="/clinical-assessment" component={ClinicalAssessment} />
+          {/* Neonatal Resuscitation Program */}
+          <Route path="/nrp" component={NRPAssessment} />
+          <Route path="/neonatal" component={NRPAssessment} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>
