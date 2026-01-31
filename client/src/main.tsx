@@ -7,6 +7,7 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
+import { registerServiceWorker } from "@/lib/registerSW";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,17 @@ const trpcClient = trpc.createClient({
       },
     }),
   ],
+});
+
+// Register service worker for offline support
+registerServiceWorker().then((registration) => {
+  if (registration) {
+    console.log('[App] Service worker registered, offline support enabled');
+  } else {
+    console.warn('[App] Service worker not available, offline support disabled');
+  }
+}).catch((error) => {
+  console.error('[App] Service worker registration failed:', error);
 });
 
 createRoot(document.getElementById("root")!).render(
