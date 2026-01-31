@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
 import NRPAssessment from "./pages/NRPAssessment";
+import TraumaAssessment from "./pages/TraumaAssessment";
 import { Toaster } from "@/components/ui/sonner";
 
 function ScrollToTop() {
@@ -29,6 +30,8 @@ function Router() {
           {/* Neonatal Resuscitation Program */}
           <Route path="/nrp" component={NRPAssessment} />
           <Route path="/neonatal" component={NRPAssessment} />
+          {/* Pediatric Trauma Assessment */}
+          <Route path="/trauma" component={TraumaAssessment} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>

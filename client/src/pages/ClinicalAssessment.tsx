@@ -26,6 +26,9 @@ import {
 } from 'lucide-react';
 import { CPRClock } from '@/components/CPRClock';
 import { HandoverModal } from '@/components/HandoverModal';
+import QuickStartPanel from '@/components/QuickStartPanel';
+import AlertSettings from '@/components/AlertSettings';
+import { initAudioContext, triggerAlert, playCountdownBeep } from '@/lib/alertSystem';
 import { generateSBARHandover } from '@/lib/sbarHandover';
 import { extractHandoverData } from '@/lib/assessmentToHandover';
 
@@ -843,7 +846,9 @@ const ClinicalAssessment: React.FC = () => {
     setFindings([...findings, finding]);
 
     if (action) {
-      // Critical finding - show immediate action
+      // Critical finding - show immediate action with audio alert
+      initAudioContext();
+      triggerAlert(action.severity === 'critical' ? 'critical_action' : 'timer_warning');
       setCurrentAction(action);
       setActionAcknowledged(false);
       
@@ -916,15 +921,24 @@ const ClinicalAssessment: React.FC = () => {
     }
   };
 
-  // Timer countdown effect
+  // Timer countdown effect with audio alerts
   useEffect(() => {
     if (reassessmentTimer > 0 && actionAcknowledged) {
       const interval = setInterval(() => {
         setReassessmentTimer(prev => {
           if (prev <= 1) {
-            // Timer expired - prompt reassessment
+            // Timer expired - prompt reassessment with alert
+            triggerAlert('timer_expired');
             setShowReassessment(true);
             return 0;
+          }
+          // Play countdown beeps for last 10 seconds
+          if (prev <= 11) {
+            playCountdownBeep(prev - 1);
+          }
+          // Warning at 30 seconds
+          if (prev === 31) {
+            triggerAlert('timer_warning');
           }
           return prev - 1;
         });
@@ -1082,15 +1096,19 @@ const ClinicalAssessment: React.FC = () => {
                 />
               </div>
 
-              {/* Quick Reference */}
-              <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-600">
-                <p className="text-white font-semibold mb-2">Quick Reference ({weight.toFixed(1)} kg)</p>
-                <div className="grid grid-cols-2 gap-2 text-sm text-slate-300">
-                  <div>ETT: {(patientData.ageYears / 4 + 4).toFixed(1)} mm</div>
-                  <div>Fluid bolus: {(weight * 10).toFixed(0)} mL</div>
-                  <div>Epi: {(weight * 0.01).toFixed(2)} mg</div>
-                  <div>Defib: {(weight * 2).toFixed(0)} J</div>
-                </div>
+              {/* Quick Start Scenarios */}
+              <div className="border-t border-slate-600 pt-6">
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                  Quick Start - Known Emergency
+                </h3>
+                <QuickStartPanel weightKg={weight} />
+              </div>
+
+              {/* Alert Settings */}
+              <div className="flex items-center justify-between border-t border-slate-600 pt-4">
+                <span className="text-slate-400 text-sm">Audio/Haptic Alerts</span>
+                <AlertSettings compact />
               </div>
 
               <Button 
