@@ -1,12 +1,17 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
 import NRPAssessment from "./pages/NRPAssessment";
 import TraumaAssessment from "./pages/TraumaAssessment";
 import { Toaster } from "@/components/ui/sonner";
+
+// Lazy load heavier components
+const ProcedureVideoLibrary = lazy(() => import("./components/ProcedureVideoLibrary"));
+const CaseSimulation = lazy(() => import("./components/CaseSimulation"));
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -16,6 +21,40 @@ function ScrollToTop() {
   }, [location]);
   
   return null;
+}
+
+// Loading fallback for lazy components
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mx-auto mb-4"></div>
+        <p className="text-slate-400">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Wrapper for procedure library page
+function ProceduresPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <div className="min-h-screen">
+        <ProcedureVideoLibrary />
+      </div>
+    </Suspense>
+  );
+}
+
+// Wrapper for simulation page
+function SimulationsPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <div className="min-h-screen">
+        <CaseSimulation />
+      </div>
+    </Suspense>
+  );
 }
 
 function Router() {
@@ -32,6 +71,11 @@ function Router() {
           <Route path="/neonatal" component={NRPAssessment} />
           {/* Pediatric Trauma Assessment */}
           <Route path="/trauma" component={TraumaAssessment} />
+          {/* Procedure Video Library */}
+          <Route path="/procedures" component={ProceduresPage} />
+          {/* Case Simulation Mode */}
+          <Route path="/simulations" component={SimulationsPage} />
+          <Route path="/practice" component={SimulationsPage} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>
@@ -44,10 +88,12 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
