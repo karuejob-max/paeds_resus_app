@@ -1148,6 +1148,24 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
   // Handle intervention complete
   const handleInterventionComplete = (id: string) => {
+    const intervention = activeInterventions.find(i => i.id === id);
+    
+    // For fluid bolus interventions, MUST trigger reassessment before marking complete
+    if (intervention?.type === 'fluid_bolus' && intervention.relatedModule === 'FluidBolusTracker') {
+      // Open FluidBolusTracker for mandatory 9-sign reassessment
+      setActiveModule('fluid');
+      setModuleContext({ 
+        interventionId: id, 
+        weight,
+        bolusNumber: intervention.bolusNumber || 1,
+        volumeGiven: intervention.volumeGiven || 0,
+        maxVolume: intervention.maxVolume || (weight * 60)
+      });
+      // Don't mark complete yet - FluidBolusTracker will handle completion after reassessment
+      return;
+    }
+    
+    // For other interventions, mark as complete directly
     setActiveInterventions(prev => 
       prev.map(i => i.id === id ? { ...i, status: 'completed' } : i)
     );
@@ -1811,17 +1829,54 @@ export const ClinicalAssessmentGPS: React.FC = () => {
         </ModuleOverlay>
       )}
       {activeModule === 'fluid' && (
-        <ModuleOverlay title="Fluid Bolus Tracker" onClose={closeModule}>
+        <ModuleOverlay title="Fluid Bolus Tracker" onClose={() => {
+          // When closing FluidBolusTracker, mark the intervention as complete
+          if (moduleContext?.interventionId) {
+            setActiveInterventions(prev => 
+              prev.map(i => i.id === moduleContext.interventionId ? { ...i, status: 'completed' } : i)
+            );
+          }
+          closeModule();
+        }}>
           <FluidBolusTracker 
             weightKg={weight} 
             shockType="undifferentiated"
-            onEscalateToInotropes={() => setActiveModule('inotrope')}
-            onFluidOverload={() => setActiveModule('inotrope')}
+            onEscalateToInotropes={() => {
+              // Mark current bolus complete and escalate to inotropes
+              if (moduleContext?.interventionId) {
+                setActiveInterventions(prev => 
+                  prev.map(i => i.id === moduleContext.interventionId ? { ...i, status: 'completed' } : i)
+                );
+              }
+              setActiveModule('inotrope');
+            }}
+            onFluidOverload={() => {
+              // Mark current bolus complete and show overload management
+              if (moduleContext?.interventionId) {
+                setActiveInterventions(prev => 
+                  prev.map(i => i.id === moduleContext.interventionId ? { ...i, status: 'completed' } : i)
+                );
+              }
+              setActiveModule('inotrope');
+            }}
             onReferralRequested={(reason) => {
+              if (moduleContext?.interventionId) {
+                setActiveInterventions(prev => 
+                  prev.map(i => i.id === moduleContext.interventionId ? { ...i, status: 'completed' } : i)
+                );
+              }
               handleCallForHelp();
               closeModule();
             }}
-            onShockResolved={closeModule}
+            onShockResolved={() => {
+              // Mark intervention complete and close
+              if (moduleContext?.interventionId) {
+                setActiveInterventions(prev => 
+                  prev.map(i => i.id === moduleContext.interventionId ? { ...i, status: 'completed' } : i)
+                );
+              }
+              closeModule();
+            }}
           />
         </ModuleOverlay>
       )}
