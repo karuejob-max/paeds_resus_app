@@ -3075,3 +3075,44 @@ Continue to next question...
 - [x] Create LanguageSelector component
 - [x] Add /procedures and /simulations routes
 - [x] All tests passing (1284 passing, 1 pre-existing timeout)
+
+
+## Phase 63: Advanced Clinical Protocol Escalation - GPS-Like Rerouting
+- [x] Rebuild Asthma protocol with full escalation pathway
+  - [x] First-line: Salbutamol, Ipratropium, Prednisolone (with 4 steroid alternatives)
+  - [x] Second-line: MgSO4 (50mg/kg IV over 20min, monitoring)
+  - [x] Third-line: Salbutamol IV continuous, Aminophylline IV loading + infusion
+  - [x] Fourth-line: Ketamine IV for refractory bronchospasm
+  - [x] Fifth-line: Mechanical ventilation settings (I:E 1:4, permissive hypercapnia)
+- [x] Build comprehensive Shock Assessment with differentiation algorithm
+  - [x] Central vs peripheral pulse comparison
+  - [x] Palmar pallor assessment
+  - [x] Peripheral cyanosis check
+  - [x] Capillary refill time measurement
+  - [x] Temperature gradient assessment (note level)
+  - [x] Blood pressure measurement
+  - [x] Heart sounds auscultation
+  - [x] ECG rhythm interpretation prompts
+  - [x] JVD, periorbital edema, hepatomegaly, pedal edema checks
+  - [x] Urine output assessment (diaper frequency)
+  - [x] History questions for shock type differentiation (4 types)
+- [x] Implement IV/IO access timer with 90-second escalation prompt
+  - [x] IO site selection by age with needle sizes
+  - [x] 8-step IO insertion technique guide
+- [x] Add fluid bolus counter (10ml/kg aliquots) with mandatory reassessment
+  - [x] Check for shock resolution after each bolus (9 signs)
+  - [x] Check for fluid overload signs (hepatomegaly, crackles, JVD, SpO2)
+  - [x] Prompt for inotrope/vasopressor if overloaded but still shocked
+  - [x] Different bolus sizes for cardiogenic shock (5ml/kg)
+- [x] Build inotrope/vasopressor escalation pathway
+  - [x] Cold vs warm shock determination UI
+  - [x] Epinephrine infusion for cold shock with dilution calculator
+  - [x] Norepinephrine for warm shock with dilution calculator
+  - [x] Dobutamine for cardiogenic component
+  - [x] Dopamine as alternative with dose titration
+- [x] Add "Initiate Referral" button at every decision point
+  - [x] SBAR summary generator
+  - [x] Pre-transport checklist (7 items)
+  - [x] Referral center selection
+- [x] All tests passing (1284 passing, 1 pre-existing timeout)
+
