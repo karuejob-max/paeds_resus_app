@@ -168,6 +168,8 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [showHandover, setShowHandover] = useState(false);
   const [currentHandover, setCurrentHandover] = useState<SBARHandover | null>(null);
   const [showRationale, setShowRationale] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Audio alerts - using imported functions directly
 
@@ -1077,10 +1079,14 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     return 'setup';
   };
 
-  // Handle answer - NON-BLOCKING
+  // Handle answer - NON-BLOCKING with visual feedback
   const handleAnswer = (answer: any) => {
     const question = getCurrentQuestion();
-    if (!question) return;
+    if (!question || isTransitioning) return;
+
+    // Show selected state briefly
+    setSelectedAnswer(answer);
+    setIsTransitioning(true);
 
     // Check for critical trigger
     const action = question.criticalTrigger?.(answer, patientData, weight);
@@ -1127,14 +1133,18 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       }
     }
 
-    // ALWAYS move to next question (non-blocking)
-    const nextId = getNextQuestionId(currentQuestionId);
-    if (nextId) {
-      setCurrentQuestionId(nextId);
-      setCurrentPhase(getPhaseFromQuestion(nextId));
-    } else {
-      setCurrentPhase('complete');
-    }
+    // ALWAYS move to next question (non-blocking) with brief delay for visual feedback
+    setTimeout(() => {
+      const nextId = getNextQuestionId(currentQuestionId);
+      if (nextId) {
+        setCurrentQuestionId(nextId);
+        setCurrentPhase(getPhaseFromQuestion(nextId));
+      } else {
+        setCurrentPhase('complete');
+      }
+      setSelectedAnswer(null);
+      setIsTransitioning(false);
+    }, 300); // 300ms delay to show selected state
   };
 
   // Handle going back
@@ -1502,13 +1512,15 @@ export const ClinicalAssessmentGPS: React.FC = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-gray-300 text-sm">Age (Years)</Label>
+                    <Label className="text-gray-300 text-sm">Age (Years) <span className="text-orange-500">*</span></Label>
                     <Input
                       type="number"
                       value={patientData.ageYears || ''}
                       onChange={(e) => setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || 0 })}
                       className="bg-slate-700 border-slate-600 text-white text-lg h-12"
-                      placeholder="0"
+                      placeholder="e.g., 3"
+                      min={0}
+                      max={18}
                     />
                   </div>
                   <div>
@@ -1518,20 +1530,28 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                       value={patientData.ageMonths || ''}
                       onChange={(e) => setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || 0 })}
                       className="bg-slate-700 border-slate-600 text-white text-lg h-12"
-                      placeholder="0"
+                      placeholder="0-11"
+                      min={0}
+                      max={11}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-gray-300 text-sm">Weight (kg) - Optional</Label>
+                  <Label className="text-gray-300 text-sm">Weight (kg) <span className="text-slate-500 text-xs">(Optional - auto-calculated if blank)</span></Label>
                   <Input
                     type="number"
                     value={patientData.weight || ''}
                     onChange={(e) => setPatientData({ ...patientData, weight: parseFloat(e.target.value) || 0 })}
-                    placeholder={`Auto-calculated: ${weight.toFixed(1)} kg`}
+                    placeholder="Leave blank to auto-calculate"
                     className="bg-slate-700 border-slate-600 text-white text-lg h-12"
+                    min={0.5}
+                    max={150}
+                    step={0.1}
                   />
+                  {(patientData.ageYears > 0 || patientData.ageMonths > 0) && !patientData.weight && (
+                    <p className="text-sm text-orange-400 mt-1">Auto-calculated: {weight.toFixed(1)} kg</p>
+                  )}
                 </div>
 
                 {/* Quick Start Scenarios */}
@@ -1540,7 +1560,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                     <AlertCircle className="h-5 w-5 text-orange-500" />
                     Quick Start - Known Emergency
                   </h3>
-                  <QuickStartPanel weightKg={weight} />
+                  <QuickStartPanel weightKg={(patientData.ageYears > 0 || patientData.ageMonths > 0) ? weight : 0} />
                 </div>
 
                 {/* Alert Settings */}
@@ -1569,7 +1589,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                     {getPhaseIcon(currentPhase)}
                     {currentPhase.replace('_', ' ').toUpperCase()}
                   </div>
-                  <span className="text-slate-400 text-sm">{progress}%</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-500 text-xs">Q{findings.length + 1}</span>
+                    <span className="text-slate-400 text-sm font-medium">{progress}%</span>
+                  </div>
                 </div>
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div
@@ -1621,29 +1644,61 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                         <p className="mt-1 text-xs text-slate-400 pl-4">{pendingAction.rationale}</p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={dismissActionCard}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
 
-                  {/* Module trigger button */}
-                  {pendingAction.relatedModule && (
+                  {/* Acknowledgment buttons - require explicit action */}
+                  <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-white/20">
                     <Button
                       size="sm"
                       onClick={() => {
-                        setActiveModule(pendingAction.relatedModule as ActiveModule);
-                        setModuleContext({ weight });
+                        // Log acknowledgment
+                        setFindings(prev => [...prev, {
+                          id: `ack-${pendingAction.id}-${Date.now()}`,
+                          question: `Action: ${pendingAction.title}`,
+                          answer: 'DONE',
+                          timestamp: new Date(),
+                          phase: currentPhase,
+                          severity: 'normal'
+                        }]);
+                        dismissActionCard();
                       }}
-                      className="mt-3 bg-white/20 hover:bg-white/30 text-white text-xs"
+                      className="bg-green-600 hover:bg-green-700 text-white"
                     >
-                      Open {pendingAction.relatedModule} Module →
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Done
                     </Button>
-                  )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Log deferral
+                        setFindings(prev => [...prev, {
+                          id: `defer-${pendingAction.id}-${Date.now()}`,
+                          question: `Action: ${pendingAction.title}`,
+                          answer: 'DEFERRED',
+                          timestamp: new Date(),
+                          phase: currentPhase,
+                          severity: 'abnormal'
+                        }]);
+                        dismissActionCard();
+                      }}
+                      className="border-yellow-500 text-yellow-400 hover:bg-yellow-500/20"
+                    >
+                      Deferred
+                    </Button>
+                    {pendingAction.relatedModule && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setActiveModule(pendingAction.relatedModule as ActiveModule);
+                          setModuleContext({ weight });
+                        }}
+                        className="bg-white/20 hover:bg-white/30 text-white"
+                      >
+                        Open Module →
+                      </Button>
+                    )}
+                  </div>
                 </Card>
               )}
 
@@ -1662,15 +1717,21 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <Button
                         onClick={() => handleAnswer(true)}
-                        className="py-8 text-lg bg-green-600 hover:bg-green-700 text-white"
+                        disabled={isTransitioning}
+                        className={`py-8 text-lg bg-green-600 hover:bg-green-700 text-white transition-all ${
+                          selectedAnswer === true ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-800 scale-105' : ''
+                        }`}
                       >
-                        Yes
+                        {selectedAnswer === true ? '✓ Yes' : 'Yes'}
                       </Button>
                       <Button
                         onClick={() => handleAnswer(false)}
-                        className="py-8 text-lg bg-red-600 hover:bg-red-700 text-white"
+                        disabled={isTransitioning}
+                        className={`py-8 text-lg bg-red-600 hover:bg-red-700 text-white transition-all ${
+                          selectedAnswer === false ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-800 scale-105' : ''
+                        }`}
                       >
-                        No
+                        {selectedAnswer === false ? '✓ No' : 'No'}
                       </Button>
                     </div>
                   )}
@@ -1681,15 +1742,18 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                         <Button
                           key={option.value}
                           onClick={() => handleAnswer(option.value)}
-                          className={`w-full py-4 text-left justify-start ${
+                          disabled={isTransitioning}
+                          className={`w-full py-4 text-left justify-start transition-all ${
                             option.severity === 'critical'
                               ? 'bg-red-600 hover:bg-red-700 text-white'
                               : option.severity === 'abnormal'
                               ? 'bg-yellow-600 hover:bg-yellow-700 text-black'
                               : 'bg-slate-700 hover:bg-slate-600 text-white'
+                          } ${
+                            selectedAnswer === option.value ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-800 scale-[1.02]' : ''
                           }`}
                         >
-                          {option.label}
+                          {selectedAnswer === option.value ? `✓ ${option.label}` : option.label}
                         </Button>
                       ))}
                     </div>

@@ -122,30 +122,37 @@ export default function QuickStartPanel({ weightKg, onScenarioSelect }: QuickSta
 
     if (size === 'medium') {
       return (
-        <Button
+        <Card
           key={scenario.id}
-          variant="outline"
-          className={`h-auto py-3 px-4 ${colors.border} ${colors.hover} flex flex-col items-center gap-2`}
+          className={`${colors.bg} ${colors.border} cursor-pointer transition-all ${colors.hover} active:scale-95 p-3`}
           onClick={() => handleScenarioClick(scenario)}
         >
-          <Icon className={`h-6 w-6 ${colors.text}`} />
-          <span className={`text-sm font-medium ${colors.text}`}>{scenario.shortName}</span>
-        </Button>
+          <div className="flex items-center gap-2">
+            <Icon className={`h-5 w-5 ${colors.text}`} />
+            <span className={`text-sm font-semibold ${colors.text}`}>{scenario.shortName}</span>
+          </div>
+          {scenario.criticalTimeWindow && (
+            <div className="flex items-center gap-1 mt-1">
+              <Clock className="h-3 w-3 text-slate-500" />
+              <span className="text-xs text-slate-500">{scenario.criticalTimeWindow}</span>
+            </div>
+          )}
+        </Card>
       );
     }
 
-    // Small size
+    // Small size - improved with better visibility
     return (
-      <Button
+      <Card
         key={scenario.id}
-        variant="outline"
-        size="sm"
-        className={`${colors.border} ${colors.hover}`}
+        className={`${colors.bg} ${colors.border} cursor-pointer transition-all ${colors.hover} active:scale-95 p-2`}
         onClick={() => handleScenarioClick(scenario)}
       >
-        <Icon className={`h-4 w-4 mr-1 ${colors.text}`} />
-        <span className={colors.text}>{scenario.shortName}</span>
-      </Button>
+        <div className="flex items-center gap-2">
+          <Icon className={`h-4 w-4 ${colors.text}`} />
+          <span className={`text-xs font-medium ${colors.text}`}>{scenario.shortName}</span>
+        </div>
+      </Card>
     );
   };
 
@@ -179,7 +186,7 @@ export default function QuickStartPanel({ weightKg, onScenarioSelect }: QuickSta
           <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-400">URGENT</Badge>
           <span className="text-xs text-slate-500">Time-sensitive</span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {urgentScenarios.map((scenario) => renderScenarioButton(scenario, 'medium'))}
         </div>
       </div>
@@ -190,7 +197,7 @@ export default function QuickStartPanel({ weightKg, onScenarioSelect }: QuickSta
           <Badge variant="secondary" className="text-xs">SPECIALIZED</Badge>
           <span className="text-xs text-slate-500">Specific pathways</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {otherScenarios.map((scenario) => renderScenarioButton(scenario, 'small'))}
         </div>
       </div>
