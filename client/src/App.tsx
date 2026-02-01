@@ -12,6 +12,8 @@ import { Toaster } from "@/components/ui/sonner";
 // Lazy load heavier components
 const ProcedureVideoLibrary = lazy(() => import("./components/ProcedureVideoLibrary"));
 const CaseSimulation = lazy(() => import("./components/CaseSimulation"));
+const ProviderTrainingMode = lazy(() => import("./components/ProviderTrainingMode"));
+const ArrhythmiaRecognition = lazy(() => import("./components/ArrhythmiaRecognition"));
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -57,6 +59,28 @@ function SimulationsPage() {
   );
 }
 
+// Wrapper for training page
+function TrainingPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <div className="min-h-screen">
+        <ProviderTrainingMode />
+      </div>
+    </Suspense>
+  );
+}
+
+// Wrapper for ECG/Arrhythmia page
+function ArrhythmiaPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <div className="min-h-screen">
+        <ArrhythmiaRecognition patientWeight={20} patientAge={5} />
+      </div>
+    </Suspense>
+  );
+}
+
 function Router() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -76,6 +100,12 @@ function Router() {
           {/* Case Simulation Mode */}
           <Route path="/simulations" component={SimulationsPage} />
           <Route path="/practice" component={SimulationsPage} />
+          {/* Provider Training Mode */}
+          <Route path="/training" component={TrainingPage} />
+          <Route path="/learn" component={TrainingPage} />
+          {/* ECG/Arrhythmia Recognition */}
+          <Route path="/ecg" component={ArrhythmiaPage} />
+          <Route path="/arrhythmia" component={ArrhythmiaPage} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>

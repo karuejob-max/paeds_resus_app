@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Info
 } from 'lucide-react';
+import { ECGVisuals, ECGQuickReference } from './ECGVisuals';
 
 interface ArrhythmiaPattern {
   id: string;
@@ -615,6 +616,11 @@ const ArrhythmiaRecognition: React.FC<ArrhythmiaRecognitionProps> = ({
             >
               ← Back
             </Button>
+          </div>
+          
+          {/* ECG Visual Strip */}
+          <div className="mb-4">
+            <ECGVisuals rhythm={selectedArrhythmia.id} size="large" />
           </div>
           
           {/* ECG Features */}
