@@ -3190,3 +3190,24 @@ Continue to next question...
 - [x] Implement mandatory 9-sign reassessment (already built in FluidBolusTracker) after fluid bolus with overload detection
 - [x] Add auscultation findings (already comprehensive in all phases) to airway/breathing/circulation with specific clinical implications
 - [x] Test complete circulation flow (manual testing required - browser extension unavailable) end-to-end with heart failure scenarios
+
+
+---
+
+## CRITICAL OPERATIONAL MANDATES (READ EVERY SESSION)
+
+**Reference**: /home/ubuntu/paeds_resus_app/CRITICAL_OPERATIONAL_MANDATES.md
+
+### Mandatory Protocols:
+1. **Demonstrate Before Declaring Complete** - Screenshots or user confirmation required
+2. **Echo Back Requirements as Numbered Checklist** - Before implementing complex features
+3. **Shorter Iteration Cycles** - 1 feature → show → confirm → next
+4. **Ask Clarifying Questions Upfront** - Don't assume
+5. **Re-read Critical Context Before Major Actions** - Knowledge entries + previous instructions
+6. **Test Actual User Experience** - Navigate as user, verify flow, take screenshots
+
+### MVP Deadline: February 8, 2026
+
+### Consequence of Ignoring: Children die. This is not abstract.
+
+---
