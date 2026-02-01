@@ -111,6 +111,7 @@ interface ClinicalQuestion {
   phase: AssessmentPhase;
   question: string;
   subtext?: string;
+  placeholder?: string;
   type: 'boolean' | 'select' | 'number' | 'multi-select';
   options?: { value: string; label: string; severity?: 'normal' | 'abnormal' | 'critical' }[];
   unit?: string;
@@ -163,6 +164,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   // UI state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [emergencyActivated, setEmergencyActivated] = useState(false);
+  
+  // Clinical safety flags - track conditions that contraindicate certain interventions
+  const [svtDetected, setSvtDetected] = useState(false);
+  const [heartFailureDetected, setHeartFailureDetected] = useState(false);
   const [cprActive, setCprActive] = useState(false);
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [showHandover, setShowHandover] = useState(false);
@@ -236,6 +241,17 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             interventionTemplate: 'cpr'
           };
         }
+        if (answer === 'present_weak') {
+          return {
+            id: 'weak-pulse-shock',
+            severity: 'urgent',
+            title: 'WEAK PULSE - EARLY SHOCK SUSPECTED',
+            instruction: 'Weak pulse indicates poor perfusion. Prepare for IV/IO access. Continue assessment to identify shock type. Do NOT give fluid bolus until heart failure is ruled out.',
+            rationale: 'Weak pulse is an early sign of compensated shock. Early recognition and treatment improves outcomes.',
+            timer: 300,
+            reassessAfter: 'After circulation assessment'
+          };
+        }
         return null;
       }
     },
@@ -246,10 +262,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       subtext: 'AVPU scale assessment',
       type: 'select',
       options: [
-        { value: 'alert', label: 'Alert - eyes open spontaneously', severity: 'normal' },
-        { value: 'voice', label: 'Voice - responds to verbal stimuli', severity: 'abnormal' },
-        { value: 'pain', label: 'Pain - responds only to painful stimuli', severity: 'abnormal' },
-        { value: 'unresponsive', label: 'Unresponsive - no response', severity: 'critical' }
+        { value: 'alert', label: 'A - Alert (eyes open spontaneously)', severity: 'normal' },
+        { value: 'voice', label: 'V - Voice (responds to verbal stimuli)', severity: 'abnormal' },
+        { value: 'pain', label: 'P - Pain (responds only to painful stimuli)', severity: 'critical' },
+        { value: 'unresponsive', label: 'U - Unresponsive (no response)', severity: 'critical' }
       ],
       criticalTrigger: (answer) => {
         if (answer === 'unresponsive') {
@@ -260,6 +276,26 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             instruction: 'Position in recovery position if breathing. Prepare for intubation if not protecting airway. Call for senior help.',
             rationale: 'Unresponsive child cannot protect airway. Risk of aspiration and respiratory failure.',
             relatedModule: 'airway'
+          };
+        }
+        if (answer === 'pain') {
+          return {
+            id: 'altered-consciousness',
+            severity: 'urgent',
+            title: 'ALTERED CONSCIOUSNESS - ASSESS CAUSE',
+            instruction: 'Check blood glucose immediately. Consider: hypoxia, hypoglycemia, seizure, head injury, poisoning, sepsis. Protect airway - may deteriorate rapidly.',
+            rationale: 'A child responding only to pain has significantly altered consciousness. This is a red flag requiring immediate investigation.',
+            timer: 300,
+            reassessAfter: 'After glucose check and disability assessment'
+          };
+        }
+        if (answer === 'voice') {
+          return {
+            id: 'decreased-consciousness',
+            severity: 'routine',
+            title: 'DECREASED CONSCIOUSNESS - MONITOR CLOSELY',
+            instruction: 'Monitor for deterioration. Check blood glucose. Continue systematic assessment.',
+            rationale: 'Child not fully alert may deteriorate. Frequent reassessment needed.'
           };
         }
         return null;
@@ -315,15 +351,37 @@ export const ClinicalAssessmentGPS: React.FC = () => {
         { value: 'hoarse', label: 'Hoarse voice/cry', severity: 'abnormal' }
       ],
       criticalTrigger: (answer) => {
-        if (Array.isArray(answer) && answer.includes('stridor')) {
-          return {
-            id: 'stridor-assessment',
-            severity: 'urgent',
-            title: 'STRIDOR DETECTED - ASSESS SEVERITY',
-            instruction: 'Assess for croup vs epiglottitis vs foreign body. Keep child calm. Do NOT examine throat if epiglottitis suspected. Give nebulized epinephrine if severe.',
-            rationale: 'Stridor indicates upper airway narrowing. Agitation worsens obstruction.',
-            relatedModule: 'airway'
-          };
+        if (Array.isArray(answer)) {
+          if (answer.includes('stridor')) {
+            return {
+              id: 'stridor-assessment',
+              severity: 'urgent',
+              title: 'STRIDOR DETECTED - ASSESS SEVERITY',
+              instruction: 'Assess for croup vs epiglottitis vs foreign body. Keep child calm. Do NOT examine throat if epiglottitis suspected. Give nebulized epinephrine if severe.',
+              rationale: 'Stridor indicates upper airway narrowing. Agitation worsens obstruction.',
+              relatedModule: 'airway'
+            };
+          }
+          if (answer.includes('stertor')) {
+            return {
+              id: 'stertor-intervention',
+              severity: 'urgent',
+              title: 'STERTOR (SNORING) - REPOSITION AND SUCTION',
+              instruction: 'Stertor indicates tongue/soft tissue obstruction. Head tilt-chin lift or jaw thrust. Suction oropharynx if secretions. Consider oropharyngeal airway if unconscious.',
+              rationale: 'Stertor is caused by partial upper airway obstruction from tongue or soft tissue. Repositioning often resolves it.',
+              timer: 60
+            };
+          }
+          if (answer.includes('gurgling')) {
+            return {
+              id: 'gurgling-suction',
+              severity: 'urgent',
+              title: 'GURGLING - SUCTION AIRWAY NOW',
+              instruction: 'Gurgling indicates secretions/blood/vomit in airway. Suction immediately. Position in recovery position if unconscious. Have suction ready continuously.',
+              rationale: 'Gurgling sounds mean fluid in the airway. Risk of aspiration. Suction is priority.',
+              timer: 30
+            };
+          }
         }
         return null;
       }
@@ -365,7 +423,8 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       id: 'spo2',
       phase: 'breathing',
       question: 'What is the SpO2?',
-      subtext: 'On room air or current oxygen',
+      subtext: 'On room air or current oxygen. Normal: 94-100%. Enter value 0-100.',
+      placeholder: 'e.g., 98',
       type: 'number',
       unit: '%',
       min: 0,
@@ -399,7 +458,8 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       id: 'respiratory_rate',
       phase: 'breathing',
       question: 'What is the respiratory rate?',
-      subtext: 'Count for 30 seconds and multiply by 2',
+      subtext: 'Count for 30 seconds × 2. Normal: <1y: 30-60, 1-5y: 24-40, >5y: 12-20 breaths/min',
+      placeholder: 'e.g., 24',
       type: 'number',
       unit: 'breaths/min',
       min: 0,
@@ -615,6 +675,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       id: 'heart_rate',
       phase: 'circulation',
       question: 'What is the heart rate?',
+      subtext: 'Count for 15 seconds × 4. Normal ranges by age: <1y: 100-180, 1-5y: 80-160, >5y: 60-140 bpm',
       type: 'number',
       unit: 'bpm',
       min: 0,
@@ -1088,8 +1149,9 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     setSelectedAnswer(answer);
     setIsTransitioning(true);
 
-    // Check for critical trigger
-    const action = question.criticalTrigger?.(answer, patientData, weight);
+    // Check for critical trigger - ONLY if answer is not null (Skip)
+    // Skip should just move to next question without triggering any alerts
+    const action = answer !== null ? question.criticalTrigger?.(answer, patientData, weight) : undefined;
 
     // Record finding
     const finding: ClinicalFinding = {
@@ -1105,14 +1167,34 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
     // If critical action, show it but DON'T BLOCK
     if (action) {
+      // CRITICAL SAFETY CHECK: Block fluid bolus if SVT or heart failure detected
+      let modifiedAction = action;
+      if (action.interventionTemplate === 'fluidBolus' && (svtDetected || heartFailureDetected)) {
+        // Override the action to NOT give fluid bolus
+        const contraindication = svtDetected ? 'SVT' : 'heart failure signs';
+        modifiedAction = {
+          ...action,
+          id: 'shock-no-fluid',
+          title: `SHOCK DETECTED - BUT ${contraindication.toUpperCase()} PRESENT`,
+          instruction: svtDetected 
+            ? `DO NOT GIVE FLUID BOLUS. Treat SVT first: vagal maneuvers, then adenosine 0.1 mg/kg (max 6mg). If unstable, synchronized cardioversion 1 J/kg.`
+            : `DO NOT GIVE FLUID BOLUS. Heart failure signs present. Consider diuretics (furosemide 1 mg/kg IV), inotropes (epinephrine infusion). Get senior help.`,
+          rationale: svtDetected
+            ? 'SVT causes cardiogenic shock from poor cardiac output. Fluid will worsen heart failure. Treat the rhythm first.'
+            : 'Heart failure signs indicate the heart cannot handle more volume. Fluid bolus will cause pulmonary edema.',
+          interventionTemplate: undefined, // Don't trigger fluid bolus intervention
+          relatedModule: svtDetected ? 'arrhythmia' : 'inotrope'
+        };
+      }
+      
       initAudioContext();
-      triggerAlert(action.severity === 'critical' ? 'critical_action' : 'timer_warning');
-      setPendingAction(action);
+      triggerAlert(modifiedAction.severity === 'critical' ? 'critical_action' : 'timer_warning');
+      setPendingAction(modifiedAction);
       setShowActionCard(true);
 
-      // Auto-add intervention to sidebar
-      if (action.interventionTemplate) {
-        const templateKey = action.interventionTemplate as keyof typeof interventionTemplates;
+      // Auto-add intervention to sidebar (only if not blocked)
+      if (modifiedAction.interventionTemplate) {
+        const templateKey = modifiedAction.interventionTemplate as keyof typeof interventionTemplates;
         const template = interventionTemplates[templateKey];
         if (template) {
           const intervention: ActiveIntervention = typeof template === 'function' 
@@ -1123,12 +1205,22 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       }
 
       // Activate emergency if critical
-      if (action.severity === 'critical') {
+      if (modifiedAction.severity === 'critical') {
         setEmergencyActivated(true);
+      }
+      
+      // Track clinical safety flags that contraindicate certain interventions
+      // Use original action.id since modifiedAction.id may have changed
+      if (action.id === 'svt-suspected' || action.id === 'svt') {
+        setSvtDetected(true);
+      }
+      if (action.id === 'elevated-jvp' || action.id === 'hepatomegaly-enlarged' || 
+          action.id === 'gallop-rhythm' || action.id === 'pulmonary-crackles') {
+        setHeartFailureDetected(true);
       }
 
       // Start CPR clock if needed
-      if (action.id === 'start-cpr') {
+      if (modifiedAction.id === 'start-cpr') {
         setCprActive(true);
       }
     }
@@ -1587,7 +1679,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 <div className="flex justify-between items-center mb-2">
                   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm text-white ${getPhaseColor(currentPhase)}`}>
                     {getPhaseIcon(currentPhase)}
-                    {currentPhase.replace('_', ' ').toUpperCase()}
+                    {currentPhase.replace(/_/g, ' ').toUpperCase()}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-slate-500 text-xs">Q{findings.length + 1}</span>
@@ -1660,6 +1752,20 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                           phase: currentPhase,
                           severity: 'normal'
                         }]);
+                        
+                        // Add completed intervention to sidebar for tracking
+                        const completedIntervention: ActiveIntervention = {
+                          id: `intervention-${pendingAction.id}-${Date.now()}`,
+                          type: 'monitoring' as const,
+                          title: pendingAction.title,
+                          instruction: pendingAction.instruction.substring(0, 100),
+                          startTime: new Date(),
+                          status: 'completed',
+                          priority: pendingAction.severity as 'critical' | 'urgent' | 'routine',
+                          relatedModule: pendingAction.relatedModule
+                        };
+                        setActiveInterventions(prev => [...prev, completedIntervention]);
+                        
                         dismissActionCard();
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white"
@@ -1772,6 +1878,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                       unit={currentQuestion.unit}
                       min={currentQuestion.min}
                       max={currentQuestion.max}
+                      placeholder={currentQuestion.placeholder}
                       onSubmit={handleAnswer}
                     />
                   )}
@@ -1788,14 +1895,17 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Back
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleAnswer(null)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    Skip
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </Button>
+                  {/* Skip button disabled for critical questions in Signs of Life phase */}
+                  {currentPhase !== 'signs_of_life' && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleAnswer(null)}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      Skip
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  )}
                 </div>
               </Card>
             </>
@@ -2062,10 +2172,11 @@ interface NumberInputQuestionProps {
   unit?: string;
   min?: number;
   max?: number;
+  placeholder?: string;
   onSubmit: (value: number) => void;
 }
 
-const NumberInputQuestion: React.FC<NumberInputQuestionProps> = ({ unit, min, max, onSubmit }) => {
+const NumberInputQuestion: React.FC<NumberInputQuestionProps> = ({ unit, min, max, placeholder, onSubmit }) => {
   const [value, setValue] = useState<string>('');
 
   return (
@@ -2078,7 +2189,7 @@ const NumberInputQuestion: React.FC<NumberInputQuestionProps> = ({ unit, min, ma
           min={min}
           max={max}
           className="bg-slate-700 border-slate-600 text-white text-2xl h-14 flex-1"
-          placeholder="Enter value"
+          placeholder={placeholder || "Enter value"}
         />
         {unit && <span className="text-slate-400 text-lg">{unit}</span>}
       </div>
