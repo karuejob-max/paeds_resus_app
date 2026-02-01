@@ -1,0 +1,1704 @@
+/**
+ * Clinical Assessment - GPS Mode
+ * 
+ * This is the redesigned clinical assessment flow that works like GPS:
+ * - Non-blocking interventions (actions appear but don't stop the flow)
+ * - Active interventions sidebar (track all ongoing interventions)
+ * - Automatic module triggers (advanced components appear as overlays)
+ * - Parallel processing (multiple interventions run simultaneously)
+ * 
+ * DNA Compliance:
+ * - Safety > Speed > Completeness (1.2.1)
+ * - One patient, one moment, one best next step (1.2.6)
+ * - One immediate priority action + visible timer (5.2)
+ * - Mandatory reassessment after every intervention (8.1)
+ * - Weight-based dosing with caps (9.1)
+ */
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { 
+  ArrowRight, 
+  ArrowLeft,
+  AlertCircle, 
+  CheckCircle2, 
+  Info,
+  Activity,
+  Heart,
+  Wind,
+  Droplets,
+  Brain,
+  Thermometer,
+  ChevronDown,
+  ChevronUp,
+  X,
+  RefreshCw
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+// Import components
+import { ClinicalHeader } from '@/components/clinical/ClinicalHeader';
+import { 
+  ActiveInterventionsSidebar, 
+  ActiveIntervention,
+  interventionTemplates,
+  createIntervention
+} from '@/components/clinical/ActiveInterventionsSidebar';
+import { CPRClock } from '@/components/CPRClock';
+import QuickStartPanel from '@/components/QuickStartPanel';
+import AlertSettings from '@/components/AlertSettings';
+import { HandoverModal } from '@/components/HandoverModal';
+import { generateSBARHandover, SBARHandover } from '@/lib/sbarHandover';
+import { initAudioContext, triggerAlert, playCountdownBeep } from '@/lib/alertSystem';
+
+// Import advanced modules for overlay triggers
+import { ShockAssessment } from '@/components/ShockAssessment';
+import { AsthmaEscalation } from '@/components/AsthmaEscalation';
+import { IVIOAccessTimer } from '@/components/IVIOAccessTimer';
+import { FluidBolusTracker } from '@/components/FluidBolusTracker';
+import { InotropeEscalation } from '@/components/InotropeEscalation';
+import LabSampleCollection from '@/components/LabSampleCollection';
+import ArrhythmiaRecognition from '@/components/ArrhythmiaRecognition';
+
+// Types
+interface PatientData {
+  ageYears: number;
+  ageMonths: number;
+  weight: number;
+  glucoseUnit: 'mmol/L' | 'mg/dL';
+}
+
+type AssessmentPhase = 
+  | 'setup'
+  | 'signs_of_life'
+  | 'airway'
+  | 'breathing'
+  | 'circulation'
+  | 'disability'
+  | 'exposure'
+  | 'complete';
+
+interface ClinicalFinding {
+  id: string;
+  question: string;
+  answer: any;
+  timestamp: Date;
+  phase: AssessmentPhase;
+  severity?: 'normal' | 'abnormal' | 'critical';
+  triggeredInterventions?: string[];
+}
+
+interface TriggeredAction {
+  id: string;
+  severity: 'critical' | 'urgent' | 'routine';
+  title: string;
+  instruction: string;
+  rationale: string;
+  dose?: string;
+  route?: string;
+  timer?: number;
+  reassessAfter?: string;
+  interventionTemplate?: keyof typeof interventionTemplates;
+  relatedModule?: string;
+}
+
+// Question definition
+interface ClinicalQuestion {
+  id: string;
+  phase: AssessmentPhase;
+  question: string;
+  subtext?: string;
+  type: 'boolean' | 'select' | 'number' | 'multi-select';
+  options?: { value: string; label: string; severity?: 'normal' | 'abnormal' | 'critical' }[];
+  unit?: string;
+  min?: number;
+  max?: number;
+  criticalTrigger?: (answer: any, patient: PatientData, weight: number) => TriggeredAction | null;
+  getNextQuestion?: (answer: any) => string | null;
+}
+
+// Active module overlay
+type ActiveModule = 
+  | 'shock'
+  | 'asthma'
+  | 'ivio'
+  | 'fluid'
+  | 'inotrope'
+  | 'lab'
+  | 'arrhythmia'
+  | null;
+
+export const ClinicalAssessmentGPS: React.FC = () => {
+  // Patient state
+  const [patientData, setPatientData] = useState<PatientData>({
+    ageYears: 0,
+    ageMonths: 0,
+    weight: 0,
+    glucoseUnit: 'mmol/L'
+  });
+
+  // Assessment state
+  const [currentPhase, setCurrentPhase] = useState<AssessmentPhase>('setup');
+  const [currentQuestionId, setCurrentQuestionId] = useState<string>('breathing');
+  const [findings, setFindings] = useState<ClinicalFinding[]>([]);
+  const [caseStartTime, setCaseStartTime] = useState<Date>(new Date());
+
+  // Intervention state
+  const [activeInterventions, setActiveInterventions] = useState<ActiveIntervention[]>([]);
+  const [pendingAction, setPendingAction] = useState<TriggeredAction | null>(null);
+  const [showActionCard, setShowActionCard] = useState(false);
+
+  // Module overlay state
+  const [activeModule, setActiveModule] = useState<ActiveModule>(null);
+  const [moduleContext, setModuleContext] = useState<any>(null);
+
+  // UI state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [emergencyActivated, setEmergencyActivated] = useState(false);
+  const [cprActive, setCprActive] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [showHandover, setShowHandover] = useState(false);
+  const [currentHandover, setCurrentHandover] = useState<SBARHandover | null>(null);
+  const [showRationale, setShowRationale] = useState(false);
+
+  // Audio alerts - using imported functions directly
+
+  // Calculate weight using age-based formula
+  const totalAgeMonths = patientData.ageYears * 12 + patientData.ageMonths;
+  const calculateWeight = (months: number): number => {
+    if (months < 12) {
+      return (months + 9) / 2;
+    } else if (months < 60) {
+      return (Math.floor(months / 12) + 4) * 2;
+    } else {
+      return Math.floor(months / 12) * 4;
+    }
+  };
+  const estimatedWeight = calculateWeight(totalAgeMonths);
+  const weight = patientData.weight > 0 ? patientData.weight : estimatedWeight;
+
+  // Question definitions with critical triggers
+  const clinicalQuestions: ClinicalQuestion[] = [
+    // SIGNS OF LIFE
+    {
+      id: 'breathing',
+      phase: 'signs_of_life',
+      question: 'Is the child breathing?',
+      subtext: 'Look for chest movement, listen for breath sounds',
+      type: 'boolean',
+      criticalTrigger: (answer) => {
+        if (answer === false) {
+          return {
+            id: 'start-bvm',
+            severity: 'critical',
+            title: 'START BAG-VALVE-MASK VENTILATION',
+            instruction: 'Open airway (head tilt-chin lift). Apply mask with good seal. Squeeze bag to see chest rise. Give 1 breath every 3 seconds.',
+            rationale: 'Apneic child requires immediate ventilation to prevent hypoxic cardiac arrest.',
+            timer: 30,
+            reassessAfter: 'After 5 breaths, check for chest rise and SpO2',
+            interventionTemplate: 'bvmVentilation'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'pulse',
+      phase: 'signs_of_life',
+      question: 'Is there a palpable pulse?',
+      subtext: 'Check brachial (infant) or carotid (child) pulse for 10 seconds max',
+      type: 'select',
+      options: [
+        { value: 'present_strong', label: 'Present and strong', severity: 'normal' },
+        { value: 'present_weak', label: 'Present but weak', severity: 'abnormal' },
+        { value: 'absent', label: 'No pulse', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'absent') {
+          return {
+            id: 'start-cpr',
+            severity: 'critical',
+            title: 'START CPR IMMEDIATELY',
+            instruction: 'Begin chest compressions: 100-120/min, depth 1/3 chest. 15:2 ratio with BVM. Minimize interruptions.',
+            rationale: 'Pulseless child requires immediate CPR. Every minute without CPR decreases survival by 10%.',
+            timer: 120,
+            reassessAfter: 'Rhythm check at 2 minutes',
+            interventionTemplate: 'cpr'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'responsiveness',
+      phase: 'signs_of_life',
+      question: 'What is the level of responsiveness?',
+      subtext: 'AVPU scale assessment',
+      type: 'select',
+      options: [
+        { value: 'alert', label: 'Alert - eyes open spontaneously', severity: 'normal' },
+        { value: 'voice', label: 'Voice - responds to verbal stimuli', severity: 'abnormal' },
+        { value: 'pain', label: 'Pain - responds only to painful stimuli', severity: 'abnormal' },
+        { value: 'unresponsive', label: 'Unresponsive - no response', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'unresponsive') {
+          return {
+            id: 'protect-airway',
+            severity: 'critical',
+            title: 'PROTECT AIRWAY - UNRESPONSIVE CHILD',
+            instruction: 'Position in recovery position if breathing. Prepare for intubation if not protecting airway. Call for senior help.',
+            rationale: 'Unresponsive child cannot protect airway. Risk of aspiration and respiratory failure.',
+            relatedModule: 'airway'
+          };
+        }
+        return null;
+      }
+    },
+
+    // AIRWAY
+    {
+      id: 'airway_patency',
+      phase: 'airway',
+      question: 'Is the airway patent?',
+      subtext: 'Can you hear air movement? Is there stridor or gurgling?',
+      type: 'select',
+      options: [
+        { value: 'patent', label: 'Patent - clear air movement', severity: 'normal' },
+        { value: 'partial', label: 'Partial obstruction - stridor/gurgling', severity: 'abnormal' },
+        { value: 'complete', label: 'Complete obstruction - no air movement', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'complete') {
+          return {
+            id: 'relieve-obstruction',
+            severity: 'critical',
+            title: 'RELIEVE AIRWAY OBSTRUCTION NOW',
+            instruction: 'If foreign body suspected: 5 back blows + 5 chest thrusts (infant) or abdominal thrusts (child >1y). If secretions: suction. Reposition airway.',
+            rationale: 'Complete airway obstruction is immediately life-threatening. Must be relieved before any other intervention.',
+            timer: 60
+          };
+        }
+        if (answer === 'partial') {
+          return {
+            id: 'optimize-airway',
+            severity: 'urgent',
+            title: 'OPTIMIZE AIRWAY POSITION',
+            instruction: 'Head tilt-chin lift (if no trauma) or jaw thrust. Consider oropharyngeal airway if unconscious. Suction if secretions present.',
+            rationale: 'Partial obstruction can progress to complete obstruction. Optimize position before continuing.',
+            timer: 30
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'airway_sounds',
+      phase: 'airway',
+      question: 'Are there abnormal airway sounds?',
+      type: 'multi-select',
+      options: [
+        { value: 'none', label: 'None - clear', severity: 'normal' },
+        { value: 'stridor', label: 'Stridor (inspiratory)', severity: 'abnormal' },
+        { value: 'stertor', label: 'Stertor (snoring)', severity: 'abnormal' },
+        { value: 'gurgling', label: 'Gurgling (secretions)', severity: 'abnormal' },
+        { value: 'hoarse', label: 'Hoarse voice/cry', severity: 'abnormal' }
+      ],
+      criticalTrigger: (answer) => {
+        if (Array.isArray(answer) && answer.includes('stridor')) {
+          return {
+            id: 'stridor-assessment',
+            severity: 'urgent',
+            title: 'STRIDOR DETECTED - ASSESS SEVERITY',
+            instruction: 'Assess for croup vs epiglottitis vs foreign body. Keep child calm. Do NOT examine throat if epiglottitis suspected. Give nebulized epinephrine if severe.',
+            rationale: 'Stridor indicates upper airway narrowing. Agitation worsens obstruction.',
+            relatedModule: 'airway'
+          };
+        }
+        return null;
+      }
+    },
+
+    // BREATHING
+    {
+      id: 'breathing_effort',
+      phase: 'breathing',
+      question: 'What is the work of breathing?',
+      subtext: 'Look for retractions, nasal flaring, accessory muscle use',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - no distress', severity: 'normal' },
+        { value: 'mild', label: 'Mild - some retractions', severity: 'abnormal' },
+        { value: 'moderate', label: 'Moderate - intercostal retractions, nasal flaring', severity: 'abnormal' },
+        { value: 'severe', label: 'Severe - subcostal retractions, head bobbing, grunting', severity: 'critical' },
+        { value: 'exhaustion', label: 'Exhaustion - minimal effort, ominous sign', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'severe' || answer === 'exhaustion') {
+          return {
+            id: 'respiratory-support',
+            severity: 'critical',
+            title: answer === 'exhaustion' ? 'RESPIRATORY FAILURE - PREPARE FOR INTUBATION' : 'SEVERE RESPIRATORY DISTRESS',
+            instruction: answer === 'exhaustion' 
+              ? 'Child is tiring. Prepare RSI equipment. Call anesthesia/senior help. Start BVM if deteriorates.'
+              : 'High-flow oxygen. Consider CPAP/BiPAP. Treat underlying cause (bronchodilators if wheeze).',
+            rationale: answer === 'exhaustion'
+              ? 'Exhaustion is a pre-arrest sign. Child will decompensate rapidly without intervention.'
+              : 'Severe distress indicates respiratory failure. Need aggressive support.',
+            relatedModule: 'asthma'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'spo2',
+      phase: 'breathing',
+      question: 'What is the SpO2?',
+      subtext: 'On room air or current oxygen',
+      type: 'number',
+      unit: '%',
+      min: 0,
+      max: 100,
+      criticalTrigger: (answer) => {
+        if (answer < 90) {
+          return {
+            id: 'oxygen-therapy',
+            severity: 'critical',
+            title: 'HYPOXIA - START HIGH-FLOW OXYGEN',
+            instruction: 'Apply non-rebreather mask at 15 L/min. Target SpO2 94-98%. If not improving, prepare for BVM or CPAP.',
+            rationale: 'SpO2 <90% indicates severe hypoxemia. Hypoxia causes organ damage and cardiac arrest.',
+            timer: 60,
+            reassessAfter: 'Recheck SpO2 in 1 minute'
+          };
+        }
+        if (answer < 94) {
+          return {
+            id: 'supplemental-oxygen',
+            severity: 'urgent',
+            title: 'START SUPPLEMENTAL OXYGEN',
+            instruction: 'Apply nasal cannula 2-4 L/min or simple face mask 6-10 L/min. Target SpO2 94-98%.',
+            rationale: 'SpO2 <94% indicates hypoxemia requiring supplemental oxygen.',
+            timer: 120
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'respiratory_rate',
+      phase: 'breathing',
+      question: 'What is the respiratory rate?',
+      subtext: 'Count for 30 seconds and multiply by 2',
+      type: 'number',
+      unit: 'breaths/min',
+      min: 0,
+      max: 100,
+      criticalTrigger: (answer, patient) => {
+        const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+        // Age-appropriate thresholds
+        let upperLimit = 60;
+        let lowerLimit = 12;
+        if (ageMonths < 12) {
+          upperLimit = 60;
+          lowerLimit = 30;
+        } else if (ageMonths < 60) {
+          upperLimit = 40;
+          lowerLimit = 20;
+        } else {
+          upperLimit = 30;
+          lowerLimit = 12;
+        }
+
+        if (answer > upperLimit * 1.5) {
+          return {
+            id: 'severe-tachypnea',
+            severity: 'critical',
+            title: 'SEVERE TACHYPNEA',
+            instruction: 'Assess for respiratory failure. High-flow oxygen. Treat underlying cause. Prepare for respiratory support.',
+            rationale: `RR ${answer} is severely elevated for age. Indicates significant respiratory compromise or metabolic acidosis.`
+          };
+        }
+        if (answer < lowerLimit) {
+          return {
+            id: 'bradypnea',
+            severity: 'critical',
+            title: 'BRADYPNEA - RESPIRATORY DEPRESSION',
+            instruction: 'Assess airway. Prepare BVM. Consider naloxone if opioid exposure. This is a pre-arrest sign.',
+            rationale: 'Low respiratory rate indicates respiratory failure or CNS depression. Imminent arrest risk.',
+            interventionTemplate: 'bvmVentilation'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'breath_sounds',
+      phase: 'breathing',
+      question: 'What are the breath sounds?',
+      type: 'multi-select',
+      options: [
+        { value: 'clear', label: 'Clear bilateral', severity: 'normal' },
+        { value: 'wheeze', label: 'Wheeze (expiratory)', severity: 'abnormal' },
+        { value: 'crackles', label: 'Crackles/rales', severity: 'abnormal' },
+        { value: 'decreased', label: 'Decreased air entry', severity: 'abnormal' },
+        { value: 'absent_left', label: 'Absent left side', severity: 'critical' },
+        { value: 'absent_right', label: 'Absent right side', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (Array.isArray(answer)) {
+          if (answer.includes('absent_left') || answer.includes('absent_right')) {
+            const side = answer.includes('absent_left') ? 'LEFT' : 'RIGHT';
+            return {
+              id: 'absent-breath-sounds',
+              severity: 'critical',
+              title: `ABSENT BREATH SOUNDS ${side} SIDE`,
+              instruction: `Consider: Pneumothorax (needle decompress if tension), Pleural effusion, Mucus plug, ETT malposition. Get CXR urgently.`,
+              rationale: 'Unilateral absent breath sounds indicates serious pathology requiring immediate diagnosis and treatment.'
+            };
+          }
+          if (answer.includes('wheeze')) {
+            return {
+              id: 'wheeze-treatment',
+              severity: 'urgent',
+              title: 'WHEEZE DETECTED - START BRONCHODILATOR',
+              instruction: `Give salbutamol ${weight < 20 ? '2.5 mg' : '5 mg'} nebulizer. Add ipratropium 250 mcg if severe. Give prednisolone ${Math.min(weight * 2, 60)} mg PO.`,
+              rationale: 'Wheeze indicates bronchospasm. Bronchodilators are first-line treatment.',
+              dose: weight < 20 ? 'Salbutamol 2.5 mg' : 'Salbutamol 5 mg',
+              route: 'Nebulizer',
+              timer: 600,
+              interventionTemplate: 'salbutamolNeb',
+              relatedModule: 'asthma'
+            };
+          }
+        }
+        return null;
+      }
+    },
+
+    // CIRCULATION
+    {
+      id: 'heart_rate',
+      phase: 'circulation',
+      question: 'What is the heart rate?',
+      type: 'number',
+      unit: 'bpm',
+      min: 0,
+      max: 300,
+      criticalTrigger: (answer, patient) => {
+        const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+        // Age-appropriate thresholds
+        let upperLimit = 180;
+        let lowerLimit = 60;
+        if (ageMonths < 12) {
+          upperLimit = 180;
+          lowerLimit = 100;
+        } else if (ageMonths < 60) {
+          upperLimit = 160;
+          lowerLimit = 80;
+        } else {
+          upperLimit = 140;
+          lowerLimit = 60;
+        }
+
+        if (answer > 220) {
+          return {
+            id: 'svt',
+            severity: 'critical',
+            title: 'POSSIBLE SVT - ASSESS RHYTHM',
+            instruction: 'Get 12-lead ECG. If SVT confirmed and stable: vagal maneuvers, then adenosine. If unstable: synchronized cardioversion.',
+            rationale: 'HR >220 in children suggests SVT rather than sinus tachycardia. Requires rhythm assessment.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        if (answer < lowerLimit && answer > 0) {
+          return {
+            id: 'bradycardia',
+            severity: 'critical',
+            title: 'BRADYCARDIA - ASSESS PERFUSION',
+            instruction: 'If poor perfusion: start CPR if HR <60 with poor perfusion. Give epinephrine. Consider atropine for vagal causes.',
+            rationale: 'Bradycardia in children is usually hypoxic. Treat the cause (oxygenation) first.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'perfusion',
+      phase: 'circulation',
+      question: 'What is the perfusion status?',
+      subtext: 'Assess capillary refill, skin color, peripheral pulses',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - CRT <2s, warm, pink', severity: 'normal' },
+        { value: 'poor', label: 'Poor - CRT 2-4s, cool peripheries', severity: 'abnormal' },
+        { value: 'shock', label: 'Shock - CRT >4s, mottled, weak pulses', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'shock') {
+          return {
+            id: 'shock-treatment',
+            severity: 'critical',
+            title: 'SHOCK - GET IV ACCESS AND GIVE FLUID',
+            instruction: `Establish IV/IO access NOW. Give ${Math.round(weight * 10)} mL (10 mL/kg) NS or RL bolus over 5-10 min. Reassess after each bolus.`,
+            rationale: 'Shock requires immediate fluid resuscitation. Early aggressive treatment improves outcomes.',
+            dose: `${Math.round(weight * 10)} mL`,
+            route: 'IV/IO bolus',
+            timer: 300,
+            interventionTemplate: 'fluidBolus',
+            relatedModule: 'shock'
+          };
+        }
+        if (answer === 'poor') {
+          return {
+            id: 'poor-perfusion',
+            severity: 'urgent',
+            title: 'POOR PERFUSION - ESTABLISH IV ACCESS',
+            instruction: 'Establish IV access. Prepare for fluid bolus if perfusion worsens. Identify and treat underlying cause.',
+            rationale: 'Poor perfusion may progress to shock. Early IV access allows rapid intervention if needed.',
+            interventionTemplate: 'ivAccess'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'cap_refill',
+      phase: 'circulation',
+      question: 'What is the capillary refill time?',
+      subtext: 'Press on sternum or forehead for 5 seconds',
+      type: 'select',
+      options: [
+        { value: 'less_2', label: '<2 seconds (normal)', severity: 'normal' },
+        { value: '2_to_4', label: '2-4 seconds (prolonged)', severity: 'abnormal' },
+        { value: 'more_4', label: '>4 seconds (severely prolonged)', severity: 'critical' }
+      ]
+    },
+    {
+      id: 'pulse_quality',
+      phase: 'circulation',
+      question: 'Compare central and peripheral pulses',
+      subtext: 'Central: femoral/carotid. Peripheral: radial/dorsalis pedis',
+      type: 'select',
+      options: [
+        { value: 'both_strong', label: 'Both strong and equal', severity: 'normal' },
+        { value: 'central_strong', label: 'Central strong, peripheral weak', severity: 'abnormal' },
+        { value: 'both_weak', label: 'Both weak', severity: 'critical' },
+        { value: 'central_only', label: 'Central only palpable', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'central_only' || answer === 'both_weak') {
+          return {
+            id: 'severe-shock',
+            severity: 'critical',
+            title: 'SEVERE SHOCK - IMMEDIATE RESUSCITATION',
+            instruction: 'This is decompensated shock. Aggressive fluid resuscitation. Prepare inotropes. Call for senior help.',
+            rationale: 'Weak or absent peripheral pulses indicate severe circulatory compromise.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'skin_temp',
+      phase: 'circulation',
+      question: 'Assess skin temperature gradient',
+      subtext: 'Run hand from thigh to foot - note where it becomes cool',
+      type: 'select',
+      options: [
+        { value: 'warm_throughout', label: 'Warm throughout', severity: 'normal' },
+        { value: 'cool_feet', label: 'Cool feet only', severity: 'abnormal' },
+        { value: 'cool_below_knee', label: 'Cool below knees', severity: 'abnormal' },
+        { value: 'cool_below_thigh', label: 'Cool below mid-thigh', severity: 'critical' },
+        { value: 'warm_flushed', label: 'Warm and flushed (vasodilated)', severity: 'abnormal' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'cool_below_thigh') {
+          return {
+            id: 'cold-shock',
+            severity: 'critical',
+            title: 'COLD SHOCK PATTERN',
+            instruction: 'This suggests cardiogenic or hypovolemic shock. Fluid bolus first. If no response, consider epinephrine infusion.',
+            rationale: 'Proximal temperature gradient indicates severe vasoconstriction from poor cardiac output.',
+            relatedModule: 'shock'
+          };
+        }
+        if (answer === 'warm_flushed') {
+          return {
+            id: 'warm-shock',
+            severity: 'urgent',
+            title: 'WARM SHOCK PATTERN',
+            instruction: 'This suggests distributive shock (sepsis, anaphylaxis). Fluid bolus. If no response, consider norepinephrine.',
+            rationale: 'Warm, vasodilated peripheries with poor perfusion suggests distributive shock.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'blood_pressure',
+      phase: 'circulation',
+      question: 'What is the blood pressure?',
+      subtext: 'Use appropriate cuff size',
+      type: 'number',
+      unit: 'mmHg (systolic)',
+      min: 0,
+      max: 200,
+      criticalTrigger: (answer, patient) => {
+        const ageYears = patient.ageYears;
+        // Hypotension threshold: 70 + (2 × age in years) for children 1-10
+        const hypotensionThreshold = ageYears < 1 ? 60 : Math.min(70 + (2 * ageYears), 90);
+        
+        if (answer > 0 && answer < hypotensionThreshold) {
+          return {
+            id: 'hypotension',
+            severity: 'critical',
+            title: 'HYPOTENSION - DECOMPENSATED SHOCK',
+            instruction: 'This is late shock. Aggressive fluid resuscitation. Start inotropes. Call for senior help immediately.',
+            rationale: `BP ${answer} is below threshold of ${hypotensionThreshold} for age. Hypotension is a late and ominous sign in children.`,
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+
+    // DISABILITY
+    {
+      id: 'glucose',
+      phase: 'disability',
+      question: 'What is the blood glucose?',
+      type: 'number',
+      unit: 'mmol/L',
+      min: 0,
+      max: 50,
+      criticalTrigger: (answer, patient) => {
+        // Convert if needed (assuming mmol/L input)
+        const glucoseMmol = answer;
+        
+        if (glucoseMmol < 3.0) {
+          const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+          const calcWeight = ageMonths < 12 ? (ageMonths + 9) / 2 : ageMonths < 60 ? (Math.floor(ageMonths / 12) + 4) * 2 : Math.floor(ageMonths / 12) * 4;
+          const weight = patient.weight || calcWeight;
+          const dextroseVolume = Math.round(weight * 2); // 2 mL/kg of D10%
+          return {
+            id: 'hypoglycemia',
+            severity: 'critical',
+            title: 'HYPOGLYCEMIA - GIVE DEXTROSE NOW',
+            instruction: `Give D10% ${dextroseVolume} mL (2 mL/kg) IV bolus. Recheck glucose in 15 minutes. Start maintenance dextrose infusion.`,
+            rationale: 'Hypoglycemia causes brain injury. Must be corrected immediately before other interventions.',
+            dose: `D10% ${dextroseVolume} mL`,
+            route: 'IV bolus',
+            timer: 900 // 15 min recheck
+          };
+        }
+        if (glucoseMmol > 14) {
+          return {
+            id: 'hyperglycemia',
+            severity: 'urgent',
+            title: 'HYPERGLYCEMIA - ASSESS FOR DKA',
+            instruction: 'Check ketones, blood gas, electrolytes. If DKA: start IV fluids (10 mL/kg NS), then insulin infusion after 1 hour.',
+            rationale: 'Hyperglycemia may indicate DKA. Need to assess severity and start protocol.',
+            relatedModule: 'lab'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'pupils',
+      phase: 'disability',
+      question: 'What are the pupil findings?',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Equal, round, reactive (PERRL)', severity: 'normal' },
+        { value: 'dilated_reactive', label: 'Dilated but reactive', severity: 'abnormal' },
+        { value: 'constricted', label: 'Pinpoint (constricted)', severity: 'abnormal' },
+        { value: 'unequal', label: 'Unequal (anisocoria)', severity: 'critical' },
+        { value: 'fixed_dilated', label: 'Fixed and dilated', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'unequal') {
+          return {
+            id: 'anisocoria',
+            severity: 'critical',
+            title: 'UNEQUAL PUPILS - POSSIBLE RAISED ICP',
+            instruction: 'Elevate head 30°. Avoid hypoxia and hypotension. Consider mannitol 0.5 g/kg if herniation suspected. Urgent CT head.',
+            rationale: 'Anisocoria suggests uncal herniation from raised intracranial pressure. Neurosurgical emergency.'
+          };
+        }
+        if (answer === 'fixed_dilated') {
+          return {
+            id: 'fixed-pupils',
+            severity: 'critical',
+            title: 'FIXED DILATED PUPILS',
+            instruction: 'If bilateral: consider brainstem death, severe hypoxia, or drug toxicity. If post-arrest: continue resuscitation, this is not a reliable prognostic sign.',
+            rationale: 'Fixed dilated pupils indicate severe neurological injury but may be reversible in some cases.'
+          };
+        }
+        if (answer === 'constricted') {
+          return {
+            id: 'pinpoint-pupils',
+            severity: 'urgent',
+            title: 'PINPOINT PUPILS - CONSIDER OPIOID TOXICITY',
+            instruction: 'If respiratory depression present: give naloxone 0.1 mg/kg IV (max 2 mg). May need repeated doses.',
+            rationale: 'Pinpoint pupils with respiratory depression suggests opioid toxicity.'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'seizure',
+      phase: 'disability',
+      question: 'Is there seizure activity?',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No seizure activity', severity: 'normal' },
+        { value: 'resolved', label: 'Recent seizure, now resolved', severity: 'abnormal' },
+        { value: 'active', label: 'Active seizure NOW', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'active') {
+          const lorazepamDose = Math.min(weight * 0.1, 4).toFixed(1);
+          const diazepamDose = Math.min(weight * 0.3, 10).toFixed(1);
+          return {
+            id: 'active-seizure',
+            severity: 'critical',
+            title: 'ACTIVE SEIZURE - GIVE BENZODIAZEPINE',
+            instruction: `Position safely. Give lorazepam ${lorazepamDose} mg IV OR diazepam ${diazepamDose} mg PR. Check glucose. Time the seizure.`,
+            rationale: 'Prolonged seizures cause brain injury. Benzodiazepines are first-line treatment.',
+            dose: `Lorazepam ${lorazepamDose} mg IV or Diazepam ${diazepamDose} mg PR`,
+            route: 'IV or PR',
+            timer: 300 // 5 min to reassess
+          };
+        }
+        return null;
+      }
+    },
+
+    // EXPOSURE
+    {
+      id: 'temperature',
+      phase: 'exposure',
+      question: 'What is the temperature?',
+      type: 'number',
+      unit: '°C',
+      min: 30,
+      max: 45,
+      criticalTrigger: (answer) => {
+        if (answer > 40) {
+          return {
+            id: 'hyperthermia',
+            severity: 'urgent',
+            title: 'HYPERTHERMIA - ACTIVE COOLING',
+            instruction: 'Remove clothing. Tepid sponging. Paracetamol 15 mg/kg. Consider sepsis workup.',
+            rationale: 'Temperature >40°C increases metabolic demand and can cause seizures.'
+          };
+        }
+        if (answer < 35) {
+          return {
+            id: 'hypothermia',
+            severity: 'urgent',
+            title: 'HYPOTHERMIA - ACTIVE WARMING',
+            instruction: 'Remove wet clothing. Warm blankets. Warm IV fluids. Consider sepsis in infants.',
+            rationale: 'Hypothermia impairs coagulation and cardiac function. Warm slowly to avoid arrhythmias.'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'rash',
+      phase: 'exposure',
+      question: 'Is there a rash?',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No rash', severity: 'normal' },
+        { value: 'blanching', label: 'Blanching rash (viral)', severity: 'normal' },
+        { value: 'urticarial', label: 'Urticarial (hives)', severity: 'abnormal' },
+        { value: 'petechial', label: 'Petechial/purpuric (non-blanching)', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'petechial') {
+          const ceftriaxoneDose = Math.min(weight * 80, 4000);
+          return {
+            id: 'petechial-rash',
+            severity: 'critical',
+            title: 'PETECHIAL RASH - ASSUME MENINGOCOCCEMIA',
+            instruction: `Give ceftriaxone ${ceftriaxoneDose} mg IV NOW. Do NOT delay for LP. Fluid resuscitation if shocked.`,
+            rationale: 'Petechial rash with fever = meningococcal sepsis until proven otherwise. Mortality high without immediate antibiotics.',
+            dose: `Ceftriaxone ${ceftriaxoneDose} mg`,
+            route: 'IV',
+            relatedModule: 'lab'
+          };
+        }
+        if (answer === 'urticarial') {
+          return {
+            id: 'urticarial-rash',
+            severity: 'urgent',
+            title: 'URTICARIAL RASH - ASSESS FOR ANAPHYLAXIS',
+            instruction: 'Check for airway swelling, breathing difficulty, hypotension. If anaphylaxis: give IM epinephrine immediately.',
+            rationale: 'Urticaria may be part of anaphylaxis. Need to assess for systemic involvement.'
+          };
+        }
+        return null;
+      }
+    }
+  ];
+
+  // Get current question
+  const getCurrentQuestion = (): ClinicalQuestion | null => {
+    return clinicalQuestions.find(q => q.id === currentQuestionId) || null;
+  };
+
+  // Question flow by phase
+  const questionFlowByPhase: Record<AssessmentPhase, string[]> = {
+    setup: [],
+    signs_of_life: ['breathing', 'pulse', 'responsiveness'],
+    airway: ['airway_patency', 'airway_sounds'],
+    breathing: ['breathing_effort', 'spo2', 'respiratory_rate', 'breath_sounds'],
+    circulation: ['heart_rate', 'perfusion', 'cap_refill', 'pulse_quality', 'skin_temp', 'blood_pressure'],
+    disability: ['glucose', 'pupils', 'seizure'],
+    exposure: ['temperature', 'rash'],
+    complete: []
+  };
+
+  // Get all questions in order
+  const getAllQuestionsInOrder = (): string[] => {
+    return [
+      ...questionFlowByPhase.signs_of_life,
+      ...questionFlowByPhase.airway,
+      ...questionFlowByPhase.breathing,
+      ...questionFlowByPhase.circulation,
+      ...questionFlowByPhase.disability,
+      ...questionFlowByPhase.exposure
+    ];
+  };
+
+  // Get next question
+  const getNextQuestionId = (currentId: string): string | null => {
+    const allQuestions = getAllQuestionsInOrder();
+    const currentIndex = allQuestions.indexOf(currentId);
+    if (currentIndex === -1 || currentIndex === allQuestions.length - 1) {
+      return null;
+    }
+    return allQuestions[currentIndex + 1];
+  };
+
+  // Get previous question
+  const getPreviousQuestionId = (currentId: string): string | null => {
+    const allQuestions = getAllQuestionsInOrder();
+    const currentIndex = allQuestions.indexOf(currentId);
+    if (currentIndex <= 0) {
+      return null;
+    }
+    return allQuestions[currentIndex - 1];
+  };
+
+  // Get current phase from question
+  const getPhaseFromQuestion = (questionId: string): AssessmentPhase => {
+    for (const [phase, questions] of Object.entries(questionFlowByPhase)) {
+      if (questions.includes(questionId)) {
+        return phase as AssessmentPhase;
+      }
+    }
+    return 'setup';
+  };
+
+  // Handle answer - NON-BLOCKING
+  const handleAnswer = (answer: any) => {
+    const question = getCurrentQuestion();
+    if (!question) return;
+
+    // Check for critical trigger
+    const action = question.criticalTrigger?.(answer, patientData, weight);
+
+    // Record finding
+    const finding: ClinicalFinding = {
+      id: `${question.id}-${Date.now()}`,
+      question: question.question,
+      answer,
+      timestamp: new Date(),
+      phase: question.phase,
+      severity: question.options?.find(o => o.value === answer)?.severity || 'normal',
+      triggeredInterventions: action ? [action.id] : undefined
+    };
+    setFindings(prev => [...prev, finding]);
+
+    // If critical action, show it but DON'T BLOCK
+    if (action) {
+      initAudioContext();
+      triggerAlert(action.severity === 'critical' ? 'critical_action' : 'timer_warning');
+      setPendingAction(action);
+      setShowActionCard(true);
+
+      // Auto-add intervention to sidebar
+      if (action.interventionTemplate) {
+        const templateKey = action.interventionTemplate as keyof typeof interventionTemplates;
+        const template = interventionTemplates[templateKey];
+        if (template) {
+          const intervention: ActiveIntervention = typeof template === 'function' 
+            ? (template as (weight: number) => ActiveIntervention)(weight) 
+            : template as ActiveIntervention;
+          setActiveInterventions(prev => [...prev, intervention]);
+        }
+      }
+
+      // Activate emergency if critical
+      if (action.severity === 'critical') {
+        setEmergencyActivated(true);
+      }
+
+      // Start CPR clock if needed
+      if (action.id === 'start-cpr') {
+        setCprActive(true);
+      }
+    }
+
+    // ALWAYS move to next question (non-blocking)
+    const nextId = getNextQuestionId(currentQuestionId);
+    if (nextId) {
+      setCurrentQuestionId(nextId);
+      setCurrentPhase(getPhaseFromQuestion(nextId));
+    } else {
+      setCurrentPhase('complete');
+    }
+  };
+
+  // Handle going back
+  const handleBack = () => {
+    const prevId = getPreviousQuestionId(currentQuestionId);
+    if (prevId) {
+      setCurrentQuestionId(prevId);
+      setCurrentPhase(getPhaseFromQuestion(prevId));
+    }
+  };
+
+  // Handle intervention complete
+  const handleInterventionComplete = (id: string) => {
+    setActiveInterventions(prev => 
+      prev.map(i => i.id === id ? { ...i, status: 'completed' } : i)
+    );
+  };
+
+  // Handle intervention escalate
+  const handleInterventionEscalate = (id: string, reason: string) => {
+    const intervention = activeInterventions.find(i => i.id === id);
+    if (intervention) {
+      setActiveInterventions(prev => 
+        prev.map(i => i.id === id ? { ...i, status: 'escalated' } : i)
+      );
+      
+      // Trigger escalation action
+      if (intervention.type === 'iv_access') {
+        // Escalate to IO
+        const ioIntervention = interventionTemplates.ioAccess(weight);
+        setActiveInterventions(prev => [...prev, ioIntervention]);
+      }
+    }
+  };
+
+  // Handle reassessment trigger
+  const handleReassessmentTrigger = (id: string) => {
+    const intervention = activeInterventions.find(i => i.id === id);
+    if (intervention?.relatedModule) {
+      setActiveModule(intervention.relatedModule as ActiveModule);
+      setModuleContext({ interventionId: id, weight });
+    }
+  };
+
+  // Handle intervention cancel
+  const handleInterventionCancel = (id: string) => {
+    setActiveInterventions(prev => prev.filter(i => i.id !== id));
+  };
+
+  // Handle module trigger
+  const handleModuleTrigger = (moduleName: string, interventionId: string) => {
+    setActiveModule(moduleName as ActiveModule);
+    setModuleContext({ interventionId, weight });
+  };
+
+  // Close module overlay
+  const closeModule = () => {
+    setActiveModule(null);
+    setModuleContext(null);
+  };
+
+  // Dismiss action card
+  const dismissActionCard = () => {
+    setShowActionCard(false);
+    setPendingAction(null);
+  };
+
+  // Call for help
+  const handleCallForHelp = () => {
+    setEmergencyActivated(true);
+    triggerAlert('critical_action');
+    // Could also trigger handover generation
+  };
+
+  // Generate handover
+  const handleGenerateHandover = () => {
+    const assessmentData = {
+      patientName: 'Patient',
+      age: patientData.ageYears,
+      ageMonths: patientData.ageMonths,
+      weight: weight,
+      chiefComplaint: 'Emergency presentation',
+      findings: findings.map(f => ({
+        category: f.phase,
+        finding: f.question,
+        value: String(f.answer),
+        severity: f.severity || 'normal'
+      })),
+      interventions: activeInterventions.map(i => ({
+        name: i.title,
+        time: i.startTime.toISOString(),
+        status: i.status
+      }))
+    };
+    const handover = generateSBARHandover(assessmentData);
+    setCurrentHandover(handover);
+    setShowHandover(true);
+  };
+
+  // New case
+  const handleNewCase = () => {
+    setPatientData({ ageYears: 0, ageMonths: 0, weight: 0, glucoseUnit: 'mmol/L' });
+    setCurrentPhase('setup');
+    setCurrentQuestionId('breathing');
+    setFindings([]);
+    setActiveInterventions([]);
+    setPendingAction(null);
+    setShowActionCard(false);
+    setEmergencyActivated(false);
+    setCprActive(false);
+    setCaseStartTime(new Date());
+  };
+
+  // Start assessment
+  const handleStartAssessment = () => {
+    setCurrentPhase('signs_of_life');
+    setCurrentQuestionId('breathing');
+    setCaseStartTime(new Date());
+  };
+
+  // Get phase color
+  const getPhaseColor = (phase: AssessmentPhase): string => {
+    switch (phase) {
+      case 'signs_of_life': return 'bg-red-600';
+      case 'airway': return 'bg-orange-600';
+      case 'breathing': return 'bg-yellow-600';
+      case 'circulation': return 'bg-pink-600';
+      case 'disability': return 'bg-purple-600';
+      case 'exposure': return 'bg-blue-600';
+      default: return 'bg-slate-600';
+    }
+  };
+
+  // Get phase icon
+  const getPhaseIcon = (phase: AssessmentPhase) => {
+    switch (phase) {
+      case 'signs_of_life': return <Heart className="h-5 w-5" />;
+      case 'airway': return <Wind className="h-5 w-5" />;
+      case 'breathing': return <Wind className="h-5 w-5" />;
+      case 'circulation': return <Droplets className="h-5 w-5" />;
+      case 'disability': return <Brain className="h-5 w-5" />;
+      case 'exposure': return <Thermometer className="h-5 w-5" />;
+      default: return <Activity className="h-5 w-5" />;
+    }
+  };
+
+  // Calculate progress
+  const allQuestions = getAllQuestionsInOrder();
+  const currentIndex = allQuestions.indexOf(currentQuestionId);
+  const progress = currentPhase === 'complete' ? 100 : Math.round((currentIndex / allQuestions.length) * 100);
+
+  const currentQuestion = getCurrentQuestion();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* CPR Clock Overlay */}
+      {cprActive && (
+        <CPRClock
+          patientId={1}
+          patientName={`${patientData.ageYears}y ${patientData.ageMonths}m old child`}
+          patientAge={totalAgeMonths}
+          patientWeight={weight}
+          onSessionEnd={() => setCprActive(false)}
+        />
+      )}
+
+      {/* Clinical Header */}
+      {currentPhase !== 'setup' && (
+        <ClinicalHeader
+          patient={{ ...patientData, weight }}
+          caseStartTime={caseStartTime}
+          emergencyActivated={emergencyActivated}
+          cprActive={cprActive}
+          onCallForHelp={handleCallForHelp}
+          onGenerateHandover={handleGenerateHandover}
+          onNewCase={handleNewCase}
+          onToggleAlerts={() => setAlertsEnabled(!alertsEnabled)}
+          alertsEnabled={alertsEnabled}
+          activeInterventionCount={activeInterventions.filter(i => i.status !== 'completed').length}
+          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          sidebarCollapsed={sidebarCollapsed}
+        />
+      )}
+
+      {/* Active Interventions Sidebar */}
+      {currentPhase !== 'setup' && (
+        <ActiveInterventionsSidebar
+          interventions={activeInterventions}
+          onInterventionComplete={handleInterventionComplete}
+          onInterventionEscalate={handleInterventionEscalate}
+          onReassessmentTrigger={handleReassessmentTrigger}
+          onInterventionCancel={handleInterventionCancel}
+          onModuleTrigger={handleModuleTrigger}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          weightKg={weight}
+        />
+      )}
+
+      {/* Main Content */}
+      <div className={`transition-all duration-300 ${
+        currentPhase !== 'setup' && !sidebarCollapsed ? 'mr-80' : ''
+      } ${currentPhase !== 'setup' ? 'pt-20' : ''}`}>
+        <div className="max-w-2xl mx-auto p-4 md:p-6">
+          
+          {/* PATIENT SETUP */}
+          {currentPhase === 'setup' && (
+            <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Activity className="h-8 w-8 text-orange-500" />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Paeds Resus</h2>
+                  <p className="text-slate-400 text-sm">GPS for Pediatric Emergencies</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-300 text-sm">Age (Years)</Label>
+                    <Input
+                      type="number"
+                      value={patientData.ageYears || ''}
+                      onChange={(e) => setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || 0 })}
+                      className="bg-slate-700 border-slate-600 text-white text-lg h-12"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-300 text-sm">Age (Months)</Label>
+                    <Input
+                      type="number"
+                      value={patientData.ageMonths || ''}
+                      onChange={(e) => setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || 0 })}
+                      className="bg-slate-700 border-slate-600 text-white text-lg h-12"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-gray-300 text-sm">Weight (kg) - Optional</Label>
+                  <Input
+                    type="number"
+                    value={patientData.weight || ''}
+                    onChange={(e) => setPatientData({ ...patientData, weight: parseFloat(e.target.value) || 0 })}
+                    placeholder={`Auto-calculated: ${weight.toFixed(1)} kg`}
+                    className="bg-slate-700 border-slate-600 text-white text-lg h-12"
+                  />
+                </div>
+
+                {/* Quick Start Scenarios */}
+                <div className="border-t border-slate-600 pt-6">
+                  <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-orange-500" />
+                    Quick Start - Known Emergency
+                  </h3>
+                  <QuickStartPanel weightKg={weight} />
+                </div>
+
+                {/* Alert Settings */}
+                <div className="flex items-center justify-between border-t border-slate-600 pt-4">
+                  <span className="text-slate-400 text-sm">Audio/Haptic Alerts</span>
+                  <AlertSettings compact />
+                </div>
+
+                <Button
+                  onClick={handleStartAssessment}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg font-semibold"
+                >
+                  Start Assessment <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {/* ASSESSMENT FLOW */}
+          {currentPhase !== 'setup' && currentPhase !== 'complete' && currentQuestion && (
+            <>
+              {/* Progress Bar */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm text-white ${getPhaseColor(currentPhase)}`}>
+                    {getPhaseIcon(currentPhase)}
+                    {currentPhase.replace('_', ' ').toUpperCase()}
+                  </div>
+                  <span className="text-slate-400 text-sm">{progress}%</span>
+                </div>
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Triggered Action Card (Non-blocking overlay) */}
+              {showActionCard && pendingAction && (
+                <Card className={`mb-4 border-2 p-4 ${
+                  pendingAction.severity === 'critical'
+                    ? 'bg-red-900/90 border-red-500'
+                    : 'bg-yellow-900/90 border-yellow-500'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className={`inline-flex items-center gap-2 px-2 py-1 rounded text-xs font-bold mb-2 ${
+                        pendingAction.severity === 'critical' ? 'bg-red-600 text-white' : 'bg-yellow-600 text-black'
+                      }`}>
+                        <AlertCircle className="h-3 w-3" />
+                        {pendingAction.severity.toUpperCase()}
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-1">{pendingAction.title}</h3>
+                      <p className="text-sm text-slate-200">{pendingAction.instruction}</p>
+                      
+                      {(pendingAction.dose || pendingAction.route) && (
+                        <div className="flex gap-2 mt-2">
+                          {pendingAction.dose && (
+                            <span className="bg-black/30 px-2 py-1 rounded text-xs text-white">{pendingAction.dose}</span>
+                          )}
+                          {pendingAction.route && (
+                            <span className="bg-black/30 px-2 py-1 rounded text-xs text-slate-300">{pendingAction.route}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Rationale toggle */}
+                      <button
+                        onClick={() => setShowRationale(!showRationale)}
+                        className="flex items-center gap-1 mt-2 text-xs text-slate-300 hover:text-white"
+                      >
+                        <Info className="h-3 w-3" />
+                        Why this?
+                        {showRationale ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                      {showRationale && (
+                        <p className="mt-1 text-xs text-slate-400 pl-4">{pendingAction.rationale}</p>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={dismissActionCard}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Module trigger button */}
+                  {pendingAction.relatedModule && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setActiveModule(pendingAction.relatedModule as ActiveModule);
+                        setModuleContext({ weight });
+                      }}
+                      className="mt-3 bg-white/20 hover:bg-white/30 text-white text-xs"
+                    >
+                      Open {pendingAction.relatedModule} Module →
+                    </Button>
+                  )}
+                </Card>
+              )}
+
+              {/* Current Question Card */}
+              <Card className="bg-slate-800/90 border-slate-700 p-6">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
+                  {currentQuestion.question}
+                </h2>
+                {currentQuestion.subtext && (
+                  <p className="text-slate-400 text-sm mb-6">{currentQuestion.subtext}</p>
+                )}
+
+                {/* Answer Options */}
+                <div className="space-y-3">
+                  {currentQuestion.type === 'boolean' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button
+                        onClick={() => handleAnswer(true)}
+                        className="py-8 text-lg bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        onClick={() => handleAnswer(false)}
+                        className="py-8 text-lg bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        No
+                      </Button>
+                    </div>
+                  )}
+
+                  {currentQuestion.type === 'select' && currentQuestion.options && (
+                    <div className="space-y-2">
+                      {currentQuestion.options.map(option => (
+                        <Button
+                          key={option.value}
+                          onClick={() => handleAnswer(option.value)}
+                          className={`w-full py-4 text-left justify-start ${
+                            option.severity === 'critical'
+                              ? 'bg-red-600 hover:bg-red-700 text-white'
+                              : option.severity === 'abnormal'
+                              ? 'bg-yellow-600 hover:bg-yellow-700 text-black'
+                              : 'bg-slate-700 hover:bg-slate-600 text-white'
+                          }`}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+
+                  {currentQuestion.type === 'multi-select' && currentQuestion.options && (
+                    <MultiSelectQuestion
+                      options={currentQuestion.options}
+                      onSubmit={handleAnswer}
+                    />
+                  )}
+
+                  {currentQuestion.type === 'number' && (
+                    <NumberInputQuestion
+                      unit={currentQuestion.unit}
+                      min={currentQuestion.min}
+                      max={currentQuestion.max}
+                      onSubmit={handleAnswer}
+                    />
+                  )}
+                </div>
+
+                {/* Navigation */}
+                <div className="flex justify-between mt-6 pt-4 border-t border-slate-700">
+                  <Button
+                    variant="ghost"
+                    onClick={handleBack}
+                    disabled={!getPreviousQuestionId(currentQuestionId)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Back
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleAnswer(null)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    Skip
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* ASSESSMENT COMPLETE */}
+          {currentPhase === 'complete' && (
+            <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
+              <div className="text-center mb-6">
+                <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white">Assessment Complete</h2>
+                <p className="text-slate-400">Primary survey finished. Continue monitoring and reassessing.</p>
+              </div>
+
+              <div className="space-y-4">
+                <Button
+                  onClick={handleGenerateHandover}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4"
+                >
+                  Generate SBAR Handover
+                </Button>
+                <Button
+                  onClick={handleNewCase}
+                  variant="outline"
+                  className="w-full bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700 py-4"
+                >
+                  Start New Case
+                </Button>
+              </div>
+
+              {/* Summary of findings */}
+              <div className="mt-6 pt-6 border-t border-slate-700">
+                <h3 className="text-white font-semibold mb-3">Assessment Summary</h3>
+                <div className="space-y-2">
+                  {findings.filter(f => f.severity === 'critical' || f.severity === 'abnormal').map(f => (
+                    <div
+                      key={f.id}
+                      className={`p-2 rounded text-sm ${
+                        f.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300'
+                      }`}
+                    >
+                      <span className="font-medium">{f.question}:</span> {String(f.answer)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Module Overlays */}
+      {activeModule === 'shock' && (
+        <ModuleOverlay title="Shock Assessment" onClose={closeModule}>
+          <ShockAssessment 
+            weightKg={weight} 
+            onShockTypeIdentified={(type, scores) => {
+              console.log('Shock type identified:', type, scores);
+              closeModule();
+            }}
+            onAccessTimerStart={() => setActiveModule('ivio')}
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
+              closeModule();
+            }}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'asthma' && (
+        <ModuleOverlay title="Asthma Escalation" onClose={closeModule}>
+          <AsthmaEscalation 
+            weightKg={weight} 
+            severity="severe"
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
+              closeModule();
+            }}
+            onImproved={closeModule}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'ivio' && (
+        <ModuleOverlay title="IV/IO Access" onClose={closeModule}>
+          <IVIOAccessTimer 
+            weightKg={weight} 
+            onAccessObtained={(type, site) => {
+              console.log('Access obtained:', type, site);
+              closeModule();
+            }}
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
+              closeModule();
+            }}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'fluid' && (
+        <ModuleOverlay title="Fluid Bolus Tracker" onClose={closeModule}>
+          <FluidBolusTracker 
+            weightKg={weight} 
+            shockType="undifferentiated"
+            onEscalateToInotropes={() => setActiveModule('inotrope')}
+            onFluidOverload={() => setActiveModule('inotrope')}
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
+              closeModule();
+            }}
+            onShockResolved={closeModule}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'inotrope' && (
+        <ModuleOverlay title="Inotrope Escalation" onClose={closeModule}>
+          <InotropeEscalation 
+            weightKg={weight} 
+            shockType="undifferentiated"
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
+              closeModule();
+            }}
+            onStabilized={closeModule}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'lab' && (
+        <ModuleOverlay title="Lab Sample Collection" onClose={closeModule}>
+          <LabSampleCollection 
+            clinicalContext="shock" 
+            patientAge={patientData.ageYears}
+            patientWeight={weight} 
+            onSamplesCollected={(samples: string[]) => {
+              console.log('Samples collected:', samples);
+              closeModule();
+            }}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'arrhythmia' && (
+        <ModuleOverlay title="Arrhythmia Recognition" onClose={closeModule}>
+          <ArrhythmiaRecognition 
+            patientWeight={weight} 
+            patientAge={patientData.ageYears}
+            onTreatmentSelected={(treatment: any[], arrhythmiaId: string) => {
+              console.log('Treatment selected:', treatment, arrhythmiaId);
+              closeModule();
+            }}
+          />
+        </ModuleOverlay>
+      )}
+
+      {/* Handover Modal */}
+      {showHandover && currentHandover && (
+        <HandoverModal
+          isOpen={showHandover}
+          handover={currentHandover}
+          onClose={() => setShowHandover(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Helper Components
+
+interface MultiSelectQuestionProps {
+  options: { value: string; label: string; severity?: string }[];
+  onSubmit: (selected: string[]) => void;
+}
+
+const MultiSelectQuestion: React.FC<MultiSelectQuestionProps> = ({ options, onSubmit }) => {
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggleOption = (value: string) => {
+    if (value === 'none' || value === 'clear') {
+      setSelected([value]);
+    } else {
+      setSelected(prev => {
+        const filtered = prev.filter(v => v !== 'none' && v !== 'clear');
+        if (filtered.includes(value)) {
+          return filtered.filter(v => v !== value);
+        }
+        return [...filtered, value];
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {options.map(option => (
+        <Button
+          key={option.value}
+          onClick={() => toggleOption(option.value)}
+          className={`w-full py-3 text-left justify-start ${
+            selected.includes(option.value)
+              ? option.severity === 'critical'
+                ? 'bg-red-600 text-white ring-2 ring-red-400'
+                : option.severity === 'abnormal'
+                ? 'bg-yellow-600 text-black ring-2 ring-yellow-400'
+                : 'bg-orange-600 text-white ring-2 ring-orange-400'
+              : option.severity === 'critical'
+              ? 'bg-red-900/50 hover:bg-red-800 text-red-200'
+              : option.severity === 'abnormal'
+              ? 'bg-yellow-900/50 hover:bg-yellow-800 text-yellow-200'
+              : 'bg-slate-700 hover:bg-slate-600 text-white'
+          }`}
+        >
+          <span className={`mr-2 w-4 h-4 rounded border inline-flex items-center justify-center ${
+            selected.includes(option.value) ? 'bg-white' : 'border-slate-500'
+          }`}>
+            {selected.includes(option.value) && <CheckCircle2 className="h-3 w-3 text-slate-900" />}
+          </span>
+          {option.label}
+        </Button>
+      ))}
+      <Button
+        onClick={() => onSubmit(selected)}
+        disabled={selected.length === 0}
+        className="w-full mt-4 bg-orange-500 hover:bg-orange-600 text-white py-4"
+      >
+        Continue <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
+
+interface NumberInputQuestionProps {
+  unit?: string;
+  min?: number;
+  max?: number;
+  onSubmit: (value: number) => void;
+}
+
+const NumberInputQuestion: React.FC<NumberInputQuestionProps> = ({ unit, min, max, onSubmit }) => {
+  const [value, setValue] = useState<string>('');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          min={min}
+          max={max}
+          className="bg-slate-700 border-slate-600 text-white text-2xl h-14 flex-1"
+          placeholder="Enter value"
+        />
+        {unit && <span className="text-slate-400 text-lg">{unit}</span>}
+      </div>
+      <Button
+        onClick={() => onSubmit(parseFloat(value) || 0)}
+        disabled={!value}
+        className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4"
+      >
+        Continue <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
+
+interface ModuleOverlayProps {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}
+
+const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ title, onClose, children }) => {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-slate-900 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ClinicalAssessmentGPS;

@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
+import ClinicalAssessmentGPS from "./pages/ClinicalAssessmentGPS";
 import NRPAssessment from "./pages/NRPAssessment";
 import TraumaAssessment from "./pages/TraumaAssessment";
 import { Toaster } from "@/components/ui/sonner";
@@ -87,9 +88,12 @@ function Router() {
       <ScrollToTop />
       <main className="flex-1">
         <Switch>
-          {/* Clinical Assessment - Main Route */}
-          <Route path="/" component={ClinicalAssessment} />
-          <Route path="/clinical-assessment" component={ClinicalAssessment} />
+          {/* Clinical Assessment - GPS Mode (New) */}
+          <Route path="/" component={ClinicalAssessmentGPS} />
+          <Route path="/gps" component={ClinicalAssessmentGPS} />
+          <Route path="/clinical-assessment" component={ClinicalAssessmentGPS} />
+          {/* Legacy Clinical Assessment */}
+          <Route path="/legacy" component={ClinicalAssessment} />
           {/* Neonatal Resuscitation Program */}
           <Route path="/nrp" component={NRPAssessment} />
           <Route path="/neonatal" component={NRPAssessment} />
