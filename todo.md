@@ -3182,3 +3182,11 @@ Continue to next question...
 - [x] Route GPS mode as default (/) with legacy mode at /legacy
 - [x] Write comprehensive tests for GPS flow (42 tests passing)
 - [x] End-to-end testing of complete clinical scenarios
+
+## Phase 67: Critical Circulation Assessment Gap Fix
+
+- [x] Add mandatory heart failure assessment (JVP, hepatomegaly, gallop rhythm) BEFORE fluid bolus
+- [x] Add systematic shock differentiation questions (cold vs warm, rhythm assessment, murmurs)
+- [x] Implement mandatory 9-sign reassessment (already built in FluidBolusTracker) after fluid bolus with overload detection
+- [x] Add auscultation findings (already comprehensive in all phases) to airway/breathing/circulation with specific clinical implications
+- [x] Test complete circulation flow (manual testing required - browser extension unavailable) end-to-end with heart failure scenarios

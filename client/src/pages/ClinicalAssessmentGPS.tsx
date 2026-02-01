@@ -479,6 +479,130 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     },
 
     // CIRCULATION
+    // CRITICAL: Heart failure assessment MUST come before fluid bolus to prevent pulmonary edema
+    {
+      id: 'jugular_venous_pressure',
+      phase: 'circulation',
+      question: 'Is the jugular venous pressure (JVP) elevated?',
+      subtext: 'Look for distended neck veins (difficult in infants - check hepatomegaly instead)',
+      type: 'select',
+      options: [
+        { value: 'not_visible', label: 'Not visible/normal', severity: 'normal' },
+        { value: 'elevated', label: 'Elevated - visible above clavicle', severity: 'abnormal' },
+        { value: 'very_elevated', label: 'Very elevated - visible to jaw', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'elevated' || answer === 'very_elevated') {
+          return {
+            id: 'elevated-jvp',
+            severity: 'critical',
+            title: 'ELEVATED JVP - HEART FAILURE OR FLUID OVERLOAD',
+            instruction: 'DO NOT GIVE FLUID BOLUS. This child has elevated central venous pressure. Consider diuretics. Assess for heart failure. Get senior help.',
+            rationale: 'Elevated JVP indicates volume overload or heart failure. Fluid bolus will cause pulmonary edema.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'hepatomegaly',
+      phase: 'circulation',
+      question: 'Is the liver enlarged?',
+      subtext: 'Palpate liver edge - should not be >2cm below costal margin',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - not palpable or <2cm below costal margin', severity: 'normal' },
+        { value: 'mild', label: 'Mildly enlarged - 2-4cm below costal margin', severity: 'abnormal' },
+        { value: 'severe', label: 'Severely enlarged - >4cm below costal margin', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'mild' || answer === 'severe') {
+          return {
+            id: 'hepatomegaly',
+            severity: 'critical',
+            title: 'HEPATOMEGALY - HEART FAILURE OR FLUID OVERLOAD',
+            instruction: 'DO NOT GIVE FLUID BOLUS. Hepatomegaly indicates venous congestion. Assess for heart failure. Consider diuretics. Get senior help.',
+            rationale: 'Hepatomegaly from venous congestion indicates the child cannot handle more fluid.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'heart_sounds',
+      phase: 'circulation',
+      question: 'Auscultate the heart - what do you hear?',
+      subtext: 'Listen for gallop rhythm (S3), murmurs, muffled sounds',
+      type: 'multi-select',
+      options: [
+        { value: 'normal', label: 'Normal S1 and S2 only', severity: 'normal' },
+        { value: 'gallop', label: 'Gallop rhythm (S3) - sounds like "Kentucky"', severity: 'critical' },
+        { value: 'murmur', label: 'Heart murmur present', severity: 'abnormal' },
+        { value: 'muffled', label: 'Muffled heart sounds', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (Array.isArray(answer)) {
+          if (answer.includes('gallop')) {
+            return {
+              id: 'gallop-rhythm',
+              severity: 'critical',
+              title: 'GALLOP RHYTHM - HEART FAILURE',
+              instruction: 'DO NOT GIVE FLUID BOLUS. S3 gallop indicates heart failure. Start diuretics (furosemide 1 mg/kg). Get cardiology consult. Consider inotropes.',
+              rationale: 'Gallop rhythm (S3) is a specific sign of heart failure. Fluid will worsen pulmonary edema.',
+              relatedModule: 'shock'
+            };
+          }
+          if (answer.includes('muffled')) {
+            return {
+              id: 'muffled-sounds',
+              severity: 'critical',
+              title: 'MUFFLED HEART SOUNDS - PERICARDIAL EFFUSION OR TAMPONADE',
+              instruction: 'DO NOT GIVE FLUID BOLUS (unless tamponade confirmed). Get urgent ECHO. Assess for Beck\'s triad. Prepare for pericardiocentesis.',
+              rationale: 'Muffled sounds suggest pericardial effusion or tamponade. Requires urgent cardiac assessment.',
+              relatedModule: 'shock'
+            };
+          }
+          if (answer.includes('murmur')) {
+            return {
+              id: 'heart-murmur',
+              severity: 'urgent',
+              title: 'HEART MURMUR DETECTED',
+              instruction: 'Note murmur characteristics. Consider structural heart disease. Be cautious with fluid bolus - give slowly and reassess frequently.',
+              rationale: 'Murmur may indicate structural heart disease. Fluid bolus must be given cautiously to avoid overload.',
+              relatedModule: 'shock'
+            };
+          }
+        }
+        return null;
+      }
+    },
+    {
+      id: 'pulmonary_crackles',
+      phase: 'circulation',
+      question: 'Are there pulmonary crackles/rales on auscultation?',
+      subtext: 'Listen to lung bases - crackles suggest pulmonary edema',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No crackles - clear lung fields', severity: 'normal' },
+        { value: 'bases', label: 'Crackles at bases only', severity: 'abnormal' },
+        { value: 'bilateral', label: 'Bilateral crackles throughout', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'bases' || answer === 'bilateral') {
+          return {
+            id: 'pulmonary-edema',
+            severity: 'critical',
+            title: 'PULMONARY CRACKLES - FLUID OVERLOAD OR HEART FAILURE',
+            instruction: 'DO NOT GIVE FLUID BOLUS. Crackles indicate pulmonary edema. Start diuretics (furosemide 1 mg/kg). Consider CPAP/BiPAP. Get senior help.',
+            rationale: 'Pulmonary crackles indicate fluid in the lungs. More fluid will worsen respiratory failure.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
     {
       id: 'heart_rate',
       phase: 'circulation',
@@ -520,6 +644,42 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             title: 'BRADYCARDIA - ASSESS PERFUSION',
             instruction: 'If poor perfusion: start CPR if HR <60 with poor perfusion. Give epinephrine. Consider atropine for vagal causes.',
             rationale: 'Bradycardia in children is usually hypoxic. Treat the cause (oxygenation) first.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'rhythm_regularity',
+      phase: 'circulation',
+      question: 'Is the heart rhythm regular?',
+      subtext: 'Palpate pulse or listen to heart - is it regular or irregular?',
+      type: 'select',
+      options: [
+        { value: 'regular', label: 'Regular rhythm', severity: 'normal' },
+        { value: 'regularly_irregular', label: 'Regularly irregular (e.g., sinus arrhythmia)', severity: 'normal' },
+        { value: 'irregularly_irregular', label: 'Irregularly irregular', severity: 'critical' },
+        { value: 'narrow_complex_tachy', label: 'Very fast and regular (possible SVT)', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'irregularly_irregular') {
+          return {
+            id: 'irregular-rhythm',
+            severity: 'critical',
+            title: 'IRREGULAR RHYTHM - GET ECG',
+            instruction: 'Get 12-lead ECG immediately. Consider atrial fibrillation (rare in children), frequent ectopics, or heart block. Consult cardiology.',
+            rationale: 'Irregularly irregular rhythm in children is abnormal and requires urgent rhythm identification.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        if (answer === 'narrow_complex_tachy') {
+          return {
+            id: 'svt-suspected',
+            severity: 'critical',
+            title: 'SUSPECTED SVT - DO NOT GIVE FLUID BOLUS YET',
+            instruction: 'Get 12-lead ECG first. If SVT confirmed: vagal maneuvers, then adenosine. Fluid bolus will NOT help SVT and may worsen heart failure.',
+            rationale: 'SVT causes shock from poor cardiac output, not hypovolemia. Fluid bolus is not the treatment.',
             relatedModule: 'arrhythmia'
           };
         }
