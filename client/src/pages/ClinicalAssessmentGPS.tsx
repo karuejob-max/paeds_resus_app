@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation, useSearch } from 'wouter';
 import { 
   ArrowRight, 
   ArrowLeft,
@@ -131,6 +132,11 @@ type ActiveModule =
   | null;
 
 export const ClinicalAssessmentGPS: React.FC = () => {
+  // Router hooks for scenario handling
+  const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const scenarioParam = new URLSearchParams(searchString).get('scenario');
+
   // Patient state
   const [patientData, setPatientData] = useState<PatientData>({
     ageYears: 0,
@@ -481,7 +487,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     // CIRCULATION
     // CRITICAL: Heart failure assessment MUST come before fluid bolus to prevent pulmonary edema
     {
-      id: 'jugular_venous_pressure',
+      id: 'jvp',
       phase: 'circulation',
       question: 'Is the jugular venous pressure (JVP) elevated?',
       subtext: 'Look for distended neck veins (difficult in infants - check hepatomegaly instead)',
@@ -1023,7 +1029,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     signs_of_life: ['breathing', 'pulse', 'responsiveness'],
     airway: ['airway_patency', 'airway_sounds'],
     breathing: ['breathing_effort', 'spo2', 'respiratory_rate', 'breath_sounds'],
-    circulation: ['heart_rate', 'perfusion', 'cap_refill', 'pulse_quality', 'skin_temp', 'blood_pressure'],
+    circulation: ['jvp', 'hepatomegaly', 'heart_sounds', 'pulmonary_crackles', 'heart_rate', 'rhythm_regularity', 'perfusion', 'cap_refill', 'pulse_quality', 'skin_temp', 'blood_pressure'],
     disability: ['glucose', 'pupils', 'seizure'],
     exposure: ['temperature', 'rash'],
     complete: []
@@ -1248,6 +1254,136 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     setCurrentQuestionId('breathing');
     setCaseStartTime(new Date());
   };
+
+  // Handle Quick Start scenarios - auto-start specific pathways
+  useEffect(() => {
+    if (scenarioParam && currentPhase === 'setup') {
+      // Use default weight if none set (4.5kg for newborn)
+      const effectiveWeight = weight > 0 ? weight : 4.5;
+      
+      switch (scenarioParam) {
+        case 'cardiac_arrest':
+          // Cardiac arrest - immediately start CPR, skip to pulse assessment
+          setCaseStartTime(new Date());
+          setCurrentPhase('signs_of_life');
+          setCurrentQuestionId('pulse');
+          setCprActive(true);
+          setEmergencyActivated(true);
+          // Add CPR intervention
+          const cprTemplate = interventionTemplates.cpr;
+          if (cprTemplate) {
+            const cprIntervention = typeof cprTemplate === 'function' ? cprTemplate() : cprTemplate;
+            setActiveInterventions(prev => [...prev, cprIntervention as ActiveIntervention]);
+          }
+          // Show immediate action
+          setPendingAction({
+            id: 'start-cpr',
+            severity: 'critical',
+            title: 'CPR IN PROGRESS',
+            instruction: `Chest compressions: 100-120/min, depth 1/3 chest. 15:2 ratio with BVM.\nEpinephrine: ${(effectiveWeight * 0.01).toFixed(2)} mg IV/IO every 3-5 min\nDefibrillation: ${Math.round(effectiveWeight * 2)} J`,
+            rationale: 'Cardiac arrest pathway activated. Continue CPR with minimal interruptions.',
+            timer: 120,
+            reassessAfter: 'Rhythm check at 2 minutes'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        case 'anaphylaxis':
+          // Anaphylaxis - immediately prompt for IM epinephrine
+          setCaseStartTime(new Date());
+          setCurrentPhase('signs_of_life');
+          setCurrentQuestionId('breathing');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'anaphylaxis-epi',
+            severity: 'critical',
+            title: 'GIVE IM EPINEPHRINE NOW',
+            instruction: `Epinephrine 1:1000 (1 mg/mL)\nDose: ${Math.min(effectiveWeight * 0.01, 0.5).toFixed(2)} mg IM\nSite: Anterolateral thigh\nRepeat every 5-15 minutes if no improvement`,
+            rationale: 'Anaphylaxis requires immediate IM epinephrine. Do not delay for IV access.',
+            timer: 300,
+            reassessAfter: 'Reassess airway, breathing, circulation after 5 minutes'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        case 'status_epilepticus':
+          // Seizure - start timer and prompt for benzodiazepine
+          setCaseStartTime(new Date());
+          setCurrentPhase('disability');
+          setCurrentQuestionId('seizure');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'seizure-benzo',
+            severity: 'critical',
+            title: 'GIVE BENZODIAZEPINE NOW',
+            instruction: `First-line: Midazolam ${Math.min(effectiveWeight * 0.2, 10).toFixed(1)} mg IM/IN\nOR Lorazepam ${Math.min(effectiveWeight * 0.1, 4).toFixed(1)} mg IV\nOR Diazepam ${Math.min(effectiveWeight * 0.3, 10).toFixed(1)} mg IV`,
+            rationale: 'Status epilepticus >5 minutes requires immediate benzodiazepine. Brain damage occurs with prolonged seizures.',
+            timer: 300,
+            reassessAfter: 'If seizure continues after 5 min, give second dose'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        case 'septic_shock':
+          // Sepsis - start sepsis clock, prompt for fluid and antibiotics
+          setCaseStartTime(new Date());
+          setCurrentPhase('circulation');
+          setCurrentQuestionId('jvp');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'sepsis-bundle',
+            severity: 'critical',
+            title: 'SEPSIS BUNDLE - START NOW',
+            instruction: `1. Fluid bolus: ${Math.round(effectiveWeight * 20)} mL NS/LR IV push\n2. Blood cultures x2 (before antibiotics if possible)\n3. Ceftriaxone ${Math.min(effectiveWeight * 50, 2000)} mg IV\n4. Check lactate and glucose`,
+            rationale: 'Septic shock requires aggressive fluid resuscitation and early antibiotics. Every hour delay increases mortality.',
+            timer: 3600,
+            reassessAfter: 'Reassess perfusion after each 20 mL/kg bolus'
+          });
+          setShowActionCard(true);
+          // Add fluid bolus intervention
+          const fluidIntervention = interventionTemplates.fluidBolus(effectiveWeight);
+          if (fluidIntervention) {
+            setActiveInterventions(prev => [...prev, fluidIntervention]);
+          }
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        case 'respiratory_failure':
+          // Respiratory failure - start at breathing assessment
+          setCaseStartTime(new Date());
+          setCurrentPhase('breathing');
+          setCurrentQuestionId('breathing_effort');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'resp-support',
+            severity: 'critical',
+            title: 'RESPIRATORY SUPPORT NEEDED',
+            instruction: `1. Position of comfort / airway positioning\n2. High-flow oxygen (target SpO2 > 94%)\n3. If wheezing: Salbutamol 2.5-5 mg nebulized\n4. Prepare for assisted ventilation if deteriorating`,
+            rationale: 'Respiratory failure can rapidly progress to arrest. Optimize oxygenation and ventilation.',
+            timer: 60,
+            reassessAfter: 'Reassess work of breathing and SpO2 every minute'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        default:
+          // Unknown scenario - just start normal assessment
+          handleStartAssessment();
+      }
+      
+      // Clear the URL parameter to prevent re-triggering
+      setLocation('/clinical-assessment', { replace: true });
+    }
+  }, [scenarioParam, currentPhase, weight]);
 
   // Get phase color
   const getPhaseColor = (phase: AssessmentPhase): string => {
@@ -1550,6 +1686,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
                   {currentQuestion.type === 'number' && (
                     <NumberInputQuestion
+                      key={currentQuestion.id}
                       unit={currentQuestion.unit}
                       min={currentQuestion.min}
                       max={currentQuestion.max}
