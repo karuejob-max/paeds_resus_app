@@ -3227,3 +3227,9 @@ Continue to next question...
 - [ ] Test IVIOAccessTimer escalation
 - [ ] Test Handover/SBAR generation
 - [ ] Test module overlays
+
+## Phase 69: Homepage Simplification
+- [x] Add Neonatal quick access button to homepage
+- [x] Add Trauma quick access button to homepage
+- [x] Remove Anaphylaxis, Seizure, Sepsis, Respiratory Failure from homepage (integrate into Medical Primary Survey)
+- [ ] Save checkpoint for user access

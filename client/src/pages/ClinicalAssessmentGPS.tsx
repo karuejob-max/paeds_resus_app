@@ -32,7 +32,10 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  RefreshCw
+  RefreshCw,
+  Zap,
+  Baby,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1593,81 +1596,94 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           {/* PATIENT SETUP */}
           {currentPhase === 'setup' && (
             <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <Activity className="h-8 w-8 text-orange-500" />
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Paeds Resus</h2>
-                  <p className="text-slate-400 text-sm">GPS for Pediatric Emergencies</p>
-                </div>
+              {/* Header - Minimal */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-white">Paeds Resus</h1>
+                <p className="text-slate-400 text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-300 text-sm">Age (Years) <span className="text-orange-500">*</span></Label>
-                    <Input
-                      type="number"
-                      value={patientData.ageYears || ''}
-                      onChange={(e) => setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || 0 })}
-                      className="bg-slate-700 border-slate-600 text-white text-lg h-12"
-                      placeholder="e.g., 3"
-                      min={0}
-                      max={18}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300 text-sm">Age (Months)</Label>
-                    <Input
-                      type="number"
-                      value={patientData.ageMonths || ''}
-                      onChange={(e) => setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || 0 })}
-                      className="bg-slate-700 border-slate-600 text-white text-lg h-12"
-                      placeholder="0-11"
-                      min={0}
-                      max={11}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-gray-300 text-sm">Weight (kg) <span className="text-slate-500 text-xs">(Optional - auto-calculated if blank)</span></Label>
-                  <Input
-                    type="number"
-                    value={patientData.weight || ''}
-                    onChange={(e) => setPatientData({ ...patientData, weight: parseFloat(e.target.value) || 0 })}
-                    placeholder="Leave blank to auto-calculate"
-                    className="bg-slate-700 border-slate-600 text-white text-lg h-12"
-                    min={0.5}
-                    max={150}
-                    step={0.1}
-                  />
-                  {(patientData.ageYears > 0 || patientData.ageMonths > 0) && !patientData.weight && (
-                    <p className="text-sm text-orange-400 mt-1">Auto-calculated: {weight.toFixed(1)} kg</p>
-                  )}
-                </div>
-
-                {/* Quick Start Scenarios */}
-                <div className="border-t border-slate-600 pt-6">
-                  <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-orange-500" />
-                    Quick Start - Known Emergency
-                  </h3>
-                  <QuickStartPanel weightKg={(patientData.ageYears > 0 || patientData.ageMonths > 0) ? weight : 0} />
-                </div>
-
-                {/* Alert Settings */}
-                <div className="flex items-center justify-between border-t border-slate-600 pt-4">
-                  <span className="text-slate-400 text-sm">Audio/Haptic Alerts</span>
-                  <AlertSettings compact />
-                </div>
-
-                <Button
-                  onClick={handleStartAssessment}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg font-semibold"
+              {/* Emergency Quick Access - 3 buttons */}
+              <div className="space-y-3 mb-6">
+                {/* CARDIAC ARREST - Red, most prominent */}
+                <button
+                  onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}
+                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-red-900/50 transition-all"
                 >
-                  Start Assessment <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                  <Heart className="h-6 w-6" />
+                  CARDIAC ARREST
+                </button>
+
+                {/* NEONATAL - Pink */}
+                <button
+                  onClick={() => setLocation('/nrp')}
+                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-pink-900/50 transition-all"
+                >
+                  <Baby className="h-6 w-6" />
+                  NEONATAL
+                </button>
+
+                {/* TRAUMA - Cyan */}
+                <button
+                  onClick={() => setLocation('/clinical-assessment?scenario=trauma')}
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-900/50 transition-all"
+                >
+                  <Shield className="h-6 w-6" />
+                  TRAUMA
+                </button>
               </div>
+
+              {/* Patient Info - Simplified */}
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wide">Age</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        type="number"
+                        value={patientData.ageYears || ''}
+                        onChange={(e) => setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || 0, ageMonths: 0 })}
+                        className="bg-slate-700 border-slate-600 text-white text-lg h-14 flex-1"
+                        placeholder="Years"
+                        min={0}
+                        max={18}
+                      />
+                      <Input
+                        type="number"
+                        value={patientData.ageMonths || ''}
+                        onChange={(e) => setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || 0 })}
+                        className="bg-slate-700 border-slate-600 text-white text-lg h-14 w-20"
+                        placeholder="Mo"
+                        min={0}
+                        max={11}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-gray-400 text-xs uppercase tracking-wide">Weight</Label>
+                    <Input
+                      type="number"
+                      value={patientData.weight || ''}
+                      onChange={(e) => setPatientData({ ...patientData, weight: parseFloat(e.target.value) || 0 })}
+                      placeholder="kg"
+                      className="bg-slate-700 border-slate-600 text-white text-lg h-14 mt-1"
+                      min={0.5}
+                      max={150}
+                      step={0.1}
+                    />
+                  </div>
+                </div>
+                {(patientData.ageYears > 0 || patientData.ageMonths > 0) && !patientData.weight && (
+                  <p className="text-sm text-orange-400 text-center">Weight: {weight.toFixed(1)} kg (auto)</p>
+                )}
+              </div>
+
+              {/* Medical Primary Survey - Main assessment for all other emergencies */}
+              <Button
+                onClick={handleStartAssessment}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-xl font-bold"
+              >
+                MEDICAL PRIMARY SURVEY <ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
             </Card>
           )}
 
