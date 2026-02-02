@@ -3236,3 +3236,13 @@ Continue to next question...
 
 ## Phase 70: Fix Trauma Button Route
 - [x] Link Trauma button to dedicated Trauma module instead of medical assessment
+
+## Phase 71: Back to Home Button and Panel Minimize/Maximize
+- [x] Add Back to Home button to ClinicalAssessmentGPS page
+- [x] Add Back to Home button to NRPAssessment page
+- [x] Add Back to Home button to TraumaAssessment page
+- [x] Add minimize/maximize toggle to ActiveInterventionsSidebar (already existed)
+- [x] Add minimize/maximize toggle to FluidBolusTracker
+- [x] Add minimize/maximize toggle to other reassessment panels (IVIOAccessTimer)
+- [x] Test on mobile view (small screens)
+- [x] Test on desktop view

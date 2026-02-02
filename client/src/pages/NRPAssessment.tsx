@@ -32,6 +32,7 @@ import {
   RotateCcw,
   Syringe,
   Activity,
+  Home,
 } from 'lucide-react';
 import {
   calculateNRPDrugDose,
@@ -1025,11 +1026,21 @@ export default function NRPAssessment() {
             <Baby className="w-6 h-6" />
             <span className="font-bold">NRP Assessment</span>
           </div>
-          {state.isTimerRunning && (
-            <div className="bg-red-600 px-4 py-2 rounded-full font-mono text-xl font-bold animate-pulse">
-              {formatTime(state.elapsedSeconds)}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {state.isTimerRunning && (
+              <div className="bg-red-600 px-4 py-2 rounded-full font-mono text-xl font-bold animate-pulse">
+                {formatTime(state.elapsedSeconds)}
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation('/clinical-assessment')}
+              className="text-white hover:bg-white/10"
+            >
+              <Home className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* SpO2 Target Banner */}

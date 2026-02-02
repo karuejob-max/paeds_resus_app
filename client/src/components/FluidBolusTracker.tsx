@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, CheckCircle, Droplets, Heart, Activity, Phone, ArrowRight, AlertCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Droplets, Heart, Activity, Phone, ArrowRight, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { triggerAlert, triggerHaptic } from '@/lib/alertSystem';
 
 type ShockType = 'hypovolemic' | 'cardiogenic' | 'septic' | 'anaphylactic' | 'obstructive' | 'undifferentiated';
@@ -41,6 +41,8 @@ interface Props {
   onFluidOverload: () => void;
   onReferralRequested: (reason: string) => void;
   onShockResolved: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const REASSESSMENT_ITEMS: Omit<ReassessmentItem, 'response'>[] = [
@@ -109,14 +111,7 @@ const REASSESSMENT_ITEMS: Omit<ReassessmentItem, 'response'>[] = [
   },
 ];
 
-export function FluidBolusTracker({ 
-  weightKg, 
-  shockType, 
-  onEscalateToInotropes, 
-  onFluidOverload,
-  onReferralRequested,
-  onShockResolved 
-}: Props) {
+export const FluidBolusTracker = ({ weightKg, shockType, onEscalateToInotropes, onFluidOverload, onReferralRequested, onShockResolved, collapsed = false, onToggleCollapse }: Props) => {
   const [boluses, setBoluses] = useState<BolusRecord[]>([]);
   const [currentBolus, setCurrentBolus] = useState<BolusRecord | null>(null);
   const [reassessmentIndex, setReassessmentIndex] = useState(0);
@@ -381,6 +376,24 @@ export function FluidBolusTracker({
     );
   }
 
+  // Collapsed view
+  if (collapsed && onToggleCollapse) {
+    return (
+      <Card className="border-2 border-primary cursor-pointer" onClick={onToggleCollapse}>
+        <CardHeader className="bg-primary/10 py-3">
+          <CardTitle className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4" />
+              <span>Fluid Tracker</span>
+              <Badge variant="secondary" className="text-xs">{totalFluidMlKg} mL/kg</Badge>
+            </div>
+            <ChevronDown className="h-4 w-4" />
+          </CardTitle>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   // Main bolus tracking view
   return (
     <div className="space-y-4">
@@ -391,6 +404,11 @@ export function FluidBolusTracker({
             <div className="flex items-center gap-2">
               <Droplets className="h-5 w-5" />
               Fluid Resuscitation
+              {onToggleCollapse && (
+                <Button variant="ghost" size="sm" onClick={onToggleCollapse} className="ml-auto">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <Badge variant={shockType === 'cardiogenic' ? 'destructive' : 'secondary'}>
               {shockType.charAt(0).toUpperCase() + shockType.slice(1)} Shock

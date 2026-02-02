@@ -803,7 +803,7 @@ export default function TraumaAssessment() {
       <div className="container max-w-lg mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => setLocation('/')} className="text-slate-400">
+          <Button variant="ghost" onClick={() => setLocation('/clinical-assessment')} className="text-slate-400">
             <ArrowLeft className="h-4 w-4 mr-2" /> Home
           </Button>
           <div className="flex items-center gap-2">

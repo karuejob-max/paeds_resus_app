@@ -1564,6 +1564,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           onCallForHelp={handleCallForHelp}
           onGenerateHandover={handleGenerateHandover}
           onNewCase={handleNewCase}
+          onBackToHome={() => setLocation('/clinical-assessment')}
           onToggleAlerts={() => setAlertsEnabled(!alertsEnabled)}
           alertsEnabled={alertsEnabled}
           activeInterventionCount={activeInterventions.filter(i => i.status !== 'completed').length}

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, CheckCircle, Clock, Syringe, Target, Phone, Play, Pause, RotateCcw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Syringe, Target, Phone, Play, Pause, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { triggerAlert, triggerHaptic, playCountdownBeep } from '@/lib/alertSystem';
 
 interface AccessAttempt {
@@ -25,6 +25,8 @@ interface Props {
   weightKg: number;
   onAccessObtained: (type: 'IV' | 'IO', site: string) => void;
   onReferralRequested: (reason: string) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const IV_SITES = [
@@ -80,7 +82,7 @@ const IO_CONTRAINDICATIONS = [
   'Osteogenesis imperfecta',
 ];
 
-export function IVIOAccessTimer({ weightKg, onAccessObtained, onReferralRequested }: Props) {
+export function IVIOAccessTimer({ weightKg, onAccessObtained, onReferralRequested, collapsed = false, onToggleCollapse }: Props) {
   const [timerRunning, setTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [attempts, setAttempts] = useState<AccessAttempt[]>([]);
@@ -221,6 +223,24 @@ export function IVIOAccessTimer({ weightKg, onAccessObtained, onReferralRequeste
     );
   }
 
+  // Collapsed view
+  if (collapsed && onToggleCollapse) {
+    return (
+      <Card className="border-2 border-primary cursor-pointer" onClick={onToggleCollapse}>
+        <CardHeader className="bg-primary/10 py-3">
+          <CardTitle className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>IV/IO Timer</span>
+              <Badge variant="secondary" className="text-xs">{formatTime(elapsedSeconds)}</Badge>
+            </div>
+            <ChevronDown className="h-4 w-4" />
+          </CardTitle>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Timer Display */}
@@ -230,6 +250,11 @@ export function IVIOAccessTimer({ weightKg, onAccessObtained, onReferralRequeste
             <div className="flex items-center gap-2">
               <Clock className={`h-5 w-5 ${isCritical ? 'text-red-500 animate-pulse' : ''}`} />
               IV/IO Access Timer
+              {onToggleCollapse && (
+                <Button variant="ghost" size="sm" onClick={onToggleCollapse} className="ml-auto">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <Badge variant={isCritical ? 'destructive' : isUrgent ? 'secondary' : 'outline'}>
               {currentAttemptType} Mode

@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Volume2,
   VolumeX,
-  Settings
+  Settings,
+  Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +44,7 @@ interface ClinicalHeaderProps {
   onCallForHelp: () => void;
   onGenerateHandover: () => void;
   onNewCase: () => void;
+  onBackToHome?: () => void;
   onToggleAlerts: () => void;
   alertsEnabled: boolean;
   activeInterventionCount: number;
@@ -62,7 +64,8 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
   alertsEnabled,
   activeInterventionCount,
   onToggleSidebar,
-  sidebarCollapsed
+  sidebarCollapsed,
+  onBackToHome
 }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -232,6 +235,15 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
                   <FileText className="h-4 w-4 mr-2" />
                   Generate Handover
                 </DropdownMenuItem>
+                {onBackToHome && (
+                  <DropdownMenuItem 
+                    onClick={onBackToHome}
+                    className="text-slate-300 hover:text-white hover:bg-slate-700"
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    Back to Home
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem 
                   onClick={onNewCase}
                   className="text-slate-300 hover:text-white hover:bg-slate-700"
