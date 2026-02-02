@@ -1624,7 +1624,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
                 {/* TRAUMA - Cyan */}
                 <button
-                  onClick={() => setLocation('/clinical-assessment?scenario=trauma')}
+                  onClick={() => setLocation('/trauma')}
                   className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-900/50 transition-all"
                 >
                   <Shield className="h-6 w-6" />

@@ -3232,4 +3232,7 @@ Continue to next question...
 - [x] Add Neonatal quick access button to homepage
 - [x] Add Trauma quick access button to homepage
 - [x] Remove Anaphylaxis, Seizure, Sepsis, Respiratory Failure from homepage (integrate into Medical Primary Survey)
-- [ ] Save checkpoint for user access
+- [x] Save checkpoint for user access
+
+## Phase 70: Fix Trauma Button Route
+- [x] Link Trauma button to dedicated Trauma module instead of medical assessment
