@@ -271,4 +271,68 @@ export const cprSessionRouter = router({
 
       return { success: true };
     }),
+
+  // Generate AI insights for debriefing
+  generateInsights: protectedProcedure
+    .input(z.object({
+      sessionId: z.number(),
+      metrics: z.object({
+        totalDuration: z.number(),
+        shockCount: z.number(),
+        epiDoses: z.number(),
+        outcome: z.string(),
+        compressionFraction: z.number(),
+        timeToFirstEpi: z.number().nullable(),
+        timeToFirstShock: z.number().nullable(),
+        criticalDelays: z.array(z.string()),
+      }),
+      events: z.array(z.object({
+        timestamp: z.number(),
+        action: z.string(),
+        performedBy: z.string().optional(),
+      })),
+    }))
+    .mutation(async ({ input }) => {
+      const { invokeLLM } = await import('../_core/llm');
+
+      const prompt = `You are a pediatric resuscitation expert providing post-arrest debriefing insights based on AHA PALS guidelines.
+
+Resuscitation Summary:
+- Total Duration: ${Math.floor(input.metrics.totalDuration / 60)} minutes ${input.metrics.totalDuration % 60} seconds
+- Outcome: ${input.metrics.outcome}
+- Shocks Delivered: ${input.metrics.shockCount}
+- Epinephrine Doses: ${input.metrics.epiDoses}
+- Compression Fraction: ${input.metrics.compressionFraction.toFixed(1)}%
+- Time to First Epinephrine: ${input.metrics.timeToFirstEpi ? `${Math.floor(input.metrics.timeToFirstEpi / 60)}:${(input.metrics.timeToFirstEpi % 60).toString().padStart(2, '0')}` : 'N/A'}
+- Time to First Shock: ${input.metrics.timeToFirstShock ? `${Math.floor(input.metrics.timeToFirstShock / 60)}:${(input.metrics.timeToFirstShock % 60).toString().padStart(2, '0')}` : 'N/A'}
+
+Critical Delays:
+${input.metrics.criticalDelays.length > 0 ? input.metrics.criticalDelays.map(d => `- ${d}`).join('\n') : '- None identified'}
+
+Event Timeline:
+${input.events.slice(0, 10).map(e => `${Math.floor(e.timestamp / 60)}:${(e.timestamp % 60).toString().padStart(2, '0')} - ${e.action}${e.performedBy ? ` (${e.performedBy})` : ''}`).join('\n')}
+
+Provide:
+1. **Key Strengths**: What did the team do well? (2-3 specific points)
+2. **Areas for Improvement**: What could be improved? (2-3 actionable recommendations)
+3. **Learning Points**: Key takeaways for future resuscitations (2-3 evidence-based points)
+4. **Next Steps**: Specific training or protocol adjustments to consider
+
+Keep the tone supportive and constructive. Focus on actionable insights.`;
+
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are a pediatric resuscitation expert providing evidence-based debriefing insights.' },
+            { role: 'user', content: prompt },
+          ],
+        });
+
+        const insights = response.choices[0]?.message?.content || 'Unable to generate insights at this time.';
+        return { insights };
+      } catch (error) {
+        console.error('[AI Insights] Error:', error);
+        return { insights: 'Unable to generate insights. Please review the metrics manually and consult with your team.' };
+      }
+    }),
 });

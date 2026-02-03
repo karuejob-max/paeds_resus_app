@@ -3291,3 +3291,11 @@ Continue to next question...
 - [x] Implement real-time event synchronization across devices (polling every 2s)
 - [x] Test multi-device coordination (all 1326 tests passing)play showing who's doing what
 - [x] Test multi-device coordination (all 1326 tests passing)
+
+## Phase 80: Re-implement Advanced CPR Features (Post-Reset)
+- [x] Create useVoiceCommands hook for Web Speech API
+- [x] Integrate voice commands into CPRClockTeam
+- [x] Create CPRDebriefing component with performance metrics
+- [x] Add generateInsights tRPC procedure with LLM integration
+- [x] Test all features end-to-end (1326 tests passing)
+- [ ] Save checkpoint

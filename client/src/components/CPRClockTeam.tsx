@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
+import { useVoiceCommands } from '@/hooks/useVoiceCommands';
 
 interface Props {
   patientWeight: number;
@@ -322,6 +323,27 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     }
   };
 
+  // Voice commands for hands-free operation
+  const voiceCommands = useVoiceCommands({
+    commands: {
+      'switch to team leader': () => handleRoleChange('team_leader'),
+      'switch to compressions': () => handleRoleChange('compressions'),
+      'switch to airway': () => handleRoleChange('airway'),
+      'switch to iv access': () => handleRoleChange('iv_access'),
+      'switch to medications': () => handleRoleChange('medications'),
+      'switch to recorder': () => handleRoleChange('recorder'),
+      'switch to observer': () => handleRoleChange('observer'),
+      'give epinephrine': giveEpinephrine,
+      'give epi': giveEpinephrine,
+      'give amiodarone': giveAmiodarone,
+      'deliver shock': deliverShock,
+      'shock now': deliverShock,
+      'rosc achieved': achieveROSC,
+      'return of circulation': achieveROSC,
+    },
+    continuous: true,
+  });
+
   // Team members
   const teamMembers: TeamMember[] = sessionData?.teamMembers || [];
   const myMember = teamMembers.find(m => m.id === memberId);
@@ -461,6 +483,15 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
           </Button>
           <Button
             size="sm"
+            variant={voiceCommands.isListening ? "default" : "ghost"}
+            className={voiceCommands.isListening ? "bg-green-500 hover:bg-green-600 text-white" : "text-white hover:bg-white/20"}
+            onClick={() => voiceCommands.isListening ? voiceCommands.stopListening() : voiceCommands.startListening()}
+            disabled={!voiceCommands.isSupported}
+          >
+            🎤 {voiceCommands.isListening ? 'Listening...' : 'Voice'}
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             className="text-white hover:bg-white/20"
             onClick={onClose}
@@ -469,6 +500,13 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
           </Button>
         </div>
       </div>
+
+      {/* Voice Command Feedback */}
+      {voiceCommands.isListening && voiceCommands.transcript && (
+        <div className="bg-green-500/20 border-b border-green-500/50 px-6 py-2 text-center">
+          <span className="text-sm font-medium">Heard: "{voiceCommands.transcript}"</span>
+        </div>
+      )}
 
       {/* Team Panel */}
       {showTeamPanel && (
