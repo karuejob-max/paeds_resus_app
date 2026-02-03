@@ -481,25 +481,25 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Persistent Shout for Help */}
       <ShoutForHelp variant="persistent" />
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Heart className="h-8 w-8 text-red-500" />
+      {/* Header - Mobile Optimized */}
+      <div className="bg-gray-900 border-b border-gray-700 px-3 py-2 md:px-6 md:py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Heart className="h-5 w-5 md:h-8 md:w-8 text-red-500" />
           <div>
-            <h1 className="text-2xl font-bold text-white">CPR CLOCK</h1>
-            <p className="text-gray-400 text-sm">{patientWeight} kg • {formatTime(arrestDuration)}</p>
+            <h1 className="text-base md:text-2xl font-bold text-white">CPR</h1>
+            <p className="text-gray-400 text-xs md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           {/* Voice activation */}
           <Button
             variant="ghost"
             size="icon"
             onClick={isListening ? stopListening : startListening}
-            className={isListening ? 'text-red-500' : 'text-white'}
+            className={`${isListening ? 'text-red-500' : 'text-white'} h-8 w-8 md:h-10 md:w-10`}
           >
-            {isListening ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+            {isListening ? <Mic className="h-4 w-4 md:h-5 md:w-5" /> : <MicOff className="h-4 w-4 md:h-5 md:w-5" />}
           </Button>
           
           {/* Metronome toggle */}
@@ -507,9 +507,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             variant="ghost"
             size="icon"
             onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-            className="text-white"
+            className="text-white h-8 w-8 md:h-10 md:w-10"
           >
-            <Wind className="h-5 w-5" />
+            <Wind className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
           
           {/* Audio toggle */}
@@ -517,9 +517,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             variant="ghost"
             size="icon"
             onClick={() => setAudioEnabled(!audioEnabled)}
-            className="text-white"
+            className="text-white h-8 w-8 md:h-10 md:w-10"
           >
-            {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+            {audioEnabled ? <Volume2 className="h-4 w-4 md:h-5 md:w-5" /> : <VolumeX className="h-4 w-4 md:h-5 md:w-5" />}
           </Button>
           
           {/* Team panel */}
@@ -638,22 +638,22 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                       <div className="text-2xl text-gray-300 mb-6">
                         {shockEnergy} J • Clear and shock
                       </div>
-                      <div className="flex gap-4 justify-center">
+                      <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center">
                         <Button
                           onClick={deliverShock}
                           size="lg"
-                          className="bg-yellow-600 hover:bg-yellow-700 text-black text-2xl px-8 py-6 h-auto"
+                          className="bg-yellow-600 hover:bg-yellow-700 text-black text-lg md:text-2xl px-4 md:px-8 py-4 md:py-6 h-auto w-full md:w-auto"
                         >
-                          <Zap className="h-8 w-8 mr-3" />
+                          <Zap className="h-5 w-5 md:h-8 md:w-8 mr-2 md:mr-3" />
                           SHOCK
                         </Button>
                         <Button
                           onClick={disarmDefib}
                           size="lg"
                           variant="outline"
-                          className="text-white border-gray-600 text-xl px-6 py-6 h-auto"
+                          className="text-white border-gray-600 text-sm md:text-xl px-3 md:px-6 py-4 md:py-6 h-auto w-full md:w-auto"
                         >
-                          Disarm (Non-Shockable)
+                          Disarm
                         </Button>
                       </div>
                     </>
@@ -662,19 +662,19 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               </CardContent>
             </Card>
 
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Action buttons - Mobile Optimized */}
+            <div className="grid grid-cols-2 gap-2 md:gap-4">
               <Button
                 onClick={giveEpinephrine}
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xl py-6 h-auto"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-xl py-3 md:py-6 h-auto"
                 disabled={lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180}
               >
-                <Syringe className="h-6 w-6 mr-2" />
-                Epinephrine {epiDose} mg
+                <Syringe className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
+                <span className="truncate">Epi {epiDose}mg</span>
                 {lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180 && (
-                  <span className="ml-2 text-sm">
-                    (wait {180 - (arrestDuration - lastEpiTime)}s)
+                  <span className="ml-1 text-xs hidden md:inline">
+                    ({180 - (arrestDuration - lastEpiTime)}s)
                   </span>
                 )}
               </Button>
@@ -682,20 +682,20 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               <Button
                 onClick={achieveROSC}
                 size="lg"
-                className="bg-green-600 hover:bg-green-700 text-white text-xl py-6 h-auto"
+                className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-xl py-3 md:py-6 h-auto"
               >
-                <CheckCircle2 className="h-6 w-6 mr-2" />
-                ROSC Achieved
+                <CheckCircle2 className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
+                <span className="truncate">ROSC</span>
               </Button>
 
               <Button
                 onClick={() => setShowReversibleCauses(true)}
                 size="lg"
                 variant="outline"
-                className="text-white border-gray-600 text-lg py-6 h-auto"
+                className="text-white border-gray-600 text-xs md:text-lg py-3 md:py-6 h-auto"
               >
-                <AlertTriangle className="h-5 w-5 mr-2" />
-                Reversible Causes
+                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
+                <span className="truncate">H's & T's</span>
               </Button>
 
               <Button

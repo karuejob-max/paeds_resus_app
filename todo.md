@@ -3368,4 +3368,14 @@ Continue to next question...
 - [x] Test offline functionality
 - [x] Test PWA install flow
 - [x] Test haptic feedback on mobile devices
+- [x] Save checkpoint
+
+## Phase 85: Mobile UX Fixes - Headers and CPR Clock
+- [x] Fix headers blocking content on mobile (make collapsible or reduce height)
+- [x] Redesign CPR Clock header for mobile (reduce height, improve layout)
+- [x] Fix CPR Clock button sizes and spacing for mobile
+- [x] Fix text overflow in CPR Clock buttons and labels
+- [x] Improve CPR Clock information hierarchy (prioritize critical info)
+- [x] Optimize CPR Clock color contrast and visual appeal
+- [x] Test CPR Clock on 320px, 375px, and 414px viewports
 - [ ] Save checkpoint
