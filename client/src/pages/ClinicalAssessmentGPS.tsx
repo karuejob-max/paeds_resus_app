@@ -1559,11 +1559,8 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       {/* CPR Clock Overlay */}
       {cprActive && (
         <CPRClock
-          patientId={1}
-          patientName={`${patientData.ageYears}y ${patientData.ageMonths}m old child`}
-          patientAge={totalAgeMonths}
           patientWeight={weight}
-          onSessionEnd={() => setCprActive(false)}
+          onClose={() => setCprActive(false)}
         />
       )}
 

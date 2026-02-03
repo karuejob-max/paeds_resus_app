@@ -1004,11 +1004,8 @@ const ClinicalAssessment: React.FC = () => {
       {/* CPR Clock */}
       {cprActive && (
         <CPRClock
-          patientId={1}
-          patientName={`${patientData.ageYears}y ${patientData.ageMonths}m old child`}
-          patientAge={patientData.ageMonths}
           patientWeight={weight}
-          onSessionEnd={() => setCprActive(false)}
+          onClose={() => setCprActive(false)}
         />
       )}
 
