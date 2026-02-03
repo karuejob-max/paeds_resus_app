@@ -130,7 +130,7 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
                 <Activity className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white">Paeds Resus</h1>
+                <h1 className="text-lg font-bold text-white">ResusGPS</h1>
               </div>
             </div>
 

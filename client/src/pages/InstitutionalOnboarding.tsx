@@ -85,7 +85,7 @@ export default function InstitutionalOnboarding() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Partner with Paeds Resus</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Partner with ResusGPS</h1>
           <p className="text-lg text-slate-600">
             Equip your healthcare team with life-saving BLS and ACLS skills
           </p>
@@ -357,7 +357,7 @@ export default function InstitutionalOnboarding() {
                     />
                     <div className="text-sm text-slate-700">
                       <p>
-                        I agree to the Paeds Resus Terms of Service and Privacy Policy. I understand that my institution
+                        I agree to the ResusGPS Terms of Service and Privacy Policy. I understand that my institution
                         will be responsible for ensuring all participants complete the required training and assessments.
                       </p>
                     </div>

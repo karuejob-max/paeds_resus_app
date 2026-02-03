@@ -13,7 +13,7 @@ interface WhatsAppButtonProps {
 
 export default function WhatsAppButton({
   phoneNumber = "254706781260",
-  message = "Hello Paeds Resus, I would like to inquire about your training programs.",
+  message = "Hello ResusGPS, I would like to inquire about your training programs.",
   variant = "default",
   size = "default",
   className = "",
@@ -42,7 +42,7 @@ export default function WhatsAppButton({
  */
 export function FloatingWhatsAppButton({
   phoneNumber = "254706781260",
-  message = "Hello Paeds Resus, I would like to inquire about your training programs.",
+  message = "Hello ResusGPS, I would like to inquire about your training programs.",
 }: {
   phoneNumber?: string;
   message?: string;

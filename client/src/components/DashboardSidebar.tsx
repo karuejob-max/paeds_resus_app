@@ -35,7 +35,7 @@ export default function DashboardSidebar() {
               <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold">PR</span>
               </div>
-              <span className="font-bold text-lg">Paeds Resus</span>
+              <span className="font-bold text-lg">ResusGPS</span>
             </div>
           </Link>
           <p className="text-xs text-gray-400">Learning Dashboard</p>

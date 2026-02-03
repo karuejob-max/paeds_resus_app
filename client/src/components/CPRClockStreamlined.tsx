@@ -12,6 +12,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { triggerHaptic } from '@/lib/haptics';
+import { ShoutForHelp } from '@/components/ShoutForHelp';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -344,6 +346,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   // Deliver shock
   const deliverShock = () => {
+    triggerHaptic('critical'); // Haptic feedback for shock
     const newShockCount = shockCount + 1;
     setShockCount(newShockCount);
     setPhase('post_shock');
@@ -377,6 +380,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   // Give epinephrine
   const giveEpinephrine = () => {
+    triggerHaptic('critical'); // Haptic feedback for epinephrine
     const newEpiDoses = epiDoses + 1;
     setEpiDoses(newEpiDoses);
     setLastEpiTime(arrestDuration);
@@ -386,6 +390,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   // Give antiarrhythmic
   const giveAntiarrhythmic = (choice: 'amiodarone' | 'lidocaine') => {
+    triggerHaptic('critical'); // Haptic feedback for antiarrhythmic
     setAntiarrhythmic(choice);
     setShowAntiarrhythmicChoice(false);
     
@@ -474,6 +479,8 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Persistent Shout for Help */}
+      <ShoutForHelp variant="persistent" />
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">

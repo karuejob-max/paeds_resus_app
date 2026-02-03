@@ -148,7 +148,7 @@ export default function CourseCalculator({ course, isOpen, onClose }: CourseCalc
               <div className="flex gap-3 pt-4">
                 <WhatsAppButton
                   phoneNumber="254706781260"
-                  message={`Hello Paeds Resus, I am interested in the ${course.name} for ${staffCount} staff members. Total cost would be ${totalCost.toLocaleString()} KES.`}
+                  message={`Hello ResusGPS, I am interested in the ${course.name} for ${staffCount} staff members. Total cost would be ${totalCost.toLocaleString()} KES.`}
                   size="lg"
                   className="flex-1"
                   label="Get Quote on WhatsApp"

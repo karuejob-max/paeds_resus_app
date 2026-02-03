@@ -1012,7 +1012,7 @@ const ClinicalAssessment: React.FC = () => {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-6 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Paeds Resus</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">ResusGPS</h1>
           <p className="text-slate-400 text-sm">Real-time Clinical Decision Support</p>
           
           {/* Emergency Banner */}

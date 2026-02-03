@@ -13,10 +13,10 @@ export default function FloatingWhatsAppWidget() {
       "/providers": "Hi! I'm interested in the Elite Fellowship program. Can you tell me more?",
       "/institutional": "Hello! We're interested in bulk training for our hospital staff. Can we discuss pricing?",
       "/parents": "Hi! I'd like to learn life-saving skills for my family. What courses do you offer?",
-      "/about": "Hi! I'd like to know more about Paeds Resus.",
+      "/about": "Hi! I'd like to know more about ResusGPS.",
       "/contact": "Hi! I have a question about your services.",
     };
-    return messages[location] || "Hi! I'm interested in learning more about Paeds Resus.";
+    return messages[location] || "Hi! I'm interested in learning more about ResusGPS.";
   };
 
   const phoneNumber = "+254706781260";
@@ -53,7 +53,7 @@ export default function FloatingWhatsAppWidget() {
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-40 bg-white rounded-lg shadow-2xl p-4 w-80 animate-fadeIn">
           <div className="mb-4">
-            <h3 className="font-bold text-[#1a4d4d] mb-2">Chat with Paeds Resus</h3>
+            <h3 className="font-bold text-[#1a4d4d] mb-2">Chat with ResusGPS</h3>
             <p className="text-sm text-gray-600">
               We're here to help! Send us a message on WhatsApp and we'll respond as soon as possible.
             </p>

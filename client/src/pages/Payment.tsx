@@ -228,7 +228,7 @@ export default function Payment() {
                       <div className="p-4 bg-slate-50 rounded-lg space-y-3">
                         <div>
                           <p className="text-sm text-slate-600">Account Name</p>
-                          <p className="font-bold text-slate-900">Paeds Resus Limited</p>
+                          <p className="font-bold text-slate-900">ResusGPS Limited</p>
                         </div>
                         <div>
                           <p className="text-sm text-slate-600">Account Number</p>

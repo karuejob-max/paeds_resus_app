@@ -351,7 +351,7 @@ export default function Institutional() {
                 speakerName: "Dr. James Kipchoge",
                 speakerRole: "Head of Pediatric Emergency Department",
                 videoUrl: "https://example.com/knh-testimonial.mp4",
-                description: "How Paeds Resus training reduced preventable child deaths by 45% in our emergency department.",
+                description: "How ResusGPS training reduced preventable child deaths by 45% in our emergency department.",
                 duration: "3:45",
               },
               {
@@ -361,7 +361,7 @@ export default function Institutional() {
                 speakerName: "Dr. Amina Hassan",
                 speakerRole: "Director of Nursing Education",
                 videoUrl: "https://example.com/aga-khan-testimonial.mp4",
-                description: "Becoming a regional training center through Paeds Resus Elite Fellowship program.",
+                description: "Becoming a regional training center through ResusGPS Elite Fellowship program.",
                 duration: "2:30",
               },
               {
@@ -438,7 +438,7 @@ export default function Institutional() {
             </Link>
             <WhatsAppButton
               phoneNumber="254706781260"
-              message="Hello Paeds Resus, I am interested in institutional training for my hospital."
+              message="Hello ResusGPS, I am interested in institutional training for my hospital."
               size="lg"
               className="bg-green-500 hover:bg-green-600 text-white"
               label="Chat on WhatsApp"

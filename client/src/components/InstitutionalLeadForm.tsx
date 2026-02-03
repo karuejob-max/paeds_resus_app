@@ -56,7 +56,7 @@ export function InstitutionalLeadForm() {
 
     try {
       // Generate WhatsApp message with quote
-      const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Cost: ${discountedTotal.toLocaleString()} KES\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
+      const whatsappMessage = `Hi ResusGPS,\n\nI'm interested in ${formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Cost: ${discountedTotal.toLocaleString()} KES\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
 
       // Open WhatsApp with pre-filled message
       const whatsappUrl = `https://wa.me/254706781260?text=${encodeURIComponent(whatsappMessage)}`;

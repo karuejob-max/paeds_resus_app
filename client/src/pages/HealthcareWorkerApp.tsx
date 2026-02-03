@@ -32,7 +32,7 @@ export default function HealthcareWorkerApp() {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-blue-900">Paeds Resus</h1>
+            <h1 className="text-2xl font-bold text-blue-900">ResusGPS</h1>
             <p className="text-sm text-gray-600">Save children's lives</p>
           </div>
           <div className="text-right">
@@ -130,7 +130,7 @@ export default function HealthcareWorkerApp() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-900">
                     <strong>Referral Message:</strong><br/>
-                    "Join me on Paeds Resus - I'm learning to save children's lives. Use code REF-ABC123 to get started instantly. No approvals needed."
+                    "Join me on ResusGPS - I'm learning to save children's lives. Use code REF-ABC123 to get started instantly. No approvals needed."
                   </p>
                 </div>
 
@@ -274,7 +274,7 @@ function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-green-600 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Paeds Resus</CardTitle>
+          <CardTitle className="text-2xl text-center">ResusGPS</CardTitle>
           <p className="text-center text-gray-600 text-sm mt-2">Save children's lives. Start in 30 seconds.</p>
         </CardHeader>
         <CardContent>

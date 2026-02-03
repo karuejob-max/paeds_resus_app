@@ -43,7 +43,7 @@ export default function ChatWidget() {
         setMessages([
           {
             id: "system-1",
-            content: "Welcome to Paeds Resus Support! A support agent will be with you shortly. In the meantime, feel free to describe your issue.",
+            content: "Welcome to ResusGPS Support! A support agent will be with you shortly. In the meantime, feel free to describe your issue.",
             sender: "system",
             timestamp: new Date(),
           },
@@ -132,7 +132,7 @@ export default function ChatWidget() {
                 <MessageCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold">Paeds Resus Support</h3>
+                <h3 className="font-semibold">ResusGPS Support</h3>
                 <p className="text-xs text-gray-200">
                   {agentStatus === "online" && "Sarah is online"}
                   {agentStatus === "waiting" && "Connecting..."}

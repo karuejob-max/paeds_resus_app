@@ -18,6 +18,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { ShoutForHelp } from '@/components/ShoutForHelp';
 import { 
   ArrowRight, 
   ArrowLeft,
@@ -142,6 +145,9 @@ type ActiveModule =
 export const ClinicalAssessmentGPS: React.FC = () => {
   // Router hooks for scenario handling
   const [, setLocation] = useLocation();
+
+  // PWA install hook
+  const { isInstallable, handleInstallClick } = usePWAInstall();
 
   // Swipe gestures: right = home, left = browser back
   useSwipeGesture({
@@ -1565,6 +1571,12 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Offline Indicator & PWA Install */}
+      <OfflineIndicator
+        showInstallButton={isInstallable}
+        onInstallClick={handleInstallClick}
+      />
+
       {/* CPR Clock Overlay */}
       {cprActive && (
         <CPRClockStreamlined
@@ -1619,7 +1631,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             <Card className="bg-slate-800/90 border-slate-700 p-4 md:p-8">
               {/* Header - Minimal */}
               <div className="text-center mb-4">
-                <h1 className="text-2xl md:text-3xl font-bold text-white">Paeds Resus</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">ResusGPS</h1>
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 
@@ -1670,6 +1682,9 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
               {/* Emergency Quick Access - Reordered for mobile */}
               <div className="space-y-2 mb-4">
+                {/* SHOUT FOR HELP - Before any assessment */}
+                <ShoutForHelp variant="homepage" className="mb-4" />
+
                 {/* CARDIAC ARREST - Red, most prominent */}
                 <button
                   onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}

@@ -1910,7 +1910,7 @@ This platform is now architected and positioned for $1B+ valuation and revenue g
 ### 30.6: Integration & Testing
 - [ ] Integrate chat widget into onboarding pages
 - [ ] Test real-time messaging
-- [ ] Test offline functionality
+- [x] Test offline functionality
 - [ ] Load test with multiple concurrent chats
 - [ ] Test mobile responsiveness
 - [ ] Verify accessibility
@@ -3336,7 +3336,7 @@ Continue to next question...
 - [x] Ensure all header elements (Training Mode, Back to Home) are visible on mobile
 - [ ] Add swipe-left gesture for back navigation across all pages
 - [ ] Test on 320px, 375px, and 414px viewport widths
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Phase 83: Dual Swipe Gestures and Mobile-First Design
 - [x] Add swipe-left for browser back navigation across all pages
@@ -3345,7 +3345,7 @@ Continue to next question...
 - [x] Implement mobile-first design with full width visibility
 - [x] Remove unnecessary scroll downs on mobile
 - [x] Test on 320px, 375px, and 414px viewports - 1326 tests passing
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Phase 83: Dual Swipe Gestures and Mobile-First Design
 - [x] Add swipe-left for browser back navigation across all pages
@@ -3354,4 +3354,18 @@ Continue to next question...
 - [x] Implement mobile-first design with full width visibility
 - [x] Remove unnecessary scroll downs on mobile
 - [x] Test on 320px, 375px, and 414px viewports - 1326 tests passing
+- [x] Save checkpoint
+
+## Phase 84: ResusGPS Rebrand and PWA Features
+- [x] Update app title to ResusGPS in index.html
+- [ ] Update VITE_APP_TITLE environment variable to ResusGPS
+- [x] Update all references from 'Paeds Resus' to 'ResusGPS' in code
+- [x] Add offline mode indicator component
+- [x] Add PWA install button for browser users
+- [x] Implement haptic feedback for critical actions (shock, drugs, rhythm check)
+- [x] Add 'Shout for Help' button on homepage (before assessment)
+- [x] Add persistent 'Shout for Help' button across all modules
+- [x] Test offline functionality
+- [x] Test PWA install flow
+- [x] Test haptic feedback on mobile devices
 - [ ] Save checkpoint

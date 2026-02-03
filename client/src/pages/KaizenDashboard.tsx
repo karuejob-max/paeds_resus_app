@@ -396,7 +396,7 @@ export default function KaizenDashboard() {
                 <strong>Kaizen</strong> (改善) means "change for the better" - continuous, incremental improvement embedded into organizational DNA.
               </p>
               <p>
-                The Paeds Resus platform operates on kaizen principles: <strong>never satisfied, always improving, forever committed to the mission of zero preventable child deaths.</strong>
+                The ResusGPS platform operates on kaizen principles: <strong>never satisfied, always improving, forever committed to the mission of zero preventable child deaths.</strong>
               </p>
               <p className="text-lg font-bold text-blue-200 mt-4">
                 "Every day is better than yesterday. Aluta Continua - The struggle continues."

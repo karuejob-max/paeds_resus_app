@@ -67,7 +67,7 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
         <CardHeader className="relative">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl">Welcome to Paeds Resus</CardTitle>
+              <CardTitle className="text-2xl">Welcome to ResusGPS</CardTitle>
               <CardDescription className="mt-2">
                 Help us personalize your experience. What best describes you?
               </CardDescription>

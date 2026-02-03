@@ -40,8 +40,8 @@ export default function Footer() {
           {/* About */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-8 h-8" />
-              <h3 className="text-white font-bold">Paeds Resus</h3>
+              <img src="/paeds-resus-logo.png" alt="ResusGPS" className="w-8 h-8" />
+              <h3 className="text-white font-bold">ResusGPS</h3>
             </div>
             <p className="text-sm text-gray-400">
               Transforming paediatric emergency care through clinical excellence and nurse-led resuscitation.
@@ -102,7 +102,7 @@ export default function Footer() {
         {/* Social Media & Copyright */}
         <div className="border-t border-gray-600 pt-6 flex flex-col md:flex-row items-center justify-between">
           <p className="text-sm text-gray-400 mb-4 md:mb-0">
-            © {currentYear} Paeds Resus Limited. All rights reserved.
+            © {currentYear} ResusGPS Limited. All rights reserved.
           </p>
           <div className="flex gap-4">
             {socialLinks.map((social) => (
