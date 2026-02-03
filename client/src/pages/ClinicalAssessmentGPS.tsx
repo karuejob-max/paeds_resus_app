@@ -36,7 +36,8 @@ import {
   RefreshCw,
   Zap,
   Baby,
-  Shield
+  Shield,
+  Stethoscope
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -142,12 +143,18 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   // Router hooks for scenario handling
   const [, setLocation] = useLocation();
 
-  // Swipe gesture: swipe right to go back home
+  // Swipe gestures: right = home, left = browser back
   useSwipeGesture({
     onSwipeRight: () => {
       // Only navigate home if not in setup phase (to avoid accidental exits)
       if (currentPhase !== 'setup') {
         setLocation('/clinical-assessment');
+      }
+    },
+    onSwipeLeft: () => {
+      // Browser back navigation
+      if (currentPhase !== 'setup') {
+        window.history.back();
       }
     },
     minSwipeDistance: 80, // Require longer swipe to avoid accidental triggers
@@ -1605,11 +1612,11 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       <div className={`transition-all duration-300 ${
         currentPhase !== 'setup' && !sidebarCollapsed ? 'mr-80' : ''
       } ${currentPhase !== 'setup' ? 'pt-20' : ''}`}>
-        <div className="max-w-2xl mx-auto p-4 md:p-6">
+        <div className="mx-auto p-3 md:p-6 md:max-w-2xl">
           
           {/* PATIENT SETUP */}
           {currentPhase === 'setup' && (
-            <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
+            <Card className="bg-slate-800/90 border-slate-700 p-4 md:p-8">
               {/* Header - Minimal */}
               <div className="text-center mb-4">
                 <h1 className="text-2xl md:text-3xl font-bold text-white">Paeds Resus</h1>
@@ -1661,43 +1668,44 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 )}
               </div>
 
-              {/* Emergency Quick Access - Compact for mobile */}
+              {/* Emergency Quick Access - Reordered for mobile */}
               <div className="space-y-2 mb-4">
                 {/* CARDIAC ARREST - Red, most prominent */}
                 <button
                   onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}
-                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-red-900/50 transition-all"
+                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-red-900/50 transition-all"
                 >
-                  <Heart className="h-4 w-4 md:h-5 md:w-5" />
+                  <Heart className="h-4 w-4" />
                   CARDIAC ARREST
+                </button>
+
+                {/* MEDICAL - Orange, below cardiac arrest */}
+                <button
+                  onClick={handleStartAssessment}
+                  className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-900/50 transition-all"
+                >
+                  <Stethoscope className="h-4 w-4" />
+                  MEDICAL
                 </button>
 
                 {/* NEONATAL - Pink */}
                 <button
                   onClick={() => setLocation('/nrp')}
-                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-pink-900/50 transition-all"
+                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-pink-900/50 transition-all"
                 >
-                  <Baby className="h-4 w-4 md:h-5 md:w-5" />
+                  <Baby className="h-4 w-4" />
                   NEONATAL
                 </button>
 
                 {/* TRAUMA - Cyan */}
                 <button
                   onClick={() => setLocation('/trauma')}
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-cyan-900/50 transition-all"
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-cyan-900/50 transition-all"
                 >
-                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                  <Shield className="h-4 w-4" />
                   TRAUMA
                 </button>
               </div>
-
-              {/* Medical Primary Survey - Main assessment for all other emergencies */}
-              <Button
-                onClick={handleStartAssessment}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-xl font-bold"
-              >
-                MEDICAL PRIMARY SURVEY <ArrowRight className="ml-2 h-6 w-6" />
-              </Button>
 
               {/* Training Mode */}
               <div className="mt-4 pt-4 border-t border-slate-700">
@@ -1954,7 +1962,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
           {/* ASSESSMENT COMPLETE */}
           {currentPhase === 'complete' && (
-            <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
+            <Card className="bg-slate-800/90 border-slate-700 p-4 md:p-8">
               <div className="text-center mb-6">
                 <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-white">Assessment Complete</h2>

@@ -3327,3 +3327,31 @@ Continue to next question...
 - [x] Fix reversible causes checklist - add checkboxes to mark interventions
 - [x] Add back button to reversible causes overlay to return to CPR Clock
 - [x] Test on mobile viewport (375px width) - 1326 tests passing
+
+## Phase 82: Mobile Experience Overhaul
+- [x] Reorder emergency buttons: CARDIAC ARREST → MEDICAL → NEONATAL → TRAUMA
+- [x] Rename "Medical Primary Survey" to "MEDICAL" for compact mobile display
+- [x] Further reduce button sizes for 320px-375px mobile screens
+- [x] Fix mobile viewport to eliminate horizontal scrolling
+- [x] Ensure all header elements (Training Mode, Back to Home) are visible on mobile
+- [ ] Add swipe-left gesture for back navigation across all pages
+- [ ] Test on 320px, 375px, and 414px viewport widths
+- [ ] Save checkpoint
+
+## Phase 83: Dual Swipe Gestures and Mobile-First Design
+- [x] Add swipe-left for browser back navigation across all pages
+- [x] Keep swipe-right for home navigation
+- [x] Fix gestational age input placeholder behavior (auto-disappear on input)
+- [x] Implement mobile-first design with full width visibility
+- [x] Remove unnecessary scroll downs on mobile
+- [x] Test on 320px, 375px, and 414px viewports - 1326 tests passing
+- [ ] Save checkpoint
+
+## Phase 83: Dual Swipe Gestures and Mobile-First Design
+- [x] Add swipe-left for browser back navigation across all pages
+- [x] Keep swipe-right for home navigation
+- [x] Fix gestational age input placeholder behavior (auto-disappear on input)
+- [x] Implement mobile-first design with full width visibility
+- [x] Remove unnecessary scroll downs on mobile
+- [x] Test on 320px, 375px, and 414px viewports - 1326 tests passing
+- [ ] Save checkpoint

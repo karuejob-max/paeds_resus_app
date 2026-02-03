@@ -34,12 +34,18 @@ interface PatientData {
 export function TraumaAssessment() {
   const [, setLocation] = useLocation();
 
-  // Swipe gesture: swipe right to go back home
+  // Swipe gestures: right = home, left = browser back
   useSwipeGesture({
     onSwipeRight: () => {
       // Only navigate home if not in setup mode (to avoid accidental exits)
       if (mode !== 'setup') {
         setLocation('/clinical-assessment');
+      }
+    },
+    onSwipeLeft: () => {
+      // Browser back navigation
+      if (mode !== 'setup') {
+        window.history.back();
       }
     },
     minSwipeDistance: 80,

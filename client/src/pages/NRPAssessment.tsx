@@ -80,10 +80,13 @@ interface NRPState {
 export function NRPAssessment() {
   const [, setLocation] = useLocation();
 
-  // Swipe gesture: swipe right to go back home
+  // Swipe gestures: right = home, left = browser back
   useSwipeGesture({
     onSwipeRight: () => {
       setLocation('/clinical-assessment');
+    },
+    onSwipeLeft: () => {
+      window.history.back();
     },
     minSwipeDistance: 80,
   });
@@ -174,7 +177,8 @@ export function NRPAssessment() {
                   type="number"
                   min={22}
                   max={44}
-                  value={state.gestationalWeeks}
+                  placeholder="e.g., 40"
+                  value={state.gestationalWeeks === 40 ? '' : state.gestationalWeeks}
                   onChange={(e) => {
                     const ga = parseInt(e.target.value) || 40;
                     setState((prev) => ({
