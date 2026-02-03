@@ -3320,3 +3320,10 @@ Continue to next question...
 - [x] Integrate simulation mode toggle in CPR Clock (created CPRSimulation component)
 - [x] Test all simulation scenarios (1326 tests passing)
 - [x] Save checkpoint
+
+## Phase 82: Mobile UX Fixes
+- [x] Reduce emergency button sizes for better mobile screen visibility
+- [x] Move age/weight inputs above CARDIAC ARREST button
+- [x] Fix reversible causes checklist - add checkboxes to mark interventions
+- [x] Add back button to reversible causes overlay to return to CPR Clock
+- [x] Test on mobile viewport (375px width) - 1326 tests passing

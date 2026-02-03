@@ -825,13 +825,13 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
       {/* Reversible causes overlay */}
       {showReversibleCauses && (
-        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-10 p-8 overflow-y-auto">
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-10 p-4 md:p-8 overflow-y-auto">
           <Card className="bg-gray-800 border-gray-700 w-full max-w-3xl">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-8 w-8 text-yellow-500" />
-                  <h2 className="text-2xl font-bold text-white">Reversible Causes (Hs & Ts)</h2>
+            <CardContent className="p-4 md:p-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-6 w-6 md:h-8 md:w-8 text-yellow-500" />
+                  <h2 className="text-xl md:text-2xl font-bold text-white">Reversible Causes (Hs & Ts)</h2>
                 </div>
                 <Button
                   variant="ghost"
@@ -843,67 +843,111 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 </Button>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-yellow-500 mb-3">Hs</h3>
-                  <ul className="space-y-2 text-white">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Hs</h3>
+                  <ul className="space-y-2 text-white text-sm md:text-base">
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypoxia</strong> - Check O₂, ventilation</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypovolemia</strong> - Fluid bolus, blood</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hydrogen ion (acidosis)</strong> - Ventilation</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypo/Hyperkalemia</strong> - Check labs</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypothermia</strong> - Rewarm</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypoglycemia</strong> - Check glucose</span>
                     </li>
                   </ul>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-bold text-yellow-500 mb-3">Ts</h3>
-                  <ul className="space-y-2 text-white">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Ts</h3>
+                  <ul className="space-y-2 text-white text-sm md:text-base">
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Tension pneumothorax</strong> - Needle decompression</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Tamponade (cardiac)</strong> - Pericardiocentesis</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Toxins</strong> - Antidotes, decontamination</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Thrombosis (pulmonary)</strong> - Consider tPA</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Thrombosis (coronary)</strong> - Rare in peds</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
+                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                      if (checkbox) checkbox.click();
+                    }}>
+                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Trauma</strong> - Surgical intervention</span>
                     </li>
                   </ul>
                 </div>
               </div>
+
+              {/* Back button */}
+              <Button
+                onClick={() => setShowReversibleCauses(false)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-bold"
+              >
+                ← Back to CPR Clock
+              </Button>
             </CardContent>
           </Card>
         </div>

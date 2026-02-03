@@ -1611,43 +1611,13 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           {currentPhase === 'setup' && (
             <Card className="bg-slate-800/90 border-slate-700 p-6 md:p-8">
               {/* Header - Minimal */}
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-white">Paeds Resus</h1>
-                <p className="text-slate-400 text-sm mt-1">Pediatric Emergency GPS</p>
+              <div className="text-center mb-4">
+                <h1 className="text-2xl md:text-3xl font-bold text-white">Paeds Resus</h1>
+                <p className="text-slate-400 text-xs md:text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 
-              {/* Emergency Quick Access - 3 buttons */}
-              <div className="space-y-3 mb-6">
-                {/* CARDIAC ARREST - Red, most prominent */}
-                <button
-                  onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}
-                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-red-900/50 transition-all"
-                >
-                  <Heart className="h-6 w-6" />
-                  CARDIAC ARREST
-                </button>
-
-                {/* NEONATAL - Pink */}
-                <button
-                  onClick={() => setLocation('/nrp')}
-                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-pink-900/50 transition-all"
-                >
-                  <Baby className="h-6 w-6" />
-                  NEONATAL
-                </button>
-
-                {/* TRAUMA - Cyan */}
-                <button
-                  onClick={() => setLocation('/trauma')}
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-900/50 transition-all"
-                >
-                  <Shield className="h-6 w-6" />
-                  TRAUMA
-                </button>
-              </div>
-
-              {/* Patient Info - Simplified */}
-              <div className="space-y-4 mb-6">
+              {/* Patient Info - Above emergency buttons */}
+              <div className="space-y-3 mb-4">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
                     <Label className="text-gray-400 text-xs uppercase tracking-wide">Age</Label>
@@ -1689,6 +1659,36 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 {(patientData.ageYears > 0 || patientData.ageMonths > 0) && !patientData.weight && (
                   <p className="text-sm text-orange-400 text-center">Weight: {weight.toFixed(1)} kg (auto)</p>
                 )}
+              </div>
+
+              {/* Emergency Quick Access - Compact for mobile */}
+              <div className="space-y-2 mb-4">
+                {/* CARDIAC ARREST - Red, most prominent */}
+                <button
+                  onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}
+                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-red-900/50 transition-all"
+                >
+                  <Heart className="h-4 w-4 md:h-5 md:w-5" />
+                  CARDIAC ARREST
+                </button>
+
+                {/* NEONATAL - Pink */}
+                <button
+                  onClick={() => setLocation('/nrp')}
+                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-pink-900/50 transition-all"
+                >
+                  <Baby className="h-4 w-4 md:h-5 md:w-5" />
+                  NEONATAL
+                </button>
+
+                {/* TRAUMA - Cyan */}
+                <button
+                  onClick={() => setLocation('/trauma')}
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm md:text-base font-bold shadow-lg shadow-cyan-900/50 transition-all"
+                >
+                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                  TRAUMA
+                </button>
               </div>
 
               {/* Medical Primary Survey - Main assessment for all other emergencies */}
