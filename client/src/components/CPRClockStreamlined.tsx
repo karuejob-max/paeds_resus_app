@@ -234,10 +234,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
         setCycleTime(prev => {
           const newCycleTime = prev + 1;
           
-          // Pre-charge defib at 1:45 (15s before 2-min cycle ends)
-          if (newCycleTime === 105 && rhythmType === 'vf_pvt') {
-            setDefibCharging(true);
-            speak('Charging defibrillator.');
+          // Prompt to charge defib at 1:45 (15s before 2-min cycle ends)
+          if (newCycleTime === 105 && rhythmType === 'vf_pvt' && !defibCharging) {
+            speak('Charge the defibrillator now.');
           }
           
           // Rhythm check at 2 minutes
@@ -615,11 +614,6 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                       <div className="text-2xl text-gray-300">
                         Next rhythm check in {formatTime(120 - cycleTime)}
                       </div>
-                      {defibCharging && (
-                        <Badge className="mt-4 bg-yellow-500 text-black text-lg px-4 py-2">
-                          Charging defibrillator...
-                        </Badge>
-                      )}
                     </>
                   )}
                   {phase === 'charging' && (

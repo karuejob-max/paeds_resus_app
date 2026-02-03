@@ -3378,4 +3378,10 @@ Continue to next question...
 - [x] Improve CPR Clock information hierarchy (prioritize critical info)
 - [x] Optimize CPR Clock color contrast and visual appeal
 - [x] Test CPR Clock on 320px, 375px, and 414px viewports
+- [x] Save checkpoint
+
+## Phase 86: Fix CPR Clock Defib Charging Workflow
+- [x] Change defib charging at 15s before cycle end from auto-announce to prompt
+- [x] Remove redundant "charging the defib" message during reassessment
+- [x] Test defib charging workflow
 - [ ] Save checkpoint
