@@ -3246,3 +3246,23 @@ Continue to next question...
 - [x] Add minimize/maximize toggle to other reassessment panels (IVIOAccessTimer)
 - [x] Test on mobile view (small screens)
 - [x] Test on desktop view
+
+## Phase 72: Swipe Gestures for Mobile UX
+- [x] Create useSwipeGesture hook for touch event detection
+- [x] Add swipe-right-to-home gesture on ClinicalAssessmentGPS
+- [x] Add swipe-right-to-home gesture on NRPAssessment
+- [x] Add swipe-right-to-home gesture on TraumaAssessment
+- [x] Add swipe-left/right gestures to ActiveInterventionsSidebar (removed - conflicts with page-level gestures)
+- [x] Add swipe-left/right gestures to FluidBolusTracker (not implemented - tap-to-toggle preferred)
+- [x] Add swipe-left/right gestures to IVIOAccessTimer (not implemented - tap-to-toggle preferred)
+- [ ] Test swipe gestures on mobile viewport (Chrome DevTools)
+- [ ] Verify swipe threshold and velocity settings
+
+## Phase 73: Module Audit and Fix Broken Pathways
+- [x] Remove panel-level swipe gestures (keep page-level only)
+- [x] Audit Stridor module trigger and pathway - **FOUND: NOT IMPLEMENTED**
+- [x] Audit all advanced module triggers (Airway, Shock, Arrhythmia, etc.)
+- [x] Audit scenario buttons (Anaphylaxis, Seizure, Sepsis, etc.)
+- [x] Test each module end-to-end from trigger to completion
+- [x] Fix all identified broken pathways - Created AirwayManagement component for stridor
+- [x] Document working module trigger map - Created MODULE_AUDIT.md

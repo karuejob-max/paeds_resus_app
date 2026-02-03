@@ -98,6 +98,7 @@ export const ActiveInterventionsSidebar: React.FC<ActiveInterventionsSidebarProp
   onToggleCollapse,
   weightKg
 }) => {
+
   // Track timer updates
   const [timerTick, setTimerTick] = useState(0);
 

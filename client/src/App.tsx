@@ -6,8 +6,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import ClinicalAssessment from "./pages/ClinicalAssessment";
 import ClinicalAssessmentGPS from "./pages/ClinicalAssessmentGPS";
-import NRPAssessment from "./pages/NRPAssessment";
-import TraumaAssessment from "./pages/TraumaAssessment";
+import { NRPAssessment } from "./pages/NRPAssessment";
+import { TraumaAssessment } from "./pages/TraumaAssessment";
 import { Toaster } from "@/components/ui/sonner";
 
 // Lazy load heavier components

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,8 +31,19 @@ interface PatientData {
   mechanism: string;
 }
 
-export default function TraumaAssessment() {
+export function TraumaAssessment() {
   const [, setLocation] = useLocation();
+
+  // Swipe gesture: swipe right to go back home
+  useSwipeGesture({
+    onSwipeRight: () => {
+      // Only navigate home if not in setup mode (to avoid accidental exits)
+      if (mode !== 'setup') {
+        setLocation('/clinical-assessment');
+      }
+    },
+    minSwipeDistance: 80,
+  });
   const [mode, setMode] = useState<TraumaMode>('setup');
   const [patientData, setPatientData] = useState<PatientData>({
     ageYears: 0,

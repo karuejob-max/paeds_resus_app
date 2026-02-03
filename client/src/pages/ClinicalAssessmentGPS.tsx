@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useSearch } from 'wouter';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { 
   ArrowRight, 
   ArrowLeft,
@@ -64,8 +65,8 @@ import { IVIOAccessTimer } from '@/components/IVIOAccessTimer';
 import { FluidBolusTracker } from '@/components/FluidBolusTracker';
 import { InotropeEscalation } from '@/components/InotropeEscalation';
 import LabSampleCollection from '@/components/LabSampleCollection';
-import ArrhythmiaRecognition from '@/components/ArrhythmiaRecognition';
-
+import ArrhythmiaRecognition from '../components/ArrhythmiaRecognition';
+import { AirwayManagement } from '../components/AirwayManagement';
 // Types
 interface PatientData {
   ageYears: number;
@@ -133,11 +134,23 @@ type ActiveModule =
   | 'inotrope'
   | 'lab'
   | 'arrhythmia'
+  | 'airway'
   | null;
 
 export const ClinicalAssessmentGPS: React.FC = () => {
   // Router hooks for scenario handling
   const [, setLocation] = useLocation();
+
+  // Swipe gesture: swipe right to go back home
+  useSwipeGesture({
+    onSwipeRight: () => {
+      // Only navigate home if not in setup phase (to avoid accidental exits)
+      if (currentPhase !== 'setup') {
+        setLocation('/clinical-assessment');
+      }
+    },
+    minSwipeDistance: 80, // Require longer swipe to avoid accidental triggers
+  });
   const searchString = useSearch();
   const scenarioParam = new URLSearchParams(searchString).get('scenario');
 
@@ -2104,6 +2117,20 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             patientAge={patientData.ageYears}
             onTreatmentSelected={(treatment: any[], arrhythmiaId: string) => {
               console.log('Treatment selected:', treatment, arrhythmiaId);
+              closeModule();
+            }}
+          />
+        </ModuleOverlay>
+      )}
+      {activeModule === 'airway' && (
+        <ModuleOverlay title="Airway Management" onClose={closeModule}>
+          <AirwayManagement 
+            weightKg={weight}
+            onTreatmentComplete={() => {
+              closeModule();
+            }}
+            onReferralRequested={(reason) => {
+              handleCallForHelp();
               closeModule();
             }}
           />

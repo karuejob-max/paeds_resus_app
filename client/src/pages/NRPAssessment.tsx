@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,8 +77,16 @@ interface NRPState {
   compressionsStarted: boolean;
 }
 
-export default function NRPAssessment() {
+export function NRPAssessment() {
   const [, setLocation] = useLocation();
+
+  // Swipe gesture: swipe right to go back home
+  useSwipeGesture({
+    onSwipeRight: () => {
+      setLocation('/clinical-assessment');
+    },
+    minSwipeDistance: 80,
+  });
   const [state, setState] = useState<NRPState>({
     step: 'patient-setup',
     gestationalWeeks: 40,
