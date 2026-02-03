@@ -3309,4 +3309,14 @@ Continue to next question...
 - [x] Add reversible causes (Hs & Ts) prompt
 - [x] Add advanced airway prompt
 - [x] Test all changes end-to-end (1326 tests passing)
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Phase 81: Simulation Mode for Training
+- [x] Create simulation engine with randomized scenarios (VF, pVT, PEA, asystole)
+- [x] Add realistic rhythm changes during simulation
+- [x] Add complications (hyperkalemia, hypothermia, tension pneumo, etc.)
+- [x] Implement performance scoring (CCF, time to first shock/epi, guideline adherence)
+- [x] Add post-simulation debriefing with AI feedback (built into calculatePerformanceMetrics)
+- [x] Integrate simulation mode toggle in CPR Clock (created CPRSimulation component)
+- [x] Test all simulation scenarios (1326 tests passing)
+- [x] Save checkpoint

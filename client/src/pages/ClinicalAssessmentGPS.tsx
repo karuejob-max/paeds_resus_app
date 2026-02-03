@@ -67,6 +67,7 @@ import { InotropeEscalation } from '@/components/InotropeEscalation';
 import LabSampleCollection from '@/components/LabSampleCollection';
 import ArrhythmiaRecognition from '../components/ArrhythmiaRecognition';
 import { AirwayManagement } from '../components/AirwayManagement';
+import { CPRSimulation } from '@/components/CPRSimulation';
 // Types
 interface PatientData {
   ageYears: number;
@@ -191,6 +192,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [showRationale, setShowRationale] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   // Audio alerts - using imported functions directly
 
@@ -1696,6 +1698,17 @@ export const ClinicalAssessmentGPS: React.FC = () => {
               >
                 MEDICAL PRIMARY SURVEY <ArrowRight className="ml-2 h-6 w-6" />
               </Button>
+
+              {/* Training Mode */}
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <Button
+                  onClick={() => setShowSimulation(true)}
+                  variant="outline"
+                  className="w-full border-blue-500 text-blue-400 hover:bg-blue-500/10 py-4"
+                >
+                  🎓 Training Mode (CPR Simulation)
+                </Button>
+              </div>
             </Card>
           )}
 
@@ -2141,6 +2154,13 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           isOpen={showHandover}
           handover={currentHandover}
           onClose={() => setShowHandover(false)}
+        />
+      )}
+
+      {/* CPR Simulation Mode */}
+      {showSimulation && (
+        <CPRSimulation
+          onClose={() => setShowSimulation(false)}
         />
       )}
     </div>
