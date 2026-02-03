@@ -51,7 +51,7 @@ import {
   interventionTemplates,
   createIntervention
 } from '@/components/clinical/ActiveInterventionsSidebar';
-import { CPRClockTeam } from '@/components/CPRClockTeam';
+import { CPRClockStreamlined } from '@/components/CPRClockStreamlined';
 import QuickStartPanel from '@/components/QuickStartPanel';
 import AlertSettings from '@/components/AlertSettings';
 import { HandoverModal } from '@/components/HandoverModal';
@@ -1558,7 +1558,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* CPR Clock Overlay */}
       {cprActive && (
-        <CPRClockTeam
+        <CPRClockStreamlined
           patientWeight={weight}
           patientAgeMonths={totalAgeMonths}
           onClose={() => setCprActive(false)}

@@ -3298,4 +3298,15 @@ Continue to next question...
 - [x] Create CPRDebriefing component with performance metrics
 - [x] Add generateInsights tRPC procedure with LLM integration
 - [x] Test all features end-to-end (1326 tests passing)
+- [x] Save checkpoint (version 993973f8)
+
+## Phase 80: CPR Clock Streamlining
+- [x] Implement immediate rhythm assessment workflow (compressions → pads → assess → shock, not waiting 2 min)
+- [x] Add pre-charge defib strategy (charge 15s before cycle ends to maximize CCF)
+- [x] Add antiarrhythmic after 5th shock with amiodarone/lidocaine choice
+- [x] Fix "Consider Epinephrine" button hanging issue (added countdown timer in UI)
+- [x] Add compression metronome (audio + visual 100-120 bpm)
+- [x] Add reversible causes (Hs & Ts) prompt
+- [x] Add advanced airway prompt
+- [x] Test all changes end-to-end (1326 tests passing)
 - [ ] Save checkpoint
