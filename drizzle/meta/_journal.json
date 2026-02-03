@@ -141,6 +141,20 @@
       "when": 1769379309685,
       "tag": "0019_great_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1770135778663,
+      "tag": "0020_omniscient_snowbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1770136034921,
+      "tag": "0021_robust_mulholland_black",
+      "breakpoints": true
     }
   ]
 }

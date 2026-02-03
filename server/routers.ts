@@ -103,6 +103,7 @@ import { autonomousOrchestrationRouter } from "./routers/autonomous-orchestratio
 import { patientRouter } from "./routers/patients";
 import { interventionRouter } from "./routers/interventions";
 import { providerRouter } from "./routers/provider";
+import { cprSessionRouter } from "./routers/cpr-session";
 
 export const appRouter = router({
   system: systemRouter,
@@ -163,6 +164,7 @@ export const appRouter = router({
   telemedicine: telemedicineRouter,
   vitals: vitalsRouter,
   cprClock: cprClockRouter,
+  cprSession: cprSessionRouter,
   emergencyProtocols: emergencyProtocolsRouter,
   alerts: alertsRouter,
   diagnosis: diagnosisRouter,

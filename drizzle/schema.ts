@@ -1164,8 +1164,11 @@ export type InsertRiskScoreHistory = typeof riskScoreHistory.$inferInsert;
 // CPR Clock Sessions table - Track CPR sessions for each patient
 export const cprSessions = mysqlTable("cprSessions", {
   id: int("id").autoincrement().primaryKey(),
-  patientId: int("patientId").notNull(),
-  providerId: int("providerId").notNull(),
+  sessionCode: varchar("sessionCode", { length: 8 }).unique(), // Short code for QR/manual entry
+  patientId: int("patientId"),
+  providerId: int("providerId"),
+  patientWeight: decimal("patientWeight", { precision: 5, scale: 2 }),
+  patientAgeMonths: int("patientAgeMonths"),
   startTime: timestamp("startTime").defaultNow().notNull(),
   endTime: timestamp("endTime"),
   status: mysqlEnum("status", ["active", "completed", "abandoned"]).default("active").notNull(),
@@ -1173,6 +1176,7 @@ export const cprSessions = mysqlTable("cprSessions", {
   totalDuration: int("totalDuration"), // seconds
   cprQuality: mysqlEnum("cprQuality", ["excellent", "good", "adequate", "poor"]),
   notes: text("notes"),
+  createdBy: int("createdBy"), // userId of session creator
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1184,6 +1188,7 @@ export type InsertCprSession = typeof cprSessions.$inferInsert;
 export const cprEvents = mysqlTable("cprEvents", {
   id: int("id").autoincrement().primaryKey(),
   cprSessionId: int("cprSessionId").notNull(),
+  memberId: int("memberId"), // who logged the event (from cprTeamMembers)
   eventType: mysqlEnum("eventType", ["compression_cycle", "medication", "defibrillation", "airway", "note", "outcome"]).notNull(),
   eventTime: int("eventTime"), // seconds from start of CPR
   description: text("description"),
@@ -1957,3 +1962,19 @@ export const chatAnalytics = mysqlTable("chatAnalytics", {
 
 export type ChatAnalytics = typeof chatAnalytics.$inferSelect;
 export type InsertChatAnalytics = typeof chatAnalytics.$inferInsert;
+
+// CPR Team Members table - Track team members and their roles
+export const cprTeamMembers = mysqlTable("cprTeamMembers", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  userId: int("userId"), // null if anonymous/guest provider
+  providerName: varchar("providerName", { length: 255 }).notNull(),
+  role: mysqlEnum("role", ["team_leader", "compressions", "airway", "iv_access", "medications", "recorder", "observer"]),
+  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+  leftAt: timestamp("leftAt"),
+});
+
+export type CprTeamMember = typeof cprTeamMembers.$inferSelect;
+export type InsertCprTeamMember = typeof cprTeamMembers.$inferInsert;
+
+

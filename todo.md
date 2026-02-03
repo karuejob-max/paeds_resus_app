@@ -3281,3 +3281,13 @@ Continue to next question...
 - [x] Integrate CPR Clock with Cardiac Arrest scenario in Clinical Assessment GPS
 - [x] Test voice announcements and timing accuracy
 - [x] Test on mobile (portrait and landscape)
+
+## Phase 75: Team Role Assignments and QR Code Session Sharing
+- [x] Create database schema for shared CPR sessions (session ID, team members, roles)
+- [x] Add tRPC procedures for creating/joining sessions
+- [x] Install qrcode library for QR gener- [x] Add QR code generation in CPR Clock
+- [x] Create session join flow (scan QR → join session)
+- [x] Add team role assignment UI (Compressions, Airway, IV Access, Medications, Team Leader)
+- [x] Implement real-time event synchronization across devices (polling every 2s)
+- [x] Test multi-device coordination (all 1326 tests passing)play showing who's doing what
+- [x] Test multi-device coordination (all 1326 tests passing)
