@@ -123,6 +123,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [metronomeEnabled, setMetronomeEnabled] = useState(true);
   const [defibCharging, setDefibCharging] = useState(false);
+  const [showChargePrompt, setShowChargePrompt] = useState(false);
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -236,6 +237,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
           
           // Prompt to charge defib at 1:45 (15s before 2-min cycle ends)
           if (newCycleTime === 105 && rhythmType === 'vf_pvt' && !defibCharging) {
+            setShowChargePrompt(true);
             speak('Charge the defibrillator now.');
           }
           
@@ -336,9 +338,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
       addEvent(type === 'pea' ? 'PEA detected' : 'Asystole detected');
       speak('Non-shockable rhythm. Resume CPR immediately.');
       
-      // First epi for non-shockable (ASAP)
+      // Immediate epi for PEA/asystole (per AHA guidelines)
       if (epiDoses === 0) {
-        speak(`Give epinephrine ${epiDose} milligrams now.`);
+        speak(`Give epinephrine ${epiDose} milligrams immediately.`);
       }
     }
   };
@@ -357,9 +359,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
       setPhase('compressions');
     }, 1000);
     
-    // Epinephrine after 2nd shock (if not given)
-    if (newShockCount === 2 && epiDoses === 0) {
-      speak(`Give epinephrine ${epiDose} milligrams.`);
+    // Epinephrine after 2nd shock for VF/pVT (per AHA guidelines)
+    if (newShockCount === 2 && epiDoses === 0 && rhythmType === 'vf_pvt') {
+      speak(`Give epinephrine ${epiDose} milligrams now.`);
     }
     
     // Antiarrhythmic after 5th shock
@@ -773,6 +775,47 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xl py-6 h-auto"
                 >
                   Asystole (Non-Shockable)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Charge complete confirmation prompt */}
+      {showChargePrompt && (
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-10">
+          <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
+            <CardContent className="p-8">
+              <div className="text-center mb-6">
+                <Zap className="h-16 w-16 text-yellow-500 mx-auto mb-4 animate-pulse" />
+                <h2 className="text-3xl font-bold text-white mb-2">CHARGE DEFIBRILLATOR</h2>
+                <p className="text-gray-300">Charge to {shockEnergy} Joules</p>
+              </div>
+              
+              <div className="space-y-4">
+                <Button
+                  onClick={() => {
+                    setDefibCharging(true);
+                    setShowChargePrompt(false);
+                    triggerHaptic('medium');
+                    logEventToDb('Defibrillator charged', `${shockEnergy}J`);
+                    speak('Defibrillator charged and ready.');
+                  }}
+                  size="lg"
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-black text-xl py-6 h-auto"
+                >
+                  <Zap className="h-6 w-6 mr-3" />
+                  Charge Complete - Ready to Shock
+                </Button>
+                
+                <Button
+                  onClick={() => setShowChargePrompt(false)}
+                  size="lg"
+                  variant="outline"
+                  className="w-full text-white border-gray-600"
+                >
+                  Cancel
                 </Button>
               </div>
             </CardContent>

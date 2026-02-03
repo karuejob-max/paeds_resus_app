@@ -3384,4 +3384,11 @@ Continue to next question...
 - [x] Change defib charging at 15s before cycle end from auto-announce to prompt
 - [x] Remove redundant "charging the defib" message during reassessment
 - [x] Test defib charging workflow
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Phase 87: Charge Complete Button and Rhythm-Specific Drug Timing
+- [x] Add "Charge Complete" confirmation button when defib charging prompt appears
+- [x] Implement rhythm-specific epinephrine timing (immediate for PEA/asystole, after 2nd shock for VF/pVT)
+- [x] Test charge complete workflow
+- [x] Test rhythm-specific drug timing
+- [x] Save checkpoint
