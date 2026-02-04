@@ -13,7 +13,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { triggerHaptic } from '@/lib/haptics';
-import { ShoutForHelp } from '@/components/ShoutForHelp';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -480,8 +479,6 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Persistent Shout for Help */}
-      <ShoutForHelp variant="persistent" />
       {/* Header - Mobile Optimized */}
       <div className="bg-gray-900 border-b border-gray-700 px-3 py-2 md:px-6 md:py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">

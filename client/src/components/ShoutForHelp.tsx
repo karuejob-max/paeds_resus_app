@@ -60,16 +60,22 @@ export function ShoutForHelp({ variant = 'homepage', className = '' }: ShoutForH
         activated
           ? 'bg-green-600 hover:bg-green-700'
           : 'bg-red-700 hover:bg-red-800 animate-pulse'
-      } text-white text-xl py-8 h-auto shadow-xl ${className}`}
+      } text-white py-6 h-auto shadow-xl ${className}`}
       size="lg"
     >
-      <AlertTriangle className="h-8 w-8 mr-3" />
-      {activated ? '✓ HELP ACTIVATED' : 'SHOUT FOR HELP'}
-      {!activated && (
-        <span className="block text-sm mt-1 opacity-90">
-          Activate crash cart & emergency team
-        </span>
-      )}
+      <div className="flex flex-col items-center gap-1 w-full">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-6 w-6" />
+          <span className="text-lg font-bold">
+            {activated ? '✓ HELP ACTIVATED' : 'SHOUT FOR HELP'}
+          </span>
+        </div>
+        {!activated && (
+          <span className="text-xs opacity-90">
+            Activate crash cart & emergency team
+          </span>
+        )}
+      </div>
     </Button>
   );
 }

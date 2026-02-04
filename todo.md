@@ -3392,3 +3392,11 @@ Continue to next question...
 - [x] Test charge complete workflow
 - [x] Test rhythm-specific drug timing
 - [x] Save checkpoint
+
+## Phase 88: CPR Clock Header Cleanup and Homepage Button Fix
+- [x] Remove "Emergency activated, call for senior help" header from CPR Clock
+- [x] Remove "CPR in progress minimize interruptions" header from CPR Clock
+- [x] Keep only ResusGPS header on CPR Clock
+- [x] Fix "Shout for Help" button text overflow on homepage (stack text vertically)
+- [x] Test on mobile viewport
+- [x] Save checkpoint
