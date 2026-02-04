@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { 
   Clock, 
   CheckCircle2, 
@@ -101,6 +102,23 @@ export const ActiveInterventionsSidebar: React.FC<ActiveInterventionsSidebarProp
 
   // Track timer updates
   const [timerTick, setTimerTick] = useState(0);
+
+  // Add swipe gestures for mobile
+  useSwipeGesture({
+    onSwipeLeft: () => {
+      // Swipe left to open sidebar (only if collapsed)
+      if (collapsed && onToggleCollapse) {
+        onToggleCollapse();
+      }
+    },
+    onSwipeRight: () => {
+      // Swipe right to close sidebar (only if expanded)
+      if (!collapsed && onToggleCollapse) {
+        onToggleCollapse();
+      }
+    },
+    minSwipeDistance: 80, // Require longer swipe to avoid accidental triggers
+  });
 
   // Update timers every second
   useEffect(() => {
@@ -227,9 +245,10 @@ export const ActiveInterventionsSidebar: React.FC<ActiveInterventionsSidebarProp
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
-          className="text-slate-400 hover:text-white"
+          className="text-slate-400 hover:text-white hover:bg-slate-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label="Close sidebar"
         >
-          <ChevronRight className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </Button>
       </div>
 

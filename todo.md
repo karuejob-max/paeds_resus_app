@@ -3468,3 +3468,10 @@ Continue to next question...
 - [x] Set sidebar to collapsed by default on screens <768px
 - [x] Test on mobile viewport
 - [x] Save checkpoint
+
+## Phase 98: Add Swipe Gestures and Fix Toggle Button for Active Interventions Sidebar
+- [x] Add swipe-left gesture to open Active Interventions sidebar
+- [x] Add swipe-right gesture to close Active Interventions sidebar
+- [x] Fix missing toggle button when sidebar is expanded (made more prominent with X icon and 44px touch target)
+- [x] Test swipe gestures on mobile
+- [x] Save checkpoint
