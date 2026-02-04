@@ -139,6 +139,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [metronomeEnabled, setMetronomeEnabled] = useState(true);
   const [defibCharging, setDefibCharging] = useState(false);
   const [showChargePrompt, setShowChargePrompt] = useState(false);
+  const [showSummaryCard, setShowSummaryCard] = useState(false);
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -440,6 +441,12 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
         totalDuration: arrestDuration,
       });
     }
+    
+    // Auto-open post-ROSC protocol after 2 seconds
+    setTimeout(() => {
+      setShowPostRoscProtocol(true);
+      speak('Initiating post-resuscitation care protocol.');
+    }, 2000);
   };
 
   // Voice commands
@@ -558,6 +565,17 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             className="text-white"
           >
             <QrCode className="h-5 w-5" />
+          </Button>
+          
+          {/* Summary card */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSummaryCard(!showSummaryCard)}
+            className="text-white h-8 w-8 md:h-10 md:w-10"
+            title="Arrest Summary"
+          >
+            <Activity className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
           
           {/* Close */}
@@ -918,41 +936,125 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 <div>
                   <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Hs</h3>
                   <ul className="space-y-2 text-white text-sm md:text-base">
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hypoxia: !prev.hypoxia }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hypoxia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hypoxia</strong> - Check O₂, ventilation</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hypoxia: !prev.hypoxia }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hypoxia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hypoxia</strong> - Check O₂, ventilation</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hypoxia: true }));
+                          logEvent('intervention', 'Checked O₂/ventilation for hypoxia');
+                          speak('Hypoxia addressed');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Check O₂ & Ventilation
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hypovolemia: !prev.hypovolemia }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hypovolemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hypovolemia</strong> - Fluid bolus, blood</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hypovolemia: !prev.hypovolemia }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hypovolemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hypovolemia</strong> - Fluid bolus, blood</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hypovolemia: true }));
+                          logEvent('intervention', 'Fluid bolus given for hypovolemia');
+                          speak('Fluid bolus ordered');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Give Fluid Bolus
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hydrogen_ion: !prev.hydrogen_ion }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hydrogen_ion} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hydrogen ion (acidosis)</strong> - Ventilation</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hydrogen_ion: !prev.hydrogen_ion }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hydrogen_ion} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hydrogen ion (acidosis)</strong> - Ventilation</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hydrogen_ion: true }));
+                          logEvent('intervention', 'Optimized ventilation for acidosis');
+                          speak('Ventilation optimized');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Optimize Ventilation
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: !prev.hypokalemia }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hypokalemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hypo/Hyperkalemia</strong> - Check labs</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: !prev.hypokalemia }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hypokalemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hypo/Hyperkalemia</strong> - Check labs</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: true }));
+                          logEvent('intervention', 'Labs checked for electrolytes');
+                          speak('Labs ordered');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Check Labs
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hypothermia: !prev.hypothermia }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hypothermia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hypothermia</strong> - Rewarm</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hypothermia: !prev.hypothermia }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hypothermia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hypothermia</strong> - Rewarm</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hypothermia: true }));
+                          logEvent('intervention', 'Rewarming initiated');
+                          speak('Rewarming started');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Start Rewarming
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, hypoglycemia: !prev.hypoglycemia }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.hypoglycemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Hypoglycemia</strong> - Check glucose</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, hypoglycemia: !prev.hypoglycemia }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.hypoglycemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Hypoglycemia</strong> - Check glucose</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, hypoglycemia: true }));
+                          logEvent('intervention', 'Glucose checked/corrected');
+                          speak('Glucose checked');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Check Glucose
+                      </Button>
                     </li>
                   </ul>
                 </div>
@@ -960,41 +1062,125 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 <div>
                   <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Ts</h3>
                   <ul className="space-y-2 text-white text-sm md:text-base">
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, tension_pneumo: !prev.tension_pneumo }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.tension_pneumo} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Tension pneumothorax</strong> - Needle decompression</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, tension_pneumo: !prev.tension_pneumo }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.tension_pneumo} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Tension pneumothorax</strong> - Needle decompression</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, tension_pneumo: true }));
+                          logEvent('intervention', 'Needle decompression performed');
+                          speak('Needle decompression done');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Needle Decompression
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, tamponade: !prev.tamponade }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.tamponade} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Tamponade (cardiac)</strong> - Pericardiocentesis</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, tamponade: !prev.tamponade }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.tamponade} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Tamponade (cardiac)</strong> - Pericardiocentesis</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, tamponade: true }));
+                          logEvent('intervention', 'Pericardiocentesis performed');
+                          speak('Pericardiocentesis done');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Pericardiocentesis
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, toxins: !prev.toxins }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.toxins} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Toxins</strong> - Antidotes, decontamination</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, toxins: !prev.toxins }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.toxins} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Toxins</strong> - Antidotes, decontamination</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, toxins: true }));
+                          logEvent('intervention', 'Antidote/decontamination given');
+                          speak('Toxin treatment initiated');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Treat Toxin
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, thrombosis_pulmonary: !prev.thrombosis_pulmonary }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.thrombosis_pulmonary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Thrombosis (pulmonary)</strong> - Consider tPA</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, thrombosis_pulmonary: !prev.thrombosis_pulmonary }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.thrombosis_pulmonary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Thrombosis (pulmonary)</strong> - Consider tPA</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, thrombosis_pulmonary: true }));
+                          logEvent('intervention', 'tPA considered for PE');
+                          speak('tPA considered');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Consider tPA
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, thrombosis_coronary: !prev.thrombosis_coronary }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.thrombosis_coronary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Thrombosis (coronary)</strong> - Rare in peds</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, thrombosis_coronary: !prev.thrombosis_coronary }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.thrombosis_coronary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Thrombosis (coronary)</strong> - Rare in peds</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, thrombosis_coronary: true }));
+                          logEvent('intervention', 'Coronary thrombosis evaluated');
+                          speak('Coronary thrombosis evaluated');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Evaluate MI
+                      </Button>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
-                      setReversibleCausesChecked(prev => ({ ...prev, trauma: !prev.trauma }));
-                    }}>
-                      <input type="checkbox" checked={reversibleCausesChecked.trauma} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                      <span><strong>Trauma</strong> - Surgical intervention</span>
+                    <li className="flex flex-col gap-2 p-2 rounded border border-gray-700">
+                      <div className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-1 rounded" onClick={() => {
+                        setReversibleCausesChecked(prev => ({ ...prev, trauma: !prev.trauma }));
+                      }}>
+                        <input type="checkbox" checked={reversibleCausesChecked.trauma} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                        <span><strong>Trauma</strong> - Surgical intervention</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReversibleCausesChecked(prev => ({ ...prev, trauma: true }));
+                          logEvent('intervention', 'Surgical consult for trauma');
+                          speak('Surgical consult called');
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
+                      >
+                        Call Surgery
+                      </Button>
                     </li>
                   </ul>
                 </div>
@@ -1133,6 +1319,326 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Arrest Summary Card */}
+      {showSummaryCard && (
+        <div className="absolute top-16 right-4 w-80 md:w-96 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-10 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Arrest Summary
+            </h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSummaryCard(false)}
+              className="text-white h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="space-y-3 text-white text-sm">
+            {/* Total arrest time */}
+            <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+              <span className="text-gray-400">Total Arrest Time</span>
+              <span className="font-bold text-lg">{formatTime(arrestDuration)}</span>
+            </div>
+            
+            {/* Shocks delivered */}
+            <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+              <span className="text-gray-400 flex items-center gap-1">
+                <Zap className="h-4 w-4" />
+                Shocks Delivered
+              </span>
+              <span className="font-bold text-yellow-500">{shockCount}</span>
+            </div>
+            
+            {/* Epi doses */}
+            <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+              <span className="text-gray-400 flex items-center gap-1">
+                <Syringe className="h-4 w-4" />
+                Epinephrine Doses
+              </span>
+              <span className="font-bold text-blue-500">{epiDoses}</span>
+            </div>
+            
+            {/* Current rhythm */}
+            <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+              <span className="text-gray-400">Current Rhythm</span>
+              <span className="font-bold">
+                {rhythmType === 'vf_pvt' && 'VF/pVT'}
+                {rhythmType === 'pea' && 'PEA'}
+                {rhythmType === 'asystole' && 'Asystole'}
+                {!rhythmType && 'Not assessed'}
+              </span>
+            </div>
+            
+            {/* Antiarrhythmic */}
+            {antiarrhythmic && (
+              <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                <span className="text-gray-400">Antiarrhythmic</span>
+                <span className="font-bold text-purple-500">
+                  {antiarrhythmic === 'amiodarone' ? 'Amiodarone' : 'Lidocaine'}
+                </span>
+              </div>
+            )}
+            
+            {/* Advanced airway */}
+            <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+              <span className="text-gray-400">Advanced Airway</span>
+              <span className={`font-bold ${advancedAirwayPlaced ? 'text-green-500' : 'text-gray-500'}`}>
+                {advancedAirwayPlaced ? 'Placed' : 'Not placed'}
+              </span>
+            </div>
+            
+            {/* H's & T's checked */}
+            <div className="p-2 bg-gray-800 rounded">
+              <div className="text-gray-400 mb-2">H's & T's Addressed</div>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(reversibleCausesChecked).filter(([_, checked]) => checked).map(([key]) => (
+                  <Badge key={key} className="bg-green-600 text-xs">
+                    {key.replace('_', ' ')}
+                  </Badge>
+                ))}
+                {Object.values(reversibleCausesChecked).every(v => !v) && (
+                  <span className="text-gray-500 text-xs">None checked</span>
+                )}
+              </div>
+            </div>
+            
+            {/* ROSC status */}
+            {roscAchieved && (
+              <div className="flex items-center gap-2 p-2 bg-green-900/30 border border-green-500 rounded">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <span className="font-bold text-green-500">ROSC Achieved</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Post-ROSC Protocol Checklist */}
+      {showPostRoscProtocol && (
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-10 p-4 md:p-8 overflow-y-auto">
+          <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
+            <CardContent className="p-4 md:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-8 w-8 text-green-500" />
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-white">Post-ROSC Protocol</h2>
+                    <p className="text-gray-400 text-sm">Post-Resuscitation Care Checklist</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPostRoscProtocol(false)}
+                  className="text-white"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-3 text-white">
+                {/* TTM */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, ttm_initiated: !prev.ttm_initiated }));
+                    if (!postRoscChecklist.ttm_initiated) {
+                      logEvent('intervention', 'TTM initiated');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.ttm_initiated}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Targeted Temperature Management (TTM)</div>
+                    <div className="text-sm text-gray-400">Target 32-36°C for neuroprotection</div>
+                  </div>
+                </div>
+
+                {/* Glucose */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, glucose_checked: !prev.glucose_checked }));
+                    if (!postRoscChecklist.glucose_checked) {
+                      logEvent('intervention', 'Glucose checked post-ROSC');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.glucose_checked}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Glucose Control</div>
+                    <div className="text-sm text-gray-400">Target 80-180 mg/dL, avoid hypoglycemia</div>
+                  </div>
+                </div>
+
+                {/* Ventilation */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, ventilation_optimized: !prev.ventilation_optimized }));
+                    if (!postRoscChecklist.ventilation_optimized) {
+                      logEvent('intervention', 'Ventilation optimized post-ROSC');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.ventilation_optimized}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Ventilation Targets</div>
+                    <div className="text-sm text-gray-400">SpO₂ 94-98%, EtCO₂ 35-40 mmHg, avoid hyperventilation</div>
+                  </div>
+                </div>
+
+                {/* Blood Pressure */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, blood_pressure_stable: !prev.blood_pressure_stable }));
+                    if (!postRoscChecklist.blood_pressure_stable) {
+                      logEvent('intervention', 'Blood pressure stabilized');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.blood_pressure_stable}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Hemodynamic Stability</div>
+                    <div className="text-sm text-gray-400">Maintain age-appropriate MAP, consider vasopressors</div>
+                  </div>
+                </div>
+
+                {/* 12-lead ECG */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, ecg_12lead: !prev.ecg_12lead }));
+                    if (!postRoscChecklist.ecg_12lead) {
+                      logEvent('intervention', '12-lead ECG obtained');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.ecg_12lead}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">12-Lead ECG</div>
+                    <div className="text-sm text-gray-400">Assess for arrhythmias, ischemia</div>
+                  </div>
+                </div>
+
+                {/* Labs */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, labs_sent: !prev.labs_sent }));
+                    if (!postRoscChecklist.labs_sent) {
+                      logEvent('intervention', 'Post-ROSC labs sent');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.labs_sent}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Laboratory Tests</div>
+                    <div className="text-sm text-gray-400">CBC, CMP, lactate, ABG, troponin, coags</div>
+                  </div>
+                </div>
+
+                {/* Imaging */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, imaging_ordered: !prev.imaging_ordered }));
+                    if (!postRoscChecklist.imaging_ordered) {
+                      logEvent('intervention', 'Post-ROSC imaging ordered');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.imaging_ordered}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Imaging Studies</div>
+                    <div className="text-sm text-gray-400">CXR, head CT if indicated</div>
+                  </div>
+                </div>
+
+                {/* PICU Transfer */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist(prev => ({ ...prev, picu_contacted: !prev.picu_contacted }));
+                    if (!postRoscChecklist.picu_contacted) {
+                      logEvent('intervention', 'PICU contacted for transfer');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.picu_contacted}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">PICU Transfer Preparation</div>
+                    <div className="text-sm text-gray-400">Contact PICU team, prepare handoff, arrange transport</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  onClick={() => setShowPostRoscProtocol(false)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Close Protocol
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

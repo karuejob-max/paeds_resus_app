@@ -3424,3 +3424,14 @@ Continue to next question...
 - [x] Test antiarrhythmic timing at 3rd and 5th shock
 - [x] Test reversible causes state persistence
 - [x] Save checkpoint
+
+## Phase 92: Reversible Causes Quick Actions, Arrest Summary, and Post-ROSC Protocol
+- [x] Add quick action buttons to each H's & T's item (e.g., "Give Fluid Bolus", "Needle Decompression")
+- [x] Quick action buttons auto-check the corresponding reversible cause
+- [x] Log quick actions to event log with timestamp
+- [x] Create collapsible arrest summary card showing key metrics
+- [x] Summary card includes: total arrest time, shocks, Epi doses, rhythm changes, H's & T's checked
+- [x] Build post-ROSC protocol checklist overlay
+- [x] Post-ROSC checklist covers: TTM, glucose control, ventilation targets, PICU transfer prep
+- [x] Test all features
+- [x] Save checkpoint
