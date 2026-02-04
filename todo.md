@@ -3408,3 +3408,11 @@ Continue to next question...
 - [x] Restructure "Charge Complete - Ready to Shock" to stack vertically
 - [x] Test on mobile viewport
 - [x] Save checkpoint
+
+## Phase 90: CPR Clock Mobile UX Improvements and Visual Epi Timer
+- [x] Fix "Advanced Airway" text overflow on mobile
+- [x] Minimize "Shock Ready" box on mobile to prevent header overlap
+- [x] Reduce bottom stats buttons crowding (shocks, epi doses, rhythm, antiarrhythmic)
+- [x] Add color-changing visual timer for Epi button (green → yellow → red as 3-minute mark approaches)
+- [x] Test on mobile viewport
+- [x] Save checkpoint

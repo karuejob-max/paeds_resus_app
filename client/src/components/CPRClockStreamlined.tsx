@@ -625,10 +625,10 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   )}
                   {phase === 'shock_ready' && (
                     <>
-                      <div className="text-6xl font-bold text-yellow-500 mb-4 animate-pulse">
+                      <div className="text-3xl md:text-6xl font-bold text-yellow-500 mb-2 md:mb-4 animate-pulse">
                         SHOCK READY
                       </div>
-                      <div className="text-2xl text-gray-300 mb-6">
+                      <div className="text-base md:text-2xl text-gray-300 mb-3 md:mb-6">
                         {shockEnergy} J • Clear and shock
                       </div>
                       <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center">
@@ -660,7 +660,17 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               <Button
                 onClick={giveEpinephrine}
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-xl py-3 md:py-6 h-auto"
+                className={`text-white text-sm md:text-xl py-3 md:py-6 h-auto ${
+                  lastEpiTime === null 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : (() => {
+                        const timeSinceEpi = arrestDuration - lastEpiTime;
+                        if (timeSinceEpi >= 180) return 'bg-red-600 hover:bg-red-700 animate-pulse';
+                        if (timeSinceEpi >= 120) return 'bg-orange-600 hover:bg-orange-700';
+                        if (timeSinceEpi >= 60) return 'bg-yellow-600 hover:bg-yellow-700';
+                        return 'bg-green-600 hover:bg-green-700';
+                      })()
+                }`}
                 disabled={lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180}
               >
                 <Syringe className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
@@ -695,41 +705,41 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 onClick={() => setShowAdvancedAirwayPrompt(true)}
                 size="lg"
                 variant="outline"
-                className="text-white border-gray-600 text-lg py-6 h-auto"
+                className="text-white border-gray-600 text-xs md:text-lg py-3 md:py-6 h-auto"
               >
-                <Wind className="h-5 w-5 mr-2" />
-                Advanced Airway
+                <Wind className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
+                <span className="truncate">Adv Airway</span>
               </Button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-4">
+            {/* Stats - Mobile Optimized */}
+            <div className="grid grid-cols-4 gap-1 md:gap-4">
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-white">{shockCount}</div>
-                  <div className="text-sm text-gray-400">Shocks</div>
+                <CardContent className="p-2 md:p-4 text-center">
+                  <div className="text-xl md:text-3xl font-bold text-white">{shockCount}</div>
+                  <div className="text-xs md:text-sm text-gray-400">Shocks</div>
                 </CardContent>
               </Card>
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-white">{epiDoses}</div>
-                  <div className="text-sm text-gray-400">Epi Doses</div>
+                <CardContent className="p-2 md:p-4 text-center">
+                  <div className="text-xl md:text-3xl font-bold text-white">{epiDoses}</div>
+                  <div className="text-xs md:text-sm text-gray-400">Epi</div>
                 </CardContent>
               </Card>
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-white">
+                <CardContent className="p-2 md:p-4 text-center">
+                  <div className="text-sm md:text-3xl font-bold text-white">
                     {rhythmType === 'vf_pvt' ? 'VF/pVT' : rhythmType === 'pea' ? 'PEA' : rhythmType === 'asystole' ? 'Asystole' : 'Unknown'}
                   </div>
-                  <div className="text-sm text-gray-400">Rhythm</div>
+                  <div className="text-xs md:text-sm text-gray-400">Rhythm</div>
                 </CardContent>
               </Card>
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-4 text-center">
-                  <div className="text-3xl font-bold text-white">
+                <CardContent className="p-2 md:p-4 text-center">
+                  <div className="text-sm md:text-3xl font-bold text-white">
                     {antiarrhythmic ? (antiarrhythmic === 'amiodarone' ? 'Amio' : 'Lido') : 'None'}
                   </div>
-                  <div className="text-sm text-gray-400">Antiarrhythmic</div>
+                  <div className="text-xs md:text-sm text-gray-400">Anti</div>
                 </CardContent>
               </Card>
             </div>
