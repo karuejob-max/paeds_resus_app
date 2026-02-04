@@ -1639,10 +1639,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 
-              {/* Patient Info - Above emergency buttons */}
-              <div className="space-y-3 mb-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+              {/* Patien              {/* Patient Inputs - Minimal */}
+              <div className="mb-6">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 max-[374px]:grid-cols-1 max-[374px]:gap-3 patient-inputs-mobile">
+                  <div className="col-span-2 max-[374px]:col-span-1">
                     <Label className="text-gray-400 text-xs uppercase tracking-wide">Age</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
@@ -1685,14 +1685,14 @@ export const ClinicalAssessmentGPS: React.FC = () => {
               </div>
 
               {/* Emergency Quick Access - Reordered for mobile */}
-              <div className="space-y-2 mb-4">
+              <div className="space-y-3 mb-4 btn-stack">
                 {/* SHOUT FOR HELP - Before any assessment */}
                 <ShoutForHelp variant="homepage" className="mb-4" />
 
                 {/* CARDIAC ARREST - Red, most prominent */}
                 <button
                   onClick={() => setLocation('/clinical-assessment?scenario=cardiac_arrest')}
-                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-red-900/50 transition-all"
+                  className="w-full bg-red-600 hover:bg-red-700 active:scale-98 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-base md:text-sm font-bold shadow-lg shadow-red-900/50 transition-all min-h-[56px] clinical-action-button"
                 >
                   <Heart className="h-4 w-4" />
                   CARDIAC ARREST
@@ -1701,7 +1701,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 {/* MEDICAL - Orange, below cardiac arrest */}
                 <button
                   onClick={handleStartAssessment}
-                  className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-900/50 transition-all"
+                  className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-base md:text-sm font-bold shadow-lg shadow-orange-900/50 transition-all min-h-[56px] clinical-action-button"
                 >
                   <Stethoscope className="h-4 w-4" />
                   MEDICAL
@@ -1710,7 +1710,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 {/* NEONATAL - Pink */}
                 <button
                   onClick={() => setLocation('/nrp')}
-                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-pink-900/50 transition-all"
+                  className="w-full bg-pink-600 hover:bg-pink-700 active:scale-98 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-base md:text-sm font-bold shadow-lg shadow-pink-900/50 transition-all min-h-[56px] clinical-action-button"
                 >
                   <Baby className="h-4 w-4" />
                   NEONATAL
@@ -1719,7 +1719,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 {/* TRAUMA - Cyan */}
                 <button
                   onClick={() => setLocation('/trauma')}
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-cyan-900/50 transition-all"
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 active:scale-98 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-base md:text-sm font-bold shadow-lg shadow-cyan-900/50 transition-all min-h-[56px] clinical-action-button"
                 >
                   <Shield className="h-4 w-4" />
                   TRAUMA
