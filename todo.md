@@ -3435,3 +3435,10 @@ Continue to next question...
 - [x] Post-ROSC checklist covers: TTM, glucose control, ventilation targets, PICU transfer prep
 - [x] Test all features
 - [x] Save checkpoint
+
+## Phase 93: Fix Cardiac Arrest Protocol Error
+- [x] Investigate browser console and server logs for error details
+- [x] Identify root cause of "unexpected error" when opening Cardiac Arrest
+- [x] Fix the error (set default weight of 4.5kg when weight is 0)
+- [x] Test Cardiac Arrest protocol opens successfully
+- [x] Save checkpoint

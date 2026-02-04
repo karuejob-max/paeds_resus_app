@@ -1415,6 +1415,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       switch (scenarioParam) {
         case 'cardiac_arrest':
           // Cardiac arrest - immediately start CPR, skip to pulse assessment
+          // Set weight to effective weight if not already set
+          if (weight === 0) {
+            setPatientData(prev => ({ ...prev, weight: effectiveWeight }));
+          }
           setCaseStartTime(new Date());
           setCurrentPhase('signs_of_life');
           setCurrentQuestionId('pulse');
