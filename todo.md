@@ -3400,3 +3400,11 @@ Continue to next question...
 - [x] Fix "Shout for Help" button text overflow on homepage (stack text vertically)
 - [x] Test on mobile viewport
 - [x] Save checkpoint
+
+## Phase 89: Remove Remaining CPR Clock Banners and Fix Mobile Text Overflow
+- [x] Remove "Emergency Activated - Call for senior help" floating tag from CPR Clock
+- [x] Remove "CPR in progress" banner from CPR Clock
+- [x] Reduce "Compressions" text size for mobile (currently showing "compress..." due to overflow)
+- [x] Restructure "Charge Complete - Ready to Shock" to stack vertically
+- [x] Test on mobile viewport
+- [x] Save checkpoint

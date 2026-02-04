@@ -102,24 +102,6 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
     <div className={`fixed top-0 left-0 right-0 z-50 ${
       emergencyActivated ? 'bg-red-900' : 'bg-slate-900'
     } border-b border-slate-700 shadow-lg`}>
-      {/* Emergency Banner */}
-      {emergencyActivated && (
-        <div className="bg-red-600 text-white py-1 px-4 text-center text-sm font-bold animate-pulse">
-          <AlertTriangle className="inline h-4 w-4 mr-2" />
-          EMERGENCY ACTIVATED - CALL FOR SENIOR HELP
-          <AlertTriangle className="inline h-4 w-4 ml-2" />
-        </div>
-      )}
-
-      {/* CPR Banner */}
-      {cprActive && (
-        <div className="bg-purple-600 text-white py-1 px-4 text-center text-sm font-bold">
-          <Heart className="inline h-4 w-4 mr-2 animate-pulse" />
-          CPR IN PROGRESS - Minimize interruptions
-          <Heart className="inline h-4 w-4 ml-2 animate-pulse" />
-        </div>
-      )}
-
       {/* Main Header */}
       <div className="px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">

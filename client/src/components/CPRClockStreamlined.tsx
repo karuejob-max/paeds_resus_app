@@ -607,10 +607,10 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 <div className="text-center">
                   {phase === 'compressions' && (
                     <>
-                      <div className="text-6xl font-bold text-red-500 mb-4 animate-pulse">
+                      <div className="text-3xl md:text-6xl font-bold text-red-500 mb-4 animate-pulse">
                         COMPRESSIONS
                       </div>
-                      <div className="text-2xl text-gray-300">
+                      <div className="text-lg md:text-2xl text-gray-300">
                         Next rhythm check in {formatTime(120 - cycleTime)}
                       </div>
                     </>
@@ -800,10 +800,15 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                     speak('Defibrillator charged and ready.');
                   }}
                   size="lg"
-                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-black text-xl py-6 h-auto"
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-black py-6 h-auto"
                 >
-                  <Zap className="h-6 w-6 mr-3" />
-                  Charge Complete - Ready to Shock
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-6 w-6" />
+                      <span className="text-xl font-bold">Charge Complete</span>
+                    </div>
+                    <span className="text-base">Ready to Shock</span>
+                  </div>
                 </Button>
                 
                 <Button
