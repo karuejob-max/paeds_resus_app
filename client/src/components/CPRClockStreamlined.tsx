@@ -111,6 +111,22 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [advancedAirwayPlaced, setAdvancedAirwayPlaced] = useState(false);
   const [roscAchieved, setRoscAchieved] = useState(false);
   
+  // Reversible causes tracking (H's & T's)
+  const [reversibleCausesChecked, setReversibleCausesChecked] = useState<Record<string, boolean>>({
+    hypoxia: false,
+    hypovolemia: false,
+    hydrogen_ion: false,
+    hypokalemia: false,
+    hypothermia: false,
+    hypoglycemia: false,
+    tension_pneumo: false,
+    tamponade: false,
+    toxins: false,
+    thrombosis_pulmonary: false,
+    thrombosis_coronary: false,
+    trauma: false,
+  });
+  
   // Event log
   const [events, setEvents] = useState<ArrestEvent[]>([]);
   
@@ -253,10 +269,9 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             speak('Consider epinephrine.');
           }
           
-          // Reversible causes prompt every 4 minutes
+          // Reversible causes reminder every 4 minutes (audio only, no auto-popup)
           if (arrestDuration > 0 && arrestDuration % 240 === 0) {
             speak('Review reversible causes.');
-            setShowReversibleCauses(true);
           }
           
           // Advanced airway prompt at 4 minutes if not placed
@@ -363,8 +378,8 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
       speak(`Give epinephrine ${epiDose} milligrams now.`);
     }
     
-    // Antiarrhythmic after 5th shock
-    if (newShockCount === 5 && !antiarrhythmic) {
+    // Antiarrhythmic after 3rd and 5th shock (per AHA guidelines)
+    if ((newShockCount === 3 || newShockCount === 5) && !antiarrhythmic) {
       setShowAntiarrhythmicChoice(true);
       speak('Consider antiarrhythmic. Choose amiodarone or lidocaine.');
     }
@@ -903,46 +918,40 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 <div>
                   <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Hs</h3>
                   <ul className="space-y-2 text-white text-sm md:text-base">
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hypoxia: !prev.hypoxia }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hypoxia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypoxia</strong> - Check O₂, ventilation</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hypovolemia: !prev.hypovolemia }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hypovolemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypovolemia</strong> - Fluid bolus, blood</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hydrogen_ion: !prev.hydrogen_ion }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hydrogen_ion} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hydrogen ion (acidosis)</strong> - Ventilation</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: !prev.hypokalemia }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hypokalemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypo/Hyperkalemia</strong> - Check labs</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hypothermia: !prev.hypothermia }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hypothermia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypothermia</strong> - Rewarm</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, hypoglycemia: !prev.hypoglycemia }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.hypoglycemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Hypoglycemia</strong> - Check glucose</span>
                     </li>
                   </ul>
@@ -951,46 +960,40 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                 <div>
                   <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Ts</h3>
                   <ul className="space-y-2 text-white text-sm md:text-base">
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, tension_pneumo: !prev.tension_pneumo }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.tension_pneumo} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Tension pneumothorax</strong> - Needle decompression</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, tamponade: !prev.tamponade }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.tamponade} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Tamponade (cardiac)</strong> - Pericardiocentesis</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, toxins: !prev.toxins }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.toxins} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Toxins</strong> - Antidotes, decontamination</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, thrombosis_pulmonary: !prev.thrombosis_pulmonary }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.thrombosis_pulmonary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Thrombosis (pulmonary)</strong> - Consider tPA</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, thrombosis_coronary: !prev.thrombosis_coronary }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.thrombosis_coronary} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Thrombosis (coronary)</strong> - Rare in peds</span>
                     </li>
-                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={(e) => {
-                      const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
-                      if (checkbox) checkbox.click();
+                    <li className="flex items-start gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded" onClick={() => {
+                      setReversibleCausesChecked(prev => ({ ...prev, trauma: !prev.trauma }));
                     }}>
-                      <input type="checkbox" className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
+                      <input type="checkbox" checked={reversibleCausesChecked.trauma} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                       <span><strong>Trauma</strong> - Surgical intervention</span>
                     </li>
                   </ul>

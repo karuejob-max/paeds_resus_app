@@ -3416,3 +3416,11 @@ Continue to next question...
 - [x] Add color-changing visual timer for Epi button (green → yellow → red as 3-minute mark approaches)
 - [x] Test on mobile viewport
 - [x] Save checkpoint
+
+## Phase 91: Fix Antiarrhythmic Timing and Reversible Causes Workflow
+- [x] Fix antiarrhythmic prompt to appear after BOTH 3rd and 5th shocks (currently only after 5th)
+- [x] Remove reversible causes auto-popup during rhythm check (bad timing)
+- [x] Add state persistence for reversible causes checkboxes (track which H's & T's assessed)
+- [x] Test antiarrhythmic timing at 3rd and 5th shock
+- [x] Test reversible causes state persistence
+- [x] Save checkpoint
