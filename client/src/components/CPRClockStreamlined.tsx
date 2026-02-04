@@ -140,6 +140,17 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [defibCharging, setDefibCharging] = useState(false);
   const [showChargePrompt, setShowChargePrompt] = useState(false);
   const [showSummaryCard, setShowSummaryCard] = useState(false);
+  const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
+  const [postRoscChecklist, setPostRoscChecklist] = useState({
+    ttm_initiated: false,
+    glucose_checked: false,
+    ventilation_optimized: false,
+    blood_pressure_stable: false,
+    ecg_12lead: false,
+    labs_sent: false,
+    imaging_ordered: false,
+    picu_contacted: false,
+  });
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);

@@ -3442,3 +3442,12 @@ Continue to next question...
 - [x] Fix the error (set default weight of 4.5kg when weight is 0)
 - [x] Test Cardiac Arrest protocol opens successfully
 - [x] Save checkpoint
+
+## Phase 94: Debug Cardiac Arrest Still Not Opening
+- [x] Test Cardiac Arrest button and capture actual runtime error
+- [x] Check browser console for JavaScript errors
+- [x] Verify CPR Clock component is rendering when cprActive is true
+- [x] Identify root cause preventing CPR Clock from displaying (missing state declarations)
+- [x] Fix the issue (added showPostRoscProtocol and postRoscChecklist states)
+- [x] Test and verify Cardiac Arrest opens successfully
+- [x] Save checkpoint
