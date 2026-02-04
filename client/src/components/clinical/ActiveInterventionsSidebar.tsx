@@ -211,7 +211,7 @@ export const ActiveInterventionsSidebar: React.FC<ActiveInterventionsSidebarProp
   }
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 bg-slate-900/95 border-l border-slate-700 z-40 overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed right-0 top-0 h-full w-full sm:w-80 md:w-96 bg-slate-900/95 border-l border-slate-700 z-40 overflow-hidden flex flex-col shadow-2xl">
       {/* Header */}
       <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800">
         <div className="flex items-center gap-2">

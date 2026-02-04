@@ -192,7 +192,13 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [moduleContext, setModuleContext] = useState<any>(null);
 
   // UI state
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Collapse sidebar by default on mobile screens (< 768px)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
   const [emergencyActivated, setEmergencyActivated] = useState(false);
   
   // Clinical safety flags - track conditions that contraindicate certain interventions

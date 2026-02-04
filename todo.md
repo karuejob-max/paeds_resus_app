@@ -3462,3 +3462,9 @@ Continue to next question...
 - [x] Add swipe gestures for navigation (swipe right to go back - already exists in useSwipeGesture hook)
 - [x] Test on mobile viewports (320px-414px)
 - [x] Save checkpoint
+
+## Phase 97: Fix Active Interventions Sidebar Blocking Assessment on Mobile
+- [x] Make Active Interventions sidebar full-width on mobile screens
+- [x] Set sidebar to collapsed by default on screens <768px
+- [x] Test on mobile viewport
+- [x] Save checkpoint
