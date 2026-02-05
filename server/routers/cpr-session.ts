@@ -335,4 +335,16 @@ Keep the tone supportive and constructive. Focus on actionable insights.`;
         return { insights: 'Unable to generate insights. Please review the metrics manually and consult with your team.' };
       }
     }),
+
+  // Get all CPR sessions (for monitoring dashboard)
+  getAllSessions: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('Database not available');
+
+      // Get all sessions, ordered by most recent first
+      const sessions = await db.select().from(cprSessions).orderBy(desc(cprSessions.startTime)).limit(1000);
+
+      return sessions;
+    }),
 });

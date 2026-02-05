@@ -8,6 +8,7 @@ import ClinicalAssessment from "./pages/ClinicalAssessment";
 import ClinicalAssessmentGPS from "./pages/ClinicalAssessmentGPS";
 import { NRPAssessment } from "./pages/NRPAssessment";
 import { TraumaAssessment } from "./pages/TraumaAssessment";
+import CPRMonitoring from "./pages/CPRMonitoring";
 import { Toaster } from "@/components/ui/sonner";
 
 // Lazy load heavier components
@@ -110,6 +111,9 @@ function Router() {
           {/* ECG/Arrhythmia Recognition */}
           <Route path="/ecg" component={ArrhythmiaPage} />
           <Route path="/arrhythmia" component={ArrhythmiaPage} />
+          {/* CPR Session Monitoring Dashboard */}
+          <Route path="/cpr-monitoring" component={CPRMonitoring} />
+          <Route path="/monitoring" component={CPRMonitoring} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>
