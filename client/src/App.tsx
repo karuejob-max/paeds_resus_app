@@ -9,6 +9,7 @@ import ClinicalAssessmentGPS from "./pages/ClinicalAssessmentGPS";
 import { NRPAssessment } from "./pages/NRPAssessment";
 import { TraumaAssessment } from "./pages/TraumaAssessment";
 import CPRMonitoring from "./pages/CPRMonitoring";
+import SessionDetails from "./pages/SessionDetails";
 import { Toaster } from "@/components/ui/sonner";
 
 // Lazy load heavier components
@@ -114,6 +115,8 @@ function Router() {
           {/* CPR Session Monitoring Dashboard */}
           <Route path="/cpr-monitoring" component={CPRMonitoring} />
           <Route path="/monitoring" component={CPRMonitoring} />
+          {/* CPR Session Details */}
+          <Route path="/cpr-monitoring/session/:id" component={SessionDetails} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>

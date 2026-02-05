@@ -347,4 +347,38 @@ Keep the tone supportive and constructive. Focus on actionable insights.`;
 
       return sessions;
     }),
+
+  // Get detailed session information with events and team members
+  getSessionDetails: protectedProcedure
+    .input(z.object({
+      sessionId: z.number(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('Database not available');
+
+      // Get session
+      const sessions = await db.select().from(cprSessions).where(eq(cprSessions.id, input.sessionId)).limit(1);
+      const session = sessions[0];
+
+      if (!session) {
+        throw new Error('Session not found');
+      }
+
+      // Get all events for this session, ordered by time
+      const events = await db.select().from(cprEvents)
+        .where(eq(cprEvents.cprSessionId, input.sessionId))
+        .orderBy(cprEvents.eventTime);
+
+      // Get team members
+      const teamMembers = await db.select().from(cprTeamMembers)
+        .where(eq(cprTeamMembers.sessionId, input.sessionId));
+
+      return {
+        session,
+        events,
+        teamMembers,
+      };
+    }),
 });
+

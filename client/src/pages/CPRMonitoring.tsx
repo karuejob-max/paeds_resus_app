@@ -275,8 +275,7 @@ export default function CPRMonitoring() {
                           variant="outline"
                           className="border-gray-600 text-white text-xs"
                           onClick={() => {
-                            // Navigate to session details (to be implemented)
-                            alert(`View details for session ${session.id}`);
+                            window.location.href = `/cpr-monitoring/session/${session.id}`;
                           }}
                         >
                           View Details

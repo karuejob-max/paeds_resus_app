@@ -3502,3 +3502,17 @@ Continue to next question...
 - [x] Document monitoring procedures
 - [x] Test monitoring dashboard
 - [ ] Save checkpoint
+
+## Phase 102: Detailed Session View with Event Timeline and AI Debriefing
+- [x] Create SessionDetails page component
+- [x] Add route for /cpr-monitoring/session/:id
+- [x] Build getSessionDetails tRPC procedure (session + events + team members)
+- [x] Display session header with key metrics (duration, outcome, patient data)
+- [x] Build event timeline with timestamps and descriptions
+- [x] Display team member roster with roles
+- [x] Add quality metrics cards (compression fraction, time to interventions)
+- [x] Integrate AI debriefing insights with generateAIInsights procedure
+- [x] Add loading states and error handling
+- [x] Make "View Details" button navigate to session details page
+- [x] Test session details view
+- [ ] Save checkpoint
