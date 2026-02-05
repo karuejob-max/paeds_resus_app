@@ -152,16 +152,12 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   // Swipe gestures: right = home, left = browser back
   useSwipeGesture({
     onSwipeRight: () => {
-      // Only navigate home if not in setup phase (to avoid accidental exits)
-      if (currentPhase !== 'setup') {
-        setLocation('/clinical-assessment');
-      }
+      // Navigate home on swipe-right (no phase restriction)
+      setLocation('/clinical-assessment');
     },
     onSwipeLeft: () => {
       // Browser back navigation
-      if (currentPhase !== 'setup') {
-        window.history.back();
-      }
+      window.history.back();
     },
     minSwipeDistance: 80, // Require longer swipe to avoid accidental triggers
   });

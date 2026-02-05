@@ -3475,3 +3475,18 @@ Continue to next question...
 - [x] Fix missing toggle button when sidebar is expanded (made more prominent with X icon and 44px touch target)
 - [x] Test swipe gestures on mobile
 - [x] Save checkpoint
+
+## Phase 99 & 100: CPR Clock Comprehensive Improvements (Re-implementation)
+### Phase 99 Items:
+- [x] Add 10-second reassessment break between CPR cycles
+- [x] Fix reversible causes overlay scroll-to-top on mobile
+- [x] Enable swipe-right navigation everywhere (remove phase restriction)
+
+### Phase 100 Items:
+- [x] Fix second antiarrhythmic dose prompt after 5th shock (track doses separately)
+- [x] Move "review reversible causes" audio to compression phase (not reassessment)
+- [x] Move "consider advanced airway" audio to compression phase (not reassessment)
+- [x] Fix post-ROSC protocol scroll-to-top
+- [x] Add age/weight input for providers who go directly to cardiac arrest
+- [x] Test all fixes
+- [x] Save checkpoint

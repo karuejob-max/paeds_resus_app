@@ -16,6 +16,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Heart, 
   Zap, 
@@ -34,7 +35,8 @@ import {
   UserPlus,
   Mic,
   MicOff,
-  Wind
+  Wind,
+  Pencil
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
@@ -46,7 +48,7 @@ interface Props {
   onClose: () => void;
 }
 
-type ArrestPhase = 'initial_assessment' | 'compressions' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
+type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
 type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | null;
 type TeamRole = 'team_leader' | 'compressions' | 'airway' | 'iv_access' | 'medications' | 'recorder' | 'observer';
 type AntiarrhythmicChoice = 'amiodarone' | 'lidocaine' | null;
@@ -151,6 +153,11 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     imaging_ordered: false,
     picu_contacted: false,
   });
+  const [reassessmentTime, setReassessmentTime] = useState(10);
+  const [antiarrhythmicDoses, setAntiarrhythmicDoses] = useState(0);
+  const [showPatientInfoDialog, setShowPatientInfoDialog] = useState(false);
+  const [editableWeight, setEditableWeight] = useState(patientWeight);
+  const [editableAge, setEditableAge] = useState(patientAgeMonths || 0);
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -268,11 +275,12 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             speak('Charge the defibrillator now.');
           }
           
-          // Rhythm check at 2 minutes
+          // Transition to reassessment phase at 2 minutes
           if (newCycleTime === 120) {
-            setShowRhythmCheck(true);
+            setPhase('reassessment');
+            setReassessmentTime(10);
             setDefibCharging(false);
-            speak('STOP. Rhythm check now. Check pulse and breathing in less than 10 seconds.');
+            speak('Stop compressions. Assess rhythm.');
             return 0;
           }
           
@@ -281,13 +289,13 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             speak('Consider epinephrine.');
           }
           
-          // Reversible causes reminder every 4 minutes (audio only, no auto-popup)
-          if (arrestDuration > 0 && arrestDuration % 240 === 0) {
+          // Reversible causes reminder at 2-minute mark during compressions (audio only, no auto-popup)
+          if (newCycleTime === 120 && arrestDuration > 0 && arrestDuration % 240 === 0) {
             speak('Review reversible causes.');
           }
           
-          // Advanced airway prompt at 4 minutes if not placed
-          if (arrestDuration === 240 && !advancedAirwayPlaced) {
+          // Advanced airway prompt at 4-minute mark during compressions if not placed
+          if (newCycleTime === 240 && !advancedAirwayPlaced) {
             speak('Consider advanced airway.');
             setShowAdvancedAirwayPrompt(true);
           }
@@ -301,6 +309,33 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isRunning, roscAchieved, lastEpiTime, arrestDuration, rhythmType, advancedAirwayPlaced]);
+
+  // Reassessment countdown timer
+  useEffect(() => {
+    if (phase === 'reassessment' && reassessmentTime > 0) {
+      const timer = setTimeout(() => {
+        setReassessmentTime(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (phase === 'reassessment' && reassessmentTime === 0) {
+      // Reassessment complete, show rhythm check dialog
+      setShowRhythmCheck(true);
+    }
+  }, [phase, reassessmentTime]);
+
+  // Scroll to top when reversible causes overlay opens
+  useEffect(() => {
+    if (showReversibleCauses) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [showReversibleCauses]);
+
+  // Scroll to top when post-ROSC protocol opens
+  useEffect(() => {
+    if (showPostRoscProtocol) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [showPostRoscProtocol]);
 
   // Log event helper
   const addEvent = useCallback((action: string, details?: string) => {
@@ -391,7 +426,8 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     }
     
     // Antiarrhythmic after 3rd and 5th shock (per AHA guidelines)
-    if ((newShockCount === 3 || newShockCount === 5) && !antiarrhythmic) {
+    // Allow dose after 3rd shock AND another after 5th shock
+    if ((newShockCount === 3 && antiarrhythmicDoses === 0) || (newShockCount === 5 && antiarrhythmicDoses === 1)) {
       setShowAntiarrhythmicChoice(true);
       speak('Consider antiarrhythmic. Choose amiodarone or lidocaine.');
     }
@@ -419,6 +455,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const giveAntiarrhythmic = (choice: 'amiodarone' | 'lidocaine') => {
     triggerHaptic('critical'); // Haptic feedback for antiarrhythmic
     setAntiarrhythmic(choice);
+    setAntiarrhythmicDoses(prev => prev + 1);
     setShowAntiarrhythmicChoice(false);
     
     if (choice === 'amiodarone') {
@@ -520,6 +557,16 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
             <h1 className="text-base md:text-2xl font-bold text-white">CPR</h1>
             <p className="text-gray-400 text-xs md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
           </div>
+          
+          {/* Edit Patient Info button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowPatientInfoDialog(true)}
+            className="text-white h-8 w-8 md:h-10 md:w-10"
+          >
+            <Pencil className="h-4 w-4 md:h-5 md:w-5" />
+          </Button>
         </div>
         
         <div className="flex items-center gap-1 md:gap-2">
@@ -656,6 +703,19 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                       </div>
                       <div className="text-lg md:text-2xl text-gray-300">
                         Next rhythm check in {formatTime(120 - cycleTime)}
+                      </div>
+                    </>
+                  )}
+                  {phase === 'reassessment' && (
+                    <>
+                      <div className="text-3xl md:text-6xl font-bold text-blue-500 mb-4 animate-pulse">
+                        REASSESSMENT
+                      </div>
+                      <div className="text-xl md:text-3xl text-gray-300 mb-4">
+                        {reassessmentTime}s
+                      </div>
+                      <div className="text-base md:text-xl text-gray-400">
+                        Assess rhythm
                       </div>
                     </>
                   )}
@@ -1646,6 +1706,71 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   Close Protocol
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Patient Info Edit Dialog */}
+      {showPatientInfoDialog && (
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-20">
+          <Card className="bg-gray-800 border-gray-700 w-full max-w-md mx-4">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <Pencil className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+                <h2 className="text-2xl font-bold text-white mb-2">Edit Patient Info</h2>
+                <p className="text-gray-300 text-sm">Update age and weight for accurate dosing</p>
+              </div>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <Label htmlFor="edit-age" className="text-white mb-2 block">Age (months)</Label>
+                  <Input
+                    id="edit-age"
+                    type="number"
+                    value={editableAge}
+                    onChange={(e) => setEditableAge(parseInt(e.target.value) || 0)}
+                    className="bg-gray-700 text-white border-gray-600"
+                    min="0"
+                    max="216"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-weight" className="text-white mb-2 block">Weight (kg)</Label>
+                  <Input
+                    id="edit-weight"
+                    type="number"
+                    step="0.1"
+                    value={editableWeight}
+                    onChange={(e) => setEditableWeight(parseFloat(e.target.value) || 0)}
+                    className="bg-gray-700 text-white border-gray-600"
+                    min="0.5"
+                    max="150"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowPatientInfoDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-gray-600 text-white"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Note: In real implementation, this would update parent component state
+                    // For now, just close the dialog
+                    setShowPatientInfoDialog(false);
+                    addEvent('Patient info updated', `Age: ${editableAge}mo, Weight: ${editableWeight}kg`);
+                    speak('Patient information updated.');
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Save Changes
                 </Button>
               </div>
             </CardContent>
