@@ -24,17 +24,17 @@ export function VoiceCommandTutorial({ onClose, onStartTutorial }: VoiceCommandT
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border-2 border-cyan-500 rounded-lg max-w-2xl w-full p-6 shadow-2xl">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-gray-900 border-2 border-cyan-500 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-cyan-500/20 rounded-full flex items-center justify-center">
-              <Mic className="h-6 w-6 text-cyan-400" />
+            <div className="h-10 w-10 sm:h-12 sm:w-12 bg-cyan-500/20 rounded-full flex items-center justify-center">
+              <Mic className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Hands-Free Voice Commands</h2>
-              <p className="text-gray-400 text-sm">Work faster during resuscitation</p>
+              <h2 className="text-lg sm:text-2xl font-bold text-white">Hands-Free Voice Commands</h2>
+              <p className="text-gray-400 text-xs sm:text-sm">Work faster during resuscitation</p>
             </div>
           </div>
           <Button
@@ -48,7 +48,7 @@ export function VoiceCommandTutorial({ onClose, onStartTutorial }: VoiceCommandT
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
           {[1, 2, 3].map((s) => (
             <div
               key={s}
@@ -145,7 +145,7 @@ export function VoiceCommandTutorial({ onClose, onStartTutorial }: VoiceCommandT
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-700">
+        <div className="flex items-center justify-between mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-700">
           <Button
             onClick={() => setStep(Math.max(1, step - 1))}
             disabled={step === 1}
@@ -172,7 +172,7 @@ export function VoiceCommandTutorial({ onClose, onStartTutorial }: VoiceCommandT
                 if (onStartTutorial) onStartTutorial();
                 onClose();
               }}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base px-3 sm:px-4"
             >
               Got It! Start Using Voice
             </Button>

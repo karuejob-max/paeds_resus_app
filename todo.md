@@ -418,5 +418,12 @@
 - [x] Remove all 5 quick access buttons (CARDIAC ARREST, SHOUT FOR HELP, MEDICAL, NEONATAL, TRAUMA - all in EmergencyLauncher)
 - [x] Remove FeatureSpotlight carousel (move discovery to inside assessment)
 - [x] Optimize single-button layout for maximum visual impact (48-64 height, giant icons)
-- [ ] Test simplified homepage (1 second to action, zero cognitive load)
+- [x] Test simplified homepage (1 second to action, zero cognitive load)
+- [x] Save checkpoint
+
+
+## Phase 127: Fix Voice Command Tutorial Mobile Visibility
+- [x] Fix VoiceCommandTutorial button visibility on mobile (reduced padding, responsive text sizes)
+- [x] Ensure tutorial content doesn't overflow on small screens (max-h-[90vh] with scroll)
+- [x] Make all elements mobile-responsive (icons, headers, buttons scale down on small screens)
 - [ ] Save checkpoint
