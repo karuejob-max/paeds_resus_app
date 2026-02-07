@@ -3598,3 +3598,25 @@ Continue to next question...
 - [x] Integrate DKA protocol into emergency launcher
 - [x] Test DKA protocol end-to-end
 - [ ] Save checkpoint
+
+## Phase 109: Septic Shock Protocol (Surviving Sepsis Campaign Guidelines)
+- [x] Create SepticShockProtocol component with shock recognition and severity assessment
+- [x] Add fluid resuscitation protocol (10-20 mL/kg boluses up to 40-60 mL/kg total)
+- [x] Build age-appropriate fluid limits (neonates vs infants vs children)
+- [x] Add early goal-directed therapy targets (MAP, perfusion, lactate)
+- [x] Implement inotrope/vasopressor selection guide (dopamine, epinephrine, norepinephrine)
+- [x] Add antibiotic timing calculator (within 1 hour of recognition)
+- [x] Build source control checklist
+- [x] Add fluid overload monitoring and reassessment prompts
+- [x] Integrate Septic Shock protocol into emergency launcher
+- [x] Test Septic Shock protocol end-to-end
+- [ ] Save checkpoint
+
+## Phase 110: DKA Age-Based Protocol Adaptations
+- [ ] Add age group detection (infant <1y, child 1-12y, adolescent 12-18y)
+- [ ] Implement infant-specific fluid rates (slower, more conservative)
+- [ ] Add adolescent-specific considerations (higher cerebral edema risk)
+- [ ] Adjust insulin dosing by age group
+- [ ] Update monitoring frequency by age
+- [ ] Test age-based adaptations
+- [ ] Save checkpoint
