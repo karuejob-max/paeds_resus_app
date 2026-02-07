@@ -284,3 +284,32 @@
   - [ ] Test background sync when reconnecting
   - [ ] Test collaborative session conflict resolution
 - [ ] Save checkpoint
+
+
+## Protocol Audit & Feature Integration (Preserve Existing Pediatric Emergency GPS Features)
+- [x] Read and audit Cardiac Arrest protocol for unique features
+- [x] Read and audit Neonatal Resuscitation protocol for unique features
+- [x] Read and audit Medical Emergencies protocol for unique features
+- [x] Read and audit Trauma protocol for unique features
+- [x] Document immediate intervention tracking systems from existing protocols
+- [x] Document sidebar intervention tracking UI patterns
+- [x] Document real-time guidance mechanisms (timers, alerts, prompts)
+- [x] Document weight-based dosing calculators and drug libraries
+- [x] Document CPR quality metrics and feedback systems
+- [x] Extract intervention logging and timeline features
+- [x] Map existing features to new Clinical Reasoning Engine architecture
+
+## Phase 1: Critical Features Integration (GPS Flow + Timer + Intervention Sidebar)
+- [ ] Build reusable Timer Service with intervention logging
+- [ ] Build Intervention Logger with timestamp tracking
+- [ ] Build Immediate Intervention Sidebar component
+- [ ] Add intervention status tracking (Started, In Progress, Completed)
+- [ ] Add time-based reminders to sidebar
+- [ ] Refactor Primary Survey to GPS-style single-question flow
+- [ ] Add immediate intervention triggers to Primary Survey
+- [ ] Integrate Timer Service into all 10 specialized protocols
+- [ ] Integrate Intervention Sidebar into all 10 specialized protocols
+- [ ] Add protocol-specific timers and alerts
+- [ ] Test GPS flow with multiple clinical scenarios
+- [ ] Test intervention logging and sidebar persistence
+- [ ] Save checkpoint
