@@ -325,3 +325,15 @@
 - [x] Update routes to use single consolidated assessment flow
 - [x] Test consolidated flow end-to-end
 - [ ] Save checkpoint
+
+
+## Phase 120: Voice Command Integration for Hands-Free Operation
+- [x] Adapt voice command service for question-driven architecture
+- [x] Add voice command UI controls to ClinicalAssessmentGPS header
+- [x] Implement voice-to-answer mapping for boolean questions
+- [x] Implement voice-to-answer mapping for select questions
+- [x] Implement voice-to-answer mapping for numeric input questions
+- [x] Add visual feedback for voice recognition (pulsing microphone icon)
+- [x] Add audio feedback for successful voice command recognition
+- [x] Test voice commands with all question types
+- [ ] Save checkpoint

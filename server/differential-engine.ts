@@ -1372,7 +1372,7 @@ function analyzePneumonia(data: PrimarySurveyData): Differential {
     probability: Math.min(probability, 0.95),
     keyFindings: findings,
     missingData,
-    confirmatory Questions: [
+    confirmatoryQuestions: [
       { id: 'pneumonia_cough', text: 'Productive cough?', weight: 0.1 },
       { id: 'pneumonia_chest_pain', text: 'Chest pain or pleuritic pain?', weight: 0.1 },
       { id: 'pneumonia_duration', text: 'Symptoms >3 days?', weight: 0.05 },
@@ -2069,7 +2069,7 @@ function analyzeGBS(data: PrimarySurveyData): Differential {
 // TIER 2 GI EMERGENCIES
 // ============================================================================
 
-function analyzeAppendicit is(data: PrimarySurveyData): Differential {
+function analyzeAppendicitis(data: PrimarySurveyData): Differential {
   let probability = 0;
   const findings: string[] = [];
   const missingData: string[] = [];

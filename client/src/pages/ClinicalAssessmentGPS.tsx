@@ -229,6 +229,30 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [voiceSupported] = useState(voiceCommandService.isSupported());
 
+  // Handle voice command toggle
+  const handleToggleVoice = () => {
+    if (isVoiceActive) {
+      voiceCommandService.stopListening();
+      setIsVoiceActive(false);
+    } else {
+      const started = voiceCommandService.startListening(currentQuestionId, (transcript, data) => {
+        console.log('Voice command received:', transcript, data);
+        // Handle voice command data
+        if (data && data.value !== undefined) {
+          handleAnswer(data.value);
+        }
+      });
+      setIsVoiceActive(started);
+    }
+  };
+
+  // Update voice service with current question when it changes
+  useEffect(() => {
+    if (isVoiceActive) {
+      voiceCommandService.setCurrentQuestion(currentQuestionId);
+    }
+  }, [currentQuestionId, isVoiceActive]);
+
   // Handle protocol launch from emergency launcher
   const handleProtocolLaunch = (protocol: string, age: number, weight: number) => {
     setLaunchedProtocol({ type: protocol, age, weight });
@@ -1634,6 +1658,9 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           activeInterventionCount={activeInterventions.filter(i => i.status !== 'completed').length}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           sidebarCollapsed={sidebarCollapsed}
+          onToggleVoice={handleToggleVoice}
+          voiceActive={isVoiceActive}
+          voiceSupported={voiceSupported}
         />
       )}
 

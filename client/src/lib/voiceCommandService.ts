@@ -1,12 +1,12 @@
 /**
- * Voice Command Service for Hands-Free GPS Navigation
+ * Voice Command Service for Hands-Free Clinical Assessment
  * 
  * Enables providers to input clinical data without touching the device during resuscitation.
- * Supports natural language commands like "Respiratory rate 40", "SpO2 92", "Pupils equal and reactive".
+ * Adapted for question-driven architecture in ClinicalAssessmentGPS.
  * 
  * Features:
- * - Continuous listening mode with wake word detection
- * - Context-aware command parsing based on current GPS step
+ * - Continuous listening mode
+ * - Context-aware command parsing based on current question
  * - Automatic data extraction and validation
  * - Audio feedback for confirmation
  * - Fallback to manual input if recognition fails
@@ -17,7 +17,7 @@ type VoiceCommandCallback = (command: string, data: any) => void;
 export class VoiceCommandService {
   private recognition: SpeechRecognition | null = null;
   private isListening: boolean = false;
-  private currentStep: string = '';
+  private currentQuestionId: string = '';
   private callback: VoiceCommandCallback | null = null;
   private audioContext: AudioContext | null = null;
 
@@ -41,7 +41,11 @@ export class VoiceCommandService {
           // Auto-restart if no speech detected
           setTimeout(() => {
             if (this.isListening) {
-              this.recognition?.start();
+              try {
+                this.recognition?.start();
+              } catch (e) {
+                // Ignore if already started
+              }
             }
           }, 1000);
         }
@@ -50,7 +54,11 @@ export class VoiceCommandService {
       this.recognition.onend = () => {
         // Auto-restart if still in listening mode
         if (this.isListening) {
-          this.recognition?.start();
+          try {
+            this.recognition?.start();
+          } catch (e) {
+            // Ignore if already started
+          }
         }
       };
     }
@@ -61,13 +69,13 @@ export class VoiceCommandService {
     }
   }
 
-  startListening(step: string, callback: VoiceCommandCallback) {
+  startListening(questionId: string, callback: VoiceCommandCallback) {
     if (!this.recognition) {
       console.warn('Speech recognition not supported in this browser');
       return false;
     }
 
-    this.currentStep = step;
+    this.currentQuestionId = questionId;
     this.callback = callback;
     this.isListening = true;
 
@@ -90,9 +98,9 @@ export class VoiceCommandService {
   }
 
   private processCommand(transcript: string) {
-    console.log('Voice command:', transcript);
+    console.log('Voice command:', transcript, 'for question:', this.currentQuestionId);
 
-    const data = this.parseCommand(transcript, this.currentStep);
+    const data = this.parseCommand(transcript, this.currentQuestionId);
     
     if (data) {
       this.playFeedbackSound('success');
@@ -102,176 +110,66 @@ export class VoiceCommandService {
     }
   }
 
-  private parseCommand(transcript: string, step: string): any {
+  private parseCommand(transcript: string, questionId: string): any {
     // Remove common filler words
     const cleaned = transcript
       .replace(/\b(is|are|the|a|an|um|uh)\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
-    switch (step) {
-      case 'breathing-rate':
-        return this.parseNumericValue(cleaned, ['respiratory rate', 'breathing rate', 'respiration', 'rr']);
-
-      case 'spo2':
-        return this.parseNumericValue(cleaned, ['spo2', 'oxygen', 'saturation', 'o2']);
-
-      case 'heart-rate':
-        return this.parseNumericValue(cleaned, ['heart rate', 'pulse', 'hr', 'beats']);
-
-      case 'perfusion':
-        return this.parsePerfusionCommand(cleaned);
-
-      case 'glucose':
-        return this.parseNumericValue(cleaned, ['glucose', 'sugar', 'bg', 'blood glucose']);
-
-      case 'temperature':
-        return this.parseNumericValue(cleaned, ['temperature', 'temp', 'fever']);
-
-      case 'airway-status':
-        return this.parseAirwayStatus(cleaned);
-
-      case 'breathing-pattern':
-        return this.parseBreathingPattern(cleaned);
-
-      case 'avpu':
-        return this.parseAVPU(cleaned);
-
-      case 'pupils':
-        return this.parsePupils(cleaned);
-
-      default:
-        return null;
-    }
-  }
-
-  private parseNumericValue(text: string, keywords: string[]): any {
-    // Check if any keyword is present
-    const hasKeyword = keywords.some(kw => text.includes(kw));
-    if (!hasKeyword) return null;
-
-    // Extract number (handles decimals)
-    const match = text.match(/(\d+(?:\.\d+)?)/);
-    if (match) {
-      return { value: parseFloat(match[1]) };
-    }
-
-    return null;
-  }
-
-  private parsePerfusionCommand(text: string): any {
-    // Capillary refill time
-    if (text.includes('cap refill') || text.includes('crt')) {
-      const match = text.match(/(\d+(?:\.\d+)?)/);
-      if (match) {
-        return { type: 'capillary_refill', value: parseFloat(match[1]) };
+    // Boolean questions (yes/no)
+    if (questionId === 'breathing' || questionId === 'seizure_active' || questionId === 'trauma_history') {
+      if (cleaned.includes('yes') || cleaned.includes('present') || cleaned.includes('positive')) {
+        return { value: true };
+      }
+      if (cleaned.includes('no') || cleaned.includes('absent') || cleaned.includes('negative')) {
+        return { value: false };
       }
     }
 
-    // Pulse quality
-    if (text.includes('pulse')) {
-      if (text.includes('strong') || text.includes('bounding')) {
-        return { type: 'pulses', value: 'strong' };
+    // Pulse question
+    if (questionId === 'pulse') {
+      if (cleaned.includes('strong') || cleaned.includes('present strong')) {
+        return { value: 'present_strong' };
       }
-      if (text.includes('weak') || text.includes('thready')) {
-        return { type: 'pulses', value: 'weak' };
+      if (cleaned.includes('weak') || cleaned.includes('present weak')) {
+        return { value: 'present_weak' };
       }
-      if (text.includes('absent') || text.includes('no pulse')) {
-        return { type: 'pulses', value: 'absent' };
-      }
-      if (text.includes('normal')) {
-        return { type: 'pulses', value: 'normal' };
+      if (cleaned.includes('absent') || cleaned.includes('no pulse')) {
+        return { value: 'absent' };
       }
     }
 
-    // Skin temp/color
-    if (text.includes('warm') && text.includes('pink')) {
-      return { type: 'skin_temp_color', value: 'warm_pink' };
+    // AVPU question
+    if (questionId === 'responsiveness') {
+      if (cleaned.includes('alert') || cleaned.includes('awake')) {
+        return { value: 'alert' };
+      }
+      if (cleaned.includes('voice') || cleaned.includes('verbal')) {
+        return { value: 'voice' };
+      }
+      if (cleaned.includes('pain') || cleaned.includes('painful')) {
+        return { value: 'pain' };
+      }
+      if (cleaned.includes('unresponsive') || cleaned.includes('unconscious')) {
+        return { value: 'unresponsive' };
+      }
     }
-    if (text.includes('cool') && text.includes('pale')) {
-      return { type: 'skin_temp_color', value: 'cool_pale' };
-    }
-    if (text.includes('cold') && text.includes('mottled')) {
-      return { type: 'skin_temp_color', value: 'cold_mottled' };
+
+    // Airway status
+    if (questionId === 'airway_status') {
+      if (cleaned.includes('patent') || cleaned.includes('open') || cleaned.includes('clear')) {
+        return { value: 'patent' };
+      }
+      if (cleaned.includes('obstructed') || cleaned.includes('blocked')) {
+        return { value: 'obstructed' };
+      }
+      if (cleaned.includes('secured') || cleaned.includes('intubated')) {
+        return { value: 'secured' };
+      }
     }
 
     return null;
-  }
-
-  private parseAirwayStatus(text: string): any {
-    if (text.includes('patent') || text.includes('open') || text.includes('clear')) {
-      return { value: 'patent' };
-    }
-    if (text.includes('obstructed') || text.includes('blocked')) {
-      return { value: 'obstructed' };
-    }
-    if (text.includes('secured') || text.includes('intubated') || text.includes('ett')) {
-      return { value: 'secured' };
-    }
-    return null;
-  }
-
-  private parseBreathingPattern(text: string): any {
-    if (text.includes('normal') || text.includes('regular')) {
-      return { value: 'normal' };
-    }
-    if (text.includes('kussmaul') || text.includes('deep rapid')) {
-      return { value: 'kussmaul' };
-    }
-    if (text.includes('cheyne') || text.includes('stokes')) {
-      return { value: 'cheyne_stokes' };
-    }
-    if (text.includes('apneic') || text.includes('gasping') || text.includes('agonal')) {
-      return { value: 'apneic' };
-    }
-    return null;
-  }
-
-  private parseAVPU(text: string): any {
-    if (text.includes('alert') || text.includes('awake')) {
-      return { value: 'alert' };
-    }
-    if (text.includes('voice') || text.includes('verbal')) {
-      return { value: 'voice' };
-    }
-    if (text.includes('pain') || text.includes('painful')) {
-      return { value: 'pain' };
-    }
-    if (text.includes('unresponsive') || text.includes('unconscious')) {
-      return { value: 'unresponsive' };
-    }
-    return null;
-  }
-
-  private parsePupils(text: string): any {
-    const result: any = {};
-
-    // Size
-    if (text.includes('pinpoint')) {
-      result.pupils_size = 'pinpoint';
-    } else if (text.includes('dilated') || text.includes('large')) {
-      result.pupils_size = 'dilated';
-    } else if (text.includes('normal size')) {
-      result.pupils_size = 'normal';
-    }
-
-    // Reactivity
-    if (text.includes('reactive') || text.includes('brisk')) {
-      result.pupils_reactive = 'brisk';
-    } else if (text.includes('sluggish') || text.includes('slow')) {
-      result.pupils_reactive = 'sluggish';
-    } else if (text.includes('fixed') || text.includes('non-reactive')) {
-      result.pupils_reactive = 'fixed';
-    }
-
-    // Equality
-    if (text.includes('equal')) {
-      result.pupils_equal = 'equal';
-    } else if (text.includes('unequal') || text.includes('anisocoria')) {
-      result.pupils_equal = 'unequal';
-    }
-
-    return Object.keys(result).length > 0 ? result : null;
   }
 
   private playFeedbackSound(type: 'start' | 'stop' | 'success' | 'error') {
@@ -313,6 +211,10 @@ export class VoiceCommandService {
 
   getIsListening(): boolean {
     return this.isListening;
+  }
+
+  setCurrentQuestion(questionId: string) {
+    this.currentQuestionId = questionId;
   }
 }
 

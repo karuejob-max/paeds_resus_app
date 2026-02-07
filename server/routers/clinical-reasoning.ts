@@ -29,15 +29,15 @@ export const clinicalReasoningRouter = router({
         ]),
         airway: z.object({
           status: z.enum(['patent', 'obstructed', 'secured']),
-          observations: z.record(z.boolean()).optional(),
-          interventions: z.record(z.boolean()).optional(),
+          observations: z.record(z.string(), z.boolean()).optional(),
+          interventions: z.record(z.string(), z.boolean()).optional(),
           notes: z.string().optional(),
         }),
         breathing: z.object({
           rate: z.number(),
           pattern: z.enum(['normal', 'deep_kussmaul', 'shallow', 'irregular', 'apneic']),
           effort: z.enum(['normal', 'increased', 'minimal']),
-          effortSigns: z.record(z.boolean()).optional(),
+          effortSigns: z.record(z.string(), z.boolean()).optional(),
           spO2: z.number(),
           auscultation: z
             .object({
@@ -63,7 +63,7 @@ export const clinicalReasoningRouter = router({
             skin_color: z.enum(['pink', 'pale', 'mottled', 'cyanotic']),
           }),
           rhythm: z.enum(['regular', 'irregular', 'bradycardia', 'tachycardia']).optional(),
-          history: z.record(z.boolean()).optional(),
+          history: z.record(z.string(), z.boolean()).optional(),
         }),
         disability: z.object({
           avpu: z.enum(['alert', 'voice', 'pain', 'unresponsive']),
@@ -88,7 +88,7 @@ export const clinicalReasoningRouter = router({
           temperature: z.number(),
           weight: z.number(),
           age_years: z.number().optional(),
-          visible_injuries: z.record(z.boolean()).optional(),
+          visible_injuries: z.record(z.string(), z.boolean()).optional(),
           pregnancy_related: z
             .object({
               currently_pregnant: z.boolean().optional(),

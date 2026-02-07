@@ -19,7 +19,9 @@ import {
   Volume2,
   VolumeX,
   Settings,
-  Home
+  Home,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +52,9 @@ interface ClinicalHeaderProps {
   activeInterventionCount: number;
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
+  onToggleVoice?: () => void;
+  voiceActive?: boolean;
+  voiceSupported?: boolean;
 }
 
 export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
@@ -65,7 +70,10 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
   activeInterventionCount,
   onToggleSidebar,
   sidebarCollapsed,
-  onBackToHome
+  onBackToHome,
+  onToggleVoice,
+  voiceActive = false,
+  voiceSupported = false
 }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -160,6 +168,23 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {activeInterventionCount}
                 </span>
+              </Button>
+            )}
+
+            {/* Voice Command Toggle */}
+            {voiceSupported && onToggleVoice && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleVoice}
+                className={`${voiceActive ? 'text-red-500 animate-pulse' : 'text-slate-400'} hover:text-white`}
+                title={voiceActive ? 'Voice commands active - Click to stop' : 'Enable voice commands'}
+              >
+                {voiceActive ? (
+                  <Mic className="h-5 w-5" />
+                ) : (
+                  <MicOff className="h-5 w-5" />
+                )}
               </Button>
             )}
 
