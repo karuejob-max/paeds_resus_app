@@ -77,6 +77,7 @@ import { AdultACLS } from '@/components/AdultACLS';
 import AsthmaEmergency from '@/pages/AsthmaEmergency';
 import DKAProtocol from '@/pages/DKAProtocol';
 import SepticShockProtocol from '@/pages/SepticShockProtocol';
+import AnaphylaxisProtocol from '@/pages/AnaphylaxisProtocol';
 // Types
 interface PatientData {
   ageYears: number;
@@ -2261,6 +2262,14 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
       {launchedProtocol && launchedProtocol.type === 'septic_shock' && (
         <SepticShockProtocol
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
+        />
+      )}
+
+      {launchedProtocol && launchedProtocol.type === 'anaphylaxis' && (
+        <AnaphylaxisProtocol
           patientAge={launchedProtocol.age}
           patientWeight={launchedProtocol.weight}
           onClose={() => setLaunchedProtocol(null)}
