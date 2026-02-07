@@ -25,6 +25,7 @@ import {
   FileText
 } from 'lucide-react';
 import { CPRClock } from '@/components/CPRClock';
+import { AdultACLS } from '@/components/AdultACLS';
 import { HandoverModal } from '@/components/HandoverModal';
 import QuickStartPanel from '@/components/QuickStartPanel';
 import AlertSettings from '@/components/AlertSettings';
@@ -1001,12 +1002,21 @@ const ClinicalAssessment: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
-      {/* CPR Clock */}
+      {/* Age-Universal Cardiac Arrest Protocol */}
       {cprActive && (
-        <CPRClock
-          patientWeight={weight}
-          onClose={() => setCprActive(false)}
-        />
+        <>
+          {patientData.ageYears >= 18 ? (
+            <AdultACLS
+              patientAge={patientData.ageYears}
+              onClose={() => setCprActive(false)}
+            />
+          ) : (
+            <CPRClock
+              patientWeight={weight}
+              onClose={() => setCprActive(false)}
+            />
+          )}
+        </>
       )}
 
       <div className="max-w-2xl mx-auto">

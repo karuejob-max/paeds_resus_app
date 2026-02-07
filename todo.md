@@ -3557,3 +3557,13 @@ Continue to next question...
 - [ ] Add audio feedback for command confirmation
 - [ ] Test voice commands in noisy environment simulation
 - [ ] Save checkpoint
+
+## Phase 105: Age-Universal Platform - Adult ACLS Protocol
+- [x] Modify CPR Clock to accept adult age input (18+ years)
+- [x] Build adult ACLS cardiac arrest protocol component
+- [x] Add adult medication dosing (fixed doses: epi 1mg, amiodarone 300mg/150mg)
+- [x] Add adult defibrillation energy (120-200J biphasic)
+- [x] Add adult-specific reversible causes (5 H's & 5 T's with adult considerations)
+- [x] Add adult post-ROSC care protocol
+- [x] Test age switching between pediatric and adult protocols
+- [ ] Save checkpoint
