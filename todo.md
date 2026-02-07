@@ -3679,3 +3679,13 @@ Continue to next question...
 - [x] Integrate all respiratory protocols into emergency launcher
 - [x] Test respiratory protocols with different age inputs
 - [ ] Save checkpoint
+
+## Phase 114: Neonatal Adaptations for All Emergency Protocols
+- [x] Add neonatal-specific Status Epilepticus management (no benzodiazepines, phenobarbital 20 mg/kg first-line)
+- [x] Add neonatal seizure etiology focus (HIE, metabolic, infection)
+- [x] Add neonatal-specific Septic Shock management (10 mL/kg fluid boluses max 20-30 mL/kg total)
+- [x] Add neonatal inotrope selection (dopamine first-line, avoid norepinephrine)
+- [x] Add neonatal-specific Anaphylaxis management (IM epinephrine anterolateral thigh, avoid IV unless cardiac arrest)
+- [x] Add neonatal anaphylaxis monitoring (apnea risk, feeding intolerance)
+- [x] Test all age-adapted protocols with neonatal inputs
+- [ ] Save checkpoint

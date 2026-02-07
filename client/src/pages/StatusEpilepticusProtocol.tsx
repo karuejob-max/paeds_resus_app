@@ -146,6 +146,34 @@ export default function StatusEpilepticusProtocol({ patientAge: propAge, patient
           </Button>
         </div>
 
+        {/* NEONATAL-SPECIFIC WARNING */}
+        {patientAge * 365 < 28 && (
+          <Card className="bg-red-900/40 border-red-600 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-8 w-8 text-red-300 flex-shrink-0" />
+                <div>
+                  <p className="text-red-100 font-bold text-lg mb-1">
+                    ⚠️ NEONATAL SEIZURES: DIFFERENT PROTOCOL
+                  </p>
+                  <p className="text-red-200 text-sm mb-2">
+                    <strong>NO BENZODIAZEPINES</strong> in neonates (&lt;28 days). Benzos are INEFFECTIVE due to immature GABA receptors.
+                  </p>
+                  <div className="bg-purple-900/50 border border-purple-600 p-3 rounded mt-2">
+                    <p className="text-purple-100 font-semibold mb-1">First-Line: Phenobarbital 20 mg/kg IV</p>
+                    <p className="text-purple-200 text-xs">
+                      Dose: {(patientWeight * 20).toFixed(0)} mg IV over 10-15 minutes. Can repeat 10 mg/kg if seizure continues (max 40 mg/kg total).
+                    </p>
+                  </div>
+                  <p className="text-red-200 text-xs mt-2">
+                    Neonatal seizure etiology: HIE (most common), metabolic (glucose, calcium, magnesium), infection, stroke. Workup: glucose, electrolytes, blood gas, sepsis workup, head ultrasound/CT.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Time-Critical Alert */}
         {minutesSinceStart >= 5 && seizureOngoing && (
           <Card className="bg-red-900/30 border-red-700 mb-4">

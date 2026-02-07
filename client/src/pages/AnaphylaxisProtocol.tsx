@@ -140,6 +140,52 @@ export default function AnaphylaxisProtocol({ patientAge: propAge, patientWeight
           </Button>
         </div>
 
+        {/* NEONATAL-SPECIFIC WARNING */}
+        {patientAge * 365 < 28 && (
+          <Card className="bg-yellow-900/40 border-yellow-600 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-8 w-8 text-yellow-300 flex-shrink-0" />
+                <div>
+                  <p className="text-yellow-100 font-bold text-lg mb-1">
+                    ⚠️ NEONATAL ANAPHYLAXIS: SPECIAL CONSIDERATIONS
+                  </p>
+                  <p className="text-yellow-200 text-sm mb-2">
+                    Neonates (&lt;28 days) have <strong>RARE anaphylaxis</strong> but require different monitoring.
+                  </p>
+                  <div className="bg-red-900/50 border border-red-600 p-3 rounded mt-2">
+                    <p className="text-red-100 font-semibold mb-1">Neonatal Epinephrine Dosing:</p>
+                    <p className="text-red-200 text-xs mb-1">
+                      • <strong>IM epinephrine 0.01 mg/kg</strong> (same as older children)
+                    </p>
+                    <p className="text-red-200 text-xs mb-1">
+                      • <strong>Anterolateral thigh</strong> (vastus lateralis muscle)
+                    </p>
+                    <p className="text-red-200 text-xs">
+                      • Dose: {epiDose.toFixed(2)} mg = {epiVolume.toFixed(2)} mL of 1:1000 (1 mg/mL)
+                    </p>
+                  </div>
+                  <div className="bg-blue-900/50 border border-blue-600 p-3 rounded mt-2">
+                    <p className="text-blue-100 font-semibold mb-1">Neonatal Monitoring:</p>
+                    <p className="text-blue-200 text-xs mb-1">
+                      • <strong>Continuous cardiorespiratory monitoring</strong> (apnea risk)
+                    </p>
+                    <p className="text-blue-200 text-xs mb-1">
+                      • <strong>Glucose monitoring</strong> (hypoglycemia common)
+                    </p>
+                    <p className="text-blue-200 text-xs">
+                      • <strong>Admit for 24h observation</strong> (NOT 4-8h like older children)
+                    </p>
+                  </div>
+                  <p className="text-yellow-200 text-xs mt-2">
+                    Neonatal anaphylaxis triggers: Maternal medications (antibiotics, NSAIDs), cow's milk protein (formula), latex. Consider sepsis in differential (similar presentation).
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Epinephrine Urgency Alert */}
         {epiDoses.length === 0 && (
           <Card className="bg-red-900/30 border-red-700 mb-4">

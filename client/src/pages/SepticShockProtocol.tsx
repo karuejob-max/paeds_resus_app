@@ -140,6 +140,52 @@ export default function SepticShockProtocol({ patientAge: propAge, patientWeight
           </Button>
         </div>
 
+        {/* NEONATAL-SPECIFIC WARNING */}
+        {patientAge * 365 < 28 && (
+          <Card className="bg-orange-900/40 border-orange-600 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-8 w-8 text-orange-300 flex-shrink-0" />
+                <div>
+                  <p className="text-orange-100 font-bold text-lg mb-1">
+                    ⚠️ NEONATAL SEPTIC SHOCK: DIFFERENT FLUID LIMITS
+                  </p>
+                  <p className="text-orange-200 text-sm mb-2">
+                    Neonates (&lt;28 days) have <strong>LOWER fluid tolerance</strong> and different inotrope choices.
+                  </p>
+                  <div className="bg-blue-900/50 border border-blue-600 p-3 rounded mt-2">
+                    <p className="text-blue-100 font-semibold mb-1">Neonatal Fluid Resuscitation:</p>
+                    <p className="text-blue-200 text-xs mb-1">
+                      • <strong>10 mL/kg boluses</strong> (NOT 20 mL/kg)
+                    </p>
+                    <p className="text-blue-200 text-xs mb-1">
+                      • <strong>Maximum 20-30 mL/kg total</strong> in first hour (NOT 40-60 mL/kg)
+                    </p>
+                    <p className="text-blue-200 text-xs">
+                      • Reassess after EACH bolus (high risk of fluid overload)
+                    </p>
+                  </div>
+                  <div className="bg-purple-900/50 border border-purple-600 p-3 rounded mt-2">
+                    <p className="text-purple-100 font-semibold mb-1">Neonatal Inotrope Selection:</p>
+                    <p className="text-purple-200 text-xs mb-1">
+                      • <strong>Dopamine</strong> first-line (5-10 mcg/kg/min)
+                    </p>
+                    <p className="text-purple-200 text-xs mb-1">
+                      • <strong>Dobutamine</strong> if warm shock (5-20 mcg/kg/min)
+                    </p>
+                    <p className="text-purple-200 text-xs">
+                      • <strong>Avoid norepinephrine</strong> in neonates (immature alpha receptors)
+                    </p>
+                  </div>
+                  <p className="text-orange-200 text-xs mt-2">
+                    Neonatal sepsis etiology: GBS, E. coli, Listeria. Antibiotics: Ampicillin + Gentamicin. Always consider HSV if maternal history or vesicles present (add acyclovir).
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Antibiotic Timer Alert */}
         {!antibioticsGiven && (
           <Card className="bg-red-900/30 border-red-700 mb-4">
