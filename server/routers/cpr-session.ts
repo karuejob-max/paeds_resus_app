@@ -54,56 +54,46 @@ export const cprSessionRouter = router({
     }),
 
   // Join existing session by code
-  joinSession: protectedProcedure
+  joinSession: publicProcedure
     .input(z.object({
-      sessionCode: z.string().length(6),
-      providerName: z.string().optional(),
+      sessionCode: z.string().min(6).max(8),
+      providerName: z.string(),
+      role: z.enum(['team_leader', 'compressions', 'airway', 'iv_access', 'medications', 'recorder', 'observer']),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
       // Find session
-      const sessions = await db.select().from(cprSessions).where(eq(cprSessions.sessionCode, input.sessionCode)).limit(1);
+      const sessions = await db.select().from(cprSessions).where(eq(cprSessions.sessionCode, input.sessionCode.toUpperCase())).limit(1);
       const session = sessions[0];
 
       if (!session) {
-        throw new Error('Session not found');
-      }
-
-      if (session.status !== 'active') {
-        throw new Error('Session is no longer active');
-      }
-
-      // Check if already joined
-      const existingMembers = await db.select().from(cprTeamMembers).where(
-        and(
-          eq(cprTeamMembers.sessionId, session.id),
-          eq(cprTeamMembers.userId, ctx.user.id)
-        )
-      ).limit(1);
-      const existingMember = existingMembers[0];
-
-      if (existingMember) {
         return {
-          sessionId: session.id,
-          memberId: existingMember.id,
-          alreadyJoined: true,
+          success: false,
+          message: 'Session not found. Please check the code and try again.',
         };
       }
 
-      // Add as team member
+      if (session.status !== 'active') {
+        return {
+          success: false,
+          message: 'This session has ended and is no longer accepting new members.',
+        };
+      }
+
+      // Add as team member (allow multiple joins, guest providers)
       const [member] = await db.insert(cprTeamMembers).values({
         sessionId: session.id,
-        userId: ctx.user.id,
-        providerName: input.providerName || ctx.user.name || 'Provider',
-        role: 'observer', // Default role, can be changed later
+        userId: null, // Guest provider for now
+        providerName: input.providerName,
+        role: input.role,
       }).$returningId();
 
       return {
+        success: true,
         sessionId: session.id,
         memberId: member.id,
-        alreadyJoined: false,
       };
     }),
 
