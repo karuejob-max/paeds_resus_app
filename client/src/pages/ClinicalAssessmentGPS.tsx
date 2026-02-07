@@ -72,6 +72,9 @@ import LabSampleCollection from '@/components/LabSampleCollection';
 import ArrhythmiaRecognition from '../components/ArrhythmiaRecognition';
 import { AirwayManagement } from '../components/AirwayManagement';
 import { CPRSimulation } from '@/components/CPRSimulation';
+import { EmergencyLauncher } from '@/components/EmergencyLauncher';
+import { AdultACLS } from '@/components/AdultACLS';
+import AsthmaEmergency from '@/pages/AsthmaEmergency';
 // Types
 interface PatientData {
   ageYears: number;
@@ -208,6 +211,14 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [showEmergencyLauncher, setShowEmergencyLauncher] = useState(false);
+  const [launchedProtocol, setLaunchedProtocol] = useState<{ type: string; age: number; weight: number } | null>(null);
+
+  // Handle protocol launch from emergency launcher
+  const handleProtocolLaunch = (protocol: string, age: number, weight: number) => {
+    setLaunchedProtocol({ type: protocol, age, weight });
+    setShowEmergencyLauncher(false);
+  };
 
   // Audio alerts - using imported functions directly
 
@@ -1686,6 +1697,18 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 )}
               </div>
 
+              {/* Emergency Protocol Quick Launcher */}
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowEmergencyLauncher(true)}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 active:scale-98 text-white py-4 px-4 rounded-lg flex items-center justify-center gap-2 text-base font-bold shadow-lg transition-all min-h-[56px]"
+                >
+                  <Zap className="h-5 w-5" />
+                  QUICK LAUNCH PROTOCOL
+                </button>
+                <p className="text-xs text-gray-400 text-center mt-1">Skip assessment when diagnosis is known</p>
+              </div>
+
               {/* Emergency Quick Access - Reordered for mobile */}
               <div className="space-y-3 mb-4 btn-stack">
                 {/* SHOUT FOR HELP - Before any assessment */}
@@ -2190,6 +2213,39 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       {showSimulation && (
         <CPRSimulation
           onClose={() => setShowSimulation(false)}
+        />
+      )}
+
+      {/* Emergency Launcher */}
+      {showEmergencyLauncher && (
+        <EmergencyLauncher
+          onLaunchProtocol={handleProtocolLaunch}
+          onClose={() => setShowEmergencyLauncher(false)}
+        />
+      )}
+
+      {/* Launched Protocols */}
+      {launchedProtocol && launchedProtocol.type === 'cardiac_arrest' && (
+        launchedProtocol.age >= 18 ? (
+          <AdultACLS
+            patientAge={launchedProtocol.age}
+            patientWeight={launchedProtocol.weight}
+            onClose={() => setLaunchedProtocol(null)}
+          />
+        ) : (
+          <CPRClockStreamlined
+            patientAgeMonths={launchedProtocol.age * 12}
+            patientWeight={launchedProtocol.weight}
+            onClose={() => setLaunchedProtocol(null)}
+          />
+        )
+      )}
+
+      {launchedProtocol && launchedProtocol.type === 'asthma' && (
+        <AsthmaEmergency
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
         />
       )}
     </div>

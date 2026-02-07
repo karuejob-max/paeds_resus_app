@@ -14,6 +14,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Heart, 
   Zap, 
@@ -26,11 +28,13 @@ import {
   Pause,
   RotateCcw,
   Volume2,
-  VolumeX
+  VolumeX,
+  Settings
 } from 'lucide-react';
 
 interface Props {
   patientAge: number; // in years
+  patientWeight?: number; // in kg, optional
   onClose: () => void;
 }
 
@@ -44,7 +48,7 @@ interface ArrestEvent {
   details?: string;
 }
 
-export function AdultACLS({ patientAge, onClose }: Props) {
+export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
   // Timer state
   const [elapsedTime, setElapsedTime] = useState(0);
   const [cycleTime, setCycleTime] = useState(0);
@@ -58,15 +62,27 @@ export function AdultACLS({ patientAge, onClose }: Props) {
   const [amiodaroneDoses, setAmiodaroneDoses] = useState(0);
   const [hasROSC, setHasROSC] = useState(false);
   
+  // Patient data
+  const [weight, setWeight] = useState(patientWeight || 70); // Default 70kg if not provided
+  const [showWeightDialog, setShowWeightDialog] = useState(!patientWeight); // Show if weight not provided
+  const [defibrillatorType, setDefibrillatorType] = useState<'biphasic' | 'monophasic'>('biphasic');
+  const [shockEnergy, setShockEnergy] = useState(200); // 200J for biphasic, 360J for monophasic
+  
   // UI state
   const [showRhythmDialog, setShowRhythmDialog] = useState(false);
   const [showReversibleCauses, setShowReversibleCauses] = useState(false);
   const [showPostROSC, setShowPostROSC] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [events, setEvents] = useState<ArrestEvent[]>([]);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Update shock energy when defibrillator type changes
+  useEffect(() => {
+    setShockEnergy(defibrillatorType === 'biphasic' ? 200 : 360);
+  }, [defibrillatorType]);
 
   // Initialize audio context
   useEffect(() => {
@@ -181,7 +197,7 @@ export function AdultACLS({ patientAge, onClose }: Props) {
   const deliverShock = () => {
     setShockCount(prev => prev + 1);
     setPhase('post_shock');
-    logEvent('Shock Delivered', `Shock #${shockCount + 1} - 200J biphasic`);
+    logEvent('Shock Delivered', `Shock #${shockCount + 1} - ${shockEnergy}J ${defibrillatorType}`);
     playBeep(1500, 0.1);
     
     // Immediately resume CPR
@@ -228,9 +244,17 @@ export function AdultACLS({ patientAge, onClose }: Props) {
               <Heart className="h-6 w-6 text-red-500" />
               Adult ACLS - Cardiac Arrest
             </h1>
-            <p className="text-gray-400 text-sm">Patient Age: {patientAge} years</p>
+            <p className="text-gray-400 text-sm">Patient Age: {patientAge} years | Weight: {weight}kg</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              title="Defibrillator Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -307,13 +331,13 @@ export function AdultACLS({ patientAge, onClose }: Props) {
                 )}
 
                 {phase === 'shock_ready' && (
-                  <Button
-                    onClick={deliverShock}
-                    className="bg-purple-600 hover:bg-purple-700 text-white text-xl px-8 py-6 animate-pulse"
-                  >
-                    <Zap className="h-6 w-6 mr-2" />
-                    DELIVER SHOCK (200J)
-                  </Button>
+                <Button
+                  onClick={deliverShock}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xl px-8 py-6 animate-pulse"
+                >
+                  <Zap className="h-6 w-6 mr-2" />
+                  DELIVER SHOCK ({shockEnergy}J)
+                </Button>
                 )}
 
                 {isRunning && phase !== 'initial_assessment' && (
@@ -607,6 +631,95 @@ export function AdultACLS({ patientAge, onClose }: Props) {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {/* Weight Input Dialog */}
+        {showWeightDialog && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <Card className="bg-gray-900 border-gray-700 max-w-md w-full">
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold text-white mb-4">Patient Weight Required</h2>
+                <p className="text-gray-300 mb-6">
+                  Adult medication dosing requires actual weight. Please enter the patient's weight.
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="weight" className="text-white">Weight (kg)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      value={weight}
+                      onChange={(e) => setWeight(Number(e.target.value))}
+                      className="bg-gray-800 border-gray-600 text-white"
+                      min="30"
+                      max="300"
+                      step="0.1"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Typical adult range: 50-120 kg</p>
+                  </div>
+                  
+                  <Button
+                    onClick={() => setShowWeightDialog(false)}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={weight < 30 || weight > 300}
+                  >
+                    Confirm Weight
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Settings Dialog */}
+        {showSettings && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <Card className="bg-gray-900 border-gray-700 max-w-md w-full">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-white">Defibrillator Settings</h2>
+                  <Button variant="outline" size="icon" onClick={() => setShowSettings(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-white mb-2 block">Defibrillator Type</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={() => setDefibrillatorType('biphasic')}
+                        className={defibrillatorType === 'biphasic' ? 'bg-blue-600' : 'bg-gray-700'}
+                      >
+                        Biphasic
+                        <Badge className="ml-2 bg-white text-black">200J</Badge>
+                      </Button>
+                      <Button
+                        onClick={() => setDefibrillatorType('monophasic')}
+                        className={defibrillatorType === 'monophasic' ? 'bg-blue-600' : 'bg-gray-700'}
+                      >
+                        Monophasic
+                        <Badge className="ml-2 bg-white text-black">360J</Badge>
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Most modern defibrillators are biphasic. Check your device manual if unsure.
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-800 p-4 rounded">
+                    <h3 className="font-semibold text-white mb-2">Current Settings</h3>
+                    <ul className="text-sm text-gray-300 space-y-1">
+                      <li>• Shock Energy: <span className="text-white font-bold">{shockEnergy}J</span></li>
+                      <li>• Device Type: <span className="text-white font-bold">{defibrillatorType}</span></li>
+                      <li>• Patient Weight: <span className="text-white font-bold">{weight}kg</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

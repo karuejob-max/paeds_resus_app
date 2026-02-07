@@ -30,10 +30,16 @@ type AsthmaStage =
 
 type SeverityLevel = 'mild' | 'moderate' | 'severe' | 'life_threatening';
 
-export default function AsthmaEmergency() {
+interface Props {
+  patientAge?: number; // in years
+  patientWeight?: number; // in kg
+  onClose?: () => void;
+}
+
+export default function AsthmaEmergency({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   const [, setLocation] = useLocation();
-  const [patientWeight, setPatientWeight] = useState<number>(20);
-  const [patientAge, setPatientAge] = useState<number>(60); // months
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
+  const [patientAge, setPatientAge] = useState<number>((propAge || 5) * 12); // convert years to months
   const [currentStage, setCurrentStage] = useState<AsthmaStage>('assessment');
   const [severity, setSeverity] = useState<SeverityLevel>('moderate');
   const [completedInterventions, setCompletedInterventions] = useState<string[]>([]);

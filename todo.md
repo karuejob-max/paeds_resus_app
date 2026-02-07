@@ -3567,3 +3567,21 @@ Continue to next question...
 - [x] Add adult post-ROSC care protocol
 - [x] Test age switching between pediatric and adult protocols
 - [ ] Save checkpoint
+
+## Phase 106: Fix Adult ACLS Clinical Nuances
+- [x] Remove age-based weight calculation for adults (doesn't work for 18+ years)
+- [x] Add actual weight input prompt in AdultACLS component
+- [x] Fix defibrillation energy to show 200J biphasic (with option for 360J monophasic)
+- [x] Add device type selector (biphasic/monophasic) in settings
+- [x] Update all adult medication calculations to use actual weight, not estimated
+- [x] Test adult ACLS with real weight input
+- [ ] Save checkpoint
+
+## Phase 107: Emergency Protocol Quick-Launcher
+- [x] Create EmergencyLauncher component with direct-access buttons
+- [x] Add quick-launch buttons: Asthma, DKA, Septic Shock, Anaphylaxis, Status Epilepticus
+- [x] Add quick-launch for Cardiac Arrest (bypass assessment, go straight to CPR Clock/ACLS)
+- [x] Integrate launcher into home screen
+- [x] Add age/weight input dialog for quick-launched protocols
+- [x] Test quick-launch flow end-to-end
+- [ ] Save checkpoint
