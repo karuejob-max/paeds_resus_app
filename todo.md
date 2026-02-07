@@ -313,3 +313,15 @@
 - [ ] Test GPS flow with multiple clinical scenarios
 - [ ] Test intervention logging and sidebar persistence
 - [ ] Save checkpoint
+
+
+## Phase 119: Consolidate Primary Survey Components
+- [x] Audit PrimarySurveyGPS.tsx for unique features (22-step GPS flow, voice commands)
+- [x] Audit ClinicalAssessmentGPS.tsx for existing features
+- [x] Backup voice command system for future integration
+- [x] Verify ClinicalAssessmentGPS has all critical clinical logic
+- [x] Delete redundant PrimarySurvey.tsx file
+- [x] Delete redundant PrimarySurveyGPS.tsx file
+- [x] Update routes to use single consolidated assessment flow
+- [x] Test consolidated flow end-to-end
+- [ ] Save checkpoint

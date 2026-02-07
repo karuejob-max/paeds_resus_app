@@ -61,6 +61,7 @@ import AlertSettings from '@/components/AlertSettings';
 import { HandoverModal } from '@/components/HandoverModal';
 import { generateSBARHandover, SBARHandover } from '@/lib/sbarHandover';
 import { initAudioContext, triggerAlert, playCountdownBeep } from '@/lib/alertSystem';
+import { voiceCommandService } from '@/lib/voiceCommandService';
 
 // Import advanced modules for overlay triggers
 import { ShockAssessment } from '@/components/ShockAssessment';
@@ -223,6 +224,10 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [showSimulation, setShowSimulation] = useState(false);
   const [showEmergencyLauncher, setShowEmergencyLauncher] = useState(false);
   const [launchedProtocol, setLaunchedProtocol] = useState<{ type: string; age: number; weight: number } | null>(null);
+
+  // Voice command state
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [voiceSupported] = useState(voiceCommandService.isSupported());
 
   // Handle protocol launch from emergency launcher
   const handleProtocolLaunch = (protocol: string, age: number, weight: number) => {

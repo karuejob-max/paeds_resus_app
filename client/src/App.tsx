@@ -14,7 +14,7 @@ import AsthmaEmergency from './pages/AsthmaEmergency';
 import JoinSession from './pages/JoinSession';
 import GuidelineManagement from './pages/GuidelineManagement';
 import CollaborativeSession from './pages/CollaborativeSession';
-import PrimarySurvey from './pages/PrimarySurvey';
+
 import ClinicalReasoningResults from './pages/ClinicalReasoningResults';
 import { Toaster } from "@/components/ui/sonner";
 
@@ -132,7 +132,6 @@ function Router() {
           {/* Guideline Management */}
           <Route path="/guideline-management" component={GuidelineManagement} />
           {/* Clinical Reasoning Engine */}
-          <Route path="/primary-survey" component={PrimarySurvey} />
           <Route path="/clinical-reasoning-results" component={ClinicalReasoningResults} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
