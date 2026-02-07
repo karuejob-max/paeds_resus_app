@@ -13,6 +13,8 @@ import SessionDetails from './pages/SessionDetails';
 import AsthmaEmergency from './pages/AsthmaEmergency';
 import JoinSession from './pages/JoinSession';
 import CollaborativeSession from './pages/CollaborativeSession';
+import PrimarySurvey from './pages/PrimarySurvey';
+import ClinicalReasoningResults from './pages/ClinicalReasoningResults';
 import { Toaster } from "@/components/ui/sonner";
 
 // Lazy load heavier components
@@ -119,13 +121,16 @@ function Router() {
           <Route path="/cpr-monitoring" component={CPRMonitoring} />
           <Route path="/monitoring" component={CPRMonitoring} />
           {/* CPR Session Details */}
-          <Route path="/cpr-monitoring/session/:id" component={SessionDetails} />
+          <Route path="/cpr-monitoring/session/:id">{(params) => <SessionDetails id={params.id} />}</Route>
           {/* Asthma Emergency Protocol */}
           <Route path="/asthma-emergency" component={AsthmaEmergency} />
           {/* Collaborative Session Join */}
           <Route path="/join-session" component={JoinSession} />
           {/* Collaborative Session View */}
           <Route path="/collaborative-session/:id" component={CollaborativeSession} />
+          {/* Clinical Reasoning Engine */}
+          <Route path="/primary-survey" component={PrimarySurvey} />
+          <Route path="/clinical-reasoning-results" component={ClinicalReasoningResults} />
           {/* Catch all - redirect to clinical assessment */}
           <Route component={ClinicalAssessment} />
         </Switch>
