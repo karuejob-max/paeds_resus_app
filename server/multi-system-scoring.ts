@@ -303,7 +303,7 @@ export function generateIntegratedProtocol(
             requiredTests: [],
             riskIfWrong: 'high',
             benefitIfRight: 'high',
-            timeWindow: 'seconds',
+            timeWindow: 'minutes',
             dosing: {
               calculation: 'See protocol steps',
               route: 'IM/Nebulized',
@@ -328,9 +328,9 @@ export function generateIntegratedProtocol(
             indication: 'Maternal cardiac arrest with postpartum hemorrhage',
             contraindications: [],
             requiredTests: [],
-            riskIfWrong: 'fatal',
-            benefitIfRight: 'life-saving',
-            timeWindow: 'seconds',
+            riskIfWrong: 'critical',
+            benefitIfRight: 'life_saving',
+            timeWindow: 'minutes',
             dosing: {
               calculation: 'See protocol steps',
               route: 'IV/IM',

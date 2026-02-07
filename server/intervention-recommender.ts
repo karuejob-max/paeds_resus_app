@@ -517,7 +517,7 @@ export function recommendInterventions(
       requiredTests: [],
       riskIfWrong: 'low',
       benefitIfRight: 'high',
-      timeWindow: 'immediate',
+      timeWindow: 'minutes',
       dosing: {
         calculation: 'See modifications below',
         route: 'Various',
