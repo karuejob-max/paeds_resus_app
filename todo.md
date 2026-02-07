@@ -380,4 +380,14 @@
   - [x] Added offline mode indicator to homepage
   - [x] Added PWA install button integration
   - [x] Added loading states to all protocol buttons
+- [x] Save checkpoint
+
+
+## Phase 124: Make Voice Commands Discoverable
+- [x] Design voice command discovery system (tutorial overlay, persistent indicators, contextual hints)
+- [x] Build first-time tutorial overlay explaining voice commands
+- [x] Add voice tutorial to clinical assessment (shows after 3s for first-time users)
+- [x] Add first-time detection with localStorage
+- [ ] Add contextual hints showing example voice commands for current question (optional enhancement)
+- [ ] Test discovery flow with simulated first-time user
 - [ ] Save checkpoint

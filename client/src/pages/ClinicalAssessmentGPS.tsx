@@ -62,6 +62,7 @@ import { HandoverModal } from '@/components/HandoverModal';
 import { generateSBARHandover, SBARHandover } from '@/lib/sbarHandover';
 import { initAudioContext, triggerAlert, playCountdownBeep } from '@/lib/alertSystem';
 import { voiceCommandService } from '@/lib/voiceCommandService';
+import { VoiceCommandTutorial } from '@/components/VoiceCommandTutorial';
 
 // Import advanced modules for overlay triggers
 import { ShockAssessment } from '@/components/ShockAssessment';
@@ -229,6 +230,28 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   // Voice command state
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [voiceSupported] = useState(voiceCommandService.isSupported());
+  const [showVoiceTutorial, setShowVoiceTutorial] = useState(false);
+
+  // Check if first-time user (show tutorial)
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('voice_tutorial_seen');
+    if (!hasSeenTutorial && voiceSupported) {
+      // Show tutorial after 3 seconds (let user orient first)
+      const timer = setTimeout(() => {
+        setShowVoiceTutorial(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [voiceSupported]);
+
+  const handleCloseTutorial = () => {
+    setShowVoiceTutorial(false);
+    localStorage.setItem('voice_tutorial_seen', 'true');
+  };
+
+  const handleStartVoiceFromTutorial = () => {
+    handleToggleVoice();
+  };
 
   // Handle voice command toggle
   const handleToggleVoice = () => {
@@ -1628,6 +1651,14 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Voice Command Tutorial (First-time users) */}
+      {showVoiceTutorial && (
+        <VoiceCommandTutorial
+          onClose={handleCloseTutorial}
+          onStartTutorial={handleStartVoiceFromTutorial}
+        />
+      )}
+
       {/* Offline Indicator & PWA Install */}
       <OfflineIndicator
         showInstallButton={isInstallable}
