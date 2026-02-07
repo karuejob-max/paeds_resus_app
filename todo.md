@@ -53,3 +53,11 @@
 - [x] Integrate obstetric protocols into emergency launcher
 - [x] Test obstetric protocols end-to-end
 - [x] Save checkpoint
+
+## Phase 118: Wire Clinical Reasoning Engine to Home Page
+- [x] Replace age/weight inputs with "Start Clinical Assessment" button
+- [x] Add prominent CTA for Clinical Reasoning Engine flow
+- [x] Preserve "Expert Mode" toggle for quick-launch (experienced providers)
+- [x] Update home page copy to explain intelligent triage
+- [x] Test complete flow: Home → Primary Survey → Results → Protocol
+- [ ] Save checkpoint

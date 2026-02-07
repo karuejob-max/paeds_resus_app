@@ -1662,61 +1662,28 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 
-              {/* Patien              {/* Patient Inputs - Minimal */}
+              {/* Patien              {/* Primary CTA: Clinical Reasoning Engine */}
               <div className="mb-6">
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 max-[374px]:grid-cols-1 max-[374px]:gap-3 patient-inputs-mobile">
-                  <div className="col-span-2 max-[374px]:col-span-1">
-                    <Label className="text-gray-400 text-xs uppercase tracking-wide">Age</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        type="number"
-                        value={patientData.ageYears || ''}
-                        onChange={(e) => setPatientData({ ...patientData, ageYears: parseInt(e.target.value) || 0, ageMonths: 0 })}
-                        className="bg-slate-700 border-slate-600 text-white text-lg h-14 flex-1"
-                        placeholder="Years"
-                        min={0}
-                        max={18}
-                      />
-                      <Input
-                        type="number"
-                        value={patientData.ageMonths || ''}
-                        onChange={(e) => setPatientData({ ...patientData, ageMonths: parseInt(e.target.value) || 0 })}
-                        className="bg-slate-700 border-slate-600 text-white text-lg h-14 w-20"
-                        placeholder="Mo"
-                        min={0}
-                        max={11}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-400 text-xs uppercase tracking-wide">Weight</Label>
-                    <Input
-                      type="number"
-                      value={patientData.weight || ''}
-                      onChange={(e) => setPatientData({ ...patientData, weight: parseFloat(e.target.value) || 0 })}
-                      placeholder="kg"
-                      className="bg-slate-700 border-slate-600 text-white text-lg h-14 mt-1"
-                      min={0.5}
-                      max={150}
-                      step={0.1}
-                    />
-                  </div>
-                </div>
-                {(patientData.ageYears > 0 || patientData.ageMonths > 0) && !patientData.weight && (
-                  <p className="text-sm text-orange-400 text-center">Weight: {weight.toFixed(1)} kg (auto)</p>
-                )}
+                <button
+                  onClick={() => setLocation('/primary-survey')}
+                  className="w-full bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 hover:from-teal-600 hover:via-cyan-600 hover:to-blue-600 active:scale-98 text-white py-6 px-6 rounded-xl flex items-center justify-center gap-3 text-lg font-bold shadow-2xl shadow-cyan-900/50 transition-all min-h-[72px] border-2 border-cyan-400/30"
+                >
+                  <Activity className="h-7 w-7" />
+                  START CLINICAL ASSESSMENT
+                </button>
+                <p className="text-sm text-cyan-300 text-center mt-2 font-medium">Intelligent triage • Zero diagnostic burden • Immediate interventions</p>
               </div>
 
-              {/* Emergency Protocol Quick Launcher */}
+              {/* Expert Mode: Quick Launch (Collapsible) */}
               <div className="mb-4">
                 <button
                   onClick={() => setShowEmergencyLauncher(true)}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 active:scale-98 text-white py-4 px-4 rounded-lg flex items-center justify-center gap-2 text-base font-bold shadow-lg transition-all min-h-[56px]"
+                  className="w-full bg-slate-700/50 hover:bg-slate-700 active:scale-98 text-slate-300 py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium border border-slate-600 transition-all"
                 >
-                  <Zap className="h-5 w-5" />
-                  QUICK LAUNCH PROTOCOL
+                  <Zap className="h-4 w-4" />
+                  Expert Mode: Quick Launch Protocol
                 </button>
-                <p className="text-xs text-gray-400 text-center mt-1">Skip assessment when diagnosis is known</p>
+                <p className="text-xs text-gray-500 text-center mt-1">For experienced providers when diagnosis is known</p>
               </div>
 
               {/* Emergency Quick Access - Reordered for mobile */}
