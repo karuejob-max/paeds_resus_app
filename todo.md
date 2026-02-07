@@ -3516,3 +3516,44 @@ Continue to next question...
 - [x] Make "View Details" button navigate to session details page
 - [x] Test session details view
 - [ ] Save checkpoint
+
+## Phase 103: DNA v2.0 Implementation - Comprehensive Clinical Depth
+- [x] Build comprehensive asthma protocol (salbutamol → steroids → ipratropium → IV bronchodilators → intubation → vent settings)
+- [x] Create protocol builder system for "no stone unturned" standard
+- [x] Add medication dilution calculators for all asthma medications
+- [x] Add ventilator settings guide (prolonged expiratory phase, reduced PEEP, increased PIP)
+- [x] Include inhaled anesthetic bronchodilators option
+- [x] Test asthma protocol end-to-end
+- [ ] Save checkpoint
+
+## Phase 104: Role-Based Collaborative Sessions
+- [ ] Redesign CPR session architecture for multi-user access
+- [ ] Build role selection interface (Team Leader, Airway, Medications, Compressions, Documentation)
+- [ ] Create Team Leader view (full situational awareness, decision prompts, timing)
+- [ ] Create Airway view (device catalog with sizes, positioning guides, vent calculators)
+- [ ] Create Medications view (IV/IO guides, dilution calculators, infusion rates, adverse events)
+- [ ] Create Compressions view (depth/rate feedback, rotation timers, quality metrics)
+- [ ] Create Documentation view (auto-timeline, critical event capture)
+- [ ] Implement WebSocket real-time sync for live team coordination
+- [ ] Add voice commands for hands-free operation
+- [ ] Test multi-device collaboration
+- [ ] Save checkpoint
+
+## Phase 105: Age-Universal Platform - Adult ACLS
+- [ ] Redesign patient input to accept any age (0 days to 120 years)
+- [ ] Build age-adaptive protocol engine (auto-selects neonate/pediatric/adult/geriatric)
+- [ ] Create adult ACLS cardiac arrest protocol
+- [ ] Add adult medication dosing (fixed doses vs weight-based)
+- [ ] Add adult defibrillation energy (120-200J biphasic)
+- [ ] Add adult-specific reversible causes
+- [ ] Test age switching (pediatric → adult protocols)
+- [ ] Save checkpoint
+
+## Phase 106: Voice-Activated Guidance
+- [ ] Integrate existing LLM infrastructure for voice queries
+- [ ] Build contextual voice command handler (knows patient age, weight, current phase)
+- [ ] Add common voice commands ("What's the epi dose?", "Give shock", "Log medication")
+- [ ] Implement hands-free documentation via voice
+- [ ] Add audio feedback for command confirmation
+- [ ] Test voice commands in noisy environment simulation
+- [ ] Save checkpoint
