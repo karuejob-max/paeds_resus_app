@@ -389,5 +389,25 @@
 - [x] Add voice tutorial to clinical assessment (shows after 3s for first-time users)
 - [x] Add first-time detection with localStorage
 - [ ] Add contextual hints showing example voice commands for current question (optional enhancement)
-- [ ] Test discovery flow with simulated first-time user
+- [x] Test discovery flow with simulated first-time user
+- [x] Save checkpoint
+
+
+## Phase 125: Comprehensive Feature Discovery System
+- [x] Audit all ResusGPS features and identify hidden capabilities (11 features, 27% discoverable)
+  - [ ] Clinical assessment features (GPS flow, interventions, modules)
+  - [ ] Emergency protocols (cardiac arrest, trauma, medical, neonatal, maternal)
+  - [ ] Collaboration features (sessions, handover generation)
+  - [ ] Advanced modules (shock, asthma, DKA, sepsis, etc.)
+  - [ ] Utility features (CPR clock, alerts, quick-start panel)
+- [x] Build feature discovery components
+  - [x] Feature spotlight carousel on homepage (6 features, auto-rotating)
+  - [x] Contextual tooltips component (hover/long-press support)
+  - [x] Guided tour system for first-time users (5 steps with spotlight)
+  - [ ] Integrate guided tour into clinical assessment (pending data-tour attributes)
+- [ ] Add discovery indicators
+  - [ ] "NEW" badges for recently added features
+  - [ ] Pulse animations on undiscovered features
+  - [ ] Progress tracking (X/Y features discovered)
+- [ ] Test complete discovery system
 - [ ] Save checkpoint

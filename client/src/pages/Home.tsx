@@ -9,6 +9,8 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { FeatureSpotlight } from "@/components/FeatureSpotlight";
+import { FeatureTooltip } from "@/components/FeatureTooltip";
 import {
   Activity,
   Heart,
@@ -95,6 +97,9 @@ export default function Home() {
           <p className="text-center text-gray-400 text-sm">
             Intelligent triage • Zero diagnostic burden • Immediate interventions
           </p>
+
+          {/* Feature Spotlight Carousel */}
+          <FeatureSpotlight />
 
           {/* SECONDARY ACTION - Expert Mode */}
           <Button
