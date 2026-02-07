@@ -6,8 +6,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { WifiOff, Wifi, Download } from 'lucide-react';
+import { WifiOff, Wifi, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getSyncQueueStatus, syncPendingMutations } from '@/lib/syncQueue';
 
 interface OfflineIndicatorProps {
   onInstallClick?: () => void;
@@ -17,10 +18,19 @@ interface OfflineIndicatorProps {
 export function OfflineIndicator({ onInstallClick, showInstallButton = false }: OfflineIndicatorProps) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cachedProtocolsCount, setCachedProtocolsCount] = useState(0);
+  const [pendingMutations, setPendingMutations] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      console.log('[Offline Indicator] Back online - syncing data');
+      syncData();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log('[Offline Indicator] Offline mode - changes will sync when connection returns');
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -39,6 +49,40 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Check sync queue status
+  useEffect(() => {
+    const checkSyncQueue = async () => {
+      const status = await getSyncQueueStatus();
+      setPendingMutations(status.pending);
+    };
+
+    checkSyncQueue();
+    const interval = setInterval(checkSyncQueue, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sync data manually
+  const syncData = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncPendingMutations();
+      if (result.synced > 0) {
+        console.log(`[Offline Indicator] Sync complete: ${result.synced} changes synced`);
+      }
+      if (result.failed > 0) {
+        console.warn(`[Offline Indicator] Sync incomplete: ${result.failed} changes failed`);
+      }
+      const status = await getSyncQueueStatus();
+      setPendingMutations(status.pending);
+    } catch (error) {
+      console.error('[Offline Indicator] Sync failed:', error);
+      console.error('[Offline Indicator] Sync failed - check connection');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
@@ -66,7 +110,26 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
             ({cachedProtocolsCount} protocols cached)
           </span>
         )}
+        {pendingMutations > 0 && (
+          <span className="text-xs opacity-75">
+            • {pendingMutations} pending
+          </span>
+        )}
       </div>
+
+      {/* Sync Button */}
+      {isOnline && pendingMutations > 0 && (
+        <Button
+          onClick={syncData}
+          disabled={isSyncing}
+          size="sm"
+          className="bg-yellow-600 hover:bg-yellow-700 text-white"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+          <span className="sm:hidden">Sync</span>
+        </Button>
+      )}
 
       {/* PWA Install Button */}
       {showInstallButton && onInstallClick && (

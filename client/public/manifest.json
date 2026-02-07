@@ -1,7 +1,7 @@
 {
-  "name": "Paeds Resus - Pediatric Resuscitation Training",
-  "short_name": "Paeds Resus",
-  "description": "World-class pediatric resuscitation training platform protecting children's lives globally",
+  "name": "ResusGPS - Clinical Decision Support for Emergencies",
+  "short_name": "ResusGPS",
+  "description": "AI-powered clinical decision support for pediatric, obstetric, and adult emergencies. Works offline.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -51,39 +51,39 @@
   "categories": ["education", "medical"],
   "shortcuts": [
     {
-      "name": "Enroll Now",
-      "short_name": "Enroll",
-      "description": "Start your pediatric resuscitation training",
-      "url": "/enrollment",
+      "name": "Start Clinical Assessment",
+      "short_name": "Assess",
+      "description": "Begin structured ABCDE primary survey",
+      "url": "/primary-survey",
       "icons": [
         {
-          "src": "/icon-shortcut-enroll.png",
+          "src": "/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
       ]
     },
     {
-      "name": "My Courses",
-      "short_name": "Courses",
-      "description": "View your enrolled courses",
-      "url": "/dashboard",
+      "name": "Emergency Protocols",
+      "short_name": "Protocols",
+      "description": "Quick access to life-saving protocols",
+      "url": "/clinical-assessment",
       "icons": [
         {
-          "src": "/icon-shortcut-courses.png",
+          "src": "/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
       ]
     },
     {
-      "name": "Verify Certificate",
-      "short_name": "Verify",
-      "description": "Verify a certificate",
-      "url": "/certificate-verification",
+      "name": "CPR Sessions",
+      "short_name": "CPR",
+      "description": "View active and past CPR sessions",
+      "url": "/cpr-sessions",
       "icons": [
         {
-          "src": "/icon-shortcut-verify.png",
+          "src": "/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
