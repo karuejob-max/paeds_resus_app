@@ -3648,3 +3648,14 @@ Continue to next question...
 - [x] Integrate Status Epilepticus protocol into emergency launcher
 - [x] Test Status Epilepticus protocol end-to-end
 - [ ] Save checkpoint
+
+## Phase 112: DKA Age-Based Adaptations (ISPAD 2022 Population-Specific Guidelines)
+- [x] Add age detection and risk stratification to DKA protocol (infant <1y, child 1-10y, adolescent 10-18y)
+- [x] Implement infant-specific fluid rates (slower resuscitation: 10 mL/kg over 1-2 hours)
+- [x] Implement child-specific fluid rates (standard: 10-20 mL/kg over 1 hour)
+- [x] Implement adolescent-specific cerebral edema monitoring (higher risk group)
+- [x] Add age-specific insulin dosing considerations
+- [x] Update fluid deficit calculations based on age group
+- [x] Add age-specific warning messages and clinical pearls
+- [x] Test DKA protocol with different age inputs
+- [ ] Save checkpoint

@@ -50,6 +50,10 @@ export default function DKAProtocol({ patientAge: propAge, patientWeight: propWe
   const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
   const [patientAge, setPatientAge] = useState<number>(propAge || 10);
   
+  // Age group detection (ISPAD 2022 population-based guidelines)
+  const ageGroup = patientAge < 1 ? 'infant' : patientAge < 10 ? 'child' : 'adolescent';
+  const cerebralEdemaRisk = ageGroup === 'adolescent' ? 'high' : ageGroup === 'infant' ? 'moderate' : 'standard';
+  
   // Clinical state
   const [currentStage, setCurrentStage] = useState<DKAStage>('assessment');
   const [severity, setSeverity] = useState<SeverityLevel | null>(null);
@@ -65,13 +69,20 @@ export default function DKAProtocol({ patientAge: propAge, patientWeight: propWe
   const [completedChecks, setCompletedChecks] = useState<string[]>([]);
   const [startTime] = useState<Date>(new Date());
 
-  // Calculate fluid requirements
+  // Calculate fluid requirements (age-specific per ISPAD 2022)
   const fluidDeficit = (dehydrationPercent / 100) * patientWeight * 1000; // mL
   const maintenanceFluid = patientWeight <= 10 ? patientWeight * 100 : 
                           patientWeight <= 20 ? 1000 + (patientWeight - 10) * 50 :
                           1500 + (patientWeight - 20) * 20; // mL/24h
   const totalFluidNeeded = fluidDeficit + maintenanceFluid;
-  const fluidRate = totalFluidNeeded / 48; // mL/hr over 48 hours
+  
+  // Age-specific fluid resuscitation rates (ISPAD 2022)
+  // Infants <1y: SLOWER resuscitation (10 mL/kg over 1-2 hours) to reduce cerebral edema risk
+  // Children 1-10y: Standard (10-20 mL/kg over 1 hour)
+  // Adolescents 10-18y: Standard but HIGH cerebral edema surveillance
+  const initialBolusRate = ageGroup === 'infant' ? 10 : 10; // mL/kg
+  const initialBolusDuration = ageGroup === 'infant' ? 2 : 1; // hours
+  const fluidRate = totalFluidNeeded / 48; // mL/hr over 48 hours after initial bolus
 
   // Calculate insulin dose
   const insulinRate = 0.1 * patientWeight; // units/hr (0.1 units/kg/hr)
@@ -246,6 +257,12 @@ export default function DKAProtocol({ patientAge: propAge, patientWeight: propWe
                 <CardTitle className="text-red-200 flex items-center gap-2">
                   <Brain className="h-5 w-5" />
                   Cerebral Edema Warning Signs
+                  {cerebralEdemaRisk === 'high' && (
+                    <Badge className="bg-red-600 text-white ml-2">HIGH RISK - Adolescent</Badge>
+                  )}
+                  {cerebralEdemaRisk === 'moderate' && (
+                    <Badge className="bg-orange-600 text-white ml-2">MODERATE RISK - Infant</Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -306,14 +323,20 @@ export default function DKAProtocol({ patientAge: propAge, patientWeight: propWe
                 <div className="bg-yellow-900/30 border border-yellow-700 p-4 rounded">
                   <h3 className="font-semibold text-yellow-200 mb-2 flex items-center gap-2">
                     <Info className="h-4 w-4" />
-                    Fluid Protocol
+                    Fluid Protocol {ageGroup === 'infant' && <Badge className="bg-orange-600 ml-2">INFANT - SLOWER RATE</Badge>}
                   </h3>
                   <ul className="text-sm text-yellow-100 space-y-2">
-                    <li>• <strong>Initial bolus:</strong> 10 mL/kg 0.9% NaCl over 1h (if shocked)</li>
+                    <li>• <strong>Initial bolus:</strong> {initialBolusRate} mL/kg 0.9% NaCl over {initialBolusDuration}h {ageGroup === 'infant' && '(SLOWER for infants)'}</li>
                     <li>• <strong>Maintenance fluid:</strong> 0.9% NaCl (or 0.45% NaCl after initial rehydration)</li>
                     <li>• <strong>Add potassium:</strong> 20-40 mEq/L once urine output confirmed and K+ &lt;5.5</li>
                     <li>• <strong>Switch to D5 fluids:</strong> When glucose &lt;250 mg/dL</li>
                     <li>• <strong>Avoid rapid correction:</strong> Replace deficit over 48 hours</li>
+                    {ageGroup === 'infant' && (
+                      <li className="text-orange-200">• <strong>⚠️ INFANT CAUTION:</strong> Use slower fluid rates to minimize cerebral edema risk</li>
+                    )}
+                    {ageGroup === 'adolescent' && (
+                      <li className="text-red-200">• <strong>⚠️ ADOLESCENT CAUTION:</strong> Monitor closely for cerebral edema (higher risk group)</li>
+                    )}
                   </ul>
                 </div>
 
