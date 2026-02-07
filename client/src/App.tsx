@@ -12,6 +12,7 @@ import CPRMonitoring from "./pages/CPRMonitoring";
 import SessionDetails from './pages/SessionDetails';
 import AsthmaEmergency from './pages/AsthmaEmergency';
 import JoinSession from './pages/JoinSession';
+import GuidelineManagement from './pages/GuidelineManagement';
 import CollaborativeSession from './pages/CollaborativeSession';
 import PrimarySurvey from './pages/PrimarySurvey';
 import ClinicalReasoningResults from './pages/ClinicalReasoningResults';
@@ -127,7 +128,9 @@ function Router() {
           {/* Collaborative Session Join */}
           <Route path="/join-session" component={JoinSession} />
           {/* Collaborative Session View */}
-          <Route path="/collaborative-session/:id" component={CollaborativeSession} />
+          <Route path="/collaborative-session/:sessionId" component={CollaborativeSession} />
+          {/* Guideline Management */}
+          <Route path="/guideline-management" component={GuidelineManagement} />
           {/* Clinical Reasoning Engine */}
           <Route path="/primary-survey" component={PrimarySurvey} />
           <Route path="/clinical-reasoning-results" component={ClinicalReasoningResults} />

@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, json } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1978,3 +1978,104 @@ export type CprTeamMember = typeof cprTeamMembers.$inferSelect;
 export type InsertCprTeamMember = typeof cprTeamMembers.$inferInsert;
 
 
+
+// Guideline Version Control System
+
+// Guidelines table - tracks authoritative clinical guidelines
+export const guidelines = mysqlTable("guidelines", {
+  id: int("id").autoincrement().primaryKey(),
+  organization: mysqlEnum("organization", ["AHA", "WHO", "ACOG", "ERC", "ILCOR", "AAP", "RCOG", "NICE"]).notNull(),
+  title: text("title").notNull(),
+  version: varchar("version", { length: 50 }).notNull(),
+  publicationDate: date("publicationDate").notNull(),
+  effectiveDate: date("effectiveDate"),
+  url: text("url"),
+  documentHash: varchar("documentHash", { length: 64 }), // SHA-256 hash for change detection
+  status: mysqlEnum("status", ["current", "superseded", "withdrawn"]).default("current").notNull(),
+  category: mysqlEnum("category", [
+    "cardiac_arrest",
+    "respiratory",
+    "shock",
+    "trauma",
+    "toxicology",
+    "neonatal",
+    "obstetric",
+    "pediatric",
+    "general"
+  ]).notNull(),
+  summary: text("summary"),
+  keyChanges: json("keyChanges"), // Array of key changes from previous version
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Guideline = typeof guidelines.$inferSelect;
+export type InsertGuideline = typeof guidelines.$inferInsert;
+
+// Protocol Guidelines Mapping - links protocols to their source guidelines
+export const protocolGuidelines = mysqlTable("protocolGuidelines", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: varchar("protocolId", { length: 100 }).notNull(), // e.g., "dka", "septic_shock"
+  protocolName: text("protocolName").notNull(),
+  guidelineId: int("guidelineId").notNull(),
+  relevance: mysqlEnum("relevance", ["primary", "secondary", "reference"]).default("primary").notNull(),
+  specificSections: json("specificSections"), // Array of specific guideline sections referenced
+  lastReviewed: timestamp("lastReviewed").defaultNow().notNull(),
+  reviewedBy: int("reviewedBy"), // User ID of reviewer
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProtocolGuideline = typeof protocolGuidelines.$inferSelect;
+export type InsertProtocolGuideline = typeof protocolGuidelines.$inferInsert;
+
+// Guideline Changes - tracks detected changes and their impact
+export const guidelineChanges = mysqlTable("guidelineChanges", {
+  id: int("id").autoincrement().primaryKey(),
+  guidelineId: int("guidelineId").notNull(),
+  previousVersion: varchar("previousVersion", { length: 50 }),
+  newVersion: varchar("newVersion", { length: 50 }).notNull(),
+  changeType: mysqlEnum("changeType", [
+    "major_revision",
+    "minor_update",
+    "clarification",
+    "new_evidence",
+    "withdrawn_recommendation"
+  ]).notNull(),
+  severity: mysqlEnum("severity", ["critical", "high", "moderate", "low"]).notNull(),
+  changeDescription: text("changeDescription").notNull(),
+  affectedProtocols: json("affectedProtocols"), // Array of protocol IDs
+  clinicalImpact: text("clinicalImpact"),
+  detectedAt: timestamp("detectedAt").defaultNow().notNull(),
+  reviewStatus: mysqlEnum("reviewStatus", ["pending", "under_review", "implemented", "not_applicable"]).default("pending").notNull(),
+  reviewedBy: int("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  implementationNotes: text("implementationNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type GuidelineChange = typeof guidelineChanges.$inferSelect;
+export type InsertGuidelineChange = typeof guidelineChanges.$inferInsert;
+
+// Protocol Status - tracks current status of each protocol
+export const protocolStatus = mysqlTable("protocolStatus", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: varchar("protocolId", { length: 100 }).notNull().unique(),
+  protocolName: text("protocolName").notNull(),
+  currentStatus: mysqlEnum("currentStatus", ["current", "outdated", "under_review", "flagged"]).default("current").notNull(),
+  lastUpdated: timestamp("lastUpdated").defaultNow().notNull(),
+  lastReviewed: timestamp("lastReviewed").defaultNow().notNull(),
+  nextReviewDue: date("nextReviewDue"),
+  pendingChanges: int("pendingChanges").default(0), // Count of unimplemented guideline changes
+  flagReason: text("flagReason"),
+  assignedTo: int("assignedTo"), // User ID of assigned reviewer
+  priority: mysqlEnum("priority", ["urgent", "high", "normal", "low"]).default("normal").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProtocolStatus = typeof protocolStatus.$inferSelect;
+export type InsertProtocolStatus = typeof protocolStatus.$inferInsert;
