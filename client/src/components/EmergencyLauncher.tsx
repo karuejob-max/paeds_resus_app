@@ -17,6 +17,7 @@ import {
   Zap, 
   AlertTriangle,
   Brain,
+  Baby,
   X
 } from 'lucide-react';
 
@@ -112,6 +113,30 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <Wind className="h-8 w-8" />,
       color: 'bg-blue-600 hover:bg-blue-700',
       description: 'Community-Acquired Pneumonia',
+      available: true,
+    },
+    {
+      id: 'postpartum_hemorrhage',
+      name: 'Postpartum Hemorrhage',
+      icon: <Baby className="h-8 w-8" />,
+      color: 'bg-rose-600 hover:bg-rose-700',
+      description: 'Active Management Third Stage',
+      available: true,
+    },
+    {
+      id: 'eclampsia',
+      name: 'Eclampsia',
+      icon: <Baby className="h-8 w-8" />,
+      color: 'bg-fuchsia-600 hover:bg-fuchsia-700',
+      description: 'Preeclampsia/Eclampsia Management',
+      available: true,
+    },
+    {
+      id: 'maternal_cardiac_arrest',
+      name: 'Maternal Cardiac Arrest',
+      icon: <Baby className="h-8 w-8" />,
+      color: 'bg-red-700 hover:bg-red-800',
+      description: 'Pregnancy-Modified ACLS',
       available: true,
     },
   ];

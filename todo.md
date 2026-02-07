@@ -3696,8 +3696,8 @@ Continue to next question...
 - [x] Remove neonatal warning banners from Anaphylaxis protocol
 - [x] Verify age-based adaptations work silently without visual clutter
 - [x] Build postpartum hemorrhage protocol (active management of third stage, uterotonic drugs, bimanual compression)
-- [ ] Build eclampsia protocol (magnesium sulfate loading and maintenance, seizure management, delivery timing)
-- [ ] Build maternal cardiac arrest protocol (left uterine displacement, perimortem cesarean section timing, pregnancy-specific ACLS modifications)
-- [ ] Integrate obstetric protocols into emergency launcher
-- [ ] Test obstetric protocols end-to-end
+- [x] Build eclampsia protocol (magnesium sulfate loading and maintenance, seizure management, delivery timing)
+- [x] Build maternal cardiac arrest protocol (left uterine displacement, perimortem cesarean section timing, pregnancy-specific ACLS modifications)
+- [x] Integrate obstetric protocols into emergency launcher
+- [x] Test obstetric protocols end-to-end
 - [ ] Save checkpoint
