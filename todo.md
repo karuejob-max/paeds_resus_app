@@ -409,5 +409,14 @@
   - [ ] "NEW" badges for recently added features
   - [ ] Pulse animations on undiscovered features
   - [ ] Progress tracking (X/Y features discovered)
-- [ ] Test complete discovery system
+- [x] Test complete discovery system (FeatureSpotlight visible on homepage)
+- [x] Save checkpoint
+
+
+## Phase 126: Eliminate Homepage Redundancy - Single Button Interface
+- [x] Remove Expert Mode button (redundant - EmergencyLauncher accessible inside assessment)
+- [x] Remove all 5 quick access buttons (CARDIAC ARREST, SHOUT FOR HELP, MEDICAL, NEONATAL, TRAUMA - all in EmergencyLauncher)
+- [x] Remove FeatureSpotlight carousel (move discovery to inside assessment)
+- [x] Optimize single-button layout for maximum visual impact (48-64 height, giant icons)
+- [ ] Test simplified homepage (1 second to action, zero cognitive load)
 - [ ] Save checkpoint
