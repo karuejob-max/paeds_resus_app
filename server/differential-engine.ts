@@ -145,8 +145,13 @@ export function generateDifferentials(data: PrimarySurveyData): Differential[] {
     differentials.push(burns);
   }
 
+  // Apply age-specific modifiers to all differentials
+  const ageModifiedDifferentials = differentials.map((diff) =>
+    applyAgeModifiers(diff, data)
+  );
+
   // Sort by probability (highest first)
-  return differentials.sort((a, b) => b.probability - a.probability);
+  return ageModifiedDifferentials.sort((a, b) => b.probability - a.probability);
 }
 
 /**

@@ -199,3 +199,19 @@
 - [ ] Validate urgency scoring for Tier 2 conditions
 - [ ] Ensure no condition overlap or missed diagnoses
 - [ ] Save checkpoint
+
+
+## Age-Specific Modifiers Implementation
+- [x] Define age group boundaries (neonate 0-28 days, infant 29 days-1 year, child 1-12 years, adolescent 12-18 years, adult 18-65 years, elderly >65 years, pregnant)
+- [x] Build physiological differences database for each age group
+- [x] Create age-specific modifier engine with probability adjustments
+- [x] Update neonatal sepsis: Remove fever requirement, add hypothermia/lethargy as primary signs
+- [x] Update elderly MI: Remove chest pain requirement, add dyspnea/confusion as primary signs
+- [x] Update pregnancy DKA: Lower glucose threshold to >200 mg/dL (vs >250 mg/dL)
+- [x] Update pediatric stroke: Add sickle cell disease, congenital heart disease as risk factors
+- [x] Update geriatric pneumonia: Add confusion without fever as presentation
+- [x] Update all 89 differentials with age-specific presentation variants
+- [x] Modify intervention recommender with age-appropriate dosing (weight-based for pediatrics, renal-adjusted for elderly)
+- [x] Add age-specific contraindications (e.g., aspirin in children <12, NSAIDs in pregnancy 3rd trimester)
+- [x] Test age-specific modifiers across all age groups (neonate, child, adult, elderly, pregnant)
+- [ ] Save checkpoint

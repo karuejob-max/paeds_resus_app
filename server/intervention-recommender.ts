@@ -8,6 +8,7 @@ import type {
   ClinicalReasoningResult,
   PrimarySurveyData,
 } from '../shared/clinical-types';
+import { getAgeGroup, getAgeSpecificInterventions, type AgeGroup } from './age-modifiers';
 
 /**
  * Recommends interventions based on differential diagnosis and risk-benefit analysis
@@ -499,6 +500,30 @@ export function recommendInterventions(
         { name: 'Lumbar puncture (if stable)', priority: 'urgent' }
       );
       break;
+  }
+
+  // Apply age-specific intervention modifications
+  const ageGroup = getAgeGroup(surveyData.patientAge, surveyData.patientType === 'pregnant_postpartum');
+  const ageSpecificModifications = getAgeSpecificInterventions(topDifferential.id, ageGroup);
+
+  // Add age-specific modifications as additional immediate interventions
+  if (ageSpecificModifications.length > 0) {
+    immediate.push({
+      id: `${topDifferential.id}_age_specific`,
+      name: 'Age-Specific Modifications',
+      category: 'immediate',
+      indication: `${ageGroup} population`,
+      contraindications: [],
+      requiredTests: [],
+      riskIfWrong: 'low',
+      benefitIfRight: 'high',
+      timeWindow: 'immediate',
+      dosing: {
+        calculation: 'See modifications below',
+        route: 'Various',
+      },
+      monitoring: ageSpecificModifications,
+    });
   }
 
   return {
