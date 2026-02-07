@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { publicProcedure, router } from '../_core/trpc';
 import { generateDifferentials } from '../differential-engine';
 import { recommendInterventions } from '../intervention-recommender';
+import { detectOverlappingConditions, generateIntegratedProtocol, prioritizeInterventions } from '../multi-system-scoring';
 import type { PrimarySurveyData } from '../../shared/clinical-types';
 
 export const clinicalReasoningRouter = router({
@@ -116,11 +117,36 @@ export const clinicalReasoningRouter = router({
       // Get top differential
       const topDifferential = differentials[0];
 
+      // Detect overlapping conditions (multi-system scoring)
+      const { overlapping, dangerousOverlaps, systemsInvolved } = detectOverlappingConditions(differentials);
+
       // Recommend interventions based on top differential
-      const { immediate, urgent, confirmatory, requiredTests } = recommendInterventions(
+      let { immediate, urgent, confirmatory, requiredTests } = recommendInterventions(
         topDifferential,
         surveyData
       );
+
+      // If multiple conditions detected, generate integrated protocol
+      let systemInteractionWarnings: string[] = [];
+      let prioritySequence: string[] = [];
+      let conflictResolutions: string[] = [];
+
+      if (overlapping.length >= 2) {
+        const integratedProtocol = generateIntegratedProtocol(
+          overlapping,
+          dangerousOverlaps,
+          surveyData
+        );
+
+        // Merge integrated protocol interventions with single-condition interventions
+        immediate = [...integratedProtocol.immediateInterventions, ...immediate];
+        systemInteractionWarnings = integratedProtocol.systemInteractionWarnings;
+        prioritySequence = integratedProtocol.prioritySequence;
+        conflictResolutions = integratedProtocol.conflictResolutions;
+
+        // Prioritize interventions (ABC threats first)
+        immediate = prioritizeInterventions(immediate, surveyData);
+      }
 
       return {
         surveyData,
@@ -129,6 +155,13 @@ export const clinicalReasoningRouter = router({
         urgentInterventions: urgent,
         confirmatoryInterventions: confirmatory,
         requiredTests,
+        // Multi-system scoring results
+        overlappingConditions: overlapping,
+        dangerousOverlaps,
+        systemsInvolved,
+        systemInteractionWarnings,
+        prioritySequence,
+        conflictResolutions,
       };
     }),
 });
