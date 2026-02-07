@@ -3689,3 +3689,15 @@ Continue to next question...
 - [x] Add neonatal anaphylaxis monitoring (apnea risk, feeding intolerance)
 - [x] Test all age-adapted protocols with neonatal inputs
 - [ ] Save checkpoint
+
+## Phase 115: Remove Warning Banners & Build Obstetric Emergencies Module
+- [x] Remove neonatal warning banners from Status Epilepticus protocol
+- [x] Remove neonatal warning banners from Septic Shock protocol
+- [x] Remove neonatal warning banners from Anaphylaxis protocol
+- [x] Verify age-based adaptations work silently without visual clutter
+- [x] Build postpartum hemorrhage protocol (active management of third stage, uterotonic drugs, bimanual compression)
+- [ ] Build eclampsia protocol (magnesium sulfate loading and maintenance, seizure management, delivery timing)
+- [ ] Build maternal cardiac arrest protocol (left uterine displacement, perimortem cesarean section timing, pregnancy-specific ACLS modifications)
+- [ ] Integrate obstetric protocols into emergency launcher
+- [ ] Test obstetric protocols end-to-end
+- [ ] Save checkpoint
