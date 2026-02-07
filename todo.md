@@ -3659,3 +3659,23 @@ Continue to next question...
 - [x] Add age-specific warning messages and clinical pearls
 - [x] Test DKA protocol with different age inputs
 - [ ] Save checkpoint
+
+## Phase 113: Respiratory Emergencies Suite (Bronchiolitis, Croup, Severe Pneumonia)
+- [x] Build bronchiolitis protocol with age-based management
+- [x] Add neonatal bronchiolitis management (different from infant/child)
+- [x] Add supportive care protocol (oxygen, hydration, suctioning)
+- [x] Add high-flow nasal cannula (HFNC) criteria and settings
+- [x] Add CPAP/BiPAP escalation criteria
+- [x] Build croup protocol with severity-based escalation
+- [x] Add Westley Croup Score assessment
+- [x] Add dexamethasone dosing (0.6 mg/kg)
+- [x] Add nebulized epinephrine protocol for severe croup
+- [x] Add heliox considerations
+- [x] Build severe pneumonia protocol with age-appropriate management
+- [x] Add WHO pneumonia severity classification
+- [x] Add age-appropriate antibiotic selection (neonatal vs infant vs child)
+- [x] Add oxygen therapy escalation
+- [x] Add fluid management for pneumonia with shock
+- [x] Integrate all respiratory protocols into emergency launcher
+- [x] Test respiratory protocols with different age inputs
+- [ ] Save checkpoint

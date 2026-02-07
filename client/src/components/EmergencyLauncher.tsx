@@ -88,7 +88,31 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <Brain className="h-8 w-8" />,
       color: 'bg-indigo-600 hover:bg-indigo-700',
       description: 'Seizure Management Protocol',
-      available: false,
+      available: true,
+    },
+    {
+      id: 'bronchiolitis',
+      name: 'Bronchiolitis',
+      icon: <Wind className="h-8 w-8" />,
+      color: 'bg-cyan-600 hover:bg-cyan-700',
+      description: 'Bronchiolitis Management',
+      available: true,
+    },
+    {
+      id: 'croup',
+      name: 'Croup (LTB)',
+      icon: <Wind className="h-8 w-8" />,
+      color: 'bg-teal-600 hover:bg-teal-700',
+      description: 'Laryngotracheobronchitis',
+      available: true,
+    },
+    {
+      id: 'pneumonia',
+      name: 'Severe Pneumonia',
+      icon: <Wind className="h-8 w-8" />,
+      color: 'bg-blue-600 hover:bg-blue-700',
+      description: 'Community-Acquired Pneumonia',
+      available: true,
     },
   ];
 

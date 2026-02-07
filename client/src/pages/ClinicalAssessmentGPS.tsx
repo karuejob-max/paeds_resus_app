@@ -79,6 +79,9 @@ import DKAProtocol from '@/pages/DKAProtocol';
 import SepticShockProtocol from '@/pages/SepticShockProtocol';
 import AnaphylaxisProtocol from '@/pages/AnaphylaxisProtocol';
 import StatusEpilepticusProtocol from '@/pages/StatusEpilepticusProtocol';
+import BronchiolitisProtocol from '@/pages/BronchiolitisProtocol';
+import CroupProtocol from '@/pages/CroupProtocol';
+import SeverePneumoniaProtocol from '@/pages/SeverePneumoniaProtocol';
 // Types
 interface PatientData {
   ageYears: number;
@@ -2279,6 +2282,27 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
       {launchedProtocol && launchedProtocol.type === 'status_epilepticus' && (
         <StatusEpilepticusProtocol
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
+        />
+      )}
+      {launchedProtocol && launchedProtocol.type === 'bronchiolitis' && (
+        <BronchiolitisProtocol
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
+        />
+      )}
+      {launchedProtocol && launchedProtocol.type === 'croup' && (
+        <CroupProtocol
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
+        />
+      )}
+      {launchedProtocol && launchedProtocol.type === 'pneumonia' && (
+        <SeverePneumoniaProtocol
           patientAge={launchedProtocol.age}
           patientWeight={launchedProtocol.weight}
           onClose={() => setLaunchedProtocol(null)}
