@@ -93,3 +93,109 @@
 - [x] Add time-to-death urgency scoring (Tier 1: minutes, Tier 2: hours, Tier 3: days)
 - [x] Test Phase 1 with 10 clinical scenarios
 - [ ] Save checkpoint
+
+## Tier 2 Emergencies Implementation (Coverage: 21 → 89 conditions, 23.6% → 100%)
+
+### Respiratory Emergencies (6 conditions)
+- [ ] Add differential: Severe pneumonia (bacterial, viral, aspiration)
+- [ ] Add differential: Bronchiolitis (RSV, respiratory failure)
+- [ ] Add differential: Croup (laryngotracheobronchitis, severe airway obstruction)
+- [ ] Add differential: Epiglottitis (airway emergency)
+- [ ] Add differential: ARDS (acute respiratory distress syndrome)
+- [ ] Add differential: Aspiration pneumonitis
+
+### Cardiac Emergencies (5 conditions)
+- [ ] Add differential: Acute heart failure (decompensated)
+- [ ] Add differential: SVT (supraventricular tachycardia)
+- [ ] Add differential: Ventricular tachycardia
+- [ ] Add differential: Endocarditis (infective)
+- [ ] Add differential: Myocarditis (viral, inflammatory)
+
+### Neurological Emergencies (5 conditions)
+- [ ] Add differential: Encephalitis (viral, autoimmune)
+- [ ] Add differential: Brain abscess
+- [ ] Add differential: Hydrocephalus (acute, obstructive)
+- [ ] Add differential: Increased intracranial pressure (ICP)
+- [ ] Add differential: Guillain-Barré syndrome (GBS, respiratory failure)
+
+### GI Emergencies (6 conditions)
+- [ ] Add differential: Appendicitis (acute, perforated)
+- [ ] Add differential: Intussusception (bowel obstruction)
+- [ ] Add differential: Volvulus (malrotation, ischemic bowel)
+- [ ] Add differential: Bowel obstruction (mechanical, ileus)
+- [ ] Add differential: GI bleeding (upper, lower, massive)
+- [ ] Add differential: Pancreatitis (acute, necrotizing)
+
+### Renal Emergencies (4 conditions)
+- [ ] Add differential: Acute kidney injury (AKI, anuria)
+- [ ] Add differential: Hemolytic uremic syndrome (HUS)
+- [ ] Add differential: Nephrotic syndrome (severe, hypovolemia)
+- [ ] Add differential: Renal failure (acute on chronic)
+
+### Endocrine Emergencies (4 conditions)
+- [ ] Add differential: Thyroid storm (thyrotoxicosis)
+- [ ] Add differential: Adrenal crisis (Addisonian crisis)
+- [ ] Add differential: Hypercalcemia (severe, symptomatic)
+- [ ] Add differential: SIADH (hyponatremia, seizures)
+
+### Hematologic Emergencies (4 conditions)
+- [ ] Add differential: Sickle cell crisis (vaso-occlusive, acute chest syndrome)
+- [ ] Add differential: Hemophilia bleeding (intracranial, joint)
+- [ ] Add differential: ITP (immune thrombocytopenia, severe bleeding)
+- [ ] Add differential: Leukemia complications (tumor lysis, hyperleukocytosis)
+
+### Toxicologic Emergencies (8 conditions)
+- [ ] Add differential: Paracetamol (acetaminophen) overdose
+- [ ] Add differential: Salicylate (aspirin) overdose
+- [ ] Add differential: Iron overdose
+- [ ] Add differential: Carbon monoxide poisoning
+- [ ] Add differential: Organophosphate poisoning
+- [ ] Add differential: Caustic ingestion (acid/alkali)
+- [ ] Add differential: Tricyclic antidepressant overdose
+- [ ] Add differential: Beta-blocker/calcium channel blocker overdose
+
+### Trauma Emergencies (6 conditions)
+- [ ] Add differential: Traumatic brain injury (TBI, severe)
+- [ ] Add differential: Spinal cord injury
+- [ ] Add differential: Abdominal trauma (solid organ injury)
+- [ ] Add differential: Pelvic fracture (hemorrhage)
+- [ ] Add differential: Long bone fracture (fat embolism)
+- [ ] Add differential: Crush injury (compartment syndrome, rhabdomyolysis)
+
+### Obstetric Emergencies (already implemented, 3 conditions)
+- [x] Postpartum hemorrhage
+- [x] Eclampsia
+- [x] Maternal cardiac arrest
+
+### Neonatal Emergencies (6 conditions)
+- [ ] Add differential: Necrotizing enterocolitis (NEC)
+- [ ] Add differential: Congenital heart disease (ductal-dependent lesions)
+- [ ] Add differential: Inborn errors of metabolism (metabolic crisis)
+- [ ] Add differential: Neonatal abstinence syndrome (severe withdrawal)
+- [ ] Add differential: Hyperbilirubinemia (kernicterus risk)
+- [ ] Add differential: Congenital diaphragmatic hernia
+
+### Environmental Emergencies (4 conditions)
+- [ ] Add differential: Hypothermia (severe, <28°C)
+- [ ] Add differential: Hyperthermia (heat stroke)
+- [ ] Add differential: Drowning (near-drowning, ARDS)
+- [ ] Add differential: Electrical injury
+
+### Intervention Recommender Updates
+- [ ] Add Tier 2 respiratory interventions (antibiotics, bronchodilators, intubation criteria)
+- [ ] Add Tier 2 cardiac interventions (cardioversion, antiarrhythmics, inotropes)
+- [ ] Add Tier 2 neurological interventions (ICP management, antibiotics, plasmapheresis)
+- [ ] Add Tier 2 GI interventions (surgical consult, NG decompression, transfusion)
+- [ ] Add Tier 2 renal interventions (dialysis, fluid management)
+- [ ] Add Tier 2 endocrine interventions (hormone replacement, electrolyte correction)
+- [ ] Add Tier 2 hematologic interventions (transfusion, factor replacement, IVIG)
+- [ ] Add Tier 2 toxicologic interventions (antidotes, decontamination, enhanced elimination)
+- [ ] Add Tier 2 trauma interventions (damage control surgery, blood products, TXA)
+- [ ] Add Tier 2 neonatal interventions (prostaglandins, exchange transfusion, phototherapy)
+- [ ] Add Tier 2 environmental interventions (rewarming, cooling, hyperbaric oxygen)
+
+### Testing & Validation
+- [ ] Test all 89 conditions with clinical scenarios
+- [ ] Validate urgency scoring for Tier 2 conditions
+- [ ] Ensure no condition overlap or missed diagnoses
+- [ ] Save checkpoint
