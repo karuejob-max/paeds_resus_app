@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Brain,
   Baby,
+  Shield,
   X
 } from 'lucide-react';
 
@@ -137,6 +138,14 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <Baby className="h-8 w-8" />,
       color: 'bg-red-700 hover:bg-red-800',
       description: 'Pregnancy-Modified ACLS',
+      available: true,
+    },
+    {
+      id: 'trauma',
+      name: 'Trauma',
+      icon: <Shield className="h-8 w-8" />,
+      color: 'bg-gray-600 hover:bg-gray-700',
+      description: 'Universal ATLS Protocol (All Ages)',
       available: true,
     },
   ];

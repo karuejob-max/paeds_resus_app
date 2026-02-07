@@ -86,6 +86,7 @@ import SeverePneumoniaProtocol from '@/pages/SeverePneumoniaProtocol';
 import PostpartumHemorrhageProtocol from '@/pages/PostpartumHemorrhageProtocol';
 import EclampsiaProtocol from '@/pages/EclampsiaProtocol';
 import MaternalCardiacArrestProtocol from '@/pages/MaternalCardiacArrestProtocol';
+import TraumaProtocol from '@/pages/TraumaProtocol';
 // Types
 interface PatientData {
   ageYears: number;
@@ -2323,6 +2324,13 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       )}
       {launchedProtocol && launchedProtocol.type === 'maternal_cardiac_arrest' && (
         <MaternalCardiacArrestProtocol
+          patientAge={launchedProtocol.age}
+          patientWeight={launchedProtocol.weight}
+          onClose={() => setLaunchedProtocol(null)}
+        />
+      )}
+      {launchedProtocol && launchedProtocol.type === 'trauma' && (
+        <TraumaProtocol
           patientAge={launchedProtocol.age}
           patientWeight={launchedProtocol.weight}
           onClose={() => setLaunchedProtocol(null)}

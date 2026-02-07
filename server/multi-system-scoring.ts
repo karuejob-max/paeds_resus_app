@@ -383,8 +383,8 @@ export function generateIntegratedProtocol(
             indication: 'Meningitis with septic shock',
             contraindications: [],
             requiredTests: [],
-            riskIfWrong: 'fatal',
-            benefitIfRight: 'life-saving',
+            riskIfWrong: 'critical',
+            benefitIfRight: 'life_saving',
             timeWindow: 'minutes',
             dosing: {
               calculation: 'See protocol steps',
@@ -410,8 +410,8 @@ export function generateIntegratedProtocol(
             indication: 'DKA with sepsis and shock',
             contraindications: [],
             requiredTests: [],
-            riskIfWrong: 'fatal',
-            benefitIfRight: 'life-saving',
+            riskIfWrong: 'critical',
+            benefitIfRight: 'life_saving',
             timeWindow: 'minutes',
             dosing: {
               calculation: 'See protocol steps',
