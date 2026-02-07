@@ -59,6 +59,8 @@ export interface BreathingAssessment {
     decreased_air_entry?: boolean;
     stridor?: boolean;
     silent_chest?: boolean;
+    location?: 'bilateral' | 'left' | 'right' | 'upper' | 'lower';
+    quality?: 'fine' | 'coarse' | 'musical' | 'absent';
   };
   notes?: string;
 }
@@ -84,6 +86,7 @@ export interface CirculationAssessment {
     peripheral_edema?: boolean;
     pulmonary_edema?: boolean;
   };
+  jvp?: 'not_visible' | 'normal' | 'elevated'; // Critical for shock differentiation
   history?: {
     polyuria?: boolean;
     oliguria?: boolean;
@@ -131,6 +134,34 @@ export interface ExposureAssessment {
     bleeding?: boolean;
     deformities?: boolean;
     rash?: boolean;
+  };
+  skin_findings?: {
+    petechiae?: boolean;
+    purpura?: boolean;
+    jaundice?: boolean;
+    cyanosis?: boolean;
+    mottling?: boolean;
+    pallor?: boolean;
+    flushing?: boolean;
+  };
+  trauma_history?: {
+    mechanism?: 'fall' | 'mvc' | 'assault' | 'penetrating' | 'crush' | 'burn' | 'drowning' | 'other';
+    time_since_injury_hours?: number;
+    location?: string;
+  };
+  toxin_exposure?: {
+    substance?: string;
+    amount?: string;
+    time_since_exposure_hours?: number;
+    intentional?: boolean;
+  };
+  abdominal_exam?: {
+    distension?: boolean;
+    tenderness?: boolean;
+    guarding?: boolean;
+    rigidity?: boolean;
+    bowel_sounds?: 'normal' | 'hyperactive' | 'hypoactive' | 'absent';
+    masses?: boolean;
   };
   pregnancy_related?: {
     currently_pregnant?: boolean;

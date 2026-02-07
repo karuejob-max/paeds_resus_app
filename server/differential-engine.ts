@@ -6,6 +6,7 @@ import type {
   Differential,
   ClinicalQuestion,
 } from '../shared/clinical-types';
+import { differentiateShock, shockAnalysisToDifferential } from './shock-differentiation';
 
 /**
  * Analyzes primary survey data and generates ranked differential diagnoses
@@ -84,6 +85,64 @@ export function generateDifferentials(data: PrimarySurveyData): Differential[] {
     if (neonatalSepsis.probability > 0.3) {
       differentials.push(neonatalSepsis);
     }
+  }
+
+  // === TIER 1 EMERGENCIES (Time-critical, high-frequency) ===
+
+  // Shock Differentiation (CRITICAL - prevents deadly fluid management errors)
+  const shockAnalyses = differentiateShock(data);
+  shockAnalyses.forEach(analysis => {
+    if (analysis.probability > 0.3) {
+      differentials.push(shockAnalysisToDifferential(analysis));
+    }
+  });
+
+  // Foreign Body Aspiration
+  const foreignBody = analyzeForeignBodyAspiration(data);
+  if (foreignBody.probability > 0.3) {
+    differentials.push(foreignBody);
+  }
+
+  // Tension Pneumothorax
+  const tensionPneumo = analyzeTensionPneumothorax(data);
+  if (tensionPneumo.probability > 0.3) {
+    differentials.push(tensionPneumo);
+  }
+
+  // Cardiac Tamponade
+  const tamponade = analyzeCardiacTamponade(data);
+  if (tamponade.probability > 0.3) {
+    differentials.push(tamponade);
+  }
+
+  // Acute Myocardial Infarction
+  const mi = analyzeMyocardialInfarction(data);
+  if (mi.probability > 0.3) {
+    differentials.push(mi);
+  }
+
+  // Stroke
+  const stroke = analyzeStroke(data);
+  if (stroke.probability > 0.3) {
+    differentials.push(stroke);
+  }
+
+  // Bacterial Meningitis
+  const meningitis = analyzeMeningitis(data);
+  if (meningitis.probability > 0.3) {
+    differentials.push(meningitis);
+  }
+
+  // Opioid Overdose
+  const opioidOD = analyzeOpioidOverdose(data);
+  if (opioidOD.probability > 0.3) {
+    differentials.push(opioidOD);
+  }
+
+  // Severe Burns
+  const burns = analyzeSevereBurns(data);
+  if (burns.probability > 0.3) {
+    differentials.push(burns);
   }
 
   // Sort by probability (highest first)
@@ -736,5 +795,524 @@ function analyzeNeonatalSepsis(data: PrimarySurveyData): Differential {
       'Umbilical stump infection?',
     ],
     category: 'critical',
+  };
+}
+
+
+// ============================================================================
+// TIER 1 EMERGENCY ALGORITHMS (Time-critical, minutes to death)
+// ============================================================================
+
+/**
+ * Foreign Body Aspiration Analysis
+ * Causes: Choking on food, toys, small objects
+ * Key features: Sudden onset, witnessed choking, stridor, inability to speak/cry
+ * Time to death: MINUTES
+ */
+function analyzeForeignBodyAspiration(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Airway obstruction
+  if (data.airway.status === 'obstructed') {
+    probability += 0.5;
+    evidence.push('Airway obstructed');
+  }
+
+  // Stridor (partial obstruction)
+  if (data.airway.observations.stridor || data.breathing.auscultation?.stridor) {
+    probability += 0.3;
+    evidence.push('Stridor (partial airway obstruction)');
+  }
+
+  // Sudden onset respiratory distress
+  if (data.physiologicState === 'severe_respiratory_distress') {
+    probability += 0.2;
+    evidence.push('Severe respiratory distress');
+  }
+
+  // Age factor (infants and toddlers at highest risk)
+  if (data.patientType === 'child' && data.exposure.age_years && data.exposure.age_years < 5) {
+    probability += 0.1;
+    evidence.push('High-risk age group (<5 years)');
+  }
+
+  // Hypoxia
+  if (data.breathing.spO2 < 90) {
+    probability += 0.1;
+    evidence.push('Severe hypoxia');
+  }
+
+  return {
+    id: 'foreign_body_aspiration',
+    diagnosis: 'Foreign Body Aspiration (Choking)',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Witnessed choking episode?',
+      'Eating or playing with small objects before onset?',
+      'Sudden onset of symptoms?',
+      'Able to speak/cry?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Tension Pneumothorax Analysis
+ * Causes: Trauma, mechanical ventilation, spontaneous (tall thin males)
+ * Key features: Decreased air entry, tracheal deviation, hypotension, JVP elevated
+ * Time to death: MINUTES
+ */
+function analyzeTensionPneumothorax(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Decreased or absent air entry (strongest predictor)
+  if (data.breathing.auscultation?.decreased_air_entry || 
+      data.breathing.auscultation?.silent_chest) {
+    probability += 0.4;
+    evidence.push('Decreased/absent air entry');
+  }
+
+  // Hypotension + shock (obstructive shock)
+  if (data.physiologicState === 'shock' || 
+      (data.circulation.bloodPressure && data.circulation.bloodPressure.systolic < 90)) {
+    probability += 0.3;
+    evidence.push('Hypotension/shock');
+  }
+
+  // Elevated JVP (obstructed venous return)
+  if (data.circulation.jvp === 'elevated') {
+    probability += 0.2;
+    evidence.push('Elevated JVP');
+  }
+
+  // Trauma history
+  if (data.exposure.trauma_history?.mechanism) {
+    probability += 0.2;
+    evidence.push(`Trauma (${data.exposure.trauma_history.mechanism})`);
+  }
+
+  // Severe hypoxia
+  if (data.breathing.spO2 < 85) {
+    probability += 0.1;
+    evidence.push('Severe hypoxia');
+  }
+
+  // Tachycardia
+  if (data.circulation.heartRate > 120) {
+    probability += 0.05;
+    evidence.push('Tachycardia');
+  }
+
+  return {
+    id: 'tension_pneumothorax',
+    diagnosis: 'Tension Pneumothorax',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Tracheal deviation?',
+      'Recent chest trauma or procedure?',
+      'On mechanical ventilation?',
+      'Subcutaneous emphysema?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Cardiac Tamponade Analysis
+ * Causes: Trauma (penetrating > blunt), pericarditis, malignancy
+ * Key features: Beck's triad (hypotension, elevated JVP, muffled heart sounds)
+ * Time to death: MINUTES to HOURS
+ */
+function analyzeCardiacTamponade(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Elevated JVP (required for diagnosis)
+  if (data.circulation.jvp === 'elevated') {
+    probability += 0.4;
+    evidence.push('Elevated JVP');
+  } else {
+    missing.push('jvp_assessment');
+  }
+
+  // Hypotension/shock
+  if (data.physiologicState === 'shock' || 
+      (data.circulation.bloodPressure && data.circulation.bloodPressure.systolic < 90)) {
+    probability += 0.3;
+    evidence.push('Hypotension/shock');
+  }
+
+  // Trauma history (especially penetrating chest trauma)
+  if (data.exposure.trauma_history?.mechanism === 'penetrating') {
+    probability += 0.3;
+    evidence.push('Penetrating chest trauma');
+  } else if (data.exposure.trauma_history?.mechanism) {
+    probability += 0.1;
+    evidence.push(`Trauma (${data.exposure.trauma_history.mechanism})`);
+  }
+
+  // Clear lung fields (rules out cardiogenic shock)
+  if (!data.breathing.auscultation?.crackles) {
+    probability += 0.1;
+    evidence.push('Clear lung fields');
+  }
+
+  // Tachycardia
+  if (data.circulation.heartRate > 120) {
+    probability += 0.05;
+    evidence.push('Tachycardia');
+  }
+
+  return {
+    id: 'cardiac_tamponade',
+    diagnosis: 'Cardiac Tamponade',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Muffled/distant heart sounds?',
+      'Pulsus paradoxus (BP drops >10 mmHg on inspiration)?',
+      'Recent chest trauma or cardiac procedure?',
+      'History of pericarditis or malignancy?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Acute Myocardial Infarction Analysis
+ * Causes: Coronary artery occlusion (atherosclerosis, thrombosis)
+ * Key features: Chest pain, ECG changes, cardiac biomarkers
+ * Time to death: HOURS (but treatment window <90 min for PCI, <12 hours for thrombolysis)
+ */
+function analyzeMyocardialInfarction(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Age factor (rare in children, common in adults >40)
+  if (data.patientType === 'adult' && data.exposure.age_years && data.exposure.age_years > 40) {
+    probability += 0.2;
+    evidence.push('Age >40 years');
+  } else if (data.patientType === 'child') {
+    // Rare in children - lower threshold
+    return {
+      id: 'myocardial_infarction',
+      diagnosis: 'Acute Myocardial Infarction',
+      probability: 0.05,
+      evidence: ['Rare in pediatric population'],
+      missing: [],
+      nextQuestions: [],
+      category: 'critical',
+    };
+  }
+
+  // Chest pain
+  // TODO: Add chest pain to primary survey
+  missing.push('chest_pain');
+
+  // Shock/cardiogenic shock
+  if (data.physiologicState === 'shock') {
+    probability += 0.3;
+    evidence.push('Shock (possible cardiogenic)');
+  }
+
+  // Elevated JVP (heart failure from MI)
+  if (data.circulation.jvp === 'elevated') {
+    probability += 0.2;
+    evidence.push('Elevated JVP (heart failure)');
+  }
+
+  // Crackles (pulmonary edema from heart failure)
+  if (data.breathing.auscultation?.crackles) {
+    probability += 0.2;
+    evidence.push('Pulmonary edema');
+  }
+
+  // Diaphoresis (sweating)
+  // TODO: Add to skin findings
+
+  return {
+    id: 'myocardial_infarction',
+    diagnosis: 'Acute Myocardial Infarction (STEMI/NSTEMI)',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Chest pain (crushing, radiating to arm/jaw)?',
+      'Shortness of breath?',
+      'Nausea/vomiting?',
+      'Diaphoresis (sweating)?',
+      'Risk factors (diabetes, hypertension, smoking, family history)?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Stroke Analysis (Ischemic or Hemorrhagic)
+ * Causes: Thrombosis, embolism, hemorrhage
+ * Key features: Sudden onset focal neurological deficit, altered mental status
+ * Time to death: HOURS (but treatment window <4.5 hours for tPA)
+ */
+function analyzeStroke(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Altered mental status
+  if (data.disability.avpu !== 'alert') {
+    probability += 0.3;
+    evidence.push(`Altered mental status (${data.disability.avpu})`);
+  }
+
+  // Unequal pupils (mass effect from hemorrhage)
+  if (data.disability.pupils.size_left !== data.disability.pupils.size_right ||
+      data.disability.pupils.reactive_left !== data.disability.pupils.reactive_right) {
+    probability += 0.3;
+    evidence.push('Unequal/unreactive pupils');
+  }
+
+  // Posturing (severe brain injury)
+  if (data.disability.posturing !== 'none') {
+    probability += 0.2;
+    evidence.push(`Posturing (${data.disability.posturing})`);
+  }
+
+  // Hypertension (risk factor + hemorrhagic stroke cause)
+  if (data.circulation.bloodPressure && data.circulation.bloodPressure.systolic > 180) {
+    probability += 0.2;
+    evidence.push('Severe hypertension');
+  }
+
+  // Age factor (more common in elderly)
+  if (data.patientType === 'adult' && data.exposure.age_years && data.exposure.age_years > 60) {
+    probability += 0.1;
+    evidence.push('Age >60 years');
+  }
+
+  // Pregnancy (increased stroke risk)
+  if (data.patientType === 'pregnant_postpartum') {
+    probability += 0.1;
+    evidence.push('Pregnancy (increased stroke risk)');
+  }
+
+  return {
+    id: 'stroke',
+    diagnosis: 'Stroke (Ischemic/Hemorrhagic)',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Sudden onset of symptoms?',
+      'Facial droop?',
+      'Arm/leg weakness (one-sided)?',
+      'Speech difficulty?',
+      'Severe headache (worst of life)?',
+      'Time of symptom onset? (Critical for tPA eligibility)',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Bacterial Meningitis Analysis
+ * Causes: Streptococcus pneumoniae, Neisseria meningitidis, Haemophilus influenzae
+ * Key features: Fever, altered mental status, neck stiffness, petechiae
+ * Time to death: HOURS
+ */
+function analyzeMeningitis(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Fever
+  if (data.exposure.temperature > 38) {
+    probability += 0.3;
+    evidence.push(`Fever (${data.exposure.temperature}°C)`);
+  } else {
+    missing.push('fever');
+  }
+
+  // Altered mental status
+  if (data.disability.avpu !== 'alert') {
+    probability += 0.3;
+    evidence.push(`Altered mental status (${data.disability.avpu})`);
+  }
+
+  // Petechiae/purpura (meningococcemia)
+  if (data.exposure.skin_findings?.petechiae || data.exposure.skin_findings?.purpura) {
+    probability += 0.3;
+    evidence.push('Petechiae/purpura (meningococcemia)');
+  }
+
+  // Shock (septic shock from meningococcemia)
+  if (data.physiologicState === 'shock') {
+    probability += 0.2;
+    evidence.push('Shock');
+  }
+
+  // Seizure (CNS infection)
+  if (data.disability.seizure?.active || data.disability.seizure?.just_stopped) {
+    probability += 0.1;
+    evidence.push('Seizure');
+  }
+
+  // Neck stiffness
+  // TODO: Add to disability assessment
+  missing.push('neck_stiffness');
+
+  return {
+    id: 'bacterial_meningitis',
+    diagnosis: 'Bacterial Meningitis',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Neck stiffness/pain with neck flexion?',
+      'Severe headache?',
+      'Photophobia (light sensitivity)?',
+      'Recent upper respiratory infection?',
+      'Immunization status (Hib, pneumococcal, meningococcal)?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Opioid Overdose Analysis
+ * Causes: Heroin, fentanyl, morphine, codeine, tramadol
+ * Key features: Respiratory depression, pinpoint pupils, altered mental status
+ * Time to death: MINUTES (respiratory arrest)
+ */
+function analyzeOpioidOverdose(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Toxin exposure history
+  if (data.exposure.toxin_exposure?.substance) {
+    probability += 0.4;
+    evidence.push(`Toxin exposure: ${data.exposure.toxin_exposure.substance}`);
+  } else {
+    missing.push('toxin_exposure_history');
+  }
+
+  // Respiratory depression (hallmark)
+  if (data.breathing.rate < 10 || data.physiologicState === 'respiratory_arrest') {
+    probability += 0.4;
+    evidence.push('Severe respiratory depression');
+  }
+
+  // Pinpoint pupils (miosis)
+  if (data.disability.pupils.size_left < 2 && data.disability.pupils.size_right < 2) {
+    probability += 0.3;
+    evidence.push('Pinpoint pupils (miosis)');
+  }
+
+  // Altered mental status
+  if (data.disability.avpu !== 'alert') {
+    probability += 0.2;
+    evidence.push(`Altered mental status (${data.disability.avpu})`);
+  }
+
+  // Hypoxia
+  if (data.breathing.spO2 < 90) {
+    probability += 0.1;
+    evidence.push('Hypoxia');
+  }
+
+  return {
+    id: 'opioid_overdose',
+    diagnosis: 'Opioid Overdose',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Known opioid use (prescribed or recreational)?',
+      'Found with drug paraphernalia?',
+      'Witnessed ingestion/injection?',
+      'Time since exposure?',
+    ],
+    category: 'immediate_threat',
+  };
+}
+
+/**
+ * Severe Burns Analysis
+ * Causes: Thermal, chemical, electrical
+ * Key features: Visible burns, shock (fluid losses), airway compromise (inhalation)
+ * Time to death: HOURS (shock, airway obstruction)
+ */
+function analyzeSevereBurns(data: PrimarySurveyData): Differential {
+  let probability = 0;
+  const evidence: string[] = [];
+  const missing: string[] = [];
+
+  // Visible burns
+  if (data.exposure.visible_injuries?.burns) {
+    probability += 0.5;
+    evidence.push('Visible burns');
+  } else {
+    return {
+      id: 'severe_burns',
+      diagnosis: 'Severe Burns',
+      probability: 0,
+      evidence: [],
+      missing: ['visible_burns'],
+      nextQuestions: [],
+      category: 'critical',
+    };
+  }
+
+  // Trauma history (burn mechanism)
+  if (data.exposure.trauma_history?.mechanism === 'burn') {
+    probability += 0.3;
+    evidence.push('Burn mechanism confirmed');
+  }
+
+  // Shock (fluid losses from burns)
+  if (data.physiologicState === 'shock') {
+    probability += 0.2;
+    evidence.push('Shock (fluid losses)');
+  }
+
+  // Airway compromise (inhalation injury)
+  if (data.airway.status === 'obstructed' || 
+      data.airway.observations.stridor ||
+      data.breathing.auscultation?.stridor) {
+    probability += 0.2;
+    evidence.push('Airway compromise (inhalation injury)');
+  }
+
+  // Hypoxia (smoke inhalation)
+  if (data.breathing.spO2 < 90) {
+    probability += 0.1;
+    evidence.push('Hypoxia (smoke inhalation)');
+  }
+
+  return {
+    id: 'severe_burns',
+    diagnosis: 'Severe Burns',
+    probability: Math.min(probability, 0.99),
+    evidence,
+    missing,
+    nextQuestions: [
+      'Burn mechanism (flame, scald, chemical, electrical)?',
+      'Enclosed space fire (smoke inhalation)?',
+      'Estimated body surface area burned (%)?',
+      'Depth of burns (superficial, partial thickness, full thickness)?',
+      'Circumferential burns (chest, limbs)?',
+    ],
+    category: 'immediate_threat',
   };
 }

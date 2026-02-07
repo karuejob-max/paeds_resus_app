@@ -508,3 +508,484 @@ export function recommendInterventions(
     requiredTests,
   };
 }
+
+
+    // ============================================================================
+    // TIER 1 EMERGENCY INTERVENTIONS (Time-critical, minutes to death)
+    // ============================================================================
+
+    case 'foreign_body_aspiration':
+      // IMMEDIATE: Airway clearance
+      immediate.push({
+        id: 'foreign_body_removal',
+        name: 'Foreign Body Removal (Back Blows/Heimlich/Direct Laryngoscopy)',
+        category: 'immediate',
+        indication: 'Choking - Airway obstruction',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: 'Age-appropriate technique',
+          route: 'Infant: 5 back blows + 5 chest thrusts. Child/Adult: Heimlich maneuver. Complete obstruction: Direct laryngoscopy + Magill forceps',
+        },
+        monitoring: ['Airway patency', 'SpO2', 'Respiratory effort'],
+      });
+      break;
+
+    case 'tension_pneumothorax':
+      // IMMEDIATE: Needle decompression
+      immediate.push({
+        id: 'needle_decompression',
+        name: 'Needle Decompression (2nd Intercostal Space, Midclavicular Line)',
+        category: 'immediate',
+        indication: 'Tension pneumothorax - Life-saving decompression',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '14-16G needle (adult), 18-20G (child)',
+          route: 'Insert at 2nd intercostal space, midclavicular line, perpendicular to chest wall',
+        },
+        monitoring: ['Breath sounds', 'Blood pressure', 'Heart rate', 'SpO2'],
+      });
+
+      // URGENT: Chest tube insertion
+      urgent.push({
+        id: 'chest_tube',
+        name: 'Chest Tube Insertion (5th Intercostal Space, Anterior Axillary Line)',
+        category: 'urgent',
+        indication: 'Tension pneumothorax - Definitive management',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '28-32F (adult), 16-24F (child)',
+          route: '5th intercostal space, anterior axillary line',
+        },
+      });
+
+      requiredTests.push(
+        { name: 'Chest X-ray (after tube insertion)', priority: 'urgent' }
+      );
+      break;
+
+    case 'cardiac_tamponade':
+      // IMMEDIATE: Pericardiocentesis
+      immediate.push({
+        id: 'pericardiocentesis',
+        name: 'Pericardiocentesis (Subxiphoid Approach)',
+        category: 'immediate',
+        indication: 'Cardiac tamponade - Life-saving drainage',
+        contraindications: ['Aortic dissection (relative)'],
+        requiredTests: [],
+        riskIfWrong: 'moderate',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '16-18G needle',
+          route: 'Subxiphoid approach: 45° angle toward left shoulder, aspirate while advancing',
+        },
+        monitoring: ['Blood pressure', 'Heart rate', 'JVP', 'Cardiac ultrasound'],
+      });
+
+      // URGENT: Fluid bolus (temporizing)
+      urgent.push({
+        id: 'tamponade_fluid',
+        name: `Normal Saline Bolus: ${(weight * 10).toFixed(0)} mL (10 mL/kg)`,
+        category: 'urgent',
+        indication: 'Cardiac tamponade - Temporizing measure to increase preload',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'moderate',
+        timeWindow: 'minutes',
+      });
+
+      requiredTests.push(
+        { name: 'Cardiac ultrasound (FAST exam)', priority: 'stat' },
+        { name: 'ECG', priority: 'stat' }
+      );
+      break;
+
+    case 'myocardial_infarction':
+      // IMMEDIATE: Aspirin
+      immediate.push({
+        id: 'mi_aspirin',
+        name: 'Aspirin 325 mg PO (chewed)',
+        category: 'immediate',
+        indication: 'Acute MI - Antiplatelet therapy',
+        contraindications: ['Active bleeding', 'Known aspirin allergy'],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '325 mg',
+          route: 'PO (chewed for faster absorption)',
+        },
+      });
+
+      // IMMEDIATE: Oxygen
+      immediate.push({
+        id: 'mi_oxygen',
+        name: 'Oxygen Therapy (Target SpO2 >94%)',
+        category: 'immediate',
+        indication: 'Acute MI - Maintain oxygenation',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'moderate',
+        timeWindow: 'minutes',
+      });
+
+      // CONFIRMATORY: Thrombolysis or PCI
+      confirmatory.push({
+        id: 'mi_thrombolysis',
+        name: 'Thrombolysis (tPA/TNK) or Primary PCI',
+        category: 'confirmatory',
+        indication: 'STEMI - Reperfusion therapy',
+        contraindications: ['Recent surgery', 'Active bleeding', 'Hemorrhagic stroke history', 'Time >12 hours from symptom onset'],
+        requiredTests: [
+          { name: 'ECG showing STEMI', threshold: 'ST elevation ≥1 mm in 2+ contiguous leads', priority: 'stat' },
+        ],
+        riskIfWrong: 'critical',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: 'TNK: weight-based (30-50 mg IV bolus)',
+          route: 'IV bolus over 5 seconds',
+        },
+      });
+
+      requiredTests.push(
+        { name: '12-lead ECG', priority: 'stat' },
+        { name: 'Troponin', priority: 'stat' },
+        { name: 'Basic metabolic panel', priority: 'urgent' }
+      );
+      break;
+
+    case 'stroke':
+      // IMMEDIATE: Airway protection
+      immediate.push({
+        id: 'stroke_airway',
+        name: 'Airway Protection (Positioning, Suctioning, Consider Intubation if GCS <8)',
+        category: 'immediate',
+        indication: 'Stroke - Prevent aspiration',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+      });
+
+      // CONFIRMATORY: tPA (ischemic stroke only, <4.5 hours)
+      confirmatory.push({
+        id: 'stroke_tpa',
+        name: 'Alteplase (tPA) 0.9 mg/kg IV (max 90 mg)',
+        category: 'confirmatory',
+        indication: 'Ischemic stroke <4.5 hours - Thrombolysis',
+        contraindications: ['Hemorrhagic stroke', 'Recent surgery', 'Active bleeding', 'Time >4.5 hours'],
+        requiredTests: [
+          { name: 'CT head (non-contrast)', threshold: 'No hemorrhage', priority: 'stat' },
+          { name: 'Time of symptom onset', threshold: '<4.5 hours', priority: 'stat' },
+        ],
+        riskIfWrong: 'critical',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '0.9 mg/kg (10% bolus, 90% infusion over 60 min)',
+          max_dose: 90,
+          route: 'IV',
+        },
+      });
+
+      requiredTests.push(
+        { name: 'CT head (non-contrast) - URGENT', priority: 'stat' },
+        { name: 'Blood glucose', priority: 'stat' },
+        { name: 'Coagulation studies (PT, aPTT, INR)', priority: 'stat' }
+      );
+      break;
+
+    case 'bacterial_meningitis':
+      // IMMEDIATE: Antibiotics (within 1 hour)
+      immediate.push({
+        id: 'meningitis_antibiotics',
+        name: `Ceftriaxone: ${(weight * 50).toFixed(0)} mg (50 mg/kg) IV + Vancomycin: ${(weight * 15).toFixed(0)} mg (15 mg/kg) IV`,
+        category: 'immediate',
+        indication: 'Bacterial meningitis - Empiric antibiotics',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: 'Ceftriaxone 50 mg/kg (max 2g) + Vancomycin 15 mg/kg',
+          max_dose: 2000,
+          route: 'IV',
+        },
+        monitoring: ['Vital signs', 'Neurological status', 'Seizure activity'],
+      });
+
+      // IMMEDIATE: Dexamethasone (before or with first antibiotic dose)
+      immediate.push({
+        id: 'meningitis_dexamethasone',
+        name: `Dexamethasone: ${(weight * 0.15).toFixed(2)} mg (0.15 mg/kg) IV`,
+        category: 'immediate',
+        indication: 'Bacterial meningitis - Reduce neurological sequelae',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '0.15 mg/kg',
+          max_dose: 10,
+          route: 'IV (before or with first antibiotic dose)',
+        },
+      });
+
+      // URGENT: Lumbar puncture (if no contraindications)
+      urgent.push({
+        id: 'meningitis_lp',
+        name: 'Lumbar Puncture (CSF Analysis)',
+        category: 'urgent',
+        indication: 'Bacterial meningitis - Confirm diagnosis',
+        contraindications: ['Signs of raised ICP', 'Coagulopathy', 'Skin infection at LP site'],
+        requiredTests: [],
+        riskIfWrong: 'moderate',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          route: 'L3-L4 or L4-L5 interspace',
+        },
+      });
+
+      requiredTests.push(
+        { name: 'Blood cultures (before antibiotics)', priority: 'stat' },
+        { name: 'CSF analysis (cell count, glucose, protein, Gram stain, culture)', priority: 'stat' },
+        { name: 'CT head (if signs of raised ICP before LP)', priority: 'stat' }
+      );
+      break;
+
+    case 'opioid_overdose':
+      // IMMEDIATE: Naloxone
+      immediate.push({
+        id: 'naloxone',
+        name: `Naloxone: ${(weight * 0.1).toFixed(2)} mg (0.1 mg/kg) IV/IM/IN`,
+        category: 'immediate',
+        indication: 'Opioid overdose - Reverse respiratory depression',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '0.1 mg/kg (max 2 mg initial dose)',
+          max_dose: 2,
+          min_dose: 0.4,
+          route: 'IV/IM/Intranasal (repeat every 2-3 minutes if no response)',
+        },
+        monitoring: ['Respiratory rate', 'SpO2', 'Level of consciousness', 'Withdrawal symptoms'],
+      });
+
+      // IMMEDIATE: Airway support
+      immediate.push({
+        id: 'opioid_airway',
+        name: 'Bag-Valve-Mask Ventilation (if apneic or RR <10)',
+        category: 'immediate',
+        indication: 'Opioid overdose - Respiratory support',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+      });
+
+      requiredTests.push(
+        { name: 'Urine drug screen', priority: 'urgent' },
+        { name: 'Blood glucose', priority: 'stat' },
+        { name: 'Arterial blood gas (if severe)', priority: 'urgent' }
+      );
+      break;
+
+    case 'severe_burns':
+      // IMMEDIATE: Fluid resuscitation (Parkland formula)
+      const burnFluidVolume = weight * 4; // mL/kg per % TBSA burned (first 24 hours)
+      immediate.push({
+        id: 'burn_fluid_resuscitation',
+        name: `Fluid Resuscitation: ${burnFluidVolume.toFixed(0)} mL/kg per % TBSA burned (Parkland formula)`,
+        category: 'immediate',
+        indication: 'Severe burns - Prevent hypovolemic shock',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '4 mL/kg × % TBSA burned (give 50% in first 8 hours, 50% in next 16 hours)',
+          route: 'IV (Ringer\'s lactate preferred)',
+        },
+        monitoring: ['Urine output (target 0.5-1 mL/kg/hr)', 'Blood pressure', 'Heart rate'],
+      });
+
+      // IMMEDIATE: Airway protection (if inhalation injury)
+      immediate.push({
+        id: 'burn_airway',
+        name: 'Early Intubation (if inhalation injury suspected)',
+        category: 'immediate',
+        indication: 'Inhalation injury - Prevent airway obstruction',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          route: 'Endotracheal intubation (before airway edema develops)',
+        },
+      });
+
+      // URGENT: Escharotomy (if circumferential burns)
+      urgent.push({
+        id: 'escharotomy',
+        name: 'Escharotomy (if circumferential burns causing compartment syndrome)',
+        category: 'urgent',
+        indication: 'Circumferential burns - Restore circulation/ventilation',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'high',
+        timeWindow: 'hours',
+      });
+
+      requiredTests.push(
+        { name: 'Carboxyhemoglobin level (if smoke inhalation)', priority: 'stat' },
+        { name: 'Arterial blood gas', priority: 'urgent' },
+        { name: 'Basic metabolic panel', priority: 'urgent' }
+      );
+      break;
+
+    // Shock subtypes (from shock-differentiation.ts)
+    case 'shock_hypovolemic':
+      immediate.push({
+        id: 'hypovolemic_fluid_bolus',
+        name: `Normal Saline Bolus: ${(weight * 20).toFixed(0)} mL (20 mL/kg)`,
+        category: 'immediate',
+        indication: 'Hypovolemic shock - Aggressive fluid resuscitation',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '20 mL/kg (repeat up to 60 mL/kg in first hour)',
+          route: 'IV push over 5-10 minutes',
+        },
+        monitoring: ['Blood pressure', 'Heart rate', 'Capillary refill', 'Urine output', 'Lung sounds'],
+      });
+      break;
+
+    case 'shock_cardiogenic':
+      // DO NOT GIVE FLUIDS - will worsen pulmonary edema
+      immediate.push({
+        id: 'cardiogenic_diuretic',
+        name: `Furosemide: ${(weight * 1).toFixed(0)} mg (1 mg/kg) IV`,
+        category: 'immediate',
+        indication: 'Cardiogenic shock - Reduce preload',
+        contraindications: ['Hypovolemia'],
+        requiredTests: [],
+        riskIfWrong: 'moderate',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: '1 mg/kg',
+          max_dose: 40,
+          route: 'IV',
+        },
+        monitoring: ['Urine output', 'Blood pressure', 'Lung sounds', 'Electrolytes'],
+      });
+
+      urgent.push({
+        id: 'cardiogenic_inotrope',
+        name: 'Dobutamine Infusion (5-20 mcg/kg/min)',
+        category: 'urgent',
+        indication: 'Cardiogenic shock - Increase cardiac output',
+        contraindications: ['Hypovolemia', 'Severe tachycardia'],
+        requiredTests: [],
+        riskIfWrong: 'moderate',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: 'Start at 5 mcg/kg/min, titrate to effect',
+          route: 'IV infusion (central line preferred)',
+        },
+      });
+      break;
+
+    case 'shock_obstructive':
+      immediate.push({
+        id: 'obstructive_identify',
+        name: 'Identify and Remove Obstruction (Tension Pneumothorax, Tamponade, PE)',
+        category: 'immediate',
+        indication: 'Obstructive shock - Definitive treatment',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'none',
+        benefitIfRight: 'life_saving',
+        timeWindow: 'minutes',
+        dosing: {
+          route: 'Needle decompression, pericardiocentesis, or thrombolysis as indicated',
+        },
+      });
+
+      urgent.push({
+        id: 'obstructive_fluid',
+        name: `Cautious Fluid Bolus: ${(weight * 10).toFixed(0)} mL (10 mL/kg)`,
+        category: 'urgent',
+        indication: 'Obstructive shock - Temporizing measure',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'moderate',
+        timeWindow: 'minutes',
+      });
+      break;
+
+    case 'shock_distributive_anaphylactic':
+      // See anaphylaxis case above
+      break;
+
+    case 'shock_neurogenic':
+      urgent.push({
+        id: 'neurogenic_fluid',
+        name: `Cautious Fluid Bolus: ${(weight * 10).toFixed(0)} mL (10 mL/kg)`,
+        category: 'urgent',
+        indication: 'Neurogenic shock - Avoid fluid overload',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'moderate',
+        timeWindow: 'minutes',
+      });
+
+      urgent.push({
+        id: 'neurogenic_vasopressor',
+        name: 'Norepinephrine Infusion (0.05-0.5 mcg/kg/min)',
+        category: 'urgent',
+        indication: 'Neurogenic shock - Restore vascular tone',
+        contraindications: [],
+        requiredTests: [],
+        riskIfWrong: 'low',
+        benefitIfRight: 'high',
+        timeWindow: 'minutes',
+        dosing: {
+          calculation: 'Start at 0.05 mcg/kg/min, titrate to MAP >65 mmHg',
+          route: 'IV infusion (central line preferred)',
+        },
+      });
+      break;

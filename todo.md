@@ -61,3 +61,35 @@
 - [x] Update home page copy to explain intelligent triage
 - [x] Test complete flow: Home → Primary Survey → Results → Protocol
 - [ ] Save checkpoint
+
+## Phase 1: Tier 1 Emergencies Implementation (Coverage: 11 → 21 conditions, 12.4% → 23.6%)
+- [x] Expand Primary Survey: Add JVP assessment to Circulation
+- [x] Expand Primary Survey: Add detailed lung auscultation (crackles, wheezes, stridor, silent chest)
+- [x] Expand Primary Survey: Add skin findings (rash, petechiae, jaundice, cyanosis, mottling)
+- [x] Expand Primary Survey: Add trauma history (mechanism, time, location)
+- [x] Expand Primary Survey: Add toxin exposure history (substance, amount, time)
+- [x] Expand Primary Survey: Add abdominal exam (distension, tenderness, guarding, bowel sounds)
+- [x] Build shock differentiation algorithm (hypovolemic vs cardiogenic vs obstructive vs neurogenic)
+- [x] Add differential: Foreign body aspiration (choking)
+- [x] Add differential: Tension pneumothorax
+- [x] Add differential: Cardiac tamponade
+- [x] Add differential: Acute myocardial infarction
+- [x] Add differential: Stroke (ischemic/hemorrhagic)
+- [x] Add differential: Bacterial meningitis
+- [x] Add differential: Hypovolemic shock
+- [x] Add differential: Cardiogenic shock
+- [x] Add differential: Opioid overdose
+- [x] Add differential: Severe burns
+- [x] Update intervention recommender: Foreign body removal (back blows, Heimlich, direct laryngoscopy)
+- [x] Update intervention recommender: Needle decompression (tension pneumothorax)
+- [x] Update intervention recommender: Pericardiocentesis (cardiac tamponade)
+- [x] Update intervention recommender: Aspirin + thrombolysis (STEMI)
+- [x] Update intervention recommender: tPA (ischemic stroke <4.5 hours)
+- [x] Update intervention recommender: Ceftriaxone (bacterial meningitis)
+- [x] Update intervention recommender: Fluid resuscitation (hypovolemic shock)
+- [x] Update intervention recommender: Diuretics + inotropes (cardiogenic shock)
+- [x] Update intervention recommender: Naloxone (opioid overdose)
+- [x] Update intervention recommender: Fluid resuscitation + burn care (severe burns)
+- [x] Add time-to-death urgency scoring (Tier 1: minutes, Tier 2: hours, Tier 3: days)
+- [x] Test Phase 1 with 10 clinical scenarios
+- [ ] Save checkpoint
