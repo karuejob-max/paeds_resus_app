@@ -444,4 +444,36 @@
   - [x] Updated seizure trigger with doseCard (lorazepam/diazepam)
   - [x] Updated meningococcemia trigger with doseCard (ceftriaxone)
 - [ ] Phase 4: Test complete feature parity
-- [x] Save checkpoint (Phase 1-2 complete)
+- [x] Save checkpoint (Phase 1-3 complete)
+
+
+## Phase 129: Protocol Checklist Integration into Intervention Sidebar
+- [x] Design protocol checklist integration strategy (add checklist property to ActiveIntervention interface)
+- [x] Extend ActiveIntervention interface with ProtocolChecklist and ProtocolChecklistItem types
+- [ ] Add ProtocolChecklist component to intervention sidebar UI
+- [ ] Create protocol checklist templates for common procedures
+  - [ ] Shock resuscitation (10 mL/kg bolus, reassess, repeat/escalate)
+  - [ ] DKA management (fluids, insulin, electrolytes, monitoring)
+  - [ ] Sepsis bundle (antibiotics, fluids, source control)
+  - [ ] Intubation checklist (preparation, RSI, confirmation)
+  - [ ] Anaphylaxis protocol (epinephrine, antihistamines, steroids, observation)
+- [ ] Wire checklist activation to specific intervention triggers
+- [ ] Test checklist functionality (toggle items, persistence, completion tracking)
+- [ ] Save checkpoint
+
+## Phase 119: Protocol Checklist Integration ✓
+- [x] Design protocol checklist integration into intervention sidebar
+- [x] Create ProtocolChecklist component (toggleable, progress tracking, mobile-optimized)
+- [x] Update ActiveIntervention interface to support checklist property
+- [x] Integrate ProtocolChecklist rendering in ActiveInterventionsSidebar
+- [x] Create checklist templates library (6 protocols: shock, sepsis, DKA, intubation, anaphylaxis, status epilepticus)
+- [x] Add checklist to fluidBolus intervention (shock resuscitation)
+- [x] Create sepsisBundle intervention template with checklist
+- [x] Create dkaManagement intervention template with checklist
+- [x] Create rapidSequenceIntubation intervention template with checklist
+- [x] Create anaphylaxisProtocol intervention template with checklist
+- [x] Create statusEpilepticus intervention template with checklist
+- [x] Write comprehensive tests for checklist templates (12 tests, all passing)
+- [x] Update vitest config to include client tests
+- [x] Verify checklist integration works correctly
+- [ ] Save checkpoint

@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ProtocolChecklist } from './ProtocolChecklist';
+import { initializeChecklist, getChecklistTemplate } from '@/lib/protocolChecklists';
 
 // Intervention types
 export type InterventionType = 
@@ -52,6 +54,14 @@ export type InterventionStatus =
 
 export type InterventionPriority = 'critical' | 'urgent' | 'routine';
 
+// Import checklist types from component
+import type { ChecklistStep } from './ProtocolChecklist';
+
+export interface ProtocolChecklist {
+  title: string;
+  steps: ChecklistStep[];
+}
+
 export interface ActiveIntervention {
   id: string;
   type: InterventionType;
@@ -74,6 +84,7 @@ export interface ActiveIntervention {
   maxVolume?: number;
   relatedModule?: string;  // Which advanced module to trigger
   metadata?: Record<string, any>;
+  checklist?: ProtocolChecklist;  // Optional protocol checklist for multi-step procedures
 }
 
 interface ActiveInterventionsSidebarProps {
@@ -402,6 +413,23 @@ export const ActiveInterventionsSidebar: React.FC<ActiveInterventionsSidebarProp
                     Open {intervention.relatedModule} Module →
                   </Button>
                 )}
+
+                {/* Protocol Checklist */}
+                {intervention.checklist && (
+                  <div className="mt-3 pt-3 border-t border-slate-700">
+                    <ProtocolChecklist
+                      title={intervention.checklist.title}
+                      steps={intervention.checklist.steps}
+                      onComplete={() => {
+                        // Mark intervention as complete when all checklist steps done
+                        const allComplete = intervention.checklist!.steps.every(s => s.completed);
+                        if (allComplete) {
+                          onInterventionComplete(intervention.id);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </Card>
             );
           })
@@ -511,6 +539,7 @@ export const interventionTemplates = {
 
   fluidBolus: (weightKg: number, bolusNumber: number = 1): ActiveIntervention => {
     const volume = Math.round(weightKg * 10);
+    const template = getChecklistTemplate('shock_resuscitation');
     return createIntervention(
       'fluid_bolus',
       `FLUID BOLUS ${bolusNumber}`,
@@ -526,7 +555,8 @@ export const interventionTemplates = {
         maxVolume: weightKg * 60,
         reassessmentRequired: true,
         reassessmentPrompt: 'Reassess perfusion after bolus',
-        relatedModule: 'FluidBolusTracker'
+        relatedModule: 'FluidBolusTracker',
+        checklist: template ? initializeChecklist(template) : undefined
       }
     );
   },
@@ -600,7 +630,91 @@ export const interventionTemplates = {
     {
       relatedModule: 'LabSampleCollection'
     }
-  )
+  ),
+
+  sepsisBundle: (weightKg: number): ActiveIntervention => {
+    const template = getChecklistTemplate('sepsis_bundle');
+    return createIntervention(
+      'medication',
+      'SEPSIS BUNDLE (Hour-1)',
+      'Complete sepsis bundle within 1 hour: cultures, antibiotics, fluids',
+      'critical',
+      {
+        timerDuration: 3600, // 1 hour
+        reassessmentRequired: true,
+        reassessmentPrompt: 'Reassess perfusion and vital signs',
+        relatedModule: 'SepsisManagement',
+        checklist: template ? initializeChecklist(template) : undefined
+      }
+    );
+  },
+
+  dkaManagement: (weightKg: number): ActiveIntervention => {
+    const template = getChecklistTemplate('dka_management');
+    return createIntervention(
+      'monitoring',
+      'DKA MANAGEMENT',
+      'Fluid resuscitation, insulin infusion, electrolyte monitoring, cerebral edema watch',
+      'critical',
+      {
+        reassessmentRequired: true,
+        reassessmentPrompt: 'Monitor glucose, electrolytes, mental status hourly',
+        relatedModule: 'DKAManagement',
+        checklist: template ? initializeChecklist(template) : undefined
+      }
+    );
+  },
+
+  rapidSequenceIntubation: (weightKg: number): ActiveIntervention => {
+    const template = getChecklistTemplate('intubation');
+    return createIntervention(
+      'airway',
+      'RAPID SEQUENCE INTUBATION',
+      'Pre-oxygenate, prepare equipment, sedate, paralyze, intubate, confirm placement',
+      'critical',
+      {
+        timerDuration: 600, // 10 minutes for preparation
+        reassessmentRequired: true,
+        reassessmentPrompt: 'Confirm ETT placement with ETCO2 and bilateral breath sounds',
+        checklist: template ? initializeChecklist(template) : undefined
+      }
+    );
+  },
+
+  anaphylaxisProtocol: (weightKg: number): ActiveIntervention => {
+    const template = getChecklistTemplate('anaphylaxis');
+    const dose = Math.min(weightKg * 0.01, 0.5).toFixed(2);
+    return createIntervention(
+      'medication',
+      'ANAPHYLAXIS PROTOCOL',
+      `IM Epinephrine ${dose} mg IMMEDIATELY, then airway/breathing/circulation support`,
+      'critical',
+      {
+        timerDuration: 300, // 5 minutes for initial response
+        dose: `${dose} mg`,
+        route: 'IM (anterolateral thigh)',
+        reassessmentRequired: true,
+        reassessmentPrompt: 'Reassess airway, breathing, circulation, skin',
+        checklist: template ? initializeChecklist(template) : undefined
+      }
+    );
+  },
+
+  statusEpilepticus: (weightKg: number): ActiveIntervention => {
+    const template = getChecklistTemplate('status_epilepticus');
+    return createIntervention(
+      'medication',
+      'STATUS EPILEPTICUS PROTOCOL',
+      'Benzodiazepine → second-line AED → intubation if refractory',
+      'critical',
+      {
+        timerDuration: 600, // 10 minutes
+        reassessmentRequired: true,
+        reassessmentPrompt: 'Is seizure terminated? Prepare for escalation if ongoing',
+        checklist: template ? initializeChecklist(template) : undefined
+      }
+    );
+  }
 };
 
 export default ActiveInterventionsSidebar;
