@@ -427,3 +427,15 @@
 - [x] Ensure tutorial content doesn't overflow on small screens (max-h-[90vh] with scroll)
 - [x] Make all elements mobile-responsive (icons, headers, buttons scale down on small screens)
 - [ ] Save checkpoint
+
+
+## Phase 128: Clinical Assessment vs Medical Protocol Feature Parity Transfer
+- [x] Audit ClinicalAssessmentGPS for all existing features
+- [x] Audit medical protocols (DKA, Sepsis, Asthma, etc.) for all existing features
+- [x] Document feature gaps (identified 5 critical missing features)
+- [x] Create implementation plan (surgical transfer approach for token efficiency)
+- [x] Phase 1: Extract calculation logic into centralized library (clinicalCalculations.ts)
+- [x] Phase 2: Create wrapper components (InlineDoseCard, TreatmentTimer, ProtocolChecklist)
+- [ ] Phase 3: Integrate into ClinicalAssessmentGPS with targeted edits
+- [ ] Phase 4: Test complete feature parity
+- [ ] Save checkpoint
