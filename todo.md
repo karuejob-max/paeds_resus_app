@@ -436,6 +436,12 @@
 - [x] Create implementation plan (surgical transfer approach for token efficiency)
 - [x] Phase 1: Extract calculation logic into centralized library (clinicalCalculations.ts)
 - [x] Phase 2: Create wrapper components (InlineDoseCard, TreatmentTimer, ProtocolChecklist)
-- [ ] Phase 3: Integrate into ClinicalAssessmentGPS with targeted edits
+- [x] Phase 3: Integrate into ClinicalAssessmentGPS with targeted edits
+  - [x] Added InlineDoseCard and clinicalCalculations imports
+  - [x] Extended TriggeredAction interface with doseCard property
+  - [x] Added InlineDoseCard rendering in pending action display
+  - [x] Updated hypoglycemia trigger with doseCard (dextrose)
+  - [x] Updated seizure trigger with doseCard (lorazepam/diazepam)
+  - [x] Updated meningococcemia trigger with doseCard (ceftriaxone)
 - [ ] Phase 4: Test complete feature parity
-- [ ] Save checkpoint
+- [x] Save checkpoint (Phase 1-2 complete)

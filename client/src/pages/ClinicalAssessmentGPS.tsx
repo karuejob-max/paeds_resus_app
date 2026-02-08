@@ -63,6 +63,8 @@ import { generateSBARHandover, SBARHandover } from '@/lib/sbarHandover';
 import { initAudioContext, triggerAlert, playCountdownBeep } from '@/lib/alertSystem';
 import { voiceCommandService } from '@/lib/voiceCommandService';
 import { VoiceCommandTutorial } from '@/components/VoiceCommandTutorial';
+import { InlineDoseCard } from '@/components/InlineDoseCard';
+import { calculateDextroseDose, calculateFluidBolus, getAgeGroup, formatDose } from '@/lib/clinicalCalculations';
 
 // Import advanced modules for overlay triggers
 import { ShockAssessment } from '@/components/ShockAssessment';
@@ -128,6 +130,14 @@ interface TriggeredAction {
   reassessAfter?: string;
   interventionTemplate?: keyof typeof interventionTemplates;
   relatedModule?: string;
+  doseCard?: {
+    medication: string;
+    dose: string;
+    route: string;
+    indication: string;
+    timing?: string;
+    notes?: string;
+  };
 }
 
 // Question definition
@@ -1026,11 +1036,19 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             id: 'hypoglycemia',
             severity: 'critical',
             title: 'HYPOGLYCEMIA - GIVE DEXTROSE NOW',
-            instruction: `Give D10% ${dextroseVolume} mL (2 mL/kg) IV bolus. Recheck glucose in 15 minutes. Start maintenance dextrose infusion.`,
+            instruction: `Recheck glucose in 15 minutes. Start maintenance dextrose infusion if not eating.`,
             rationale: 'Hypoglycemia causes brain injury. Must be corrected immediately before other interventions.',
             dose: `D10% ${dextroseVolume} mL`,
             route: 'IV bolus',
-            timer: 900 // 15 min recheck
+            timer: 900, // 15 min recheck
+            doseCard: {
+              medication: 'Dextrose 10%',
+              dose: `${dextroseVolume} mL (2 mL/kg)`,
+              route: 'IV bolus over 2-3 minutes',
+              indication: `Hypoglycemia (${glucoseMmol.toFixed(1)} mmol/L)`,
+              timing: 'IMMEDIATE',
+              notes: 'Recheck glucose in 15 minutes. Start maintenance dextrose if not eating.'
+            }
           };
         }
         if (glucoseMmol > 14) {
@@ -1107,11 +1125,19 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             id: 'active-seizure',
             severity: 'critical',
             title: 'ACTIVE SEIZURE - GIVE BENZODIAZEPINE',
-            instruction: `Position safely. Give lorazepam ${lorazepamDose} mg IV OR diazepam ${diazepamDose} mg PR. Check glucose. Time the seizure.`,
+            instruction: `Position safely on side. Protect airway. Check glucose immediately. Time the seizure.`,
             rationale: 'Prolonged seizures cause brain injury. Benzodiazepines are first-line treatment.',
             dose: `Lorazepam ${lorazepamDose} mg IV or Diazepam ${diazepamDose} mg PR`,
             route: 'IV or PR',
-            timer: 300 // 5 min to reassess
+            timer: 300, // 5 min to reassess
+            doseCard: {
+              medication: 'Lorazepam (1st choice) OR Diazepam',
+              dose: `Lorazepam ${lorazepamDose} mg (0.1 mg/kg, max 4 mg) OR Diazepam ${diazepamDose} mg (0.3 mg/kg, max 10 mg)`,
+              route: 'IV (lorazepam) or PR (diazepam)',
+              indication: 'Active seizure',
+              timing: 'IMMEDIATE',
+              notes: 'May repeat once after 5 minutes if seizure continues. If still seizing after 2nd dose, call for help and prepare phenytoin/levetiracetam.'
+            }
           };
         }
         return null;
@@ -1167,11 +1193,19 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             id: 'petechial-rash',
             severity: 'critical',
             title: 'PETECHIAL RASH - ASSUME MENINGOCOCCEMIA',
-            instruction: `Give ceftriaxone ${ceftriaxoneDose} mg IV NOW. Do NOT delay for LP. Fluid resuscitation if shocked.`,
+            instruction: `Do NOT delay for LP. Fluid resuscitation if shocked. Isolate patient (droplet precautions).`,
             rationale: 'Petechial rash with fever = meningococcal sepsis until proven otherwise. Mortality high without immediate antibiotics.',
             dose: `Ceftriaxone ${ceftriaxoneDose} mg`,
             route: 'IV',
-            relatedModule: 'lab'
+            relatedModule: 'lab',
+            doseCard: {
+              medication: 'Ceftriaxone',
+              dose: `${ceftriaxoneDose} mg (80 mg/kg, max 4000 mg)`,
+              route: 'IV over 30 minutes',
+              indication: 'Suspected meningococcemia (petechial rash)',
+              timing: 'IMMEDIATE - Do NOT delay for LP',
+              notes: 'Isolate patient (droplet precautions). Fluid resuscitation if shocked. Notify public health.'
+            }
           };
         }
         if (answer === 'urticarial') {
@@ -1845,6 +1879,20 @@ export const ClinicalAssessmentGPS: React.FC = () => {
                       </div>
                       <h3 className="text-lg font-bold text-white mb-1">{pendingAction.title}</h3>
                       <p className="text-sm text-slate-200">{pendingAction.instruction}</p>
+                      
+                      {/* Inline Dose Card for medication triggers */}
+                      {pendingAction.doseCard && (
+                        <div className="mt-3">
+                          <InlineDoseCard
+                            medication={pendingAction.doseCard.medication}
+                            dose={pendingAction.doseCard.dose}
+                            route={pendingAction.doseCard.route}
+                            indication={pendingAction.doseCard.indication}
+                            timing={pendingAction.doseCard.timing}
+                            notes={pendingAction.doseCard.notes}
+                          />
+                        </div>
+                      )}
                       
                       {(pendingAction.dose || pendingAction.route) && (
                         <div className="flex gap-2 mt-2">
