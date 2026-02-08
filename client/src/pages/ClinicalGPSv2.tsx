@@ -311,465 +311,943 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
   // Question definitions with critical triggers
   const clinicalQuestions: ClinicalQuestion[] = [
-  // ========================================
-  // PHASE 1: CRITICAL TRIAGE (Questions 1-3)
-  // ========================================
-  
-  {
-    id: 'breathing',
-    phase: 'triage',
-    question: 'Is the patient breathing?',
-    subtext: 'Look for chest movement, listen for breath sounds',
-    type: 'boolean',
-    criticalTrigger: (answer) => {
-      if (answer === false) {
-        return {
-          id: 'start-bvm',
-          severity: 'critical',
-          title: 'START BAG-VALVE-MASK VENTILATION NOW',
-          instruction: 'Open airway (head tilt-chin lift). Apply mask with good seal. Squeeze bag to see chest rise. Give 1 breath every 3 seconds.',
-          rationale: 'Not breathing = immediate ventilation needed to prevent cardiac arrest.',
-          timer: 30,
-          reassessAfter: 'After 5 breaths, check for chest rise and SpO2',
-          interventionTemplate: 'bvmVentilation'
-        };
+    // SIGNS OF LIFE
+    {
+      id: 'breathing',
+      phase: 'signs_of_life',
+      question: 'Is the child breathing?',
+      subtext: 'Look for chest movement, listen for breath sounds',
+      type: 'boolean',
+      criticalTrigger: (answer) => {
+        if (answer === false) {
+          return {
+            id: 'start-bvm',
+            severity: 'critical',
+            title: 'START BAG-VALVE-MASK VENTILATION',
+            instruction: 'Open airway (head tilt-chin lift). Apply mask with good seal. Squeeze bag to see chest rise. Give 1 breath every 3 seconds.',
+            rationale: 'Apneic child requires immediate ventilation to prevent hypoxic cardiac arrest.',
+            timer: 30,
+            reassessAfter: 'After 5 breaths, check for chest rise and SpO2',
+            interventionTemplate: 'bvmVentilation'
+          };
+        }
+        return null;
       }
-      return null;
-    }
-  },
-  
-  {
-    id: 'pulse',
-    phase: 'triage',
-    question: 'Can you feel a pulse?',
-    subtext: 'Check brachial (infant) or carotid (child/adult) for 10 seconds max',
-    type: 'boolean',
-    criticalTrigger: (answer) => {
-      if (answer === false) {
-        return {
-          id: 'start-cpr',
-          severity: 'critical',
-          title: 'START CPR IMMEDIATELY',
-          instruction: 'Begin chest compressions: 100-120/min, depth 1/3 chest (peds) or 2 inches (adult). 15:2 ratio with BVM (peds) or 30:2 (adult). Minimize interruptions.',
-          rationale: 'No pulse = cardiac arrest. Every minute without CPR decreases survival by 10%.',
-          timer: 120,
-          reassessAfter: 'Rhythm check at 2 minutes',
-          interventionTemplate: 'cpr'
-        };
+    },
+    {
+      id: 'pulse',
+      phase: 'signs_of_life',
+      question: 'Is there a palpable pulse?',
+      subtext: 'Check brachial (infant) or carotid (child) pulse for 10 seconds max',
+      type: 'select',
+      options: [
+        { value: 'present_strong', label: 'Present and strong', severity: 'normal' },
+        { value: 'present_weak', label: 'Present but weak', severity: 'abnormal' },
+        { value: 'absent', label: 'No pulse', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'absent') {
+          return {
+            id: 'start-cpr',
+            severity: 'critical',
+            title: 'START CPR IMMEDIATELY',
+            instruction: 'Begin chest compressions: 100-120/min, depth 1/3 chest. 15:2 ratio with BVM. Minimize interruptions.',
+            rationale: 'Pulseless child requires immediate CPR. Every minute without CPR decreases survival by 10%.',
+            timer: 120,
+            reassessAfter: 'Rhythm check at 2 minutes',
+            interventionTemplate: 'cpr'
+          };
+        }
+        if (answer === 'present_weak') {
+          return {
+            id: 'weak-pulse-shock',
+            severity: 'urgent',
+            title: 'WEAK PULSE - EARLY SHOCK SUSPECTED',
+            instruction: 'Weak pulse indicates poor perfusion. Prepare for IV/IO access. Continue assessment to identify shock type. Do NOT give fluid bolus until heart failure is ruled out.',
+            rationale: 'Weak pulse is an early sign of compensated shock. Early recognition and treatment improves outcomes.',
+            timer: 300,
+            reassessAfter: 'After circulation assessment'
+          };
+        }
+        return null;
       }
-      return null;
-    }
-  },
-  
-  {
-    id: 'responsiveness',
-    phase: 'triage',
-    question: 'Are they responsive?',
-    subtext: 'Do they respond to voice or pain?',
-    type: 'select',
-    options: [
-      { value: 'alert', label: 'Alert - eyes open, responds normally', severity: 'normal' },
-      { value: 'responds', label: 'Responds to voice or pain', severity: 'abnormal' },
-      { value: 'unresponsive', label: 'Unresponsive - no response at all', severity: 'critical' }
-    ],
-    criticalTrigger: (answer) => {
-      if (answer === 'unresponsive') {
-        return {
-          id: 'protect-airway',
-          severity: 'critical',
-          title: 'PROTECT AIRWAY - UNRESPONSIVE PATIENT',
-          instruction: 'Position in recovery position if breathing. Prepare for intubation if not protecting airway. Call for help.',
-          rationale: 'Unresponsive patient cannot protect airway. Risk of aspiration and respiratory failure.',
-          relatedModule: 'airway'
-        };
+    },
+    {
+      id: 'responsiveness',
+      phase: 'signs_of_life',
+      question: 'What is the level of responsiveness?',
+      subtext: 'AVPU scale assessment',
+      type: 'select',
+      options: [
+        { value: 'alert', label: 'A - Alert (eyes open spontaneously)', severity: 'normal' },
+        { value: 'voice', label: 'V - Voice (responds to verbal stimuli)', severity: 'abnormal' },
+        { value: 'pain', label: 'P - Pain (responds only to painful stimuli)', severity: 'critical' },
+        { value: 'unresponsive', label: 'U - Unresponsive (no response)', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'unresponsive') {
+          return {
+            id: 'protect-airway',
+            severity: 'critical',
+            title: 'PROTECT AIRWAY - UNRESPONSIVE CHILD',
+            instruction: 'Position in recovery position if breathing. Prepare for intubation if not protecting airway. Call for senior help.',
+            rationale: 'Unresponsive child cannot protect airway. Risk of aspiration and respiratory failure.',
+            relatedModule: 'airway'
+          };
+        }
+        if (answer === 'pain') {
+          return {
+            id: 'altered-consciousness',
+            severity: 'urgent',
+            title: 'ALTERED CONSCIOUSNESS - ASSESS CAUSE',
+            instruction: 'Check blood glucose immediately. Consider: hypoxia, hypoglycemia, seizure, head injury, poisoning, sepsis. Protect airway - may deteriorate rapidly.',
+            rationale: 'A child responding only to pain has significantly altered consciousness. This is a red flag requiring immediate investigation.',
+            timer: 300,
+            reassessAfter: 'After glucose check and disability assessment'
+          };
+        }
+        if (answer === 'voice') {
+          return {
+            id: 'decreased-consciousness',
+            severity: 'routine',
+            title: 'DECREASED CONSCIOUSNESS - MONITOR CLOSELY',
+            instruction: 'Monitor for deterioration. Check blood glucose. Continue systematic assessment.',
+            rationale: 'Child not fully alert may deteriorate. Frequent reassessment needed.'
+          };
+        }
+        return null;
       }
-      return null;
-    }
-  },
+    },
 
-  // ========================================
-  // PHASE 2: MAIN PROBLEM IDENTIFICATION (Question 4)
-  // ========================================
-  
-  {
-    id: 'main_problem',
-    phase: 'problem_identification',
-    question: 'What is the MAIN problem?',
-    subtext: 'Choose the most urgent issue',
-    type: 'select',
-    options: [
-      { value: 'breathing', label: 'Breathing difficulty', severity: 'urgent' },
-      { value: 'shock', label: 'Shock / Poor perfusion', severity: 'urgent' },
-      { value: 'seizure', label: 'Seizure / Altered mental status', severity: 'urgent' },
-      { value: 'trauma', label: 'Severe bleeding / Trauma', severity: 'urgent' },
-      { value: 'poisoning', label: 'Poisoning / Overdose', severity: 'urgent' },
-      { value: 'allergic', label: 'Allergic reaction', severity: 'urgent' }
-    ]
-  },
-
-  // ========================================
-  // BREATHING PATHWAY (Questions 5-6)
-  // ========================================
-  
-  {
-    id: 'breathing_signs',
-    phase: 'breathing_pathway',
-    question: 'What breathing signs do you see?',
-    subtext: 'Select all that apply',
-    type: 'multi-select',
-    options: [
-      { value: 'wheezing', label: 'Wheezing', severity: 'abnormal' },
-      { value: 'stridor', label: 'Stridor (high-pitched sound)', severity: 'critical' },
-      { value: 'grunting', label: 'Grunting / Severe retractions', severity: 'critical' },
-      { value: 'cyanosis', label: 'Cyanosis (blue lips/skin)', severity: 'critical' }
-    ],
-    criticalTrigger: (answer: string[]) => {
-      if (answer.includes('stridor')) {
-        return {
-          id: 'stridor-management',
-          severity: 'critical',
-          title: 'STRIDOR - AIRWAY EMERGENCY',
-          instruction: 'Keep child calm. Give oxygen. Consider: croup (dexamethasone + nebulized epinephrine), foreign body (do NOT examine throat), anaphylaxis (IM epinephrine). Call for airway help.',
-          rationale: 'Stridor = upper airway obstruction. Can progress to complete obstruction rapidly.',
-          relatedModule: 'airway'
-        };
+    // AIRWAY
+    {
+      id: 'airway_patency',
+      phase: 'airway',
+      question: 'Is the airway patent?',
+      subtext: 'Can you hear air movement? Is there stridor or gurgling?',
+      type: 'select',
+      options: [
+        { value: 'patent', label: 'Patent - clear air movement', severity: 'normal' },
+        { value: 'partial', label: 'Partial obstruction - stridor/gurgling', severity: 'abnormal' },
+        { value: 'complete', label: 'Complete obstruction - no air movement', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'complete') {
+          return {
+            id: 'relieve-obstruction',
+            severity: 'critical',
+            title: 'RELIEVE AIRWAY OBSTRUCTION NOW',
+            instruction: 'If foreign body suspected: 5 back blows + 5 chest thrusts (infant) or abdominal thrusts (child >1y). If secretions: suction. Reposition airway.',
+            rationale: 'Complete airway obstruction is immediately life-threatening. Must be relieved before any other intervention.',
+            timer: 60
+          };
+        }
+        if (answer === 'partial') {
+          return {
+            id: 'optimize-airway',
+            severity: 'urgent',
+            title: 'OPTIMIZE AIRWAY POSITION',
+            instruction: 'Head tilt-chin lift (if no trauma) or jaw thrust. Consider oropharyngeal airway if unconscious. Suction if secretions present.',
+            rationale: 'Partial obstruction can progress to complete obstruction. Optimize position before continuing.',
+            timer: 30
+          };
+        }
+        return null;
       }
-      if (answer.includes('wheezing')) {
-        return {
-          id: 'bronchospasm',
-          severity: 'urgent',
-          title: 'BRONCHOSPASM - START BRONCHODILATORS',
-          instruction: 'Give salbutamol nebulizer. Assess severity. Consider asthma, bronchiolitis, anaphylaxis.',
-          rationale: 'Wheezing = bronchospasm. Early bronchodilator improves outcomes.',
-          interventionTemplate: 'salbutamolNeb',
-          relatedModule: 'AsthmaEscalation'
-        };
-      }
-      return null;
-    }
-  },
-  
-  {
-    id: 'spo2',
-    phase: 'breathing_pathway',
-    question: 'What is the SpO2?',
-    subtext: 'Oxygen saturation level',
-    type: 'number',
-    unit: '%',
-    min: 50,
-    max: 100,
-    criticalTrigger: (answer: number) => {
-      if (answer < 90) {
-        return {
-          id: 'severe-hypoxia',
-          severity: 'critical',
-          title: 'SEVERE HYPOXIA - HIGH-FLOW OXYGEN NOW',
-          instruction: 'Give 100% oxygen via non-rebreather mask or bag-valve-mask. Target SpO2 >94%. Prepare for intubation if not improving.',
-          rationale: 'SpO2 <90% = severe hypoxia. Immediate oxygen required.',
-          timer: 60,
-          reassessAfter: 'Recheck SpO2 after 1 minute'
-        };
-      }
-      return null;
-    }
-  },
-
-  // ========================================
-  // SHOCK PATHWAY (Questions 5-6)
-  // ========================================
-  
-  {
-    id: 'perfusion_signs',
-    phase: 'shock_pathway',
-    question: 'What perfusion signs do you see?',
-    subtext: 'Select all that apply',
-    type: 'multi-select',
-    options: [
-      { value: 'weak_pulse', label: 'Weak or absent pulses', severity: 'critical' },
-      { value: 'delayed_crt', label: 'CRT >3 seconds', severity: 'critical' },
-      { value: 'cold_extremities', label: 'Cold hands/feet', severity: 'abnormal' },
-      { value: 'mottled_skin', label: 'Mottled or pale skin', severity: 'abnormal' }
-    ],
-    criticalTrigger: (answer: string[]) => {
-      if (answer.length >= 2) {
-        return {
-          id: 'shock-resuscitation',
-          severity: 'critical',
-          title: 'SHOCK - START FLUID RESUSCITATION',
-          instruction: 'Get IV/IO access NOW. Give 20 mL/kg fluid bolus over 5-10 minutes. Reassess after each bolus.',
-          rationale: 'Multiple perfusion signs = shock. Immediate fluid resuscitation needed.',
-          interventionTemplate: 'fluidBolus',
-          relatedModule: 'FluidBolusTracker'
-        };
-      }
-      return null;
-    }
-  },
-  
-  {
-    id: 'bleeding_visible',
-    phase: 'shock_pathway',
-    question: 'Is there visible bleeding?',
-    type: 'boolean',
-    criticalTrigger: (answer) => {
-      if (answer === true) {
-        return {
-          id: 'hemorrhagic-shock',
-          severity: 'critical',
-          title: 'HEMORRHAGIC SHOCK - STOP BLEEDING',
-          instruction: 'Apply direct pressure. Elevate if possible. Get IV access. Give blood products if massive bleeding. Consider tourniquet for limb hemorrhage.',
-          rationale: 'Visible bleeding + shock = hemorrhagic shock. Stop bleeding AND restore volume.',
-          timer: 120
-        };
-      }
-      return null;
-    }
-  },
-
-  // ========================================
-  // SEIZURE/NEURO PATHWAY (Questions 5-6)
-  // ========================================
-  
-  {
-    id: 'seizure_activity',
-    phase: 'neuro_pathway',
-    question: 'Is there seizure activity?',
-    type: 'select',
-    options: [
-      { value: 'active_now', label: 'Seizing RIGHT NOW', severity: 'critical' },
-      { value: 'recent', label: 'Seizure stopped recently', severity: 'abnormal' },
-      { value: 'no_seizure', label: 'No seizure', severity: 'normal' }
-    ],
-    criticalTrigger: (answer) => {
-      if (answer === 'active_now') {
-        return {
-          id: 'status-epilepticus',
-          severity: 'critical',
-          title: 'ACTIVE SEIZURE - GIVE BENZODIAZEPINE',
-          instruction: 'Protect airway. Give lorazepam 0.1 mg/kg IV or midazolam 0.2 mg/kg IM. If still seizing at 5 min, repeat dose.',
-          rationale: 'Ongoing seizure requires immediate benzodiazepine. Status epilepticus if >5 minutes.',
-          interventionTemplate: 'statusEpilepticus',
-          timer: 300
-        };
-      }
-      return null;
-    }
-  },
-  
-  {
-    id: 'glucose_level',
-    phase: 'neuro_pathway',
-    question: 'What is the blood glucose?',
-    subtext: 'If available - skip if unknown',
-    type: 'number',
-    unit: 'mg/dL',
-    min: 20,
-    max: 600,
-    criticalTrigger: (answer: number) => {
-      if (answer < 60) {
-        return {
-          id: 'hypoglycemia',
-          severity: 'critical',
-          title: 'HYPOGLYCEMIA - GIVE GLUCOSE NOW',
-          instruction: 'Give dextrose 0.5-1 g/kg IV (2-4 mL/kg of D25 or 5-10 mL/kg of D10). Recheck glucose in 15 minutes.',
-          rationale: 'Glucose <60 mg/dL can cause seizures, altered mental status, brain damage.',
-          timer: 60,
-          doseCard: {
-            medication: 'Dextrose',
-            indication: 'Hypoglycemia (glucose <60 mg/dL)',
-            route: 'IV push',
-            timing: 'Immediate',
-            notes: 'Recheck glucose in 15 minutes. May need repeat dose or dextrose infusion.'
+    },
+    {
+      id: 'airway_sounds',
+      phase: 'airway',
+      question: 'Are there abnormal airway sounds?',
+      type: 'multi-select',
+      options: [
+        { value: 'none', label: 'None - clear', severity: 'normal' },
+        { value: 'stridor', label: 'Stridor (inspiratory)', severity: 'abnormal' },
+        { value: 'stertor', label: 'Stertor (snoring)', severity: 'abnormal' },
+        { value: 'gurgling', label: 'Gurgling (secretions)', severity: 'abnormal' },
+        { value: 'hoarse', label: 'Hoarse voice/cry', severity: 'abnormal' }
+      ],
+      criticalTrigger: (answer) => {
+        if (Array.isArray(answer)) {
+          if (answer.includes('stridor')) {
+            return {
+              id: 'stridor-assessment',
+              severity: 'urgent',
+              title: 'STRIDOR DETECTED - ASSESS SEVERITY',
+              instruction: 'Assess for croup vs epiglottitis vs foreign body. Keep child calm. Do NOT examine throat if epiglottitis suspected. Give nebulized epinephrine if severe.',
+              rationale: 'Stridor indicates upper airway narrowing. Agitation worsens obstruction.',
+              relatedModule: 'airway'
+            };
           }
-        };
+          if (answer.includes('stertor')) {
+            return {
+              id: 'stertor-intervention',
+              severity: 'urgent',
+              title: 'STERTOR (SNORING) - REPOSITION AND SUCTION',
+              instruction: 'Stertor indicates tongue/soft tissue obstruction. Head tilt-chin lift or jaw thrust. Suction oropharynx if secretions. Consider oropharyngeal airway if unconscious.',
+              rationale: 'Stertor is caused by partial upper airway obstruction from tongue or soft tissue. Repositioning often resolves it.',
+              timer: 60
+            };
+          }
+          if (answer.includes('gurgling')) {
+            return {
+              id: 'gurgling-suction',
+              severity: 'urgent',
+              title: 'GURGLING - SUCTION AIRWAY NOW',
+              instruction: 'Gurgling indicates secretions/blood/vomit in airway. Suction immediately. Position in recovery position if unconscious. Have suction ready continuously.',
+              rationale: 'Gurgling sounds mean fluid in the airway. Risk of aspiration. Suction is priority.',
+              timer: 30
+            };
+          }
+        }
+        return null;
       }
-      if (answer > 250) {
-        return {
-          id: 'hyperglycemia-dka',
-          severity: 'urgent',
-          title: 'HYPERGLYCEMIA - ASSESS FOR DKA',
-          instruction: 'Check for DKA signs: vomiting, abdominal pain, Kussmaul breathing. Get VBG, ketones, electrolytes. Start fluid resuscitation.',
-          rationale: 'High glucose + altered mental status may be DKA.',
-          interventionTemplate: 'dkaManagement',
-          relatedModule: 'DKAManagement'
-        };
-      }
-      return null;
-    }
-  },
+    },
 
-  // ========================================
-  // TRAUMA PATHWAY (Questions 5-6)
-  // ========================================
-  
-  {
-    id: 'trauma_mechanism',
-    phase: 'trauma_pathway',
-    question: 'What type of trauma?',
-    type: 'select',
-    options: [
-      { value: 'fall', label: 'Fall / Blunt trauma', severity: 'abnormal' },
-      { value: 'penetrating', label: 'Penetrating injury (stab/gunshot)', severity: 'critical' },
-      { value: 'burns', label: 'Burns', severity: 'abnormal' },
-      { value: 'multiple', label: 'Multiple injuries', severity: 'critical' }
-    ],
-    criticalTrigger: (answer) => {
-      if (answer === 'penetrating' || answer === 'multiple') {
-        return {
-          id: 'major-trauma',
-          severity: 'critical',
-          title: 'MAJOR TRAUMA - ACTIVATE TRAUMA PROTOCOL',
-          instruction: 'C-spine immobilization. Control bleeding. Two large-bore IVs. Trauma series imaging. Call trauma team.',
-          rationale: 'Penetrating or multi-system trauma requires full trauma activation.',
-          relatedModule: 'TraumaProtocol'
-        };
+    // BREATHING
+    {
+      id: 'breathing_effort',
+      phase: 'breathing',
+      question: 'What is the work of breathing?',
+      subtext: 'Look for retractions, nasal flaring, accessory muscle use',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - no distress', severity: 'normal' },
+        { value: 'mild', label: 'Mild - some retractions', severity: 'abnormal' },
+        { value: 'moderate', label: 'Moderate - intercostal retractions, nasal flaring', severity: 'abnormal' },
+        { value: 'severe', label: 'Severe - subcostal retractions, head bobbing, grunting', severity: 'critical' },
+        { value: 'exhaustion', label: 'Exhaustion - minimal effort, ominous sign', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'severe' || answer === 'exhaustion') {
+          return {
+            id: 'respiratory-support',
+            severity: 'critical',
+            title: answer === 'exhaustion' ? 'RESPIRATORY FAILURE - PREPARE FOR INTUBATION' : 'SEVERE RESPIRATORY DISTRESS',
+            instruction: answer === 'exhaustion' 
+              ? 'Child is tiring. Prepare RSI equipment. Call anesthesia/senior help. Start BVM if deteriorates.'
+              : 'High-flow oxygen. Consider CPAP/BiPAP. Treat underlying cause (bronchodilators if wheeze).',
+            rationale: answer === 'exhaustion'
+              ? 'Exhaustion is a pre-arrest sign. Child will decompensate rapidly without intervention.'
+              : 'Severe distress indicates respiratory failure. Need aggressive support.',
+            relatedModule: 'asthma'
+          };
+        }
+        return null;
       }
-      return null;
-    }
-  },
-  
-  {
-    id: 'trauma_location',
-    phase: 'trauma_pathway',
-    question: 'Where is the injury?',
-    type: 'multi-select',
-    options: [
-      { value: 'head', label: 'Head / Neck', severity: 'critical' },
-      { value: 'chest', label: 'Chest', severity: 'critical' },
-      { value: 'abdomen', label: 'Abdomen', severity: 'critical' },
-      { value: 'extremity', label: 'Arms / Legs', severity: 'abnormal' }
-    ],
-    criticalTrigger: (answer: string[]) => {
-      if (answer.includes('head')) {
-        return {
-          id: 'head-trauma',
-          severity: 'critical',
-          title: 'HEAD TRAUMA - PROTECT C-SPINE',
-          instruction: 'Immobilize C-spine. Assess GCS. Prevent secondary injury: maintain BP, avoid hypoxia. CT head if GCS <15.',
-          rationale: 'Head trauma can cause intracranial bleeding, increased ICP.',
-          timer: 300
-        };
+    },
+    {
+      id: 'spo2',
+      phase: 'breathing',
+      question: 'What is the SpO2?',
+      subtext: 'On room air or current oxygen. Normal: 94-100%. Enter value 0-100.',
+      placeholder: 'e.g., 98',
+      type: 'number',
+      unit: '%',
+      min: 0,
+      max: 100,
+      criticalTrigger: (answer) => {
+        if (answer < 90) {
+          return {
+            id: 'oxygen-therapy',
+            severity: 'critical',
+            title: 'HYPOXIA - START HIGH-FLOW OXYGEN',
+            instruction: 'Apply non-rebreather mask at 15 L/min. Target SpO2 94-98%. If not improving, prepare for BVM or CPAP.',
+            rationale: 'SpO2 <90% indicates severe hypoxemia. Hypoxia causes organ damage and cardiac arrest.',
+            timer: 60,
+            reassessAfter: 'Recheck SpO2 in 1 minute'
+          };
+        }
+        if (answer < 94) {
+          return {
+            id: 'supplemental-oxygen',
+            severity: 'urgent',
+            title: 'START SUPPLEMENTAL OXYGEN',
+            instruction: 'Apply nasal cannula 2-4 L/min or simple face mask 6-10 L/min. Target SpO2 94-98%.',
+            rationale: 'SpO2 <94% indicates hypoxemia requiring supplemental oxygen.',
+            timer: 120
+          };
+        }
+        return null;
       }
-      if (answer.includes('chest')) {
-        return {
-          id: 'chest-trauma',
-          severity: 'critical',
-          title: 'CHEST TRAUMA - ASSESS FOR PNEUMOTHORAX',
-          instruction: 'Listen for breath sounds. Check for tracheal deviation. Prepare for needle decompression if tension pneumothorax.',
-          rationale: 'Chest trauma can cause pneumothorax, hemothorax, cardiac injury.',
-          timer: 180
-        };
-      }
-      return null;
-    }
-  },
+    },
+    {
+      id: 'respiratory_rate',
+      phase: 'breathing',
+      question: 'What is the respiratory rate?',
+      subtext: 'Count for 30 seconds × 2. Normal: <1y: 30-60, 1-5y: 24-40, >5y: 12-20 breaths/min',
+      placeholder: 'e.g., 24',
+      type: 'number',
+      unit: 'breaths/min',
+      min: 0,
+      max: 100,
+      criticalTrigger: (answer, patient) => {
+        const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+        // Age-appropriate thresholds
+        let upperLimit = 60;
+        let lowerLimit = 12;
+        if (ageMonths < 12) {
+          upperLimit = 60;
+          lowerLimit = 30;
+        } else if (ageMonths < 60) {
+          upperLimit = 40;
+          lowerLimit = 20;
+        } else {
+          upperLimit = 30;
+          lowerLimit = 12;
+        }
 
-  // ========================================
-  // POISONING PATHWAY (Questions 5-6)
-  // ========================================
-  
-  {
-    id: 'substance_type',
-    phase: 'poisoning_pathway',
-    question: 'What was ingested/exposed?',
-    type: 'select',
-    options: [
-      { value: 'medication', label: 'Medication overdose', severity: 'urgent' },
-      { value: 'household', label: 'Household chemical', severity: 'urgent' },
-      { value: 'unknown', label: 'Unknown substance', severity: 'abnormal' }
-    ]
-  },
-  
-  {
-    id: 'ingestion_time',
-    phase: 'poisoning_pathway',
-    question: 'When did this happen?',
-    type: 'select',
-    options: [
-      { value: 'recent', label: 'Less than 1 hour ago', severity: 'urgent' },
-      { value: 'delayed', label: 'More than 1 hour ago', severity: 'abnormal' }
-    ],
-    criticalTrigger: (answer, patientData, weight) => {
-      if (answer === 'recent') {
-        return {
-          id: 'recent-ingestion',
-          severity: 'urgent',
-          title: 'RECENT INGESTION - CONSIDER DECONTAMINATION',
-          instruction: 'Call poison control. Consider activated charcoal if <1 hour and appropriate substance. Monitor for deterioration.',
-          rationale: 'Recent ingestion may benefit from decontamination. Time-sensitive.',
-          timer: 600
-        };
+        if (answer > upperLimit * 1.5) {
+          return {
+            id: 'severe-tachypnea',
+            severity: 'critical',
+            title: 'SEVERE TACHYPNEA',
+            instruction: 'Assess for respiratory failure. High-flow oxygen. Treat underlying cause. Prepare for respiratory support.',
+            rationale: `RR ${answer} is severely elevated for age. Indicates significant respiratory compromise or metabolic acidosis.`
+          };
+        }
+        if (answer < lowerLimit) {
+          return {
+            id: 'bradypnea',
+            severity: 'critical',
+            title: 'BRADYPNEA - RESPIRATORY DEPRESSION',
+            instruction: 'Assess airway. Prepare BVM. Consider naloxone if opioid exposure. This is a pre-arrest sign.',
+            rationale: 'Low respiratory rate indicates respiratory failure or CNS depression. Imminent arrest risk.',
+            interventionTemplate: 'bvmVentilation'
+          };
+        }
+        return null;
       }
-      return null;
-    }
-  },
+    },
+    {
+      id: 'breath_sounds',
+      phase: 'breathing',
+      question: 'What are the breath sounds?',
+      type: 'multi-select',
+      options: [
+        { value: 'clear', label: 'Clear bilateral', severity: 'normal' },
+        { value: 'wheeze', label: 'Wheeze (expiratory)', severity: 'abnormal' },
+        { value: 'crackles', label: 'Crackles/rales', severity: 'abnormal' },
+        { value: 'decreased', label: 'Decreased air entry', severity: 'abnormal' },
+        { value: 'absent_left', label: 'Absent left side', severity: 'critical' },
+        { value: 'absent_right', label: 'Absent right side', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (Array.isArray(answer)) {
+          if (answer.includes('absent_left') || answer.includes('absent_right')) {
+            const side = answer.includes('absent_left') ? 'LEFT' : 'RIGHT';
+            return {
+              id: 'absent-breath-sounds',
+              severity: 'critical',
+              title: `ABSENT BREATH SOUNDS ${side} SIDE`,
+              instruction: `Consider: Pneumothorax (needle decompress if tension), Pleural effusion, Mucus plug, ETT malposition. Get CXR urgently.`,
+              rationale: 'Unilateral absent breath sounds indicates serious pathology requiring immediate diagnosis and treatment.'
+            };
+          }
+          if (answer.includes('wheeze')) {
+            return {
+              id: 'wheeze-treatment',
+              severity: 'urgent',
+              title: 'WHEEZE DETECTED - START BRONCHODILATOR',
+              instruction: `Give salbutamol ${weight < 20 ? '2.5 mg' : '5 mg'} nebulizer. Add ipratropium 250 mcg if severe. Give prednisolone ${Math.min(weight * 2, 60)} mg PO.`,
+              rationale: 'Wheeze indicates bronchospasm. Bronchodilators are first-line treatment.',
+              dose: weight < 20 ? 'Salbutamol 2.5 mg' : 'Salbutamol 5 mg',
+              route: 'Nebulizer',
+              timer: 600,
+              interventionTemplate: 'salbutamolNeb',
+              relatedModule: 'asthma'
+            };
+          }
+        }
+        return null;
+      }
+    },
 
-  // ========================================
-  // ALLERGIC REACTION PATHWAY (Question 5)
-  // ========================================
-  
-  {
-    id: 'anaphylaxis_signs',
-    phase: 'allergic_pathway',
-    question: 'What allergic signs do you see?',
-    subtext: 'Select all that apply',
-    type: 'multi-select',
-    options: [
-      { value: 'airway_swelling', label: 'Airway swelling / Stridor', severity: 'critical' },
-      { value: 'breathing_difficulty', label: 'Wheezing / Breathing difficulty', severity: 'critical' },
-      { value: 'hypotension', label: 'Low blood pressure / Weak pulse', severity: 'critical' },
-      { value: 'rash', label: 'Rash / Hives only', severity: 'abnormal' }
-    ],
-    criticalTrigger: (answer: string[]) => {
-      const criticalSigns = ['airway_swelling', 'breathing_difficulty', 'hypotension'];
-      const hasCriticalSign = answer.some(sign => criticalSigns.includes(sign));
-      
-      if (hasCriticalSign) {
-        return {
-          id: 'anaphylaxis',
-          severity: 'critical',
-          title: 'ANAPHYLAXIS - GIVE IM EPINEPHRINE NOW',
-          instruction: 'IM epinephrine 0.01 mg/kg (max 0.5 mg) in anterolateral thigh. Can repeat every 5-15 minutes. Give oxygen, fluids, antihistamines.',
-          rationale: 'Anaphylaxis is life-threatening. IM epinephrine is first-line treatment.',
-          interventionTemplate: 'anaphylaxisProtocol',
-          timer: 300
-        };
+    // CIRCULATION
+    // CRITICAL: Heart failure assessment MUST come before fluid bolus to prevent pulmonary edema
+    {
+      id: 'jvp',
+      phase: 'circulation',
+      question: 'Is the jugular venous pressure (JVP) elevated?',
+      subtext: 'Look for distended neck veins (difficult in infants - check hepatomegaly instead)',
+      type: 'select',
+      options: [
+        { value: 'not_visible', label: 'Not visible/normal', severity: 'normal' },
+        { value: 'elevated', label: 'Elevated - visible above clavicle', severity: 'abnormal' },
+        { value: 'very_elevated', label: 'Very elevated - visible to jaw', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'elevated' || answer === 'very_elevated') {
+          return {
+            id: 'elevated-jvp',
+            severity: 'critical',
+            title: 'ELEVATED JVP - HEART FAILURE OR FLUID OVERLOAD',
+            instruction: 'DO NOT GIVE FLUID BOLUS. This child has elevated central venous pressure. Consider diuretics. Assess for heart failure. Get senior help.',
+            rationale: 'Elevated JVP indicates volume overload or heart failure. Fluid bolus will cause pulmonary edema.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
       }
-      return null;
+    },
+    {
+      id: 'hepatomegaly',
+      phase: 'circulation',
+      question: 'Is the liver enlarged?',
+      subtext: 'Palpate liver edge - should not be >2cm below costal margin',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - not palpable or <2cm below costal margin', severity: 'normal' },
+        { value: 'mild', label: 'Mildly enlarged - 2-4cm below costal margin', severity: 'abnormal' },
+        { value: 'severe', label: 'Severely enlarged - >4cm below costal margin', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'mild' || answer === 'severe') {
+          return {
+            id: 'hepatomegaly',
+            severity: 'critical',
+            title: 'HEPATOMEGALY - HEART FAILURE OR FLUID OVERLOAD',
+            instruction: 'DO NOT GIVE FLUID BOLUS. Hepatomegaly indicates venous congestion. Assess for heart failure. Consider diuretics. Get senior help.',
+            rationale: 'Hepatomegaly from venous congestion indicates the child cannot handle more fluid.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'heart_sounds',
+      phase: 'circulation',
+      question: 'Auscultate the heart - what do you hear?',
+      subtext: 'Listen for gallop rhythm (S3), murmurs, muffled sounds',
+      type: 'multi-select',
+      options: [
+        { value: 'normal', label: 'Normal S1 and S2 only', severity: 'normal' },
+        { value: 'gallop', label: 'Gallop rhythm (S3) - sounds like "Kentucky"', severity: 'critical' },
+        { value: 'murmur', label: 'Heart murmur present', severity: 'abnormal' },
+        { value: 'muffled', label: 'Muffled heart sounds', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (Array.isArray(answer)) {
+          if (answer.includes('gallop')) {
+            return {
+              id: 'gallop-rhythm',
+              severity: 'critical',
+              title: 'GALLOP RHYTHM - HEART FAILURE',
+              instruction: 'DO NOT GIVE FLUID BOLUS. S3 gallop indicates heart failure. Start diuretics (furosemide 1 mg/kg). Get cardiology consult. Consider inotropes.',
+              rationale: 'Gallop rhythm (S3) is a specific sign of heart failure. Fluid will worsen pulmonary edema.',
+              relatedModule: 'shock'
+            };
+          }
+          if (answer.includes('muffled')) {
+            return {
+              id: 'muffled-sounds',
+              severity: 'critical',
+              title: 'MUFFLED HEART SOUNDS - PERICARDIAL EFFUSION OR TAMPONADE',
+              instruction: 'DO NOT GIVE FLUID BOLUS (unless tamponade confirmed). Get urgent ECHO. Assess for Beck\'s triad. Prepare for pericardiocentesis.',
+              rationale: 'Muffled sounds suggest pericardial effusion or tamponade. Requires urgent cardiac assessment.',
+              relatedModule: 'shock'
+            };
+          }
+          if (answer.includes('murmur')) {
+            return {
+              id: 'heart-murmur',
+              severity: 'urgent',
+              title: 'HEART MURMUR DETECTED',
+              instruction: 'Note murmur characteristics. Consider structural heart disease. Be cautious with fluid bolus - give slowly and reassess frequently.',
+              rationale: 'Murmur may indicate structural heart disease. Fluid bolus must be given cautiously to avoid overload.',
+              relatedModule: 'shock'
+            };
+          }
+        }
+        return null;
+      }
+    },
+    {
+      id: 'pulmonary_crackles',
+      phase: 'circulation',
+      question: 'Are there pulmonary crackles/rales on auscultation?',
+      subtext: 'Listen to lung bases - crackles suggest pulmonary edema',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No crackles - clear lung fields', severity: 'normal' },
+        { value: 'bases', label: 'Crackles at bases only', severity: 'abnormal' },
+        { value: 'bilateral', label: 'Bilateral crackles throughout', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'bases' || answer === 'bilateral') {
+          return {
+            id: 'pulmonary-edema',
+            severity: 'critical',
+            title: 'PULMONARY CRACKLES - FLUID OVERLOAD OR HEART FAILURE',
+            instruction: 'DO NOT GIVE FLUID BOLUS. Crackles indicate pulmonary edema. Start diuretics (furosemide 1 mg/kg). Consider CPAP/BiPAP. Get senior help.',
+            rationale: 'Pulmonary crackles indicate fluid in the lungs. More fluid will worsen respiratory failure.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'heart_rate',
+      phase: 'circulation',
+      question: 'What is the heart rate?',
+      subtext: 'Count for 15 seconds × 4. Normal ranges by age: <1y: 100-180, 1-5y: 80-160, >5y: 60-140 bpm',
+      type: 'number',
+      unit: 'bpm',
+      min: 0,
+      max: 300,
+      criticalTrigger: (answer, patient) => {
+        const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+        // Age-appropriate thresholds
+        let upperLimit = 180;
+        let lowerLimit = 60;
+        if (ageMonths < 12) {
+          upperLimit = 180;
+          lowerLimit = 100;
+        } else if (ageMonths < 60) {
+          upperLimit = 160;
+          lowerLimit = 80;
+        } else {
+          upperLimit = 140;
+          lowerLimit = 60;
+        }
+
+        if (answer > 220) {
+          return {
+            id: 'svt',
+            severity: 'critical',
+            title: 'POSSIBLE SVT - ASSESS RHYTHM',
+            instruction: 'Get 12-lead ECG. If SVT confirmed and stable: vagal maneuvers, then adenosine. If unstable: synchronized cardioversion.',
+            rationale: 'HR >220 in children suggests SVT rather than sinus tachycardia. Requires rhythm assessment.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        if (answer < lowerLimit && answer > 0) {
+          return {
+            id: 'bradycardia',
+            severity: 'critical',
+            title: 'BRADYCARDIA - ASSESS PERFUSION',
+            instruction: 'If poor perfusion: start CPR if HR <60 with poor perfusion. Give epinephrine. Consider atropine for vagal causes.',
+            rationale: 'Bradycardia in children is usually hypoxic. Treat the cause (oxygenation) first.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'rhythm_regularity',
+      phase: 'circulation',
+      question: 'Is the heart rhythm regular?',
+      subtext: 'Palpate pulse or listen to heart - is it regular or irregular?',
+      type: 'select',
+      options: [
+        { value: 'regular', label: 'Regular rhythm', severity: 'normal' },
+        { value: 'regularly_irregular', label: 'Regularly irregular (e.g., sinus arrhythmia)', severity: 'normal' },
+        { value: 'irregularly_irregular', label: 'Irregularly irregular', severity: 'critical' },
+        { value: 'narrow_complex_tachy', label: 'Very fast and regular (possible SVT)', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'irregularly_irregular') {
+          return {
+            id: 'irregular-rhythm',
+            severity: 'critical',
+            title: 'IRREGULAR RHYTHM - GET ECG',
+            instruction: 'Get 12-lead ECG immediately. Consider atrial fibrillation (rare in children), frequent ectopics, or heart block. Consult cardiology.',
+            rationale: 'Irregularly irregular rhythm in children is abnormal and requires urgent rhythm identification.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        if (answer === 'narrow_complex_tachy') {
+          return {
+            id: 'svt-suspected',
+            severity: 'critical',
+            title: 'SUSPECTED SVT - DO NOT GIVE FLUID BOLUS YET',
+            instruction: 'Get 12-lead ECG first. If SVT confirmed: vagal maneuvers, then adenosine. Fluid bolus will NOT help SVT and may worsen heart failure.',
+            rationale: 'SVT causes shock from poor cardiac output, not hypovolemia. Fluid bolus is not the treatment.',
+            relatedModule: 'arrhythmia'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'perfusion',
+      phase: 'circulation',
+      question: 'What is the perfusion status?',
+      subtext: 'Assess capillary refill, skin color, peripheral pulses',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal - CRT <2s, warm, pink', severity: 'normal' },
+        { value: 'poor', label: 'Poor - CRT 2-4s, cool peripheries', severity: 'abnormal' },
+        { value: 'shock', label: 'Shock - CRT >4s, mottled, weak pulses', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'shock') {
+          return {
+            id: 'shock-treatment',
+            severity: 'critical',
+            title: 'SHOCK - GET IV ACCESS AND GIVE FLUID',
+            instruction: `Establish IV/IO access NOW. Give ${Math.round(weight * 10)} mL (10 mL/kg) NS or RL bolus over 5-10 min. Reassess after each bolus.`,
+            rationale: 'Shock requires immediate fluid resuscitation. Early aggressive treatment improves outcomes.',
+            dose: `${Math.round(weight * 10)} mL`,
+            route: 'IV/IO bolus',
+            timer: 300,
+            interventionTemplate: 'fluidBolus',
+            relatedModule: 'shock'
+          };
+        }
+        if (answer === 'poor') {
+          return {
+            id: 'poor-perfusion',
+            severity: 'urgent',
+            title: 'POOR PERFUSION - ESTABLISH IV ACCESS',
+            instruction: 'Establish IV access. Prepare for fluid bolus if perfusion worsens. Identify and treat underlying cause.',
+            rationale: 'Poor perfusion may progress to shock. Early IV access allows rapid intervention if needed.',
+            interventionTemplate: 'ivAccess'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'cap_refill',
+      phase: 'circulation',
+      question: 'What is the capillary refill time?',
+      subtext: 'Press on sternum or forehead for 5 seconds',
+      type: 'select',
+      options: [
+        { value: 'less_2', label: '<2 seconds (normal)', severity: 'normal' },
+        { value: '2_to_4', label: '2-4 seconds (prolonged)', severity: 'abnormal' },
+        { value: 'more_4', label: '>4 seconds (severely prolonged)', severity: 'critical' }
+      ]
+    },
+    {
+      id: 'pulse_quality',
+      phase: 'circulation',
+      question: 'Compare central and peripheral pulses',
+      subtext: 'Central: femoral/carotid. Peripheral: radial/dorsalis pedis',
+      type: 'select',
+      options: [
+        { value: 'both_strong', label: 'Both strong and equal', severity: 'normal' },
+        { value: 'central_strong', label: 'Central strong, peripheral weak', severity: 'abnormal' },
+        { value: 'both_weak', label: 'Both weak', severity: 'critical' },
+        { value: 'central_only', label: 'Central only palpable', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'central_only' || answer === 'both_weak') {
+          return {
+            id: 'severe-shock',
+            severity: 'critical',
+            title: 'SEVERE SHOCK - IMMEDIATE RESUSCITATION',
+            instruction: 'This is decompensated shock. Aggressive fluid resuscitation. Prepare inotropes. Call for senior help.',
+            rationale: 'Weak or absent peripheral pulses indicate severe circulatory compromise.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'skin_temp',
+      phase: 'circulation',
+      question: 'Assess skin temperature gradient',
+      subtext: 'Run hand from thigh to foot - note where it becomes cool',
+      type: 'select',
+      options: [
+        { value: 'warm_throughout', label: 'Warm throughout', severity: 'normal' },
+        { value: 'cool_feet', label: 'Cool feet only', severity: 'abnormal' },
+        { value: 'cool_below_knee', label: 'Cool below knees', severity: 'abnormal' },
+        { value: 'cool_below_thigh', label: 'Cool below mid-thigh', severity: 'critical' },
+        { value: 'warm_flushed', label: 'Warm and flushed (vasodilated)', severity: 'abnormal' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'cool_below_thigh') {
+          return {
+            id: 'cold-shock',
+            severity: 'critical',
+            title: 'COLD SHOCK PATTERN',
+            instruction: 'This suggests cardiogenic or hypovolemic shock. Fluid bolus first. If no response, consider epinephrine infusion.',
+            rationale: 'Proximal temperature gradient indicates severe vasoconstriction from poor cardiac output.',
+            relatedModule: 'shock'
+          };
+        }
+        if (answer === 'warm_flushed') {
+          return {
+            id: 'warm-shock',
+            severity: 'urgent',
+            title: 'WARM SHOCK PATTERN',
+            instruction: 'This suggests distributive shock (sepsis, anaphylaxis). Fluid bolus. If no response, consider norepinephrine.',
+            rationale: 'Warm, vasodilated peripheries with poor perfusion suggests distributive shock.',
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'blood_pressure',
+      phase: 'circulation',
+      question: 'What is the blood pressure?',
+      subtext: 'Use appropriate cuff size',
+      type: 'number',
+      unit: 'mmHg (systolic)',
+      min: 0,
+      max: 200,
+      criticalTrigger: (answer, patient) => {
+        const ageYears = patient.ageYears;
+        // Hypotension threshold: 70 + (2 × age in years) for children 1-10
+        const hypotensionThreshold = ageYears < 1 ? 60 : Math.min(70 + (2 * ageYears), 90);
+        
+        if (answer > 0 && answer < hypotensionThreshold) {
+          return {
+            id: 'hypotension',
+            severity: 'critical',
+            title: 'HYPOTENSION - DECOMPENSATED SHOCK',
+            instruction: 'This is late shock. Aggressive fluid resuscitation. Start inotropes. Call for senior help immediately.',
+            rationale: `BP ${answer} is below threshold of ${hypotensionThreshold} for age. Hypotension is a late and ominous sign in children.`,
+            relatedModule: 'shock'
+          };
+        }
+        return null;
+      }
+    },
+
+    // DISABILITY
+    {
+      id: 'glucose',
+      phase: 'disability',
+      question: 'What is the blood glucose?',
+      type: 'number',
+      unit: 'mmol/L',
+      min: 0,
+      max: 50,
+      criticalTrigger: (answer, patient) => {
+        // Convert if needed (assuming mmol/L input)
+        const glucoseMmol = answer;
+        
+        if (glucoseMmol < 3.0) {
+          const ageMonths = patient.ageYears * 12 + patient.ageMonths;
+          const calcWeight = ageMonths < 12 ? (ageMonths + 9) / 2 : ageMonths < 60 ? (Math.floor(ageMonths / 12) + 4) * 2 : Math.floor(ageMonths / 12) * 4;
+          const weight = patient.weight || calcWeight;
+          const dextroseVolume = Math.round(weight * 2); // 2 mL/kg of D10%
+          return {
+            id: 'hypoglycemia',
+            severity: 'critical',
+            title: 'HYPOGLYCEMIA - GIVE DEXTROSE NOW',
+            instruction: `Recheck glucose in 15 minutes. Start maintenance dextrose infusion if not eating.`,
+            rationale: 'Hypoglycemia causes brain injury. Must be corrected immediately before other interventions.',
+            dose: `D10% ${dextroseVolume} mL`,
+            route: 'IV bolus',
+            timer: 900, // 15 min recheck
+            doseCard: {
+              medication: 'Dextrose 10%',
+              dose: `${dextroseVolume} mL (2 mL/kg)`,
+              route: 'IV bolus over 2-3 minutes',
+              indication: `Hypoglycemia (${glucoseMmol.toFixed(1)} mmol/L)`,
+              timing: 'IMMEDIATE',
+              notes: 'Recheck glucose in 15 minutes. Start maintenance dextrose if not eating.'
+            }
+          };
+        }
+        if (glucoseMmol > 14) {
+          return {
+            id: 'hyperglycemia',
+            severity: 'urgent',
+            title: 'HYPERGLYCEMIA - ASSESS FOR DKA',
+            instruction: 'Check ketones, blood gas, electrolytes. If DKA: start IV fluids (10 mL/kg NS), then insulin infusion after 1 hour.',
+            rationale: 'Hyperglycemia may indicate DKA. Need to assess severity and start protocol.',
+            relatedModule: 'lab'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'pupils',
+      phase: 'disability',
+      question: 'What are the pupil findings?',
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Equal, round, reactive (PERRL)', severity: 'normal' },
+        { value: 'dilated_reactive', label: 'Dilated but reactive', severity: 'abnormal' },
+        { value: 'constricted', label: 'Pinpoint (constricted)', severity: 'abnormal' },
+        { value: 'unequal', label: 'Unequal (anisocoria)', severity: 'critical' },
+        { value: 'fixed_dilated', label: 'Fixed and dilated', severity: 'critical' }
+      ],
+      criticalTrigger: (answer) => {
+        if (answer === 'unequal') {
+          return {
+            id: 'anisocoria',
+            severity: 'critical',
+            title: 'UNEQUAL PUPILS - POSSIBLE RAISED ICP',
+            instruction: 'Elevate head 30°. Avoid hypoxia and hypotension. Consider mannitol 0.5 g/kg if herniation suspected. Urgent CT head.',
+            rationale: 'Anisocoria suggests uncal herniation from raised intracranial pressure. Neurosurgical emergency.'
+          };
+        }
+        if (answer === 'fixed_dilated') {
+          return {
+            id: 'fixed-pupils',
+            severity: 'critical',
+            title: 'FIXED DILATED PUPILS',
+            instruction: 'If bilateral: consider brainstem death, severe hypoxia, or drug toxicity. If post-arrest: continue resuscitation, this is not a reliable prognostic sign.',
+            rationale: 'Fixed dilated pupils indicate severe neurological injury but may be reversible in some cases.'
+          };
+        }
+        if (answer === 'constricted') {
+          return {
+            id: 'pinpoint-pupils',
+            severity: 'urgent',
+            title: 'PINPOINT PUPILS - CONSIDER OPIOID TOXICITY',
+            instruction: 'If respiratory depression present: give naloxone 0.1 mg/kg IV (max 2 mg). May need repeated doses.',
+            rationale: 'Pinpoint pupils with respiratory depression suggests opioid toxicity.'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'seizure',
+      phase: 'disability',
+      question: 'Is there seizure activity?',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No seizure activity', severity: 'normal' },
+        { value: 'resolved', label: 'Recent seizure, now resolved', severity: 'abnormal' },
+        { value: 'active', label: 'Active seizure NOW', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'active') {
+          const lorazepamDose = Math.min(weight * 0.1, 4).toFixed(1);
+          const diazepamDose = Math.min(weight * 0.3, 10).toFixed(1);
+          return {
+            id: 'active-seizure',
+            severity: 'critical',
+            title: 'ACTIVE SEIZURE - GIVE BENZODIAZEPINE',
+            instruction: `Position safely on side. Protect airway. Check glucose immediately. Time the seizure.`,
+            rationale: 'Prolonged seizures cause brain injury. Benzodiazepines are first-line treatment.',
+            dose: `Lorazepam ${lorazepamDose} mg IV or Diazepam ${diazepamDose} mg PR`,
+            route: 'IV or PR',
+            timer: 300, // 5 min to reassess
+            doseCard: {
+              medication: 'Lorazepam (1st choice) OR Diazepam',
+              dose: `Lorazepam ${lorazepamDose} mg (0.1 mg/kg, max 4 mg) OR Diazepam ${diazepamDose} mg (0.3 mg/kg, max 10 mg)`,
+              route: 'IV (lorazepam) or PR (diazepam)',
+              indication: 'Active seizure',
+              timing: 'IMMEDIATE',
+              notes: 'May repeat once after 5 minutes if seizure continues. If still seizing after 2nd dose, call for help and prepare phenytoin/levetiracetam.'
+            }
+          };
+        }
+        return null;
+      }
+    },
+
+    // EXPOSURE
+    {
+      id: 'temperature',
+      phase: 'exposure',
+      question: 'What is the temperature?',
+      type: 'number',
+      unit: '°C',
+      min: 30,
+      max: 45,
+      criticalTrigger: (answer) => {
+        if (answer > 40) {
+          return {
+            id: 'hyperthermia',
+            severity: 'urgent',
+            title: 'HYPERTHERMIA - ACTIVE COOLING',
+            instruction: 'Remove clothing. Tepid sponging. Paracetamol 15 mg/kg. Consider sepsis workup.',
+            rationale: 'Temperature >40°C increases metabolic demand and can cause seizures.'
+          };
+        }
+        if (answer < 35) {
+          return {
+            id: 'hypothermia',
+            severity: 'urgent',
+            title: 'HYPOTHERMIA - ACTIVE WARMING',
+            instruction: 'Remove wet clothing. Warm blankets. Warm IV fluids. Consider sepsis in infants.',
+            rationale: 'Hypothermia impairs coagulation and cardiac function. Warm slowly to avoid arrhythmias.'
+          };
+        }
+        return null;
+      }
+    },
+    {
+      id: 'rash',
+      phase: 'exposure',
+      question: 'Is there a rash?',
+      type: 'select',
+      options: [
+        { value: 'none', label: 'No rash', severity: 'normal' },
+        { value: 'blanching', label: 'Blanching rash (viral)', severity: 'normal' },
+        { value: 'urticarial', label: 'Urticarial (hives)', severity: 'abnormal' },
+        { value: 'petechial', label: 'Petechial/purpuric (non-blanching)', severity: 'critical' }
+      ],
+      criticalTrigger: (answer, patient, weight) => {
+        if (answer === 'petechial') {
+          const ceftriaxoneDose = Math.min(weight * 80, 4000);
+          return {
+            id: 'petechial-rash',
+            severity: 'critical',
+            title: 'PETECHIAL RASH - ASSUME MENINGOCOCCEMIA',
+            instruction: `Do NOT delay for LP. Fluid resuscitation if shocked. Isolate patient (droplet precautions).`,
+            rationale: 'Petechial rash with fever = meningococcal sepsis until proven otherwise. Mortality high without immediate antibiotics.',
+            dose: `Ceftriaxone ${ceftriaxoneDose} mg`,
+            route: 'IV',
+            relatedModule: 'lab',
+            doseCard: {
+              medication: 'Ceftriaxone',
+              dose: `${ceftriaxoneDose} mg (80 mg/kg, max 4000 mg)`,
+              route: 'IV over 30 minutes',
+              indication: 'Suspected meningococcemia (petechial rash)',
+              timing: 'IMMEDIATE - Do NOT delay for LP',
+              notes: 'Isolate patient (droplet precautions). Fluid resuscitation if shocked. Notify public health.'
+            }
+          };
+        }
+        if (answer === 'urticarial') {
+          return {
+            id: 'urticarial-rash',
+            severity: 'urgent',
+            title: 'URTICARIAL RASH - ASSESS FOR ANAPHYLAXIS',
+            instruction: 'Check for airway swelling, breathing difficulty, hypotension. If anaphylaxis: give IM epinephrine immediately.',
+            rationale: 'Urticaria may be part of anaphylaxis. Need to assess for systemic involvement.'
+          };
+        }
+        return null;
+      }
     }
-  }
-];
+  ];
 
   // Get current question
   const getCurrentQuestion = (): ClinicalQuestion | null => {
     return clinicalQuestions.find(q => q.id === currentQuestionId) || null;
   };
 
-  // Question flow by phase (GPS-style)
+  // Question flow by phase
   const questionFlowByPhase: Record<AssessmentPhase, string[]> = {
     setup: [],
-    triage: ['breathing', 'pulse', 'responsiveness'],
-    problem_identification: ['main_problem'],
-    breathing_pathway: ['breathing_signs', 'spo2'],
-    shock_pathway: ['perfusion_signs', 'bleeding_visible'],
-    neuro_pathway: ['seizure_activity', 'glucose_level'],
-    trauma_pathway: ['trauma_mechanism', 'trauma_location'],
-    poisoning_pathway: ['substance_type', 'ingestion_time'],
-    allergic_pathway: ['anaphylaxis_signs'],
+    signs_of_life: ['breathing', 'pulse', 'responsiveness'],
+    airway: ['airway_patency', 'airway_sounds'],
+    breathing: ['breathing_effort', 'spo2', 'respiratory_rate', 'breath_sounds'],
+    circulation: ['jvp', 'hepatomegaly', 'heart_sounds', 'pulmonary_crackles', 'heart_rate', 'rhythm_regularity', 'perfusion', 'cap_refill', 'pulse_quality', 'skin_temp', 'blood_pressure'],
+    disability: ['glucose', 'pupils', 'seizure'],
+    exposure: ['temperature', 'rash'],
     complete: []
   };
 
-  // Get all questions in order (GPS-style)
+  // Get all questions in order
   const getAllQuestionsInOrder = (): string[] => {
     return [
-      ...questionFlowByPhase.triage,
-      ...questionFlowByPhase.problem_identification,
-      ...questionFlowByPhase.breathing_pathway,
-      ...questionFlowByPhase.shock_pathway,
-      ...questionFlowByPhase.neuro_pathway,
-      ...questionFlowByPhase.trauma_pathway,
-      ...questionFlowByPhase.poisoning_pathway,
-      ...questionFlowByPhase.allergic_pathway
+      ...questionFlowByPhase.signs_of_life,
+      ...questionFlowByPhase.airway,
+      ...questionFlowByPhase.breathing,
+      ...questionFlowByPhase.circulation,
+      ...questionFlowByPhase.disability,
+      ...questionFlowByPhase.exposure
     ];
   };
 

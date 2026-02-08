@@ -477,3 +477,24 @@
 - [x] Update vitest config to include client tests
 - [x] Verify checklist integration works correctly
 - [ ] Save checkpoint
+
+## Phase 120: Fix GPS Flow - Make It Actually Save Lives
+- [ ] Audit current ClinicalAssessmentGPS flow (identify what's confusing/broken)
+- [ ] Map out true GPS flow: 3-5 triage questions → ONE critical action → next step
+- [ ] Simplify question sequence (remove textbook complexity)
+- [ ] Ensure critical interventions appear within 10 seconds
+- [ ] Test with real scenarios: unresponsive child, severe respiratory distress, shock
+- [ ] Verify providers can follow flow without training
+- [ ] Remove anything that doesn't directly save lives
+- [ ] Save checkpoint
+
+
+## Phase 120: Fix GPS Flow - Replace Textbook Exam with True GPS
+- [x] Audit current flow (found 25-question textbook exam)
+- [x] Design GPS flow (3 triage → 1 problem → 2-3 pathway → action)
+- [x] Replace 910 lines of questions with GPS flow
+- [x] Update questionFlowByPhase to match new phases
+- [x] Fix GPSDemo wouter import
+- [ ] Test GPS flow with real emergency scenarios
+- [ ] Verify life-saving speed (<30 seconds to intervention)
+- [ ] Save checkpoint

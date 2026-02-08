@@ -16,6 +16,7 @@ import GuidelineManagement from './pages/GuidelineManagement';
 import CollaborativeSession from './pages/CollaborativeSession';
 
 import ClinicalReasoningResults from './pages/ClinicalReasoningResults';
+import GPSDemo from './pages/GPSDemo';
 import { Toaster } from "@/components/ui/sonner";
 
 // Lazy load heavier components
@@ -96,6 +97,8 @@ function Router() {
       <ScrollToTop />
       <main className="flex-1">
         <Switch>
+          {/* GPS Demo - Minimal Prototype */}
+          <Route path="/gps-demo" component={GPSDemo} />
           {/* Clinical Assessment - GPS Mode (New) */}
           <Route path="/" component={ClinicalAssessmentGPS} />
           <Route path="/gps" component={ClinicalAssessmentGPS} />
