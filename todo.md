@@ -553,3 +553,14 @@
 - [x] Add always-visible install button to homepage footer
 - [x] Button shows native prompt when available, instructions otherwise
 - [x] Save checkpoint
+
+
+## Phase 127: Fix Medical Protocol Routing Bugs
+- [x] Diagnose why medical protocol stops after glucose entry (linear routing bug)
+- [x] Fix getNextQuestionId to route based on selected pathway (GPS-style)
+- [x] Add selectedPathway state to track user's main_problem choice
+- [x] Wheezing module triggers correctly (AsthmaEscalation on breathing_signs)
+- [x] Medical protocol now stays in selected pathway only
+- [x] No more jumping to trauma/poisoning after completing pathway
+- [x] Test medical protocol flow end-to-end (server running, HMR working)
+- [x] Save checkpoint

@@ -204,6 +204,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   const [currentQuestionId, setCurrentQuestionId] = useState<string>('breathing');
   const [findings, setFindings] = useState<ClinicalFinding[]>([]);
   const [caseStartTime, setCaseStartTime] = useState<Date>(new Date());
+  const [selectedPathway, setSelectedPathway] = useState<string | null>(null); // Track which pathway user selected
 
   // Intervention state
   const [activeInterventions, setActiveInterventions] = useState<ActiveIntervention[]>([]);
@@ -787,8 +788,59 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     ];
   };
 
-  // Get next question
+  // Get next question - GPS-style routing based on selected pathway
   const getNextQuestionId = (currentId: string): string | null => {
+    const currentQuestion = clinicalQuestions.find(q => q.id === currentId);
+    if (!currentQuestion) return null;
+
+    // If we're in triage phase, next is always problem_identification
+    if (currentQuestion.phase === 'triage') {
+      const triageQuestions = questionFlowByPhase.triage;
+      const currentIndex = triageQuestions.indexOf(currentId);
+      if (currentIndex < triageQuestions.length - 1) {
+        return triageQuestions[currentIndex + 1];
+      }
+      // After triage, go to problem identification
+      return 'main_problem';
+    }
+
+    // If we're in problem_identification, route to selected pathway
+    if (currentQuestion.phase === 'problem_identification') {
+      if (!selectedPathway) return null;
+      const pathwayMap: Record<string, string> = {
+        'breathing': 'breathing_signs',
+        'shock': 'perfusion_signs',
+        'seizure': 'seizure_activity',
+        'trauma': 'trauma_mechanism',
+        'poisoning': 'substance_type',
+        'allergic': 'anaphylaxis_signs'
+      };
+      return pathwayMap[selectedPathway] || null;
+    }
+
+    // If we're in a specific pathway, continue within that pathway only
+    if (selectedPathway) {
+      const pathwayPhaseMap: Record<string, AssessmentPhase> = {
+        'breathing': 'breathing_pathway',
+        'shock': 'shock_pathway',
+        'seizure': 'neuro_pathway',
+        'trauma': 'trauma_pathway',
+        'poisoning': 'poisoning_pathway',
+        'allergic': 'allergic_pathway'
+      };
+      const currentPathwayPhase = pathwayPhaseMap[selectedPathway];
+      if (currentQuestion.phase === currentPathwayPhase) {
+        const pathwayQuestions = questionFlowByPhase[currentPathwayPhase];
+        const currentIndex = pathwayQuestions.indexOf(currentId);
+        if (currentIndex < pathwayQuestions.length - 1) {
+          return pathwayQuestions[currentIndex + 1];
+        }
+        // Pathway complete
+        return null;
+      }
+    }
+
+    // Fallback to linear progression (shouldn't happen with GPS flow)
     const allQuestions = getAllQuestionsInOrder();
     const currentIndex = allQuestions.indexOf(currentId);
     if (currentIndex === -1 || currentIndex === allQuestions.length - 1) {
@@ -841,6 +893,11 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       triggeredInterventions: action ? [action.id] : undefined
     };
     setFindings(prev => [...prev, finding]);
+
+    // If this is the main_problem question, store the selected pathway
+    if (question.id === 'main_problem' && answer) {
+      setSelectedPathway(answer);
+    }
 
     // If critical action, show it but DON'T BLOCK
     if (action) {
@@ -1043,6 +1100,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
     setEmergencyActivated(false);
     setCprActive(false);
     setCaseStartTime(new Date());
+    setSelectedPathway(null); // Reset pathway selection
   };
 
   // Start assessment
