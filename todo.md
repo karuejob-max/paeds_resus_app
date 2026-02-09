@@ -525,3 +525,14 @@
 - [x] Add Neonatal scenario handler to ClinicalAssessmentGPS
 - [x] All 8 emergency protocols now active
 - [x] Save checkpoint
+
+
+## Phase 124: Consolidate All Cardiac Arrest Pathways
+- [x] Audit all cardiac arrest entry points (homepage button, GPS detection, EmergencyLauncher)
+- [x] Ensure homepage CARDIAC ARREST button routes to Quick Launch protocol (already correct)
+- [x] Ensure GPS cardiac arrest detection routes to Quick Launch protocol (already correct)
+- [x] Update EmergencyLauncher to route cardiac_arrest to Quick Launch protocol
+- [x] Remove CPRClockStreamlined/AdultACLS rendering for cardiac_arrest
+- [x] All cardiac arrest pathways now consolidated to Quick Launch protocol
+- [x] Test all cardiac arrest entry points (server running, HMR working)
+- [x] Save checkpoint

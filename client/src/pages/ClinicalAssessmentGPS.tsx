@@ -290,6 +290,19 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
   // Handle protocol launch from emergency launcher
   const handleProtocolLaunch = (protocol: string, age: number, weight: number) => {
+    // Cardiac arrest always routes to Quick Launch protocol (scenario=cardiac_arrest)
+    if (protocol === 'cardiac_arrest') {
+      // Set patient weight if provided
+      if (weight > 0) {
+        setPatientData(prev => ({ ...prev, weight }));
+      }
+      // Route to Quick Launch cardiac arrest protocol
+      setLocation('/clinical-assessment?scenario=cardiac_arrest');
+      setShowEmergencyLauncher(false);
+      return;
+    }
+    
+    // Other protocols use the launched protocol rendering
     setLaunchedProtocol({ type: protocol, age, weight });
     setShowEmergencyLauncher(false);
   };
@@ -1905,21 +1918,6 @@ export const ClinicalAssessmentGPS: React.FC = () => {
       )}
 
       {/* Launched Protocols */}
-      {launchedProtocol && launchedProtocol.type === 'cardiac_arrest' && (
-        launchedProtocol.age >= 18 ? (
-          <AdultACLS
-            patientAge={launchedProtocol.age}
-            patientWeight={launchedProtocol.weight}
-            onClose={() => setLaunchedProtocol(null)}
-          />
-        ) : (
-          <CPRClockStreamlined
-            patientAgeMonths={launchedProtocol.age * 12}
-            patientWeight={launchedProtocol.weight}
-            onClose={() => setLaunchedProtocol(null)}
-          />
-        )
-      )}
 
       {launchedProtocol && launchedProtocol.type === 'asthma' && (
         <AsthmaEmergency
