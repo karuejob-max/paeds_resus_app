@@ -19,6 +19,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { usePatientDemographics } from '@/contexts/PatientDemographicsContext';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ShoutForHelp } from '@/components/ShoutForHelp';
 import { 
@@ -1221,6 +1222,9 @@ export const ClinicalAssessmentGPS: React.FC = () => {
         onInstallClick={handleInstallClick}
       />
 
+      {/* Patient Demographics Banner */}
+      <PatientInfoBanner />
+
       {/* CPR Clock Overlay */}
       {cprActive && (
         <CPRClockStreamlined
@@ -2045,6 +2049,38 @@ interface ModuleOverlayProps {
   onClose: () => void;
   children: React.ReactNode;
 }
+
+// Patient Info Banner Component
+const PatientInfoBanner: React.FC = () => {
+  const { demographics, getWeightInKg, getAgeInYears } = usePatientDemographics();
+  
+  if (!demographics.age && !demographics.weight) return null;
+  
+  const weightKg = getWeightInKg();
+  const ageYears = getAgeInYears();
+  
+  return (
+    <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-40 bg-blue-600/90 backdrop-blur-sm border border-blue-400 rounded-lg px-4 py-2 shadow-lg">
+      <div className="flex items-center gap-4 text-white text-sm font-medium">
+        {demographics.age && (
+          <div className="flex items-center gap-1">
+            <User className="h-4 w-4" />
+            <span>Age: {demographics.age}</span>
+            {ageYears !== null && (
+              <span className="text-blue-200 text-xs">({ageYears.toFixed(1)} years)</span>
+            )}
+          </div>
+        )}
+        {demographics.weight && (
+          <div className="flex items-center gap-1">
+            <Weight className="h-4 w-4" />
+            <span>Weight: {demographics.weight} kg</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ title, onClose, children }) => {
   return (

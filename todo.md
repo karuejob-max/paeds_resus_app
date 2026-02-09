@@ -504,3 +504,14 @@
 - [x] Add install button to homepage (already implemented)
 - [x] Verify install button appears when PWA prompt is available
 - [x] Save checkpoint
+
+
+## Phase 122: Add Age/Weight Input to Homepage
+- [x] Add age/weight input fields to homepage (above START button)
+- [x] Create global patient demographics context
+- [x] Wire demographics to all emergency protocols
+- [x] Add patient info banner to clinical assessment page
+- [ ] Update drug dosing calculations to use patient weight (DoseCard component)
+- [ ] Update protocol selection to use patient age
+- [ ] Test age-appropriate protocol routing
+- [x] Save checkpoint

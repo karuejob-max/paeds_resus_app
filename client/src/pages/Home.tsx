@@ -10,17 +10,30 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { Activity } from "lucide-react";
+import { usePatientDemographics } from "@/contexts/PatientDemographicsContext";
+import { Activity, User, Weight } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { demographics, setDemographics } = usePatientDemographics();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [patientAge, setPatientAge] = useState<string>(demographics.age || "");
+  const [patientWeight, setPatientWeight] = useState<string>(demographics.weight || "");
 
   const handleStartAssessment = () => {
     setIsLoading(true);
+    // Save patient demographics to context for use across all protocols
+    if (patientAge || patientWeight) {
+      setDemographics({
+        age: patientAge,
+        weight: patientWeight
+      });
+    }
     // Small delay to show loading state
     setTimeout(() => {
       setLocation("/clinical-assessment");
@@ -74,6 +87,46 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-2xl space-y-8 text-center">
           
+          {/* Patient Demographics - Quick Input */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
+            <h2 className="text-white text-lg font-semibold mb-4 flex items-center justify-center gap-2">
+              <User className="h-5 w-5" />
+              Patient Info (Optional - for accurate dosing)
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-left">
+                <Label htmlFor="age" className="text-gray-300 mb-2 block">
+                  Age
+                </Label>
+                <Input
+                  id="age"
+                  type="text"
+                  placeholder="e.g., 5 years, 6 months, 2 days"
+                  value={patientAge}
+                  onChange={(e) => setPatientAge(e.target.value)}
+                  className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
+                />
+              </div>
+              <div className="text-left">
+                <Label htmlFor="weight" className="text-gray-300 mb-2 block flex items-center gap-2">
+                  <Weight className="h-4 w-4" />
+                  Weight (kg)
+                </Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  placeholder="e.g., 18"
+                  value={patientWeight}
+                  onChange={(e) => setPatientWeight(e.target.value)}
+                  className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
+                />
+              </div>
+            </div>
+            <p className="text-gray-500 text-xs mt-3">
+              Entering patient info enables age-appropriate protocols and weight-based drug dosing
+            </p>
+          </div>
+
           {/* Giant Single Button */}
           <Button
             onClick={handleStartAssessment}

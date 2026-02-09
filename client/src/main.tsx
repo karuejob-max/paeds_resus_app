@@ -8,6 +8,7 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 import { registerServiceWorker } from "@/lib/registerSW";
+import { PatientDemographicsProvider } from "@/contexts/PatientDemographicsContext";
 
 const queryClient = new QueryClient();
 
@@ -67,7 +68,9 @@ registerServiceWorker().then((registration) => {
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <PatientDemographicsProvider>
+        <App />
+      </PatientDemographicsProvider>
     </QueryClientProvider>
   </trpc.Provider>
 );
