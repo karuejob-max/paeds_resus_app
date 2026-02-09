@@ -564,3 +564,11 @@
 - [x] No more jumping to trauma/poisoning after completing pathway
 - [x] Test medical protocol flow end-to-end (server running, HMR working)
 - [x] Save checkpoint
+
+
+## Phase 128: Fix Main Problem Question Routing Bug
+- [x] Diagnose why main_problem question doesn't route to next pathway (selectedPathway state timing issue)
+- [x] Fix getNextQuestionId to accept currentAnswer parameter for immediate routing
+- [x] Pass answer directly to getNextQuestionId to avoid state timing bug
+- [x] Test medical protocol flow progresses past main_problem question (server running, HMR working)
+- [x] Save checkpoint

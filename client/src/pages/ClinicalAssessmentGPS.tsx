@@ -789,7 +789,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
   };
 
   // Get next question - GPS-style routing based on selected pathway
-  const getNextQuestionId = (currentId: string): string | null => {
+  const getNextQuestionId = (currentId: string, currentAnswer?: any): string | null => {
     const currentQuestion = clinicalQuestions.find(q => q.id === currentId);
     if (!currentQuestion) return null;
 
@@ -806,7 +806,9 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
     // If we're in problem_identification, route to selected pathway
     if (currentQuestion.phase === 'problem_identification') {
-      if (!selectedPathway) return null;
+      // Use currentAnswer if provided (for immediate routing), otherwise use state
+      const pathway = currentAnswer || selectedPathway;
+      if (!pathway) return null;
       const pathwayMap: Record<string, string> = {
         'breathing': 'breathing_signs',
         'shock': 'perfusion_signs',
@@ -815,7 +817,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
         'poisoning': 'substance_type',
         'allergic': 'anaphylaxis_signs'
       };
-      return pathwayMap[selectedPathway] || null;
+      return pathwayMap[pathway] || null;
     }
 
     // If we're in a specific pathway, continue within that pathway only
@@ -961,7 +963,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
 
     // ALWAYS move to next question (non-blocking) with brief delay for visual feedback
     setTimeout(() => {
-      const nextId = getNextQuestionId(currentQuestionId);
+      const nextId = getNextQuestionId(currentQuestionId, answer);
       if (nextId) {
         setCurrentQuestionId(nextId);
         setCurrentPhase(getPhaseFromQuestion(nextId));
