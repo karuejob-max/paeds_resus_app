@@ -66,7 +66,7 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <Droplet className="h-8 w-8" />,
       color: 'bg-purple-600 hover:bg-purple-700',
       description: 'Diabetic Ketoacidosis',
-      available: false,
+      available: true,
     },
     {
       id: 'septic_shock',
@@ -74,7 +74,7 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <AlertTriangle className="h-8 w-8" />,
       color: 'bg-yellow-600 hover:bg-yellow-700',
       description: 'Sepsis Management Protocol',
-      available: false,
+      available: true,
     },
     {
       id: 'anaphylaxis',
@@ -82,7 +82,7 @@ export function EmergencyLauncher({ onLaunchProtocol, onClose }: Props) {
       icon: <Zap className="h-8 w-8" />,
       color: 'bg-pink-600 hover:bg-pink-700',
       description: 'Anaphylactic Shock Protocol',
-      available: false,
+      available: true,
     },
     {
       id: 'status_epilepticus',

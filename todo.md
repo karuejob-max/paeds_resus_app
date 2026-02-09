@@ -536,3 +536,11 @@
 - [x] All cardiac arrest pathways now consolidated to Quick Launch protocol
 - [x] Test all cardiac arrest entry points (server running, HMR working)
 - [x] Save checkpoint
+
+
+## Phase 125: Activate All Emergency Protocol Launcher Protocols
+- [x] Identify protocols marked as unavailable (DKA, Septic Shock, Anaphylaxis)
+- [x] Mark all protocols as available
+- [x] Verify all protocols route to correct implementations (DKAProtocol, SepticShockProtocol, AnaphylaxisProtocol)
+- [x] All 14 protocols now active in Emergency Protocol Launcher
+- [x] Save checkpoint
