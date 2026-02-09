@@ -1163,6 +1163,71 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           triggerAlert('critical_action');
           break;
 
+        case 'dka':
+          // DKA - start DKA management protocol
+          setCaseStartTime(new Date());
+          setCurrentPhase('circulation');
+          setCurrentQuestionId('perfusion');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'dka-management',
+            severity: 'urgent',
+            title: 'DKA PROTOCOL - START NOW',
+            instruction: `1. Fluid bolus: ${Math.round(effectiveWeight * 10)} mL NS over 1-2 hours\n2. Check glucose, ketones, blood gas, electrolytes\n3. Cardiac monitoring (K+ changes)\n4. Start insulin 0.05-0.1 units/kg/hr AFTER initial fluids\n5. Neuro checks every hour (cerebral edema watch)`,
+            rationale: 'DKA requires careful fluid resuscitation and insulin therapy. Avoid rapid glucose correction to prevent cerebral edema.',
+            timer: 3600,
+            reassessAfter: 'Reassess glucose, K+, pH every hour. Target glucose decrease 50-100 mg/dL/hr'
+          });
+          setShowActionCard(true);
+          // Add DKA management intervention
+          const dkaIntervention = interventionTemplates.dkaManagement?.(effectiveWeight);
+          if (dkaIntervention) {
+            setActiveInterventions(prev => [...prev, dkaIntervention]);
+          }
+          initAudioContext();
+          triggerAlert('urgent_action');
+          break;
+
+        case 'trauma':
+          // Trauma - start trauma assessment with C-spine protection
+          setCaseStartTime(new Date());
+          setCurrentPhase('airway');
+          setCurrentQuestionId('airway_patency');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'trauma-primary',
+            severity: 'critical',
+            title: 'TRAUMA PRIMARY SURVEY',
+            instruction: `1. C-spine immobilization\n2. Airway with jaw thrust (NOT head tilt)\n3. Control external hemorrhage\n4. High-flow oxygen\n5. Establish 2x IV access\n6. Warm fluids: ${Math.round(effectiveWeight * 20)} mL NS/LR\n7. TXA ${Math.min(effectiveWeight * 15, 1000)} mg IV (within 3 hrs)`,
+            rationale: 'Major trauma requires systematic ABCDE assessment with C-spine protection. Control hemorrhage and prevent hypothermia.',
+            timer: 180,
+            reassessAfter: 'Complete primary survey, then secondary survey'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
+        case 'neonatal':
+          // Neonatal resuscitation - start NRP protocol
+          setCaseStartTime(new Date());
+          setCurrentPhase('airway');
+          setCurrentQuestionId('breathing');
+          setEmergencyActivated(true);
+          setPendingAction({
+            id: 'nrp-protocol',
+            severity: 'critical',
+            title: 'NEONATAL RESUSCITATION',
+            instruction: `Golden Minute:\n1. Warm, dry, stimulate\n2. Position airway (neutral sniffing)\n3. Clear airway if needed\n4. Assess breathing and heart rate\n5. PPV if HR < 100 or apneic\n6. Target SpO2: 60-65% at 1 min, 85-95% by 10 min`,
+            rationale: 'Neonatal resuscitation focuses on establishing effective ventilation. Most newborns respond to PPV alone.',
+            timer: 60,
+            reassessAfter: 'Reassess heart rate every 30 seconds'
+          });
+          setShowActionCard(true);
+          initAudioContext();
+          triggerAlert('critical_action');
+          break;
+
         default:
           // Unknown scenario - just start normal assessment
           handleStartAssessment();
