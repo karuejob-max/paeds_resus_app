@@ -498,3 +498,9 @@
 - [ ] Test GPS flow with real emergency scenarios
 - [ ] Verify life-saving speed (<30 seconds to intervention)
 - [ ] Save checkpoint
+
+
+## Phase 121: Add PWA Install Button
+- [x] Add install button to homepage (already implemented)
+- [x] Verify install button appears when PWA prompt is available
+- [x] Save checkpoint
