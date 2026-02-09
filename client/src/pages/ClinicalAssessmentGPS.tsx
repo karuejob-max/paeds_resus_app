@@ -457,7 +457,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           instruction: 'Give salbutamol nebulizer. Assess severity. Consider asthma, bronchiolitis, anaphylaxis.',
           rationale: 'Wheezing = bronchospasm. Early bronchodilator improves outcomes.',
           interventionTemplate: 'salbutamolNeb',
-          relatedModule: 'AsthmaEscalation'
+          relatedModule: 'asthma'
         };
       }
       return null;
@@ -514,7 +514,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           instruction: 'Get IV/IO access NOW. Give 20 mL/kg fluid bolus over 5-10 minutes. Reassess after each bolus.',
           rationale: 'Multiple perfusion signs = shock. Immediate fluid resuscitation needed.',
           interventionTemplate: 'fluidBolus',
-          relatedModule: 'FluidBolusTracker'
+          relatedModule: 'fluid'
         };
       }
       return null;
@@ -606,7 +606,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           instruction: 'Check for DKA signs: vomiting, abdominal pain, Kussmaul breathing. Get VBG, ketones, electrolytes. Start fluid resuscitation.',
           rationale: 'High glucose + altered mental status may be DKA.',
           interventionTemplate: 'dkaManagement',
-          relatedModule: 'DKAManagement'
+          // relatedModule: 'dka' // TODO: Build DKAManagement module
         };
       }
       return null;
@@ -636,7 +636,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
           title: 'MAJOR TRAUMA - ACTIVATE TRAUMA PROTOCOL',
           instruction: 'C-spine immobilization. Control bleeding. Two large-bore IVs. Trauma series imaging. Call trauma team.',
           rationale: 'Penetrating or multi-system trauma requires full trauma activation.',
-          relatedModule: 'TraumaProtocol'
+          // relatedModule: 'trauma' // TODO: Build TraumaProtocol module
         };
       }
       return null;

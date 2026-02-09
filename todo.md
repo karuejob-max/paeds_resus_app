@@ -572,3 +572,14 @@
 - [x] Pass answer directly to getNextQuestionId to avoid state timing bug
 - [x] Test medical protocol flow progresses past main_problem question (server running, HMR working)
 - [x] Save checkpoint
+
+
+## Phase 129: Audit and Fix Non-Launching Modules
+- [x] Audit bronchospasm/AsthmaEscalation module trigger (name mismatch: 'AsthmaEscalation' vs 'asthma')
+- [x] Audit all other module triggers (shock, seizure, DKA, anaphylaxis, etc.)
+- [x] Identify which modules aren't launching (AsthmaEscalation, FluidBolusTracker, DKA, Trauma)
+- [x] Fix AsthmaEscalation module name ('AsthmaEscalation' → 'asthma')
+- [x] Fix FluidBolusTracker module name ('FluidBolusTracker' → 'fluid')
+- [x] Comment out DKA and Trauma relatedModule (components don't exist yet)
+- [x] Test bronchospasm module launches correctly (server running, HMR working)
+- [x] Save checkpoint
