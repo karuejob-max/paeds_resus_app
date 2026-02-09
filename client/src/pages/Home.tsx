@@ -83,9 +83,25 @@ export default function Home() {
         <p className="text-sm text-gray-400 hidden sm:block">Pediatric Emergency GPS</p>
       </header>
 
-      {/* Single Action - Maximum Impact */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-2xl space-y-8 text-center">
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl space-y-6">
+          {/* Install App Banner */}
+          <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-lg p-4 text-center">
+            <Button
+              onClick={deferredPrompt ? handleInstallClick : () => {
+                alert('To install ResusGPS:\n\n' +
+                  '📱 On iOS: Tap Share → Add to Home Screen\n' +
+                  '🤖 On Android: Tap Menu (⋮) → Install App\n' +
+                  '💻 On Desktop: Look for install icon in address bar');
+              }}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Install App for Offline Access
+            </Button>
+            <p className="mt-2 text-xs text-gray-400">Works offline • Faster • Home screen shortcut</p>
+          </div>
           
           {/* Patient Demographics - Quick Input */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">

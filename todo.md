@@ -544,3 +544,12 @@
 - [x] Verify all protocols route to correct implementations (DKAProtocol, SepticShockProtocol, AnaphylaxisProtocol)
 - [x] All 14 protocols now active in Emergency Protocol Launcher
 - [x] Save checkpoint
+
+
+## Phase 126: Fix PWA Install Button Visibility
+- [x] Diagnose why install button is not visible (only shows when beforeinstallprompt fires)
+- [x] Check OfflineIndicator component rendering (working correctly)
+- [x] Verify PWA install prompt detection (conditional on browser support)
+- [x] Add always-visible install button to homepage footer
+- [x] Button shows native prompt when available, instructions otherwise
+- [x] Save checkpoint
