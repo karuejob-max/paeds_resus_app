@@ -18,7 +18,7 @@ function Router() {
       <ScrollToTop />
       <main className="flex-1">
         <Switch>
-          {/* ONE entry point. ONE system. */}
+          {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />
           {/* Catch all → ResusGPS */}
