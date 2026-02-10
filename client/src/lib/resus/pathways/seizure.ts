@@ -1,0 +1,151 @@
+import type { Pathway } from '../stateMachine';
+
+export const seizurePathway: Pathway = {
+  id: 'seizure',
+  name: 'Seizure / Altered Mental Status',
+  icon: '🧠',
+  description: 'Convulsing, confused, unresponsive',
+  clarifyingQuestions: [
+    {
+      id: 'actively_seizing',
+      text: 'Is the patient actively seizing RIGHT NOW?',
+      options: [
+        { label: 'YES - Seizing now', value: 'yes' },
+        { label: 'NO - Post-ictal or altered', value: 'no' },
+      ],
+    },
+  ],
+  subPathways: [
+    {
+      id: 'active_seizure',
+      name: 'Status Epilepticus',
+      matchCondition: (answers) => answers.actively_seizing === 'yes',
+      steps: [
+        {
+          id: 'sz_safe',
+          action: 'PROTECT THE PATIENT',
+          detail: 'Position on side (recovery position). Clear area of hazards. Do NOT restrain. Do NOT put anything in mouth. Note time seizure started.',
+          critical: true,
+        },
+        {
+          id: 'sz_o2',
+          action: 'HIGH-FLOW OXYGEN',
+          detail: 'Non-rebreather mask or blow-by. Suction if secretions. Jaw thrust if needed.',
+          critical: true,
+        },
+        {
+          id: 'sz_glucose',
+          action: 'CHECK GLUCOSE IMMEDIATELY',
+          dose: {
+            drug: 'Dextrose 10%',
+            dosePerKg: 5,
+            unit: 'mL',
+            route: 'IV',
+            preparation: 'If glucose < 3 mmol/L (54 mg/dL): give D10W 2-5 mL/kg IV.',
+          },
+          detail: 'Hypoglycemia is a reversible cause. Check and correct FIRST.',
+          critical: true,
+        },
+        {
+          id: 'sz_benzo1',
+          action: 'FIRST-LINE: BENZODIAZEPINE',
+          dose: {
+            drug: 'Midazolam',
+            dosePerKg: 0.15,
+            unit: 'mg',
+            maxDose: 10,
+            route: 'IV/IO (or 0.2 mg/kg buccal/intranasal if no IV)',
+            preparation: 'IV: 0.15 mg/kg. Buccal/IN: 0.2 mg/kg. IM: 0.2 mg/kg (max 10mg).',
+            frequency: 'Can repeat ONCE after 5 minutes if still seizing',
+          },
+          timer: 300,
+          reassess: 'Has the seizure stopped after 5 minutes?',
+          escalateIf: 'Still seizing after 2 doses of benzodiazepine',
+          critical: true,
+        },
+        {
+          id: 'sz_benzo2',
+          action: 'REPEAT BENZODIAZEPINE (if still seizing)',
+          dose: {
+            drug: 'Midazolam',
+            dosePerKg: 0.15,
+            unit: 'mg',
+            maxDose: 10,
+            route: 'IV/IO',
+            frequency: 'This is the SECOND and FINAL dose',
+          },
+          timer: 300,
+          reassess: 'Has the seizure stopped?',
+          escalateIf: 'Still seizing → this is REFRACTORY status epilepticus',
+          critical: true,
+        },
+        {
+          id: 'sz_second_line',
+          action: 'SECOND-LINE: PHENYTOIN or LEVETIRACETAM',
+          dose: {
+            drug: 'Levetiracetam',
+            dosePerKg: 40,
+            unit: 'mg',
+            maxDose: 3000,
+            route: 'IV over 15 minutes',
+            preparation: 'Alternative: Phenytoin 20 mg/kg IV over 20 min (with cardiac monitoring). Levetiracetam preferred (fewer side effects).',
+          },
+          timer: 900,
+          reassess: 'Has the seizure stopped?',
+          escalateIf: 'Still seizing → prepare for RSI and ICU',
+          critical: true,
+        },
+        {
+          id: 'sz_rsi',
+          action: 'THIRD-LINE: RSI AND ICU',
+          detail: 'If still seizing after benzodiazepines + second-line agent: Intubate with RSI. Start midazolam or propofol infusion. Transfer to ICU. Consider pyridoxine in infants.',
+          critical: true,
+        },
+      ],
+    },
+    {
+      id: 'postictal',
+      name: 'Post-ictal / Altered Mental Status',
+      matchCondition: (answers) => answers.actively_seizing === 'no',
+      steps: [
+        {
+          id: 'pi_recovery',
+          action: 'RECOVERY POSITION',
+          detail: 'Place on side. Ensure airway is clear. Suction if needed.',
+          critical: true,
+        },
+        {
+          id: 'pi_o2',
+          action: 'OXYGEN IF SpO2 < 94%',
+          detail: 'Monitor closely. Post-ictal patients often have transient desaturation.',
+        },
+        {
+          id: 'pi_glucose',
+          action: 'CHECK GLUCOSE',
+          dose: {
+            drug: 'Dextrose 10%',
+            dosePerKg: 5,
+            unit: 'mL',
+            route: 'IV',
+            preparation: 'Correct if < 3 mmol/L.',
+          },
+          critical: true,
+        },
+        {
+          id: 'pi_monitor',
+          action: 'MONITOR AND OBSERVE',
+          detail: 'Most post-ictal states resolve in 15-30 minutes. If not improving: consider ongoing seizure activity, intracranial pathology, metabolic cause, or poisoning.',
+          timer: 1800,
+          reassess: 'Is the patient returning to baseline?',
+          escalateIf: 'Not improving after 30 minutes, or new seizure',
+        },
+        {
+          id: 'pi_investigate',
+          action: 'INVESTIGATE CAUSE',
+          detail: 'First seizure: check glucose, electrolytes, calcium, magnesium. Consider CT head if: focal seizure, prolonged postictal, head trauma, signs of raised ICP. Consider LP if: fever + seizure (meningitis).',
+        },
+      ],
+    },
+  ],
+  defaultSteps: [],
+};

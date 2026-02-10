@@ -1,94 +1,15 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { LanguageProvider } from "./contexts/LanguageContext";
-import ClinicalAssessment from "./pages/ClinicalAssessment";
-import ClinicalAssessmentGPS from "./pages/ClinicalAssessmentGPS";
-import { NRPAssessment } from "./pages/NRPAssessment";
-import { TraumaAssessment } from "./pages/TraumaAssessment";
-import CPRMonitoring from "./pages/CPRMonitoring";
-import SessionDetails from './pages/SessionDetails';
-import AsthmaEmergency from './pages/AsthmaEmergency';
-import JoinSession from './pages/JoinSession';
-import GuidelineManagement from './pages/GuidelineManagement';
-import CollaborativeSession from './pages/CollaborativeSession';
-
-import ClinicalReasoningResults from './pages/ClinicalReasoningResults';
-import GPSDemo from './pages/GPSDemo';
+import ResusGPS from "./pages/ResusGPS";
 import { Toaster } from "@/components/ui/sonner";
-
-// Lazy load heavier components
-const ProcedureVideoLibrary = lazy(() => import("./components/ProcedureVideoLibrary"));
-const CaseSimulation = lazy(() => import("./components/CaseSimulation"));
-const ProviderTrainingMode = lazy(() => import("./components/ProviderTrainingMode"));
-const ArrhythmiaRecognition = lazy(() => import("./components/ArrhythmiaRecognition"));
 
 function ScrollToTop() {
   const [location] = useLocation();
-  
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location]);
-  
+  useEffect(() => { window.scrollTo(0, 0); }, [location]);
   return null;
-}
-
-// Loading fallback for lazy components
-function LoadingFallback() {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-900">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mx-auto mb-4"></div>
-        <p className="text-slate-400">Loading...</p>
-      </div>
-    </div>
-  );
-}
-
-// Wrapper for procedure library page
-function ProceduresPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <div className="min-h-screen">
-        <ProcedureVideoLibrary />
-      </div>
-    </Suspense>
-  );
-}
-
-// Wrapper for simulation page
-function SimulationsPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <div className="min-h-screen">
-        <CaseSimulation />
-      </div>
-    </Suspense>
-  );
-}
-
-// Wrapper for training page
-function TrainingPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <div className="min-h-screen">
-        <ProviderTrainingMode />
-      </div>
-    </Suspense>
-  );
-}
-
-// Wrapper for ECG/Arrhythmia page
-function ArrhythmiaPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <div className="min-h-screen">
-        <ArrhythmiaRecognition patientWeight={20} patientAge={5} />
-      </div>
-    </Suspense>
-  );
 }
 
 function Router() {
@@ -97,47 +18,11 @@ function Router() {
       <ScrollToTop />
       <main className="flex-1">
         <Switch>
-          {/* GPS Demo - Minimal Prototype */}
-          <Route path="/gps-demo" component={GPSDemo} />
-          {/* Clinical Assessment - GPS Mode (New) */}
-          <Route path="/" component={ClinicalAssessmentGPS} />
-          <Route path="/gps" component={ClinicalAssessmentGPS} />
-          <Route path="/clinical-assessment" component={ClinicalAssessmentGPS} />
-          {/* Legacy Clinical Assessment */}
-          <Route path="/legacy" component={ClinicalAssessment} />
-          {/* Neonatal Resuscitation Program */}
-          <Route path="/nrp" component={NRPAssessment} />
-          <Route path="/neonatal" component={NRPAssessment} />
-          {/* Pediatric Trauma Assessment */}
-          <Route path="/trauma" component={TraumaAssessment} />
-          {/* Procedure Video Library */}
-          <Route path="/procedures" component={ProceduresPage} />
-          {/* Case Simulation Mode */}
-          <Route path="/simulations" component={SimulationsPage} />
-          <Route path="/practice" component={SimulationsPage} />
-          {/* Provider Training Mode */}
-          <Route path="/training" component={TrainingPage} />
-          <Route path="/learn" component={TrainingPage} />
-          {/* ECG/Arrhythmia Recognition */}
-          <Route path="/ecg" component={ArrhythmiaPage} />
-          <Route path="/arrhythmia" component={ArrhythmiaPage} />
-          {/* CPR Session Monitoring Dashboard */}
-          <Route path="/cpr-monitoring" component={CPRMonitoring} />
-          <Route path="/monitoring" component={CPRMonitoring} />
-          {/* CPR Session Details */}
-          <Route path="/cpr-monitoring/session/:id">{(params) => <SessionDetails id={params.id} />}</Route>
-          {/* Asthma Emergency Protocol */}
-          <Route path="/asthma-emergency" component={AsthmaEmergency} />
-          {/* Collaborative Session Join */}
-          <Route path="/join-session" component={JoinSession} />
-          {/* Collaborative Session View */}
-          <Route path="/collaborative-session/:sessionId" component={CollaborativeSession} />
-          {/* Guideline Management */}
-          <Route path="/guideline-management" component={GuidelineManagement} />
-          {/* Clinical Reasoning Engine */}
-          <Route path="/clinical-reasoning-results" component={ClinicalReasoningResults} />
-          {/* Catch all - redirect to clinical assessment */}
-          <Route component={ClinicalAssessment} />
+          {/* ONE entry point. ONE system. */}
+          <Route path="/" component={ResusGPS} />
+          <Route path="/resus" component={ResusGPS} />
+          {/* Catch all → ResusGPS */}
+          <Route component={ResusGPS} />
         </Switch>
       </main>
     </div>
@@ -148,12 +33,10 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
-        <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
