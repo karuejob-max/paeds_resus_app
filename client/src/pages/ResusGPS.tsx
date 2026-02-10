@@ -1,30 +1,34 @@
 /**
- * ResusGPS — The Clinical GPS for Emergency Resuscitation
+ * ResusGPS v2 — Complete Rebuild
  * 
- * This is the ONE page. It renders the ABCDE engine state.
- * 
- * Flow: IDLE → QUICK ASSESSMENT → PRIMARY SURVEY (XABCDE) → INTERVENTIONS → SECONDARY SURVEY → DEFINITIVE CARE
- * 
- * Design: Dark theme, massive touch targets, zero cognitive load.
- * Every screen answers ONE question. Every button does ONE thing.
+ * KEY CHANGES:
+ * 1. OBJECTIVE VITAL SIGNS — number inputs with quick-pick buttons, not ranges
+ * 2. INTERVENTION TRACKING PANEL — swipeable side panel with live status, reassessment flow
+ * 3. MID-CASE PATIENT INFO — editable weight/age from top bar at any point
+ * 4. UNIVERSAL QUICK ASSESSMENT — no "Pediatric Assessment Triangle" language
+ * 5. CONSISTENT DOSING — single source of truth, drug name on every dose
+ * 6. CLINICAL DOCUMENTATION — objective values that feed ML and generate real notes
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { usePatientDemographics } from '@/contexts/PatientDemographicsContext';
 import {
   type ResusSession,
-  type Phase,
-  type ABCDELetter,
+  type AssessmentQuestion,
   type Threat,
   type Intervention,
-  type AssessmentQuestion,
-  type DoseInfo,
+  type ReassessmentCheck,
+  type Phase,
+  type ABCDELetter,
   type DiagnosisSuggestion,
   createSession,
   startQuickAssessment,
@@ -33,27 +37,85 @@ import {
   getAnsweredQuestionIds,
   answerPrimarySurvey,
   completeIntervention,
+  startIntervention,
   returnToPrimarySurvey,
   getActiveThreats,
   getPendingInterventions,
   getAllPendingCritical,
   getSuggestedDiagnoses,
-  setDefinitiveDiagnosis,
   triggerCardiacArrest,
   achieveROSC,
-  acknowledgeSafetyAlert,
   exportEventLog,
+  updatePatientInfo,
+  acknowledgeSafetyAlert,
   calcDose,
+  setDefinitiveDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
-} from '../lib/resus/abcdeEngine';
+} from '@/lib/resus/abcdeEngine';
 import {
-  Activity, AlertTriangle, ArrowRight, Check, ChevronRight, Clock,
-  Download, Heart, RotateCcw, Shield, Stethoscope, Timer, User, Weight,
-  Volume2, VolumeX, Zap, FileText, Play, Square, SkipForward,
+  AlertTriangle,
+  Activity,
+  Heart,
+  Clock,
+  ChevronRight,
+  ChevronLeft,
+  Download,
+  RotateCcw,
+  Zap,
+  Shield,
+  User,
+  Pencil,
+  X,
+  CheckCircle2,
+  Circle,
+  Play,
+  ArrowRight,
+  Stethoscope,
+  Droplets,
+  Brain,
+  Eye,
+  Siren,
+  FileText,
+  ListChecks,
+  Timer,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
-// ─── Format Helpers ─────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────
+
+const LETTER_CONFIG: Record<ABCDELetter, { label: string; icon: React.ReactNode; color: string; bgColor: string }> = {
+  X: { label: 'X — Exsanguination', icon: <Droplets className="h-5 w-5" />, color: 'text-red-400', bgColor: 'bg-red-500/20' },
+  A: { label: 'A — Airway', icon: <Activity className="h-5 w-5" />, color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
+  B: { label: 'B — Breathing', icon: <Stethoscope className="h-5 w-5" />, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20' },
+  C: { label: 'C — Circulation', icon: <Heart className="h-5 w-5" />, color: 'text-rose-400', bgColor: 'bg-rose-500/20' },
+  D: { label: 'D — Disability', icon: <Brain className="h-5 w-5" />, color: 'text-purple-400', bgColor: 'bg-purple-500/20' },
+  E: { label: 'E — Exposure', icon: <Eye className="h-5 w-5" />, color: 'text-amber-400', bgColor: 'bg-amber-500/20' },
+};
+
+// ─── Timer Hook ─────────────────────────────────────────────
+
+function useTimer() {
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running]);
+
+  const start = useCallback(() => setRunning(true), []);
+  const stop = useCallback(() => setRunning(false), []);
+  const reset = useCallback(() => { setElapsed(0); setRunning(false); }, []);
+
+  return { elapsed, running, start, stop, reset };
+}
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -61,422 +123,195 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-function formatElapsed(startTime: number): string {
-  return formatTime(Math.floor((Date.now() - startTime) / 1000));
-}
-
-// ─── Audio Alert Hook ───────────────────────────────────────
-
-function useAudioAlert() {
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const [muted, setMuted] = useState(false);
-
-  const playAlert = useCallback((type: 'timer' | 'critical' | 'safety') => {
-    if (muted) return;
-    try {
-      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'critical') {
-        osc.frequency.value = 880;
-        gain.gain.value = 0.3;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
-      } else if (type === 'timer') {
-        osc.frequency.value = 660;
-        gain.gain.value = 0.2;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-      } else {
-        osc.frequency.value = 440;
-        gain.gain.value = 0.15;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.2);
-      }
-    } catch {
-      // Audio not available
-    }
-  }, [muted]);
-
-  return { playAlert, muted, setMuted };
-}
-
-// ─── Timer Hook ─────────────────────────────────────────────
-
-function useCountdownTimer(onComplete?: () => void) {
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [label, setLabel] = useState('');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const start = useCallback((seconds: number, timerLabel: string) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRemaining(seconds);
-    setLabel(timerLabel);
-    intervalRef.current = setInterval(() => {
-      setRemaining(prev => {
-        if (prev === null || prev <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          onComplete?.();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [onComplete]);
-
-  const stop = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRemaining(null);
-    setLabel('');
-  }, []);
-
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
-
-  return { remaining, label, start, stop, isRunning: remaining !== null && remaining > 0 };
-}
-
-// ─── Elapsed Timer ──────────────────────────────────────────
-
-function ElapsedTimer({ startTime }: { startTime: number }) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime]);
-
-  return (
-    <div className="flex items-center gap-1.5 text-zinc-400 text-sm font-mono">
-      <Clock className="h-3.5 w-3.5" />
-      {formatTime(elapsed)}
-    </div>
-  );
-}
-
-// ─── ABCDE Progress Indicator ───────────────────────────────
-
-const LETTERS: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
-const LETTER_LABELS: Record<ABCDELetter, string> = {
-  X: 'eXsanguination',
-  A: 'Airway',
-  B: 'Breathing',
-  C: 'Circulation',
-  D: 'Disability',
-  E: 'Exposure',
-};
-const LETTER_COLORS: Record<ABCDELetter, string> = {
-  X: 'bg-red-600',
-  A: 'bg-orange-500',
-  B: 'bg-blue-500',
-  C: 'bg-red-500',
-  D: 'bg-purple-500',
-  E: 'bg-emerald-500',
-};
-
-function ABCDEProgressBar({ session }: { session: ResusSession }) {
-  const letters = session.isTrauma ? LETTERS : LETTERS.filter(l => l !== 'X');
-  const answeredIds = getAnsweredQuestionIds(session);
-  const threatLetters = new Set(session.threats.filter(t => !t.resolved).map(t => t.letter));
-
-  return (
-    <div className="flex gap-1 w-full">
-      {letters.map(letter => {
-        const questions = primarySurveyQuestions[letter];
-        const answered = questions.filter(q => answeredIds.includes(q.id)).length;
-        const total = questions.length;
-        const isCurrent = session.currentLetter === letter && session.phase === 'PRIMARY_SURVEY';
-        const isComplete = answered === total;
-        const hasThreat = threatLetters.has(letter);
-
-        return (
-          <div key={letter} className="flex-1 flex flex-col items-center gap-0.5">
-            <div
-              className={`
-                w-full h-8 rounded-md flex items-center justify-center text-xs font-black transition-all
-                ${isCurrent ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-105' : ''}
-                ${isComplete ? LETTER_COLORS[letter] + ' text-white' : 'bg-zinc-800 text-zinc-500'}
-                ${hasThreat && !isComplete ? 'animate-pulse border-2 border-red-500' : ''}
-              `}
-            >
-              {letter}
-              {hasThreat && <span className="ml-0.5 text-[10px]">!</span>}
-            </div>
-            {total > 0 && (
-              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${LETTER_COLORS[letter]} transition-all duration-300`}
-                  style={{ width: `${(answered / total) * 100}%` }}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Dose Display Component ─────────────────────────────────
-
-function DoseCard({ dose, weight }: { dose: DoseInfo; weight: number | null }) {
-  const calculated = calcDose(dose, weight);
-  const hasWeight = weight !== null && weight > 0;
-
-  return (
-    <div className="bg-zinc-800 border border-zinc-600 rounded-lg p-3 mt-2">
-      <div className="flex items-start gap-2">
-        <div className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded shrink-0">
-          DOSE
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-bold text-sm">{calculated}</p>
-          {dose.preparation && (
-            <p className="text-zinc-400 text-xs mt-1">{dose.preparation}</p>
-          )}
-          {dose.frequency && (
-            <p className="text-blue-400 text-xs mt-0.5">Repeat: {dose.frequency}</p>
-          )}
-          {dose.notes && (
-            <p className="text-amber-400 text-xs mt-0.5">⚠ {dose.notes}</p>
-          )}
-          {!hasWeight && (
-            <p className="text-red-400 text-xs mt-1 font-semibold">
-              ⚠ No weight entered — showing per-kg dose. Enter weight for exact calculation.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Safety Alert Banner ────────────────────────────────────
-
-function SafetyAlertBanner({ session, onAcknowledge }: { session: ResusSession; onAcknowledge: (id: string) => void }) {
-  const unacknowledged = session.safetyAlerts.filter(a => !a.acknowledged);
-  if (unacknowledged.length === 0) return null;
-
-  return (
-    <div className="space-y-2">
-      {unacknowledged.map(alert => (
-        <div
-          key={alert.id}
-          className={`p-3 rounded-lg border flex items-start gap-3 ${
-            alert.severity === 'danger'
-              ? 'bg-red-900/50 border-red-500 animate-pulse'
-              : 'bg-amber-900/50 border-amber-500'
-          }`}
-        >
-          <AlertTriangle className={`h-5 w-5 shrink-0 mt-0.5 ${
-            alert.severity === 'danger' ? 'text-red-400' : 'text-amber-400'
-          }`} />
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-bold">{alert.message}</p>
-          </div>
-          <button
-            onClick={() => onAcknowledge(alert.id)}
-            className="shrink-0 bg-zinc-700 hover:bg-zinc-600 text-white text-xs px-2 py-1 rounded"
-          >
-            Acknowledged
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Active Threats Sidebar ─────────────────────────────────
-
-function ThreatsSidebar({ session, weight }: { session: ResusSession; weight: number | null }) {
-  const threats = getActiveThreats(session);
-  if (threats.length === 0) return null;
-
-  return (
-    <div className="bg-zinc-900/80 border border-zinc-700 rounded-lg p-3">
-      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-        <Zap className="h-3.5 w-3.5 text-red-400" />
-        Active Threats ({threats.length})
-      </h3>
-      <div className="space-y-1.5">
-        {threats.map(threat => {
-          const pending = getPendingInterventions(threat);
-          const total = threat.interventions.length;
-          const completed = total - pending.length;
-          return (
-            <div key={threat.id} className="flex items-center gap-2">
-              <span className={`w-5 h-5 rounded text-[10px] font-black flex items-center justify-center ${LETTER_COLORS[threat.letter]} text-white`}>
-                {threat.letter}
-              </span>
-              <span className="text-xs text-zinc-300 flex-1 truncate">{threat.name}</span>
-              <span className="text-[10px] text-zinc-500">{completed}/{total}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════
+// ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS() {
   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
-  const [session, setSession] = useState<ResusSession>(() =>
-    createSession(null, null, false)
-  );
-  const { playAlert, muted, setMuted } = useAudioAlert();
-  const timer = useCountdownTimer(() => playAlert('timer'));
+  const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+  const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
+  const [patientInfoOpen, setPatientInfoOpen] = useState(false);
+  const [tempWeight, setTempWeight] = useState('');
+  const [tempAge, setTempAge] = useState('');
+  const [numberInput, setNumberInput] = useState('');
+  const [numberInput2, setNumberInput2] = useState('');
+  const [expandedThreat, setExpandedThreat] = useState<string | null>(null);
+  const [reassessmentMode, setReassessmentMode] = useState<{ interventionId: string; checkIndex: number } | null>(null);
+  const [showEventLog, setShowEventLog] = useState(false);
+  const timer = useTimer();
 
-  // Patient info state for IDLE screen
-  const [patientAge, setPatientAge] = useState(demographics.age || '');
-  const [patientWeight, setPatientWeight] = useState(demographics.weight || '');
-  const [isTrauma, setIsTrauma] = useState(false);
-
-  // Derived state
-  const weight = getWeightInKg();
-
-  // ─── Actions ────────────────────────────────────────────
-
-  const handleStart = useCallback(() => {
-    // Save demographics
-    if (patientAge || patientWeight) {
-      setDemographics({ age: patientAge, weight: patientWeight });
+  // Sync demographics
+  useEffect(() => {
+    const weight = getWeightInKg();
+    const age = demographics.age || null;
+    if (weight !== session.patientWeight || age !== session.patientAge) {
+      setSession(prev => updatePatientInfo(prev, weight, age));
     }
-    const w = patientWeight ? parseFloat(patientWeight) : null;
-    const newSession = createSession(w, patientAge || null, isTrauma);
-    setSession(startQuickAssessment(newSession));
-  }, [patientAge, patientWeight, isTrauma, setDemographics]);
+  }, [demographics]);
 
-  const handleQuickAssessment = useCallback((answer: 'sick' | 'not_sick') => {
+  // Start timer when assessment begins
+  useEffect(() => {
+    if (session.phase !== 'IDLE' && !timer.running) {
+      timer.start();
+    }
+  }, [session.phase]);
+
+  // Auto-open intervention panel when threats detected
+  useEffect(() => {
+    if (session.phase === 'INTERVENTION') {
+      setInterventionPanelOpen(true);
+    }
+  }, [session.phase]);
+
+  const weight = session.patientWeight;
+  const activeThreats = useMemo(() => getActiveThreats(session), [session]);
+  const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
+  const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
+  const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
+
+  // ─── Handlers ───────────────────────────────────────────
+
+  const handleStart = (isTrauma: boolean) => {
+    const s = createSession(getWeightInKg(), demographics.age || null, isTrauma);
+    const started = startQuickAssessment(s);
+    setSession(started);
+    timer.reset();
+    timer.start();
+  };
+
+  const handleQuickAssessment = (answer: 'sick' | 'not_sick') => {
     setSession(prev => answerQuickAssessment(prev, answer));
-    if (answer === 'sick') playAlert('critical');
-  }, [playAlert]);
+    setNumberInput('');
+    setNumberInput2('');
+  };
 
-  const handleSurveyAnswer = useCallback((question: AssessmentQuestion, answer: string) => {
-    setSession(prev => {
-      const next = answerPrimarySurvey(prev, question.id, answer, question);
-      // If a critical threat was detected, play alert
-      if (next.phase === 'INTERVENTION' && prev.phase === 'PRIMARY_SURVEY') {
-        playAlert('critical');
-      }
-      return next;
-    });
-  }, [playAlert]);
+  const handleAnswer = (question: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => {
+    setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
+    setNumberInput('');
+    setNumberInput2('');
+  };
 
-  const handleCompleteIntervention = useCallback((interventionId: string, intervention: Intervention) => {
-    setSession(prev => {
-      const next = completeIntervention(prev, interventionId);
-      // Start timer if intervention has one
-      if (intervention.timerSeconds && intervention.reassessAfter) {
-        timer.start(intervention.timerSeconds, intervention.reassessAfter);
-      }
-      return next;
-    });
-  }, [timer]);
+  const handleCompleteIntervention = (id: string) => {
+    setSession(prev => completeIntervention(prev, id));
+  };
 
-  const handleContinueSurvey = useCallback(() => {
+  const handleStartIntervention = (id: string) => {
+    setSession(prev => startIntervention(prev, id));
+  };
+
+  const handleReturnToPrimary = () => {
     setSession(prev => returnToPrimarySurvey(prev));
-  }, []);
+    setInterventionPanelOpen(false);
+    setNumberInput('');
+    setNumberInput2('');
+  };
 
-  const handleCardiacArrest = useCallback(() => {
+  const handleCardiacArrest = () => {
     setSession(prev => triggerCardiacArrest(prev));
-    playAlert('critical');
-  }, [playAlert]);
+    timer.reset();
+    timer.start();
+  };
 
-  const handleROSC = useCallback(() => {
+  const handleROSC = () => {
     setSession(prev => achieveROSC(prev));
-  }, []);
+  };
 
-  const handleAcknowledgeAlert = useCallback((alertId: string) => {
+  const handleUpdatePatientInfo = () => {
+    const newWeight = tempWeight ? parseFloat(tempWeight) : null;
+    const newAge = tempAge || null;
+    if (newWeight !== null || newAge !== null) {
+      setSession(prev => updatePatientInfo(prev, newWeight, newAge));
+      if (newWeight) setDemographics({ ...demographics, weight: tempWeight, age: tempAge || demographics.age });
+      if (newAge) setDemographics({ ...demographics, age: tempAge, weight: tempWeight || demographics.weight });
+    }
+    setPatientInfoOpen(false);
+  };
+
+  const handleAckAlert = (alertId: string) => {
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
-  }, []);
+  };
 
-  const handleDiagnosis = useCallback((diagnosis: string) => {
-    setSession(prev => setDefinitiveDiagnosis(prev, diagnosis));
-  }, []);
-
-  const handleReset = useCallback(() => {
-    timer.stop();
-    setSession(createSession(null, null, false));
-    setPatientAge('');
-    setPatientWeight('');
-    setIsTrauma(false);
-  }, [timer]);
-
-  const handleExportLog = useCallback(() => {
-    const log = exportEventLog(session);
-    const blob = new Blob([log], { type: 'text/plain' });
+  const handleExport = () => {
+    const text = exportEventLog(session);
+    const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resus-log-${new Date().toISOString().slice(0, 19)}.txt`;
+    a.download = `resus-record-${new Date().toISOString().slice(0, 16)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [session]);
+  };
+
+  const handleNewCase = () => {
+    setSession(createSession(getWeightInKg(), demographics.age || null));
+    timer.reset();
+    setNumberInput('');
+    setNumberInput2('');
+    setInterventionPanelOpen(false);
+    setReassessmentMode(null);
+  };
 
   // ─── Render ─────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Top Bar */}
-      {session.phase !== 'IDLE' && (
-        <header className="bg-zinc-900 border-b border-zinc-800 px-3 py-2 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-red-500" />
-            <span className="font-bold text-sm">ResusGPS</span>
-            <Badge variant="outline" className="text-[10px] border-zinc-600 text-zinc-400">
-              {session.phase.replace('_', ' ')}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <ElapsedTimer startTime={session.startTime} />
-            {session.patientWeight && (
-              <Badge className="bg-blue-600/20 text-blue-300 border-blue-600/40 text-[10px]">
-                {session.patientWeight}kg
-              </Badge>
-            )}
-            <button onClick={() => setMuted(!muted)} className="text-zinc-500 hover:text-white">
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-          </div>
-        </header>
-      )}
+      <TopBar
+        session={session}
+        timer={timer}
+        weight={weight}
+        activeThreats={activeThreats}
+        unackedAlerts={unackedAlerts}
+        onOpenPatientInfo={() => {
+          setTempWeight(session.patientWeight?.toString() || '');
+          setTempAge(session.patientAge || '');
+          setPatientInfoOpen(true);
+        }}
+        onOpenInterventions={() => setInterventionPanelOpen(true)}
+        onCardiacArrest={handleCardiacArrest}
+        onExport={handleExport}
+        onNewCase={handleNewCase}
+        onShowLog={() => setShowEventLog(true)}
+      />
 
-      {/* Timer Banner */}
-      {timer.isRunning && timer.remaining !== null && (
-        <div className="bg-amber-600 text-white px-4 py-2 flex items-center justify-between animate-pulse">
-          <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4" />
-            <span className="text-sm font-bold">{timer.label}</span>
-          </div>
-          <span className="font-mono font-bold">{formatTime(timer.remaining)}</span>
+      {/* Safety Alerts Banner */}
+      {unackedAlerts.length > 0 && (
+        <div className="px-4 py-2 space-y-2">
+          {unackedAlerts.map(alert => (
+            <div
+              key={alert.id}
+              className={`flex items-start gap-3 p-3 rounded-lg border ${
+                alert.severity === 'danger'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+              }`}
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+              <p className="text-sm flex-1 font-medium">{alert.message}</p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 text-xs"
+                onClick={() => handleAckAlert(alert.id)}
+              >
+                Acknowledge
+              </Button>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Safety Alerts */}
-      <div className="px-3 pt-2">
-        <SafetyAlertBanner session={session} onAcknowledge={handleAcknowledgeAlert} />
-      </div>
-
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-y-auto">
+      <main className="container max-w-2xl pb-32">
         {session.phase === 'IDLE' && (
           <IdleScreen
-            patientAge={patientAge}
-            setPatientAge={setPatientAge}
-            patientWeight={patientWeight}
-            setPatientWeight={setPatientWeight}
-            isTrauma={isTrauma}
-            setIsTrauma={setIsTrauma}
+            weight={weight}
+            age={demographics.age}
             onStart={handleStart}
-            onCardiacArrest={handleCardiacArrest}
+            onOpenPatientInfo={() => {
+              setTempWeight(demographics.weight || '');
+              setTempAge(demographics.age || '');
+              setPatientInfoOpen(true);
+            }}
           />
         )}
 
@@ -487,9 +322,11 @@ export default function ResusGPS() {
         {session.phase === 'PRIMARY_SURVEY' && (
           <PrimarySurveyScreen
             session={session}
-            weight={weight}
-            onAnswer={handleSurveyAnswer}
-            onCardiacArrest={handleCardiacArrest}
+            numberInput={numberInput}
+            setNumberInput={setNumberInput}
+            numberInput2={numberInput2}
+            setNumberInput2={setNumberInput2}
+            onAnswer={handleAnswer}
           />
         )}
 
@@ -498,17 +335,9 @@ export default function ResusGPS() {
             session={session}
             weight={weight}
             onComplete={handleCompleteIntervention}
-            onContinueSurvey={handleContinueSurvey}
-            onCardiacArrest={handleCardiacArrest}
-          />
-        )}
-
-        {session.phase === 'SECONDARY_SURVEY' && (
-          <SecondarySurveyScreen
-            session={session}
-            weight={weight}
-            onDiagnosis={handleDiagnosis}
-            onCardiacArrest={handleCardiacArrest}
+            onStart={handleStartIntervention}
+            onReturnToPrimary={handleReturnToPrimary}
+            onOpenPanel={() => setInterventionPanelOpen(true)}
           />
         )}
 
@@ -516,716 +345,1288 @@ export default function ResusGPS() {
           <CardiacArrestScreen
             session={session}
             weight={weight}
+            timer={timer}
             onComplete={handleCompleteIntervention}
             onROSC={handleROSC}
           />
         )}
 
-        {(session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') && (
-          <DefinitiveCareScreen
+        {(session.phase === 'SECONDARY_SURVEY' || session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') && (
+          <PostPrimaryScreen
             session={session}
-            weight={weight}
-            onReset={handleReset}
-            onExportLog={handleExportLog}
-            onCardiacArrest={handleCardiacArrest}
+            setSession={setSession}
+            diagnoses={diagnoses}
+            onExport={handleExport}
           />
         )}
       </main>
-    </div>
-  );
-}
 
-// ═══════════════════════════════════════════════════════════
-// SCREEN COMPONENTS
-// ═══════════════════════════════════════════════════════════
+      {/* Intervention Tracking Side Panel */}
+      <Sheet open={interventionPanelOpen} onOpenChange={setInterventionPanelOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md bg-background border-border overflow-y-auto">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="flex items-center gap-2 text-foreground">
+              <ListChecks className="h-5 w-5 text-primary" />
+              Intervention Tracker
+            </SheetTitle>
+            <SheetDescription className="text-muted-foreground">
+              {activeThreats.length} active threat{activeThreats.length !== 1 ? 's' : ''} &bull; {session.bolusCount} bolus{session.bolusCount !== 1 ? 'es' : ''} given
+              {session.patientWeight && session.totalBolusVolume > 0 && (
+                <> &bull; {Math.round(session.totalBolusVolume / session.patientWeight)} mL/kg total</>
+              )}
+            </SheetDescription>
+          </SheetHeader>
 
-// ─── IDLE SCREEN ────────────────────────────────────────────
-
-function IdleScreen({
-  patientAge, setPatientAge, patientWeight, setPatientWeight,
-  isTrauma, setIsTrauma, onStart, onCardiacArrest,
-}: {
-  patientAge: string; setPatientAge: (v: string) => void;
-  patientWeight: string; setPatientWeight: (v: string) => void;
-  isTrauma: boolean; setIsTrauma: (v: boolean) => void;
-  onStart: () => void;
-  onCardiacArrest: () => void;
-}) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6">
-      {/* Logo */}
-      <div className="text-center">
-        <Activity className="h-16 w-16 text-red-500 mx-auto mb-3" />
-        <h1 className="text-4xl font-black text-white">ResusGPS</h1>
-        <p className="text-zinc-400 text-sm mt-1">Clinical Emergency GPS</p>
-      </div>
-
-      {/* Patient Info */}
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-700">
-        <CardContent className="p-4 space-y-3">
-          <h2 className="text-sm font-bold text-zinc-400 flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Patient Info (for accurate dosing)
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-zinc-400 text-xs">Age</Label>
-              <Input
-                placeholder="e.g., 5 years"
-                value={patientAge}
-                onChange={e => setPatientAge(e.target.value)}
-                className="bg-zinc-800 border-zinc-600 text-white mt-1"
+          <div className="space-y-4 mt-4">
+            {activeThreats.map(threat => (
+              <ThreatCard
+                key={threat.id}
+                threat={threat}
+                weight={weight}
+                expanded={expandedThreat === threat.id}
+                onToggle={() => setExpandedThreat(expandedThreat === threat.id ? null : threat.id)}
+                onComplete={handleCompleteIntervention}
+                onStart={handleStartIntervention}
+                reassessmentMode={reassessmentMode}
+                setReassessmentMode={setReassessmentMode}
+                session={session}
+                setSession={setSession}
               />
-            </div>
+            ))}
+
+            {activeThreats.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Shield className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No active threats</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Patient Info Dialog */}
+      <Dialog open={patientInfoOpen} onOpenChange={setPatientInfoOpen}>
+        <DialogContent className="bg-background border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Patient Information</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Update weight and age at any point. Drug doses recalculate automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
             <div>
-              <Label className="text-zinc-400 text-xs">Weight (kg)</Label>
+              <label className="text-sm font-medium text-foreground mb-1 block">Weight (kg)</label>
               <Input
                 type="number"
                 placeholder="e.g., 18"
-                value={patientWeight}
-                onChange={e => setPatientWeight(e.target.value)}
-                className="bg-zinc-800 border-zinc-600 text-white mt-1"
+                value={tempWeight}
+                onChange={e => setTempWeight(e.target.value)}
+                className="bg-background text-foreground"
               />
+              {!tempWeight && (
+                <p className="text-xs text-amber-400 mt-1">
+                  Without weight, drug doses show per-kg calculations only
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Age</label>
+              <Input
+                placeholder="e.g., 5 years, 3 months, 2 days"
+                value={tempAge}
+                onChange={e => setTempAge(e.target.value)}
+                className="bg-background text-foreground"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Age helps interpret vital signs with age-appropriate ranges
+              </p>
             </div>
           </div>
-          {/* Trauma Toggle */}
-          <button
-            onClick={() => setIsTrauma(!isTrauma)}
-            className={`w-full py-2 px-3 rounded-lg text-sm font-bold transition-all ${
-              isTrauma
-                ? 'bg-red-600 text-white border-2 border-red-400'
-                : 'bg-zinc-800 text-zinc-400 border border-zinc-600 hover:border-zinc-500'
-            }`}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPatientInfoOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdatePatientInfo}>Update</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Log Dialog */}
+      <Dialog open={showEventLog} onOpenChange={setShowEventLog}>
+        <DialogContent className="bg-background border-border max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Clinical Event Log</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Complete timeline of all clinical events
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[50vh]">
+            <div className="space-y-1 font-mono text-xs">
+              {session.events.map((evt, i) => {
+                const elapsed = Math.floor((evt.timestamp - session.startTime) / 1000);
+                const time = formatTime(elapsed);
+                return (
+                  <div key={i} className="flex gap-2 py-1 border-b border-border/30">
+                    <span className="text-muted-foreground shrink-0">{time}</span>
+                    {evt.letter && (
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                        {evt.letter}
+                      </Badge>
+                    )}
+                    <span className="text-foreground">{evt.detail}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" /> Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating Intervention Panel Toggle */}
+      {session.phase !== 'IDLE' && activeThreats.length > 0 && !interventionPanelOpen && (
+        <button
+          onClick={() => setInterventionPanelOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary text-primary-foreground px-2 py-6 rounded-l-lg shadow-lg flex flex-col items-center gap-1 hover:bg-primary/90 transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="text-xs font-bold" style={{ writingMode: 'vertical-rl' }}>
+            {activeThreats.length} Threat{activeThreats.length !== 1 ? 's' : ''}
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Top Bar Component ──────────────────────────────────────
+
+function TopBar({
+  session,
+  timer,
+  weight,
+  activeThreats,
+  unackedAlerts,
+  onOpenPatientInfo,
+  onOpenInterventions,
+  onCardiacArrest,
+  onExport,
+  onNewCase,
+  onShowLog,
+}: {
+  session: ResusSession;
+  timer: ReturnType<typeof useTimer>;
+  weight: number | null;
+  activeThreats: Threat[];
+  unackedAlerts: typeof session.safetyAlerts;
+  onOpenPatientInfo: () => void;
+  onOpenInterventions: () => void;
+  onCardiacArrest: () => void;
+  onExport: () => void;
+  onNewCase: () => void;
+  onShowLog: () => void;
+}) {
+  if (session.phase === 'IDLE') return null;
+
+  return (
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+      <div className="container max-w-2xl flex items-center gap-2 py-2">
+        {/* Timer */}
+        <div className="flex items-center gap-1.5 text-sm font-mono">
+          <Timer className="h-4 w-4 text-muted-foreground" />
+          <span className={timer.elapsed > 300 ? 'text-amber-400' : 'text-foreground'}>
+            {formatTime(timer.elapsed)}
+          </span>
+        </div>
+
+        <Separator orientation="vertical" className="h-5" />
+
+        {/* Patient Info (clickable to edit) */}
+        <button
+          onClick={onOpenPatientInfo}
+          className="flex items-center gap-1 text-sm hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors"
+        >
+          <User className="h-3.5 w-3.5 text-muted-foreground" />
+          {weight ? (
+            <span className="text-foreground font-medium">{weight}kg</span>
+          ) : (
+            <span className="text-amber-400 font-medium">No weight</span>
+          )}
+          {session.patientAge && (
+            <span className="text-muted-foreground text-xs ml-1">{session.patientAge}</span>
+          )}
+          <Pencil className="h-3 w-3 text-muted-foreground" />
+        </button>
+
+        <div className="flex-1" />
+
+        {/* Threat count badge */}
+        {activeThreats.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="relative text-xs h-8 w-8 p-0"
+            onClick={onOpenInterventions}
           >
-            {isTrauma ? '🚨 TRAUMA MODE (XABCDE)' : 'Tap for Trauma Mode (XABCDE)'}
-          </button>
+            <Shield className="h-4 w-4" />
+            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-red-500 text-white border-0">
+              {activeThreats.length}
+            </Badge>
+          </Button>
+        )}
+
+        {/* Cardiac Arrest button */}
+        {session.phase !== 'CARDIAC_ARREST' && session.phase !== 'IDLE' && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="text-xs gap-1 h-8"
+            onClick={onCardiacArrest}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Arrest</span>
+          </Button>
+        )}
+
+        {/* Log */}
+        <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
+          <FileText className="h-4 w-4" />
+        </Button>
+        {/* New Case */}
+        <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Idle Screen ────────────────────────────────────────────
+
+function IdleScreen({
+  weight,
+  age,
+  onStart,
+  onOpenPatientInfo,
+}: {
+  weight: number | null;
+  age: string;
+  onStart: (isTrauma: boolean) => void;
+  onOpenPatientInfo: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+          <Siren className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-2">ResusGPS</h1>
+        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+          Systematic XABCDE assessment with real-time threat detection, weight-based dosing, and intervention tracking
+        </p>
+      </div>
+
+      {/* Patient Info Card */}
+      <Card className="w-full max-w-sm mb-6 bg-card border-border">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-foreground">Patient Information</span>
+            <Button size="sm" variant="ghost" onClick={onOpenPatientInfo} className="text-xs gap-1 h-7">
+              <Pencil className="h-3 w-3" /> Edit
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-accent/30 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Weight</p>
+              {weight ? (
+                <p className="text-lg font-bold text-foreground">{weight} kg</p>
+              ) : (
+                <p className="text-sm text-amber-400">Not set</p>
+              )}
+            </div>
+            <div className="bg-accent/30 rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Age</p>
+              {age ? (
+                <p className="text-lg font-bold text-foreground">{age}</p>
+              ) : (
+                <p className="text-sm text-amber-400">Not set</p>
+              )}
+            </div>
+          </div>
+          {!weight && (
+            <p className="text-xs text-amber-400/80 mt-2 text-center">
+              You can start without weight — add it anytime during the case
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* START Button */}
-      <button
-        onClick={onStart}
-        className="w-full max-w-md h-40 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-2xl shadow-2xl shadow-cyan-500/20 transform hover:scale-[1.02] active:scale-95 transition-all flex flex-col items-center justify-center gap-3"
-      >
-        <Stethoscope className="h-14 w-14" />
-        <span className="text-3xl font-black">START ASSESSMENT</span>
-      </button>
-
-      {/* Cardiac Arrest Quick Launch */}
-      <button
-        onClick={onCardiacArrest}
-        className="w-full max-w-md py-5 bg-red-700 hover:bg-red-600 text-white rounded-xl font-black text-xl flex items-center justify-center gap-3 active:scale-95 transition-all animate-pulse"
-      >
-        <Heart className="h-7 w-7" />
-        CARDIAC ARREST — START CPR
-      </button>
-
-      <p className="text-zinc-600 text-xs text-center max-w-sm">
-        No login required. Works offline. Every second counts.
-      </p>
+      {/* Start Buttons */}
+      <div className="w-full max-w-sm space-y-3">
+        <Button
+          size="lg"
+          className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2"
+          onClick={() => onStart(false)}
+        >
+          <Activity className="h-5 w-5" />
+          START ASSESSMENT
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="w-full py-5 gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"
+          onClick={() => onStart(true)}
+        >
+          <AlertTriangle className="h-5 w-5" />
+          TRAUMA ASSESSMENT (XABCDE)
+        </Button>
+      </div>
     </div>
   );
 }
 
-// ─── QUICK ASSESSMENT SCREEN ────────────────────────────────
+// ─── Quick Assessment Screen ────────────────────────────────
 
-function QuickAssessmentScreen({ onAnswer }: { onAnswer: (answer: 'sick' | 'not_sick') => void }) {
+function QuickAssessmentScreen({ onAnswer }: { onAnswer: (a: 'sick' | 'not_sick') => void }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
-      <div className="text-center">
-        <div className="text-5xl mb-4">👀</div>
-        <h2 className="text-3xl font-black text-white">Quick Assessment</h2>
-        <p className="text-zinc-400 mt-2 text-lg">Pediatric Assessment Triangle — 5 seconds</p>
-        <p className="text-zinc-500 text-sm mt-1">Look at the patient. Appearance, work of breathing, circulation to skin.</p>
+    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Quick Assessment</h2>
+        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+          3-second across-the-room assessment. Does this patient look sick?
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          Appearance &bull; Work of Breathing &bull; Circulation to Skin
+        </p>
       </div>
 
-      <div className="w-full max-w-md space-y-4">
-        <button
+      <div className="w-full max-w-sm space-y-4">
+        <Button
+          size="lg"
+          variant="destructive"
+          className="w-full py-8 text-xl font-bold"
           onClick={() => onAnswer('sick')}
-          className="w-full py-8 bg-red-700 hover:bg-red-600 text-white rounded-2xl text-2xl font-black flex items-center justify-center gap-3 active:scale-95 transition-all"
         >
-          <AlertTriangle className="h-8 w-8" />
+          <Siren className="h-6 w-6 mr-2" />
           SICK — Activate Emergency
-        </button>
-
-        <button
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="w-full py-6 text-lg"
           onClick={() => onAnswer('not_sick')}
-          className="w-full py-8 bg-emerald-700 hover:bg-emerald-600 text-white rounded-2xl text-2xl font-black flex items-center justify-center gap-3 active:scale-95 transition-all"
         >
-          <Shield className="h-8 w-8" />
-          NOT SICK — Assess Further
-        </button>
+          <CheckCircle2 className="h-5 w-5 mr-2" />
+          NOT SICK — Routine Assessment
+        </Button>
       </div>
-
-      <p className="text-zinc-600 text-xs text-center max-w-sm">
-        This is your first impression. Does this patient look sick or not sick?
-        Trust your gut — you can always escalate later.
-      </p>
     </div>
   );
 }
 
-// ─── PRIMARY SURVEY SCREEN ──────────────────────────────────
+// ─── Primary Survey Screen ──────────────────────────────────
 
 function PrimarySurveyScreen({
-  session, weight, onAnswer, onCardiacArrest,
+  session,
+  numberInput,
+  setNumberInput,
+  numberInput2,
+  setNumberInput2,
+  onAnswer,
 }: {
   session: ResusSession;
-  weight: number | null;
-  onAnswer: (question: AssessmentQuestion, answer: string) => void;
-  onCardiacArrest: () => void;
+  numberInput: string;
+  setNumberInput: (v: string) => void;
+  numberInput2: string;
+  setNumberInput2: (v: string) => void;
+  onAnswer: (q: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => void;
 }) {
   const questions = getCurrentQuestions(session);
   const answeredIds = getAnsweredQuestionIds(session);
-  const currentQuestion = questions.find(q => !answeredIds.includes(q.id));
+  const unanswered = questions.filter(q => !answeredIds.includes(q.id));
+  const question = unanswered[0];
 
-  if (!currentQuestion) {
-    // All questions for this letter answered, but no critical threat → auto-advance
-    return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto" />
-          <p className="text-zinc-400 mt-4">Advancing...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!question) return null;
+
+  const letterConfig = LETTER_CONFIG[session.currentLetter];
+  const letterOrder: ABCDELetter[] = session.isTrauma ? ['X', 'A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+  const currentIdx = letterOrder.indexOf(session.currentLetter);
+  const progress = ((currentIdx + (questions.length - unanswered.length) / questions.length) / letterOrder.length) * 100;
 
   return (
-    <div className="flex-1 flex flex-col p-3 gap-3">
-      {/* ABCDE Progress */}
-      <ABCDEProgressBar session={session} />
-
-      {/* Active Threats Sidebar */}
-      <ThreatsSidebar session={session} weight={weight} />
+    <div className="py-6">
+      {/* Progress */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          {letterOrder.map((letter, i) => {
+            const config = LETTER_CONFIG[letter];
+            const isActive = letter === session.currentLetter;
+            const isDone = i < currentIdx;
+            return (
+              <div
+                key={letter}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold transition-all ${
+                  isActive
+                    ? `${config.bgColor} ${config.color} ring-1 ring-current`
+                    : isDone
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isDone ? <CheckCircle2 className="h-3 w-3" /> : null}
+                {letter}
+              </div>
+            );
+          })}
+        </div>
+        <Progress value={progress} className="h-1.5" />
+      </div>
 
       {/* Current Letter Header */}
-      <div className="flex items-center gap-3 px-1">
-        <div className={`w-12 h-12 rounded-xl ${LETTER_COLORS[session.currentLetter]} text-white flex items-center justify-center text-2xl font-black`}>
-          {session.currentLetter}
-        </div>
+      <div className={`flex items-center gap-3 mb-6 p-4 rounded-xl ${letterConfig.bgColor}`}>
+        <div className={letterConfig.color}>{letterConfig.icon}</div>
         <div>
-          <h2 className="text-xl font-black text-white">{LETTER_LABELS[session.currentLetter]}</h2>
-          <p className="text-zinc-500 text-xs">Primary Survey</p>
+          <h2 className={`text-xl font-bold ${letterConfig.color}`}>{letterConfig.label}</h2>
+          <p className="text-xs text-muted-foreground">
+            Question {questions.length - unanswered.length + 1} of {questions.length}
+          </p>
         </div>
       </div>
 
       {/* Question */}
-      <Card className="bg-zinc-900 border-zinc-700">
-        <CardContent className="p-4">
-          <h3 className="text-lg font-bold text-white mb-4">{currentQuestion.text}</h3>
-          <div className="space-y-2">
-            {currentQuestion.options.map(option => (
-              <button
-                key={option.value}
-                onClick={() => onAnswer(currentQuestion, option.value)}
-                className={`w-full py-4 px-4 rounded-xl text-left font-bold transition-all active:scale-[0.98] flex items-center gap-3 ${
-                  option.severity === 'critical'
-                    ? 'bg-red-900/50 hover:bg-red-800/60 border-2 border-red-600 text-red-100'
-                    : option.severity === 'urgent'
-                    ? 'bg-amber-900/30 hover:bg-amber-800/40 border border-amber-600/50 text-amber-100'
-                    : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200'
-                }`}
-              >
-                <span className="text-xl shrink-0">{option.icon}</span>
-                <span className="text-sm">{option.label}</span>
-              </button>
-            ))}
-          </div>
+      <Card className="bg-card border-border">
+        <CardContent className="pt-6 pb-6">
+          <h3 className="text-lg font-semibold text-foreground mb-6">{question.text}</h3>
+
+          {question.inputType === 'select' && question.options && (
+            <div className="space-y-3">
+              {question.options.map(option => (
+                <Button
+                  key={option.value}
+                  variant="outline"
+                  className={`w-full justify-start text-left py-4 h-auto whitespace-normal ${
+                    option.severity === 'critical'
+                      ? 'border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50'
+                      : option.severity === 'urgent'
+                      ? 'border-amber-500/30 hover:bg-amber-500/10 hover:border-amber-500/50'
+                      : 'hover:bg-accent/50'
+                  }`}
+                  onClick={() => onAnswer(question, option.value)}
+                >
+                  <span className="mr-2 text-lg">{option.icon}</span>
+                  <span className="text-sm">{option.label}</span>
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {question.inputType === 'number' && question.numberConfig && (
+            <NumberInput
+              config={question.numberConfig}
+              value={numberInput}
+              onChange={setNumberInput}
+              session={session}
+              onSubmit={(val) => {
+                const interp = question.numberConfig!.interpret(val, session);
+                onAnswer(question, interp.label, val);
+              }}
+            />
+          )}
+
+          {question.inputType === 'number_pair' && question.numberPairConfig && (
+            <NumberPairInput
+              config={question.numberPairConfig}
+              value1={numberInput}
+              value2={numberInput2}
+              onChange1={setNumberInput}
+              onChange2={setNumberInput2}
+              session={session}
+              onSubmit={(v1, v2) => {
+                const interp = question.numberPairConfig!.interpret(v1, v2, session);
+                onAnswer(question, interp.label, v1, v2);
+              }}
+            />
+          )}
         </CardContent>
       </Card>
-
-      {/* Cardiac Arrest Override */}
-      <button
-        onClick={onCardiacArrest}
-        className="w-full py-3 bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
-      >
-        <Heart className="h-4 w-4" />
-        CARDIAC ARREST — Start CPR Now
-      </button>
     </div>
   );
 }
 
-// ─── INTERVENTION SCREEN ────────────────────────────────────
+// ─── Number Input Component ─────────────────────────────────
 
-function InterventionScreen({
-  session, weight, onComplete, onContinueSurvey, onCardiacArrest,
+function NumberInput({
+  config,
+  value,
+  onChange,
+  session,
+  onSubmit,
 }: {
+  config: NonNullable<AssessmentQuestion['numberConfig']>;
+  value: string;
+  onChange: (v: string) => void;
   session: ResusSession;
-  weight: number | null;
-  onComplete: (id: string, intervention: Intervention) => void;
-  onContinueSurvey: () => void;
-  onCardiacArrest: () => void;
+  onSubmit: (val: number) => void;
 }) {
-  const threats = getActiveThreats(session);
-  const criticalPending = getAllPendingCritical(session);
-
-  // Show critical interventions first, then all threats
-  const primaryThreat = threats[0];
+  const numVal = parseFloat(value);
+  const isValid = !isNaN(numVal) && numVal >= config.min && numVal <= config.max;
 
   return (
-    <div className="flex-1 flex flex-col p-3 gap-3 overflow-y-auto">
-      {/* ABCDE Progress */}
-      <ABCDEProgressBar session={session} />
+    <div className="space-y-4">
+      {/* Quick picks */}
+      {config.quickPicks && (
+        <div className="flex flex-wrap gap-2">
+          {config.quickPicks.map(qp => (
+            <Button
+              key={qp.value}
+              size="sm"
+              variant={value === qp.value.toString() ? 'default' : 'outline'}
+              className="text-sm"
+              onClick={() => onChange(qp.value.toString())}
+            >
+              {qp.label}
+            </Button>
+          ))}
+        </div>
+      )}
 
-      {/* Header */}
-      <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 flex items-center gap-3">
-        <Zap className="h-6 w-6 text-red-400 shrink-0" />
+      {/* Number input */}
+      <div className="flex items-center gap-3">
+        <Input
+          type="number"
+          inputMode="decimal"
+          placeholder={config.placeholder}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="text-lg bg-background text-foreground"
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          autoFocus
+        />
+        <span className="text-sm text-muted-foreground font-medium shrink-0">
+          {config.unit}
+        </span>
+      </div>
+
+      {/* Live interpretation */}
+      {isValid && (
+        <div className="mt-2">
+          {(() => {
+            const interp = config.interpret(numVal, session);
+            return (
+              <Badge
+                variant="outline"
+                className={`text-sm ${
+                  interp.severity === 'critical'
+                    ? 'border-red-500/50 text-red-400 bg-red-500/10'
+                    : interp.severity === 'urgent'
+                    ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                    : 'border-green-500/50 text-green-400 bg-green-500/10'
+                }`}
+              >
+                {interp.label}
+              </Badge>
+            );
+          })()}
+        </div>
+      )}
+
+      <Button
+        className="w-full py-4"
+        disabled={!isValid}
+        onClick={() => onSubmit(numVal)}
+      >
+        Confirm {isValid ? `${value} ${config.unit}` : ''}
+        <ArrowRight className="h-4 w-4 ml-2" />
+      </Button>
+    </div>
+  );
+}
+
+// ─── Number Pair Input Component ────────────────────────────
+
+function NumberPairInput({
+  config,
+  value1,
+  value2,
+  onChange1,
+  onChange2,
+  session,
+  onSubmit,
+}: {
+  config: NonNullable<AssessmentQuestion['numberPairConfig']>;
+  value1: string;
+  value2: string;
+  onChange1: (v: string) => void;
+  onChange2: (v: string) => void;
+  session: ResusSession;
+  onSubmit: (v1: number, v2: number) => void;
+}) {
+  const v1 = parseFloat(value1);
+  const v2 = parseFloat(value2);
+  const isValid = !isNaN(v1) && !isNaN(v2);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <h2 className="text-lg font-black text-white">INTERVENE NOW</h2>
-          <p className="text-red-300 text-xs">{threats.length} active threat{threats.length !== 1 ? 's' : ''} — treat in priority order</p>
+          <label className="text-xs text-muted-foreground mb-1 block">{config.label1}</label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder={config.placeholder1}
+            value={value1}
+            onChange={e => onChange1(e.target.value)}
+            className="text-lg bg-background text-foreground"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">{config.label2}</label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder={config.placeholder2}
+            value={value2}
+            onChange={e => onChange2(e.target.value)}
+            className="text-lg bg-background text-foreground"
+          />
         </div>
       </div>
 
-      {/* Threats & Interventions */}
-      {threats.map(threat => {
-        const pending = getPendingInterventions(threat);
-        const completedCount = threat.interventions.length - pending.length;
-        const progress = (completedCount / threat.interventions.length) * 100;
+      {/* Live interpretation */}
+      {isValid && (
+        <div>
+          {(() => {
+            const interp = config.interpret(v1, v2, session);
+            return (
+              <Badge
+                variant="outline"
+                className={`text-sm ${
+                  interp.severity === 'critical'
+                    ? 'border-red-500/50 text-red-400 bg-red-500/10'
+                    : interp.severity === 'urgent'
+                    ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                    : 'border-green-500/50 text-green-400 bg-green-500/10'
+                }`}
+              >
+                {interp.label}
+              </Badge>
+            );
+          })()}
+        </div>
+      )}
 
-        return (
-          <Card key={threat.id} className={`border ${
-            threat.severity === 'critical' ? 'bg-red-950/50 border-red-700' : 'bg-zinc-900 border-zinc-700'
-          }`}>
-            <CardContent className="p-3">
-              {/* Threat Header */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`w-6 h-6 rounded text-xs font-black flex items-center justify-center ${LETTER_COLORS[threat.letter]} text-white`}>
-                  {threat.letter}
-                </span>
-                <h3 className="font-bold text-white text-sm flex-1">{threat.name}</h3>
-                <Badge className={`text-[10px] ${
-                  threat.severity === 'critical' ? 'bg-red-600' : 'bg-amber-600'
-                } text-white`}>
-                  {threat.severity.toUpperCase()}
-                </Badge>
-              </div>
-              <Progress value={progress} className="h-1.5 mb-3" />
-
-              {/* Interventions */}
-              <div className="space-y-2">
-                {threat.interventions.map((intervention, idx) => (
-                  <div
-                    key={intervention.id}
-                    className={`rounded-lg p-3 transition-all ${
-                      intervention.completed
-                        ? 'bg-emerald-900/20 border border-emerald-700/30 opacity-60'
-                        : intervention.critical
-                        ? 'bg-red-900/20 border border-red-600/50'
-                        : 'bg-zinc-800 border border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {intervention.completed ? (
-                        <Check className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                      ) : (
-                        <span className="w-5 h-5 rounded-full border-2 border-zinc-500 shrink-0 mt-0.5 flex items-center justify-center text-[10px] font-bold text-zinc-500">
-                          {idx + 1}
-                        </span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-sm ${
-                          intervention.completed ? 'text-emerald-400 line-through' : 'text-white'
-                        }`}>
-                          {intervention.action}
-                        </p>
-                        {intervention.detail && (
-                          <p className="text-zinc-400 text-xs mt-1">{intervention.detail}</p>
-                        )}
-                        {intervention.dose && !intervention.completed && (
-                          <DoseCard dose={intervention.dose} weight={weight} />
-                        )}
-                        {intervention.timerSeconds && !intervention.completed && (
-                          <div className="flex items-center gap-1 mt-1 text-amber-400 text-xs">
-                            <Timer className="h-3 w-3" />
-                            Timer: {formatTime(intervention.timerSeconds)}
-                            {intervention.reassessAfter && ` — ${intervention.reassessAfter}`}
-                          </div>
-                        )}
-                      </div>
-                      {!intervention.completed && (
-                        <button
-                          onClick={() => onComplete(intervention.id, intervention)}
-                          className={`shrink-0 px-3 py-2 rounded-lg font-bold text-xs active:scale-95 transition-all ${
-                            intervention.critical
-                              ? 'bg-red-600 hover:bg-red-500 text-white'
-                              : 'bg-zinc-700 hover:bg-zinc-600 text-white'
-                          }`}
-                        >
-                          DONE ✓
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {/* Continue Survey Button */}
-      <button
-        onClick={onContinueSurvey}
-        className="w-full py-4 bg-cyan-700 hover:bg-cyan-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+      <Button
+        className="w-full py-4"
+        disabled={!isValid}
+        onClick={() => onSubmit(v1, v2)}
       >
-        <ArrowRight className="h-5 w-5" />
-        Continue Primary Survey →
-      </button>
-
-      {/* Cardiac Arrest Override */}
-      <button
-        onClick={onCardiacArrest}
-        className="w-full py-3 bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
-      >
-        <Heart className="h-4 w-4" />
-        CARDIAC ARREST — Start CPR Now
-      </button>
+        Confirm {isValid ? `${value1}/${value2} ${config.unit}` : ''}
+        <ArrowRight className="h-4 w-4 ml-2" />
+      </Button>
     </div>
   );
 }
 
-// ─── SECONDARY SURVEY SCREEN ────────────────────────────────
+// ─── Intervention Screen ────────────────────────────────────
 
-function SecondarySurveyScreen({
-  session, weight, onDiagnosis, onCardiacArrest,
+function InterventionScreen({
+  session,
+  weight,
+  onComplete,
+  onStart,
+  onReturnToPrimary,
+  onOpenPanel,
 }: {
   session: ResusSession;
   weight: number | null;
-  onDiagnosis: (diagnosis: string) => void;
-  onCardiacArrest: () => void;
+  onComplete: (id: string) => void;
+  onStart: (id: string) => void;
+  onReturnToPrimary: () => void;
+  onOpenPanel: () => void;
 }) {
-  const suggestions = useMemo(() => getSuggestedDiagnoses(session), [session]);
-  const [customDiagnosis, setCustomDiagnosis] = useState('');
+  const criticalPending = getAllPendingCritical(session);
+  const activeThreats = getActiveThreats(session);
 
   return (
-    <div className="flex-1 flex flex-col p-3 gap-3 overflow-y-auto">
-      {/* ABCDE Progress */}
-      <ABCDEProgressBar session={session} />
-
-      {/* Active Threats */}
-      <ThreatsSidebar session={session} weight={weight} />
-
-      {/* Header */}
-      <div className="bg-purple-900/30 border border-purple-700 rounded-lg p-3">
-        <h2 className="text-lg font-black text-white flex items-center gap-2">
-          <FileText className="h-5 w-5 text-purple-400" />
-          Secondary Survey
-        </h2>
-        <p className="text-purple-300 text-xs mt-1">Primary survey complete. Now identify the definitive diagnosis.</p>
+    <div className="py-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="bg-red-500/20 p-2 rounded-lg">
+          <AlertTriangle className="h-6 w-6 text-red-400" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Interventions Required</h2>
+          <p className="text-sm text-muted-foreground">
+            {criticalPending.length} critical action{criticalPending.length !== 1 ? 's' : ''} pending
+          </p>
+        </div>
       </div>
 
-      {/* Findings Summary */}
-      <Card className="bg-zinc-900 border-zinc-700">
-        <CardContent className="p-3">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase mb-2">Findings Summary</h3>
-          <div className="space-y-1">
-            {session.findings
-              .filter(f => f.severity !== 'monitor' || f.description !== 'normal')
-              .map(f => (
-                <div key={f.id} className="flex items-center gap-2 text-xs">
-                  <span className={`w-5 h-5 rounded text-[10px] font-black flex items-center justify-center ${LETTER_COLORS[f.letter]} text-white`}>
-                    {f.letter}
-                  </span>
-                  <span className="text-zinc-300">{f.id.replace(/_/g, ' ')}: </span>
-                  <span className={`font-bold ${
-                    f.severity === 'critical' ? 'text-red-400' : f.severity === 'urgent' ? 'text-amber-400' : 'text-zinc-400'
-                  }`}>
-                    {f.description.replace(/_/g, ' ').toUpperCase()}
-                  </span>
+      {/* Critical interventions first */}
+      <div className="space-y-3 mb-6">
+        {criticalPending.map(({ threat, intervention }) => (
+          <Card key={intervention.id} className="bg-card border-red-500/20">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-start gap-3">
+                <Badge variant="outline" className="shrink-0 text-xs border-red-500/30 text-red-400 bg-red-500/10">
+                  {threat.letter}
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground text-sm">{intervention.action}</p>
+                  {intervention.detail && (
+                    <p className="text-xs text-muted-foreground mt-1">{intervention.detail}</p>
+                  )}
+                  {intervention.dose && (
+                    <div className="mt-2 bg-primary/10 rounded p-2">
+                      <p className="text-sm font-medium text-primary">
+                        {calcDose(intervention.dose, weight)}
+                      </p>
+                      {intervention.dose.preparation && (
+                        <p className="text-xs text-muted-foreground mt-1">{intervention.dose.preparation}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                {intervention.status === 'pending' && (
+                  <>
+                    <Button size="sm" className="flex-1" onClick={() => onStart(intervention.id)}>
+                      <Play className="h-3 w-3 mr-1" /> Start
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onComplete(intervention.id)}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+                    </Button>
+                  </>
+                )}
+                {intervention.status === 'in_progress' && (
+                  <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Complete
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-3">
+        <Button
+          variant="outline"
+          className="w-full py-4"
+          onClick={onOpenPanel}
+        >
+          <ListChecks className="h-4 w-4 mr-2" />
+          View All Interventions ({activeThreats.reduce((sum, t) => sum + t.interventions.length, 0)})
+        </Button>
+        <Button
+          className="w-full py-4"
+          onClick={onReturnToPrimary}
+        >
+          Continue Primary Survey
+          <ChevronRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cardiac Arrest Screen ──────────────────────────────────
+
+function CardiacArrestScreen({
+  session,
+  weight,
+  timer,
+  onComplete,
+  onROSC,
+}: {
+  session: ResusSession;
+  weight: number | null;
+  timer: ReturnType<typeof useTimer>;
+  onComplete: (id: string) => void;
+  onROSC: () => void;
+}) {
+  const cycleProgress = ((timer.elapsed % 120) / 120) * 100;
+  const arrestThreat = session.threats.find(t => t.id === 'cardiac_arrest');
+
+  return (
+    <div className="py-6">
+      {/* CPR Timer */}
+      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center mb-6">
+        <h2 className="text-2xl font-bold text-red-400 mb-1">CARDIAC ARREST</h2>
+        <p className="text-sm text-red-300/80 mb-4">Push Hard &bull; Push Fast &bull; Minimize Interruptions</p>
+        
+        <div className="text-6xl font-mono font-bold text-foreground mb-2">
+          {formatTime(timer.elapsed)}
+        </div>
+        
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <Badge variant="outline" className="text-sm border-red-500/30 text-red-400">
+            CPR Cycle: {Math.floor(timer.elapsed / 120) + 1}
+          </Badge>
+          <Badge variant="outline" className="text-sm border-amber-500/30 text-amber-400">
+            {120 - (timer.elapsed % 120)}s to rhythm check
+          </Badge>
+        </div>
+
+        <Progress value={cycleProgress} className="h-2 mb-4" />
+
+        {cycleProgress > 85 && (
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-3 mb-4 animate-pulse">
+            <p className="text-amber-300 font-bold">PREPARE FOR RHYTHM CHECK</p>
+          </div>
+        )}
+      </div>
+
+      {/* Interventions */}
+      {arrestThreat && (
+        <div className="space-y-3 mb-6">
+          {arrestThreat.interventions.map(intervention => (
+            <Card key={intervention.id} className={`bg-card ${intervention.status === 'completed' ? 'opacity-50' : 'border-red-500/20'}`}>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    {intervention.status === 'completed' ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-400" />
+                    ) : (
+                      <Circle className="h-5 w-5 text-red-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground text-sm">{intervention.action}</p>
+                    {intervention.dose && (
+                      <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
+                    )}
+                    {intervention.detail && (
+                      <p className="text-xs text-muted-foreground mt-1">{intervention.detail}</p>
+                    )}
+                  </div>
+                  {intervention.status !== 'completed' && (
+                    <Button size="sm" variant="outline" onClick={() => onComplete(intervention.id)}>
+                      Done
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ROSC Button */}
+      <Button
+        size="lg"
+        className="w-full py-6 bg-green-600 hover:bg-green-700 text-white text-lg font-bold"
+        onClick={onROSC}
+      >
+        <Heart className="h-5 w-5 mr-2" />
+        ROSC ACHIEVED
+      </Button>
+    </div>
+  );
+}
+
+// ─── Post-Primary Screen ────────────────────────────────────
+
+function PostPrimaryScreen({
+  session,
+  setSession,
+  diagnoses,
+  onExport,
+}: {
+  session: ResusSession;
+  setSession: (s: ResusSession) => void;
+  diagnoses: DiagnosisSuggestion[];
+  onExport: () => void;
+}) {
+  return (
+    <div className="py-6 space-y-6">
+      {/* Vital Signs Summary */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-foreground">Documented Vital Signs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            {session.vitalSigns.hr !== undefined && (
+              <VitalBadge label="HR" value={`${session.vitalSigns.hr}`} unit="bpm" />
+            )}
+            {session.vitalSigns.rr !== undefined && (
+              <VitalBadge label="RR" value={`${session.vitalSigns.rr}`} unit="/min" />
+            )}
+            {session.vitalSigns.spo2 !== undefined && (
+              <VitalBadge label="SpO2" value={`${session.vitalSigns.spo2}`} unit="%" />
+            )}
+            {session.vitalSigns.sbp !== undefined && session.vitalSigns.dbp !== undefined && (
+              <VitalBadge label="BP" value={`${session.vitalSigns.sbp}/${session.vitalSigns.dbp}`} unit="mmHg" />
+            )}
+            {session.vitalSigns.temp !== undefined && (
+              <VitalBadge label="Temp" value={`${session.vitalSigns.temp}`} unit="C" />
+            )}
+            {session.vitalSigns.glucose !== undefined && (
+              <VitalBadge label="Glucose" value={`${session.vitalSigns.glucose}`} unit="mmol/L" />
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Suggested Diagnoses */}
-      {suggestions.length > 0 && (
-        <Card className="bg-zinc-900 border-zinc-700">
-          <CardContent className="p-3">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase mb-2">System Suggests</h3>
-            <div className="space-y-2">
-              {suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => onDiagnosis(s.diagnosis)}
-                  className="w-full text-left p-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 transition-all active:scale-[0.98]"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-white text-sm">{s.diagnosis}</span>
-                    <Badge className={`text-[10px] ${
-                      s.confidence === 'high' ? 'bg-emerald-600' : s.confidence === 'moderate' ? 'bg-amber-600' : 'bg-zinc-600'
-                    } text-white`}>
-                      {s.confidence}
-                    </Badge>
-                  </div>
-                  <p className="text-zinc-400 text-xs">{s.supportingFindings.join(' + ')}</p>
-                  <p className="text-cyan-400 text-xs mt-1">{s.protocol}</p>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Custom Diagnosis */}
-      <Card className="bg-zinc-900 border-zinc-700">
-        <CardContent className="p-3">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase mb-2">Or Enter Diagnosis</h3>
-          <div className="flex gap-2">
-            <Input
-              placeholder="e.g., Severe Pneumonia, Meningitis..."
-              value={customDiagnosis}
-              onChange={e => setCustomDiagnosis(e.target.value)}
-              className="bg-zinc-800 border-zinc-600 text-white"
-            />
-            <Button
-              onClick={() => customDiagnosis && onDiagnosis(customDiagnosis)}
-              disabled={!customDiagnosis}
-              className="bg-purple-600 hover:bg-purple-500 shrink-0"
-            >
-              Confirm
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Cardiac Arrest Override */}
-      <button
-        onClick={onCardiacArrest}
-        className="w-full py-3 bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
-      >
-        <Heart className="h-4 w-4" />
-        CARDIAC ARREST — Start CPR Now
-      </button>
-    </div>
-  );
-}
-
-// ─── CARDIAC ARREST SCREEN ──────────────────────────────────
-
-function CardiacArrestScreen({
-  session, weight, onComplete, onROSC,
-}: {
-  session: ResusSession;
-  weight: number | null;
-  onComplete: (id: string, intervention: Intervention) => void;
-  onROSC: () => void;
-}) {
-  const caThreat = session.threats.find(t => t.id === 'cardiac_arrest');
-  const [cprCycles, setCprCycles] = useState(0);
-  const [cprTimer, setCprTimer] = useState<number | null>(null);
-  const cprIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startCPRTimer = useCallback(() => {
-    setCprTimer(120);
-    setCprCycles(prev => prev + 1);
-    if (cprIntervalRef.current) clearInterval(cprIntervalRef.current);
-    cprIntervalRef.current = setInterval(() => {
-      setCprTimer(prev => {
-        if (prev === null || prev <= 1) {
-          if (cprIntervalRef.current) clearInterval(cprIntervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  useEffect(() => () => {
-    if (cprIntervalRef.current) clearInterval(cprIntervalRef.current);
-  }, []);
-
-  return (
-    <div className="flex-1 flex flex-col p-3 gap-3 overflow-y-auto">
-      {/* CARDIAC ARREST BANNER */}
-      <div className="bg-red-800 rounded-xl p-4 text-center animate-pulse">
-        <Heart className="h-12 w-12 text-white mx-auto mb-2" />
-        <h2 className="text-3xl font-black text-white">CARDIAC ARREST</h2>
-        <p className="text-red-200 text-sm mt-1">Push hard, push fast. 100-120/min. Minimize interruptions.</p>
-      </div>
-
-      {/* CPR Timer */}
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 text-center">
-        <div className="text-sm text-zinc-400 mb-1">CPR Cycle {cprCycles || '—'}</div>
-        {cprTimer !== null && cprTimer > 0 ? (
-          <div className="text-5xl font-mono font-black text-amber-400">
-            {formatTime(cprTimer)}
-          </div>
-        ) : cprTimer === 0 ? (
-          <div className="text-2xl font-black text-red-400 animate-pulse">
-            ⏰ CHECK RHYTHM NOW
-          </div>
-        ) : (
-          <div className="text-2xl font-bold text-zinc-500">Ready</div>
-        )}
-        <button
-          onClick={startCPRTimer}
-          className="mt-3 px-6 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-lg active:scale-95 transition-all"
-        >
-          {cprCycles === 0 ? 'Start CPR Timer (2 min)' : 'Restart CPR Timer'}
-        </button>
-      </div>
-
-      {/* Interventions */}
-      {caThreat && (
-        <Card className="bg-red-950/50 border-red-700">
-          <CardContent className="p-3">
-            <h3 className="font-bold text-white text-sm mb-2">Interventions</h3>
-            <div className="space-y-2">
-              {caThreat.interventions.map((intervention, idx) => (
-                <div
-                  key={intervention.id}
-                  className={`rounded-lg p-3 ${
-                    intervention.completed
-                      ? 'bg-emerald-900/20 border border-emerald-700/30 opacity-60'
-                      : 'bg-red-900/20 border border-red-600/50'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {intervention.completed ? (
-                      <Check className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <span className="w-5 h-5 rounded-full border-2 border-red-500 shrink-0 mt-0.5 flex items-center justify-center text-[10px] font-bold text-red-400">
-                        {idx + 1}
-                      </span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-sm ${
-                        intervention.completed ? 'text-emerald-400 line-through' : 'text-white'
-                      }`}>
-                        {intervention.action}
-                      </p>
-                      {intervention.detail && (
-                        <p className="text-zinc-400 text-xs mt-1">{intervention.detail}</p>
-                      )}
-                      {intervention.dose && !intervention.completed && (
-                        <DoseCard dose={intervention.dose} weight={weight} />
-                      )}
-                    </div>
-                    {!intervention.completed && (
-                      <button
-                        onClick={() => onComplete(intervention.id, intervention)}
-                        className="shrink-0 px-3 py-2 rounded-lg font-bold text-xs bg-red-600 hover:bg-red-500 text-white active:scale-95 transition-all"
-                      >
-                        DONE ✓
-                      </button>
-                    )}
-                  </div>
+      {diagnoses.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground flex items-center gap-2">
+              <Stethoscope className="h-4 w-4" />
+              Suggested Diagnoses
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {diagnoses.map((dx, i) => (
+              <div key={i} className="bg-accent/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-semibold text-foreground text-sm">{dx.diagnosis}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] ${
+                      dx.confidence === 'high'
+                        ? 'border-green-500/50 text-green-400'
+                        : dx.confidence === 'moderate'
+                        ? 'border-amber-500/50 text-amber-400'
+                        : 'border-muted text-muted-foreground'
+                    }`}
+                  >
+                    {dx.confidence}
+                  </Badge>
                 </div>
-              ))}
-            </div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Supporting: {dx.supportingFindings.join(', ')}
+                </p>
+                <p className="text-xs text-primary">{dx.protocol}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 text-xs"
+                  onClick={() => setSession(setDefinitiveDiagnosis(session, dx.diagnosis))}
+                >
+                  Confirm as Diagnosis
+                </Button>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
-      {/* ROSC Button */}
-      <button
-        onClick={onROSC}
-        className="w-full py-5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-black text-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
-      >
-        <Heart className="h-7 w-7" />
-        ROSC ACHIEVED — Post-Resuscitation Care
-      </button>
-    </div>
-  );
-}
-
-// ─── DEFINITIVE CARE / ONGOING SCREEN ───────────────────────
-
-function DefinitiveCareScreen({
-  session, weight, onReset, onExportLog, onCardiacArrest,
-}: {
-  session: ResusSession;
-  weight: number | null;
-  onReset: () => void;
-  onExportLog: () => void;
-  onCardiacArrest: () => void;
-}) {
-  const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
-
-  return (
-    <div className="flex-1 flex flex-col p-3 gap-3 overflow-y-auto">
-      {/* Header */}
-      <div className={`rounded-xl p-4 text-center ${
-        session.phase === 'ONGOING'
-          ? 'bg-emerald-900/30 border border-emerald-700'
-          : 'bg-purple-900/30 border border-purple-700'
-      }`}>
-        <h2 className="text-2xl font-black text-white">
-          {session.phase === 'ONGOING' ? '✅ Post-Resuscitation Care' : '📋 Definitive Care'}
-        </h2>
-        {session.definitiveDiagnosis && (
-          <p className="text-lg text-cyan-300 mt-1 font-bold">{session.definitiveDiagnosis}</p>
-        )}
-        <p className="text-zinc-400 text-sm mt-1">
-          Total time: {formatTime(elapsed)} • {session.threats.length} threats identified • {session.events.length} events logged
-        </p>
-      </div>
-
-      {/* Active Threats */}
-      <ThreatsSidebar session={session} weight={weight} />
-
-      {/* Event Log */}
-      <Card className="bg-zinc-900 border-zinc-700">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase">Event Log</h3>
-            <button
-              onClick={onExportLog}
-              className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300"
-            >
-              <Download className="h-3 w-3" />
-              Export
-            </button>
-          </div>
-          <div className="space-y-1 max-h-60 overflow-y-auto">
-            {session.events.map((evt, i) => {
-              const elapsed = Math.floor((evt.timestamp - session.startTime) / 1000);
+      {/* SAMPLE History */}
+      {session.phase === 'SECONDARY_SURVEY' && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground">SAMPLE History</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const).map(field => {
+              const labels: Record<string, string> = {
+                signs: 'S — Signs & Symptoms',
+                allergies: 'A — Allergies',
+                medications: 'M — Medications',
+                pastHistory: 'P — Past Medical History',
+                lastMeal: 'L — Last Meal / Intake',
+                events: 'E — Events Leading to This',
+              };
               return (
-                <div key={i} className="flex gap-2 text-xs">
-                  <span className="text-zinc-600 font-mono shrink-0">{formatTime(elapsed)}</span>
-                  {evt.letter && (
-                    <span className={`w-4 h-4 rounded text-[8px] font-black flex items-center justify-center ${LETTER_COLORS[evt.letter]} text-white shrink-0`}>
-                      {evt.letter}
-                    </span>
-                  )}
-                  <span className="text-zinc-400">{evt.detail}</span>
+                <div key={field}>
+                  <label className="text-xs font-medium text-muted-foreground">{labels[field]}</label>
+                  <Input
+                    placeholder={`Enter ${field}...`}
+                    value={session.sampleHistory[field] || ''}
+                    onChange={e => setSession(updateSAMPLE(session, field, e.target.value))}
+                    className="mt-1 bg-background text-foreground"
+                  />
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Threats Summary */}
+      {session.threats.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground">Threats Identified ({session.threats.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {session.threats.map(t => (
+              <div key={t.id} className="flex items-center gap-2 text-sm">
+                <Badge variant="outline" className="text-[10px] shrink-0">{t.letter}</Badge>
+                <span className="text-foreground">{t.name}</span>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {t.interventions.filter(i => i.status === 'completed').length}/{t.interventions.length} done
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Export */}
+      <Button className="w-full py-4" onClick={onExport}>
+        <Download className="h-4 w-4 mr-2" />
+        Export Clinical Record
+      </Button>
+    </div>
+  );
+}
+
+// ─── Threat Card (for side panel) ───────────────────────────
+
+function ThreatCard({
+  threat,
+  weight,
+  expanded,
+  onToggle,
+  onComplete,
+  onStart,
+  reassessmentMode,
+  setReassessmentMode,
+  session,
+  setSession,
+}: {
+  threat: Threat;
+  weight: number | null;
+  expanded: boolean;
+  onToggle: () => void;
+  onComplete: (id: string) => void;
+  onStart: (id: string) => void;
+  reassessmentMode: { interventionId: string; checkIndex: number } | null;
+  setReassessmentMode: (v: { interventionId: string; checkIndex: number } | null) => void;
+  session: ResusSession;
+  setSession: (s: ResusSession) => void;
+}) {
+  const completed = threat.interventions.filter(i => i.status === 'completed').length;
+  const total = threat.interventions.length;
+  const progress = total > 0 ? (completed / total) * 100 : 0;
+
+  return (
+    <Card className={`bg-card border-border ${threat.severity === 'critical' ? 'border-red-500/20' : ''}`}>
+      <CardContent className="pt-3 pb-3">
+        {/* Header */}
+        <button onClick={onToggle} className="w-full flex items-center gap-3 text-left">
+          <Badge
+            variant="outline"
+            className={`shrink-0 ${
+              threat.severity === 'critical'
+                ? 'border-red-500/50 text-red-400 bg-red-500/10'
+                : 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+            }`}
+          >
+            {threat.letter}
+          </Badge>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground text-sm">{threat.name}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <Progress value={progress} className="h-1 flex-1" />
+              <span className="text-xs text-muted-foreground">{completed}/{total}</span>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Next Steps */}
-      <Card className="bg-zinc-900 border-zinc-700">
-        <CardContent className="p-3">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase mb-2">Next Steps</h3>
-          <ul className="space-y-1.5 text-sm text-zinc-300">
-            <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-400" /> Continue monitoring vital signs</li>
-            <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-400" /> Document interventions and times</li>
-            <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-400" /> Arrange definitive care / transfer</li>
-            <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-400" /> Debrief with team</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* Actions */}
-      <div className="space-y-2">
-        <button
-          onClick={onCardiacArrest}
-          className="w-full py-3 bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
-        >
-          <Heart className="h-4 w-4" />
-          CARDIAC ARREST — Start CPR Now
+          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
-        <Button onClick={onReset} className="w-full py-3 text-lg font-bold" variant="outline">
-          <RotateCcw className="h-5 w-5 mr-2" />
-          Start New Case
+
+        {/* Expanded interventions */}
+        {expanded && (
+          <div className="mt-3 space-y-2 border-t border-border pt-3">
+            {threat.interventions.map(intervention => (
+              <div key={intervention.id}>
+                <div className={`flex items-start gap-2 p-2 rounded-lg ${
+                  intervention.status === 'completed'
+                    ? 'bg-green-500/5 opacity-60'
+                    : intervention.status === 'in_progress'
+                    ? 'bg-amber-500/10'
+                    : 'bg-accent/20'
+                }`}>
+                  <div className="mt-0.5 shrink-0">
+                    {intervention.status === 'completed' ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                    ) : intervention.status === 'in_progress' ? (
+                      <Play className="h-4 w-4 text-amber-400" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-foreground">{intervention.action}</p>
+                    {intervention.dose && (
+                      <p className="text-xs text-primary mt-0.5">{calcDose(intervention.dose, weight)}</p>
+                    )}
+                    {intervention.dose?.preparation && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{intervention.dose.preparation}</p>
+                    )}
+                    {intervention.detail && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{intervention.detail}</p>
+                    )}
+
+                    {/* Status actions */}
+                    {intervention.status === 'pending' && (
+                      <div className="flex gap-1 mt-2">
+                        <Button size="sm" className="h-7 text-xs" onClick={() => onStart(intervention.id)}>
+                          <Play className="h-3 w-3 mr-1" /> Start
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onComplete(intervention.id)}>
+                          Done
+                        </Button>
+                      </div>
+                    )}
+                    {intervention.status === 'in_progress' && (
+                      <div className="flex gap-1 mt-2">
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
+                        </Button>
+                        {intervention.reassessmentChecks && intervention.reassessmentChecks.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => setReassessmentMode({ interventionId: intervention.id, checkIndex: 0 })}
+                          >
+                            Reassess
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {intervention.status === 'completed' && intervention.reassessmentChecks && intervention.reassessmentChecks.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs mt-1"
+                        onClick={() => setReassessmentMode({ interventionId: intervention.id, checkIndex: 0 })}
+                      >
+                        <Stethoscope className="h-3 w-3 mr-1" /> Reassess
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reassessment Flow */}
+                {reassessmentMode?.interventionId === intervention.id && intervention.reassessmentChecks && (
+                  <ReassessmentFlow
+                    checks={intervention.reassessmentChecks}
+                    currentIndex={reassessmentMode.checkIndex}
+                    weight={weight}
+                    session={session}
+                    setSession={setSession}
+                    onAdvance={(idx) => setReassessmentMode({ interventionId: intervention.id, checkIndex: idx })}
+                    onClose={() => setReassessmentMode(null)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Reassessment Flow ──────────────────────────────────────
+
+function ReassessmentFlow({
+  checks,
+  currentIndex,
+  weight,
+  session,
+  setSession,
+  onAdvance,
+  onClose,
+}: {
+  checks: ReassessmentCheck[];
+  currentIndex: number;
+  weight: number | null;
+  session: ResusSession;
+  setSession: (s: ResusSession) => void;
+  onAdvance: (idx: number) => void;
+  onClose: () => void;
+}) {
+  const check = checks[currentIndex];
+  if (!check) return null;
+
+  const handleOption = (option: (typeof check.options)[0]) => {
+    const next = JSON.parse(JSON.stringify(session)) as ResusSession;
+    next.events.push({
+      timestamp: Date.now(),
+      type: 'reassessment',
+      detail: `Reassessment: ${check.question} -> ${option.label}`,
+    });
+
+    if (option.recommendation) {
+      next.events.push({
+        timestamp: Date.now(),
+        type: 'note',
+        detail: `Recommendation: ${option.recommendation}`,
+      });
+    }
+
+    setSession(next);
+
+    if (option.action === 'resolved' || option.action === 'stop') {
+      onClose();
+    } else if (currentIndex < checks.length - 1) {
+      onAdvance(currentIndex + 1);
+    } else {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="mt-2 bg-accent/30 rounded-lg p-3 border border-border">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-foreground">{check.question}</p>
+        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onClose}>
+          <X className="h-3 w-3" />
         </Button>
       </div>
+      <div className="space-y-2">
+        {check.options.map(option => (
+          <button
+            key={option.value}
+            className={`w-full text-left p-2 rounded-lg border text-xs transition-colors ${
+              option.action === 'stop'
+                ? 'border-red-500/30 hover:bg-red-500/10'
+                : option.action === 'resolved'
+                ? 'border-green-500/30 hover:bg-green-500/10'
+                : option.action === 'escalate'
+                ? 'border-amber-500/30 hover:bg-amber-500/10'
+                : 'border-border hover:bg-accent/50'
+            }`}
+            onClick={() => handleOption(option)}
+          >
+            <p className="font-medium text-foreground">{option.label}</p>
+            {option.recommendation && (
+              <p className="text-muted-foreground mt-1">{option.recommendation}</p>
+            )}
+            {option.rationale && (
+              <p className="text-muted-foreground/70 mt-0.5 italic">{option.rationale}</p>
+            )}
+            {option.dose && (
+              <p className="text-primary mt-1 font-medium">{calcDose(option.dose, weight)}</p>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Vital Badge ────────────────────────────────────────────
+
+function VitalBadge({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div className="bg-accent/30 rounded-lg p-2 text-center">
+      <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
+      <p className="text-sm font-bold text-foreground">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{unit}</p>
     </div>
   );
 }

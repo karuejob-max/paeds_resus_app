@@ -42,3 +42,18 @@
 - [ ] Voice command integration
 - [ ] Freemium credits model
 - [ ] Payment integration (Stripe)
+
+## Critical Fixes (User Feedback - Feb 10)
+- [x] FIX: Clinical consistency — single source of truth for dosing (10ml/kg for ALL initial boluses)
+- [x] FIX: Drug name always shown with dose (calcDose always prefixes drug name)
+- [x] FIX: Remove "Pediatric Assessment Triangle" — Quick Assessment is universal for ALL ages
+- [x] FIX: Objective vital signs input (actual numbers: HR, RR, SpO2, BP, Temp, Glucose with interpretation)
+- [x] FIX: Mid-case patient info entry — updatePatientInfo() + Edit dialog accessible from top bar
+- [x] BUILD: Intervention Tracking Side Panel (swipeable/collapsible)
+  - [x] Tracks live intervention status (pending/in_progress/completed)
+  - [x] Reassessment prompts after each intervention
+  - [x] Reassess for complications (crackles, hepatomegaly, JVP, respiratory distress)
+  - [x] Reassess for therapeutic endpoints (HR, CRT, mental status, urine output)
+  - [x] Clinical recommendation based on reassessment (repeat bolus, stop + furosemide, start epi)
+  - [x] Dose + rationale on every recommendation
+  - [x] Thorough assessment guides shock type recognition (cold vs warm shock differentiation)
