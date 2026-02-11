@@ -57,3 +57,46 @@
   - [x] Clinical recommendation based on reassessment (repeat bolus, stop + furosemide, start epi)
   - [x] Dose + rationale on every recommendation
   - [x] Thorough assessment guides shock type recognition (cold vs warm shock differentiation)
+
+## Clinical Architecture Upgrade (Feb 11 - Kolb Cycle)
+### Airway Restructure
+- [x] Add CHOKING pathway to X/A assessment
+- [x] Move AVPU to Airway (A) — AVPU ≤ P = airway at risk
+- [x] Age-appropriate head positioning (neutral for infants, sniffing for older children/adults)
+- [x] Airway adjuncts: OPA if AVPU @ U, NPA if AVPU @ P
+- [x] Consider advanced airways (supraglottic/ETT) as escalation option
+
+### Breathing Restructure
+- [x] Move "Deep laboured breathing" from auscultation to inspection (next to RR)
+- [x] Deep laboured breathing = compensatory sign of METABOLIC ACIDOSIS (not DKA-specific)
+- [x] Remove DKA tunnel vision — present differential: DKA, sepsis with starvation ketones, lactic acidosis, renal failure, poisoning
+
+### Circulation & Shock Escalation
+- [x] Objective perfusion assessment: ask CRT (seconds), skin temp, pulse character separately — engine determines perfusion state (no anchoring bias from option ordering)
+- [x] Balanced crystalloids (Ringer's Lactate) as default fluid, NS only for neonates
+- [x] Rationale for RL: no hyperchloremic acidosis, lactate buffered to bicarb by liver, balanced electrolytes
+- [x] Fluid tracker as first-class citizen: total mL/kg given, bolus count, running status
+- [x] Shock escalation ladder (protocol, not suggestion):
+  - [x] Epinephrine first (myocardial dysfunction, vasoplegia, universally available)
+  - [x] Norepinephrine (persistent vasoplegia)
+  - [x] Hydrocortisone (adrenal insufficiency)
+  - [x] Check calcium levels
+  - [x] Milrinone (catecholamine-refractory cold/reduced CO shock)
+  - [x] Vasopressin (catecholamine-refractory warm/hyperdynamic shock)
+- [x] Fluid-refractory shock auto-detection at ≥60mL/kg → trigger vasopressor ladder
+
+### Intervention Lifecycle (System-Wide)
+- [x] Intervention states: SUGGESTED → ONGOING (timer) → COMPLETED → REASSESS
+- [x] Completed intervention triggers clinical decision point (not just "move on")
+- [x] Reassessment outcomes: Problem Resolved / Problem Persists / New Problem / Escalate
+- [x] Escalation examples:
+  - [x] Shock: Resolved → stop / Still present → next bolus / Fluid overload → furosemide / Fluid-refractory → epi
+  - [x] Airway: Patent → continue / Still obstructed → escalate (MgSO4, advanced airway)
+  - [x] Seizure: Stopped → continue / Still convulsing → next dose diazepam 0.3mg/kg IV or 0.5mg/kg PR
+- [x] Clear visual distinction: suggested vs ongoing vs completed interventions
+
+### Anti-Tunnel-Vision (Differential Thinking)
+- [x] Metabolic acidosis differentials (not just DKA): sepsis, starvation ketones, lactic acidosis, renal failure, poisoning
+- [x] Stress hyperglycemia awareness (septic child with poor feeding can have ketones + high glucose)
+- [x] Engine presents findings and differentials, not premature diagnoses
+- [x] Lactate assessment option (added to D letter)

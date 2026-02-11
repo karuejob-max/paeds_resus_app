@@ -45,7 +45,7 @@ import {
   getSuggestedDiagnoses,
   triggerCardiacArrest,
   achieveROSC,
-  exportEventLog,
+  exportClinicalRecord,
   updatePatientInfo,
   acknowledgeSafetyAlert,
   calcDose,
@@ -87,7 +87,7 @@ import {
 
 const LETTER_CONFIG: Record<ABCDELetter, { label: string; icon: React.ReactNode; color: string; bgColor: string }> = {
   X: { label: 'X — Exsanguination', icon: <Droplets className="h-5 w-5" />, color: 'text-red-400', bgColor: 'bg-red-500/20' },
-  A: { label: 'A — Airway', icon: <Activity className="h-5 w-5" />, color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
+  A: { label: 'A — Airway (+ AVPU)', icon: <Activity className="h-5 w-5" />, color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
   B: { label: 'B — Breathing', icon: <Stethoscope className="h-5 w-5" />, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20' },
   C: { label: 'C — Circulation', icon: <Heart className="h-5 w-5" />, color: 'text-rose-400', bgColor: 'bg-rose-500/20' },
   D: { label: 'D — Disability', icon: <Brain className="h-5 w-5" />, color: 'text-purple-400', bgColor: 'bg-purple-500/20' },
@@ -231,7 +231,7 @@ export default function ResusGPS() {
   };
 
   const handleExport = () => {
-    const text = exportEventLog(session);
+    const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -370,9 +370,14 @@ export default function ResusGPS() {
               Intervention Tracker
             </SheetTitle>
             <SheetDescription className="text-muted-foreground">
-              {activeThreats.length} active threat{activeThreats.length !== 1 ? 's' : ''} &bull; {session.bolusCount} bolus{session.bolusCount !== 1 ? 'es' : ''} given
-              {session.patientWeight && session.totalBolusVolume > 0 && (
-                <> &bull; {Math.round(session.totalBolusVolume / session.patientWeight)} mL/kg total</>
+              {activeThreats.length} active threat{activeThreats.length !== 1 ? 's' : ''}
+              {session.fluidTracker.bolusCount > 0 && (
+                <> &bull; {session.fluidTracker.bolusCount} bolus{session.fluidTracker.bolusCount !== 1 ? 'es' : ''}
+                  {session.patientWeight ? ` (${Math.round(session.fluidTracker.totalVolumePerKg)} mL/kg)` : ` (${Math.round(session.fluidTracker.totalVolumeMl)} mL)`}
+                </>
+              )}
+              {session.fluidTracker.isFluidRefractory && (
+                <span className="text-red-400 font-semibold"> &bull; FLUID-REFRACTORY</span>
               )}
             </SheetDescription>
           </SheetHeader>
@@ -560,6 +565,24 @@ function TopBar({
           <Pencil className="h-3 w-3 text-muted-foreground" />
         </button>
 
+        {/* Fluid Tracker Badge */}
+        {session.fluidTracker.bolusCount > 0 && (
+          <Badge
+            variant="outline"
+            className={`text-[10px] shrink-0 ${
+              session.fluidTracker.isFluidRefractory
+                ? 'border-red-500/50 text-red-400 bg-red-500/10 animate-pulse'
+                : session.fluidTracker.totalVolumePerKg >= 40
+                ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                : 'border-blue-500/50 text-blue-400 bg-blue-500/10'
+            }`}
+          >
+            <Droplets className="h-3 w-3 mr-0.5" />
+            {session.patientWeight ? `${Math.round(session.fluidTracker.totalVolumePerKg)}mL/kg` : `${Math.round(session.fluidTracker.totalVolumeMl)}mL`}
+            {session.fluidTracker.isFluidRefractory && ' ⚠️'}
+          </Badge>
+        )}
+
         <div className="flex-1" />
 
         {/* Threat count badge */}
@@ -578,7 +601,7 @@ function TopBar({
         )}
 
         {/* Cardiac Arrest button */}
-        {session.phase !== 'CARDIAC_ARREST' && session.phase !== 'IDLE' && (
+        {session.phase !== 'CARDIAC_ARREST' && (session.phase as string) !== 'IDLE' && (
           <Button
             size="sm"
             variant="destructive"
