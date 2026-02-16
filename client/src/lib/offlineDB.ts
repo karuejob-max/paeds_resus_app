@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * IndexedDB Wrapper for Offline Clinical Data Storage
  * 

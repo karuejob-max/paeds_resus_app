@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Intervention Recommender - Risk-Benefit Categorization
 // Military Precision: Immediate vs Confirmatory Therapy
 

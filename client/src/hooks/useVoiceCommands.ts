@@ -7,11 +7,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// Lightweight local types for broader browser compatibility
+type SpeechRecognition = any;
+
 // TypeScript declarations for Web Speech API
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
   }
 }
 

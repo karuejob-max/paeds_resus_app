@@ -244,7 +244,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
         { patientWeight, patientAgeMonths },
         {
           onSuccess: async (data) => {
-            setSessionId(data.sessionId);
+            setSessionId(data.sessionId ?? null);
             setSessionCode(data.sessionCode);
             
             // Generate QR code
@@ -499,27 +499,29 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
   // Voice commands
   const { transcript, isListening, startListening, stopListening } = useVoiceCommands({
-    onCommand: (command) => {
-      const lower = command.toLowerCase();
-      
-      // Role switching
-      if (lower.includes('switch to compressions') || lower.includes('do compressions')) {
-        if (memberId) {
-          updateRole.mutate({ memberId, role: 'compressions' });
-        }
-      } else if (lower.includes('switch to airway') || lower.includes('manage airway')) {
-        if (memberId) {
-          updateRole.mutate({ memberId, role: 'airway' });
-        }
-      } else if (lower.includes('give epi') || lower.includes('epinephrine')) {
-        giveEpinephrine();
-      } else if (lower.includes('shock') || lower.includes('defibrillate')) {
-        if (phase === 'shock_ready') {
-          deliverShock();
-        }
-      } else if (lower.includes('rosc') || lower.includes('pulse back')) {
-        achieveROSC();
-      }
+    commands: {
+      'switch to compressions': () => {
+        if (memberId) updateRole.mutate({ memberId, role: 'compressions' });
+      },
+      'do compressions': () => {
+        if (memberId) updateRole.mutate({ memberId, role: 'compressions' });
+      },
+      'switch to airway': () => {
+        if (memberId) updateRole.mutate({ memberId, role: 'airway' });
+      },
+      'manage airway': () => {
+        if (memberId) updateRole.mutate({ memberId, role: 'airway' });
+      },
+      'give epi': () => giveEpinephrine(),
+      epinephrine: () => giveEpinephrine(),
+      shock: () => {
+        if (phase === 'shock_ready') deliverShock();
+      },
+      defibrillate: () => {
+        if (phase === 'shock_ready') deliverShock();
+      },
+      rosc: () => achieveROSC(),
+      'pulse back': () => achieveROSC(),
     },
   });
 
@@ -527,11 +529,11 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const handleJoinSession = () => {
     if (joinCode.length === 6) {
       joinSession.mutate(
-        { sessionCode: joinCode.toUpperCase() },
+        { sessionCode: joinCode.toUpperCase(), providerName: 'Guest Provider', role: 'observer' },
         {
           onSuccess: (data) => {
-            setSessionId(data.sessionId);
-            setMemberId(data.memberId);
+            setSessionId(data.sessionId ?? null);
+            setMemberId(data.memberId ?? null);
             setJoinCode('');
           },
         }
@@ -910,7 +912,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                     setDefibCharging(true);
                     setShowChargePrompt(false);
                     triggerHaptic('medium');
-                    logEventToDb('Defibrillator charged', `${shockEnergy}J`);
+                    addEvent('Defibrillator charged', `${shockEnergy}J`);
                     speak('Defibrillator charged and ready.');
                   }}
                   size="lg"
@@ -1019,7 +1021,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypoxia: true }));
-                          logEvent('intervention', 'Checked O₂/ventilation for hypoxia');
+                          addEvent('Checked O₂/ventilation for hypoxia');
                           speak('Hypoxia addressed');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1039,7 +1041,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypovolemia: true }));
-                          logEvent('intervention', 'Fluid bolus given for hypovolemia');
+                          addEvent('Fluid bolus given for hypovolemia');
                           speak('Fluid bolus ordered');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1059,7 +1061,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hydrogen_ion: true }));
-                          logEvent('intervention', 'Optimized ventilation for acidosis');
+                          addEvent('Optimized ventilation for acidosis');
                           speak('Ventilation optimized');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1079,7 +1081,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: true }));
-                          logEvent('intervention', 'Labs checked for electrolytes');
+                          addEvent('Labs checked for electrolytes');
                           speak('Labs ordered');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1099,7 +1101,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypothermia: true }));
-                          logEvent('intervention', 'Rewarming initiated');
+                          addEvent('Rewarming initiated');
                           speak('Rewarming started');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1119,7 +1121,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypoglycemia: true }));
-                          logEvent('intervention', 'Glucose checked/corrected');
+                          addEvent('Glucose checked/corrected');
                           speak('Glucose checked');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1145,7 +1147,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, tension_pneumo: true }));
-                          logEvent('intervention', 'Needle decompression performed');
+                          addEvent('Needle decompression performed');
                           speak('Needle decompression done');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1165,7 +1167,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, tamponade: true }));
-                          logEvent('intervention', 'Pericardiocentesis performed');
+                          addEvent('Pericardiocentesis performed');
                           speak('Pericardiocentesis done');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1185,7 +1187,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, toxins: true }));
-                          logEvent('intervention', 'Antidote/decontamination given');
+                          addEvent('Antidote/decontamination given');
                           speak('Toxin treatment initiated');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1205,7 +1207,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, thrombosis_pulmonary: true }));
-                          logEvent('intervention', 'tPA considered for PE');
+                          addEvent('tPA considered for PE');
                           speak('tPA considered');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1225,7 +1227,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, thrombosis_coronary: true }));
-                          logEvent('intervention', 'Coronary thrombosis evaluated');
+                          addEvent('Coronary thrombosis evaluated');
                           speak('Coronary thrombosis evaluated');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1245,7 +1247,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, trauma: true }));
-                          logEvent('intervention', 'Surgical consult for trauma');
+                          addEvent('Surgical consult for trauma');
                           speak('Surgical consult called');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1521,7 +1523,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, ttm_initiated: !prev.ttm_initiated }));
                     if (!postRoscChecklist.ttm_initiated) {
-                      logEvent('intervention', 'TTM initiated');
+                      addEvent('TTM initiated');
                     }
                   }}
                 >
@@ -1544,7 +1546,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, glucose_checked: !prev.glucose_checked }));
                     if (!postRoscChecklist.glucose_checked) {
-                      logEvent('intervention', 'Glucose checked post-ROSC');
+                      addEvent('Glucose checked post-ROSC');
                     }
                   }}
                 >
@@ -1567,7 +1569,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, ventilation_optimized: !prev.ventilation_optimized }));
                     if (!postRoscChecklist.ventilation_optimized) {
-                      logEvent('intervention', 'Ventilation optimized post-ROSC');
+                      addEvent('Ventilation optimized post-ROSC');
                     }
                   }}
                 >
@@ -1590,7 +1592,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, blood_pressure_stable: !prev.blood_pressure_stable }));
                     if (!postRoscChecklist.blood_pressure_stable) {
-                      logEvent('intervention', 'Blood pressure stabilized');
+                      addEvent('Blood pressure stabilized');
                     }
                   }}
                 >
@@ -1613,7 +1615,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, ecg_12lead: !prev.ecg_12lead }));
                     if (!postRoscChecklist.ecg_12lead) {
-                      logEvent('intervention', '12-lead ECG obtained');
+                      addEvent('12-lead ECG obtained');
                     }
                   }}
                 >
@@ -1636,7 +1638,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, labs_sent: !prev.labs_sent }));
                     if (!postRoscChecklist.labs_sent) {
-                      logEvent('intervention', 'Post-ROSC labs sent');
+                      addEvent('Post-ROSC labs sent');
                     }
                   }}
                 >
@@ -1659,7 +1661,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, imaging_ordered: !prev.imaging_ordered }));
                     if (!postRoscChecklist.imaging_ordered) {
-                      logEvent('intervention', 'Post-ROSC imaging ordered');
+                      addEvent('Post-ROSC imaging ordered');
                     }
                   }}
                 >
@@ -1682,7 +1684,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   onClick={() => {
                     setPostRoscChecklist(prev => ({ ...prev, picu_contacted: !prev.picu_contacted }));
                     if (!postRoscChecklist.picu_contacted) {
-                      logEvent('intervention', 'PICU contacted for transfer');
+                      addEvent('PICU contacted for transfer');
                     }
                   }}
                 >

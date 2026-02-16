@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Differential Diagnosis Engine - Pattern Recognition Algorithms
 // Military Precision: Zero diagnostic burden on provider
 

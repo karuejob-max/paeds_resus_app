@@ -23,8 +23,8 @@ export function FeatureTooltip({
 }: FeatureTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const longPressRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setIsMobile('ontouchstart' in window);

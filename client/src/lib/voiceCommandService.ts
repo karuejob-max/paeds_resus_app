@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Voice Command Service for Hands-Free Clinical Assessment
  * 

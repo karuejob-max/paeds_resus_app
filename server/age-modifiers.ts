@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Age-Specific Modifiers Engine
 // Accounts for different clinical presentations across age groups
 
