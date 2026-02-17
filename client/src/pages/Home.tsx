@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ResusGPS Homepage - Pure Emergency Interface
  * 

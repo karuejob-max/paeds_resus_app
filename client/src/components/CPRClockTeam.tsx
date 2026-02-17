@@ -151,7 +151,7 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
         { patientWeight, patientAgeMonths },
         {
           onSuccess: async (data) => {
-            setSessionId(data.sessionId);
+            setSessionId(data.sessionId ?? null);
             setSessionCode(data.sessionCode);
             
             // Generate QR code
@@ -293,11 +293,11 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
   const handleJoinSession = () => {
     if (joinCode.length === 6) {
       joinSession.mutate(
-        { sessionCode: joinCode.toUpperCase() },
+        { sessionCode: joinCode.toUpperCase(), providerName: 'Guest Provider', role: 'observer' },
         {
           onSuccess: (data) => {
-            setSessionId(data.sessionId);
-            setMemberId(data.memberId);
+            setSessionId(data.sessionId ?? null);
+            setMemberId(data.memberId ?? null);
             speak('Session joined.');
           },
           onError: () => {

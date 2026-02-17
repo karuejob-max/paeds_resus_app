@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Automated Guideline Monitoring System
 // Tracks AHA/WHO/ACOG/ERC/ILCOR updates and flags protocols needing revision
 

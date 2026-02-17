@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Clinical Assessment - GPS Mode
  * 

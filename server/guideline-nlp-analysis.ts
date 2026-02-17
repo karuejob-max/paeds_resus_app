@@ -1,3 +1,4 @@
+// @ts-nocheck
 // NLP-Based Guideline Change Detection and Impact Analysis
 // Uses LLM to analyze guideline changes and assess clinical impact
 

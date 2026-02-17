@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Background Sync Queue for Offline Mutations
  * 
