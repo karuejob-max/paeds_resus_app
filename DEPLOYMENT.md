@@ -42,15 +42,15 @@ The Paeds Resus Elite Fellowship and Safe-Truth Platform is a production-ready w
 
 Ensure all required environment variables are configured:
 
-```
+```bash
 # Database
 DATABASE_URL=mysql://user:password@host:3306/paeds_resus
 
-# Authentication
+# Authentication (example values; point to your OAuth provider)
 JWT_SECRET=<generate-secure-random-string>
-VITE_APP_ID=<manus-oauth-app-id>
-OAUTH_SERVER_URL=https://api.manus.im
-VITE_OAUTH_PORTAL_URL=<manus-oauth-portal-url>
+VITE_APP_ID=<oauth-app-id>
+OAUTH_SERVER_URL=<oauth-server-url>
+VITE_OAUTH_PORTAL_URL=<oauth-portal-url>
 
 # Payment Processing
 MPESA_CONSUMER_KEY=<daraja-api-key>
@@ -70,11 +70,14 @@ TWILIO_ACCOUNT_SID=<twilio-sid>
 TWILIO_AUTH_TOKEN=<twilio-token>
 TWILIO_PHONE_NUMBER=<twilio-number>
 
-# Manus APIs
-BUILT_IN_FORGE_API_KEY=<forge-api-key>
-BUILT_IN_FORGE_API_URL=<forge-api-url>
-VITE_FRONTEND_FORGE_API_KEY=<frontend-forge-key>
-VITE_FRONTEND_FORGE_API_URL=<forge-api-url>
+# LLM / AI Provider
+BUILT_IN_FORGE_API_KEY=<llm-api-key>
+BUILT_IN_FORGE_API_URL=<llm-api-base-url>
+VITE_FRONTEND_FORGE_API_KEY=<frontend-llm-key>
+VITE_FRONTEND_FORGE_API_URL=<frontend-llm-base-url>
+
+# App URLs
+APP_BASE_URL=<https-app-base-url>
 
 # Owner Info
 OWNER_NAME=<owner-name>

@@ -1,7 +1,11 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import * as db from "./db";
+import { z } from "zod";
+import * as bcrypt from "bcryptjs";
 import { enrollmentRouter } from "./routers/enrollment";
 import { certificateRouter } from "./routers/certificates";
 import { smsRouter } from "./routers/sms";
@@ -117,6 +121,36 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    register: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(8), name: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const existing = await db.getUserByEmail(input.email);
+        if (existing) throw new Error("Email already registered");
+        const openId = `email:${input.email}`;
+        const passwordHash = await bcrypt.hash(input.password, 10);
+        await db.createUserWithPassword({
+          openId,
+          email: input.email,
+          name: input.name ?? null,
+          passwordHash,
+        });
+        return { success: true };
+      }),
+    loginWithPassword: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user?.passwordHash) throw new Error("Invalid email or password");
+        const ok = await bcrypt.compare(input.password, user.passwordHash);
+        if (!ok) throw new Error("Invalid email or password");
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.name ?? "",
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true };
+      }),
   }),
   enrollment: enrollmentRouter,
   certificates: certificateRouter,

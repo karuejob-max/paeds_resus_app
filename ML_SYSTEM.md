@@ -425,8 +425,8 @@ curl http://localhost:3000/api/trpc/ml.getSystemStatus
 # Run individual ML module
 curl http://localhost:3000/api/trpc/ml.kaizen.runPipeline
 
-# Check logs
-tail -f .manus-logs/devserver.log
+# Check logs (update path to your log location)
+tail -f logs/devserver.log
 ```
 
 ---

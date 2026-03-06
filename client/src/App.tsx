@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import ResusGPS from "./pages/ResusGPS";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import { Toaster } from "@/components/ui/sonner";
 
 function ScrollToTop() {
@@ -18,6 +20,8 @@ function Router() {
       <ScrollToTop />
       <main className="flex-1">
         <Switch>
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
           {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />

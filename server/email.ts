@@ -17,6 +17,12 @@ interface EmailParams {
   textBody?: string;
 }
 
+const getAppBaseUrl = () => {
+  const fallback = "https://app.paedsresus.com";
+  const base = ENV.appBaseUrl || fallback;
+  return base.replace(/\/$/, "");
+};
+
 /**
  * Send email via AWS SES
  */
@@ -65,6 +71,7 @@ export async function sendEnrollmentConfirmation(
   programName: string,
   enrollmentId: number
 ): Promise<boolean> {
+  const dashboardUrl = `${getAppBaseUrl()}/dashboard`;
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -94,7 +101,7 @@ export async function sendEnrollmentConfirmation(
               <li>Join your cohort and start learning!</li>
             </ol>
             <p>Your enrollment ID is: <strong>${enrollmentId}</strong></p>
-            <a href="https://paedsresus-ddancniz.manus.space/dashboard" class="cta">View Your Dashboard</a>
+            <a href="${dashboardUrl}" class="cta">View Your Dashboard</a>
           </div>
           <div class="footer">
             <p>Questions? Contact us at support@paedsresus.com or call +254 712 345 678</p>
@@ -122,6 +129,7 @@ export async function sendPaymentReminder(
   amount: number,
   enrollmentId: number
 ): Promise<boolean> {
+  const dashboardUrl = `${getAppBaseUrl()}/dashboard`;
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -150,7 +158,7 @@ export async function sendPaymentReminder(
               <p><strong>Payment Methods:</strong> M-Pesa or Bank Transfer</p>
             </div>
             <p>Complete your payment within the next 48 hours to secure your spot in the program.</p>
-            <a href="https://paedsresus-ddancniz.manus.space/dashboard" class="cta">Complete Payment</a>
+            <a href="${dashboardUrl}" class="cta">Complete Payment</a>
           </div>
           <div class="footer">
             <p>Need help? Contact us at support@paedsresus.com</p>
@@ -180,6 +188,7 @@ export async function sendTrainingConfirmation(
   location: string,
   instructorName: string
 ): Promise<boolean> {
+  const dashboardUrl = `${getAppBaseUrl()}/dashboard`;
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -215,7 +224,7 @@ export async function sendTrainingConfirmation(
               <li>Notebook for notes</li>
               <li>Positive attitude!</li>
             </ul>
-            <a href="https://paedsresus-ddancniz.manus.space/dashboard" class="cta">View Training Details</a>
+            <a href="${dashboardUrl}" class="cta">View Training Details</a>
           </div>
           <div class="footer">
             <p>See you soon! Contact us at support@paedsresus.com if you have any questions.</p>
@@ -242,6 +251,7 @@ export async function sendInstitutionalResponse(
   institutionName: string,
   contactName: string
 ): Promise<boolean> {
+  const institutionalUrl = `${getAppBaseUrl()}/institutional`;
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -271,7 +281,7 @@ export async function sendInstitutionalResponse(
               <li>Bulk pricing options</li>
               <li>Implementation timeline</li>
             </ul>
-            <a href="https://paedsresus-ddancniz.manus.space/institutional" class="cta">View Institutional Programs</a>
+            <a href="${institutionalUrl}" class="cta">View Institutional Programs</a>
           </div>
           <div class="footer">
             <p>Questions? Contact our institutional partnerships team at institutional@paedsresus.com</p>

@@ -316,7 +316,7 @@ The monitoring dashboard provides unprecedented visibility into resuscitation qu
 
 To access the monitoring dashboard:
 
-1. Navigate to `https://your-domain.manus.space/cpr-monitoring` or `/monitoring`
+1. Navigate to `https://your-domain.com/cpr-monitoring` or `/monitoring`
 2. Log in with your ResusGPS account (requires authentication)
 3. View real-time statistics and session list
 4. Use filters to focus on specific statuses or outcomes

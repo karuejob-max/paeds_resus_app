@@ -1073,7 +1073,7 @@ pnpm start
 
 ### Environment Variables
 
-The platform requires these environment variables (automatically injected by Manus):
+The platform requires these environment variables (values shown here are examples; configure them for your own infrastructure or provider):
 
 ```env
 # Database
@@ -1081,12 +1081,12 @@ DATABASE_URL=mysql://user:password@host:3306/paeds_resus
 
 # Authentication
 JWT_SECRET=your-jwt-secret-key
-VITE_APP_ID=manus-app-id
-OAUTH_SERVER_URL=https://api.manus.im
-VITE_OAUTH_PORTAL_URL=https://auth.manus.im
+VITE_APP_ID=your-oauth-app-id
+OAUTH_SERVER_URL=https://auth.your-oauth-provider.com
+VITE_OAUTH_PORTAL_URL=https://auth.your-oauth-provider.com/portal
 
 # LLM Integration
-BUILT_IN_FORGE_API_URL=https://api.manus.im/forge
+BUILT_IN_FORGE_API_URL=https://llm.your-provider.com
 BUILT_IN_FORGE_API_KEY=your-api-key
 VITE_FRONTEND_FORGE_API_KEY=frontend-key
 
@@ -1095,8 +1095,11 @@ OWNER_NAME=Your Name
 OWNER_OPEN_ID=your-open-id
 
 # Analytics
-VITE_ANALYTICS_ENDPOINT=https://analytics.manus.im
+VITE_ANALYTICS_ENDPOINT=https://analytics.your-provider.com
 VITE_ANALYTICS_WEBSITE_ID=your-website-id
+
+# App URLs
+APP_BASE_URL=https://app.paedsresus.com
 ```
 
 ### Database Migrations
