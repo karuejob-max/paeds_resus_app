@@ -6,10 +6,18 @@ import { ENV } from './_core/env';
 let _db: ReturnType<typeof drizzle> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
+// Normalize Aiven-style ssl-mode=REQUIRED so MySQL2 accepts it (avoids "invalid configuration option" warning).
+function normalizeDatabaseUrl(url: string): string {
+  return url.replace(/[?&]ssl-mode=REQUIRED/gi, (match) =>
+    match.startsWith("?") ? "?ssl=true" : "&ssl=true"
+  );
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const url = normalizeDatabaseUrl(process.env.DATABASE_URL);
+      _db = drizzle(url);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
