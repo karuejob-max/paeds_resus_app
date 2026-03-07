@@ -109,7 +109,12 @@ import { guidelinesRouter } from "./routers/guidelines";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      const user = opts.ctx.user;
+      if (!user) return null;
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      return safeUser;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -152,7 +157,7 @@ export const appRouter = router({
   support: supportRouter,
   dashboards: dashboardsRouter,
   predictions: predictionsRouter,
-  email:  emailRouter,
+  email: emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   institution: institutionRouter,
   institutionalNotifications: institutionalNotificationsRouter,

@@ -13,12 +13,14 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 ### Core Features
 
 #### 1. **Institutional Training Programs**
+
 - **BLS (Basic Life Support)** - 8 hours, foundational resuscitation skills
 - **ACLS (Advanced Cardiovascular Life Support)** - 16 hours, advanced cardiac care
 - **PALS (Pediatric Advanced Life Support)** - 16 hours, pediatric-specific protocols
 - **Fellowship** - 120 hours, comprehensive mastery program
 
 #### 2. **Hospital Management System**
+
 - Institutional registration and subscription management
 - Bulk staff import (CSV upload)
 - Real-time progress tracking dashboard
@@ -26,18 +28,21 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 - Revenue and ROI analytics
 
 #### 3. **Payment Processing**
+
 - M-Pesa integration for Kenyan hospitals
 - Flexible subscription plans (Basic, Professional, Enterprise)
 - Automated billing and payment tracking
 - Invoice generation and reporting
 
 #### 4. **Certificate Management**
+
 - Branded PDF certificates with verification codes
 - Digital certificate repository
 - Certificate verification system
 - Expiry tracking and renewal reminders
 
 #### 5. **Safe-Truth Incident Reporting**
+
 - Confidential incident reporting system
 - System gap identification and categorization
 - Outcome tracking (survived, neurologically intact, poor outcome)
@@ -45,6 +50,7 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 - Incident analytics and trend analysis
 
 #### 6. **Analytics & Reporting**
+
 - Enrollment trends and demographics
 - Course completion rates by program
 - Geographic distribution analysis
@@ -56,6 +62,7 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 ## Technology Stack
 
 ### Frontend
+
 - **React 19** - Modern UI framework
 - **Tailwind CSS 4** - Utility-first styling
 - **TypeScript** - Type-safe development
@@ -64,6 +71,7 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 - **shadcn/ui** - Accessible component library
 
 ### Backend
+
 - **Node.js** - JavaScript runtime
 - **Express 4** - Web framework
 - **tRPC 11** - Type-safe RPC framework
@@ -71,15 +79,27 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 - **MySQL/TiDB** - Relational database
 
 ### Infrastructure
+
 - **AWS S3** - File storage
 - **AWS SES** - Email service
 - **Twilio** - SMS service
 - **M-Pesa Daraja API** - Payment processing
-- **Manus OAuth** - Authentication
+- **Email + Password (JWT cookie sessions)** - Authentication
 
 ---
 
 ## Getting Started
+
+### Collaboration Workflow (Codex + Manus + Developers)
+
+To avoid branch/sync confusion, follow the standard handoff protocol in:
+
+- `docs/CODEX_MANUS_COLLABORATION.md`
+- `docs/SECURITY_ENVIRONMENT_DECISIONS.md`
+- `docs/PLATFORM_SOURCE_OF_TRUTH.md`
+- `docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`
+
+Use these docs whenever coordinating branch/commit handoffs, platform decisions, and release acceptance criteria.
 
 ### Prerequisites
 
@@ -88,6 +108,137 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 - MySQL 8.0+ or TiDB
 - AWS account (for S3, SES)
 - M-Pesa Daraja API credentials
+
+### Windows (cmd) Quick Setup
+
+If **`node` is not recognized**, Node.js is not installed yet. Do this first:
+
+```text
+1) Open https://nodejs.org
+2) Download and install the "LTS" version
+3) Close and reopen Command Prompt
+```
+
+(Alternative installer if you use winget):
+
+```bat
+winget install OpenJS.NodeJS.LTS
+```
+
+Now verify:
+
+```bat
+node -v
+npm -v
+```
+
+Then install/activate pnpm:
+
+```bat
+corepack enable
+corepack prepare pnpm@latest --activate
+pnpm -v
+```
+
+If your output looks like this, setup is successful and you should continue:
+
+```text
+node -v   -> v24.x.x (or another version)
+npm -v    -> 11.x.x (or another version)
+pnpm -v   -> 10.x.x (or another version)
+```
+
+After that prompt returns to `C:\Users\...>`, continue to the project commands below.
+
+If you see this warning during `pnpm install`:
+
+```text
+Ignored build scripts: @tailwindcss/oxide, esbuild
+```
+
+run:
+
+```bat
+pnpm approve-builds
+```
+
+and approve the prompted packages once.
+
+If `corepack` is not recognized, install pnpm directly:
+
+```bat
+npm install -g pnpm
+pnpm -v
+```
+
+Optional (for production process management):
+
+```bat
+npm install -g pm2
+pm2 -v
+```
+
+After tools are installed, run the project:
+
+```bat
+cd C:\Users\Admin\Documents\paeds_resus_app
+pnpm install
+copy .env.example .env
+# .env.example is only a starter template (sample settings)
+# .env is your real local settings file used by the app
+# Edit .env and set DATABASE_URL to your MySQL/TiDB database
+pnpm db:push
+pnpm run dev
+```
+
+Open `http://localhost:3000` in your browser.
+
+If `pnpm db:push` says `DATABASE_URL is required`, create `.env` first:
+
+```bat
+copy .env.example .env
+notepad .env
+```
+
+If you get a Notepad popup saying `.env` was not found and asking to create it, click **Yes**. That is expected on first setup.
+
+If `copy .env.example .env` says `The system cannot find the file specified`, it means you are not inside the project folder yet. Run:
+
+```bat
+cd C:\Users\Admin\Documents\paeds_resus_app
+dir .env.example
+```
+
+When `dir .env.example` shows the file, run the copy command again.
+
+Then set `DATABASE_URL=...` and run `pnpm db:push` again.
+
+If you do not know your database username/password yet, use this quick path:
+
+```bat
+# check if MySQL client is installed
+mysql --version
+```
+
+- If command works: your username is often `root` (or the username you created during MySQL setup).
+- If command fails: install MySQL Server + MySQL Workbench, then create a local connection and note:
+  - Host: `localhost`
+  - Port: `3306`
+  - Username + Password: what you set during install
+
+Example local value in `.env`:
+
+```text
+DATABASE_URL=mysql://root:YOUR_PASSWORD@localhost:3306/paeds_resus
+```
+
+If `pnpm run dev` fails with `'NODE_ENV' is not recognized`, pull latest code and reinstall dependencies (this repo now uses cross-platform scripts):
+
+```bat
+git pull
+pnpm install
+pnpm run dev
+```
 
 ### Installation
 
@@ -429,18 +580,21 @@ Please email security@paeds-resus.com with details of any security vulnerabiliti
 ## Roadmap
 
 ### Phase 2 (Q2 2026)
+
 - [ ] Mobile app (iOS/Android)
 - [ ] Video streaming for live training
 - [ ] Advanced analytics dashboard
 - [ ] Integration with hospital EMR systems
 
 ### Phase 3 (Q3 2026)
+
 - [ ] AI-powered learning recommendations
 - [ ] Gamification and leaderboards
 - [ ] Parent education portal
 - [ ] Multi-language support
 
 ### Phase 4 (Q4 2026)
+
 - [ ] Telemedicine integration
 - [ ] Real-time incident alerts
 - [ ] Predictive analytics

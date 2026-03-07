@@ -1,7 +1,38 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  enrollments,
+  payments,
+  certificates,
+  institutionalInquiries,
+  smsReminders,
+  learnerProgress,
+  userFeedback,
+  analyticsEvents,
+  experiments,
+  experimentAssignments,
+  performanceMetrics,
+  errorTracking,
+  supportTickets,
+  supportTicketMessages,
+  featureFlags,
+  userCohorts,
+  userCohortMembers,
+  conversionFunnelEvents,
+  npsSurveyResponses,
+  institutionalAccounts,
+  institutionalStaffMembers,
+  quotations,
+  contracts,
+  trainingSchedules,
+  trainingAttendance,
+  certificationExams,
+  incidents,
+  institutionalAnalytics,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -35,7 +66,12 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
+    const textFields = [
+      "name",
+      "email",
+      "passwordHash",
+      "loginMethod",
+    ] as const;
     type TextField = (typeof textFields)[number];
 
     const assignNullable = (field: TextField) => {
@@ -56,8 +92,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,7 +120,43 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user by email: database not available");
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user by id: database not available");
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
@@ -100,7 +172,10 @@ export async function createEnrollment(data: any) {
 export async function getEnrollmentsByUserId(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(enrollments).where(eq(enrollments.userId, userId));
+  return await db
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.userId, userId));
 }
 
 // Payment queries
@@ -113,7 +188,10 @@ export async function createPayment(data: any) {
 export async function getPaymentsByEnrollmentId(enrollmentId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(payments).where(eq(payments.enrollmentId, enrollmentId));
+  return await db
+    .select()
+    .from(payments)
+    .where(eq(payments.enrollmentId, enrollmentId));
 }
 
 // Certificate queries
@@ -126,7 +204,11 @@ export async function createCertificate(data: any) {
 export async function getCertificateByVerificationCode(code: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(certificates).where(eq(certificates.verificationCode, code)).limit(1);
+  const result = await db
+    .select()
+    .from(certificates)
+    .where(eq(certificates.verificationCode, code))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -153,7 +235,10 @@ export async function createSmsReminder(data: any) {
 export async function getPendingSmsReminders() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(smsReminders).where(eq(smsReminders.status, "pending"));
+  return await db
+    .select()
+    .from(smsReminders)
+    .where(eq(smsReminders.status, "pending"));
 }
 
 // Learner Progress queries
@@ -166,7 +251,11 @@ export async function createLearnerProgress(data: any) {
 export async function getLearnerProgressByUserId(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(learnerProgress).where(eq(learnerProgress.userId, userId)).limit(1);
+  const result = await db
+    .select()
+    .from(learnerProgress)
+    .where(eq(learnerProgress.userId, userId))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -180,13 +269,21 @@ export async function createUserFeedback(data: any) {
 export async function getUserFeedback(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(userFeedback).where(eq(userFeedback.userId, userId));
+  return await db
+    .select()
+    .from(userFeedback)
+    .where(eq(userFeedback.userId, userId));
 }
 
 export async function getNewFeedback(limit = 50) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(userFeedback).where(eq(userFeedback.status, "new")).orderBy(desc(userFeedback.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(userFeedback)
+    .where(eq(userFeedback.status, "new"))
+    .orderBy(desc(userFeedback.createdAt))
+    .limit(limit);
 }
 
 // Analytics Events queries
@@ -199,13 +296,22 @@ export async function trackAnalyticsEvent(data: any) {
 export async function getAnalyticsEventsByUserId(userId: number, limit = 100) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.userId, userId)).orderBy(desc(analyticsEvents.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(analyticsEvents)
+    .where(eq(analyticsEvents.userId, userId))
+    .orderBy(desc(analyticsEvents.createdAt))
+    .limit(limit);
 }
 
 export async function getAnalyticsEventsBySessionId(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.sessionId, sessionId)).orderBy(desc(analyticsEvents.createdAt));
+  return await db
+    .select()
+    .from(analyticsEvents)
+    .where(eq(analyticsEvents.sessionId, sessionId))
+    .orderBy(desc(analyticsEvents.createdAt));
 }
 
 // Experiments queries
@@ -218,14 +324,21 @@ export async function createExperiment(data: any) {
 export async function getExperimentByName(name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(experiments).where(eq(experiments.experimentName, name)).limit(1);
+  const result = await db
+    .select()
+    .from(experiments)
+    .where(eq(experiments.experimentName, name))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
 export async function getActiveExperiments() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(experiments).where(eq(experiments.status, "running"));
+  return await db
+    .select()
+    .from(experiments)
+    .where(eq(experiments.status, "running"));
 }
 
 // Experiment Assignments queries
@@ -235,10 +348,22 @@ export async function assignUserToExperiment(data: any) {
   return await db.insert(experimentAssignments).values(data);
 }
 
-export async function getUserExperimentAssignment(experimentId: number, userId: number) {
+export async function getUserExperimentAssignment(
+  experimentId: number,
+  userId: number
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(experimentAssignments).where(and(eq(experimentAssignments.experimentId, experimentId), eq(experimentAssignments.userId, userId))).limit(1);
+  const result = await db
+    .select()
+    .from(experimentAssignments)
+    .where(
+      and(
+        eq(experimentAssignments.experimentId, experimentId),
+        eq(experimentAssignments.userId, userId)
+      )
+    )
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -252,13 +377,25 @@ export async function recordPerformanceMetric(data: any) {
 export async function getRecentPerformanceMetrics(limit = 100) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(performanceMetrics).orderBy(desc(performanceMetrics.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(performanceMetrics)
+    .orderBy(desc(performanceMetrics.createdAt))
+    .limit(limit);
 }
 
-export async function getPerformanceMetricsByEndpoint(endpoint: string, limit = 50) {
+export async function getPerformanceMetricsByEndpoint(
+  endpoint: string,
+  limit = 50
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(performanceMetrics).where(eq(performanceMetrics.endpoint, endpoint)).orderBy(desc(performanceMetrics.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(performanceMetrics)
+    .where(eq(performanceMetrics.endpoint, endpoint))
+    .orderBy(desc(performanceMetrics.createdAt))
+    .limit(limit);
 }
 
 // Error Tracking queries
@@ -271,13 +408,22 @@ export async function trackError(data: any) {
 export async function getRecentErrors(limit = 50) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(errorTracking).where(eq(errorTracking.status, "new")).orderBy(desc(errorTracking.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(errorTracking)
+    .where(eq(errorTracking.status, "new"))
+    .orderBy(desc(errorTracking.createdAt))
+    .limit(limit);
 }
 
 export async function getCriticalErrors() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(errorTracking).where(eq(errorTracking.severity, "critical")).orderBy(desc(errorTracking.createdAt));
+  return await db
+    .select()
+    .from(errorTracking)
+    .where(eq(errorTracking.severity, "critical"))
+    .orderBy(desc(errorTracking.createdAt));
 }
 
 // Support Tickets queries
@@ -290,19 +436,32 @@ export async function createSupportTicket(data: any) {
 export async function getSupportTicketsByUserId(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(supportTickets).where(eq(supportTickets.userId, userId)).orderBy(desc(supportTickets.createdAt));
+  return await db
+    .select()
+    .from(supportTickets)
+    .where(eq(supportTickets.userId, userId))
+    .orderBy(desc(supportTickets.createdAt));
 }
 
 export async function getOpenSupportTickets(limit = 50) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(supportTickets).where(eq(supportTickets.status, "open")).orderBy(desc(supportTickets.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(supportTickets)
+    .where(eq(supportTickets.status, "open"))
+    .orderBy(desc(supportTickets.createdAt))
+    .limit(limit);
 }
 
 export async function getSupportTicketByNumber(ticketNumber: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(supportTickets).where(eq(supportTickets.ticketNumber, ticketNumber)).limit(1);
+  const result = await db
+    .select()
+    .from(supportTickets)
+    .where(eq(supportTickets.ticketNumber, ticketNumber))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -316,7 +475,11 @@ export async function addSupportTicketMessage(data: any) {
 export async function getSupportTicketMessages(ticketId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId)).orderBy(desc(supportTicketMessages.createdAt));
+  return await db
+    .select()
+    .from(supportTicketMessages)
+    .where(eq(supportTicketMessages.ticketId, ticketId))
+    .orderBy(desc(supportTicketMessages.createdAt));
 }
 
 // Feature Flags queries
@@ -329,7 +492,11 @@ export async function createFeatureFlag(data: any) {
 export async function getFeatureFlagByName(flagName: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(featureFlags).where(eq(featureFlags.flagName, flagName)).limit(1);
+  const result = await db
+    .select()
+    .from(featureFlags)
+    .where(eq(featureFlags.flagName, flagName))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -349,7 +516,11 @@ export async function createUserCohort(data: any) {
 export async function getUserCohortByName(cohortName: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.select().from(userCohorts).where(eq(userCohorts.cohortName, cohortName)).limit(1);
+  const result = await db
+    .select()
+    .from(userCohorts)
+    .where(eq(userCohorts.cohortName, cohortName))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -362,7 +533,10 @@ export async function addUserToCohort(cohortId: number, userId: number) {
 export async function getCohortMembers(cohortId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(userCohortMembers).where(eq(userCohortMembers.cohortId, cohortId));
+  return await db
+    .select()
+    .from(userCohortMembers)
+    .where(eq(userCohortMembers.cohortId, cohortId));
 }
 
 // Conversion Funnel Events queries
@@ -375,7 +549,11 @@ export async function trackConversionFunnelEvent(data: any) {
 export async function getFunnelEventsBySessionId(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(conversionFunnelEvents).where(eq(conversionFunnelEvents.sessionId, sessionId)).orderBy(desc(conversionFunnelEvents.createdAt));
+  return await db
+    .select()
+    .from(conversionFunnelEvents)
+    .where(eq(conversionFunnelEvents.sessionId, sessionId))
+    .orderBy(desc(conversionFunnelEvents.createdAt));
 }
 
 // NPS Survey Responses queries
@@ -388,7 +566,11 @@ export async function recordNpsSurveyResponse(data: any) {
 export async function getNpsSurveyResponses(limit = 100) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.select().from(npsSurveyResponses).orderBy(desc(npsSurveyResponses.createdAt)).limit(limit);
+  return await db
+    .select()
+    .from(npsSurveyResponses)
+    .orderBy(desc(npsSurveyResponses.createdAt))
+    .limit(limit);
 }
 
 export async function calculateNPS() {

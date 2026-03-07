@@ -10,6 +10,133 @@ The Paeds Resus Elite Fellowship and Safe-Truth Platform is a production-ready w
 
 ---
 
+## Fast Deployment (Recommended)
+
+Use this for rolling out the newest version quickly:
+
+1. Pull latest code on server
+
+   ```bash
+   git pull
+   pnpm install --frozen-lockfile
+   ```
+
+2. Build and migrate
+
+   ```bash
+   pnpm run build
+   pnpm db:push
+   ```
+
+3. Restart app process
+
+   ```bash
+   # if using systemd
+   sudo systemctl restart paeds-resus
+
+   # if using pm2
+   pm2 restart paeds-resus || pm2 start dist/index.js --name paeds-resus
+   ```
+
+4. Verify deployment
+   ```bash
+   curl -I http://localhost:3000/
+   ```
+
+For first-time infrastructure setup, continue with the full guide below.
+
+### If commands fail with "not recognized" on Windows cmd
+
+If `node` and `npm` are not recognized, install Node.js LTS first, then reopen Command Prompt:
+
+```text
+- Download from https://nodejs.org (LTS)
+- or run: winget install OpenJS.NodeJS.LTS
+```
+
+Then run this one-time setup:
+
+```bat
+node -v
+npm -v
+corepack enable
+corepack prepare pnpm@latest --activate
+pnpm -v
+npm install -g pm2
+pm2 -v
+```
+
+If you see version numbers for `node`, `npm`, and `pnpm`, the setup worked.
+Once the prompt returns to `C:\Users\...>`, continue with deployment commands.
+
+If `corepack` is missing, use:
+
+```bat
+npm install -g pnpm
+pnpm -v
+```
+
+Then rerun the fast deploy steps.
+
+
+If `pnpm install` warns about ignored build scripts, run once:
+
+```bat
+pnpm approve-builds
+```
+
+Then approve `@tailwindcss/oxide` and `esbuild`.
+
+If `pnpm db:push` fails with `DATABASE_URL is required`, create and configure `.env` first:
+
+```bat
+copy .env.example .env
+notepad .env
+```
+
+Plain-English note:
+- `.env.example` = sample file (template)
+- `.env` = your actual local settings file
+
+If Notepad says `.env` does not exist and asks to create a new file, click **Yes**.
+
+If `copy .env.example .env` says `The system cannot find the file specified`, first move into the project folder and verify the sample file exists:
+
+```bat
+cd C:\Users\Admin\Documents\paeds_resus_app
+dir .env.example
+```
+
+Set `DATABASE_URL=...`, save, then rerun `pnpm db:push`.
+
+If you do not know your database username/password yet:
+
+```bat
+mysql --version
+```
+
+- If this works, use your existing MySQL credentials (often user `root`).
+- If this fails, install MySQL Server first, create a local connection, then use:
+  - Host: `localhost`
+  - Port: `3306`
+  - Username/password: what you set during install
+
+Example:
+
+```text
+DATABASE_URL=mysql://root:YOUR_PASSWORD@localhost:3306/paeds_resus
+```
+
+If `pnpm run dev` fails with `'NODE_ENV' is not recognized`, update to latest repo scripts:
+
+```bat
+git pull
+pnpm install
+pnpm run dev
+```
+
+---
+
 ## System Architecture
 
 ### Technology Stack
@@ -84,11 +211,13 @@ OWNER_OPEN_ID=<owner-id>
 ### Database Setup
 
 1. **Create Database:**
+
    ```bash
    mysql -u root -p -e "CREATE DATABASE paeds_resus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
    ```
 
 2. **Run Migrations:**
+
    ```bash
    pnpm db:push
    ```
@@ -126,6 +255,7 @@ pnpm run build
 ```
 
 **Expected Output:**
+
 - `dist/public/` - Frontend assets (HTML, CSS, JS)
 - `dist/index.js` - Server bundle (~490KB)
 
@@ -151,11 +281,13 @@ cp .env.example .env
 ### 4. Start Server
 
 **Development:**
+
 ```bash
 pnpm run dev
 ```
 
 **Production:**
+
 ```bash
 NODE_ENV=production node dist/index.js
 ```
@@ -183,6 +315,7 @@ curl -X POST http://localhost:3000/api/trpc/auth.me \
 ### Step 1: Institution Registration
 
 Hospital admin visits `/institutional-onboarding` and completes:
+
 1. Hospital details (name, location, contact)
 2. Admin information (name, email, phone)
 3. Subscription plan selection (Basic, Professional, Enterprise)
@@ -191,6 +324,7 @@ Hospital admin visits `/institutional-onboarding` and completes:
 ### Step 2: Staff Bulk Import
 
 After payment confirmation, admin can:
+
 1. Upload CSV with staff details
 2. System validates and imports staff members
 3. Enrollment links sent to staff emails
@@ -198,6 +332,7 @@ After payment confirmation, admin can:
 ### Step 3: Staff Training
 
 Staff members:
+
 1. Click enrollment link
 2. Complete course modules (BLS, ACLS, PALS, Fellowship)
 3. Pass final assessment
@@ -206,6 +341,7 @@ Staff members:
 ### Step 4: Progress Tracking
 
 Hospital admin views:
+
 1. Real-time enrollment statistics
 2. Course completion rates
 3. Certification progress
@@ -214,6 +350,7 @@ Hospital admin views:
 ### Step 5: Safe-Truth Reporting
 
 Healthcare providers report incidents:
+
 1. Event details and outcome
 2. System gaps identified
 3. Recommendations generated
@@ -360,6 +497,7 @@ aws s3 sync s3://paeds-resus-storage /backups/s3-backup/
 ### Common Issues
 
 **1. Database Connection Failed**
+
 ```bash
 # Check connection string
 echo $DATABASE_URL
@@ -369,6 +507,7 @@ mysql -u user -p -h host paeds_resus -e "SELECT 1;"
 ```
 
 **2. OAuth Callback Error**
+
 ```bash
 # Verify OAuth credentials
 echo $VITE_APP_ID
@@ -378,6 +517,7 @@ echo $OAUTH_SERVER_URL
 ```
 
 **3. M-Pesa Payment Failure**
+
 ```bash
 # Verify M-Pesa credentials
 echo $MPESA_CONSUMER_KEY
@@ -387,6 +527,7 @@ echo $MPESA_SHORTCODE
 ```
 
 **4. Certificate Generation Fails**
+
 ```bash
 # Check pdf-lib installation
 npm list pdf-lib

@@ -23,26 +23,54 @@ export const mainNavItems: NavItem[] = [
 
 // Authenticated user navigation - ONLY WORKING PAGES
 export const authenticatedNavItems: NavItem[] = [
-  { label: "Learner Dashboard", href: "/learner-dashboard", requiresAuth: true },
+  {
+    label: "Learner Dashboard",
+    href: "/learner-dashboard",
+    requiresAuth: true,
+  },
   { label: "Payment", href: "/payment", requiresAuth: true },
 ];
 
 // Admin navigation items - ONLY WORKING PAGES
 export const adminNavItems: NavItem[] = [
-  { label: "Hospital Admin", href: "/hospital-admin-dashboard", requiresAdmin: true },
-  { label: "Advanced Analytics", href: "/advanced-analytics", requiresAdmin: true },
+  {
+    label: "Hospital Admin",
+    href: "/hospital-admin-dashboard",
+    requiresAdmin: true,
+  },
+  {
+    label: "Advanced Analytics",
+    href: "/advanced-analytics",
+    requiresAdmin: true,
+  },
 ];
 
 // Learning & Development - ONLY WORKING PAGES
 export const learningNavItems: NavItem[] = [
-  { label: "Safe-Truth Tool", href: "/safe-truth", description: "Interactive assessment tool" },
-  { label: "BLS Course", href: "/course/bls", description: "Basic Life Support training" },
+  {
+    label: "Safe-Truth Tool",
+    href: "/safe-truth",
+    description: "Interactive assessment tool",
+  },
+  {
+    label: "BLS Course",
+    href: "/course/bls",
+    description: "Basic Life Support training",
+  },
 ];
 
 // Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institutional Portal", href: "/institutional-portal", description: "Manage your institution" },
-  { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
+  {
+    label: "Institutional Portal",
+    href: "/institutional-portal",
+    description: "Manage your institution",
+  },
+  {
+    label: "Institutional Onboarding",
+    href: "/institutional-onboarding",
+    description: "Get started",
+  },
 ];
 
 // Support & Information - ONLY WORKING PAGES
@@ -58,7 +86,8 @@ export const legalNavItems: NavItem[] = [
 // Footer sections - ONLY WORKING PAGES
 export const footerSections = {
   quickLinks: [
-    { label: "Home", href: "/" },
+    { label: "Activation Hub", href: "/" },
+    { label: "Home", href: "/home" },
     { label: "Safe-Truth", href: "/safe-truth" },
     { label: "For Institutions", href: "/institutional" },
     { label: "For Parents", href: "/parent-safe-truth" },
@@ -91,7 +120,8 @@ export const dashboardNavItems: NavItem[] = [
 
 // Breadcrumb navigation helper - ONLY WORKING PAGES
 export const breadcrumbMap: Record<string, string[]> = {
-  "/": ["Home"],
+  "/": ["Activation Hub"],
+  "/home": ["Home"],
   "/safe-truth": ["Home", "Safe-Truth"],
   "/parent-safe-truth": ["Home", "Parent Resources"],
   "/course/bls": ["Home", "Courses", "BLS"],
