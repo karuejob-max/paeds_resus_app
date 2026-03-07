@@ -36,7 +36,7 @@
 
 | Who | What |
 |-----|------|
-| Manus | Phase 2: Staging Environment — set up develop branch → staging Render, main → production; branch-based deploys with PR verification on staging before production |
+| Manus | Phase 2: Staging Environment — created STAGING_DEPLOYMENT.md with branch model (main/develop), manual deploy workflow, staging Render/Aiven setup guide, PR verification checklist, rollback procedure, troubleshooting. Documentation-first approach; GitHub Actions automation deferred to Phase 2b. |
 
 ---
 
