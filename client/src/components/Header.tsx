@@ -33,10 +33,23 @@ export default function Header() {
     }
   }, [accountDropdownOpen, roleDropdownOpen]);
 
-  // Get navigation based on role
+  // Sync role from userType when authenticated and role not set (e.g. after login)
+  useEffect(() => {
+    if (!isAuthenticated || !user?.userType || role) return;
+    const map: Record<string, "provider" | "parent" | "institution"> = {
+      individual: "provider",
+      parent: "parent",
+      institutional: "institution",
+    };
+    const r = map[user.userType];
+    if (r) setUserRole(r);
+  }, [isAuthenticated, user?.userType, role, setUserRole]);
+
+  // Get navigation based on role — Dashboard first so provider/parent/institution can get home
   const getNavigation = () => {
     if (role === "provider") {
       return [
+        { label: "Dashboard", href: "/home", icon: "🏠" },
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
@@ -52,6 +65,7 @@ export default function Header() {
     }
     if (role === "parent") {
       return [
+        { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
         { label: "Courses", href: "/learner-dashboard", icon: "📚" },
         { label: "Resources", href: "/parent-safe-truth", icon: "📖" },
       ];
@@ -102,9 +116,12 @@ export default function Header() {
                         <button
                           key={option.value}
                           onClick={() => {
-                            setUserRole(option.value as "provider" | "parent" | "institution");
+                            const r = option.value as "provider" | "parent" | "institution";
+                            setUserRole(r);
                             setRoleDropdownOpen(false);
-                            setLocation("/");
+                            if (r === "provider") setLocation("/home");
+                            else if (r === "parent") setLocation("/parent-safe-truth");
+                            else setLocation("/institutional-portal");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                             role === option.value
@@ -165,9 +182,9 @@ export default function Header() {
                         <p className="text-xs text-gray-500">{user?.email}</p>
                       </div>
 
-                      {/* Quick Links */}
+                      {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
-                        <Link href="/learner-dashboard">
+                        <Link href={role === "parent" ? "/parent-safe-truth" : role === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -236,9 +253,12 @@ export default function Header() {
                     <button
                       key={option.value}
                       onClick={() => {
-                        setUserRole(option.value as "provider" | "parent" | "institution");
+                        const r = option.value as "provider" | "parent" | "institution";
+                        setUserRole(r);
                         setMobileMenuOpen(false);
-                        setLocation("/");
+                        if (r === "provider") setLocation("/home");
+                        else if (r === "parent") setLocation("/parent-safe-truth");
+                        else setLocation("/institutional-portal");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
                         role === option.value

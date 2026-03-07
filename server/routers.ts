@@ -2,7 +2,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
@@ -122,7 +122,12 @@ export const appRouter = router({
       } as const;
     }),
     register: publicProcedure
-      .input(z.object({ email: z.string().email(), password: z.string().min(8), name: z.string().optional() }))
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(8),
+        name: z.string().optional(),
+        userType: z.enum(["individual", "parent", "institutional"]),
+      }))
       .mutation(async ({ input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new Error("Email already registered");
@@ -133,6 +138,7 @@ export const appRouter = router({
           email: input.email,
           name: input.name ?? null,
           passwordHash,
+          userType: input.userType,
         });
         return { success: true };
       }),
@@ -149,6 +155,12 @@ export const appRouter = router({
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true };
+      }),
+    updateUserType: protectedProcedure
+      .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
+      .mutation(async ({ input, ctx }) => {
+        await db.updateUserType(ctx.user.id, input.userType);
         return { success: true };
       }),
   }),

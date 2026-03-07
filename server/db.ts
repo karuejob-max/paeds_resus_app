@@ -109,6 +109,7 @@ export async function createUserWithPassword(data: {
   email: string;
   name: string | null;
   passwordHash: string;
+  userType?: "individual" | "institutional" | "parent";
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -118,7 +119,14 @@ export async function createUserWithPassword(data: {
     name: data.name,
     loginMethod: "email",
     passwordHash: data.passwordHash,
+    userType: data.userType ?? "individual",
   });
+}
+
+export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ userType, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
 // Enrollment queries

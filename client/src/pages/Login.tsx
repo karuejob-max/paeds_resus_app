@@ -15,7 +15,7 @@ export default function Login() {
 
   const loginMutation = trpc.auth.loginWithPassword.useMutation({
     onSuccess: () => {
-      setLocation("/");
+      setLocation("/home");
       window.location.reload();
     },
     onError: (e) => {
