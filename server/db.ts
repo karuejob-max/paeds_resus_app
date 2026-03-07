@@ -1,7 +1,7 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -260,6 +260,17 @@ export async function getAnalyticsEventsBySessionId(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return await db.select().from(analyticsEvents).where(eq(analyticsEvents.sessionId, sessionId)).orderBy(desc(analyticsEvents.createdAt));
+}
+
+// Admin audit log (Phase 3 security baseline)
+export async function insertAdminAuditLog(data: InsertAdminAuditLog): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(adminAuditLog).values(data);
+  } catch (e) {
+    console.error("[DB] insertAdminAuditLog failed:", e);
+  }
 }
 
 // Experiments queries

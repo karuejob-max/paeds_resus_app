@@ -1,5 +1,6 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { ENV } from "./_core/env";
 import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -125,7 +126,10 @@ export const appRouter = router({
     register: publicProcedure
       .input(z.object({
         email: z.string().email(),
-        password: z.string().min(8),
+        password: z.string().min(8).refine(
+          (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
+          "Password must contain at least one letter and one number"
+        ),
         name: z.string().optional(),
         userType: z.enum(["individual", "parent", "institutional"]),
       }))
@@ -150,12 +154,13 @@ export const appRouter = router({
         if (!user?.passwordHash) throw new Error("Invalid email or password");
         const ok = await bcrypt.compare(input.password, user.passwordHash);
         if (!ok) throw new Error("Invalid email or password");
+        const sessionMaxAgeMs = ENV.sessionMaxAgeMs;
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name ?? "",
-          expiresInMs: ONE_YEAR_MS,
+          expiresInMs: sessionMaxAgeMs,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: sessionMaxAgeMs });
         return { success: true };
       }),
     updateUserType: protectedProcedure

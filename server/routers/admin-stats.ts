@@ -10,17 +10,13 @@ import {
   parentSafeTruthSubmissions,
 } from "../../drizzle/schema";
 
-function startOfMonth(d: Date) {
-  const x = new Date(d);
-  x.setDate(1);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
+/** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
+function startOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month - 1, 1, -3, 0, 0, 0));
 }
 
-function endOfMonth(d: Date) {
-  const x = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  x.setUTCHours(23, 59, 59, 999);
-  return x;
+function endOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
 }
 
 function daysAgo(days: number) {
@@ -62,8 +58,8 @@ export const adminStatsRouter = router({
       const now = new Date();
       const year = input?.year ?? now.getFullYear();
       const month = input?.month ?? now.getMonth() + 1;
-      const periodStart = startOfMonth(new Date(year, month - 1, 1));
-      const periodEnd = endOfMonth(new Date(year, month - 1, 1));
+      const periodStart = startOfMonthEAT(year, month);
+      const periodEnd = endOfMonthEAT(year, month);
       const lastDays = input?.lastDays ?? 7;
       const analyticsSince = daysAgo(lastDays);
 
@@ -131,7 +127,7 @@ export const adminStatsRouter = router({
 
       return {
         ok: true,
-        periodLabel: `${periodStart.toLocaleString("default", { month: "long" })} ${year}`,
+        periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
         lastDaysLabel: `Last ${lastDays} days`,
         usersByType,
         totalUsers: allUsers.length,

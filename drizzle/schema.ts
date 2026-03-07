@@ -212,6 +212,18 @@ export const analyticsEvents = mysqlTable("analyticsEvents", {
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
 
+// Admin audit log (Phase 3 security baseline)
+export const adminAuditLog = mysqlTable("adminAuditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  procedurePath: varchar("procedurePath", { length: 255 }).notNull(),
+  inputSummary: text("inputSummary"), // sanitized, no secrets
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
+export type InsertAdminAuditLog = typeof adminAuditLog.$inferInsert;
+
 // A/B Experiments table
 export const experiments = mysqlTable("experiments", {
   id: int("id").autoincrement().primaryKey(),
