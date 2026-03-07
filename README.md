@@ -426,6 +426,21 @@ Please email security@paeds-resus.com with details of any security vulnerabiliti
 
 ---
 
+## Collaboration & AI team
+
+Manus, Codex, Cursor, and developers share one source of truth in the repo. **No pasting of responses between tools** — everyone reads and updates the same docs; sync is via git.
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/PLATFORM_SOURCE_OF_TRUTH.md](docs/PLATFORM_SOURCE_OF_TRUTH.md) | Canonical decisions, definitions, priorities |
+| [docs/WORK_STATUS.md](docs/WORK_STATUS.md) | Done, in progress, blocked, critique (everyone updates here) |
+| [docs/AI_TEAM_WORKFLOW.md](docs/AI_TEAM_WORKFLOW.md) | How to read/update and scrutinize each other's work |
+| [docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md) | Sprint/PR checklist before merge |
+
+**Workflow:** Before work, read PLATFORM_SOURCE_OF_TRUTH and WORK_STATUS. After work, update WORK_STATUS and run the acceptance checklist. Commit so the next person sees the latest.
+
+---
+
 ## Roadmap
 
 ### Phase 2 (Q2 2026)

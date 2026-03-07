@@ -1,0 +1,22 @@
+---
+description: AI team single source of truth - read platform brief and work status first; update work status when done
+alwaysApply: true
+---
+
+# AI team single source of truth
+
+When working on this repo (Paeds Resus), you are part of a team with Codex and Manus. The repo is the single source of truth so no one needs to paste responses between tools.
+
+## Before you start
+
+1. Read **docs/PLATFORM_SOURCE_OF_TRUTH.md** for canonical decisions, definitions, and priority order.
+2. Read **docs/WORK_STATUS.md** in full: Done, In progress, Blocked, Critique / review.
+
+## After you finish work
+
+1. Update **docs/WORK_STATUS.md**: add what you did under Done (with date, who=Cursor, what, commit/PR if any); adjust In progress; add Blocked if needed; under Critique / review add any review of another's work (what you checked, issues, suggestions).
+2. Run the checks in **docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md** before marking work done.
+
+## Workflow details
+
+See **docs/AI_TEAM_WORKFLOW.md**. Reuse existing code and patterns; do not duplicate. Preserve auth/roles and report definitions from PLATFORM_SOURCE_OF_TRUTH. Act conservatively with tokens and scope.
