@@ -53,6 +53,16 @@ import {
   setDefinitiveDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
+  pushUndoStack,
+  undoLastAnswer,
+  recordMedicationGiven,
+  hasMedicationBeenGiven,
+  getMedicationsGiven,
+  addDiagnosis,
+  removeDiagnosis,
+  getActiveDiagnoses,
+  hasDiagnosis,
+  setPrimaryDiagnosis,
 } from '@/lib/resus/abcdeEngine';
 import {
   AlertTriangle,
@@ -189,11 +199,21 @@ export default function ResusGPS() {
   };
 
   const handleAnswer = (question: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => {
-    setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
+    // Push current state to undo stack before making changes
+    setSession(prev => {
+      const withUndo = pushUndoStack(prev);
+      return answerPrimarySurvey(withUndo, question.id, answer, question, numVal, numVal2);
+    });
     setNumberInput('');
     setNumberInput2('');
     // Track question answered
     analytics.trackQuestionAnswered(question.letter || 'X', question.id, answer);
+  };
+
+  const handleUndo = () => {
+    setSession(prev => undoLastAnswer(prev));
+    setNumberInput('');
+    setNumberInput2('');
   };
 
   const handleCompleteIntervention = (id: string) => {
@@ -229,6 +249,8 @@ export default function ResusGPS() {
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
+
+  const canUndo = session.undoStack && session.undoStack.length > 0;
 
   const handleUpdatePatientInfo = () => {
     const newWeight = tempWeight ? parseFloat(tempWeight) : null;
@@ -342,6 +364,7 @@ export default function ResusGPS() {
             numberInput2={numberInput2}
             setNumberInput2={setNumberInput2}
             onAnswer={handleAnswer}
+            onUndo={handleUndo}
           />
         )}
 
@@ -780,6 +803,7 @@ function PrimarySurveyScreen({
   numberInput2: string;
   setNumberInput2: (v: string) => void;
   onAnswer: (q: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => void;
+  onUndo?: () => void;
 }) {
   const questions = getCurrentQuestions(session);
   const answeredIds = getAnsweredQuestionIds(session);
@@ -822,15 +846,29 @@ function PrimarySurveyScreen({
         <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Current Letter Header */}
-      <div className={`flex items-center gap-3 mb-6 p-4 rounded-xl ${letterConfig.bgColor}`}>
-        <div className={letterConfig.color}>{letterConfig.icon}</div>
-        <div>
-          <h2 className={`text-xl font-bold ${letterConfig.color}`}>{letterConfig.label}</h2>
-          <p className="text-xs text-muted-foreground">
-            Question {questions.length - unanswered.length + 1} of {questions.length}
-          </p>
+      {/* Current Letter Header with Undo */}
+      <div className={`flex items-center justify-between gap-3 mb-6 p-4 rounded-xl ${letterConfig.bgColor}`}>
+        <div className="flex items-center gap-3 flex-1">
+          <div className={letterConfig.color}>{letterConfig.icon}</div>
+          <div>
+            <h2 className={`text-xl font-bold ${letterConfig.color}`}>{letterConfig.label}</h2>
+            <p className="text-xs text-muted-foreground">
+              Question {questions.length - unanswered.length + 1} of {questions.length}
+            </p>
+          </div>
         </div>
+        {/* Undo button - only show if there are states to undo */}
+        {session.undoStack && session.undoStack.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-2"
+            onClick={() => onUndo?.()}
+            title="Undo last answer"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Question */}
@@ -1142,9 +1180,19 @@ function InterventionScreen({
                   </>
                 )}
                 {intervention.status === 'in_progress' && (
-                  <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Complete
-                  </Button>
+                  <>
+                    {intervention.timerSeconds && (
+                      <div className="flex-1 bg-amber-500/20 border border-amber-500/30 rounded px-3 py-2 flex items-center justify-center">
+                        <Timer className="h-4 w-4 mr-2 text-amber-400" />
+                        <span className="text-sm font-semibold text-amber-400">
+                          {Math.ceil(intervention.timerSeconds)} sec
+                        </span>
+                      </div>
+                    )}
+                    <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Complete
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>
@@ -1313,6 +1361,27 @@ function PostPrimaryScreen({
         </CardContent>
       </Card>
 
+      {/* Active Diagnoses Display */}
+      {session.definitiveDiagnoses && session.definitiveDiagnoses.length > 0 && (
+        <Card className="bg-green-500/10 border border-green-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-green-400 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Active Diagnoses ({session.definitiveDiagnoses.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {session.definitiveDiagnoses.map((dx, i) => (
+                <Badge key={i} variant="outline" className="border-green-500/50 text-green-400 bg-green-500/20">
+                  {dx}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Suggested Diagnoses */}
       {diagnoses.length > 0 && (
         <Card className="bg-card border-border">
@@ -1344,14 +1413,22 @@ function PostPrimaryScreen({
                   Supporting: {dx.supportingFindings.join(', ')}
                 </p>
                 <p className="text-xs text-primary">{dx.protocol}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2 text-xs"
-                  onClick={() => setSession(setDefinitiveDiagnosis(session, dx.diagnosis))}
-                >
-                  Confirm as Diagnosis
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={session.definitiveDiagnoses?.includes(dx.diagnosis) || false}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSession(addDiagnosis(session, dx.diagnosis));
+                      } else {
+                        setSession(removeDiagnosis(session, dx.diagnosis));
+                      }
+                    }}
+                    className="rounded cursor-pointer"
+                    title="Add/remove diagnosis"
+                  />
+                  <span className="text-xs text-muted-foreground">Add to diagnoses</span>
+                </div>
               </div>
             ))}
           </CardContent>

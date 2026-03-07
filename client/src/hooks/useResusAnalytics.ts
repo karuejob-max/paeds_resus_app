@@ -1,6 +1,6 @@
 /**
  * useResusAnalytics Hook
- * 
+ *
  * Tracks ResusGPS clinical events for analytics and admin reports:
  * - Assessment start/completion
  * - Threat detection

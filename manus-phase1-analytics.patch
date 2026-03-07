@@ -1,0 +1,232 @@
+diff --git a/client/src/hooks/useResusAnalytics.ts b/client/src/hooks/useResusAnalytics.ts
+new file mode 100644
+index 0000000..0d42876
+--- /dev/null
++++ b/client/src/hooks/useResusAnalytics.ts
+@@ -0,0 +1,140 @@
++/**
++ * useResusAnalytics Hook
++ * 
++ * Tracks ResusGPS clinical events for analytics and admin reports:
++ * - Assessment start/completion
++ * - Threat detection
++ * - Intervention events
++ * - Reassessment events
++ * - Diagnosis selection
++ */
++
++import { useCallback, useRef, useEffect } from 'react';
++import { trpc } from '@/lib/trpc';
++
++interface ResusEventData {
++  letter?: string;
++  threatType?: string;
++  threatSeverity?: string;
++  interventionName?: string;
++  interventionStatus?: string;
++  reassessmentType?: string;
++  diagnosis?: string;
++  patientAge?: string;
++  patientWeight?: number;
++  [key: string]: any;
++}
++
++export function useResusAnalytics() {
++  const sessionIdRef = useRef<string>(
++    (() => {
++      // Generate or retrieve session ID
++      let sessionId = sessionStorage.getItem('resus_session_id');
++      if (!sessionId) {
++        sessionId = `resus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
++        sessionStorage.setItem('resus_session_id', sessionId);
++      }
++      return sessionId;
++    })()
++  );
++
++  const trackEventMutation = trpc.events.trackEvent.useMutation();
++
++  const trackEvent = useCallback(
++    async (eventType: string, eventName: string, eventData?: ResusEventData) => {
++      try {
++        await trackEventMutation.mutateAsync({
++          eventType,
++          eventName,
++          pageUrl: window.location.pathname,
++          eventData: eventData || {},
++          sessionId: sessionIdRef.current || '',
++        });
++      } catch (error) {
++        // Silently fail - analytics should not break the app
++        console.warn('[ResusAnalytics] Failed to track event:', error);
++      }
++    },
++    [trackEventMutation]
++  );
++
++  return {
++    // Assessment lifecycle events
++    trackAssessmentStart: (patientAge?: string, patientWeight?: number) =>
++      trackEvent('resus_assessment', 'Assessment Started', {
++        patientAge,
++        patientWeight,
++      }),
++
++    trackAssessmentCompleted: (totalThreats: number, interventionsCount: number) =>
++      trackEvent('resus_assessment', 'Assessment Completed', {
++        totalThreats,
++        interventionsCount,
++      }),
++
++    // Letter progression events
++    trackLetterStart: (letter: string) =>
++      trackEvent('resus_letter', `Started ${letter} Assessment`, { letter }),
++
++    trackLetterCompleted: (letter: string, threatsDetected: number) =>
++      trackEvent('resus_letter', `Completed ${letter} Assessment`, {
++        letter,
++        threatsDetected,
++      }),
++
++    // Threat events
++    trackThreatDetected: (threatType: string, severity: string) =>
++      trackEvent('resus_threat', 'Threat Detected', {
++        threatType,
++        threatSeverity: severity,
++      }),
++
++    trackThreatResolved: (threatType: string) =>
++      trackEvent('resus_threat', 'Threat Resolved', { threatType }),
++
++    // Intervention events
++    trackInterventionStarted: (interventionName: string, dose?: string) =>
++      trackEvent('resus_intervention', 'Intervention Started', {
++        interventionName,
++        dose,
++      }),
++
++    trackInterventionCompleted: (interventionName: string, duration?: number) =>
++      trackEvent('resus_intervention', 'Intervention Completed', {
++        interventionName,
++        duration,
++      }),
++
++    trackInterventionSkipped: (interventionName: string) =>
++      trackEvent('resus_intervention', 'Intervention Skipped', { interventionName }),
++
++    // Reassessment events
++    trackReassessmentPerformed: (reassessmentType: string, outcome: string) =>
++      trackEvent('resus_reassessment', 'Reassessment Performed', {
++        reassessmentType,
++        outcome,
++      }),
++
++    // Diagnosis events
++    trackDiagnosisSelected: (diagnosis: string) =>
++      trackEvent('resus_diagnosis', 'Diagnosis Selected', { diagnosis }),
++
++    // Cardiac arrest events
++    trackCardiacArrestTriggered: () =>
++      trackEvent('resus_emergency', 'Cardiac Arrest Triggered'),
++
++    trackROSCachieved: () =>
++      trackEvent('resus_emergency', 'ROSC Achieved'),
++
++    // Question answered events
++    trackQuestionAnswered: (letter: string, questionId: string, answer: string) =>
++      trackEvent('resus_question', 'Question Answered', {
++        letter,
++        questionId,
++        answer,
++      }),
++
++    // Session info
++    getSessionId: () => sessionIdRef.current,
++  };
++}
+diff --git a/client/src/pages/ResusGPS.tsx b/client/src/pages/ResusGPS.tsx
+index 0b144a2..7f09a48 100644
+--- a/client/src/pages/ResusGPS.tsx
++++ b/client/src/pages/ResusGPS.tsx
+@@ -11,6 +11,7 @@
+  */
+ 
+ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
++import { useResusAnalytics } from '@/hooks/useResusAnalytics';
+ import { Button } from '@/components/ui/button';
+ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+ import { Badge } from '@/components/ui/badge';
+@@ -127,6 +128,7 @@ function formatTime(seconds: number): string {
+ 
+ export default function ResusGPS() {
+   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
++  const analytics = useResusAnalytics();
+   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
+   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
+@@ -176,6 +178,8 @@ export default function ResusGPS() {
+     setSession(started);
+     timer.reset();
+     timer.start();
++    // Track assessment start
++    analytics.trackAssessmentStart(demographics.age, getWeightInKg());
+   };
+ 
+   const handleQuickAssessment = (answer: 'sick' | 'not_sick') => {
+@@ -188,10 +192,17 @@ export default function ResusGPS() {
+     setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
+     setNumberInput('');
+     setNumberInput2('');
++    // Track question answered
++    analytics.trackQuestionAnswered(question.letter || 'X', question.id, answer);
+   };
+ 
+   const handleCompleteIntervention = (id: string) => {
++    const intervention = session.interventions.find(i => i.id === id);
+     setSession(prev => completeIntervention(prev, id));
++    // Track intervention completed
++    if (intervention) {
++      analytics.trackInterventionCompleted(intervention.name);
++    }
+   };
+ 
+   const handleStartIntervention = (id: string) => {
+@@ -209,10 +220,14 @@ export default function ResusGPS() {
+     setSession(prev => triggerCardiacArrest(prev));
+     timer.reset();
+     timer.start();
++    // Track cardiac arrest triggered
++    analytics.trackCardiacArrestTriggered();
+   };
+ 
+   const handleROSC = () => {
+     setSession(prev => achieveROSC(prev));
++    // Track ROSC achieved
++    analytics.trackROSCachieved();
+   };
+ 
+   const handleUpdatePatientInfo = () => {
+diff --git a/docs/WORK_STATUS.md b/docs/WORK_STATUS.md
+index f78daa9..f687f98 100644
+--- a/docs/WORK_STATUS.md
++++ b/docs/WORK_STATUS.md
+@@ -27,8 +27,8 @@
+ ## Done
+ 
+ | Date | Who | What | Commit/PR |
+-|------|-----|------|-----------|
+-| (add rows when you complete work) | | | |
++|------|-----|------|----------|
++| 2025-03-07 | Manus | Phase 1: Analytics Instrumentation — created useResusAnalytics hook, integrated event tracking at ResusGPS lifecycle points (assessment start, questions, interventions, cardiac arrest, ROSC), events flow to analyticsEvents table, admin reports now show real activity | f5caca0e (webdev checkpoint) |
+ 
+ ---
+ 
+@@ -36,7 +36,7 @@
+ 
+ | Who | What |
+ |-----|------|
+-| (add when you start; remove when you move to Done) | |
++| Manus | Phase 2: Staging Environment — set up develop branch → staging Render, main → production; branch-based deploys with PR verification on staging before production |
+ 
+ ---
+ 
