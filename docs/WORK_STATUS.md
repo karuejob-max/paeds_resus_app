@@ -27,8 +27,8 @@
 ## Done
 
 | Date | Who | What | Commit/PR |
-|------|-----|------|-----------|
-| (add rows when you complete work) | | | |
+|------|-----|------|----------|
+| 2025-03-07 | Manus | Phase 1: Analytics Instrumentation — created useResusAnalytics hook, integrated event tracking at ResusGPS lifecycle points (assessment start, questions, interventions, cardiac arrest, ROSC), events flow to analyticsEvents table, admin reports now show real activity | f5caca0e (webdev checkpoint) |
 
 ---
 
@@ -36,7 +36,7 @@
 
 | Who | What |
 |-----|------|
-| (add when you start; remove when you move to Done) | |
+| Manus | Phase 2: Staging Environment — set up develop branch → staging Render, main → production; branch-based deploys with PR verification on staging before production |
 
 ---
 

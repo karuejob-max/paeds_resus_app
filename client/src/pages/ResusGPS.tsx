@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +128,7 @@ function formatTime(seconds: number): string {
 
 export default function ResusGPS() {
   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
+  const analytics = useResusAnalytics();
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
@@ -176,6 +178,8 @@ export default function ResusGPS() {
     setSession(started);
     timer.reset();
     timer.start();
+    // Track assessment start
+    analytics.trackAssessmentStart(demographics.age, getWeightInKg());
   };
 
   const handleQuickAssessment = (answer: 'sick' | 'not_sick') => {
@@ -188,10 +192,17 @@ export default function ResusGPS() {
     setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
     setNumberInput('');
     setNumberInput2('');
+    // Track question answered
+    analytics.trackQuestionAnswered(question.letter || 'X', question.id, answer);
   };
 
   const handleCompleteIntervention = (id: string) => {
+    const intervention = session.interventions.find(i => i.id === id);
     setSession(prev => completeIntervention(prev, id));
+    // Track intervention completed
+    if (intervention) {
+      analytics.trackInterventionCompleted(intervention.name);
+    }
   };
 
   const handleStartIntervention = (id: string) => {
@@ -209,10 +220,14 @@ export default function ResusGPS() {
     setSession(prev => triggerCardiacArrest(prev));
     timer.reset();
     timer.start();
+    // Track cardiac arrest triggered
+    analytics.trackCardiacArrestTriggered();
   };
 
   const handleROSC = () => {
     setSession(prev => achieveROSC(prev));
+    // Track ROSC achieved
+    analytics.trackROSCachieved();
   };
 
   const handleUpdatePatientInfo = () => {
