@@ -10,6 +10,10 @@ import Register from "./pages/Register";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
 import InstitutionalPortal from "./pages/InstitutionalPortal";
+import AdminHub from "./pages/AdminHub";
+import AdminReports from "./pages/AdminReports";
+import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
+import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import { Toaster } from "@/components/ui/sonner";
 
 function ScrollToTop() {
@@ -30,6 +34,10 @@ function Router() {
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/institutional-portal" component={InstitutionalPortal} />
+          <Route path="/admin" component={AdminHub} />
+          <Route path="/admin/reports" component={AdminReports} />
+          <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
+          <Route path="/advanced-analytics" component={AdvancedAnalytics} />
           {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />

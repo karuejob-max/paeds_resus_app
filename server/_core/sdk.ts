@@ -298,6 +298,8 @@ class SDKServer {
       lastSignedIn: signedInAt,
     });
 
+    // Refetch so we get updated role (e.g. admin when openId === OWNER_OPEN_ID)
+    user = await db.getUserByOpenId(sessionUserId) ?? user;
     return user;
   }
 }

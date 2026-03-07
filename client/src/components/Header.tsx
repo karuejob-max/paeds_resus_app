@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
 export default function Header() {
@@ -73,7 +73,11 @@ export default function Header() {
     return [];
   };
 
-  const navigation = getNavigation();
+  const baseNav = getNavigation();
+  const navigation =
+    isAuthenticated && (user as { role?: string })?.role === "admin"
+      ? [...baseNav, { label: "Admin", href: "/admin", icon: "🛡️" }]
+      : baseNav;
 
   const roleOptions = [
     { value: "provider", label: "Healthcare Provider", icon: Stethoscope },
@@ -200,6 +204,17 @@ export default function Header() {
                             Profile
                           </div>
                         </Link>
+                        {(user as { role?: string })?.role === "admin" && (
+                          <Link href="/admin">
+                            <div
+                              className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer rounded flex items-center gap-2"
+                              onClick={() => setAccountDropdownOpen(false)}
+                            >
+                              <Shield className="h-4 w-4" />
+                              Admin
+                            </div>
+                          </Link>
+                        )}
                       </div>
 
                       {/* Logout */}

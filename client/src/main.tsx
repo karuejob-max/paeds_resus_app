@@ -54,6 +54,17 @@ const trpcClient = trpc.createClient({
   ],
 });
 
+// Optional analytics (Umami) — only load when env vars are set
+const analyticsEndpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT;
+const analyticsWebsiteId = import.meta.env.VITE_ANALYTICS_WEBSITE_ID;
+if (typeof analyticsEndpoint === "string" && analyticsEndpoint && typeof analyticsWebsiteId === "string" && analyticsWebsiteId) {
+  const script = document.createElement("script");
+  script.defer = true;
+  script.src = `${analyticsEndpoint.replace(/\/$/, "")}/umami`;
+  script.setAttribute("data-website-id", analyticsWebsiteId);
+  document.body.appendChild(script);
+}
+
 // Register service worker for offline support
 registerServiceWorker().then((registration) => {
   if (registration) {

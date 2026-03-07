@@ -1,23 +1,37 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
-// Normalize Aiven-style ssl-mode=REQUIRED so MySQL2 accepts it (avoids "invalid configuration option" warning).
-function normalizeDatabaseUrl(url: string): string {
-  return url.replace(/[?&]ssl-mode=REQUIRED/gi, (match) =>
-    match.startsWith("?") ? "?ssl=true" : "&ssl=true"
-  );
+// mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.
+// Build config from URL and set ssl object when Aiven/cloud SSL is required.
+function getConnectionConfig(databaseUrl: string): mysql.PoolOptions {
+  const url = new URL(databaseUrl);
+  const needsSsl = /ssl-mode=REQUIRED|ssl=true/i.test(databaseUrl) || url.hostname.endsWith(".aivencloud.com");
+  const database = url.pathname.replace(/^\//, "") || undefined;
+  const config: mysql.PoolOptions = {
+    host: url.hostname,
+    port: url.port ? parseInt(url.port, 10) : 3306,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: database || undefined,
+  };
+  if (needsSsl) {
+    // Aiven/cloud often use certs Node doesn't trust by default; still use SSL but allow connection
+    config.ssl = { rejectUnauthorized: false };
+  }
+  return config;
 }
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const url = normalizeDatabaseUrl(process.env.DATABASE_URL);
-      _db = drizzle(url);
+      const config = getConnectionConfig(process.env.DATABASE_URL);
+      const pool = mysql.createPool(config);
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

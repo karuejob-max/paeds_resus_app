@@ -1,4 +1,11 @@
 import "dotenv/config";
+
+if (!process.env.DATABASE_URL?.trim()) {
+  console.warn("[Server] DATABASE_URL is missing or empty. Database features (e.g. Create account) will not work.");
+} else {
+  console.log("[Server] DATABASE_URL is set.");
+}
+
 import express from "express";
 import { createServer } from "http";
 import net from "net";
