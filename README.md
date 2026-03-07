@@ -98,8 +98,10 @@ To avoid branch/sync confusion, follow the standard handoff protocol in:
 - `docs/SECURITY_ENVIRONMENT_DECISIONS.md`
 - `docs/PLATFORM_SOURCE_OF_TRUTH.md`
 - `docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`
+- `docs/AI_TEAM_WORKFLOW.md`
+- `docs/WORK_STATUS.md`
 
-Use these docs whenever coordinating branch/commit handoffs, platform decisions, and release acceptance criteria.
+Use these docs whenever coordinating branch/commit handoffs, platform decisions, workflow sync, and release acceptance criteria.
 
 ### Prerequisites
 
