@@ -1,0 +1,25 @@
+{
+  "query": "SELECT `id`, `openId`, `name`, `email`, `phone`, `loginMethod`, `passwordHash`, `role`, `providerType`, `userType`, `createdAt`, `updatedAt`, `lastSignedIn` FROM `users` WHERE `users`.`email` = 'karuejob@gmail.com' LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3k5xbcxHTZozCZ5.5ad8b839eea9 --database MHreC3B6Cdi7fn3vp3eEGp --execute SELECT `id`, `openId`, `name`, `email`, `phone`, `loginMethod`, `passwordHash`, `role`, `providerType`, `userType`, `createdAt`, `updatedAt`, `lastSignedIn` FROM `users` WHERE `users`.`email` = 'karuejob@gmail.com' LIMIT 1;",
+  "rows": [
+    {
+      "id": "1920012",
+      "openId": "hDSjxKhYj3SQJ59QDs3U83",
+      "name": "Job Karue",
+      "email": "karuejob@gmail.com",
+      "phone": "NULL",
+      "loginMethod": "google",
+      "passwordHash": "NULL",
+      "role": "admin",
+      "providerType": "NULL",
+      "userType": "individual",
+      "createdAt": "2026-01-25 22:26:48",
+      "updatedAt": "2026-02-09 05:43:45",
+      "lastSignedIn": "2026-02-09 05:43:45"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tname\temail\tphone\tloginMethod\tpasswordHash\trole\tproviderType\tuserType\tcreatedAt\tupdatedAt\tlastSignedIn\n1920012\thDSjxKhYj3SQJ59QDs3U83\tJob Karue\tkaruejob@gmail.com\tNULL\tgoogle\tNULL\tadmin\tNULL\tindividual\t2026-01-25 22:26:48\t2026-02-09 05:43:45\t2026-02-09 05:43:45\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE users DROP COLUMN IF EXISTS passwordHash, DROP COLUMN IF EXISTS loginMethod, DROP COLUMN IF EXISTS providerType, DROP COLUMN IF EXISTS userType, DROP COLUMN IF EXISTS lastSignedIn;\n\nALTER TABLE users \nADD COLUMN passwordHash VARCHAR(255) NULL,\nADD COLUMN loginMethod VARCHAR(64) NULL,\nADD COLUMN providerType ENUM('nurse', 'doctor', 'pharmacist', 'paramedic', 'lab_tech', 'respiratory_therapist', 'midwife', 'other') NULL,\nADD COLUMN userType ENUM('individual', 'institutional', 'parent') DEFAULT 'individual',\nADD COLUMN lastSignedIn TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3k5xbcxHTZozCZ5.5ad8b839eea9 --database MHreC3B6Cdi7fn3vp3eEGp --execute ALTER TABLE users DROP COLUMN IF EXISTS passwordHash, DROP COLUMN IF EXISTS loginMethod, DROP COLUMN IF EXISTS providerType, DROP COLUMN IF EXISTS userType, DROP COLUMN IF EXISTS lastSignedIn;\n\nALTER TABLE users \nADD COLUMN passwordHash VARCHAR(255) NULL,\nADD COLUMN loginMethod VARCHAR(64) NULL,\nADD COLUMN providerType ENUM('nurse', 'doctor', 'pharmacist', 'paramedic', 'lab_tech', 'respiratory_therapist', 'midwife', 'other') NULL,\nADD COLUMN userType ENUM('individual', 'institutional', 'parent') DEFAULT 'individual',\nADD COLUMN lastSignedIn TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2384
+}

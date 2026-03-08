@@ -1,0 +1,9 @@
+{
+  "query": "SELECT * FROM users LIMIT 0;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3k5xbcxHTZozCZ5.5ad8b839eea9 --database MHreC3B6Cdi7fn3vp3eEGp --execute SELECT * FROM users LIMIT 0;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 46
+}

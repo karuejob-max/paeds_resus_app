@@ -1,0 +1,153 @@
+{
+  "query": "SHOW FULL COLUMNS FROM users;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3k5xbcxHTZozCZ5.5ad8b839eea9 --database MHreC3B6Cdi7fn3vp3eEGp --execute SHOW FULL COLUMNS FROM users;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "openId",
+      "Type": "varchar(64)",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "NO",
+      "Key": "UNI",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "name",
+      "Type": "text",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "email",
+      "Type": "varchar(320)",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "loginMethod",
+      "Type": "varchar(64)",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "role",
+      "Type": "enum('user','admin')",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "NO",
+      "Key": "",
+      "Default": "user",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "lastSignedIn",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "phone",
+      "Type": "varchar(20)",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "providerType",
+      "Type": "enum('nurse','doctor','pharmacist','paramedic','lab_tech','respiratory_therapist','midwife','other')",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "userType",
+      "Type": "enum('individual','institutional','parent')",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "individual",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "passwordHash",
+      "Type": "varchar(255)",
+      "Collation": "utf8mb4_unicode_ci",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tCollation\tNull\tKey\tDefault\tExtra\tPrivileges\tComment\nid\tint\tNULL\tNO\tPRI\tNULL\tauto_increment\tselect,insert,update,references\t\nopenId\tvarchar(64)\tutf8mb4_unicode_ci\tNO\tUNI\tNULL\t\tselect,insert,update,references\t\nname\ttext\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\nemail\tvarchar(320)\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\nloginMethod\tvarchar(64)\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\nrole\tenum('user','admin')\tutf8mb4_unicode_ci\tNO\t\tuser\t\tselect,insert,update,references\t\ncreatedAt\ttimestamp\tNULL\tNO\t\tCURRENT_TIMESTAMP\t\tselect,insert,update,references\t\nupdatedAt\ttimestamp\tNULL\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\tselect,insert,update,references\t\nlastSignedIn\ttimestamp\tNULL\tNO\t\tCURRENT_TIMESTAMP\t\tselect,insert,update,references\t\nphone\tvarchar(20)\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\nproviderType\tenum('nurse','doctor','pharmacist','paramedic','lab_tech','respiratory_therapist','midwife','other')\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\nuserType\tenum('individual','institutional','parent')\tutf8mb4_unicode_ci\tYES\t\tindividual\t\tselect,insert,update,references\t\npasswordHash\tvarchar(255)\tutf8mb4_unicode_ci\tYES\t\tNULL\t\tselect,insert,update,references\t\n",
+  "stderr": "",
+  "execution_time_ms": 113
+}

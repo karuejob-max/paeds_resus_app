@@ -1,0 +1,61 @@
+{
+  "query": "SHOW CREATE TABLE users\\G",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3k5xbcxHTZozCZ5.5ad8b839eea9 --database MHreC3B6Cdi7fn3vp3eEGp --execute SHOW CREATE TABLE users\\G",
+  "rows": [
+    {
+      "*************************** 1. row ***************************": "       Table: users"
+    },
+    {
+      "*************************** 1. row ***************************": "Create Table: CREATE TABLE `users` ("
+    },
+    {
+      "*************************** 1. row ***************************": "  `id` int NOT NULL AUTO_INCREMENT,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `openId` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `name` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `email` varchar(320) COLLATE utf8mb4_unicode_ci DEFAULT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `loginMethod` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `role` enum('user','admin') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user',"
+    },
+    {
+      "*************************** 1. row ***************************": "  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `lastSignedIn` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `providerType` enum('nurse','doctor','pharmacist','paramedic','lab_tech','respiratory_therapist','midwife','other') COLLATE utf8mb4_unicode_ci DEFAULT NULL,"
+    },
+    {
+      "*************************** 1. row ***************************": "  `userType` enum('individual','institutional','parent') COLLATE utf8mb4_unicode_ci DEFAULT 'individual',"
+    },
+    {
+      "*************************** 1. row ***************************": "  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */,"
+    },
+    {
+      "*************************** 1. row ***************************": "  UNIQUE KEY `users_openId_unique` (`openId`)"
+    },
+    {
+      "*************************** 1. row ***************************": ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=3810001"
+    }
+  ],
+  "messages": [],
+  "stdout": "*************************** 1. row ***************************\n       Table: users\nCreate Table: CREATE TABLE `users` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `openId` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `name` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `email` varchar(320) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `loginMethod` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `role` enum('user','admin') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user',\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  `lastSignedIn` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `providerType` enum('nurse','doctor','pharmacist','paramedic','lab_tech','respiratory_therapist','midwife','other') COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `userType` enum('individual','institutional','parent') COLLATE utf8mb4_unicode_ci DEFAULT 'individual',\n  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */,\n  UNIQUE KEY `users_openId_unique` (`openId`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=3810001\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}
