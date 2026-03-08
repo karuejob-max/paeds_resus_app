@@ -9,11 +9,21 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
+import SafeTruth from "./pages/SafeTruth";
 import InstitutionalPortal from "./pages/InstitutionalPortal";
+import Institutional from "./pages/Institutional";
 import AdminHub from "./pages/AdminHub";
 import AdminReports from "./pages/AdminReports";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
+import Enroll from "./pages/Enroll";
+import LearnerDashboard from "./pages/LearnerDashboard";
+import PatientsList from "./pages/PatientsList";
+import { EmergencyProtocols } from "./pages/EmergencyProtocols";
+import { PerformanceDashboard } from "./pages/PerformanceDashboard";
+import ProviderProfile from "./pages/ProviderProfile";
+import CPRMonitoring from "./pages/CPRMonitoring";
+import Payment from "./pages/Payment";
 import { Toaster } from "@/components/ui/sonner";
 
 function ScrollToTop() {
@@ -33,11 +43,21 @@ function Router() {
           <Route path="/register" component={Register} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
+          <Route path="/safe-truth" component={SafeTruth} />
           <Route path="/institutional-portal" component={InstitutionalPortal} />
+          <Route path="/institutional" component={Institutional} />
           <Route path="/admin" component={AdminHub} />
           <Route path="/admin/reports" component={AdminReports} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
+          <Route path="/enroll" component={Enroll} />
+          <Route path="/learner-dashboard" component={LearnerDashboard} />
+          <Route path="/patients" component={PatientsList} />
+          <Route path="/protocols" component={EmergencyProtocols} />
+          <Route path="/performance-dashboard" component={PerformanceDashboard} />
+          <Route path="/provider-profile" component={ProviderProfile} />
+          <Route path="/cpr-monitoring" component={CPRMonitoring} />
+          <Route path="/payment" component={Payment} />
           {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />
