@@ -23,7 +23,7 @@
 
 | # | Task ID | Title | Spec summary | Where | Status |
 |---|---------|--------|----------------|-------|--------|
-| 1 | **A1** | ResusGPS analytics | Add `useAnalytics("ResusGPS")` in ResusGPS.tsx. On mount: `trackPageView("ResusGPS")`. On key actions: `trackButtonClick("Start Assessment")`, `trackButtonClick("Complete Assessment")`, `trackButtonClick("View Protocol")`, `trackButtonClick("Log Intervention")`. Use existing `client/src/hooks/useAnalytics.ts`. | `client/src/pages/ResusGPS.tsx` | ⬜ Not started |
+| 1 | **A1** | ResusGPS analytics | Add `useAnalytics("ResusGPS")` in ResusGPS.tsx. On mount: `trackPageView("ResusGPS")`. On key actions: `trackButtonClick("Start Assessment")`, `trackButtonClick("Complete Assessment")`, `trackButtonClick("View Protocol")`, `trackButtonClick("Log Intervention")`. Use existing `client/src/hooks/useAnalytics.ts`. | `client/src/pages/ResusGPS.tsx` | ✅ Done (by Cursor) 2026-02-25 |
 | 2 | **C1** | Active users this week | Query analytics events for unique users in last 7 days. Add card to admin reports: "Active users (last 7 days)". | `server/routers/admin-stats.ts` (or equivalent), `client/src/pages/AdminReports.tsx` | ⬜ Not started |
 | 3 | **D1** | Empty-state CTAs | Replace generic "No data available" with actionable copy + link (e.g. "Complete an assessment to see your metrics" + link to start). Start with PerformanceDashboard.tsx. | `client/src/pages/PerformanceDashboard.tsx` (and similar if time) | ⬜ Not started |
 

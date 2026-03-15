@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -129,6 +130,7 @@ function formatTime(seconds: number): string {
 export default function ResusGPS() {
   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
+  const { trackButtonClick } = useAnalytics('ResusGPS');
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
@@ -173,6 +175,7 @@ export default function ResusGPS() {
   // ─── Handlers ───────────────────────────────────────────
 
   const handleStart = (isTrauma: boolean) => {
+    trackButtonClick(isTrauma ? 'Start Trauma Assessment' : 'Start Assessment', { isTrauma });
     const s = createSession(getWeightInKg(), demographics.age || null, isTrauma);
     const started = startQuickAssessment(s);
     setSession(started);
@@ -201,6 +204,7 @@ export default function ResusGPS() {
     setSession(prev => completeIntervention(prev, id));
     // Track intervention completed
     if (intervention) {
+      trackButtonClick('Log Intervention', { interventionName: intervention.name });
       analytics.trackInterventionCompleted(intervention.name);
     }
   };
@@ -246,6 +250,7 @@ export default function ResusGPS() {
   };
 
   const handleExport = () => {
+    trackButtonClick('Complete Assessment');
     const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -1348,7 +1353,10 @@ function PostPrimaryScreen({
                   size="sm"
                   variant="outline"
                   className="mt-2 text-xs"
-                  onClick={() => setSession(setDefinitiveDiagnosis(session, dx.diagnosis))}
+                  onClick={() => {
+                    trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                    setSession(setDefinitiveDiagnosis(session, dx.diagnosis));
+                  }}
                 >
                   Confirm as Diagnosis
                 </Button>
