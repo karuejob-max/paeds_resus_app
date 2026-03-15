@@ -211,13 +211,27 @@ export default function ResusGPS() {
 
   const handleStartIntervention = (id: string) => {
     setSession(prev => startIntervention(prev, id));
+    // Track intervention started
+    const intervention = session.interventions.find(i => i.id === id);
+    if (intervention) {
+      analytics.trackInterventionStarted(intervention.name);
+    }
   };
 
-  const handleReturnToPrimary = () => {
+  const handleReturnToPrimarySurvey = () => {
     setSession(prev => returnToPrimarySurvey(prev));
-    setInterventionPanelOpen(false);
-    setNumberInput('');
-    setNumberInput2('');
+    setReassessmentMode(null);
+    // Track reassessment performed
+    analytics.trackReassessmentPerformed();
+  };
+
+  const handleNumberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'numberInput' | 'numberInput2') => {
+    const value = e.target.value;
+    if (field === 'numberInput') {
+      setNumberInput(value);
+    } else {
+      setNumberInput2(value);
+    }
   };
 
   const handleCardiacArrest = () => {
@@ -251,6 +265,8 @@ export default function ResusGPS() {
 
   const handleExport = () => {
     trackButtonClick('Complete Assessment');
+    // Track assessment completed
+    analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
     const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
