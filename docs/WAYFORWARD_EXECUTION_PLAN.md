@@ -24,8 +24,8 @@
 | 2 | P0-2b | Enroll → Payment: redirect with enrollmentId; Payment use existing enrollment | Enroll.tsx, Payment.tsx, mpesa.initiatePayment (enrollmentId), MpesaPaymentForm | Done | Cursor | 2026-02-25 |
 | 3 | P0-1 | M-Pesa webhook: match payment, issue certificate | `server/webhooks/mpesa-webhook.ts`, mpesa router | Done | Cursor | 2026-02-25 |
 | 4 | P0-3 | Referral & Personal Impact discoverable | Header.tsx, Home.tsx, or BottomNav | Done | Cursor | 2026-02-25 |
-| 5 | P0-4 | Password reset | Login.tsx, auth router | Not started | — | — |
-| 6 | P0-5 | Safe-Truth: notify parent when response ready | parent-safetruth router, ParentSafeTruth.tsx | Not started | — | — |
+| 5 | P0-4 | Password reset | Login.tsx, auth router | Done | Cursor | 2026-02-25 |
+| 6 | P0-5 | Safe-Truth: notify parent when response ready | parent-safetruth router, ParentSafeTruth.tsx | Done | Cursor | 2026-02-25 |
 | 7 | P0-6 | Role checks on backend + admin audit log | server/_core/trpc.ts, routers | Not started | — | — |
 
 ### P1 — Important (pricing, certificate, empty states, terminology)

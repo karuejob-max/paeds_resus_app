@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp } from "lucide-react";
@@ -11,6 +11,9 @@ export default function ParentSafeTruth() {
   const formRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
   const { data: stats } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const { data: mySubmissions } = trpc.parentSafeTruth.getMySubmissions.useQuery(undefined, {
     enabled: isAuthenticated,
   });
 
@@ -58,6 +61,30 @@ export default function ParentSafeTruth() {
                   </span>
                 )}
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Your submissions with response status */}
+        {isAuthenticated && mySubmissions && mySubmissions.length > 0 && (
+          <Card className="mb-8 border-[#2d5f5f]/30 bg-white/80">
+            <CardHeader>
+              <CardTitle className="text-lg">Your submissions</CardTitle>
+              <CardDescription>When we review your submission, we mark it below and email you.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {mySubmissions.slice(0, 10).map((s) => (
+                  <li key={s.id} className="flex items-center justify-between text-sm">
+                    <span>{new Date(s.createdAt).toLocaleDateString()} – {s.childOutcome}</span>
+                    {s.status === "reviewed" ? (
+                      <Badge className="bg-green-600">Response ready</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">{s.status}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </CardContent>
           </Card>
         )}

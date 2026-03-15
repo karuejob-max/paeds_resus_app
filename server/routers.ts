@@ -7,6 +7,8 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { sendEmail } from "./email-service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { certificateRouter } from "./routers/certificates";
 import { smsRouter } from "./routers/sms";
@@ -168,6 +170,42 @@ export const appRouter = router({
       .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
       .mutation(async ({ input, ctx }) => {
         await db.updateUserType(ctx.user.id, input.userType);
+        return { success: true };
+      }),
+    requestPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user?.passwordHash) return { success: true }; // Don't leak existence
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.createPasswordResetToken(user.id, token, expiresAt);
+        const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
+        const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
+        await sendEmail(input.email, "passwordReset", {
+          userName: user.name || "User",
+          resetLink,
+        });
+        return { success: true };
+      }),
+    resetPassword: publicProcedure
+      .input(z.object({
+        token: z.string().min(1),
+        newPassword: z.string().min(8).refine(
+          (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
+          "Password must contain at least one letter and one number"
+        ),
+      }))
+      .mutation(async ({ input }) => {
+        const row = await db.getPasswordResetTokenByToken(input.token);
+        if (!row) throw new Error("Invalid or expired reset link");
+        if (new Date() > row.expiresAt) {
+          await db.deletePasswordResetToken(input.token);
+          throw new Error("Reset link has expired. Please request a new one.");
+        }
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await db.updateUserPasswordById(row.userId, passwordHash);
+        await db.deletePasswordResetToken(input.token);
         return { success: true };
       }),
   }),

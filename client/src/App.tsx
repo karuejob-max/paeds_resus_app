@@ -7,6 +7,8 @@ import Header from "./components/Header";
 import ResusGPS from "./pages/ResusGPS";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
 import SafeTruth from "./pages/SafeTruth";
@@ -61,6 +63,8 @@ function Router() {
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/safe-truth" component={SafeTruth} />
