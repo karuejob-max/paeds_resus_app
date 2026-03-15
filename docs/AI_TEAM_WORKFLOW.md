@@ -44,6 +44,18 @@ If WORK_STATUS is empty or out of date, the commit history (and, when available,
 
 ---
 
+## Task-based initiatives (multi-task work)
+
+For any **new multi-task initiative** (audit follow-up, platform fixes, feature rollout), use the **teamwork task format** so everyone can work on different parts and see what’s done and by whom in real time:
+
+- **Read:** [docs/TEAMWORK_TASK_FORMAT.md](./TEAMWORK_TASK_FORMAT.md) — the standard format (spec + execution plan + handoff message + Cursor rule) and how to improve it.
+- **Create** for each new initiative: (1) a spec/report, (2) an execution plan with task table (Status, Done by, Date), (3) a handoff message for the other agent, (4) optionally a Cursor rule. Update the execution plan when you complete a task; commit and push so others see progress.
+- **Improve:** When you refine the format (e.g. new columns, statuses, or templates), update TEAMWORK_TASK_FORMAT.md so all future tasks use and improve on it.
+
+Current initiatives using this format: Hidden Opportunities (see EXECUTION_PLAN_CURSOR_AND_MANUS.md), Way Forward (see WAYFORWARD_EXECUTION_PLAN.md).
+
+---
+
 ## Files you must read and update
 
 | File | When to read | When to update |
@@ -51,6 +63,7 @@ If WORK_STATUS is empty or out of date, the commit history (and, when available,
 | **docs/PLATFORM_SOURCE_OF_TRUTH.md** | Start of every session / before any change | When you change a platform decision (and note it in WORK_STATUS) |
 | **docs/WORK_STATUS.md** | Start of every session; before claiming something is done | When you complete work, start work, are blocked, or add critique |
 | **docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md** | Before marking work done or before merge | Only if we agree to change the checklist |
+| **docs/TEAMWORK_TASK_FORMAT.md** | When starting or creating a new task-based initiative | When improving the format (new columns, statuses, templates, learnings) |
 
 ---
 

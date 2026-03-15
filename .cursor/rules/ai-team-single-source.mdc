@@ -19,4 +19,4 @@ When working on this repo (Paeds Resus), you are part of a team with Codex and M
 
 ## Workflow details
 
-See **docs/AI_TEAM_WORKFLOW.md**. Reuse existing code and patterns; do not duplicate. Preserve auth/roles and report definitions from PLATFORM_SOURCE_OF_TRUTH. Act conservatively with tokens and scope.
+See **docs/AI_TEAM_WORKFLOW.md**. For multi-task initiatives (audits, platform fixes, rollouts), use the format in **docs/TEAMWORK_TASK_FORMAT.md** (spec + execution plan + handoff + rule) and update the execution plan when you complete a task. Reuse existing code and patterns; do not duplicate. Preserve auth/roles and report definitions from PLATFORM_SOURCE_OF_TRUTH. Act conservatively with tokens and scope.

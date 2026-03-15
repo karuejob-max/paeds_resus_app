@@ -1,0 +1,23 @@
+---
+description: When working on platform fixes or way-forward tasks, use the execution plan for tracking and update it when done
+alwaysApply: false
+globs: ["docs/**", "client/**", "server/**"]
+---
+
+# Way Forward — execution tracking
+
+When you work on **platform fixes** or tasks from the comprehensive plan (enrollment, payment, M-Pesa, certificates, pricing, nav, Safe-Truth, referrals, admin, orphaned pages, a11y):
+
+## Before you start
+
+1. Read **docs/WAYFORWARD_EXECUTION_PLAN.md** to see what’s **Done**, **In progress**, and **Not started**. Pick the next task in execution order (Pricing → Phase 0 → 1 → 2 → 3).
+2. For the full spec (what to do, where, acceptance criteria), use **docs/COMPREHENSIVE_PLATFORM_PLAN.md**.
+
+## When you finish a task
+
+1. Update **docs/WAYFORWARD_EXECUTION_PLAN.md**: set that task’s **Status** to **Done**, **Done by** to **Cursor** (or Manus), and **Date** to today.
+2. Commit and push so the other agent and the user see progress in real time.
+
+Do not duplicate work: if a task is already Done or In progress, skip to the next.
+
+This follows the standard in **docs/TEAMWORK_TASK_FORMAT.md**. For new initiatives, use and improve that format.
