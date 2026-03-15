@@ -23,15 +23,15 @@
 
 | # | Task ID | Title | Spec summary | Where | Status |
 |---|---------|--------|----------------|-------|--------|
-| 1 | **A1** | ResusGPS analytics | Add `useAnalytics("ResusGPS")` in ResusGPS.tsx. On mount: `trackPageView("ResusGPS")`. On key actions: `trackButtonClick("Start Assessment")`, `trackButtonClick("Complete Assessment")`, `trackButtonClick("View Protocol")`, `trackButtonClick("Log Intervention")`. Use existing `client/src/hooks/useAnalytics.ts`. | `client/src/pages/ResusGPS.tsx` | ✅ Done (by Cursor) 2026-02-25 |
-| 2 | **C1** | Active users this week | Query analytics events for unique users in last 7 days. Add card to admin reports: "Active users (last 7 days)". | `server/routers/admin-stats.ts` (or equivalent), `client/src/pages/AdminReports.tsx` | ⬜ Not started |
-| 3 | **D1** | Empty-state CTAs | Replace generic "No data available" with actionable copy + link (e.g. "Complete an assessment to see your metrics" + link to start). Start with PerformanceDashboard.tsx. | `client/src/pages/PerformanceDashboard.tsx` (and similar if time) | ⬜ Not started |
+| 1 | **A1** | ResusGPS analytics | Add `useAnalytics("ResusGPS")` in ResusGPS.tsx. On mount: `trackPageView("ResusGPS")`. On key actions: `trackButtonClick("Start Assessment")`, `trackButtonClick("Complete Assessment")`, `trackButtonClick("View Protocol")`, `trackButtonClick("Log Intervention")`. Use existing `client/src/hooks/useAnalytics.ts`. | `client/src/pages/ResusGPS.tsx` | ✅ Done (by Manus) 2026-03-15 |
+| 2 | **C1** | Active users this week | Query analytics events for unique users in last 7 days. Add card to admin reports: "Active users (last 7 days)". | `server/routers/admin-stats.ts` (or equivalent), `client/src/pages/AdminReports.tsx` | ✅ Done (by Manus) 2026-03-15 |
+| 3 | **D1** | Empty-state CTAs | Replace generic "No data available" with actionable copy + link (e.g. "Complete an assessment to see your metrics" + link to start). Start with PerformanceDashboard.tsx. | `client/src/pages/PerformanceDashboard.tsx` (and similar if time) | ✅ Done (by Manus) 2026-03-15 |
 
 ### Phase 2 — Referrals & Safe-Truth
 
 | # | Task ID | Title | Spec summary | Where | Status |
 |---|---------|--------|----------------|-------|--------|
-| 4 | **A2** | Wire Referral page to backend | Create `server/routers/referrals.ts`: `getReferrals`, `submitReferral`. In Referral.tsx replace TODOs with `trpc.referrals.getReferrals.useQuery()` and `trpc.referrals.submitReferral.useMutation()`. Register router in server. | `server/routers/referrals.ts` (new), `client/src/pages/Referral.tsx`, server router index | ⬜ Not started |
+| 4 | **A2** | Wire Referral page to backend | Create `server/routers/referrals.ts`: `getReferrals`, `submitReferral`. In Referral.tsx replace TODOs with `trpc.referrals.getReferrals.useQuery()` and `trpc.referrals.submitReferral.useMutation()`. Register router in server. | `server/routers/referrals.ts` (new), `client/src/pages/Referral.tsx`, server router index | ✅ Done (by Manus) 2026-03-15 |
 | 5 | **A3** | Referral count in admin reports | Add query for referrals this month; add "Referrals this month" card to AdminReports. | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ⬜ Not started |
 | 6 | **A5** | Safe-Truth usage in parent dashboard | Add tRPC `getSafeTruthStats()` (submissions this month, last submission); show small card in ParentSafeTruth.tsx: "You've used Safe-Truth X times this month". | `server/routers/parent-safetruth.ts`, `client/src/pages/ParentSafeTruth.tsx` | ⬜ Not started |
 
