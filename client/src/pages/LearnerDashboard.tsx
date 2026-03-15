@@ -151,10 +151,12 @@ export default function LearnerDashboard() {
               </CardHeader>
               <CardContent>
                 {myCertificates.length === 0 ? (
-                  <p className="text-slate-600 mb-4">You don't have any certificates yet. Complete a course and payment to receive your certificate.</p>
-                  <Button variant="outline" onClick={() => navigate("/payment")}>
-                    Enroll in a course
-                  </Button>
+                  <>
+                    <p className="text-slate-600 mb-4">You don't have any certificates yet. Complete a course and payment to receive your certificate.</p>
+                    <Button variant="outline" onClick={() => navigate("/payment")}>
+                      Enroll in a course
+                    </Button>
+                  </>
                 ) : (
                   <ul className="space-y-3">
                     {myCertificates.map((c) => (

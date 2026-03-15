@@ -1,6 +1,7 @@
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { paymentService } from "../payments";
+import { mpesaService } from "../services/mpesa";
 
 export const paymentsRouter = router({
   /**
@@ -231,5 +232,40 @@ export const paymentsRouter = router({
         logs,
         total: logs.length,
       };
+    }),
+
+  /**
+   * Initiate STK Push payment via Daraja
+   * Sends M-Pesa prompt to user's phone
+   */
+  initiateSTKPush: protectedProcedure
+    .input(
+      z.object({
+        phoneNumber: z.string().regex(/^254\d{9}$/, "Invalid phone number"),
+        amount: z.number().min(1).max(150000),
+        courseId: z.string(),
+        courseName: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const stkResponse = await mpesaService.initiateSTKPush(
+          input.phoneNumber,
+          input.amount,
+          `${ctx.user.id}-${input.courseId}`,
+          `Payment for ${input.courseName}`
+        );
+
+        return {
+          success: true,
+          checkoutRequestId: stkResponse.CheckoutRequestID,
+          merchantRequestId: stkResponse.MerchantRequestID,
+          message: stkResponse.CustomerMessage,
+        };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Payment initiation failed";
+        throw new Error(message);
+      }
     }),
 });
