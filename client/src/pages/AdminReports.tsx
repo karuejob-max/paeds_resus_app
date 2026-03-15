@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity, Send } from "lucide-react";
+import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
@@ -206,6 +206,28 @@ export default function AdminReports() {
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
                   Total: {report.totalCertificatesThisMonth}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Conversion funnel */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Conversion funnel
+                </CardTitle>
+                <CardDescription>
+                  Enrolled vs completed in {report.periodLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  Enrolled: {report.conversionFunnel.enrolled} → Completed: {report.conversionFunnel.completed}{" "}
+                  ({report.conversionFunnel.conversionPercent}%)
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Applications to certifications this month
                 </p>
               </CardContent>
             </Card>

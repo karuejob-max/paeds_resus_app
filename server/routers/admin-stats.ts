@@ -53,6 +53,7 @@ export const adminStatsRouter = router({
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
           referralsThisMonth: 0,
+          conversionFunnel: { enrolled: 0, completed: 0, conversionPercent: 0 },
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
         };
       }
@@ -169,6 +170,20 @@ export const adminStatsRouter = router({
           certificatesThisMonth.acls +
           certificatesThisMonth.pals +
           certificatesThisMonth.fellowship,
+        conversionFunnel: (() => {
+          const enrolled =
+            enrollmentsThisMonth.bls +
+            enrollmentsThisMonth.acls +
+            enrollmentsThisMonth.pals +
+            enrollmentsThisMonth.fellowship;
+          const completed =
+            certificatesThisMonth.bls +
+            certificatesThisMonth.acls +
+            certificatesThisMonth.pals +
+            certificatesThisMonth.fellowship;
+          const conversionPercent = enrolled > 0 ? Math.round((completed / enrolled) * 100) : 0;
+          return { enrolled, completed, conversionPercent };
+        })(),
         parentSafeTruthThisMonth,
         referralsThisMonth,
         analyticsLastDays: {

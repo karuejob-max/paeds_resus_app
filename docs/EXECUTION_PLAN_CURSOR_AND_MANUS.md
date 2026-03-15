@@ -40,7 +40,7 @@
 | # | Task ID | Title | Spec summary | Where | Status |
 |---|---------|--------|----------------|-------|--------|
 | 7 | **B2** | Institutional onboarding → portal | After onboarding success, redirect to `/institutional-portal`. Optionally add welcome/first-time state in InstitutionalPortal. | `client/src/pages/InstitutionalOnboarding.tsx`, `client/src/pages/InstitutionalPortal.tsx` | ✅ Done (by Cursor) 2026-02-25 |
-| 8 | **C3** | Conversion funnel in admin | Enrolled vs completed this month; show card e.g. "Enrolled: N → Completed: M (X%)". | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ⬜ Not started |
+| 8 | **C3** | Conversion funnel in admin | Enrolled vs completed this month; show card e.g. "Enrolled: N → Completed: M (X%)". | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ✅ Done (by Cursor) 2026-02-25 |
 | 9 | **C2** | Top protocols viewed | After A1 is done: query analytics for "View Protocol" (or equivalent); show top 5 in admin reports. | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ⬜ Not started |
 
 ### Phase 4 — Larger items (optional / when ready)
