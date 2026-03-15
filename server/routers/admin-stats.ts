@@ -8,6 +8,7 @@ import {
   certificates,
   analyticsEvents,
   parentSafeTruthSubmissions,
+  clinicalReferrals,
 } from "../../drizzle/schema";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
@@ -51,6 +52,7 @@ export const adminStatsRouter = router({
           enrollmentsThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
+          referralsThisMonth: 0,
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
         };
       }
@@ -107,6 +109,18 @@ export const adminStatsRouter = router({
         );
       const parentSafeTruthThisMonth = parentSubmissions.length;
 
+      // Clinical referrals this month
+      const referralsInMonth = await db
+        .select({ id: clinicalReferrals.id })
+        .from(clinicalReferrals)
+        .where(
+          and(
+            gte(clinicalReferrals.createdAt, periodStart),
+            lte(clinicalReferrals.createdAt, periodEnd)
+          )
+        );
+      const referralsThisMonth = referralsInMonth.length;
+
       // Analytics (ResusGPS / app usage) in last N days
       const analyticsInPeriod = await db
         .select({
@@ -156,6 +170,7 @@ export const adminStatsRouter = router({
           certificatesThisMonth.pals +
           certificatesThisMonth.fellowship,
         parentSafeTruthThisMonth,
+        referralsThisMonth,
         analyticsLastDays: {
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),

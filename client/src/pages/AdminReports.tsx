@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity } from "lucide-react";
+import { Shield, Users, BookOpen, Award, Heart, Activity, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
@@ -207,6 +207,23 @@ export default function AdminReports() {
                 <p className="text-sm text-muted-foreground mt-2">
                   Total: {report.totalCertificatesThisMonth}
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Referrals this month */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send className="h-5 w-5" />
+                  Referrals this month
+                </CardTitle>
+                <CardDescription>
+                  Clinical referrals submitted in {report.periodLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{report.referralsThisMonth}</p>
+                <p className="text-sm text-muted-foreground">referrals this month</p>
               </CardContent>
             </Card>
 
