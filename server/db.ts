@@ -1,7 +1,7 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -114,8 +114,17 @@ export async function getUserByOpenId(openId: string) {
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) {
+      console.error("[DB] users table may be missing columns. Run: pnpm db:fix-users", msg);
+      throw new Error("Database schema may be out of date. Please ask an admin to run: pnpm db:fix-users");
+    }
+    throw err;
+  }
 }
 
 export async function createUserWithPassword(data: {
@@ -143,12 +152,38 @@ export async function updateUserType(userId: number, userType: "individual" | "i
   await db.update(users).set({ userType, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
-// Enrollment queries
-export async function createEnrollment(data: any) {
+export async function createPasswordResetToken(userId: number, token: string, expiresAt: Date) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(enrollments).values(data);
-  return result;
+  await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+}
+
+export async function getPasswordResetTokenByToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).limit(1);
+  return rows[0];
+}
+
+export async function deletePasswordResetToken(token: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+}
+
+export async function updateUserPasswordById(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
+}
+
+// Enrollment queries
+export async function createEnrollment(data: any): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(enrollments).values(data);
+  const list = await db.select().from(enrollments).where(eq(enrollments.userId, data.userId)).orderBy(desc(enrollments.id)).limit(1);
+  return list[0] ?? null;
 }
 
 export async function getEnrollmentsByUserId(userId: number) {
@@ -260,6 +295,17 @@ export async function getAnalyticsEventsBySessionId(sessionId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return await db.select().from(analyticsEvents).where(eq(analyticsEvents.sessionId, sessionId)).orderBy(desc(analyticsEvents.createdAt));
+}
+
+// Admin audit log (Phase 3 security baseline)
+export async function insertAdminAuditLog(data: InsertAdminAuditLog): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(adminAuditLog).values(data);
+  } catch (e) {
+    console.error("[DB] insertAdminAuditLog failed:", e);
+  }
 }
 
 // Experiments queries

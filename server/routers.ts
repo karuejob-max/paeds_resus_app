@@ -1,11 +1,14 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { ENV } from "./_core/env";
 import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { sendEmail } from "./email-service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { certificateRouter } from "./routers/certificates";
 import { smsRouter } from "./routers/sms";
@@ -44,6 +47,7 @@ import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
 import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { adminStatsRouter } from "./routers/admin-stats";
+import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
@@ -96,7 +100,6 @@ import { realTimeImpact } from "./routers/real-time-impact";
 import { peerAdoption } from "./routers/peer-adoption";
 import { healthcareWorkerDirect } from "./routers/healthcare-worker-direct";
 import { viralReferral } from "./routers/viral-referral";
-import { referralsRouter } from "./routers/referrals";
 import { coreExponential } from "./routers/core-exponential";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { kaizenAutomationRouter } from "./routers/kaizen-automation";
@@ -126,7 +129,10 @@ export const appRouter = router({
     register: publicProcedure
       .input(z.object({
         email: z.string().email(),
-        password: z.string().min(8),
+        password: z.string().min(8).refine(
+          (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
+          "Password must contain at least one letter and one number"
+        ),
         name: z.string().optional(),
         userType: z.enum(["individual", "parent", "institutional"]),
       }))
@@ -151,18 +157,55 @@ export const appRouter = router({
         if (!user?.passwordHash) throw new Error("Invalid email or password");
         const ok = await bcrypt.compare(input.password, user.passwordHash);
         if (!ok) throw new Error("Invalid email or password");
+        const sessionMaxAgeMs = ENV.sessionMaxAgeMs;
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name ?? "",
-          expiresInMs: ONE_YEAR_MS,
+          expiresInMs: sessionMaxAgeMs,
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: sessionMaxAgeMs });
         return { success: true };
       }),
     updateUserType: protectedProcedure
       .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
       .mutation(async ({ input, ctx }) => {
         await db.updateUserType(ctx.user.id, input.userType);
+        return { success: true };
+      }),
+    requestPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const user = await db.getUserByEmail(input.email);
+        if (!user?.passwordHash) return { success: true }; // Don't leak existence
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.createPasswordResetToken(user.id, token, expiresAt);
+        const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
+        const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
+        await sendEmail(input.email, "passwordReset", {
+          userName: user.name || "User",
+          resetLink,
+        });
+        return { success: true };
+      }),
+    resetPassword: publicProcedure
+      .input(z.object({
+        token: z.string().min(1),
+        newPassword: z.string().min(8).refine(
+          (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
+          "Password must contain at least one letter and one number"
+        ),
+      }))
+      .mutation(async ({ input }) => {
+        const row = await db.getPasswordResetTokenByToken(input.token);
+        if (!row) throw new Error("Invalid or expired reset link");
+        if (new Date() > row.expiresAt) {
+          await db.deletePasswordResetToken(input.token);
+          throw new Error("Reset link has expired. Please request a new one.");
+        }
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await db.updateUserPasswordById(row.userId, passwordHash);
+        await db.deletePasswordResetToken(input.token);
         return { success: true };
       }),
   }),
@@ -203,6 +246,7 @@ export const appRouter = router({
   email:  emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   adminStats: adminStatsRouter,
+  referrals: referralsRouter,
   institution: institutionRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
@@ -257,7 +301,6 @@ export const appRouter = router({
   peerAdoption,
   healthcareWorkerDirect,
   viralReferral,
-  referrals: referralsRouter,
   coreExponential,
   kaizenMetrics: kaizenMetricsRouter,
   kaizenAutomation: kaizenAutomationRouter,

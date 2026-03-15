@@ -238,6 +238,60 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     `,
     variables: ["userName", "courseName", "courseDuration", "startDate", "instructorName", "amountPaid", "courseLink"],
   },
+
+  passwordReset: {
+    id: "password-reset",
+    name: "Password Reset",
+    subject: "Reset your Paeds Resus password",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0;">Paeds Resus</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Password reset</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{userName}},</p>
+          <p>We received a request to reset your password. Click the button below to set a new password. This link expires in 24 hours.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{{resetLink}}" style="background: #ff6633; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+              Reset password
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #666;">If you didn't request this, you can ignore this email. Your password will not change.</p>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited · paedsresus254@gmail.com</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{userName}},\n\nReset your password: {{resetLink}}\n\nThis link expires in 24 hours. If you didn't request this, ignore this email.\n\nPaeds Resus Limited`,
+    variables: ["userName", "resetLink"],
+  },
+
+  safetruthResponseReady: {
+    id: "safetruth-response-ready",
+    name: "Safe-Truth response ready",
+    subject: "Your Safe-Truth submission – response ready",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0;">Paeds Resus</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Safe-Truth</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{parentName}},</p>
+          <p>Your Safe-Truth submission has been reviewed. You can view the response and any follow-up in your dashboard.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{{dashboardLink}}" style="background: #ff6633; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View dashboard</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Thank you for helping improve pediatric care.</p>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited · paedsresus254@gmail.com</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{parentName}},\n\nYour Safe-Truth submission has been reviewed. View your dashboard: {{dashboardLink}}\n\nPaeds Resus Limited`,
+    variables: ["parentName", "dashboardLink"],
+  },
 };
 
 /**

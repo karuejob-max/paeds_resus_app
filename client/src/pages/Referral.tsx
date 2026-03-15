@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";

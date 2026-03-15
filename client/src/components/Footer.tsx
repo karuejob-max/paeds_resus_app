@@ -40,8 +40,10 @@ export default function Footer() {
           {/* About */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <img src="/paeds-resus-logo.png" alt="ResusGPS" className="w-8 h-8" />
-              <h3 className="text-white font-bold">ResusGPS</h3>
+              <span className="inline-flex rounded-lg bg-white/95 p-0.5 ring-1 ring-white/20">
+                <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-8 h-8 rounded-md object-contain" />
+              </span>
+              <h3 className="text-white font-bold">Paeds Resus</h3>
             </div>
             <p className="text-sm text-gray-400">
               Transforming paediatric emergency care through clinical excellence and nurse-led resuscitation.
@@ -81,17 +83,17 @@ export default function Footer() {
             <h4 className="text-white font-bold mb-3 text-[#ff6633]">Legal</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/privacy" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
                   About Us
                 </Link>
               </li>
@@ -102,7 +104,7 @@ export default function Footer() {
         {/* Social Media & Copyright */}
         <div className="border-t border-gray-600 pt-6 flex flex-col md:flex-row items-center justify-between">
           <p className="text-sm text-gray-400 mb-4 md:mb-0">
-            © {currentYear} ResusGPS Limited. All rights reserved.
+            © {currentYear} Paeds Resus. All rights reserved.
           </p>
           <div className="flex gap-4">
             {socialLinks.map((social) => (

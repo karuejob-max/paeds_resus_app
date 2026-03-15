@@ -1,12 +1,21 @@
 import { useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp } from "lucide-react";
 import ParentSafeTruthForm from "@/components/ParentSafeTruthForm";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function ParentSafeTruth() {
   const formRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
+  const { data: stats } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const { data: mySubmissions } = trpc.parentSafeTruth.getMySubmissions.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,6 +49,46 @@ export default function ParentSafeTruth() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4">
+        {/* Usage this month (when logged in) */}
+        {isAuthenticated && stats !== undefined && (
+          <Card className="mb-8 border-[#2d5f5f]/30 bg-white/80">
+            <CardContent className="pt-6">
+              <p className="text-lg text-gray-800">
+                You've used Safe-Truth <span className="font-bold text-[#2d5f5f]">{stats.submissionsThisMonth}</span> time{stats.submissionsThisMonth !== 1 ? "s" : ""} this month.
+                {stats.lastSubmission && (
+                  <span className="block text-sm text-muted-foreground mt-1">
+                    Last submission: {new Date(stats.lastSubmission).toLocaleDateString()}
+                  </span>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Your submissions with response status */}
+        {isAuthenticated && mySubmissions && mySubmissions.length > 0 && (
+          <Card className="mb-8 border-[#2d5f5f]/30 bg-white/80">
+            <CardHeader>
+              <CardTitle className="text-lg">Your submissions</CardTitle>
+              <CardDescription>When we review your submission, we mark it below and email you.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {mySubmissions.slice(0, 10).map((s) => (
+                  <li key={s.id} className="flex items-center justify-between text-sm">
+                    <span>{new Date(s.createdAt).toLocaleDateString()} – {s.childOutcome}</span>
+                    {s.status === "reviewed" ? (
+                      <Badge className="bg-green-600">Response ready</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">{s.status}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Why Share Your Story */}
         <div className="grid md:grid-cols-2 gap-6 mb-12">
           <Card>

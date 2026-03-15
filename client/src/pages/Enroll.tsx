@@ -10,6 +10,7 @@ import { AlertCircle, CheckCircle2, Clock, Users, Award, Shield, ArrowRight } fr
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
+import { individualCourses, fellowshipTiers } from "@/const/pricing";
 
 export default function Enroll() {
   useScrollToTop();
@@ -26,61 +27,40 @@ export default function Enroll() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const createEnrollment = trpc.enrollment.create.useMutation({
-    onSuccess: () => {
-      setStep("success");
-      setTimeout(() => {
-        setLocation("/learner-dashboard");
-      }, 3000);
+    onSuccess: (data) => {
+      if (data.enrollmentId && selectedCourse) {
+        setLocation(`/payment?enrollmentId=${data.enrollmentId}&courseId=${selectedCourse}`);
+      } else {
+        setStep("success");
+        setTimeout(() => setLocation("/learner-dashboard"), 3000);
+      }
     },
     onError: (error) => {
       alert(`Enrollment failed: ${error.message}`);
     },
   });
 
-  // Course data with clear pricing and value
+  // Single source of truth: pricing.ts (aligned with Payment page)
+  const fellowshipIds = ["bronze", "silver", "gold"];
   const courses = [
-    {
-      id: "bls",
-      name: "Basic Life Support (BLS)",
-      description: "CPR and emergency response for infants and children",
-      price: 500,
-      duration: "30 minutes",
-      features: [
-        "CPR techniques for infants and children",
-        "Recovery position and choking relief",
-        "When and how to call for help",
-        "Official certificate upon completion",
-      ],
-      popular: true,
-    },
-    {
-      id: "first-aid",
-      name: "First Aid Essentials",
-      description: "Handle common emergencies with confidence",
-      price: 300,
-      duration: "45 minutes",
-      features: [
-        "Wound care and bleeding control",
-        "Burns, fractures, and sprains",
-        "Fever, allergies, and poisoning",
-        "Official certificate upon completion",
-      ],
+    ...individualCourses.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      price: c.price,
+      duration: c.duration ?? "",
+      features: ["Official certificate upon completion", "Lifetime access to materials"],
+      popular: c.id === "bls",
+    })),
+    ...fellowshipTiers.map((t, i) => ({
+      id: fellowshipIds[i] as string,
+      name: t.name.replace(" Paeds Resus Fellowship", ""),
+      description: t.description,
+      price: t.price,
+      duration: "6–12 months",
+      features: t.features.slice(0, 3),
       popular: false,
-    },
-    {
-      id: "acls",
-      name: "Advanced Cardiovascular Life Support",
-      description: "For healthcare professionals",
-      price: 2000,
-      duration: "2 hours",
-      features: [
-        "Advanced CPR techniques",
-        "Medication administration",
-        "Defibrillation and advanced airway",
-        "Professional certification",
-      ],
-      popular: false,
-    },
+    })),
   ];
 
   if (!isAuthenticated) {
@@ -283,8 +263,9 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
+                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse) ? "fellowship" : selectedCourse) as "bls" | "acls" | "pals" | "fellowship";
                   createEnrollment.mutate({
-                    programType: selectedCourse as "bls" | "acls" | "pals" | "fellowship",
+                    programType,
                     trainingDate: new Date(),
                   });
                 }}

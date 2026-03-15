@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,58 +9,38 @@ import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } f
 import { individualCourses, fellowshipTiers } from "@/const/pricing";
 
 export default function Payment() {
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const urlEnrollmentId = params.get("enrollmentId");
+  const urlCourseId = params.get("courseId");
+  const enrollmentIdFromEnroll = urlEnrollmentId ? parseInt(urlEnrollmentId, 10) : undefined;
+
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(urlCourseId || null);
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "bank" | "card">("mpesa");
 
+  useEffect(() => {
+    if (urlCourseId && !selectedCourse) setSelectedCourse(urlCourseId);
+  }, [urlCourseId, selectedCourse]);
+
+  const courseIcons: Record<string, string> = { bls: "🏥", acls: "❤️", pals: "👶", bronze: "🥉", silver: "🥈", gold: "🥇" };
+  const fellowshipDurations: Record<string, string> = { bronze: "6 weeks", silver: "12 weeks", gold: "16 weeks" };
   const courses = [
-    {
-      id: "bls",
-      name: "BLS Certification",
-      description: "Basic Life Support training and certification",
-      price: 10000,
-      duration: "2 days",
-      icon: "🏥",
-    },
-    {
-      id: "acls",
-      name: "ACLS Certification",
-      description: "Advanced Cardiovascular Life Support",
-      price: 20000,
-      duration: "3 days",
-      icon: "❤️",
-    },
-    {
-      id: "pals",
-      name: "PALS Certification",
-      description: "Pediatric Advanced Life Support",
-      price: 20000,
-      duration: "3 days",
-      icon: "👶",
-    },
-    {
-      id: "bronze",
-      name: "Bronze Fellowship",
-      description: "Comprehensive pediatric resuscitation",
-      price: 70000,
-      duration: "6 weeks",
-      icon: "🥉",
-    },
-    {
-      id: "silver",
-      name: "Silver Fellowship",
-      description: "Advanced clinical skills and leadership",
-      price: 100000,
-      duration: "12 weeks",
-      icon: "🥈",
-    },
-    {
-      id: "gold",
-      name: "Gold Fellowship",
-      description: "Elite training with certification",
-      price: 150000,
-      duration: "16 weeks",
-      icon: "🥇",
-    },
+    ...individualCourses.map((c) => ({
+      id: c.id,
+      name: `${c.name} Certification`,
+      description: c.description,
+      price: c.price,
+      duration: c.duration ?? "",
+      icon: courseIcons[c.id] ?? "📋",
+    })),
+    ...fellowshipTiers.map((t, i) => ({
+      id: ["bronze", "silver", "gold"][i] as string,
+      name: t.name.split(" ")[0] + " Fellowship",
+      description: t.description,
+      price: t.price,
+      duration: fellowshipDurations[["bronze", "silver", "gold"][i]] ?? "",
+      icon: courseIcons[["bronze", "silver", "gold"][i]] ?? "📋",
+    })),
   ];
 
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
@@ -212,6 +193,7 @@ export default function Payment() {
                     courseId={selectedCourseData.id}
                     courseName={selectedCourseData.name}
                     amount={selectedCourseData.price}
+                    enrollmentId={enrollmentIdFromEnroll}
                     onPaymentSuccess={() => {
                       // Redirect to success page or dashboard
                       window.location.href = "/learner-dashboard";
@@ -228,7 +210,7 @@ export default function Payment() {
                       <div className="p-4 bg-slate-50 rounded-lg space-y-3">
                         <div>
                           <p className="text-sm text-slate-600">Account Name</p>
-                          <p className="font-bold text-slate-900">ResusGPS Limited</p>
+                          <p className="font-bold text-slate-900">Paeds Resus</p>
                         </div>
                         <div>
                           <p className="text-sm text-slate-600">Account Number</p>

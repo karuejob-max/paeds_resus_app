@@ -7,14 +7,46 @@ import Header from "./components/Header";
 import ResusGPS from "./pages/ResusGPS";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
+import SafeTruth from "./pages/SafeTruth";
 import InstitutionalPortal from "./pages/InstitutionalPortal";
+import Institutional from "./pages/Institutional";
 import AdminHub from "./pages/AdminHub";
 import AdminReports from "./pages/AdminReports";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
+import Enroll from "./pages/Enroll";
+import LearnerDashboard from "./pages/LearnerDashboard";
+import PatientsList from "./pages/PatientsList";
+import { EmergencyProtocols } from "./pages/EmergencyProtocols";
+import { PerformanceDashboard } from "./pages/PerformanceDashboard";
+import ProviderProfile from "./pages/ProviderProfile";
+import CPRMonitoring from "./pages/CPRMonitoring";
+import Payment from "./pages/Payment";
+import Referral from "./pages/Referral";
+import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
+import KaizenDashboard from "./pages/KaizenDashboard";
+import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard";
+import PredictiveInterventionDashboard from "./pages/PredictiveInterventionDashboard";
+import TargetedSolutions from "./pages/TargetedSolutions";
+import ProblemIdentification from "./pages/ProblemIdentification";
+import Reassessment from "./pages/Reassessment";
+import CirculationAssessment from "./pages/CirculationAssessment";
+import CourseBLS from "./pages/CourseBLS";
+import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
 import { Toaster } from "@/components/ui/sonner";
+
+/** Redirects to target path (for routes that have no dedicated page). */
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+  return null;
+}
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -31,13 +63,54 @@ function Router() {
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
+          <Route path="/safe-truth" component={SafeTruth} />
           <Route path="/institutional-portal" component={InstitutionalPortal} />
+          <Route path="/institutional" component={Institutional} />
           <Route path="/admin" component={AdminHub} />
           <Route path="/admin/reports" component={AdminReports} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
+          <Route path="/enroll" component={Enroll} />
+          <Route path="/learner-dashboard" component={LearnerDashboard} />
+          <Route path="/patients" component={PatientsList} />
+          <Route path="/protocols" component={EmergencyProtocols} />
+          <Route path="/performance-dashboard" component={PerformanceDashboard} />
+          <Route path="/provider-profile" component={ProviderProfile} />
+          <Route path="/cpr-monitoring" component={CPRMonitoring} />
+          <Route path="/payment" component={Payment} />
+          <Route path="/referral" component={Referral} />
+          <Route path="/personal-impact" component={PersonalImpactDashboard} />
+          <Route path="/kaizen-dashboard" component={KaizenDashboard} />
+          <Route path="/personalized-learning" component={PersonalizedLearningDashboard} />
+          <Route path="/predictive-intervention" component={PredictiveInterventionDashboard} />
+          <Route path="/targeted-solutions" component={TargetedSolutions} />
+          <Route path="/problem-identification" component={ProblemIdentification} />
+          <Route path="/reassessment" component={Reassessment} />
+          <Route path="/circulation-assessment" component={CirculationAssessment} />
+          <Route path="/course/bls" component={CourseBLS} />
+          <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
+          {/* case-analysis has no page; redirect to targeted-solutions */}
+          <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
+          {/* dashboard → home (provider hub) */}
+          <Route path="/dashboard">{() => <Redirect to="/home" />}</Route>
+          {/* institutional-dashboard → hospital admin */}
+          <Route path="/institutional-dashboard">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
+          {/* pricing/roi calculators live on /institutional */}
+          <Route path="/pricing-calculator">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/roi-calculator">{() => <Redirect to="/institutional" />}</Route>
+          {/* contact, resources, legal/support: point to existing pages */}
+          <Route path="/contact">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/resources">{() => <Redirect to="/learner-dashboard" />}</Route>
+          <Route path="/privacy">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/terms">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/about">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/faq">{() => <Redirect to="/learner-dashboard" />}</Route>
+          <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
+          <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
           {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />

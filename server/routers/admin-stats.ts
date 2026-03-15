@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -8,19 +8,16 @@ import {
   certificates,
   analyticsEvents,
   parentSafeTruthSubmissions,
+  clinicalReferrals,
 } from "../../drizzle/schema";
 
-function startOfMonth(d: Date) {
-  const x = new Date(d);
-  x.setDate(1);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
+/** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
+function startOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month - 1, 1, -3, 0, 0, 0));
 }
 
-function endOfMonth(d: Date) {
-  const x = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  x.setUTCHours(23, 59, 59, 999);
-  return x;
+function endOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
 }
 
 function daysAgo(days: number) {
@@ -55,7 +52,9 @@ export const adminStatsRouter = router({
           enrollmentsThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
-          activeUsersLastDays: 0,
+          referralsThisMonth: 0,
+          conversionFunnel: { enrolled: 0, completed: 0, conversionPercent: 0 },
+          topProtocolsViewed: [] as { protocol: string; count: number }[],
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
         };
       }
@@ -63,8 +62,8 @@ export const adminStatsRouter = router({
       const now = new Date();
       const year = input?.year ?? now.getFullYear();
       const month = input?.month ?? now.getMonth() + 1;
-      const periodStart = startOfMonth(new Date(year, month - 1, 1));
-      const periodEnd = endOfMonth(new Date(year, month - 1, 1));
+      const periodStart = startOfMonthEAT(year, month);
+      const periodEnd = endOfMonthEAT(year, month);
       const lastDays = input?.lastDays ?? 7;
       const analyticsSince = daysAgo(lastDays);
 
@@ -112,31 +111,76 @@ export const adminStatsRouter = router({
         );
       const parentSafeTruthThisMonth = parentSubmissions.length;
 
+      // Clinical referrals this month
+      const referralsInMonth = await db
+        .select({ id: clinicalReferrals.id })
+        .from(clinicalReferrals)
+        .where(
+          and(
+            gte(clinicalReferrals.createdAt, periodStart),
+            lte(clinicalReferrals.createdAt, periodEnd)
+          )
+        );
+      const referralsThisMonth = referralsInMonth.length;
+
       // Analytics (ResusGPS / app usage) in last N days
       const analyticsInPeriod = await db
         .select({
           eventType: analyticsEvents.eventType,
           eventName: analyticsEvents.eventName,
-          userId: analyticsEvents.userId,
         })
         .from(analyticsEvents)
         .where(gte(analyticsEvents.createdAt, analyticsSince));
       const eventCounts: Record<string, number> = {};
-      const uniqueUserIds = new Set<number>();
       analyticsInPeriod.forEach((e) => {
         const key = e.eventType || e.eventName || "other";
         eventCounts[key] = (eventCounts[key] || 0) + 1;
-        if (e.userId) uniqueUserIds.add(e.userId);
       });
       const eventTypes = Object.entries(eventCounts).map(([eventType, count]) => ({
         eventType,
         count,
       }));
-      const activeUsersLastDays = uniqueUserIds.size;
+
+      // Count unique active users in last N days
+      const activeUsersResult = await db
+        .selectDistinct({ userId: analyticsEvents.userId })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.createdAt, daysAgo(lastDays)),
+            analyticsEvents.userId
+          )
+        );
+      const activeUsersLastDays = activeUsersResult.filter(r => r.userId !== null).length;
+
+      // Top protocols viewed (View Protocol button clicks, last N days)
+      const viewProtocolEvents = await db
+        .select({ eventData: analyticsEvents.eventData })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.createdAt, analyticsSince),
+            like(analyticsEvents.eventName, "%View Protocol%")
+          )
+        );
+      const protocolCounts: Record<string, number> = {};
+      viewProtocolEvents.forEach((row) => {
+        try {
+          const data = row.eventData ? JSON.parse(row.eventData) : {};
+          const protocol = (data.protocol || data.diagnosis || "Unknown").toString();
+          protocolCounts[protocol] = (protocolCounts[protocol] || 0) + 1;
+        } catch {
+          protocolCounts["Unknown"] = (protocolCounts["Unknown"] || 0) + 1;
+        }
+      });
+      const topProtocolsViewed = Object.entries(protocolCounts)
+        .map(([protocol, count]) => ({ protocol, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
       return {
         ok: true,
-        periodLabel: `${periodStart.toLocaleString("default", { month: "long" })} ${year}`,
+        periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
         lastDaysLabel: `Last ${lastDays} days`,
         usersByType,
         totalUsers: allUsers.length,
@@ -152,12 +196,28 @@ export const adminStatsRouter = router({
           certificatesThisMonth.acls +
           certificatesThisMonth.pals +
           certificatesThisMonth.fellowship,
+        conversionFunnel: (() => {
+          const enrolled =
+            enrollmentsThisMonth.bls +
+            enrollmentsThisMonth.acls +
+            enrollmentsThisMonth.pals +
+            enrollmentsThisMonth.fellowship;
+          const completed =
+            certificatesThisMonth.bls +
+            certificatesThisMonth.acls +
+            certificatesThisMonth.pals +
+            certificatesThisMonth.fellowship;
+          const conversionPercent = enrolled > 0 ? Math.round((completed / enrolled) * 100) : 0;
+          return { enrolled, completed, conversionPercent };
+        })(),
         parentSafeTruthThisMonth,
-        activeUsersLastDays,
+        referralsThisMonth,
         analyticsLastDays: {
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
         },
+        activeUsersLastDays,
+        topProtocolsViewed,
       };
     }),
 

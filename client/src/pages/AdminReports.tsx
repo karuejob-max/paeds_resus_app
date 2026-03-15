@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity } from "lucide-react";
+import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
@@ -138,25 +138,6 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
-            {/* Active users in last N days */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Active users
-                </CardTitle>
-                <CardDescription>{report.lastDaysLabel}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-lg border p-4 bg-muted/50">
-                  <p className="text-4xl font-bold text-primary">{report.activeUsersLastDays}</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Users who logged in or used the platform
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Enrollments (applications) this month */}
             <Card>
               <CardHeader>
@@ -229,6 +210,45 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
+            {/* Conversion funnel */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Conversion funnel
+                </CardTitle>
+                <CardDescription>
+                  Enrolled vs completed in {report.periodLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  Enrolled: {report.conversionFunnel.enrolled} → Completed: {report.conversionFunnel.completed}{" "}
+                  ({report.conversionFunnel.conversionPercent}%)
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Applications to certifications this month
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Referrals this month */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send className="h-5 w-5" />
+                  Referrals this month
+                </CardTitle>
+                <CardDescription>
+                  Clinical referrals submitted in {report.periodLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{report.referralsThisMonth}</p>
+                <p className="text-sm text-muted-foreground">referrals this month</p>
+              </CardContent>
+            </Card>
+
             {/* Parent Safe-Truth usage */}
             <Card>
               <CardHeader>
@@ -246,12 +266,12 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
-            {/* ResusGPS / app analytics (last 7 days) */}
+            {/* Paeds Resus / app analytics (last 7 days) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
-                  App & ResusGPS activity
+                  App & Paeds Resus activity
                 </CardTitle>
                 <CardDescription>
                   Events in {report.lastDaysLabel} (page views, interactions, usage)
@@ -273,7 +293,36 @@ export default function AdminReports() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No analytics events recorded yet. Events are stored when the app tracks usage (e.g. ResusGPS sessions, page views).
+                    No analytics events recorded yet. Events are stored when the app tracks usage (e.g. Paeds Resus sessions, page views).
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top protocols viewed */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Top protocols viewed
+                </CardTitle>
+                <CardDescription>
+                  Most viewed protocols in {report.lastDaysLabel} (ResusGPS)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {report.topProtocolsViewed.length > 0 ? (
+                  <ol className="list-decimal list-inside space-y-1 text-sm">
+                    {report.topProtocolsViewed.map((p, i) => (
+                      <li key={i} className="text-foreground">
+                        <span className="font-medium">{p.protocol}</span>
+                        <span className="text-muted-foreground"> — {p.count} view{p.count !== 1 ? "s" : ""}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No protocol views recorded yet. Views are tracked when providers confirm a diagnosis in ResusGPS.
                   </p>
                 )}
               </CardContent>

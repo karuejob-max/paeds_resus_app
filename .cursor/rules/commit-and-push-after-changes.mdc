@@ -1,0 +1,13 @@
+---
+description: Commit and push changes after completing work so the user doesn't need to sync manually
+alwaysApply: true
+---
+
+# Commit and push after changes
+
+After completing substantive code or doc changes in this repo:
+
+1. **Stage and commit**: Run `git add .` then `git commit -m "Short descriptive message"` (e.g. "A1 ResusGPS analytics", "C1 active users this week").
+2. **Push**: Run `git push` so changes are on the remote and the user does not need to sync manually.
+
+Skip if the user asked not to commit/push, or if there are no changes. Use the project's PowerShell shell; for chaining use `;` not `&&`.

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "c630266d-ada5-4b78-b4e0-8c256fce1a4a",
+  "id": "7a2e25fa-5738-46e1-bbf9-4c0e37a1caea",
   "prevId": "31b0dd54-53ba-45fb-95d7-d32c80914ec7",
   "tables": {
     "accreditationApplications": {
@@ -325,6 +325,59 @@
       "compositePrimaryKeys": {
         "achievements_id": {
           "name": "achievements_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "adminAuditLog": {
+      "name": "adminAuditLog",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "adminUserId": {
+          "name": "adminUserId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "procedurePath": {
+          "name": "procedurePath",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inputSummary": {
+          "name": "inputSummary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "adminAuditLog_id": {
+          "name": "adminAuditLog_id",
           "columns": [
             "id"
           ]
@@ -6493,6 +6546,69 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+<<<<<<< HEAD
+=======
+    "passwordResetTokens": {
+      "name": "passwordResetTokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "passwordResetTokens_id": {
+          "name": "passwordResetTokens_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "passwordResetTokens_token_unique": {
+          "name": "passwordResetTokens_token_unique",
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+>>>>>>> 0255caa (P0-4: Password reset (forgot/reset pages, auth procedures, email template, passwordResetTokens table); P0-5: Safe-Truth markResponseReady + email, parent dashboard shows Response ready)
     "patientVitals": {
       "name": "patientVitals",
       "columns": {

@@ -2,14 +2,19 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, BookOpen, FileText, Users } from "lucide-react";
+import { AlertCircle, Award, BookOpen, FileText, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
+import { trpc } from "@/lib/trpc";
 
 export default function LearnerDashboard() {
   const { user, isAuthenticated } = useAuth();
   const { role: selectedRole } = useUserRole();
   const [, navigate] = useLocation();
+  const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const myCertificates = certData?.success ? certData.certificates ?? [] : [];
 
   if (!isAuthenticated) {
     return (
@@ -133,6 +138,48 @@ export default function LearnerDashboard() {
               <CardContent>
                 <p className="text-3xl font-bold text-orange-600 mb-2">5</p>
                 <p className="text-slate-600">Gaps identified from events</p>
+              </CardContent>
+            </Card>
+
+            {/* My Certificates */}
+            <Card className="md:col-span-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  My Certificates
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {myCertificates.length === 0 ? (
+                  <>
+                    <p className="text-slate-600 mb-4">You don't have any certificates yet. Complete a course and payment to receive your certificate.</p>
+                    <Button variant="outline" onClick={() => navigate("/payment")}>
+                      Enroll in a course
+                    </Button>
+                  </>
+                ) : (
+                  <ul className="space-y-3">
+                    {myCertificates.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                          <p className="font-medium uppercase text-slate-900">{c.programType}</p>
+                          <p className="text-sm text-slate-500">
+                            Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
+                            {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
+                          </p>
+                          {c.certificateNumber && (
+                            <p className="text-xs text-slate-400 mt-1">No. {c.certificateNumber}</p>
+                          )}
+                        </div>
+                        {c.certificateUrl ? (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={c.certificateUrl} target="_blank" rel="noopener noreferrer">Download</a>
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -49,13 +49,13 @@ export const referralsRouter = router({
   submitReferral: protectedProcedure
     .input(
       z.object({
-        patientName: z.string().min(1, "Patient name required"),
-        patientAge: z.number().min(0).max(150),
-        diagnosis: z.string().min(1, "Diagnosis required"),
+        patientName: z.string().min(1),
+        patientAge: z.number().min(0).max(120),
+        diagnosis: z.string().min(1),
         urgency: z.enum(["routine", "urgent", "emergency"]),
-        reason: z.string().min(1, "Reason required"),
+        reason: z.string().min(1),
         referralType: z.enum(["hospital", "specialist", "imaging", "lab"]),
-        facilityName: z.string().min(1, "Facility name required"),
+        facilityName: z.string().min(1),
         notes: z.string().optional(),
       })
     )
@@ -80,7 +80,6 @@ export const referralsRouter = router({
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-
 
       return {
         success: true,

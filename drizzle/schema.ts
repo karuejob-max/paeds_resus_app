@@ -29,6 +29,18 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// Password reset tokens (for "forgot password" flow; expire after 24h)
+export const passwordResetTokens = mysqlTable("passwordResetTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+
 // Enrollments table
 export const enrollments = mysqlTable("enrollments", {
   id: int("id").autoincrement().primaryKey(),
@@ -211,6 +223,18 @@ export const analyticsEvents = mysqlTable("analyticsEvents", {
 
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+// Admin audit log (Phase 3 security baseline)
+export const adminAuditLog = mysqlTable("adminAuditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  procedurePath: varchar("procedurePath", { length: 255 }).notNull(),
+  inputSummary: text("inputSummary"), // sanitized, no secrets
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
+export type InsertAdminAuditLog = typeof adminAuditLog.$inferInsert;
 
 // A/B Experiments table
 export const experiments = mysqlTable("experiments", {
@@ -2080,7 +2104,6 @@ export const protocolStatus = mysqlTable("protocolStatus", {
 
 export type ProtocolStatus = typeof protocolStatus.$inferSelect;
 export type InsertProtocolStatus = typeof protocolStatus.$inferInsert;
-
 
 // Clinical Referrals - tracks patient referrals to other facilities
 export const clinicalReferrals = mysqlTable("clinicalReferrals", {

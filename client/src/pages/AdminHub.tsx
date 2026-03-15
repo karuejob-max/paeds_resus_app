@@ -50,7 +50,7 @@ export default function AdminHub() {
                   Reports & insights
                 </CardTitle>
                 <CardDescription>
-                  Registered users, BLS/ACLS enrollments & certifications, Safe-Truth usage, ResusGPS activity
+                  Registered users, BLS/ACLS enrollments & certifications, Safe-Truth usage, Paeds Resus activity
                 </CardDescription>
               </div>
             </CardHeader>

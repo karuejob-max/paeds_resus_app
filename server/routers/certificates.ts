@@ -5,6 +5,7 @@ import {
   verifyCertificate,
   getCertificateByEnrollmentId,
   getCertificateStats,
+  getCertificatesByUserId,
 } from "../certificates";
 
 const certificateSchema = z.object({
@@ -85,6 +86,23 @@ export const certificateRouter = router({
         };
       }
     }),
+
+  // Get current user's certificates (My Certificates)
+  getMyCertificates: protectedProcedure.query(async ({ ctx }) => {
+    const list = await getCertificatesByUserId(ctx.user.id);
+    return {
+      success: true,
+      certificates: list.map((c) => ({
+        id: c.id,
+        enrollmentId: c.enrollmentId,
+        certificateNumber: c.certificateNumber,
+        programType: c.programType,
+        issueDate: c.issueDate,
+        expiryDate: c.expiryDate,
+        certificateUrl: c.certificateUrl,
+      })),
+    };
+  }),
 
   // Get certificate by enrollment ID
   getByEnrollmentId: protectedProcedure

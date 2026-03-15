@@ -1,8 +1,8 @@
 // import { PDFDocument, PDFPage, rgb } from "@pdfkit/core"; // Optional PDF library
 import { createHash } from "crypto";
 import { getDb } from "./db";
-import { eq } from "drizzle-orm";
-import { certificates } from "../drizzle/schema";
+import { desc, eq } from "drizzle-orm";
+import { certificates, enrollments, users } from "../drizzle/schema";
 
 interface CertificateData {
   recipientName: string;
@@ -73,7 +73,8 @@ export async function saveCertificate(
   recipientName: string,
   programType: string,
   trainingDate: Date,
-  instructorName: string
+  instructorName: string,
+  userId: number = 0
 ) {
   try {
     const db = await getDb();
@@ -100,7 +101,7 @@ export async function saveCertificate(
     // Save to database
     await db.insert(certificates).values({
       enrollmentId,
-      userId: 0, // Would be passed in production
+      userId,
       certificateNumber,
       programType: programType as "bls" | "acls" | "pals" | "fellowship",
       issueDate,
@@ -182,6 +183,72 @@ export async function verifyCertificate(
       valid: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+/**
+ * Issue a certificate for an enrollment when payment is completed (idempotent).
+ * Called from payment success flow (e.g. M-Pesa webhook).
+ */
+export async function issueCertificateForEnrollmentIfEligible(enrollmentId: number): Promise<{ issued: boolean; error?: string }> {
+  try {
+    const db = await getDb();
+    if (!db) return { issued: false, error: "Database not available" };
+
+    const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+    if (enrollmentRows.length === 0) return { issued: false, error: "Enrollment not found" };
+    const enrollment = enrollmentRows[0];
+
+    if (enrollment.paymentStatus !== "completed") {
+      return { issued: false, error: "Enrollment payment not completed" };
+    }
+
+    const existing = await getCertificateByEnrollmentId(enrollmentId);
+    if (existing) return { issued: true }; // Already has certificate
+
+    const userRows = await db.select({ name: users.name }).from(users).where(eq(users.id, enrollment.userId)).limit(1);
+    const recipientName = userRows[0]?.name || "Participant";
+
+    const result = await saveCertificate(
+      enrollmentId,
+      recipientName,
+      enrollment.programType,
+      enrollment.trainingDate,
+      "Paeds Resus",
+      enrollment.userId
+    );
+
+    return result.success ? { issued: true } : { issued: false, error: result.error };
+  } catch (err) {
+    console.error("[Certificates] issueCertificateForEnrollmentIfEligible:", err);
+    return { issued: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Get certificates for a user (for "My Certificates").
+ */
+export async function getCertificatesByUserId(userId: number) {
+  try {
+    const db = await getDb();
+    if (!db) return [];
+    const list = await db
+      .select({
+        id: certificates.id,
+        enrollmentId: certificates.enrollmentId,
+        certificateNumber: certificates.certificateNumber,
+        programType: certificates.programType,
+        issueDate: certificates.issueDate,
+        expiryDate: certificates.expiryDate,
+        certificateUrl: certificates.certificateUrl,
+      })
+      .from(certificates)
+      .where(eq(certificates.userId, userId))
+      .orderBy(desc(certificates.issueDate));
+    return list;
+  } catch (err) {
+    console.error("[Certificates] getCertificatesByUserId:", err);
+    return [];
   }
 }
 

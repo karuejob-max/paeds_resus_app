@@ -163,9 +163,6 @@ export interface ResusSession {
   safetyAlerts: SafetyAlert[];
   sampleHistory: Partial<SAMPLEHistory>;
   definitiveDiagnosis: string | null;
-  definitiveDiagnoses: string[]; // Multi-diagnosis support
-  undoStack: ResusSession[]; // For undo functionality
-  medicationsGiven: { drug: string; timestamp: number }[]; // Track given medications for deduplication
   patientWeight: number | null;
   patientAge: string | null;
   isTrauma: boolean;
@@ -789,9 +786,7 @@ function calcDose(dose: DoseInfo, weightKg: number | null): string {
   if (dose.maxDose && amount > dose.maxDose) amount = dose.maxDose;
   const rounded = amount < 1 ? amount.toFixed(2) : amount < 10 ? amount.toFixed(1) : Math.round(amount).toString();
   const maxNote = dose.maxDose && dose.dosePerKg * weightKg >= dose.maxDose ? ' (MAX DOSE)' : '';
-  // Always show dose/kg rationale for clinical transparency
-  const rationale = `${dose.dosePerKg} ${dose.unit}/kg`;
-  return `${dose.drug}: ${rounded} ${dose.unit} (${rationale}) ${dose.route}${maxNote}`;
+  return `${dose.drug}: ${rounded} ${dose.unit} ${dose.route}${maxNote}`;
 }
 
 export { calcDose };
@@ -1568,9 +1563,6 @@ export function createSession(weight?: number | null, age?: string | null, isTra
     safetyAlerts: [],
     sampleHistory: {},
     definitiveDiagnosis: null,
-    definitiveDiagnoses: [],
-    undoStack: [],
-    medicationsGiven: [],
     patientWeight: weight ?? null,
     patientAge: age ?? null,
     isTrauma: isTrauma ?? false,
@@ -1810,11 +1802,6 @@ export function completeIntervention(session: ResusSession, interventionId: stri
       }
       if (intervention.action.includes('POTASSIUM') || intervention.action.includes('KCl')) {
         next.potassiumAdded = true;
-      }
-
-      // Record medication given for deduplication
-      if (intervention.dose && intervention.dose.drug) {
-        recordMedicationGiven(next, intervention.dose.drug);
       }
 
       // Start timer
@@ -2111,7 +2098,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
 export function exportClinicalRecord(session: ResusSession): string {
   const lines: string[] = [];
   lines.push('═══════════════════════════════════════════');
-  lines.push('  ResusGPS — CLINICAL RECORD');
+  lines.push('  Paeds Resus — CLINICAL RECORD');
   lines.push('═══════════════════════════════════════════');
   lines.push(`Date: ${new Date(session.startTime).toLocaleString()}`);
   if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
@@ -2212,124 +2199,3 @@ export const LETTER_CONFIG: Record<ABCDELetter, { label: string; color: string; 
   D: { label: 'D — Disability', color: 'text-amber-400', bgColor: 'bg-amber-500/10', icon: '🧠' },
   E: { label: 'E — Exposure', color: 'text-purple-400', bgColor: 'bg-purple-500/10', icon: '👁️' },
 };
-
-// ─── FEATURE 1: UNDO FUNCTIONALITY ──────────────────────────────
-
-/**
- * Save current session state to undo stack before making changes.
- * Called before answerQuestion, startIntervention, etc.
- */
-export function pushUndoStack(session: ResusSession): ResusSession {
-  const next = deepCopy(session);
-  // Keep only last 20 states to avoid memory bloat
-  if (next.undoStack.length >= 20) {
-    next.undoStack.shift();
-  }
-  next.undoStack.push(deepCopy(session));
-  return next;
-}
-
-/**
- * Undo last action by restoring from undo stack.
- * Returns to previous state and logs the undo action.
- */
-export function undoLastAnswer(session: ResusSession): ResusSession {
-  if (session.undoStack.length === 0) {
-    return session; // No undo available
-  }
-  
-  const previous = session.undoStack[session.undoStack.length - 1];
-  const next = deepCopy(previous);
-  next.undoStack.pop(); // Remove the state we just restored
-  
-  log(next, 'note', '↶ UNDO — Reverted to previous state');
-  return next;
-}
-
-// ─── FEATURE 2: MEDICATION DEDUPLICATION ────────────────────────
-
-/**
- * Track medication given in session to prevent re-suggesting same drug.
- * Called after intervention marked as completed.
- */
-export function recordMedicationGiven(session: ResusSession, drugName: string): ResusSession {
-  const next = deepCopy(session);
-  next.medicationsGiven.push({
-    drug: drugName,
-    timestamp: Date.now(),
-  });
-  log(next, 'note', `Medication recorded: ${drugName}`);
-  return next;
-}
-
-/**
- * Check if medication was already given in this session.
- * Used to filter out duplicate suggestions (e.g., steroids for stridor then wheeze).
- */
-export function hasMedicationBeenGiven(session: ResusSession, drugName: string): boolean {
-  return session.medicationsGiven.some(m => 
-    m.drug.toLowerCase() === drugName.toLowerCase()
-  );
-}
-
-/**
- * Get list of medications already given in this session.
- * Used for provider awareness and deduplication logic.
- */
-export function getMedicationsGiven(session: ResusSession): string[] {
-  return Array.from(new Set(session.medicationsGiven.map(m => m.drug)));
-}
-
-// ─── FEATURE 3: MULTI-DIAGNOSIS SUPPORT ─────────────────────────
-
-/**
- * Add diagnosis to multi-diagnosis array.
- * Allows patient to have DKA + Sepsis simultaneously.
- */
-export function addDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
-  const next = deepCopy(session);
-  if (!next.definitiveDiagnoses.includes(diagnosis)) {
-    next.definitiveDiagnoses.push(diagnosis);
-    log(next, 'diagnosis', `Added diagnosis: ${diagnosis}`);
-  }
-  return next;
-}
-
-/**
- * Remove diagnosis from multi-diagnosis array.
- */
-export function removeDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
-  const next = deepCopy(session);
-  next.definitiveDiagnoses = next.definitiveDiagnoses.filter(d => d !== diagnosis);
-  log(next, 'diagnosis', `Removed diagnosis: ${diagnosis}`);
-  return next;
-}
-
-/**
- * Get all active diagnoses.
- */
-export function getActiveDiagnoses(session: ResusSession): string[] {
-  return [...session.definitiveDiagnoses];
-}
-
-/**
- * Check if specific diagnosis is active.
- */
-export function hasDiagnosis(session: ResusSession, diagnosis: string): boolean {
-  return session.definitiveDiagnoses.includes(diagnosis);
-}
-
-/**
- * Set primary diagnosis (for backward compatibility with single diagnosis).
- * Also adds to multi-diagnosis array.
- */
-export function setPrimaryDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
-  const next = deepCopy(session);
-  next.definitiveDiagnosis = diagnosis;
-  if (!next.definitiveDiagnoses.includes(diagnosis)) {
-    next.definitiveDiagnoses.push(diagnosis);
-  }
-  log(next, 'diagnosis', `Primary diagnosis: ${diagnosis}`);
-  return next;
-}
-

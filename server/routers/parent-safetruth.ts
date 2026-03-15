@@ -1,4 +1,4 @@
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { 
@@ -7,8 +7,17 @@ import {
   systemDelayAnalysis, 
   hospitalImprovementMetrics 
 } from "../../drizzle/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { getDb } from "../db";
+import { sendEmail } from "../email-service";
+
+/** EAT = UTC+3. "This month" = calendar month in EAT per platform. */
+function startOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month - 1, 1, -3, 0, 0, 0));
+}
+function endOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
+}
 
 const eventSchema = z.object({
   eventType: z.enum([
@@ -93,6 +102,41 @@ export const parentSafeTruthRouter = router({
       };
     }),
 
+  // Stats for parent dashboard: submissions this month, last submission
+  getSafeTruthStats: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      return { submissionsThisMonth: 0, lastSubmission: null };
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const periodStart = startOfMonthEAT(year, month);
+    const periodEnd = endOfMonthEAT(year, month);
+
+    const inMonth = await db
+      .select({ id: parentSafeTruthSubmissions.id })
+      .from(parentSafeTruthSubmissions)
+      .where(
+        and(
+          eq(parentSafeTruthSubmissions.userId, ctx.user.id),
+          gte(parentSafeTruthSubmissions.createdAt, periodStart),
+          lte(parentSafeTruthSubmissions.createdAt, periodEnd)
+        )
+      );
+    const last = await db
+      .select({ createdAt: parentSafeTruthSubmissions.createdAt })
+      .from(parentSafeTruthSubmissions)
+      .where(eq(parentSafeTruthSubmissions.userId, ctx.user.id))
+      .orderBy(desc(parentSafeTruthSubmissions.createdAt))
+      .limit(1);
+
+    return {
+      submissionsThisMonth: inMonth.length,
+      lastSubmission: last[0]?.createdAt ?? null,
+    };
+  }),
+
   // Get parent's submissions
   getMySubmissions: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
@@ -174,6 +218,37 @@ export const parentSafeTruthRouter = router({
         .orderBy(desc(systemDelayAnalysis.createdAt));
 
       return analyses;
+    }),
+
+  // Admin: mark submission as response ready and notify parent by email
+  markResponseReady: adminProcedure
+    .input(z.object({ submissionId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const rows = await db
+        .select()
+        .from(parentSafeTruthSubmissions)
+        .where(eq(parentSafeTruthSubmissions.id, input.submissionId))
+        .limit(1);
+
+      if (!rows.length) throw new TRPCError({ code: "NOT_FOUND", message: "Submission not found" });
+      const sub = rows[0];
+
+      await db
+        .update(parentSafeTruthSubmissions)
+        .set({ status: "reviewed", updatedAt: new Date() })
+        .where(eq(parentSafeTruthSubmissions.id, input.submissionId));
+
+      if (sub.parentEmail && !sub.isAnonymous) {
+        await sendEmail(sub.parentEmail, "safetruthResponseReady", {
+          parentName: sub.parentName || "Parent",
+          dashboardLink: process.env.APP_BASE_URL ? `${process.env.APP_BASE_URL.replace(/\/$/, "")}/parent-safe-truth` : "https://app.paedsresus.com/parent-safe-truth",
+        });
+      }
+
+      return { success: true };
     }),
 });
 

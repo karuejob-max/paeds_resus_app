@@ -1,3 +1,12 @@
+CREATE TABLE `adminAuditLog` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`adminUserId` int NOT NULL,
+	`procedurePath` varchar(255) NOT NULL,
+	`inputSummary` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `adminAuditLog_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
 CREATE TABLE `clinicalReferrals` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`userId` int NOT NULL,

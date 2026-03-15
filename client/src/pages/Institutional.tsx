@@ -142,7 +142,7 @@ export default function Institutional() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold mb-8 text-center text-[#1a4d4d]">Institutional Management Tools</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <Link href="/institutional-dashboard">
+            <Link href="/hospital-admin-dashboard">
               <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
                 <CardHeader>
                   <div className="text-4xl mb-3">📊</div>
@@ -154,7 +154,7 @@ export default function Institutional() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/pricing-calculator">
+            <Link href="/institutional">
               <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#1a4d4d]">
                 <CardHeader>
                   <div className="text-4xl mb-3">💰</div>
@@ -166,7 +166,7 @@ export default function Institutional() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/roi-calculator">
+            <Link href="/institutional">
               <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
                 <CardHeader>
                   <div className="text-4xl mb-3">📈</div>
@@ -256,7 +256,7 @@ export default function Institutional() {
                   </div>
                 </div>
 
-                <Link href="/contact">
+                <Link href="/institutional">
                   <Button className="w-full bg-green-900 hover:bg-green-800">
                     Request Quote
                   </Button>
@@ -292,7 +292,7 @@ export default function Institutional() {
                   </div>
                 </div>
 
-                <Link href="/contact">
+                <Link href="/institutional">
                   <Button className="w-full bg-green-900 hover:bg-green-800">
                     Schedule Demo
                   </Button>
@@ -351,7 +351,7 @@ export default function Institutional() {
                 speakerName: "Dr. James Kipchoge",
                 speakerRole: "Head of Pediatric Emergency Department",
                 videoUrl: "https://example.com/knh-testimonial.mp4",
-                description: "How ResusGPS training reduced preventable child deaths by 45% in our emergency department.",
+                description: "How Paeds Resus training reduced preventable child deaths by 45% in our emergency department.",
                 duration: "3:45",
               },
               {
@@ -361,7 +361,7 @@ export default function Institutional() {
                 speakerName: "Dr. Amina Hassan",
                 speakerRole: "Director of Nursing Education",
                 videoUrl: "https://example.com/aga-khan-testimonial.mp4",
-                description: "Becoming a regional training center through ResusGPS Elite Fellowship program.",
+                description: "Becoming a regional training center through Paeds Resus Elite Fellowship program.",
                 duration: "2:30",
               },
               {
@@ -431,19 +431,19 @@ export default function Institutional() {
             Join 50+ institutions reducing preventable child deaths through evidence-based training.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/contact">
+            <Link href="/institutional">
               <Button size="lg" className="bg-white text-green-900 hover:bg-green-50">
                 Get in Touch
               </Button>
             </Link>
             <WhatsAppButton
               phoneNumber="254706781260"
-              message="Hello ResusGPS, I am interested in institutional training for my hospital."
+              message="Hello Paeds Resus, I am interested in institutional training for my hospital."
               size="lg"
               className="bg-green-500 hover:bg-green-600 text-white"
               label="Chat on WhatsApp"
             />
-            <Link href="/resources">
+            <Link href="/learner-dashboard">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
                 View Resources
               </Button>

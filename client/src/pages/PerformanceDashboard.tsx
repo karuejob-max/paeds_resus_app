@@ -159,9 +159,11 @@ export function PerformanceDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 font-medium mb-2">No performance data yet</p>
-                  <p className="text-sm text-gray-500 mb-4">Complete an assessment or course to see your performance metrics.</p>
+                  <p className="text-gray-500 mb-3">No performance data available yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Start using ResusGPS to track your performance metrics</p>
+                  <a href="/resus-gps" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition">
+                    Go to ResusGPS
+                  </a>
                 </div>
               )}
             </Card>

@@ -1,203 +1,68 @@
-# Execution Plan: Hidden Opportunities Implementation
-**Cursor & Manus Shared Execution Plan**  
-**Last Updated:** March 15, 2026  
-**Status:** In Progress
+# Shared Execution Plan — Hidden Opportunities (Cursor & Manus)
+
+**Purpose:** Single playbook for Cursor and Manus to execute the opportunities from the Hidden Opportunities Audit. Work in order; mark tasks done when complete so the other agent doesn’t duplicate.
+
+**Source:** `docs/MANUS_HIDDEN_OPPORTUNITIES_REPORT.md`  
+**Context:** `docs/CEO_Platform_Update_And_Reply_To_AI_Team.md` (brand: Paeds Resus; multi-role; extend don’t replace)
 
 ---
 
-## Overview
+## How to use this plan
 
-This plan breaks down the 14 hidden opportunities into 4 phases, executed in order. Each task is marked with status and owner (Cursor or Manus).
-
-**Execution order is critical** — some tasks depend on earlier ones (e.g., C1 depends on A1).
-
----
-
-## Phase 1: Analytics & Visibility (Foundation)
-*These tasks enable all downstream reporting. Do these first.*
-
-### A1: Instrument ResusGPS with Analytics
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 15 minutes
-- **Impact:** Admin gets real product visibility; unlocks "App activity" metric
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section A1
-- **Files to change:**
-  - `client/src/pages/ResusGPS.tsx` — add useAnalytics hook, track page view, button clicks, assessment completion
-- **Completion date:** 
-
-### C1: Add "Active Users This Week" to Admin Reports
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 30 minutes
-- **Impact:** Admin sees engagement, not just registration
-- **Depends on:** A1 (ResusGPS must emit events first)
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section C1
-- **Files to change:**
-  - `server/routers/admin-stats.ts` — query analyticsEvents for unique users in last 7 days
-  - `client/src/pages/AdminReports.tsx` — add card showing active users count
-- **Completion date:** 
-
-### D1: Replace "No data available" with Actionable CTAs
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 10 minutes
-- **Impact:** Users know what to do when they see empty states
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section D1
-- **Files to change:**
-  - `client/src/pages/PerformanceDashboard.tsx` — replace "No data available" with context-specific CTA
-- **Completion date:** 
+1. **Work in order** — Complete tasks in the sequence below. If a task is already marked **Done**, skip to the next.
+2. **When you finish a task** — Update this file: set status to **Done** and add `(by Cursor)` or `(by Manus)` and the date (e.g. `2026-03-XX`).
+3. **One task at a time** — Finish the task you start before moving on. If you only do part of it, note "In progress" and what’s left.
+4. **Preserve** — Multi-role auth, existing routes, and CEO doc structure. No new pages unless the task explicitly adds one.
+5. **Reference** — For "what to do" and "where," use the full report: `docs/MANUS_HIDDEN_OPPORTUNITIES_REPORT.md`.
 
 ---
 
-## Phase 2: Referrals & Safe-Truth (Feature Completion)
-*Wire existing features that are partially built.*
+## Task list (in execution order)
 
-### A2: Wire Referral Page to Backend
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 1 hour
-- **Impact:** Unlocks growth/revenue channel
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section A2
-- **Files to change:**
-  - `server/routers/referrals.ts` (new) — create getReferrals() and submitReferral() procedures
-  - `client/src/pages/Referral.tsx` — implement TODO items, call tRPC procedures
-- **Completion date:** 
+### Phase 1 — Analytics & visibility (unblock admin reports)
 
-### A3: Add Referral Count to Admin Reports
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 30 minutes
-- **Impact:** Admin can track referral growth
-- **Depends on:** A2 (referrals must be wired first)
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section A3
-- **Files to change:**
-  - `server/routers/admin-stats.ts` — query referrals table for monthly count
-  - `client/src/pages/AdminReports.tsx` — add referrals card
-- **Completion date:** 
+| # | Task ID | Title | Spec summary | Where | Status |
+|---|---------|--------|----------------|-------|--------|
+| 1 | **A1** | ResusGPS analytics | Add `useAnalytics("ResusGPS")` in ResusGPS.tsx. On mount: `trackPageView("ResusGPS")`. On key actions: `trackButtonClick("Start Assessment")`, `trackButtonClick("Complete Assessment")`, `trackButtonClick("View Protocol")`, `trackButtonClick("Log Intervention")`. Use existing `client/src/hooks/useAnalytics.ts`. | `client/src/pages/ResusGPS.tsx` | ✅ Done (by Manus) 2026-03-15 |
+| 2 | **C1** | Active users this week | Query analytics events for unique users in last 7 days. Add card to admin reports: "Active users (last 7 days)". | `server/routers/admin-stats.ts` (or equivalent), `client/src/pages/AdminReports.tsx` | ✅ Done (by Manus) 2026-03-15 |
+| 3 | **D1** | Empty-state CTAs | Replace generic "No data available" with actionable copy + link (e.g. "Complete an assessment to see your metrics" + link to start). Start with PerformanceDashboard.tsx. | `client/src/pages/PerformanceDashboard.tsx` (and similar if time) | ✅ Done (by Manus) 2026-03-15 |
 
-### A5: Surface Safe-Truth Usage in Parent Dashboard
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 45 minutes
-- **Impact:** Parents see their engagement; encourages repeat use
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section A5
-- **Files to change:**
-  - `server/routers/parent-safetruth.ts` — add getSafeTruthStats() query
-  - `client/src/pages/ParentSafeTruth.tsx` — call query, display stats card
-- **Completion date:** 
+### Phase 2 — Referrals & Safe-Truth
+
+| # | Task ID | Title | Spec summary | Where | Status |
+|---|---------|--------|----------------|-------|--------|
+| 4 | **A2** | Wire Referral page to backend | Create `server/routers/referrals.ts`: `getReferrals`, `submitReferral`. In Referral.tsx replace TODOs with `trpc.referrals.getReferrals.useQuery()` and `trpc.referrals.submitReferral.useMutation()`. Register router in server. | `server/routers/referrals.ts` (new), `client/src/pages/Referral.tsx`, server router index | ✅ Done (by Manus) 2026-03-15 |
+| 5 | **A3** | Referral count in admin reports | Add query for referrals this month; add "Referrals this month" card to AdminReports. | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+| 6 | **A5** | Safe-Truth usage in parent dashboard | Add tRPC `getSafeTruthStats()` (submissions this month, last submission); show small card in ParentSafeTruth.tsx: "You've used Safe-Truth X times this month". | `server/routers/parent-safetruth.ts`, `client/src/pages/ParentSafeTruth.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+
+### Phase 3 — Flows & reporting
+
+| # | Task ID | Title | Spec summary | Where | Status |
+|---|---------|--------|----------------|-------|--------|
+| 7 | **B2** | Institutional onboarding → portal | After onboarding success, redirect to `/institutional-portal`. Optionally add welcome/first-time state in InstitutionalPortal. | `client/src/pages/InstitutionalOnboarding.tsx`, `client/src/pages/InstitutionalPortal.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+| 8 | **C3** | Conversion funnel in admin | Enrolled vs completed this month; show card e.g. "Enrolled: N → Completed: M (X%)". | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+| 9 | **C2** | Top protocols viewed | After A1 is done: query analytics for "View Protocol" (or equivalent); show top 5 in admin reports. | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+
+### Phase 4 — Larger items (optional / when ready)
+
+| # | Task ID | Title | Spec summary | Where | Status |
+|---|---------|--------|----------------|-------|--------|
+| 10 | **B1** | Enrollment → Payment → Certificate | Wire payment success to certificate creation; add "My Certificates" section to LearnerDashboard. | Payment/certificate router, `client/src/pages/LearnerDashboard.tsx` | ✅ Done (by Cursor) 2026-02-25 |
+| 11 | **E1** | Orphaned pages audit | Categorise unused pages (assessment vs dashboard vs backup); wire or remove. Prefer wiring; remove only obvious backups. | `client/src/pages/` | ✅ Done (by Cursor) 2026-02-25 |
+| 12 | **E2** | Unused DB tables audit | Document or remove unused tables. Prefer document "reserved" vs delete unless clearly obsolete. | `drizzle/schema.ts`, optional migration | ✅ Done (by Cursor) 2026-02-25 |
 
 ---
 
-## Phase 3: Flows & Reporting (Completeness)
-*Fix incomplete flows and add depth to reporting.*
+## Status key
 
-### B1: Complete the Enrollment → Payment → Certificate Flow
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 1.5 hours
-- **Impact:** Enrollment becomes a complete, rewarding journey
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section B1
-- **Files to change:**
-  - `server/routers/payments.ts` or `mpesa.ts` — add certificate creation logic on payment success
-  - `client/src/pages/LearnerDashboard.tsx` — add certificates section
-- **Completion date:** 
-
-### B2: Institutional Onboarding → First Login to Portal
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 30 minutes
-- **Impact:** Institutional users complete onboarding and immediately see value
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section B2
-- **Files to change:**
-  - `client/src/pages/InstitutionalOnboarding.tsx` — add redirect to `/institutional-portal`
-  - `client/src/pages/InstitutionalPortal.tsx` — add welcome state for first-time users
-- **Completion date:** 
-
-### C2: Add "Top Protocols Viewed" to Admin Reports
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 45 minutes
-- **Impact:** Admin sees which protocols are most valuable
-- **Depends on:** A1 (ResusGPS must emit "View Protocol" events first)
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section C2
-- **Files to change:**
-  - `server/routers/admin-stats.ts` — query analyticsEvents for "View Protocol" events, group by protocol
-  - `client/src/pages/AdminReports.tsx` — add top protocols card
-- **Completion date:** 
-
-### C3: Add "Conversion Funnel" to Admin Reports
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 30 minutes
-- **Impact:** Admin sees course completion rates and drop-off points
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section C3
-- **Files to change:**
-  - `server/routers/admin-stats.ts` — query enrollments and certificates, calculate conversion rate
-  - `client/src/pages/AdminReports.tsx` — add funnel card
-- **Completion date:** 
-
----
-
-## Phase 4: Clean-up & Polish (Optional)
-*Remove unused code and complete TODOs. Do these if time permits.*
-
-### D2: Complete TODO Items
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** Varies (see details)
-- **Impact:** Reduces technical debt
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section D2
-- **TODOs to complete:**
-  - `InterventionSidebar.tsx:244` — Add export to file functionality (LOW priority)
-  - `SupportAgentDashboard.tsx:86` — Send message via tRPC (MEDIUM priority)
-  - `ClinicalAssessmentGPS.tsx:610, 640` — Build DKAManagement & TraumaProtocol modules (LOW priority)
-  - `Referral.tsx:33, 66` — Already covered by A2
-- **Completion date:** 
-
-### E1: Audit Orphaned Pages and Decide: Wire or Remove
-- **Status:** [x] Done (by Cursor)
-- **Owner:** Cursor
-- **Effort:** 2 hours
-- **Impact:** Cleaner codebase
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section E1
-- **Note:** Cursor already wired orphaned routes to App.tsx (A4). No action needed.
-- **Completion date:** March 15, 2026
-
-### E2: Audit Unused Database Tables and Decide: Populate or Remove
-- **Status:** [ ] Not Started
-- **Owner:** 
-- **Effort:** 1 hour
-- **Impact:** Cleaner schema
-- **Details:** See MANUS_HIDDEN_OPPORTUNITIES_REPORT.md, Section E2
-- **Unused tables to audit:**
-  - institutionalInquiries, smsReminders, learnerProgress, platformSettings, experimentAssignments, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, userProfiles, safetruthEvents, chainOfSurvivalCheckpoints, eventOutcomes, userInsights, facilityScores, accreditationApplications, accreditedFacilities
-- **Completion date:** 
-
----
-
-## Summary
-
-| Phase | Tasks | Status | Effort |
-|-------|-------|--------|--------|
-| **Phase 1** | A1, C1, D1 | Not Started | 55 min |
-| **Phase 2** | A2, A3, A5 | Not Started | 2h 15m |
-| **Phase 3** | B1, B2, C2, C3 | Not Started | 3h 15m |
-| **Phase 4** | D2, E1, E2 | E1 Done (Cursor) | 3h |
-| **Total** | 14 tasks | 1 done | ~9h |
+- ⬜ **Not started**
+- 🔄 **In progress** (add "by Cursor" or "by Manus" + date)
+- ✅ **Done** (add "by Cursor" or "by Manus" + date)
 
 ---
 
 ## Notes
 
-- **Execution order matters**: Phase 1 enables Phase 2, which enables Phase 3. Don't skip ahead.
-- **A4 (Wire orphaned routes) is already done by Cursor** — all routes are in App.tsx. Skip it.
-- **When you finish a task**: Update this file with status, owner, and completion date.
-- **For detailed specs**: See `docs/MANUS_HIDDEN_OPPORTUNITIES_REPORT.md`.
-- **Preserve existing structure**: Don't replace code; extend it. Respect multi-role auth and existing patterns.
-
----
-
-## Completed Tasks
-
-- [x] **E1: Audit Orphaned Pages** (by Cursor, March 15, 2026) — All orphaned routes wired to App.tsx
+- **A4 (orphaned routes)** is already done — see `docs/UNLINKED_PAGES_INTEGRATION.md`. Do not re-do.
+- If a task depends on another (e.g. C2 depends on A1), complete the dependency first.
+- Keep changes minimal: only what the spec says. No extra refactors unless agreed.

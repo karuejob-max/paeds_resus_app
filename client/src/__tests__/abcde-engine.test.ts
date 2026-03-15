@@ -680,7 +680,7 @@ describe('Clinical Record Export', () => {
     s = answerQuickAssessment(s, 'sick');
     s = answer(s, 'avpu', 'alert');
     const record = exportClinicalRecord(s);
-    expect(record).toContain('ResusGPS');
+    expect(record).toContain('Paeds Resus');
     expect(record).toContain('Weight: 18 kg');
     expect(record).toContain('Age: 5 years');
     expect(record).toContain('FINDINGS');

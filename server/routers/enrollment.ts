@@ -34,12 +34,13 @@ export const enrollmentRouter = router({
         updatedAt: new Date(),
       });
 
-      const enrollmentId = 1; // Placeholder - will be set by database
+      const enrollmentId = result?.id ?? 0;
+      if (!enrollmentId) throw new Error("Failed to create enrollment");
 
       // Create SMS reminder for enrollment confirmation
       if (ctx.user.phone) {
         await createSmsReminder({
-          enrollmentId: enrollmentId,
+          enrollmentId,
           userId: ctx.user.id,
           phoneNumber: ctx.user.phone,
           reminderType: "enrollment_confirmation",
