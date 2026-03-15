@@ -152,6 +152,13 @@ export const EmergencyProtocols: React.FC = () => {
             Available Protocols ({protocols.length})
           </h2>
 
+          {protocols.length === 0 && !getAllProtocolsQuery.isLoading ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="mb-2">No protocol list loaded from the server yet.</p>
+              <p className="text-sm">Use the clinical categories above to open step-by-step protocols (e.g. Severe Diarrhea, Pneumonia, Malaria).</p>
+            </div>
+          ) : null}
+
           <div className="space-y-3">
             {protocols.map((protocol: any) => (
               <div

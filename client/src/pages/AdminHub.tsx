@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminHub() {
@@ -84,6 +84,23 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Deeper analytics and reporting
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/safe-truth-analytics")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <LineChart className="h-5 w-5" />
+                  Safe-Truth Analytics
+                </CardTitle>
+                <CardDescription>
+                  Insights from Safe-Truth event submissions and system gaps
                 </CardDescription>
               </div>
             </CardHeader>

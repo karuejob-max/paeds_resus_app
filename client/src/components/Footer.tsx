@@ -33,11 +33,11 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-[#0d3333] text-gray-300 py-8 px-4 border-t-2 border-[#ff6633]">
+    <footer className="bg-[#0d3333] text-gray-300 py-8 px-4 border-t-2 border-[#ff6633]" role="contentinfo" aria-label="Site footer">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
         <div className="grid md:grid-cols-3 gap-8 mb-8">
-          {/* About */}
+          {/* About — one-place terminology explanation */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="inline-flex rounded-lg bg-white/95 p-0.5 ring-1 ring-white/20">
@@ -45,8 +45,11 @@ export default function Footer() {
               </span>
               <h3 className="text-white font-bold">Paeds Resus</h3>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-400 mb-2">
               Transforming paediatric emergency care through clinical excellence and nurse-led resuscitation.
+            </p>
+            <p className="text-xs text-gray-500">
+              <strong className="text-gray-400">Platform:</strong> Paeds Resus (brand). <strong className="text-gray-400">Products:</strong> ResusGPS — point-of-care app; Safe-Truth — provider event tool; Parent Safe-Truth — for families.
             </p>
           </div>
 
@@ -61,7 +64,12 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
-                  For Providers
+                  For Institutions
+                </Link>
+              </li>
+              <li>
+                <Link href="/safe-truth" className="text-gray-400 hover:text-[#ff6633] transition">
+                  Safe-Truth
                 </Link>
               </li>
               <li>
@@ -78,23 +86,28 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal */}
+          {/* Support & Legal — documented destinations per audit */}
           <div>
-            <h4 className="text-white font-bold mb-3 text-[#ff6633]">Legal</h4>
+            <h4 className="text-white font-bold mb-3 text-[#ff6633]">Support & Legal</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
-                  Privacy Policy
+                <Link href="/contact" className="text-gray-400 hover:text-[#ff6633] transition">
+                  Contact
                 </Link>
               </li>
               <li>
-                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
-                  Terms of Service
+                <Link href="/privacy" className="text-gray-400 hover:text-[#ff6633] transition">
+                  Privacy
                 </Link>
               </li>
               <li>
-                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
-                  About Us
+                <Link href="/terms" className="text-gray-400 hover:text-[#ff6633] transition">
+                  Terms
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="text-gray-400 hover:text-[#ff6633] transition">
+                  About
                 </Link>
               </li>
             </ul>

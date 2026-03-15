@@ -5,37 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings } from "lucide-react";
 import { Link } from "wouter";
-import ProtectedPageWrapper from "@/components/ProtectedPageWrapper";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
 import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getAllCourses } from "@/lib/courseData";
 import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
+import { getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
+
+const COURSE_TO_PRICING_KEY: Record<string, string> = { bls: "bls", acls: "acls", pals: "pals", bronze: "fellowship", silver: "fellowship", gold: "fellowship" };
 
 export default function Institutional() {
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
 
-  const calculatePrice = (count: number) => {
-    if (count <= 20) return 10000;
-    if (count <= 50) return 9000;
-    if (count <= 100) return 8000;
-    if (count <= 200) return 7000;
-    return 6000;
-  };
+  const pricingKey = selectedCourse ? COURSE_TO_PRICING_KEY[selectedCourse] ?? "bls" : "bls";
+  const institutionalResult = getInstitutionalPrice(pricingKey, staffCount);
+  const pricePerPerson = institutionalResult?.pricePerSeat ?? 8000;
+  const totalCost = institutionalResult?.totalPrice ?? staffCount * 8000;
 
   const calculateROI = (count: number) => {
-    const pricePerPerson = calculatePrice(count);
-    const totalCost = count * pricePerPerson;
+    const result = getInstitutionalPrice(pricingKey, count);
+    const total = result?.totalPrice ?? count * 8000;
     const estimatedLivesSaved = Math.floor(count * 0.15); // Conservative estimate
     const valuePerLife = 500000; // Estimated value in KES
     const totalValue = estimatedLivesSaved * valuePerLife;
     return {
-      totalCost,
+      totalCost: total,
       estimatedLivesSaved,
       totalValue,
-      roi: Math.round(((totalValue - totalCost) / totalCost) * 100),
+      roi: total > 0 ? Math.round(((totalValue - total) / total) * 100) : 0,
     };
   };
 
@@ -64,17 +63,17 @@ export default function Institutional() {
     },
   ];
 
-  const pricingTiers = [
-    { staff: 20, price: 10000, discount: 0 },
-    { staff: 50, price: 9000, discount: 10 },
-    { staff: 100, price: 8000, discount: 20 },
-    { staff: 200, price: 7000, discount: 30 },
-    { staff: "500+", price: 6000, discount: 40 },
-  ];
+  const config = institutionalPricing[pricingKey as keyof typeof institutionalPricing];
+  const pricingTiers = config
+    ? config.bulkDiscounts.map((t) => ({
+        staff: t.seats,
+        price: Math.round(config.basePricePerSeat * (1 - t.discount / 100)),
+        discount: t.discount,
+      }))
+    : [];
 
   return (
-    <ProtectedPageWrapper allowedRoles={["institution"]} pageTitle="Institutional Programs">
-      <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
@@ -228,8 +227,8 @@ export default function Institutional() {
                     onChange={(e) => {
                       const newCount = Number(e.target.value);
                       setStaffCount(newCount);
-                      const price = calculatePrice(newCount);
-                      trackPricingCalculatorUsed(newCount, price * newCount);
+                      const result = getInstitutionalPrice(pricingKey, newCount);
+                      trackPricingCalculatorUsed(newCount, result?.totalPrice ?? newCount * 8000);
                     }}
                     className="w-full"
                   />
@@ -238,17 +237,16 @@ export default function Institutional() {
 
                 <div className="bg-blue-50 p-4 rounded-lg space-y-3">
                   <div className="text-xs text-gray-600 bg-white p-2 rounded">
-                    <p className="font-semibold mb-1">How we calculate:</p>
-                    <p>Base price: 10,000 KES per person</p>
+                    <p className="font-semibold mb-1">How we calculate ({config?.name ?? "Institutional"}):</p>
+                    <p>Base price: {(config?.basePricePerSeat ?? 8000).toLocaleString()} KES per person</p>
                     <p>Bulk discount applied based on staff count</p>
-                    <p>20-50 staff: 10% discount = 9,000 KES</p>
-                    <p>50-100 staff: 20% discount = 8,000 KES</p>
-                    <p>100-200 staff: 30% discount = 7,000 KES</p>
-                    <p>200+ staff: 40% discount = 6,000 KES</p>
+                    {(config?.bulkDiscounts ?? []).map((t) => (
+                      <p key={t.seats}>{t.seats}+ staff: {t.discount}% discount = {Math.round((config!.basePricePerSeat) * (1 - t.discount / 100)).toLocaleString()} KES</p>
+                    ))}
                   </div>
                   <div className="flex justify-between mb-2 border-t pt-2">
                     <span className="text-gray-600">Price per person:</span>
-                    <span className="font-bold">{calculatePrice(staffCount).toLocaleString()} KES</span>
+                    <span className="font-bold">{pricePerPerson.toLocaleString()} KES</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
                     <span>Total Cost:</span>
@@ -320,7 +318,7 @@ export default function Institutional() {
               <tbody>
                 {pricingTiers.map((tier) => (
                   <tr key={String(tier.staff)} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="py-4 px-4 font-semibold">{tier.staff} staff</td>
+                    <td className="py-4 px-4 font-semibold">{tier.staff}+ staff</td>
                     <td className="py-4 px-4">{tier.price.toLocaleString()} KES</td>
                     <td className="py-4 px-4">
                       <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
@@ -328,7 +326,7 @@ export default function Institutional() {
                       </span>
                     </td>
                     <td className="py-4 px-4 font-bold">
-                      {(typeof tier.staff === "number" ? tier.staff * tier.price : "Custom").toLocaleString()} KES
+                      {(tier.staff * tier.price).toLocaleString()} KES
                     </td>
                   </tr>
                 ))}
@@ -466,7 +464,6 @@ export default function Institutional() {
           <InstitutionalLeadForm />
         </div>
       </section>
-      </div>
-    </ProtectedPageWrapper>
+    </div>
   );
 }

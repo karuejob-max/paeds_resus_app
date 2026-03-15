@@ -140,6 +140,26 @@
 }
 
 @layer components {
+  /* Skip to main content: off-screen until focused (keyboard/screen reader) */
+  .skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 100;
+    padding: 0.5rem 1rem;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    transform: translateY(-120%);
+    transition: transform 0.15s ease-out;
+  }
+  .skip-link:focus {
+    transform: translateY(0);
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
   /**
    * Custom container utility that centers content and adds responsive padding.
    *

@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Award, BookOpen, FileText, Users } from "lucide-react";
+import { AlertCircle, Award, BookOpen, Download, FileText, Loader2, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -14,7 +14,29 @@ export default function LearnerDashboard() {
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const downloadCert = trpc.certificates.download.useMutation();
   const myCertificates = certData?.success ? certData.certificates ?? [] : [];
+
+  const handleDownloadCertificate = (certificateNumber: string) => {
+    downloadCert.mutate(
+      { certificateNumber },
+      {
+        onSuccess: (result) => {
+          if (!result.success || !("pdfBase64" in result) || !result.pdfBase64) return;
+          const bin = atob(result.pdfBase64);
+          const arr = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+          const blob = new Blob([arr], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = result.filename ?? "certificate.pdf";
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+      }
+    );
+  };
 
   if (!isAuthenticated) {
     return (
@@ -69,8 +91,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
-                <p className="text-slate-600 mb-4">Healthcare journey events shared</p>
+                <p className="text-slate-600 mb-4">Share your healthcare journey to help improve pediatric care</p>
                 <Button className="w-full" onClick={() => navigate("/parent-safe-truth")}>
                   Share Your Story
                 </Button>
@@ -85,9 +106,8 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-green-600 mb-2">3</p>
-                <p className="text-slate-600 mb-4">System improvements identified</p>
-                <Button variant="outline" className="w-full">View Impact</Button>
+                <p className="text-slate-600 mb-4">Your feedback helps improve care for families</p>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/personal-impact")}>View Impact</Button>
               </CardContent>
             </Card>
           </div>
@@ -101,8 +121,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
-                <p className="text-slate-600 mb-4">Clinical events submitted</p>
+                <p className="text-slate-600 mb-4">Log clinical events to contribute to system improvements</p>
                 <Button className="w-full" onClick={() => navigate("/safe-truth")}>
                   Log Event
                 </Button>
@@ -136,8 +155,8 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-orange-600 mb-2">5</p>
-                <p className="text-slate-600">Gaps identified from events</p>
+                <p className="text-slate-600 mb-4">View gaps identified from logged events and contribute to resolutions</p>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/performance")}>View performance</Button>
               </CardContent>
             </Card>
 
@@ -171,11 +190,21 @@ export default function LearnerDashboard() {
                             <p className="text-xs text-slate-400 mt-1">No. {c.certificateNumber}</p>
                           )}
                         </div>
-                        {c.certificateUrl ? (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={c.certificateUrl} target="_blank" rel="noopener noreferrer">Download</a>
-                          </Button>
-                        ) : null}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadCert.isPending}
+                          onClick={() => c.certificateNumber && handleDownloadCertificate(c.certificateNumber)}
+                        >
+                          {downloadCert.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Download className="w-4 h-4 mr-1" />
+                              Download
+                            </>
+                          )}
+                        </Button>
                       </li>
                     ))}
                   </ul>

@@ -253,6 +253,50 @@ export async function getCertificatesByUserId(userId: number) {
 }
 
 /**
+ * Get certificate by certificate number for the given user (for PDF download). Returns cert, trainingDate, recipientName.
+ */
+export async function getCertificateForDownload(
+  certificateNumber: string,
+  userId: number
+): Promise<{
+  cert: (typeof certificates.$inferSelect);
+  trainingDate: Date;
+  recipientName: string;
+} | null> {
+  try {
+    const db = await getDb();
+    if (!db) return null;
+
+    const certRows = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.certificateNumber, certificateNumber))
+      .limit(1);
+    const cert = certRows[0];
+    if (!cert || cert.userId !== userId) return null;
+
+    const enrollRows = await db
+      .select({ trainingDate: enrollments.trainingDate })
+      .from(enrollments)
+      .where(eq(enrollments.id, cert.enrollmentId))
+      .limit(1);
+    const trainingDate = enrollRows[0]?.trainingDate ?? cert.issueDate;
+
+    const userRows = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, cert.userId))
+      .limit(1);
+    const recipientName = userRows[0]?.name ?? "Participant";
+
+    return { cert, trainingDate, recipientName };
+  } catch (err) {
+    console.error("[Certificates] getCertificateForDownload:", err);
+    return null;
+  }
+}
+
+/**
  * Get certificate by enrollment ID
  */
 export async function getCertificateByEnrollmentId(enrollmentId: number) {

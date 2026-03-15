@@ -14,6 +14,11 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import {
+  handleMpesaWebhook,
+  handleMpesaQueryWebhook,
+  handleMpesaTimeoutWebhook,
+} from "../webhooks/mpesa-webhook";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -42,6 +47,23 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // M-Pesa callbacks (single URL; Daraja sends STK result here)
+  app.post("/api/mpesa/callback", express.json(), (req, res) => {
+    const body = req.body?.Body;
+    if (body?.checkoutQueryResponse) {
+      return handleMpesaQueryWebhook(req as any, res);
+    }
+    if (body?.stkCallback) {
+      const code = body.stkCallback?.ResultCode;
+      if (code === 0) {
+        return handleMpesaWebhook(req as any, res);
+      }
+      return handleMpesaTimeoutWebhook(req as any, res);
+    }
+    return res.status(400).json({ error: "Invalid webhook payload" });
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

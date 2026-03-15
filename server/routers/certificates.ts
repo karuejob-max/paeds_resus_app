@@ -6,7 +6,9 @@ import {
   getCertificateByEnrollmentId,
   getCertificateStats,
   getCertificatesByUserId,
+  getCertificateForDownload,
 } from "../certificates";
+import { generateCertificatePDF as generateCertificatePDFBranded } from "../certificate-pdf";
 
 const certificateSchema = z.object({
   enrollmentId: z.number(),
@@ -160,16 +162,28 @@ export const certificateRouter = router({
     }
   }),
 
-  // Download certificate (placeholder)
+  // Download certificate (generate PDF on demand)
   download: protectedProcedure
     .input(z.object({ certificateNumber: z.string() }))
-    .query(async ({ input, ctx }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        // TODO: Implement certificate download from S3
-        return {
-          success: true,
-          downloadUrl: `/api/certificates/download/${input.certificateNumber}`,
-        };
+        const data = await getCertificateForDownload(input.certificateNumber, ctx.user.id);
+        if (!data) {
+          return { success: false, error: "Certificate not found or access denied" };
+        }
+        const { cert, trainingDate, recipientName } = data;
+        const verificationCode = cert.verificationCode ?? cert.certificateNumber ?? "";
+        const pdfBuffer = await generateCertificatePDFBranded({
+          recipientName,
+          programType: cert.programType,
+          trainingDate,
+          instructorName: "Paeds Resus",
+          certificateNumber: cert.certificateNumber ?? "",
+          verificationCode,
+        });
+        const pdfBase64 = pdfBuffer.toString("base64");
+        const filename = `certificate-${cert.certificateNumber ?? "download"}.pdf`;
+        return { success: true, pdfBase64, filename };
       } catch (error) {
         console.error("[Certificate Router] Error downloading certificate:", error);
         return {

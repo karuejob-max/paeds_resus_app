@@ -1,6 +1,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
 import { useEffect } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
@@ -37,6 +38,7 @@ import Reassessment from "./pages/Reassessment";
 import CirculationAssessment from "./pages/CirculationAssessment";
 import CourseBLS from "./pages/CourseBLS";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
+import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
 import { Toaster } from "@/components/ui/sonner";
 
 /** Redirects to target path (for routes that have no dedicated page). */
@@ -54,12 +56,29 @@ function ScrollToTop() {
   return null;
 }
 
+/** Logged-in users go to Home hub; others see ResusGPS at /. */
+function LandingOrHome() {
+  const { isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (isAuthenticated) setLocation("/home");
+  }, [isAuthenticated, setLocation]);
+  if (isAuthenticated) return null;
+  return <ResusGPS />;
+}
+
 function Router() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <ScrollToTop />
+      <a
+        href="#main-content"
+        className="skip-link"
+      >
+        Skip to main content
+      </a>
       <Header />
-      <main className="flex-1">
+      <main id="main-content" className="flex-1" role="main">
         <Switch>
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
@@ -74,6 +93,7 @@ function Router() {
           <Route path="/admin/reports" component={AdminReports} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
+          <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
           <Route path="/enroll" component={Enroll} />
           <Route path="/learner-dashboard" component={LearnerDashboard} />
           <Route path="/patients" component={PatientsList} />
@@ -111,8 +131,8 @@ function Router() {
           <Route path="/faq">{() => <Redirect to="/learner-dashboard" />}</Route>
           <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
-          {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
-          <Route path="/" component={ResusGPS} />
+          {/* / : logged-in → Home hub; anonymous → ResusGPS */}
+          <Route path="/" component={LandingOrHome} />
           <Route path="/resus" component={ResusGPS} />
           {/* Catch all → ResusGPS */}
           <Route component={ResusGPS} />
