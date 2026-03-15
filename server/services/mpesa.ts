@@ -27,7 +27,8 @@ class MpesaService {
   private consumerSecret: string;
   private paybill: string;
   private accountNumber: string;
-  private baseUrl = "https://sandbox.safaricom.co.ke";
+  private baseUrl: string = "https://sandbox.safaricom.co.ke";
+  private environment: "sandbox" | "production" = "sandbox";
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
   constructor() {
@@ -35,6 +36,14 @@ class MpesaService {
     this.consumerSecret = process.env.DARAJA_CONSUMER_SECRET || "";
     this.paybill = process.env.MPESA_PAYBILL || "";
     this.accountNumber = process.env.MPESA_ACCOUNT || "";
+    this.environment = (process.env.MPESA_ENVIRONMENT as "sandbox" | "production") || "sandbox";
+
+    // Set baseUrl based on environment
+    if (this.environment === "production") {
+      this.baseUrl = "https://api.safaricom.co.ke";
+    } else {
+      this.baseUrl = "https://sandbox.safaricom.co.ke";
+    }
 
     if (!this.consumerKey || !this.consumerSecret) {
       throw new Error("Missing Daraja credentials in environment");
@@ -43,6 +52,8 @@ class MpesaService {
     if (!this.paybill || !this.accountNumber) {
       throw new Error("Missing M-Pesa paybill/account in environment");
     }
+
+    console.log(`[M-Pesa] Initialized in ${this.environment} mode with baseUrl: ${this.baseUrl}`);
   }
 
   /**

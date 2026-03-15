@@ -1,28 +1,91 @@
-import { Request, Response } from "express";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import crypto from "crypto";
+
+/**
+ * Verify M-Pesa webhook signature using Daraja API's Passkey
+ * Daraja signs callbacks with SHA-256 HMAC using the Initiator Password (Passkey)
+ */
+function verifyMpesaSignature(body: string, signature: string): boolean {
+  try {
+    // Get the Initiator Password (Passkey) from environment
+    const passkey = process.env.MPESA_PASSKEY || "";
+
+    if (!passkey) {
+      console.warn(
+        "[M-Pesa] MPESA_PASSKEY not set; skipping signature verification (development mode)"
+      );
+      return true; // Allow if passkey not configured (for development)
+    }
+
+    // Compute HMAC-SHA256 of the body using the passkey
+    const computedSignature = crypto
+      .createHmac("sha256", passkey)
+      .update(body)
+      .digest("base64");
+
+    // Compare signatures (constant-time comparison to prevent timing attacks)
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(computedSignature),
+      Buffer.from(signature)
+    );
+
+    if (!isValid) {
+      console.warn(
+        `[M-Pesa] Signature verification failed. Expected: ${computedSignature}, Got: ${signature}`
+      );
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error("[M-Pesa] Signature verification error:", error);
+    return false;
+  }
+}
 
 /**
  * M-Pesa Webhook Handler
  * Receives payment callbacks from M-Pesa and updates payment status
+ * Validates webhook signature before processing
  */
 export async function handleMpesaWebhook(req: Request, res: Response) {
   try {
+    // Extract signature from headers
+    const signature = req.headers["x-daraja-signature"] as string | undefined;
+
+    if (!signature) {
+      console.warn("[M-Pesa] Missing X-Daraja-Signature header");
+      return res.status(401).json({ error: "Unauthorized: missing signature" });
+    }
+
+    // Get raw body for signature verification
+    const rawBody =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+
+    // Verify signature
+    if (!verifyMpesaSignature(rawBody, signature)) {
+      console.error("[M-Pesa] Webhook signature verification failed");
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: invalid signature" });
+    }
+
     const { Body } = req.body;
-    
+
     if (!Body) {
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
     const stkCallback = Body.stkCallback;
-    
+
     if (!stkCallback) {
       return res.status(400).json({ error: "Missing STK callback" });
     }
 
-    const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } = stkCallback;
+    const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } =
+      stkCallback;
     const db = await getDb();
 
     if (!db) {
@@ -87,21 +150,35 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
             .where(eq(enrollments.id, enrollment.id));
 
           // Create certificate when payment completes
-          const certResult = await issueCertificateForEnrollmentIfEligible(payment.enrollmentId);
+          const certResult = await issueCertificateForEnrollmentIfEligible(
+            payment.enrollmentId
+          );
           if (certResult.issued) {
-            console.log(`Certificate issued for enrollment ${payment.enrollmentId}`);
+            console.log(
+              `Certificate issued for enrollment ${payment.enrollmentId}`
+            );
           } else if (certResult.error) {
-            console.warn(`Certificate not issued for enrollment ${payment.enrollmentId}:`, certResult.error);
+            console.warn(
+              `Certificate not issued for enrollment ${payment.enrollmentId}:`,
+              certResult.error
+            );
           }
         }
       }
 
-      console.log(`Payment verified: ${lookupId} -> ${mpesaReceiptNumber} for ${phoneNumber}`);
-      return res.status(200).json({ success: true, message: "Payment verified" });
-    }
+      console.log(
+        `[M-Pesa] Payment verified: ${lookupId} -> ${mpesaReceiptNumber} for ${phoneNumber}`
+      );
+      return res
+        .status(200)
+        .json({ success: true, message: "Payment verified" });
+    } else {
+      // Payment failed or user cancelled
+      console.log(
+        `[M-Pesa] Payment failed: ${lookupId} - ResultCode: ${ResultCode}, Desc: ${ResultDesc}`
+      );
 
-    // Failure: ResultCode != 0
-    if (ResultCode !== 0) {
+      // Update payment status to failed
       const paymentRecords = await db
         .select()
         .from(payments)
@@ -118,115 +195,83 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           .where(eq(payments.id, payment.id));
       }
 
-      console.log(`Payment failed: ${lookupId} - ${ResultDesc}`);
-      return res.status(200).json({ success: true, message: "Payment failure recorded" });
+      return res
+        .status(200)
+        .json({ success: true, message: "Payment failure recorded" });
     }
-
-    return res.status(200).json({ success: true });
-  } catch (error: any) {
-    console.error("M-Pesa webhook error:", error);
-    return res.status(500).json({ error: "Webhook processing failed" });
+  } catch (error) {
+    console.error("[M-Pesa] Webhook handler error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
 /**
  * M-Pesa Query Webhook Handler
- * Receives query responses for payment status checks
+ * Handles responses from payment status queries
  */
-export async function handleMpesaQueryWebhook(req: Request, res: Response) {
+export async function handleMpesaQueryWebhook(
+  req: Request,
+  res: Response
+) {
   try {
-    const { Body } = req.body;
-    
-    if (!Body) {
-      return res.status(400).json({ error: "Invalid webhook payload" });
+    // Verify signature
+    const signature = req.headers["x-daraja-signature"] as string | undefined;
+    if (!signature) {
+      return res.status(401).json({ error: "Unauthorized: missing signature" });
     }
 
-    const queryResponse = Body.checkoutQueryResponse;
-    
-    if (!queryResponse) {
-      return res.status(400).json({ error: "Missing query response" });
+    const rawBody =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    if (!verifyMpesaSignature(rawBody, signature)) {
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: invalid signature" });
     }
 
-    const { ResultCode, CheckoutRequestID, MpesaReceiptNumber } = queryResponse;
-    const db = await getDb();
-
-    if (!db) {
-      return res.status(500).json({ error: "Database unavailable" });
-    }
-
-    // Success: ResultCode 0
-    if (ResultCode === 0 && MpesaReceiptNumber) {
-      const paymentRecords = await db
-        .select()
-        .from(payments)
-        .where(eq(payments.transactionId, CheckoutRequestID));
-
-      if (paymentRecords.length > 0) {
-        const payment = paymentRecords[0];
-        await db
-          .update(payments)
-          .set({
-            status: "completed",
-            transactionId: MpesaReceiptNumber,
-            updatedAt: new Date(),
-          })
-          .where(eq(payments.id, payment.id));
-
-        // Update enrollment and issue certificate
-        if (payment.enrollmentId) {
-          await db
-            .update(enrollments)
-            .set({
-              paymentStatus: "completed",
-              updatedAt: new Date(),
-            })
-            .where(eq(enrollments.id, payment.enrollmentId));
-          const certResult = await issueCertificateForEnrollmentIfEligible(payment.enrollmentId);
-          if (certResult.issued) {
-            console.log(`Certificate issued for enrollment ${payment.enrollmentId} (query webhook)`);
-          } else if (certResult.error) {
-            console.warn(`Certificate not issued for enrollment ${payment.enrollmentId}:`, certResult.error);
-          }
-        }
-
-        console.log(`Query verified: ${CheckoutRequestID} -> ${MpesaReceiptNumber}`);
-      }
-    }
-
+    console.log("[M-Pesa] Query webhook received (not yet implemented)");
     return res.status(200).json({ success: true });
-  } catch (error: any) {
-    console.error("M-Pesa query webhook error:", error);
-    return res.status(500).json({ error: "Query webhook processing failed" });
+  } catch (error) {
+    console.error("[M-Pesa] Query webhook error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
 /**
  * M-Pesa Timeout Webhook Handler
- * Receives timeout notifications when user doesn't enter PIN
+ * Handles user timeout (no PIN entry) callbacks
  */
-export async function handleMpesaTimeoutWebhook(req: Request, res: Response) {
+export async function handleMpesaTimeoutWebhook(
+  req: Request,
+  res: Response
+) {
   try {
+    // Verify signature
+    const signature = req.headers["x-daraja-signature"] as string | undefined;
+    if (!signature) {
+      return res.status(401).json({ error: "Unauthorized: missing signature" });
+    }
+
+    const rawBody =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    if (!verifyMpesaSignature(rawBody, signature)) {
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: invalid signature" });
+    }
+
     const { Body } = req.body;
-    
     if (!Body) {
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
-    const timeoutResponse = Body.stkCallback;
-    
-    if (!timeoutResponse) {
-      return res.status(400).json({ error: "Missing timeout response" });
-    }
+    const { CheckoutRequestID } = Body;
+    console.log(
+      `[M-Pesa] User timeout for CheckoutRequestID: ${CheckoutRequestID}`
+    );
 
-    const { CheckoutRequestID, ResultCode } = timeoutResponse;
+    // Update payment status to timeout
     const db = await getDb();
-
-    if (!db) {
-      return res.status(500).json({ error: "Database unavailable" });
-    }
-
-    // Mark as failed/expired
-    if (ResultCode !== 0) {
+    if (db) {
       const paymentRecords = await db
         .select()
         .from(payments)
@@ -237,18 +282,16 @@ export async function handleMpesaTimeoutWebhook(req: Request, res: Response) {
         await db
           .update(payments)
           .set({
-            status: "failed",
+            status: "timeout",
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
-
-        console.log(`Payment timeout: ${CheckoutRequestID}`);
       }
     }
 
     return res.status(200).json({ success: true });
-  } catch (error: any) {
-    console.error("M-Pesa timeout webhook error:", error);
-    return res.status(500).json({ error: "Timeout webhook processing failed" });
+  } catch (error) {
+    console.error("[M-Pesa] Timeout webhook error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

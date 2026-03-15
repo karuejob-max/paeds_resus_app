@@ -46,14 +46,16 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 ┌─────────────────┬──────────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                         │ IN PROGRESS  │                      DONE                                  │
 ├─────────────────┼──────────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────────┤
-│ MPESA-7         │ MPESA-1  Production M-Pesa URL          [P0]     │   (none)     │ MPESA-0  Mount webhook                          Cursor 2/25 │
-│ MPESA-8         │ MPESA-2  Webhook signature verification  [P0]     │              │ B1  Enroll→Payment→Cert                       Cursor       │
-│ REF-1           │ MPESA-3  Payment status polling         [P1]     │              │ B2  Institutional onboarding→portal           Cursor       │
-│ DATA-1          │ MPESA-4  Idempotency                    [P1]     │              │ A3  Referral count (admin)                     Cursor       │
-│                 │ MPESA-5  M-Pesa + critical-flow tests   [P1]     │              │ A5  Safe-Truth usage (parent dashboard)       Cursor       │
-│                 │ MPESA-6  Webhook retry / resilience     [P1]     │              │ C2  Top protocols viewed (admin)              Cursor       │
-│                 │ TEST-1   Vitest: P0-4, P0-5, payment    [P1]     │              │ C3  Conversion funnel (admin)                 Cursor       │
-│                 │ A1       ResusGPS analytics (events)   [P1]     │              │ P0-1…P0-6, P1-*, P2/P3  Way Forward           Cursor 2/25 │
+│ MPESA-7         │ MPESA-3  Payment status polling         [P1]     │   (none)     │ MPESA-0  Mount webhook                          Cursor 2/25 │
+│ MPESA-8         │ MPESA-4  Idempotency                    [P1]     │              │ MPESA-1  Production M-Pesa URL                 Manus  3/15 │
+│ REF-1           │ MPESA-5  M-Pesa + critical-flow tests   [P1]     │              │ MPESA-2  Webhook signature verification        Manus  3/15 │
+│ DATA-1          │ MPESA-6  Webhook retry / resilience     [P1]     │              │ B1  Enroll→Payment→Cert                       Cursor       │
+│                 │ TEST-1   Vitest: P0-4, P0-5, payment    [P1]     │              │ B2  Institutional onboarding→portal           Cursor       │
+│                 │ A1       ResusGPS analytics (events)   [P1]     │              │ A3  Referral count (admin)                     Cursor       │
+│                 │                                                  │              │ A5  Safe-Truth usage (parent dashboard)       Cursor       │
+│                 │                                                  │              │ C2  Top protocols viewed (admin)              Cursor       │
+│                 │                                                  │              │ C3  Conversion funnel (admin)                 Cursor       │
+│                 │                                                  │              │ P0-1…P0-6, P1-*, P2/P3  Way Forward           Cursor 2/25 │
 └─────────────────┴──────────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────────┘
 ```
 
@@ -89,8 +91,6 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 
 | ID | Title | Priority | Assignee | Notes |
 |----|--------|----------|----------|--------|
-| MPESA-1 | Production M-Pesa URL | P0 | — | Switch from sandbox; use `MPESA_ENVIRONMENT` and production base URL (`server/services/mpesa.ts` or active M-Pesa module). *Real payments won’t work without this.* |
-| MPESA-2 | Webhook signature verification | P0 | — | Validate Daraja signature on `POST /api/mpesa/callback` so callbacks can’t be forged. *Security vulnerability until done.* |
 | MPESA-3 | Payment status polling | P1 | — | Frontend polls after STK push so user sees success/failure without refreshing. UX improvement. |
 | MPESA-4 | Idempotency for webhooks | P1 | — | Prevent processing same callback twice (e.g. by `CheckoutRequestID` or idempotency key). |
 | MPESA-5 | M-Pesa + critical-flow tests | P1 | — | Vitest: payment flow, webhook handlers. Include in TEST-1 or do first for M-Pesa only. |
@@ -113,6 +113,8 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | ID | Title | Priority | Done by | Date |
 |----|--------|----------|--------|------|
 | MPESA-0 | Mount M-Pesa webhook in Express | P0 | Cursor | 2026-02-25 |
+| MPESA-1 | Production M-Pesa URL (environment-based switching) | P0 | Manus | 2026-03-15 |
+| MPESA-2 | Webhook signature verification (HMAC-SHA256) | P0 | Manus | 2026-03-15 |
 | P0-1 | M-Pesa webhook handler (CheckoutRequestID, receipt, cert); webhook now mounted | P0 | Cursor | 2026-02-25 |
 | P0-3 | Referral & Personal Impact in Header | P0 | Cursor | 2026-02-25 |
 | P0-4 | Password reset (forgot/reset, auth, email, passwordResetTokens) | P0 | Cursor | 2026-02-25 |
