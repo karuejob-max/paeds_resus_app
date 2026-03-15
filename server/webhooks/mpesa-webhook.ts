@@ -22,45 +22,48 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing STK callback" });
     }
 
-    const { ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
+    const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } = stkCallback;
     const db = await getDb();
 
     if (!db) {
       return res.status(500).json({ error: "Database unavailable" });
     }
 
-    // Extract metadata
+    // We store checkoutRequestID in payments.transactionId when initiating STK push; callback sends CheckoutRequestID and (on success) MpesaReceiptNumber in metadata
+    const lookupId = CheckoutRequestID || "";
+
     const metadata = CallbackMetadata?.Item || [];
     let phoneNumber = "";
     let amount = 0;
-    let transactionId = "";
+    let mpesaReceiptNumber = "";
 
     for (const item of metadata) {
       if (item.Name === "PhoneNumber") phoneNumber = item.Value;
       if (item.Name === "Amount") amount = item.Value;
-      if (item.Name === "MpesaReceiptNumber") transactionId = item.Value;
+      if (item.Name === "MpesaReceiptNumber") mpesaReceiptNumber = item.Value;
     }
 
     // Success: ResultCode 0
     if (ResultCode === 0) {
-      // Find payment by transaction ID
+      // Find payment by CheckoutRequestID (stored in transactionId at initiation)
       const paymentRecords = await db
         .select()
         .from(payments)
-        .where(eq(payments.transactionId, transactionId));
+        .where(eq(payments.transactionId, lookupId));
 
       if (paymentRecords.length === 0) {
-        console.warn(`Payment not found for transaction: ${transactionId}`);
+        console.warn(`Payment not found for CheckoutRequestID: ${lookupId}`);
         return res.status(200).json({ success: true }); // Still return 200 to acknowledge
       }
 
       const payment = paymentRecords[0];
 
-      // Update payment status to completed
+      // Update payment status and store M-Pesa receipt number for records
       await db
         .update(payments)
         .set({
           status: "completed",
+          transactionId: mpesaReceiptNumber || payment.transactionId,
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id));
@@ -93,7 +96,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
         }
       }
 
-      console.log(`Payment verified: ${transactionId} for ${phoneNumber}`);
+      console.log(`Payment verified: ${lookupId} -> ${mpesaReceiptNumber} for ${phoneNumber}`);
       return res.status(200).json({ success: true, message: "Payment verified" });
     }
 
@@ -102,7 +105,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       const paymentRecords = await db
         .select()
         .from(payments)
-        .where(eq(payments.transactionId, transactionId));
+        .where(eq(payments.transactionId, lookupId));
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
@@ -115,7 +118,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           .where(eq(payments.id, payment.id));
       }
 
-      console.log(`Payment failed: ${transactionId} - ${ResultDesc}`);
+      console.log(`Payment failed: ${lookupId} - ${ResultDesc}`);
       return res.status(200).json({ success: true, message: "Payment failure recorded" });
     }
 
@@ -169,7 +172,7 @@ export async function handleMpesaQueryWebhook(req: Request, res: Response) {
           })
           .where(eq(payments.id, payment.id));
 
-        // Update enrollment
+        // Update enrollment and issue certificate
         if (payment.enrollmentId) {
           await db
             .update(enrollments)
@@ -178,6 +181,12 @@ export async function handleMpesaQueryWebhook(req: Request, res: Response) {
               updatedAt: new Date(),
             })
             .where(eq(enrollments.id, payment.enrollmentId));
+          const certResult = await issueCertificateForEnrollmentIfEligible(payment.enrollmentId);
+          if (certResult.issued) {
+            console.log(`Certificate issued for enrollment ${payment.enrollmentId} (query webhook)`);
+          } else if (certResult.error) {
+            console.warn(`Certificate not issued for enrollment ${payment.enrollmentId}:`, certResult.error);
+          }
         }
 
         console.log(`Query verified: ${CheckoutRequestID} -> ${MpesaReceiptNumber}`);

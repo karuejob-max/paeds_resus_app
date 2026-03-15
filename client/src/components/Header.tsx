@@ -54,6 +54,8 @@ export default function Header() {
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
         { label: "Safe-Truth", href: "/safe-truth", icon: "🚨" },
+        { label: "Referral", href: "/referral", icon: "📤" },
+        { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
       ];
     }
     if (role === "institution") {
