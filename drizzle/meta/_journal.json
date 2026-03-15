@@ -169,6 +169,13 @@
       "when": 1772845191677,
       "tag": "0023_lucky_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1773569444432,
+      "tag": "0024_purple_moondragon",
+      "breakpoints": true
     }
   ]
 }
