@@ -4,9 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp } from "lucide-react";
 import ParentSafeTruthForm from "@/components/ParentSafeTruthForm";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function ParentSafeTruth() {
   const formRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
+  const { data: stats } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,6 +46,22 @@ export default function ParentSafeTruth() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4">
+        {/* Usage this month (when logged in) */}
+        {isAuthenticated && stats !== undefined && (
+          <Card className="mb-8 border-[#2d5f5f]/30 bg-white/80">
+            <CardContent className="pt-6">
+              <p className="text-lg text-gray-800">
+                You've used Safe-Truth <span className="font-bold text-[#2d5f5f]">{stats.submissionsThisMonth}</span> time{stats.submissionsThisMonth !== 1 ? "s" : ""} this month.
+                {stats.lastSubmission && (
+                  <span className="block text-sm text-muted-foreground mt-1">
+                    Last submission: {new Date(stats.lastSubmission).toLocaleDateString()}
+                  </span>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Why Share Your Story */}
         <div className="grid md:grid-cols-2 gap-6 mb-12">
           <Card>

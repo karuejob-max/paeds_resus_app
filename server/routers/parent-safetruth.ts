@@ -7,8 +7,16 @@ import {
   systemDelayAnalysis, 
   hospitalImprovementMetrics 
 } from "../../drizzle/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { getDb } from "../db";
+
+/** EAT = UTC+3. "This month" = calendar month in EAT per platform. */
+function startOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month - 1, 1, -3, 0, 0, 0));
+}
+function endOfMonthEAT(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
+}
 
 const eventSchema = z.object({
   eventType: z.enum([
@@ -92,6 +100,41 @@ export const parentSafeTruthRouter = router({
         message: "Your story has been submitted successfully. Thank you for helping us improve care.",
       };
     }),
+
+  // Stats for parent dashboard: submissions this month, last submission
+  getSafeTruthStats: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      return { submissionsThisMonth: 0, lastSubmission: null };
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const periodStart = startOfMonthEAT(year, month);
+    const periodEnd = endOfMonthEAT(year, month);
+
+    const inMonth = await db
+      .select({ id: parentSafeTruthSubmissions.id })
+      .from(parentSafeTruthSubmissions)
+      .where(
+        and(
+          eq(parentSafeTruthSubmissions.userId, ctx.user.id),
+          gte(parentSafeTruthSubmissions.createdAt, periodStart),
+          lte(parentSafeTruthSubmissions.createdAt, periodEnd)
+        )
+      );
+    const last = await db
+      .select({ createdAt: parentSafeTruthSubmissions.createdAt })
+      .from(parentSafeTruthSubmissions)
+      .where(eq(parentSafeTruthSubmissions.userId, ctx.user.id))
+      .orderBy(desc(parentSafeTruthSubmissions.createdAt))
+      .limit(1);
+
+    return {
+      submissionsThisMonth: inMonth.length,
+      lastSubmission: last[0]?.createdAt ?? null,
+    };
+  }),
 
   // Get parent's submissions
   getMySubmissions: protectedProcedure.query(async ({ ctx }) => {

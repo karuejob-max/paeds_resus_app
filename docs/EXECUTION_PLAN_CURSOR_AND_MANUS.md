@@ -33,7 +33,7 @@
 |---|---------|--------|----------------|-------|--------|
 | 4 | **A2** | Wire Referral page to backend | Create `server/routers/referrals.ts`: `getReferrals`, `submitReferral`. In Referral.tsx replace TODOs with `trpc.referrals.getReferrals.useQuery()` and `trpc.referrals.submitReferral.useMutation()`. Register router in server. | `server/routers/referrals.ts` (new), `client/src/pages/Referral.tsx`, server router index | ✅ Done (by Manus) 2026-03-15 |
 | 5 | **A3** | Referral count in admin reports | Add query for referrals this month; add "Referrals this month" card to AdminReports. | `server/routers/admin-stats.ts`, `client/src/pages/AdminReports.tsx` | ✅ Done (by Cursor) 2026-02-25 |
-| 6 | **A5** | Safe-Truth usage in parent dashboard | Add tRPC `getSafeTruthStats()` (submissions this month, last submission); show small card in ParentSafeTruth.tsx: "You've used Safe-Truth X times this month". | `server/routers/parent-safetruth.ts`, `client/src/pages/ParentSafeTruth.tsx` | ⬜ Not started |
+| 6 | **A5** | Safe-Truth usage in parent dashboard | Add tRPC `getSafeTruthStats()` (submissions this month, last submission); show small card in ParentSafeTruth.tsx: "You've used Safe-Truth X times this month". | `server/routers/parent-safetruth.ts`, `client/src/pages/ParentSafeTruth.tsx` | ✅ Done (by Cursor) 2026-02-25 |
 
 ### Phase 3 — Flows & reporting
 
