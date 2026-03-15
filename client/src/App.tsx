@@ -24,7 +24,27 @@ import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import ProviderProfile from "./pages/ProviderProfile";
 import CPRMonitoring from "./pages/CPRMonitoring";
 import Payment from "./pages/Payment";
+import Referral from "./pages/Referral";
+import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
+import KaizenDashboard from "./pages/KaizenDashboard";
+import PersonalizedLearningDashboard from "./pages/PersonalizedLearningDashboard";
+import PredictiveInterventionDashboard from "./pages/PredictiveInterventionDashboard";
+import TargetedSolutions from "./pages/TargetedSolutions";
+import ProblemIdentification from "./pages/ProblemIdentification";
+import Reassessment from "./pages/Reassessment";
+import CirculationAssessment from "./pages/CirculationAssessment";
+import CourseBLS from "./pages/CourseBLS";
+import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
 import { Toaster } from "@/components/ui/sonner";
+
+/** Redirects to target path (for routes that have no dedicated page). */
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+  return null;
+}
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -58,6 +78,35 @@ function Router() {
           <Route path="/provider-profile" component={ProviderProfile} />
           <Route path="/cpr-monitoring" component={CPRMonitoring} />
           <Route path="/payment" component={Payment} />
+          <Route path="/referral" component={Referral} />
+          <Route path="/personal-impact" component={PersonalImpactDashboard} />
+          <Route path="/kaizen-dashboard" component={KaizenDashboard} />
+          <Route path="/personalized-learning" component={PersonalizedLearningDashboard} />
+          <Route path="/predictive-intervention" component={PredictiveInterventionDashboard} />
+          <Route path="/targeted-solutions" component={TargetedSolutions} />
+          <Route path="/problem-identification" component={ProblemIdentification} />
+          <Route path="/reassessment" component={Reassessment} />
+          <Route path="/circulation-assessment" component={CirculationAssessment} />
+          <Route path="/course/bls" component={CourseBLS} />
+          <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
+          {/* case-analysis has no page; redirect to targeted-solutions */}
+          <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
+          {/* dashboard → home (provider hub) */}
+          <Route path="/dashboard">{() => <Redirect to="/home" />}</Route>
+          {/* institutional-dashboard → hospital admin */}
+          <Route path="/institutional-dashboard">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
+          {/* pricing/roi calculators live on /institutional */}
+          <Route path="/pricing-calculator">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/roi-calculator">{() => <Redirect to="/institutional" />}</Route>
+          {/* contact, resources, legal/support: point to existing pages */}
+          <Route path="/contact">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/resources">{() => <Redirect to="/learner-dashboard" />}</Route>
+          <Route path="/privacy">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/terms">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/about">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/faq">{() => <Redirect to="/learner-dashboard" />}</Route>
+          <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
+          <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
           {/* ONE entry point. ONE system. ABCDE Primary Survey. */}
           <Route path="/" component={ResusGPS} />
           <Route path="/resus" component={ResusGPS} />

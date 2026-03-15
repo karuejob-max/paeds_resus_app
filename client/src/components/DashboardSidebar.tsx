@@ -30,7 +30,7 @@ export default function DashboardSidebar() {
       >
         {/* Sidebar Header */}
         <div className="mb-8">
-          <Link href="/dashboard">
+          <Link href="/home">
             <div className="flex items-center gap-3 cursor-pointer mb-2">
               <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold">PR</span>
@@ -72,7 +72,7 @@ export default function DashboardSidebar() {
         <div className="mb-8">
           <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Resources</h4>
           <div className="space-y-2">
-            <Link href="/elite-fellowship">
+            <Link href="/enroll">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 Elite Fellowship
               </div>
@@ -82,7 +82,7 @@ export default function DashboardSidebar() {
                 Safe-Truth Tool
               </div>
             </Link>
-            <Link href="/success-stories">
+            <Link href="/parent-safe-truth">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 Success Stories
               </div>
@@ -94,12 +94,12 @@ export default function DashboardSidebar() {
         <div className="mb-8">
           <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Support</h4>
           <div className="space-y-2">
-            <Link href="/faq">
+            <Link href="/learner-dashboard">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 FAQ
               </div>
             </Link>
-            <Link href="/contact">
+            <Link href="/institutional">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 Contact Us
               </div>

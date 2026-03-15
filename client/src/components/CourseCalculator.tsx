@@ -153,7 +153,7 @@ export default function CourseCalculator({ course, isOpen, onClose }: CourseCalc
                   className="flex-1"
                   label="Get Quote on WhatsApp"
                 />
-                <Link href="/contact">
+                <Link href="/institutional">
                   <Button size="lg" variant="outline" className="flex-1">
                     Contact Sales
                   </Button>
