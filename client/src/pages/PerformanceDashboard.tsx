@@ -158,7 +158,13 @@ export function PerformanceDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-4">No data available</p>
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-3">No performance data available yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Start using ResusGPS to track your performance metrics</p>
+                  <a href="/resus-gps" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition">
+                    Go to ResusGPS
+                  </a>
+                </div>
               )}
             </Card>
 
