@@ -125,6 +125,18 @@ export const adminStatsRouter = router({
         count,
       }));
 
+      // Count unique active users in last N days
+      const activeUsersResult = await db
+        .selectDistinct({ userId: analyticsEvents.userId })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.createdAt, daysAgo(lastDays)),
+            analyticsEvents.userId
+          )
+        );
+      const activeUsersLastDays = activeUsersResult.filter(r => r.userId !== null).length;
+
       return {
         ok: true,
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
@@ -148,6 +160,7 @@ export const adminStatsRouter = router({
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
         },
+        activeUsersLastDays,
       };
     }),
 
