@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -54,6 +54,7 @@ export const adminStatsRouter = router({
           parentSafeTruthThisMonth: 0,
           referralsThisMonth: 0,
           conversionFunnel: { enrolled: 0, completed: 0, conversionPercent: 0 },
+          topProtocolsViewed: [] as { protocol: string; count: number }[],
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
         };
       }
@@ -152,6 +153,31 @@ export const adminStatsRouter = router({
         );
       const activeUsersLastDays = activeUsersResult.filter(r => r.userId !== null).length;
 
+      // Top protocols viewed (View Protocol button clicks, last N days)
+      const viewProtocolEvents = await db
+        .select({ eventData: analyticsEvents.eventData })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.createdAt, analyticsSince),
+            like(analyticsEvents.eventName, "%View Protocol%")
+          )
+        );
+      const protocolCounts: Record<string, number> = {};
+      viewProtocolEvents.forEach((row) => {
+        try {
+          const data = row.eventData ? JSON.parse(row.eventData) : {};
+          const protocol = (data.protocol || data.diagnosis || "Unknown").toString();
+          protocolCounts[protocol] = (protocolCounts[protocol] || 0) + 1;
+        } catch {
+          protocolCounts["Unknown"] = (protocolCounts["Unknown"] || 0) + 1;
+        }
+      });
+      const topProtocolsViewed = Object.entries(protocolCounts)
+        .map(([protocol, count]) => ({ protocol, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
       return {
         ok: true,
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
@@ -191,6 +217,7 @@ export const adminStatsRouter = router({
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
         },
         activeUsersLastDays,
+        topProtocolsViewed,
       };
     }),
 

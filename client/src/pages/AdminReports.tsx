@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp } from "lucide-react";
+import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
@@ -294,6 +294,35 @@ export default function AdminReports() {
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     No analytics events recorded yet. Events are stored when the app tracks usage (e.g. Paeds Resus sessions, page views).
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top protocols viewed */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Top protocols viewed
+                </CardTitle>
+                <CardDescription>
+                  Most viewed protocols in {report.lastDaysLabel} (ResusGPS)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {report.topProtocolsViewed.length > 0 ? (
+                  <ol className="list-decimal list-inside space-y-1 text-sm">
+                    {report.topProtocolsViewed.map((p, i) => (
+                      <li key={i} className="text-foreground">
+                        <span className="font-medium">{p.protocol}</span>
+                        <span className="text-muted-foreground"> — {p.count} view{p.count !== 1 ? "s" : ""}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No protocol views recorded yet. Views are tracked when providers confirm a diagnosis in ResusGPS.
                   </p>
                 )}
               </CardContent>
