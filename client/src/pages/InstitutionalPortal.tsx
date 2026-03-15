@@ -4,13 +4,24 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, BarChart3, Users, FileText, Calendar, CheckCircle, TrendingUp } from "lucide-react";
 import { getLoginUrl } from "@/const";
+
+const WELCOME_KEY = "institutionalPortalWelcome";
 
 export default function InstitutionalPortal() {
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(WELCOME_KEY) === "1") {
+      sessionStorage.removeItem(WELCOME_KEY);
+      setShowWelcome(true);
+    }
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -38,6 +49,19 @@ export default function InstitutionalPortal() {
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Institutional Portal</h1>
           <p className="text-lg text-slate-600">Manage your facility's training program and track impact</p>
         </div>
+
+        {/* First-time welcome (after onboarding) */}
+        {showWelcome && (
+          <Alert className="mb-6 border-green-600/50 bg-green-50 text-green-900">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>Welcome! Your institution is set up. You can now manage staff enrollments, view certifications, and track impact from this portal.</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowWelcome(false)} className="text-green-700 shrink-0">
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* KPI Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">

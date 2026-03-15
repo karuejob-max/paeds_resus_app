@@ -65,7 +65,10 @@ export default function InstitutionalOnboarding() {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
       setSuccess(true);
-      setTimeout(() => navigate("/institutional-portal"), 2000);
+      setTimeout(() => {
+        sessionStorage.setItem("institutionalPortalWelcome", "1");
+        navigate("/institutional-portal");
+      }, 2000);
     } catch (err) {
       setError("Failed to create account");
     } finally {
