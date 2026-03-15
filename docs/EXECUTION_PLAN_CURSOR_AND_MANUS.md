@@ -47,7 +47,7 @@
 
 | # | Task ID | Title | Spec summary | Where | Status |
 |---|---------|--------|----------------|-------|--------|
-| 10 | **B1** | Enrollment → Payment → Certificate | Wire payment success to certificate creation; add "My Certificates" section to LearnerDashboard. | Payment/certificate router, `client/src/pages/LearnerDashboard.tsx` | ⬜ Not started |
+| 10 | **B1** | Enrollment → Payment → Certificate | Wire payment success to certificate creation; add "My Certificates" section to LearnerDashboard. | Payment/certificate router, `client/src/pages/LearnerDashboard.tsx` | ✅ Done (by Cursor) 2026-02-25 |
 | 11 | **E1** | Orphaned pages audit | Categorise unused pages (assessment vs dashboard vs backup); wire or remove. Prefer wiring; remove only obvious backups. | `client/src/pages/` | ⬜ Not started |
 | 12 | **E2** | Unused DB tables audit | Document or remove unused tables. Prefer document "reserved" vs delete unless clearly obsolete. | `drizzle/schema.ts`, optional migration | ⬜ Not started |
 

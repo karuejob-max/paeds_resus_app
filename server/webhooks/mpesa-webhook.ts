@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 /**
  * M-Pesa Webhook Handler
@@ -81,6 +82,14 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
               updatedAt: new Date(),
             })
             .where(eq(enrollments.id, enrollment.id));
+
+          // Create certificate when payment completes
+          const certResult = await issueCertificateForEnrollmentIfEligible(payment.enrollmentId);
+          if (certResult.issued) {
+            console.log(`Certificate issued for enrollment ${payment.enrollmentId}`);
+          } else if (certResult.error) {
+            console.warn(`Certificate not issued for enrollment ${payment.enrollmentId}:`, certResult.error);
+          }
         }
       }
 
