@@ -55,6 +55,7 @@ export const adminStatsRouter = router({
           enrollmentsThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
+          activeUsersLastDays: 0,
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
         };
       }
@@ -116,18 +117,22 @@ export const adminStatsRouter = router({
         .select({
           eventType: analyticsEvents.eventType,
           eventName: analyticsEvents.eventName,
+          userId: analyticsEvents.userId,
         })
         .from(analyticsEvents)
         .where(gte(analyticsEvents.createdAt, analyticsSince));
       const eventCounts: Record<string, number> = {};
+      const uniqueUserIds = new Set<number>();
       analyticsInPeriod.forEach((e) => {
         const key = e.eventType || e.eventName || "other";
         eventCounts[key] = (eventCounts[key] || 0) + 1;
+        if (e.userId) uniqueUserIds.add(e.userId);
       });
       const eventTypes = Object.entries(eventCounts).map(([eventType, count]) => ({
         eventType,
         count,
       }));
+      const activeUsersLastDays = uniqueUserIds.size;
 
       return {
         ok: true,
@@ -148,6 +153,7 @@ export const adminStatsRouter = router({
           certificatesThisMonth.pals +
           certificatesThisMonth.fellowship,
         parentSafeTruthThisMonth,
+        activeUsersLastDays,
         analyticsLastDays: {
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),

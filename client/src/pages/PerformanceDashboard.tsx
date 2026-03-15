@@ -158,7 +158,11 @@ export function PerformanceDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-4">No data available</p>
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600 font-medium mb-2">No performance data yet</p>
+                  <p className="text-sm text-gray-500 mb-4">Complete an assessment or course to see your performance metrics.</p>
+                </div>
               )}
             </Card>
 

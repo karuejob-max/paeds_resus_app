@@ -96,6 +96,7 @@ import { realTimeImpact } from "./routers/real-time-impact";
 import { peerAdoption } from "./routers/peer-adoption";
 import { healthcareWorkerDirect } from "./routers/healthcare-worker-direct";
 import { viralReferral } from "./routers/viral-referral";
+import { referralsRouter } from "./routers/referrals";
 import { coreExponential } from "./routers/core-exponential";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { kaizenAutomationRouter } from "./routers/kaizen-automation";
@@ -256,6 +257,7 @@ export const appRouter = router({
   peerAdoption,
   healthcareWorkerDirect,
   viralReferral,
+  referrals: referralsRouter,
   coreExponential,
   kaizenMetrics: kaizenMetricsRouter,
   kaizenAutomation: kaizenAutomationRouter,

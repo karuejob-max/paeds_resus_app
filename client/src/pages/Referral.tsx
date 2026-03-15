@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,31 @@ export default function Referral() {
     notes: "",
   });
 
-  // TODO: Implement getReferrals query
-  const referralsQuery = { data: [], isLoading: false };
+  // Fetch referrals for current user
+  const { data: referralsData, isLoading: referralsLoading, refetch: refetchReferrals } = trpc.referrals.getReferrals.useQuery(
+    { limit: 50 },
+    { enabled: !!user?.id }
+  );
+
+  // Submit referral mutation
+  const submitReferralMutation = trpc.referrals.submitReferral.useMutation({
+    onSuccess: () => {
+      setShowForm(false);
+      setFormData({
+        patientName: "",
+        patientAge: 0,
+        diagnosis: "",
+        urgency: "routine",
+        reason: "",
+        referralType: "hospital",
+        facilityName: "",
+        notes: "",
+      });
+      refetchReferrals();
+    },
+  });
+
+  const referralsQuery = { data: referralsData || [], isLoading: referralsLoading };
 
   if (loading) {
     return (
@@ -63,8 +87,11 @@ export default function Referral() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement referral submission
-    setShowForm(false);
+    try {
+      await submitReferralMutation.mutateAsync(formData);
+    } catch (error) {
+      console.error("Failed to submit referral:", error);
+    }
   };
 
   const getUrgencyColor = (urgency: string) => {

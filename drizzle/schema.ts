@@ -2080,3 +2080,24 @@ export const protocolStatus = mysqlTable("protocolStatus", {
 
 export type ProtocolStatus = typeof protocolStatus.$inferSelect;
 export type InsertProtocolStatus = typeof protocolStatus.$inferInsert;
+
+
+// Clinical Referrals - tracks patient referrals to other facilities
+export const clinicalReferrals = mysqlTable("clinicalReferrals", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // Provider who created the referral
+  patientName: varchar("patientName", { length: 255 }).notNull(),
+  patientAge: int("patientAge").notNull(),
+  diagnosis: text("diagnosis").notNull(),
+  urgency: mysqlEnum("urgency", ["routine", "urgent", "emergency"]).default("routine").notNull(),
+  reason: text("reason").notNull(),
+  referralType: mysqlEnum("referralType", ["hospital", "specialist", "imaging", "lab"]).notNull(),
+  facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["pending", "accepted", "rejected", "completed"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ClinicalReferral = typeof clinicalReferrals.$inferSelect;
+export type InsertClinicalReferral = typeof clinicalReferrals.$inferInsert;

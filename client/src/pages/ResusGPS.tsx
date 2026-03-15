@@ -226,7 +226,12 @@ export default function ResusGPS() {
   };
 
   const handleStartIntervention = (id: string) => {
+    const intervention = session.interventions.find(i => i.id === id);
     setSession(prev => startIntervention(prev, id));
+    // Track intervention started
+    if (intervention) {
+      analytics.trackInterventionStarted(intervention.name);
+    }
   };
 
   const handleReturnToPrimary = () => {
@@ -234,6 +239,8 @@ export default function ResusGPS() {
     setInterventionPanelOpen(false);
     setNumberInput('');
     setNumberInput2('');
+    // Track reassessment performed
+    analytics.trackReassessmentPerformed('return_to_primary', 'initiated');
   };
 
   const handleCardiacArrest = () => {
@@ -269,6 +276,8 @@ export default function ResusGPS() {
 
   const handleExport = () => {
     const text = exportClinicalRecord(session);
+    // Track assessment completed
+    analytics.trackAssessmentCompleted(activeThreats.length, session.interventions.length);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

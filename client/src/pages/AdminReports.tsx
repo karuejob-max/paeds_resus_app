@@ -138,6 +138,25 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
+            {/* Active users in last N days */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Active users
+                </CardTitle>
+                <CardDescription>{report.lastDaysLabel}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border p-4 bg-muted/50">
+                  <p className="text-4xl font-bold text-primary">{report.activeUsersLastDays}</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Users who logged in or used the platform
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Enrollments (applications) this month */}
             <Card>
               <CardHeader>
