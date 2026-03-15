@@ -227,12 +227,12 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
-            {/* ResusGPS / app analytics (last 7 days) */}
+            {/* Paeds Resus / app analytics (last 7 days) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
-                  App & ResusGPS activity
+                  App & Paeds Resus activity
                 </CardTitle>
                 <CardDescription>
                   Events in {report.lastDaysLabel} (page views, interactions, usage)
@@ -254,7 +254,7 @@ export default function AdminReports() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No analytics events recorded yet. Events are stored when the app tracks usage (e.g. ResusGPS sessions, page views).
+                    No analytics events recorded yet. Events are stored when the app tracks usage (e.g. Paeds Resus sessions, page views).
                   </p>
                 )}
               </CardContent>

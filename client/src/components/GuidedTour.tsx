@@ -19,7 +19,7 @@ interface TourStep {
 
 const tourSteps: TourStep[] = [
   {
-    title: 'Welcome to ResusGPS!',
+    title: 'Welcome to Paeds Resus!',
     description: 'Let\'s take a quick tour of the features that will help you save lives faster. This will only take 30 seconds.',
     position: 'center',
   },

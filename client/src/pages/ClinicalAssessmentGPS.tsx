@@ -1421,7 +1421,7 @@ export const ClinicalAssessmentGPS: React.FC = () => {
             <Card className="bg-slate-800/90 border-slate-700 p-4 md:p-8">
               {/* Header - Minimal */}
               <div className="text-center mb-4">
-                <h1 className="text-2xl md:text-3xl font-bold text-white">ResusGPS</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">Paeds Resus</h1>
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Pediatric Emergency GPS</p>
               </div>
 

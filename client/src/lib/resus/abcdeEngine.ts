@@ -2098,7 +2098,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
 export function exportClinicalRecord(session: ResusSession): string {
   const lines: string[] = [];
   lines.push('═══════════════════════════════════════════');
-  lines.push('  ResusGPS — CLINICAL RECORD');
+  lines.push('  Paeds Resus — CLINICAL RECORD');
   lines.push('═══════════════════════════════════════════');
   lines.push(`Date: ${new Date(session.startTime).toLocaleString()}`);
   if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);

@@ -92,8 +92,8 @@ export default function Header() {
           {/* Logo */}
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition flex-shrink-0">
-              <img src="/paeds-resus-logo.png" alt="ResusGPS" className="w-10 h-10" />
-              <span className="font-bold text-base text-gray-900 hidden sm:inline">ResusGPS</span>
+              <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-10 h-10 rounded-lg object-contain ring-1 ring-gray-200/80" />
+              <span className="font-bold text-base text-gray-900 hidden sm:inline">Paeds Resus</span>
             </div>
           </Link>
 

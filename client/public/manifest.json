@@ -1,6 +1,6 @@
 {
-  "name": "ResusGPS - Clinical Decision Support for Emergencies",
-  "short_name": "ResusGPS",
+  "name": "Paeds Resus - Clinical Decision Support for Emergencies",
+  "short_name": "Paeds Resus",
   "description": "AI-powered clinical decision support for pediatric, obstetric, and adult emergencies. Works offline.",
   "start_url": "/",
   "scope": "/",

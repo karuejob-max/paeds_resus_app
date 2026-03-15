@@ -86,7 +86,7 @@ export default function Home() {
                 <Stethoscope className="h-5 w-5" />
                 <div>
                   <p className="font-medium">Healthcare provider</p>
-                  <p className="text-sm text-muted-foreground">ResusGPS, courses, and learning</p>
+                  <p className="text-sm text-muted-foreground">Paeds Resus, courses, and learning</p>
                 </div>
               </Label>
               <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
@@ -126,7 +126,7 @@ export default function Home() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Stethoscope className="h-5 w-5" />
-                  ResusGPS
+                  Paeds Resus
                 </CardTitle>
                 <CardDescription>Real-time pediatric emergency guidance at the point of care.</CardDescription>
               </div>

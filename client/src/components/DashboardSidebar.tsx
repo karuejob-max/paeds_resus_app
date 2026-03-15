@@ -32,10 +32,10 @@ export default function DashboardSidebar() {
         <div className="mb-8">
           <Link href="/home">
             <div className="flex items-center gap-3 cursor-pointer mb-2">
-              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">PR</span>
-              </div>
-              <span className="font-bold text-lg">ResusGPS</span>
+              <span className="inline-flex rounded-lg bg-white/95 p-0.5 ring-1 ring-white/20 flex-shrink-0">
+                <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-10 h-10 rounded-md object-contain" />
+              </span>
+              <span className="font-bold text-lg">Paeds Resus</span>
             </div>
           </Link>
           <p className="text-xs text-gray-400">Learning Dashboard</p>

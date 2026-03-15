@@ -660,7 +660,7 @@ function IdleScreen({
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
           <Siren className="h-10 w-10 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">ResusGPS</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Paeds Resus</h1>
         <p className="text-muted-foreground text-sm max-w-sm mx-auto">
           Systematic XABCDE assessment with real-time threat detection, weight-based dosing, and intervention tracking
         </p>

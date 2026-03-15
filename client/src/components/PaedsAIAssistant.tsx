@@ -37,7 +37,7 @@ export default function PaedsAIAssistant() {
         {
           id: "welcome",
           content:
-            "👋 Hello! I'm ResusGPS AI, your clinical decision support assistant. I can help you with:\n\n• Clinical guidance and protocols\n• Troubleshooting platform issues\n• Onboarding assistance\n• Real-time clinical support\n\nWhat can I help you with today?",
+            "👋 Hello! I'm Paeds Resus AI, your clinical decision support assistant. I can help you with:\n\n• Clinical guidance and protocols\n• Troubleshooting platform issues\n• Onboarding assistance\n• Real-time clinical support\n\nWhat can I help you with today?",
           sender: "assistant",
           timestamp: new Date(),
         },
@@ -66,7 +66,7 @@ export default function PaedsAIAssistant() {
         const assistantMessage: Message = {
           id: `msg-${Date.now()}`,
           content:
-            "I understand your question. Based on ResusGPS protocols and best practices, here's what I recommend:\n\n1. **Immediate Action**: Follow the evidence-based guidelines for your specific scenario.\n\n2. **Key Considerations**: Always prioritize patient safety and refer to the relevant clinical protocols.\n\n3. **Next Steps**: If you need more detailed guidance, I can provide protocol references or connect you with a support specialist.\n\nWould you like more specific information about any aspect of this guidance?",
+            "I understand your question. Based on Paeds Resus protocols and best practices, here's what I recommend:\n\n1. **Immediate Action**: Follow the evidence-based guidelines for your specific scenario.\n\n2. **Key Considerations**: Always prioritize patient safety and refer to the relevant clinical protocols.\n\n3. **Next Steps**: If you need more detailed guidance, I can provide protocol references or connect you with a support specialist.\n\nWould you like more specific information about any aspect of this guidance?",
           sender: "assistant",
           timestamp: new Date(),
         };
@@ -94,7 +94,7 @@ export default function PaedsAIAssistant() {
       <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 left-6 w-14 h-14 bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] hover:shadow-lg text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-40 group"
-        title="ResusGPS AI Assistant"
+        title="Paeds Resus AI Assistant"
       >
         <Sparkles className="w-6 h-6" />
         <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#ff6633] rounded-full border-2 border-white animate-pulse"></div>
@@ -109,7 +109,7 @@ export default function PaedsAIAssistant() {
         <button
           onClick={handleOpenAssistant}
           className="fixed right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-gradient-to-br from-[#1a4d4d] to-[#0d3333] hover:shadow-lg text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-40 group"
-          title="ResusGPS AI Assistant"
+          title="Paeds Resus AI Assistant"
         >
           <Sparkles className="w-6 h-6" />
           <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#ff6633] rounded-full border-2 border-white animate-pulse"></div>
@@ -126,7 +126,7 @@ export default function PaedsAIAssistant() {
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold">ResusGPS AI</h3>
+                <h3 className="font-semibold">Paeds Resus AI</h3>
                 <p className="text-xs text-gray-200">Clinical Decision Support</p>
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function PaedsAIAssistant() {
               </button>
             </div>
             <p className="text-xs text-gray-500">
-              🤖 Powered by ResusGPS AI • Evidence-based guidance 24/7
+              🤖 Powered by Paeds Resus AI • Evidence-based guidance 24/7
             </p>
           </div>
         </div>
