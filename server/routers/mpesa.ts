@@ -3,7 +3,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export const mpesaRouter = router({
   /**
@@ -17,13 +17,38 @@ export const mpesaRouter = router({
         courseId: z.string(),
         courseName: z.string(),
         orderId: z.string().optional(),
+        enrollmentId: z.number().optional(), // when coming from Enroll page: use existing enrollment, only create payment
       })
     )
     .mutation(async ({ input, ctx }) => {
       try {
         const orderId = input.orderId || `ORDER-${Date.now()}`;
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
 
-        // Initiate M-Pesa payment
+        let enrollmentId: number;
+
+        if (input.enrollmentId) {
+          const existing = await db.select().from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user!.id))).limit(1);
+          if (!existing.length) {
+            return { success: false, error: "Enrollment not found or access denied." };
+          }
+          enrollmentId = existing[0].id;
+        } else {
+          const enrollmentRecord = await db.insert(enrollments).values({
+            userId: ctx.user?.id || 0,
+            programType: input.courseId as any,
+            trainingDate: new Date(),
+            paymentStatus: "pending",
+            amountPaid: 0,
+          } as any);
+          enrollmentId = (enrollmentRecord as any)[0]?.id ?? 0;
+          if (!enrollmentId) {
+            const list = await db.select().from(enrollments).where(eq(enrollments.userId, ctx.user!.id)).orderBy(desc(enrollments.id)).limit(1);
+            enrollmentId = list[0]?.id ?? 0;
+          }
+        }
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: input.amount,
@@ -39,21 +64,8 @@ export const mpesaRouter = router({
           };
         }
 
-        // Create enrollment record first
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
-        
-        const enrollmentRecord = await db.insert(enrollments).values({
-          userId: ctx.user?.id || 0,
-          programType: input.courseId as any,
-          trainingDate: new Date(),
-          paymentStatus: "pending",
-          amountPaid: 0,
-        } as any);
-
-        // Store payment record in database
-        const paymentRecord = await db!.insert(payments).values({
-          enrollmentId: (enrollmentRecord as any)[0]?.id || 0,
+        const paymentRecord = await db.insert(payments).values({
+          enrollmentId,
           userId: ctx.user?.id || 0,
           amount: input.amount,
           paymentMethod: "mpesa",
@@ -61,13 +73,15 @@ export const mpesaRouter = router({
           status: "pending",
         } as any);
 
+        const paymentId = (paymentRecord as any)[0]?.id ?? null;
+
         return {
           success: true,
           checkoutRequestID: mpesaResponse.checkoutRequestID,
           customerMessage: mpesaResponse.customerMessage,
           orderId,
-          paymentId: (paymentRecord as any)[0]?.id,
-          enrollmentId: (enrollmentRecord as any)[0]?.id,
+          paymentId,
+          enrollmentId,
         };
       } catch (error: any) {
         console.error("Error initiating M-Pesa payment:", error);

@@ -153,11 +153,12 @@ export async function updateUserType(userId: number, userType: "individual" | "i
 }
 
 // Enrollment queries
-export async function createEnrollment(data: any) {
+export async function createEnrollment(data: any): Promise<{ id: number } | null> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(enrollments).values(data);
-  return result;
+  await db.insert(enrollments).values(data);
+  const list = await db.select().from(enrollments).where(eq(enrollments.userId, data.userId)).orderBy(desc(enrollments.id)).limit(1);
+  return list[0] ?? null;
 }
 
 export async function getEnrollmentsByUserId(userId: number) {

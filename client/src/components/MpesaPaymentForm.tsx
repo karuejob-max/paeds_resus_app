@@ -9,6 +9,7 @@ interface MpesaPaymentFormProps {
   courseId: string;
   courseName: string;
   amount: number;
+  enrollmentId?: number;
   onPaymentSuccess?: (data: any) => void;
   onPaymentError?: (error: string) => void;
 }
@@ -17,6 +18,7 @@ export function MpesaPaymentForm({
   courseId,
   courseName,
   amount,
+  enrollmentId,
   onPaymentSuccess,
   onPaymentError,
 }: MpesaPaymentFormProps) {
@@ -90,6 +92,7 @@ export function MpesaPaymentForm({
       amount,
       courseId,
       courseName,
+      ...(enrollmentId !== undefined && { enrollmentId }),
     });
   };
 
