@@ -114,8 +114,17 @@ export async function getUserByOpenId(openId: string) {
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) {
+      console.error("[DB] users table may be missing columns. Run: pnpm db:fix-users", msg);
+      throw new Error("Database schema may be out of date. Please ask an admin to run: pnpm db:fix-users");
+    }
+    throw err;
+  }
 }
 
 export async function createUserWithPassword(data: {
