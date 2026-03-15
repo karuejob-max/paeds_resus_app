@@ -37,7 +37,7 @@ export default function Login() {
           <CardDescription>Enter your email and password to continue</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" aria-label="Sign in form">
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}

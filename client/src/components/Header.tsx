@@ -87,13 +87,26 @@ export default function Header() {
     { value: "institution", label: "Institution", icon: Briefcase },
   ];
 
+  // Keyboard: Escape closes dropdowns
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setRoleDropdownOpen(false);
+        setAccountDropdownOpen(false);
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200">
+    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200" role="banner" aria-label="Site header">
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition flex-shrink-0">
+            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition flex-shrink-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-lg">
               <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-10 h-10 rounded-lg object-contain ring-1 ring-gray-200/80" />
               <span className="font-bold text-base text-gray-900 hidden sm:inline">Paeds Resus</span>
             </div>
@@ -103,8 +116,12 @@ export default function Header() {
           {isAuthenticated && role && (
             <div className="relative hidden md:block flex-shrink-0" ref={roleDropdownRef}>
               <button
+                type="button"
                 onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium border border-gray-200"
+                aria-haspopup="true"
+                aria-expanded={roleDropdownOpen}
+                aria-label={`Switch role (current: ${role})`}
+                className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium border border-gray-200 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 {role === "provider" && <Stethoscope className="w-4 h-4" />}
                 {role === "parent" && <Heart className="w-4 h-4" />}
@@ -114,13 +131,16 @@ export default function Header() {
               </button>
 
               {roleDropdownOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10" role="listbox" aria-label="Role options">
                   <div className="p-2">
                     {roleOptions.map((option) => {
                       const Icon = option.icon;
                       return (
                         <button
+                          type="button"
                           key={option.value}
+                          role="option"
+                          aria-selected={role === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "parent" | "institution";
                             setUserRole(r);
@@ -147,7 +167,7 @@ export default function Header() {
           )}
 
           {/* Desktop Navigation - Only Essential Items */}
-          <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4">
+          <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
             {navigation.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer text-sm font-medium rounded-lg">
@@ -161,7 +181,7 @@ export default function Header() {
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
             {isAuthenticated && (
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition hidden sm:block">
+              <button type="button" className="p-2 hover:bg-gray-100 rounded-lg transition hidden sm:block focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2" aria-label="Notifications">
                 <Bell className="w-5 h-5 text-gray-700" />
               </button>
             )}
@@ -170,8 +190,12 @@ export default function Header() {
             {isAuthenticated ? (
               <div className="relative" ref={accountDropdownRef}>
                 <button
+                  type="button"
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium"
+                  aria-haspopup="true"
+                  aria-expanded={accountDropdownOpen}
+                  aria-label="Account menu"
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
                   <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
                     {user?.name?.charAt(0).toUpperCase()}
@@ -180,7 +204,7 @@ export default function Header() {
                 </button>
 
                 {accountDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10" role="menu" aria-label="Account options">
                     <div className="p-3">
                       {/* User Info */}
                       <div className="px-3 py-2 border-b">
@@ -222,11 +246,13 @@ export default function Header() {
                       {/* Logout */}
                       <div className="border-t pt-2">
                         <button
+                          type="button"
                           onClick={() => {
                             logout();
                             setAccountDropdownOpen(false);
                           }}
-                          className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2"
+                          className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                          aria-label="Log out"
                         >
                           <LogOut className="w-4 h-4" />
                           Logout
@@ -252,7 +278,13 @@ export default function Header() {
             )}
 
             {/* Mobile Menu Button */}
-            <button className="lg:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <button
+              type="button"
+              className="lg:hidden p-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
@@ -260,7 +292,7 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t pt-4">
+          <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t pt-4" aria-label="Mobile navigation">
             {/* Mobile Role Selector */}
             {isAuthenticated && role && (
               <div className="px-3 py-2 mb-3 border-b pb-3">

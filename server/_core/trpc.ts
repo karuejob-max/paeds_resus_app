@@ -28,6 +28,7 @@ const requireUser = t.middleware(async opts => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
+/** Enforces server-side admin role and logs every admin action to adminAuditLog (path + input keys). Use for all admin-only procedures. */
 export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;

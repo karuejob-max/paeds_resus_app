@@ -212,7 +212,13 @@ export function PerformanceDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-4">No recent activity</p>
+                <div className="text-center py-6">
+                  <p className="text-gray-500 mb-3">No recent activity yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Log clinical events in Safe-Truth to see your activity here</p>
+                  <a href="/safe-truth" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition">
+                    Log event in Safe-Truth
+                  </a>
+                </div>
               )}
             </Card>
 

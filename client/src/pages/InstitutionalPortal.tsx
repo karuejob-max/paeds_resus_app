@@ -63,6 +63,27 @@ export default function InstitutionalPortal() {
           </Alert>
         )}
 
+        {/* Empty state: no data yet */}
+        <Card className="mb-8 border-[#1a4d4d]/30 bg-[#1a4d4d]/5">
+          <CardContent className="py-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-8 h-8 text-[#1a4d4d]" />
+                <div>
+                  <p className="font-semibold text-slate-900">Get your institution started</p>
+                  <p className="text-sm text-slate-600">Onboard your facility to enroll staff, track certifications, and see impact metrics here.</p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button onClick={() => navigate("/institution-onboarding")} className="bg-[#1a4d4d] hover:bg-[#0d3333]">
+                  Onboard institution
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/institutional")}>Contact / Pricing</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* KPI Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>

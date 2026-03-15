@@ -45,14 +45,17 @@ export const institutionalNavItems: NavItem[] = [
   { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
-// Support & Information - ONLY WORKING PAGES
+// Support & Information — point to existing routes (contact/faq redirect in App)
 export const supportNavItems: NavItem[] = [
-  // No support pages implemented yet
+  { label: "Contact", href: "/contact", description: "Enquiries and institutional contact" },
+  { label: "FAQ", href: "/faq", description: "Frequently asked questions" },
 ];
 
-// Legal & Compliance - ONLY WORKING PAGES
+// Legal & Compliance — point to existing routes (privacy/terms/about redirect in App)
 export const legalNavItems: NavItem[] = [
-  // No legal pages implemented yet
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "About", href: "/about" },
 ];
 
 // Footer sections - ONLY WORKING PAGES
@@ -102,9 +105,10 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/payment": ["Home", "Payment"],
   "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
   "/advanced-analytics": ["Home", "Admin", "Analytics"],
-  "/safe-truth-analytics": ["Home", "Analytics"],
   "/kaizen-dashboard": ["Home", "Kaizen"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],
   "/enroll": ["Home", "Enroll"],
+  "/protocols": ["Home", "Protocols"],
+  "/safe-truth-analytics": ["Home", "Admin", "Safe-Truth Analytics"],
 };
