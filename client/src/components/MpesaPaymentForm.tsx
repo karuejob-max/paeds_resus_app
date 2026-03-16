@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ export function MpesaPaymentForm({
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [checkoutRequestID, setCheckoutRequestID] = useState("");
+  const [pollCount, setPollCount] = useState(0);
 
   const initiatePaymentMutation = trpc.mpesa.initiatePayment.useMutation({
     onSuccess: (data) => {
@@ -36,14 +37,7 @@ export function MpesaPaymentForm({
         setCheckoutRequestID(data.checkoutRequestID || "");
         
         // Start polling for payment status
-        const pollInterval = setInterval(() => {
-          if (data.checkoutRequestID) {
-            // Poll logic would go here
-          }
-        }, 3000); // Poll every 3 seconds
-
-        // Stop polling after 2 minutes
-        setTimeout(() => clearInterval(pollInterval), 120000);
+  
 
         onPaymentSuccess?.(data);
       } else {
@@ -61,19 +55,49 @@ export function MpesaPaymentForm({
     },
   });
 
-  const queryPaymentStatusMutation = trpc.mpesa.queryPaymentStatus.useQuery(
-    { checkoutRequestID },
-    {
-      enabled: false,
-    }
-  );
+  const queryPaymentStatusMutation = trpc.mpesa.queryPaymentStatus.useMutation({
+    onSuccess: (data) => {
+      if (data.resultCode === 0) {
+        // Payment successful
+        setPaymentStatus("success");
+        setStatusMessage("Payment successful! Certificate issued.");
+        onPaymentSuccess?.(data);
+      } else if (data.resultCode === 1) {
+        // Payment failed
+        setPaymentStatus("error");
+        setStatusMessage("Payment failed. Please try again.");
+        onPaymentError?.("Payment failed");
+      }
+      // resultCode 2 = user timeout, keep polling
+    },
+    onError: (error) => {
+      // Continue polling on transient errors
+      console.error("Payment status query error:", error);
+    },
+  });
 
-  // Simplified payment status tracking
-  const handlePaymentStatusCheck = () => {
-    if (checkoutRequestID) {
-      queryPaymentStatusMutation.refetch();
-    }
-  };
+  // Start polling for payment status after STK push
+  useEffect(() => {
+    if (!checkoutRequestID || paymentStatus !== "processing") return;
+
+    const pollInterval = setInterval(() => {
+      queryPaymentStatusMutation.mutate({ checkoutRequestID });
+    }, 3000); // Poll every 3 seconds
+
+    // Stop polling after 2 minutes
+    const timeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      if (paymentStatus === "processing") {
+        setPaymentStatus("error");
+        setStatusMessage("Payment confirmation timeout. Please check your M-Pesa balance.");
+      }
+    }, 120000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [checkoutRequestID, paymentStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

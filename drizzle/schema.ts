@@ -71,6 +71,7 @@ export const payments = mysqlTable("payments", {
   transactionId: varchar("transactionId", { length: 255 }),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(), // For webhook deduplication (CheckoutRequestID)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -2124,3 +2125,21 @@ export const clinicalReferrals = mysqlTable("clinicalReferrals", {
 
 export type ClinicalReferral = typeof clinicalReferrals.$inferSelect;
 export type InsertClinicalReferral = typeof clinicalReferrals.$inferInsert;
+
+// Webhook retry queue (for MPESA-6: resilience)
+export const webhookRetryQueue = mysqlTable("webhookRetryQueue", {
+  id: int("id").autoincrement().primaryKey(),
+  webhookType: varchar("webhookType", { length: 50 }).notNull(), // "mpesa_callback", "mpesa_query", etc.
+  payload: json("payload").notNull(), // Original webhook payload
+  checkoutRequestID: varchar("checkoutRequestID", { length: 255 }), // For M-Pesa
+  retryCount: int("retryCount").default(0),
+  maxRetries: int("maxRetries").default(5),
+  nextRetryAt: timestamp("nextRetryAt"),
+  lastError: text("lastError"),
+  status: mysqlEnum("status", ["pending", "processing", "completed", "dead_letter"]).default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type WebhookRetryQueue = typeof webhookRetryQueue.$inferSelect;
+export type InsertWebhookRetryQueue = typeof webhookRetryQueue.$inferInsert;
