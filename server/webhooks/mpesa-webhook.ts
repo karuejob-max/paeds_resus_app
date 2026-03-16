@@ -3,6 +3,7 @@ import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import crypto from "crypto";
+import type { Request, Response } from "express";
 
 /**
  * Verify M-Pesa webhook signature using Daraja API's Passkey
@@ -282,7 +283,7 @@ export async function handleMpesaTimeoutWebhook(
         await db
           .update(payments)
           .set({
-            status: "timeout",
+            status: "failed",
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
