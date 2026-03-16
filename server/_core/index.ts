@@ -49,7 +49,7 @@ async function startServer() {
   registerOAuthRoutes(app);
 
   // M-Pesa callbacks (single URL; Daraja sends STK result here)
-  app.post("/api/mpesa/callback", express.json(), (req, res) => {
+  app.post("/api/payment/callback", express.json(), (req, res) => {
     const body = req.body?.Body;
     if (body?.checkoutQueryResponse) {
       return handleMpesaQueryWebhook(req as any, res);
