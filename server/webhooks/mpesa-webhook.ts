@@ -49,6 +49,7 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
  * M-Pesa Webhook Handler
  * Receives payment callbacks from M-Pesa and updates payment status
  * Validates webhook signature before processing
+ * MPESA-4: Implements idempotency to prevent duplicate webhook processing
  */
 export async function handleMpesaWebhook(req: Request, res: Response) {
   try {
@@ -92,8 +93,29 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res.status(500).json({ error: "Database unavailable" });
     }
 
+    // MPESA-4: Idempotency check - prevent duplicate webhook processing
+    // Use CheckoutRequestID as the idempotency key
+    const idempotencyKey = CheckoutRequestID || "";
+    
+    if (!idempotencyKey) {
+      console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
+      return res.status(400).json({ error: "Missing CheckoutRequestID" });
+    }
+
+    // Check if this webhook has already been processed
+    const existingPayment = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.idempotencyKey, idempotencyKey))
+      .limit(1);
+
+    if (existingPayment.length > 0) {
+      console.info(`[M-Pesa] Webhook already processed for CheckoutRequestID: ${idempotencyKey}. Skipping duplicate.`);
+      return res.status(200).json({ success: true, message: "Webhook already processed" });
+    }
+
     // We store checkoutRequestID in payments.transactionId when initiating STK push; callback sends CheckoutRequestID and (on success) MpesaReceiptNumber in metadata
-    const lookupId = CheckoutRequestID || "";
+    const lookupId = idempotencyKey;
 
     const metadata = CallbackMetadata?.Item || [];
     let phoneNumber = "";
@@ -122,11 +144,13 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       const payment = paymentRecords[0];
 
       // Update payment status and store M-Pesa receipt number for records
+      // Also set idempotencyKey to mark this webhook as processed
       await db
         .update(payments)
         .set({
           status: "completed",
           transactionId: mpesaReceiptNumber || payment.transactionId,
+          idempotencyKey: idempotencyKey,
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id));
@@ -172,13 +196,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res
         .status(200)
         .json({ success: true, message: "Payment verified" });
-    } else {
-      // Payment failed or user cancelled
-      console.log(
-        `[M-Pesa] Payment failed: ${lookupId} - ResultCode: ${ResultCode}, Desc: ${ResultDesc}`
-      );
-
-      // Update payment status to failed
+    } else if (ResultCode === 1) {
+      // Failure: ResultCode 1
+      console.warn(`Payment failed for CheckoutRequestID: ${lookupId}`);
       const paymentRecords = await db
         .select()
         .from(payments)
@@ -190,11 +210,11 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           .update(payments)
           .set({
             status: "failed",
+            idempotencyKey: idempotencyKey,
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
       }
-
       return res
         .status(200)
         .json({ success: true, message: "Payment failure recorded" });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,18 +34,7 @@ export function MpesaPaymentForm({
         setPaymentStatus("processing");
         setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone.");
         setCheckoutRequestID(data.checkoutRequestID || "");
-        
-        // Start polling for payment status
-        const pollInterval = setInterval(() => {
-          if (data.checkoutRequestID) {
-            // Poll logic would go here
-          }
-        }, 3000); // Poll every 3 seconds
-
-        // Stop polling after 2 minutes
-        setTimeout(() => clearInterval(pollInterval), 120000);
-
-        onPaymentSuccess?.(data);
+        // Polling will be triggered by useEffect when paymentStatus changes
       } else {
         setPaymentStatus("error");
         setStatusMessage(data.error || "Payment initiation failed");
@@ -61,19 +50,81 @@ export function MpesaPaymentForm({
     },
   });
 
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const queryPaymentStatusMutation = trpc.mpesa.queryPaymentStatus.useQuery(
     { checkoutRequestID },
     {
       enabled: false,
+      refetchInterval: false,
     }
   );
 
-  // Simplified payment status tracking
-  const handlePaymentStatusCheck = () => {
-    if (checkoutRequestID) {
-      queryPaymentStatusMutation.refetch();
+  // MPESA-3: Automatic polling for payment status
+  useEffect(() => {
+    if (paymentStatus === "processing" && checkoutRequestID) {
+      // Start polling every 3 seconds
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const result = await queryPaymentStatusMutation.refetch();
+          
+          if (result.data?.success && result.data?.status) {
+            const status = result.data.status;
+            
+            // Check if payment was successful
+            if (status.ResultCode === "0" || status.ResultCode === 0) {
+              setPaymentStatus("success");
+              setStatusMessage("✓ Payment successful! Certificate will be issued shortly.");
+              
+              // Clear polling interval
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              
+              onPaymentSuccess?.(status);
+            } else if (status.ResultCode === "1" || status.ResultCode === 1) {
+              // User cancelled or payment failed
+              setPaymentStatus("error");
+              setStatusMessage("Payment cancelled or failed. Please try again.");
+              
+              // Clear polling interval
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              
+              onPaymentError?.("Payment cancelled");
+            }
+          }
+        } catch (error) {
+          // Silently continue polling on error
+          console.debug("Polling error (continuing):", error);
+        }
+      }, 3000); // Poll every 3 seconds
+
+      // Stop polling after 2 minutes (120 seconds)
+      const timeoutId = setTimeout(() => {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        if (paymentStatus === "processing") {
+          setPaymentStatus("error");
+          setStatusMessage("Payment timeout. Please check your M-Pesa account and try again.");
+          onPaymentError?.("Payment timeout");
+        }
+      }, 120000);
+
+      // Cleanup function
+      return () => {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+        }
+        clearTimeout(timeoutId);
+      };
     }
-  };
+  }, [paymentStatus, checkoutRequestID, queryPaymentStatusMutation, onPaymentSuccess, onPaymentError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

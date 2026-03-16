@@ -69,6 +69,8 @@ export const payments = mysqlTable("payments", {
   amount: int("amount").notNull(), // in cents (KES)
   paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
   transactionId: varchar("transactionId", { length: 255 }),
+  // MPESA-4: Idempotency key to prevent duplicate webhook processing
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
