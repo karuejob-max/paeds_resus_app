@@ -146,7 +146,7 @@ class MpesaService {
       PartyA: phoneNumber,
       PartyB: this.paybill,
       PhoneNumber: phoneNumber,
-      CallBackURL: `${process.env.CALLBACK_URL || "https://paedsresus.com"}/api/mpesa/callback`,
+      CallBackURL: `${process.env.CALLBACK_URL || "https://paedsresus.com"}/api/payment/callback`,
       AccountReference: this.accountNumber,
       TransactionDesc: description,
     };
