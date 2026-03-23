@@ -8,6 +8,7 @@ import {
   institutionalStaffMembers,
   quotations,
   contracts,
+  trainingSchedules,
 } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
@@ -476,6 +477,25 @@ export const institutionRouter = router({
         .select()
         .from(contracts)
         .where(eq(contracts.institutionalAccountId, input.institutionId));
+    }),
+
+  /** INST-12: Training schedules for this institution (tenant-scoped). */
+  getTrainingSchedules: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return await db
+        .select()
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.institutionalAccountId, input.institutionId))
+        .orderBy(desc(trainingSchedules.scheduledDate));
     }),
 
   getStats: protectedProcedure

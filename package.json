@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
-    "db:fix-users": "node server/fix-users-columns.mjs"
+    "db:fix-users": "node server/fix-users-columns.mjs",
+    "db:apply-0025": "node scripts/apply-0025-facility-contact-email.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

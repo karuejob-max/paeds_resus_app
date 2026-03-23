@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
+import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 
 export const mpesaRouter = router({
   /**
@@ -374,4 +375,46 @@ export const mpesaRouter = router({
       };
     }
   }),
+
+  /**
+   * MPESA-8: List stale M-Pesa payments still pending (admin reconciliation).
+   */
+  getStaleMpesaPendingForReconciliation: adminProcedure
+    .input(
+      z.object({
+        olderThanHours: z.number().min(1).max(720).default(24),
+        limit: z.number().min(1).max(500).default(100),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const cutoff = new Date(Date.now() - input.olderThanHours * 60 * 60 * 1000);
+      const rows = await db
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.status, "pending"),
+            eq(payments.paymentMethod, "mpesa"),
+            lt(payments.createdAt, cutoff)
+          )
+        )
+        .orderBy(desc(payments.id))
+        .limit(input.limit);
+      return {
+        olderThanHours: input.olderThanHours,
+        count: rows.length,
+        payments: rows,
+      };
+    }),
+
+  /**
+   * MPESA-8: Run Daraja STK Query for one payment row and finalize if Safaricom reports success.
+   */
+  adminReconcileMpesaPayment: adminProcedure
+    .input(z.object({ paymentId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      return reconcilePaymentRowByStkQuery(input.paymentId);
+    }),
 });

@@ -2,7 +2,7 @@
 
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
-**Last updated:** 2026-02-25 (MPESA-5/6, TEST-1, REF-1; institutional email — see institutional board)  
+**Last updated:** 2026-02-25 (MPESA-7/8 shipped; DB 0025 script + referrals table prerequisite)  
 **Board owner:** Cursor + Manus (shared)
 
 ---
@@ -44,8 +44,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 ┌─────────────────┬──────────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                         │ IN PROGRESS  │                      DONE                                  │
 ├─────────────────┼──────────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────────┤
-│ MPESA-7         │                                                  │   (none)     │ MPESA-0 … MPESA-6 (see Done)                               │
-│ MPESA-8         │                                                  │              │ TEST-1, REF-1, A1, B1, B2, …                                │
+│ (see Done)      │                                                  │   (none)     │ MPESA-0 … MPESA-8, TEST-1, REF-1, …                       │
 └─────────────────┴──────────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,8 +69,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 
 | ID | Title | Priority | Notes |
 |----|--------|----------|--------|
-| MPESA-7 | Webhook IP whitelist | P2 | Restrict callback to Safaricom IPs if documented. |
-| MPESA-8 | Payment reconciliation job | P2 | Periodic job to align our records with M-Pesa. |
+| *TBD* | Next product priorities | — | Pull from roadmap / audit docs when ready. |
 
 ---
 
@@ -120,6 +118,8 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | MPESA-6 | Webhook retry / resilience | P1 | Cursor | 2026-02-25 | `runWithRetries` on success path; **500** after exhaustion for Daraja retry |
 | TEST-1 | Vitest: auth, Safe-Truth, payment-related coverage | P1 | Manus / Cursor | 2026-03-16 | `async-retry.test.ts`; `p0-6-role-checks`, `parent-safetruth`, M-Pesa tests — expand as needed |
 | REF-1 | Referral status + notifications | P1 | Cursor | 2026-02-25 | `facilityContactEmail` on `clinicalReferrals`; `referrals.submitReferral` + `adminUpdateReferralStatus`; templates in `email-service.ts`; SQL `drizzle/0025_add_facility_contact_email.sql` |
+| MPESA-7 | Webhook IP allowlist (opt-in) | P2 | Cursor | 2026-02-25 | `MPESA_CALLBACK_IP_ALLOWLIST` + `TRUST_PROXY`; `server/lib/mpesa-callback-ip.ts`; `POST /api/mpesa/callback` |
+| MPESA-8 | M-Pesa reconciliation (admin) | P2 | Cursor | 2026-02-25 | `mpesa.getStaleMpesaPendingForReconciliation`, `mpesa.adminReconcileMpesaPayment`; `server/mpesa-reconciliation.ts` |
 
 *Full Done list:* `docs/WAYFORWARD_EXECUTION_PLAN.md` and `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`.
 

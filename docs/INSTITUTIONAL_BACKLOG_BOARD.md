@@ -2,7 +2,7 @@
 
 > **Purpose:** Scrum-style board for **institutional (B2B / hospital)** work only.  
 > **How to use:** Before starting, check **In Progress** (avoid duplicate work). Move cards **To Do → In Progress → Done**. Always set **Owner** when In Progress, and **Done by + Date** when complete.  
-> **Last updated:** 2026-02-25 (INST-11 institutional email via `email-service`)  
+> **Last updated:** 2026-02-25 (INST-12 schedule tab + `getTrainingSchedules`)  
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
@@ -16,8 +16,7 @@
 ┌─────────────────┬──────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                     │ IN PROGRESS  │                      DONE                            │
 ├─────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
-│ INST-12         │                                                 │   (none)     │ INST-0 … INST-11 (see Done)                            │
-│ INST-13         │                                                 │              │                                                        │
+│ INST-13         │                                                 │   (none)     │ INST-0 … INST-12 (see Done)                            │
 │ INST-14         │                                                 │              │                                                        │
 └─────────────────┴──────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘
 ```
@@ -41,7 +40,6 @@
 
 | ID | Title | Priority | Impact | Ease (1–5) | Notes |
 |----|--------|----------|--------|------------|--------|
-| INST-12 | Training schedules tab: API + UI wired to `trainingSchedules` / attendance | P2 | M | 2 | Schema exists; portal is shell only. |
 | INST-13 | Incidents tab: list + create tied to `incidents` + institution scope | P2 | M | 2 | Align with Safe-Truth / clinical governance later if needed. |
 | INST-14 | `institutionalAnalytics` rollup job (nightly) for portal charts | P3 | M | 2 | Optional once raw stats are correct. |
 
@@ -83,6 +81,7 @@
 | INST-9 | `bulkEnrollFromStaffRoster` + fixed `processBulkEnrollment` enroll/payment ids | P1 | Cursor | 2026-02-25 | Staff tab |
 | INST-10 | Quotations tab (`getQuotations`) on hospital admin | P2 | Cursor | 2026-02-25 | List view; PDF export later |
 | INST-11 | Institutional notifications — SendGrid/Mailgun via `email-service` | P2 | Cursor | 2026-02-25 | `institutionalNotificationsRouter`: enrollment + completion + batch (`recipientEmails`); tenant `assertInstitutionAccess` |
+| INST-12 | Training schedules: list API + hospital admin **Schedule** tab | P2 | Cursor | 2026-02-25 | `institution.getTrainingSchedules`; `HospitalAdminDashboard` Schedule tab; attendance CRUD later |
 
 ---
 
@@ -100,3 +99,4 @@
 | 2026-02-25 | INST-1–6 implemented (backend tenant model + portal/onboarding). |
 | 2026-02-25 | INST-7–10: lead capture, portal redirect, bulk enroll API, quotations tab. |
 | 2026-02-25 | INST-11: institutional email templates + `sendEmail` in notifications router; shared `institution-access` lib. |
+| 2026-02-25 | INST-12: `getTrainingSchedules` + Schedule tab on hospital admin dashboard. |

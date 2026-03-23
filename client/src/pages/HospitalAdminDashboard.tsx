@@ -75,6 +75,11 @@ export default function HospitalAdminDashboard() {
     { enabled: !!institutionId }
   );
 
+  const { data: trainingSchedules, isLoading: schedulesLoading } = trpc.institution.getTrainingSchedules.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
   const bulkEnrollMutation = trpc.institution.bulkEnrollFromStaffRoster.useMutation({
     onSuccess: () => {
       if (institutionId) {
@@ -227,9 +232,10 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="quotations">Quotations</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -414,6 +420,56 @@ export default function HospitalAdminDashboard() {
                   <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-600">No staff members found</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="schedule" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Training schedule
+                </CardTitle>
+                <CardDescription>Sessions linked to your institution (INST-12)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {schedulesLoading ? (
+                  <p className="text-sm text-slate-500">Loading…</p>
+                ) : !trainingSchedules?.length ? (
+                  <p className="text-sm text-slate-600">
+                    No training sessions yet. When schedules are created in the database, they will appear here.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-slate-600">
+                          <th className="py-2 pr-4">Date</th>
+                          <th className="py-2 pr-4">Type</th>
+                          <th className="py-2 pr-4">Status</th>
+                          <th className="py-2 pr-4">Location</th>
+                          <th className="py-2 pr-4">Capacity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trainingSchedules.map((row) => (
+                          <tr key={row.id} className="border-b border-slate-100">
+                            <td className="py-2 pr-4 whitespace-nowrap">
+                              {row.scheduledDate ? new Date(row.scheduledDate).toLocaleString() : "—"}
+                            </td>
+                            <td className="py-2 pr-4 capitalize">{row.trainingType?.replace("_", " ")}</td>
+                            <td className="py-2 pr-4 capitalize">{row.status}</td>
+                            <td className="py-2 pr-4">{row.location || "—"}</td>
+                            <td className="py-2 pr-4">
+                              {row.enrolledCount ?? 0} / {row.maxCapacity}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>

@@ -19,6 +19,7 @@ import {
   handleMpesaQueryWebhook,
   handleMpesaTimeoutWebhook,
 } from "../webhooks/mpesa-webhook";
+import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -42,6 +43,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // MPESA-7: behind reverse proxy, set TRUST_PROXY=true so req.ip matches client (for IP allowlist)
+  if (process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1") {
+    app.set("trust proxy", true);
+  }
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -50,6 +55,10 @@ async function startServer() {
 
   // M-Pesa callbacks (single URL; Daraja sends STK result here)
   app.post("/api/mpesa/callback", express.json(), (req, res) => {
+    if (!isMpesaCallbackIpAllowed(req)) {
+      console.warn("[M-Pesa] Callback rejected: IP not in MPESA_CALLBACK_IP_ALLOWLIST");
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const body = req.body?.Body;
     if (body?.checkoutQueryResponse) {
       return handleMpesaQueryWebhook(req as any, res);
