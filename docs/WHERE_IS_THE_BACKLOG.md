@@ -1,6 +1,9 @@
 # Where is the backlog?
 
-**The backlog board is in:** `docs/BACKLOG_BOARD.md`
+**Impact-prioritized roadmap (what to build next):** `docs/PRODUCT_BACKLOG_PRIORITIZED.md`  
+- Ordered by **clinical, revenue, and trust impact** (P0 → P3), with suggested sprint slices.
+
+**The scrum / status board is in:** `docs/BACKLOG_BOARD.md`
 
 - It contains the scrum-style board (Backlog | To Do | In Progress | Done).
 - It includes: Considerations — Manus assessment, TEST-1, MPESA-0 through MPESA-8, A1, and the ASCII board layout.

@@ -1,5 +1,7 @@
 # Paeds Resus — Backlog Board
 
+> **Impact-prioritized roadmap:** See **`docs/PRODUCT_BACKLOG_PRIORITIZED.md`** for what to build next (P0–P3). This file remains the **scrum board** (Done / historical cards).
+
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
 **Last updated:** 2026-02-25 (institutional backlog INST-13/14 complete; main board clear)  
