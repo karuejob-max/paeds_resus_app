@@ -14,6 +14,10 @@ export default function LearnerDashboard() {
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: parentStats, isLoading: parentStatsLoading } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(
+    undefined,
+    { enabled: isAuthenticated && selectedRole === "parent" }
+  );
   const downloadCert = trpc.certificates.download.useMutation();
   const myCertificates = certData?.success ? certData.certificates ?? [] : [];
 
@@ -82,7 +86,47 @@ export default function LearnerDashboard() {
             </CardContent>
           </Card>
         ) : selectedRole === "parent" ? (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            {parentStatsLoading ? (
+              <Card>
+                <CardContent className="pt-6 flex items-center gap-2 text-slate-600">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Loading your Safe-Truth activity…
+                </CardContent>
+              </Card>
+            ) : parentStats ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">Submissions this month</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-slate-900">{parentStats.submissionsThisMonth}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">Total stories shared</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-slate-900">{parentStats.totalSubmissions}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-500">Last submission</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-semibold text-slate-900">
+                      {parentStats.lastSubmission
+                        ? new Date(parentStats.lastSubmission).toLocaleDateString()
+                        : "—"}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
+            <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -110,6 +154,7 @@ export default function LearnerDashboard() {
                 <Button variant="outline" className="w-full" onClick={() => navigate("/personal-impact")}>View Impact</Button>
               </CardContent>
             </Card>
+            </div>
           </div>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">

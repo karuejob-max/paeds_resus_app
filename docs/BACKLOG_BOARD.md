@@ -4,7 +4,7 @@
 
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
-**Last updated:** 2026-02-25 (institutional backlog INST-13/14 complete; main board clear)  
+**Last updated:** 2026-02-25 (P0 impact backlog: enroll→pay verify, Home nav, parent KPIs)  
 **Board owner:** Cursor + Manus (shared)
 
 ---
@@ -122,6 +122,9 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | REF-1 | Referral status + notifications | P1 | Cursor | 2026-02-25 | `facilityContactEmail` on `clinicalReferrals`; `referrals.submitReferral` + `adminUpdateReferralStatus`; templates in `email-service.ts`; SQL `drizzle/0025_add_facility_contact_email.sql` |
 | MPESA-7 | Webhook IP allowlist (opt-in) | P2 | Cursor | 2026-02-25 | `MPESA_CALLBACK_IP_ALLOWLIST` + `TRUST_PROXY`; `server/lib/mpesa-callback-ip.ts`; `POST /api/mpesa/callback` |
 | MPESA-8 | M-Pesa reconciliation (admin) | P2 | Cursor | 2026-02-25 | `mpesa.getStaleMpesaPendingForReconciliation`, `mpesa.adminReconcileMpesaPayment`; `server/mpesa-reconciliation.ts` |
+| P0-ENROLL-1 | Enrollment `getById` (owner-scoped); Payment course lock; M-Pesa `enrollmentId` only after verify; `getPaymentsByEnrollmentId` tenant check | P0 | Cursor | 2026-02-25 | `server/routers/enrollment.ts`, `client/src/pages/Payment.tsx` |
+| P0-NAV-1b | Referral + Personal Impact cards on provider Home hub (`/home`) | P0 | Cursor | 2026-02-25 | `client/src/pages/Home.tsx` (Header already had P0-NAV) |
+| P1-SAFE-1b | Parent Learner dashboard KPIs from DB; `getSafeTruthStats.totalSubmissions` | P1 | Cursor | 2026-02-25 | `parent-safetruth` router, `LearnerDashboard.tsx` |
 
 *Full Done list:* `docs/WAYFORWARD_EXECUTION_PLAN.md` and `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`.
 

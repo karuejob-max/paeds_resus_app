@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { eq, and } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   createEnrollment,
@@ -6,7 +8,9 @@ import {
   createPayment,
   getPaymentsByEnrollmentId,
   createSmsReminder,
+  getDb,
 } from "../db";
+import { enrollments } from "../../drizzle/schema";
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship"]),
@@ -57,12 +61,20 @@ export const enrollmentRouter = router({
     return await getEnrollmentsByUserId(ctx.user.id);
   }),
 
-  // Get enrollment details
+  // Get enrollment details (current user only — used to lock Payment to the same enrollment as Enroll)
   getById: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
-    .query(async ({ input }) => {
-      // TODO: Add enrollment retrieval by ID
-      return null;
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const rows = await db
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      return rows[0] ?? null;
     }),
 
   // Record a payment
@@ -96,10 +108,22 @@ export const enrollmentRouter = router({
       return { success: true, paymentId: 1 };
     }),
 
-  // Get payments for an enrollment
+  // Get payments for an enrollment (only if it belongs to the current user)
   getPaymentsByEnrollmentId: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const own = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      if (!own.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
+      }
       return await getPaymentsByEnrollmentId(input.enrollmentId);
     }),
 

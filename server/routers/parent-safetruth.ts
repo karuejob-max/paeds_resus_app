@@ -7,7 +7,7 @@ import {
   systemDelayAnalysis, 
   hospitalImprovementMetrics 
 } from "../../drizzle/schema";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
 
@@ -106,7 +106,7 @@ export const parentSafeTruthRouter = router({
   getSafeTruthStats: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) {
-      return { submissionsThisMonth: 0, lastSubmission: null };
+      return { submissionsThisMonth: 0, lastSubmission: null, totalSubmissions: 0 };
     }
     const now = new Date();
     const year = now.getFullYear();
@@ -131,9 +131,15 @@ export const parentSafeTruthRouter = router({
       .orderBy(desc(parentSafeTruthSubmissions.createdAt))
       .limit(1);
 
+    const [totalRow] = await db
+      .select({ total: count() })
+      .from(parentSafeTruthSubmissions)
+      .where(eq(parentSafeTruthSubmissions.userId, ctx.user.id));
+
     return {
       submissionsThisMonth: inMonth.length,
       lastSubmission: last[0]?.createdAt ?? null,
+      totalSubmissions: Number(totalRow?.total ?? 0),
     };
   }),
 

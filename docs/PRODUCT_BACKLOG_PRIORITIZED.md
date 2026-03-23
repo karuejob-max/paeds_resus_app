@@ -29,9 +29,9 @@ These unblock money, certificates, or core trust.
 
 | ID | Initiative | Impact | Effort | Notes / pointers |
 |----|------------|--------|--------|-------------------|
-| **P0-ENROLL-1** | **Unify Enroll → Payment → Certificate** | Users who enroll must be able to pay the **same** enrollment and receive a cert; today `/enroll` and `/payment` can diverge (see platform audit §2). | M | Redirect to payment with `enrollmentId`, or single combined flow; fix `enrollment.create` to return **real** `enrollmentId` (not placeholder `1`). |
+| **P0-ENROLL-1** | **Unify Enroll → Payment → Certificate** | Users who enroll must be able to pay the **same** enrollment and receive a cert; today `/enroll` and `/payment` can diverge (see platform audit §2). | M | **Shipped (core):** `enrollment.getById` (owner-scoped), Payment locks course + only passes `enrollmentId` to M-Pesa after verify; `enrollment.create` already returns real id. Monitor cert issuance in prod. |
 | **P0-PAY-1** | **End-to-end M-Pesa truth test in production** | Revenue and certs depend on STK + webhook + DB; validate on live env with real small transaction. | S–M | Confirm `transactionId` / CheckoutRequestID / receipt alignment with callback; monitor logs. |
-| **P0-NAV-1** | **Referral & high-value tools discoverable** | Referrals and impact journeys are underused if hidden; slows adoption and Safe-Truth narrative. | S | Add **Referral** (and Personal Impact if kept) to **Header** or **Home** hub; or ship `BottomNav` on provider surfaces (`PLATFORM_AUDIT_WHAT_IS_MISSING.md` §1). |
+| **P0-NAV-1** | **Referral & high-value tools discoverable** | Referrals and impact journeys are underused if hidden; slows adoption and Safe-Truth narrative. | S | **Shipped (supplement):** Referral + Personal Impact on provider **Home** hub (`/home`); Header already had both. Optional: `BottomNav` on clinical surfaces. |
 
 ---
 
@@ -40,7 +40,7 @@ These unblock money, certificates, or core trust.
 | ID | Initiative | Impact | Effort | Notes |
 |----|------------|--------|--------|--------|
 | **P1-RESUS-1** | **ResusGPS: outcomes + handoff** | Core clinical differentiator; ties analytics to real resuscitation quality. | L | Structured end-of-session summary, optional export, tighter protocol adherence prompts where evidence supports. |
-| **P1-SAFE-1** | **Safe-Truth: parent metrics from DB** | Hardcoded parent dashboard numbers erode trust (`PLATFORM_AUDIT` §3.3). | S–M | Wire `getSafeTruthStats` (or equivalent) to all displayed KPIs. |
+| **P1-SAFE-1** | **Safe-Truth: parent metrics from DB** | Hardcoded parent dashboard numbers erode trust (`PLATFORM_AUDIT` §3.3). | S–M | **Shipped (Learner dashboard):** Parent role on **Learner dashboard** uses `getSafeTruthStats` (+ `totalSubmissions`). ParentSafeTruth page already wired; audit any remaining hardcoded KPIs. |
 | **P1-INST-1** | **Institutional funnel clarity** | “For Institutions” vs gated portal confuses buyers (`PLATFORM_AUDIT` §3.2). | M | Public **marketing / contact** path vs **signed-in portal**; clear CTAs (quote, demo, register). |
 | **P1-CERT-1** | **Certificate renewal & reminders** | Drives repeat revenue and compliance for hospitals. | M | Expiry from `certificates`, email/SMS hooks, simple “renew” path. |
 | **P1-ADM-1** | **Admin: operational dashboards** | Faster support and fraud/payment investigation. | M | Stale M-Pesa reconciliation UI (expose existing tRPC), user/enrollment search, export CSV. |
@@ -97,3 +97,4 @@ Adjust based on your sales cycle (e.g. push **P1-INST-1** earlier if enterprise 
 | Date | Change |
 |------|--------|
 | 2026-02-25 | Initial impact-prioritized backlog created from mission, README, and `PLATFORM_AUDIT_WHAT_IS_MISSING.md`. |
+| 2026-02-25 | P0-ENROLL-1 / P0-NAV-1 / P1-SAFE-1 (partial): `enrollment.getById`, Payment lock + M-Pesa enrollment guard, Home hub cards, `getSafeTruthStats.totalSubmissions`, LearnerDashboard parent KPIs. |
