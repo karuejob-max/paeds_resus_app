@@ -177,6 +177,24 @@ export default function Header() {
             ))}
           </nav>
 
+          {/* Anonymous quick paths (P2-LAND-1 light touch) */}
+          {!isAuthenticated && (
+            <nav
+              className="hidden md:flex items-center gap-1 text-sm text-gray-600 mr-2"
+              aria-label="Explore by audience"
+            >
+              <Link href="/parent-safe-truth">
+                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Parents</span>
+              </Link>
+              <Link href="/institutional">
+                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Institutions</span>
+              </Link>
+              <Link href="/help">
+                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Help</span>
+              </Link>
+            </nav>
+          )}
+
           {/* Right Section: Notifications + Account */}
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
@@ -293,6 +311,20 @@ export default function Header() {
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t pt-4" aria-label="Mobile navigation">
+            {!isAuthenticated && (
+              <div className="px-3 py-2 mb-2 space-y-1 border-b pb-3">
+                <p className="text-xs font-semibold text-gray-500 mb-1">Explore</p>
+                <Link href="/parent-safe-truth" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-gray-700">Parents</span>
+                </Link>
+                <Link href="/institutional" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-gray-700">Institutions</span>
+                </Link>
+                <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-gray-700">Help</span>
+                </Link>
+              </div>
+            )}
             {/* Mobile Role Selector */}
             {isAuthenticated && role && (
               <div className="px-3 py-2 mb-3 border-b pb-3">

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings } from "lucide-react";
+import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings, LogIn } from "lucide-react";
 import { Link } from "wouter";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
@@ -17,6 +17,15 @@ const COURSE_TO_PRICING_KEY: Record<string, string> = { bls: "bls", acls: "acls"
 export default function Institutional() {
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#quote") return;
+    const t = window.setTimeout(() => {
+      document.getElementById("quote")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+    return () => window.clearTimeout(t);
+  }, []);
   const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
 
   const pricingKey = selectedCourse ? COURSE_TO_PRICING_KEY[selectedCourse] ?? "bls" : "bls";
@@ -81,6 +90,53 @@ export default function Institutional() {
           <p className="text-xl text-orange-100 max-w-2xl">
             Transform your institution's resuscitation capacity. 50+ institutions already partner with us to reduce preventable child deaths.
           </p>
+        </div>
+      </section>
+
+      {/* P1-INST-1: clear funnel — marketing vs signed-in portal */}
+      <section className="bg-[#0a2828] border-t border-white/10 text-white" aria-label="How to work with us">
+        <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-6">
+          <div className="rounded-xl border border-white/20 p-6 bg-white/5">
+            <h2 className="text-lg font-semibold mb-2">Exploring training for your hospital?</h2>
+            <p className="text-sm text-orange-100/90 mb-4">
+              Request a quote or message us — no login required. This page is for buyers and clinical leaders.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]">
+                <a href="#quote">Get a quote</a>
+              </Button>
+              <WhatsAppButton
+                phoneNumber="254706781260"
+                message="Hello Paeds Resus, I would like information on institutional training."
+                label="WhatsApp"
+                className="bg-green-600 hover:bg-green-700 text-white"
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/20 p-6 bg-white/5">
+            <h2 className="text-lg font-semibold mb-2">Already a partner?</h2>
+            <p className="text-sm text-orange-100/90 mb-4">
+              Sign in to your hospital admin portal for roster, staff training, schedules, and analytics.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/login">
+                <Button variant="secondary" className="gap-2 bg-white text-[#0a2828] hover:bg-orange-50">
+                  <LogIn className="h-4 w-4" />
+                  Sign in
+                </Button>
+              </Link>
+              <Link href="/hospital-admin-dashboard">
+                <Button variant="outline" className="border-white/50 text-white hover:bg-white/10">
+                  Open portal
+                </Button>
+              </Link>
+              <Link href="/institutional-onboarding">
+                <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10">
+                  New onboarding
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -451,7 +507,7 @@ export default function Institutional() {
       </section>
 
       {/* Lead Capture Section */}
-      <section className="py-16 bg-gray-50">
+      <section id="quote" className="py-16 bg-gray-50 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">

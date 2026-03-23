@@ -417,4 +417,29 @@ export const mpesaRouter = router({
     .mutation(async ({ input }) => {
       return reconcilePaymentRowByStkQuery(input.paymentId);
     }),
+
+  /**
+   * P0-PAY-1 / ops: non-secret config flags for production readiness (admin only).
+   */
+  getOperationalReadiness: adminProcedure.query(async () => {
+    const db = await getDb();
+    const callback = process.env.MPESA_CALLBACK_URL?.trim() ?? "";
+    const mpesaEnv = process.env.MPESA_ENV === "production" ? "production" : "sandbox";
+    return {
+      databaseConnected: !!db,
+      mpesaEnvironment: mpesaEnv,
+      consumerKeySet: Boolean(process.env.MPESA_CONSUMER_KEY?.trim()),
+      consumerSecretSet: Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()),
+      shortcodeSet: Boolean(process.env.MPESA_SHORTCODE?.trim()),
+      passkeySet: Boolean(process.env.MPESA_PASSKEY?.trim()),
+      callbackUrlSet: Boolean(callback && !callback.includes("example.com")),
+      callbackIpAllowlistSet: Boolean(process.env.MPESA_CALLBACK_IP_ALLOWLIST?.trim()),
+      allRequiredForStk:
+        Boolean(process.env.MPESA_CONSUMER_KEY?.trim()) &&
+        Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()) &&
+        Boolean(process.env.MPESA_SHORTCODE?.trim()) &&
+        Boolean(process.env.MPESA_PASSKEY?.trim()) &&
+        Boolean(callback && !callback.includes("example.com")),
+    };
+  }),
 });

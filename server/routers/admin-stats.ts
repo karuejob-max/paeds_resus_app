@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -224,11 +224,14 @@ export const adminStatsRouter = router({
   /** List registered users (admin only); optional filter by userType. */
   getUsers: adminProcedure
     .input(
-      z.object({
-        userType: z.enum(["individual", "parent", "institutional"]).optional(),
-        limit: z.number().min(1).max(500).default(100),
-        offset: z.number().min(0).default(0),
-      }).optional()
+      z
+        .object({
+          userType: z.enum(["individual", "parent", "institutional"]).optional(),
+          search: z.string().max(200).optional(),
+          limit: z.number().min(1).max(500).default(100),
+          offset: z.number().min(0).default(0),
+        })
+        .optional()
     )
     .query(async ({ input }) => {
       const db = await getDb();
@@ -236,7 +239,17 @@ export const adminStatsRouter = router({
       const limit = input?.limit ?? 100;
       const offset = input?.offset ?? 0;
 
-      const where = input?.userType ? eq(users.userType, input.userType) : undefined;
+      const rawSearch = input?.search?.trim().replace(/[%_\\]/g, "") ?? "";
+      const searchPattern = rawSearch.length > 0 ? `%${rawSearch}%` : null;
+
+      const parts: SQL[] = [];
+      if (input?.userType) parts.push(eq(users.userType, input.userType));
+      if (searchPattern) {
+        parts.push(or(like(users.email, searchPattern), like(users.name, searchPattern)));
+      }
+      const whereCombined =
+        parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
+
       let listQuery = db
         .select({
           id: users.id,
@@ -249,11 +262,11 @@ export const adminStatsRouter = router({
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset(offset);
-      if (where) listQuery = listQuery.where(where);
+      if (whereCombined) listQuery = listQuery.where(whereCombined);
       const result = await listQuery;
 
       let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
-      if (where) countQuery = countQuery.where(where);
+      if (whereCombined) countQuery = countQuery.where(whereCombined);
       const countResult = await countQuery;
       const total = Number(countResult[0]?.count ?? 0);
 

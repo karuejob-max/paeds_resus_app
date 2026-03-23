@@ -2,10 +2,18 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Award, BookOpen, Download, FileText, Loader2, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+
+function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
+  if (!expiryDate) return null;
+  const d = new Date(expiryDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.ceil((d.getTime() - Date.now()) / 86400000);
+}
 
 export default function LearnerDashboard() {
   const { user, isAuthenticated } = useAuth();
@@ -20,6 +28,20 @@ export default function LearnerDashboard() {
   );
   const downloadCert = trpc.certificates.download.useMutation();
   const myCertificates = certData?.success ? certData.certificates ?? [] : [];
+
+  const { data: myInstitution } = trpc.institution.getMyInstitution.useQuery(undefined, {
+    enabled: isAuthenticated && selectedRole === "institution",
+  });
+  const institutionId = myInstitution?.institution?.id;
+  const { data: instStats, isLoading: instStatsLoading } = trpc.institution.getStats.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId && selectedRole === "institution" }
+  );
+
+  const renewalAttention = myCertificates.filter((c) => {
+    const d = daysUntilExpiry(c.expiryDate);
+    return d !== null && d <= 90;
+  });
 
   const handleDownloadCertificate = (certificateNumber: string) => {
     downloadCert.mutate(
@@ -158,6 +180,19 @@ export default function LearnerDashboard() {
           </div>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
+            {renewalAttention.length > 0 && (
+              <Alert className="md:col-span-3 border-amber-200 bg-amber-50/80">
+                <AlertCircle className="h-4 w-4 text-amber-700" />
+                <AlertTitle className="text-amber-900">Certificate renewal</AlertTitle>
+                <AlertDescription className="text-amber-900/90">
+                  {renewalAttention.length} certificate(s) expire within 90 days or are expired. Recertify to stay
+                  compliant.
+                  <Button className="mt-3 bg-amber-700 hover:bg-amber-800" size="sm" onClick={() => navigate("/enroll")}>
+                    Renew / recertify
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -223,74 +258,125 @@ export default function LearnerDashboard() {
                   </>
                 ) : (
                   <ul className="space-y-3">
-                    {myCertificates.map((c) => (
-                      <li key={c.id} className="flex items-center justify-between rounded-lg border p-3">
-                        <div>
-                          <p className="font-medium uppercase text-slate-900">{c.programType}</p>
-                          <p className="text-sm text-slate-500">
-                            Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
-                            {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
-                          </p>
-                          {c.certificateNumber && (
-                            <p className="text-xs text-slate-400 mt-1">No. {c.certificateNumber}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={downloadCert.isPending}
-                          onClick={() => c.certificateNumber && handleDownloadCertificate(c.certificateNumber)}
-                        >
-                          {downloadCert.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-1" />
-                              Download
-                            </>
-                          )}
-                        </Button>
-                      </li>
-                    ))}
+                    {myCertificates.map((c) => {
+                      const days = daysUntilExpiry(c.expiryDate);
+                      const renewSoon = days !== null && days <= 90;
+                      return (
+                        <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3">
+                          <div>
+                            <p className="font-medium uppercase text-slate-900">{c.programType}</p>
+                            <p className="text-sm text-slate-500">
+                              Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
+                              {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
+                            </p>
+                            {renewSoon && (
+                              <p className={`text-xs font-medium mt-1 ${days! < 0 ? "text-red-600" : "text-amber-700"}`}>
+                                {days! < 0 ? "Expired — renew to stay current" : `Renews in ${days} days`}
+                              </p>
+                            )}
+                            {c.certificateNumber && (
+                              <p className="text-xs text-slate-400 mt-1">No. {c.certificateNumber}</p>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {renewSoon && (
+                              <Button size="sm" variant="secondary" onClick={() => navigate("/enroll")}>
+                                Renew
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={downloadCert.isPending}
+                              onClick={() => c.certificateNumber && handleDownloadCertificate(c.certificateNumber)}
+                            >
+                              {downloadCert.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>
             </Card>
           </div>
         ) : (
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Staff Members
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-blue-600 mb-2">0</p>
-                <p className="text-slate-600">Enrolled in training</p>
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+            {!institutionId && !instStatsLoading && (
+              <Alert>
+                <AlertTitle>No institution linked</AlertTitle>
+                <AlertDescription className="flex flex-wrap gap-2 items-center">
+                  Register or onboard your hospital to see live training metrics.
+                  <Button size="sm" variant="outline" onClick={() => navigate("/institutional-onboarding")}>
+                    Institutional onboarding
+                  </Button>
+                  <Button size="sm" onClick={() => navigate("/hospital-admin-dashboard")}>
+                    Hospital portal
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {instStatsLoading && institutionId ? (
+              <Card>
+                <CardContent className="pt-6 flex items-center gap-2 text-slate-600">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Loading institution metrics…
+                </CardContent>
+              </Card>
+            ) : null}
+            {instStats && (
+              <div className="grid md:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Staff roster
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-blue-600 mb-2">{instStats.totalStaff}</p>
+                    <p className="text-slate-600">Total staff on roster</p>
+                    <p className="text-sm text-slate-500 mt-2">{instStats.enrolledStaff} enrolled in training</p>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Completion Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-green-600 mb-2">0%</p>
-                <p className="text-slate-600">Course completion</p>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Completion rate</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-green-600 mb-2">{instStats.completionRate}%</p>
+                    <p className="text-slate-600">Staff who completed training</p>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Certifications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-purple-600 mb-2">0</p>
-                <p className="text-slate-600">Issued</p>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Certifications</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-purple-600 mb-2">{instStats.certifiedStaff}</p>
+                    <p className="text-slate-600">Certified ({instStats.certificationRate}% of roster)</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            {institutionId ? (
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => navigate("/hospital-admin-dashboard")}>Open full hospital dashboard</Button>
+                <Button variant="outline" onClick={() => navigate("/advanced-analytics")}>
+                  Analytics
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

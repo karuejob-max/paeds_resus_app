@@ -2,13 +2,16 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp, FileText } from "lucide-react";
+import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp, FileText, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [showUsers, setShowUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   const { data: report, isLoading: reportLoading } = trpc.adminStats.getReport.useQuery(
     { lastDays: 7 },
@@ -16,9 +19,24 @@ export default function AdminReports() {
   );
 
   const { data: usersData } = trpc.adminStats.getUsers.useQuery(
-    { limit: 50 },
+    { limit: 200, search: userSearch.trim() || undefined },
     { enabled: showUsers && isAuthenticated && (user as { role?: string })?.role === "admin" }
   );
+
+  const downloadUsersCsv = () => {
+    if (!usersData?.users.length) return;
+    const headers = ["id", "name", "email", "userType", "createdAt"];
+    const rows = usersData.users.map((u) =>
+      headers.map((h) => JSON.stringify(String((u as Record<string, unknown>)[h] ?? ""))).join(",")
+    );
+    const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -102,8 +120,28 @@ export default function AdminReports() {
                 >
                   {showUsers ? "Hide" : "Show"} registered users list
                 </button>
+                {showUsers && (
+                  <div className="mt-4 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[200px]">
+                      <label htmlFor="admin-user-search" className="text-xs text-muted-foreground block mb-1">
+                        Search name or email
+                      </label>
+                      <Input
+                        id="admin-user-search"
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder="Type to filter…"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={downloadUsersCsv} disabled={!usersData?.users.length}>
+                      <Download className="h-4 w-4 mr-1" />
+                      Export CSV
+                    </Button>
+                  </div>
+                )}
                 {showUsers && usersData && (
                   <div className="mt-4 overflow-x-auto">
+                    <p className="text-xs text-muted-foreground mb-2">Showing {usersData.users.length} of {usersData.total} matches</p>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">

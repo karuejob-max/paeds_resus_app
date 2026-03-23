@@ -4,7 +4,7 @@
 
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
-**Last updated:** 2026-02-25 (P0 impact backlog: enroll→pay verify, Home nav, parent KPIs)  
+**Last updated:** 2026-02-25 (backlog sweep: M-Pesa admin UI, institutional funnel, legal/help, renewal UX)  
 **Board owner:** Cursor + Manus (shared)
 
 ---
@@ -125,6 +125,15 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | P0-ENROLL-1 | Enrollment `getById` (owner-scoped); Payment course lock; M-Pesa `enrollmentId` only after verify; `getPaymentsByEnrollmentId` tenant check | P0 | Cursor | 2026-02-25 | `server/routers/enrollment.ts`, `client/src/pages/Payment.tsx` |
 | P0-NAV-1b | Referral + Personal Impact cards on provider Home hub (`/home`) | P0 | Cursor | 2026-02-25 | `client/src/pages/Home.tsx` (Header already had P0-NAV) |
 | P1-SAFE-1b | Parent Learner dashboard KPIs from DB; `getSafeTruthStats.totalSubmissions` | P1 | Cursor | 2026-02-25 | `parent-safetruth` router, `LearnerDashboard.tsx` |
+| P0-PAY-1b | M-Pesa ops: `getOperationalReadiness`, production checklist doc | P0 | Cursor | 2026-02-25 | `server/routers/mpesa.ts`, `docs/MPESA_PRODUCTION_CHECKLIST.md` |
+| P1-INST-1 | Institutional funnel strip, `#quote`, contact redirect | P1 | Cursor | 2026-02-25 | `Institutional.tsx`, `App.tsx` |
+| P1-CERT-1b | Certificate expiry / renew CTAs on Learner dashboard | P1 | Cursor | 2026-02-25 | `LearnerDashboard.tsx` |
+| P1-ADM-1b | Admin M-Pesa reconciliation page + hub link | P1 | Cursor | 2026-02-25 | `AdminMpesaReconciliation.tsx`, `AdminHub.tsx` |
+| P1-ADM-1c | Admin user search + CSV export in Reports | P1 | Cursor | 2026-02-25 | `admin-stats` `getUsers`, `AdminReports.tsx` |
+| P1-SAFE-1c | Institution Learner dashboard: live `getStats` vs hardcoded zeros | P1 | Cursor | 2026-02-25 | `LearnerDashboard.tsx` |
+| P2-SUP-1 | `/help`, `/privacy`, `/terms`, `/about` | P2 | Cursor | 2026-02-25 | `App.tsx`, new pages |
+| P2-LAND-1b | Anonymous header: Parents, Institutions, Help | P2 | Cursor | 2026-02-25 | `Header.tsx` |
+| P2-REF-1b | Referral status timeline on list cards | P2 | Cursor | 2026-02-25 | `Referral.tsx` |
 
 *Full Done list:* `docs/WAYFORWARD_EXECUTION_PLAN.md` and `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`.
 
