@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ interface MpesaPaymentFormProps {
   courseName: string;
   amount: number;
   enrollmentId?: number;
-  onPaymentSuccess?: (data: any) => void;
+  onPaymentSuccess?: (data: unknown) => void;
   onPaymentError?: (error: string) => void;
 }
 
@@ -27,14 +27,74 @@ export function MpesaPaymentForm({
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [checkoutRequestID, setCheckoutRequestID] = useState("");
+  const [pollEnrollmentId, setPollEnrollmentId] = useState<number | null>(null);
+
+  const { data: checkoutPoll } = trpc.mpesa.getPaymentByCheckoutRequestId.useQuery(
+    { checkoutRequestID },
+    {
+      enabled: paymentStatus === "processing" && checkoutRequestID.length > 0,
+      refetchInterval: (q) => {
+        const s = q.state.data?.status;
+        if (s === "completed" || s === "failed") return false;
+        return 3000;
+      },
+    }
+  );
+
+  const { data: enrollmentPoll } = trpc.mpesa.getPaymentStatusForEnrollment.useQuery(
+    { enrollmentId: pollEnrollmentId! },
+    {
+      enabled: paymentStatus === "processing" && !!pollEnrollmentId && !checkoutRequestID,
+      refetchInterval: (q) => {
+        const s = q.state.data?.paymentStatus ?? q.state.data?.enrollmentPaymentStatus;
+        if (s === "completed" || s === "failed") return false;
+        return 3000;
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (paymentStatus !== "processing") return;
+
+    if (checkoutPoll?.found && checkoutPoll.status === "completed") {
+      setPaymentStatus("success");
+      setStatusMessage("Payment received. Thank you!");
+      return;
+    }
+    if (checkoutPoll?.found && checkoutPoll.status === "failed") {
+      setPaymentStatus("error");
+      setStatusMessage("Payment was not completed. You can try again.");
+      onPaymentError?.("Payment failed");
+    }
+  }, [checkoutPoll, paymentStatus, onPaymentError]);
+
+  useEffect(() => {
+    if (paymentStatus !== "processing" || checkoutRequestID) return;
+    if (!enrollmentPoll?.ok) return;
+
+    const pay = enrollmentPoll.paymentStatus;
+    const enr = enrollmentPoll.enrollmentPaymentStatus;
+    if (pay === "completed" || enr === "completed") {
+      setPaymentStatus("success");
+      setStatusMessage("Payment received. Thank you!");
+    } else if (pay === "failed") {
+      setPaymentStatus("error");
+      setStatusMessage("Payment was not completed.");
+      onPaymentError?.("Payment failed");
+    }
+  }, [enrollmentPoll, paymentStatus, checkoutRequestID, onPaymentError]);
 
   const initiatePaymentMutation = trpc.mpesa.initiatePayment.useMutation({
     onSuccess: (data) => {
       if (data.success) {
         setPaymentStatus("processing");
-        setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone.");
-        setCheckoutRequestID(data.checkoutRequestID || "");
-        // Polling will be triggered by useEffect when paymentStatus changes
+        setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone. Waiting for confirmation…");
+        const ck = data.checkoutRequestID || "";
+        setCheckoutRequestID(ck);
+        if (data.enrollmentId) {
+          setPollEnrollmentId(data.enrollmentId);
+        }
+        onPaymentSuccess?.(data);
       } else {
         setPaymentStatus("error");
         setStatusMessage(data.error || "Payment initiation failed");
@@ -50,82 +110,6 @@ export function MpesaPaymentForm({
     },
   });
 
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const queryPaymentStatusMutation = trpc.mpesa.queryPaymentStatus.useQuery(
-    { checkoutRequestID },
-    {
-      enabled: false,
-      refetchInterval: false,
-    }
-  );
-
-  // MPESA-3: Automatic polling for payment status
-  useEffect(() => {
-    if (paymentStatus === "processing" && checkoutRequestID) {
-      // Start polling every 3 seconds
-      pollIntervalRef.current = setInterval(async () => {
-        try {
-          const result = await queryPaymentStatusMutation.refetch();
-          
-          if (result.data?.success && result.data?.status) {
-            const status = result.data.status;
-            
-            // Check if payment was successful
-            if (status.ResultCode === "0" || status.ResultCode === 0) {
-              setPaymentStatus("success");
-              setStatusMessage("✓ Payment successful! Certificate will be issued shortly.");
-              
-              // Clear polling interval
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null;
-              }
-              
-              onPaymentSuccess?.(status);
-            } else if (status.ResultCode === "1" || status.ResultCode === 1) {
-              // User cancelled or payment failed
-              setPaymentStatus("error");
-              setStatusMessage("Payment cancelled or failed. Please try again.");
-              
-              // Clear polling interval
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null;
-              }
-              
-              onPaymentError?.("Payment cancelled");
-            }
-          }
-        } catch (error) {
-          // Silently continue polling on error
-          console.debug("Polling error (continuing):", error);
-        }
-      }, 3000); // Poll every 3 seconds
-
-      // Stop polling after 2 minutes (120 seconds)
-      const timeoutId = setTimeout(() => {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        if (paymentStatus === "processing") {
-          setPaymentStatus("error");
-          setStatusMessage("Payment timeout. Please check your M-Pesa account and try again.");
-          onPaymentError?.("Payment timeout");
-        }
-      }, 120000);
-
-      // Cleanup function
-      return () => {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-        }
-        clearTimeout(timeoutId);
-      };
-    }
-  }, [paymentStatus, checkoutRequestID, queryPaymentStatusMutation, onPaymentSuccess, onPaymentError]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -137,6 +121,8 @@ export function MpesaPaymentForm({
     setIsLoading(true);
     setPaymentStatus("processing");
     setStatusMessage("Initiating payment...");
+    setCheckoutRequestID("");
+    setPollEnrollmentId(enrollmentId ?? null);
 
     initiatePaymentMutation.mutate({
       phoneNumber,
@@ -145,14 +131,6 @@ export function MpesaPaymentForm({
       courseName,
       ...(enrollmentId !== undefined && { enrollmentId }),
     });
-  };
-
-  const formatPhoneNumber = (phone: string) => {
-    // Format phone number for display
-    if (phone.startsWith("254")) {
-      return `+${phone.slice(0, 3)} ${phone.slice(3, 6)} ${phone.slice(6)}`;
-    }
-    return phone;
   };
 
   return (
@@ -166,17 +144,13 @@ export function MpesaPaymentForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Amount Display */}
           <div className="p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">Amount to Pay</p>
             <p className="text-3xl font-bold text-slate-900">KES {amount.toLocaleString()}</p>
           </div>
 
-          {/* Phone Number Input */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              M-Pesa Phone Number
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">M-Pesa Phone Number</label>
             <Input
               type="tel"
               placeholder="0712345678 or 254712345678"
@@ -185,20 +159,17 @@ export function MpesaPaymentForm({
               disabled={isLoading || paymentStatus === "success"}
               className="w-full"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Enter your M-Pesa registered phone number
-            </p>
+            <p className="text-xs text-slate-500 mt-1">Enter your M-Pesa registered phone number</p>
           </div>
 
-          {/* Status Messages */}
           {statusMessage && (
             <div
               className={`p-3 rounded-lg flex items-start gap-2 ${
                 paymentStatus === "success"
                   ? "bg-green-50 border border-green-200"
                   : paymentStatus === "error"
-                  ? "bg-red-50 border border-red-200"
-                  : "bg-blue-50 border border-blue-200"
+                    ? "bg-red-50 border border-red-200"
+                    : "bg-blue-50 border border-blue-200"
               }`}
             >
               {paymentStatus === "success" ? (
@@ -213,8 +184,8 @@ export function MpesaPaymentForm({
                   paymentStatus === "success"
                     ? "text-green-700"
                     : paymentStatus === "error"
-                    ? "text-red-700"
-                    : "text-blue-700"
+                      ? "text-red-700"
+                      : "text-blue-700"
                 }`}
               >
                 {statusMessage}
@@ -222,22 +193,20 @@ export function MpesaPaymentForm({
             </div>
           )}
 
-          {/* Instructions */}
           {paymentStatus === "processing" && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm font-medium text-amber-900 mb-2">What to do next:</p>
               <ol className="text-sm text-amber-800 space-y-1 list-decimal list-inside">
-                <li>A popup will appear on your phone</li>
+                <li>Check your phone for the M-Pesa prompt</li>
                 <li>Enter your M-Pesa PIN</li>
-                <li>Wait for confirmation</li>
+                <li>This page updates automatically when payment completes</li>
               </ol>
             </div>
           )}
 
-          {/* Submit Button */}
           <Button
             type="submit"
-            disabled={isLoading || paymentStatus === "success"}
+            disabled={isLoading || paymentStatus === "success" || paymentStatus === "processing"}
             className="w-full bg-green-600 hover:bg-green-700"
           >
             {isLoading ? (
@@ -250,6 +219,11 @@ export function MpesaPaymentForm({
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 Payment Complete
               </>
+            ) : paymentStatus === "processing" ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Waiting for payment…
+              </>
             ) : (
               <>
                 <Phone className="w-4 h-4 mr-2" />
@@ -258,10 +232,7 @@ export function MpesaPaymentForm({
             )}
           </Button>
 
-          {/* Footer */}
-          <p className="text-xs text-slate-500 text-center">
-            Secure payment powered by M-Pesa. Your phone number is encrypted.
-          </p>
+          <p className="text-xs text-slate-500 text-center">Secure payment powered by M-Pesa.</p>
         </form>
       </CardContent>
     </Card>

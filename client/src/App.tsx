@@ -13,7 +13,6 @@ import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
 import SafeTruth from "./pages/SafeTruth";
-import InstitutionalPortal from "./pages/InstitutionalPortal";
 import Institutional from "./pages/Institutional";
 import AdminHub from "./pages/AdminHub";
 import AdminReports from "./pages/AdminReports";
@@ -87,7 +86,8 @@ function Router() {
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/safe-truth" component={SafeTruth} />
-          <Route path="/institutional-portal" component={InstitutionalPortal} />
+          {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
+          <Route path="/institutional-portal">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
           <Route path="/institutional" component={Institutional} />
           <Route path="/admin" component={AdminHub} />
           <Route path="/admin/reports" component={AdminReports} />

@@ -1,17 +1,26 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { invokeLLM } from "../_core/llm";
+import { sendEmail } from "../email-service";
+import { assertInstitutionAccess } from "../lib/institution-access";
+
+const APP_BASE = process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://app.paedsresus.com";
+
+function courseTypeLabel(courseType: string): string {
+  const courseNames: Record<string, string> = {
+    bls: "Basic Life Support",
+    acls: "Advanced Cardiovascular Life Support",
+    pals: "Pediatric Advanced Life Support",
+    fellowship: "Paeds Resus Elite Fellowship",
+  };
+  return courseNames[courseType] ?? courseType;
+}
 
 /**
  * Institutional Notifications Router
- * Handles email and SMS workflows for hospitals
+ * Email via SendGrid/Mailgun (`email-service`); tenant checks via `assertInstitutionAccess`.
  */
-
 export const institutionalNotificationsRouter = router({
-  /**
-   * Send enrollment reminder email
-   */
   sendEnrollmentReminder: protectedProcedure
     .input(
       z.object({
@@ -22,38 +31,39 @@ export const institutionalNotificationsRouter = router({
         enrollmentDeadline: z.date(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-        // Generate personalized email content
-        const emailContent = await generateEnrollmentEmail(
-          input.staffName,
-          input.courseType,
-          input.enrollmentDeadline
-        );
+        const courseName = courseTypeLabel(input.courseType);
+        const courseLink = `${APP_BASE}/enroll`;
+        const result = await sendEmail(input.staffEmail, "institutionalEnrollmentReminder", {
+          staffName: input.staffName,
+          courseName,
+          enrollmentDeadline: input.enrollmentDeadline.toLocaleDateString(),
+          courseLink,
+        });
 
-        // Send email (integrate with AWS SES or email service)
-        console.log(`Sending enrollment reminder to ${input.staffEmail}`);
+        if (!result.success) {
+          console.warn("[institutionalNotifications] enrollment reminder email:", result.error);
+        }
 
         return {
-          success: true,
-          message: `Reminder sent to ${input.staffEmail}`,
-          emailId: `email_${Date.now()}`,
+          success: result.success,
+          message: result.success
+            ? `Reminder sent to ${input.staffEmail}`
+            : result.error || "Email send failed",
+          emailId: result.messageId,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error sending enrollment reminder:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+        return { success: false, error: message };
       }
     }),
 
-  /**
-   * Send completion congratulations email
-   */
   sendCompletionEmail: protectedProcedure
     .input(
       z.object({
@@ -65,38 +75,40 @@ export const institutionalNotificationsRouter = router({
         completionDate: z.date(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-        // Generate completion email with certificate details
-        const emailContent = await generateCompletionEmail(
-          input.staffName,
-          input.courseType,
-          input.certificateNumber,
-          input.completionDate
-        );
+        const courseName = courseTypeLabel(input.courseType);
+        const dashboardLink = `${APP_BASE}/hospital-admin-dashboard`;
+        const result = await sendEmail(input.staffEmail, "institutionalCourseCompletion", {
+          staffName: input.staffName,
+          courseName,
+          certificateNumber: input.certificateNumber,
+          completionDate: input.completionDate.toLocaleDateString(),
+          dashboardLink,
+        });
 
-        console.log(`Sending completion email to ${input.staffEmail}`);
+        if (!result.success) {
+          console.warn("[institutionalNotifications] completion email:", result.error);
+        }
 
         return {
-          success: true,
-          message: `Completion email sent to ${input.staffEmail}`,
-          emailId: `email_${Date.now()}`,
+          success: result.success,
+          message: result.success
+            ? `Completion email sent to ${input.staffEmail}`
+            : result.error || "Email send failed",
+          emailId: result.messageId,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error sending completion email:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+        return { success: false, error: message };
       }
     }),
 
-  /**
-   * Send payment reminder SMS
-   */
   sendPaymentReminder: protectedProcedure
     .input(
       z.object({
@@ -107,33 +119,30 @@ export const institutionalNotificationsRouter = router({
         dueDate: z.date(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-        // Generate SMS content
         const smsContent = `Hi ${input.staffName}, your BLS training payment of KES ${input.amountDue} is due by ${input.dueDate.toLocaleDateString()}. Reply CONFIRM to proceed.`;
-
-        console.log(`Sending payment reminder SMS to ${input.phoneNumber}`);
+        console.log(
+          `[institutionalNotifications] payment reminder SMS (not sent — no SMS provider): ${input.phoneNumber}`,
+          smsContent
+        );
 
         return {
           success: true,
-          message: `SMS sent to ${input.phoneNumber}`,
+          message: `SMS workflow logged for ${input.phoneNumber} (integrate SMS provider to deliver)`,
           smsId: `sms_${Date.now()}`,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error sending payment reminder:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+        return { success: false, error: message };
       }
     }),
 
-  /**
-   * Send batch notifications to all staff
-   */
   sendBatchNotification: protectedProcedure
     .input(
       z.object({
@@ -141,6 +150,7 @@ export const institutionalNotificationsRouter = router({
         notificationType: z.enum(["enrollment", "payment", "completion", "reminder"]),
         subject: z.string(),
         message: z.string(),
+        recipientEmails: z.array(z.string().email()).optional(),
         recipientCount: z.number().optional(),
       })
     )
@@ -148,36 +158,48 @@ export const institutionalNotificationsRouter = router({
       try {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-        // Log batch notification
-        console.log(
-          `Sending batch ${input.notificationType} notification to institution ${input.institutionId}`
-        );
+        const appLink = APP_BASE;
+        const emails = input.recipientEmails ?? [];
+        if (emails.length === 0) {
+          console.log(
+            `[institutionalNotifications] batch ${input.notificationType} queued (no recipientEmails) for institution ${input.institutionId}`
+          );
+          return {
+            success: true,
+            message: `Batch queued for ${input.recipientCount ?? 0} recipients (pass recipientEmails to send via email)`,
+            batchId: `batch_${Date.now()}`,
+            status: "queued",
+            emailsSent: 0,
+          };
+        }
 
-        // In production, this would:
-        // 1. Query all staff members for the institution
-        // 2. Send emails/SMS in batches
-        // 3. Track delivery status
-        // 4. Log in audit trail
+        let sent = 0;
+        for (const to of emails) {
+          const result = await sendEmail(to, "institutionalBatchNotice", {
+            subjectLine: input.subject,
+            bodyMessage: input.message,
+            appLink,
+          });
+          if (result.success) sent++;
+          else console.warn("[institutionalNotifications] batch email failed:", to, result.error);
+        }
 
         return {
-          success: true,
-          message: `Batch notification queued for ${input.recipientCount || 0} recipients`,
+          success: sent > 0,
+          message: `Sent ${sent}/${emails.length} batch emails`,
           batchId: `batch_${Date.now()}`,
-          status: "queued",
+          status: sent === emails.length ? "sent" : "partial",
+          emailsSent: sent,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error sending batch notification:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+        return { success: false, error: message };
       }
     }),
 
-  /**
-   * Get notification history
-   */
   getNotificationHistory: protectedProcedure
     .input(
       z.object({
@@ -186,9 +208,12 @@ export const institutionalNotificationsRouter = router({
         offset: z.number().default(0),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       try {
-        // Mock notification history
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
         const notifications = [
           {
             id: "notif_1",
@@ -221,20 +246,13 @@ export const institutionalNotificationsRouter = router({
           notifications: notifications.slice(input.offset, input.offset + input.limit),
           total: notifications.length,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error fetching notification history:", error);
-        return {
-          success: false,
-          error: error.message,
-          notifications: [],
-          total: 0,
-        };
+        return { success: false, error: message, notifications: [], total: 0 };
       }
     }),
 
-  /**
-   * Configure notification preferences
-   */
   setNotificationPreferences: protectedProcedure
     .input(
       z.object({
@@ -245,90 +263,19 @@ export const institutionalNotificationsRouter = router({
         preferredContactMethod: z.enum(["email", "sms", "both"]),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        // Save preferences to database
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
         console.log(`Updated notification preferences for institution ${input.institutionId}`);
 
-        return {
-          success: true,
-          message: "Notification preferences updated",
-        };
-      } catch (error: any) {
+        return { success: true, message: "Notification preferences updated" };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error setting notification preferences:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+        return { success: false, error: message };
       }
     }),
 });
-
-/**
- * Helper: Generate enrollment reminder email
- */
-async function generateEnrollmentEmail(
-  staffName: string,
-  courseType: string,
-  deadline: Date
-): Promise<string> {
-  const courseNames: Record<string, string> = {
-    bls: "Basic Life Support",
-    acls: "Advanced Cardiovascular Life Support",
-    pals: "Pediatric Advanced Life Support",
-    fellowship: "Paeds Resus Elite Fellowship",
-  };
-
-  return `
-Dear ${staffName},
-
-We hope you're excited to join the ${courseNames[courseType]} training program!
-
-This is a friendly reminder that enrollment closes on ${deadline.toLocaleDateString()}.
-
-To enroll, please:
-1. Visit www.paeds-resus.com/enroll
-2. Select your preferred course
-3. Complete the payment
-
-Questions? Contact us at support@paeds-resus.com
-
-Best regards,
-Paeds Resus Team
-  `;
-}
-
-/**
- * Helper: Generate completion congratulations email
- */
-async function generateCompletionEmail(
-  staffName: string,
-  courseType: string,
-  certificateNumber: string,
-  completionDate: Date
-): Promise<string> {
-  const courseNames: Record<string, string> = {
-    bls: "Basic Life Support",
-    acls: "Advanced Cardiovascular Life Support",
-    pals: "Pediatric Advanced Life Support",
-    fellowship: "Paeds Resus Elite Fellowship",
-  };
-
-  return `
-Dear ${staffName},
-
-Congratulations on completing the ${courseNames[courseType]} course!
-
-Your certificate details:
-- Certificate Number: ${certificateNumber}
-- Completion Date: ${completionDate.toLocaleDateString()}
-- Valid Until: ${new Date(completionDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-
-Download your certificate: www.paeds-resus.com/certificates/${certificateNumber}
-
-Thank you for your commitment to saving children's lives!
-
-Best regards,
-Paeds Resus Team
-  `;
-}

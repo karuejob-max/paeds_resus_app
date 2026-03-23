@@ -1,7 +1,9 @@
+import type { Request, Response } from "express";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import { runWithRetries } from "../lib/async-retry";
 import crypto from "crypto";
 
 /**
@@ -143,51 +145,72 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       const payment = paymentRecords[0];
 
-      // Update payment status and store M-Pesa receipt number for records
-      // Also set idempotencyKey to mark this webhook as processed
-      await db
-        .update(payments)
-        .set({
-          status: "completed",
-          transactionId: mpesaReceiptNumber || payment.transactionId,
-          idempotencyKey: idempotencyKey,
-          updatedAt: new Date(),
-        })
-        .where(eq(payments.id, payment.id));
+      // Idempotent: row-level + MPESA-4 global key (above)
+      if (payment.status === "completed" || payment.idempotencyKey === idempotencyKey) {
+        console.log(`[M-Pesa] Already completed for checkout ${lookupId}; acknowledging`);
+        return res.status(200).json({ success: true, message: "Already processed" });
+      }
 
-      // Update enrollment payment status
-      if (payment.enrollmentId) {
-        const enrollmentRecords = await db
-          .select()
-          .from(enrollments)
-          .where(eq(enrollments.id, payment.enrollmentId));
+      if (mpesaReceiptNumber) {
+        console.log(`[M-Pesa] Receipt: ${mpesaReceiptNumber} for checkout ${lookupId}`);
+      }
 
-        if (enrollmentRecords.length > 0) {
-          const enrollment = enrollmentRecords[0];
-          await db
-            .update(enrollments)
-            .set({
-              paymentStatus: "completed",
-              amountPaid: amount,
-              updatedAt: new Date(),
-            })
-            .where(eq(enrollments.id, enrollment.id));
+      try {
+        await runWithRetries(
+          async () => {
+            await db
+              .update(payments)
+              .set({
+                status: "completed",
+                // Keep transactionId = CheckoutRequestID so clients can poll by checkout id; receipt logged above
+                idempotencyKey: idempotencyKey,
+                updatedAt: new Date(),
+              })
+              .where(eq(payments.id, payment.id));
 
-          // Create certificate when payment completes
-          const certResult = await issueCertificateForEnrollmentIfEligible(
-            payment.enrollmentId
-          );
-          if (certResult.issued) {
-            console.log(
-              `Certificate issued for enrollment ${payment.enrollmentId}`
-            );
-          } else if (certResult.error) {
-            console.warn(
-              `Certificate not issued for enrollment ${payment.enrollmentId}:`,
-              certResult.error
-            );
-          }
-        }
+            if (payment.enrollmentId) {
+              const enrollmentRecords = await db
+                .select()
+                .from(enrollments)
+                .where(eq(enrollments.id, payment.enrollmentId));
+
+              if (enrollmentRecords.length > 0) {
+                const enrollment = enrollmentRecords[0];
+                await db
+                  .update(enrollments)
+                  .set({
+                    paymentStatus: "completed",
+                    amountPaid: amount,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(enrollments.id, enrollment.id));
+
+                const certResult = await issueCertificateForEnrollmentIfEligible(
+                  payment.enrollmentId
+                );
+                if (certResult.issued) {
+                  console.log(
+                    `Certificate issued for enrollment ${payment.enrollmentId}`
+                  );
+                } else if (certResult.error) {
+                  console.warn(
+                    `Certificate not issued for enrollment ${payment.enrollmentId}:`,
+                    certResult.error
+                  );
+                }
+              }
+            }
+          },
+          { retries: 3, delayMs: 300, label: "mpesa-webhook-payment-complete" }
+        );
+      } catch (persistError) {
+        console.error(
+          "[M-Pesa] Persist failed after retries (returning 500 for Daraja retry):",
+          persistError
+        );
+        return res.status(500).json({
+          error: "Transient persistence failure; callback may be retried",
+        });
       }
 
       console.log(
@@ -206,6 +229,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        if (payment.status === "failed" || payment.status === "completed") {
+          return res.status(200).json({ success: true, message: "Already finalized" });
+        }
         await db
           .update(payments)
           .set({
@@ -219,6 +245,11 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
         .status(200)
         .json({ success: true, message: "Payment failure recorded" });
     }
+
+    console.log(
+      `[M-Pesa] Non-success callback ResultCode=${ResultCode} for ${lookupId}: ${ResultDesc}`
+    );
+    return res.status(200).json({ success: true, message: "Callback acknowledged" });
   } catch (error) {
     console.error("[M-Pesa] Webhook handler error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -299,10 +330,13 @@ export async function handleMpesaTimeoutWebhook(
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        if (payment.status === "completed" || payment.status === "failed") {
+          return res.status(200).json({ success: true });
+        }
         await db
           .update(payments)
           .set({
-            status: "timeout",
+            status: "failed",
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));

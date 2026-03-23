@@ -118,6 +118,64 @@ export const mpesaRouter = router({
     }),
 
   /**
+   * Poll local DB for STK outcome (webhook updates this row; transactionId stays as CheckoutRequestID).
+   */
+  getPaymentByCheckoutRequestId: protectedProcedure
+    .input(z.object({ checkoutRequestID: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { ok: false as const, found: false as const, status: null as null };
+      }
+      const row = await db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.transactionId, input.checkoutRequestID), eq(payments.userId, ctx.user.id)))
+        .orderBy(desc(payments.id))
+        .limit(1);
+      if (!row.length) {
+        return { ok: true as const, found: false as const, status: null as null };
+      }
+      return {
+        ok: true as const,
+        found: true as const,
+        status: row[0].status as string | null,
+        payment: row[0],
+      };
+    }),
+
+  /**
+   * Poll by enrollment (fallback if checkout lookup fails).
+   */
+  getPaymentStatusForEnrollment: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { ok: false as const, error: "no_db" as const };
+      }
+      const enr = await db
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      if (!enr.length) {
+        return { ok: false as const, error: "enrollment_not_found" as const };
+      }
+      const pay = await db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.userId, ctx.user.id)))
+        .orderBy(desc(payments.id))
+        .limit(1);
+      return {
+        ok: true as const,
+        enrollmentPaymentStatus: enr[0].paymentStatus,
+        paymentStatus: pay[0]?.status ?? null,
+      };
+    }),
+
+  /**
    * Get payment history for user
    */
   getPaymentHistory: protectedProcedure.query(async ({ ctx }) => {

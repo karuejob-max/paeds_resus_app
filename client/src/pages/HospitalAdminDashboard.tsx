@@ -7,6 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import StaffBulkImport from "@/components/StaffBulkImport";
 import {
   BarChart3,
   Users,
@@ -19,33 +30,59 @@ import {
   Clock,
   Award,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
+const WELCOME_KEY = "institutionalPortalWelcome";
+
 export default function HospitalAdminDashboard() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
-  const [institutionId, setInstitutionId] = useState<number | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [bulkCourse, setBulkCourse] = useState<"bls" | "acls" | "pals" | "fellowship">("bls");
+  const [bulkDate, setBulkDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // Fetch institution stats
-  const { data: stats, isLoading: statsLoading } = trpc.institution.getStats.useQuery(
-    { institutionId: institutionId || 1 },
-    { enabled: !!institutionId }
-  );
-
-  // Fetch staff members
-  const { data: staffData, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
-    { institutionId: institutionId || 1 },
-    { enabled: !!institutionId }
-  );
+  const utils = trpc.useUtils();
 
   useEffect(() => {
-    // In a real app, get institutionId from user context or URL params
-    if (user?.id) {
-      setInstitutionId(1); // Placeholder
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(WELCOME_KEY) === "1") {
+      sessionStorage.removeItem(WELCOME_KEY);
+      setShowWelcome(true);
     }
-  }, [user]);
+  }, []);
+
+  const { data: myInstitution, isLoading: myInstitutionLoading } = trpc.institution.getMyInstitution.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
+  const institutionId = myInstitution?.institution?.id ?? null;
+
+  const { data: stats, isLoading: statsLoading } = trpc.institution.getStats.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
+  const { data: staffData, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
+  const { data: quotations, isLoading: quotationsLoading } = trpc.institution.getQuotations.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
+  const bulkEnrollMutation = trpc.institution.bulkEnrollFromStaffRoster.useMutation({
+    onSuccess: () => {
+      if (institutionId) {
+        void utils.institution.getStats.invalidate({ institutionId });
+        void utils.institution.getStaffMembers.invalidate({ institutionId });
+      }
+    },
+  });
 
   if (!isAuthenticated) {
     return (
@@ -65,6 +102,37 @@ export default function HospitalAdminDashboard() {
     );
   }
 
+  if (myInstitutionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
+        <p className="text-slate-600">Loading your institution…</p>
+      </div>
+    );
+  }
+
+  if (!institutionId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100 py-12">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle>No institution linked</CardTitle>
+            <CardDescription>
+              Complete institutional onboarding to create your facility account, or contact Paeds Resus if you need access.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button onClick={() => navigate("/institution-onboarding")} className="bg-[#1a4d4d] hover:bg-[#0d3333]">
+              Start institutional onboarding
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/institutional")}>
+              Contact / pricing
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const completionRate = stats?.completionRate || 0;
   const certificationRate = stats?.certificationRate || 0;
 
@@ -73,9 +141,21 @@ export default function HospitalAdminDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Hospital Admin Dashboard</h1>
-          <p className="text-lg text-slate-600">Real-time training program metrics and staff management</p>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Institutional dashboard</h1>
+          <p className="text-lg text-slate-600">Training metrics, staff roster, quotations, and bulk enrollment</p>
         </div>
+
+        {showWelcome && (
+          <Alert className="mb-6 border-green-600/50 bg-green-50 text-green-900">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>Welcome! Your institution is set up. Add staff, run bulk enrollment, and track progress from here.</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowWelcome(false)} className="text-green-700 shrink-0">
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* KPI Cards */}
         <div className="grid md:grid-cols-5 gap-4 mb-8">
@@ -147,10 +227,11 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="staff">Staff Management</TabsTrigger>
-            <TabsTrigger value="progress">Progress Tracking</TabsTrigger>
+            <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="quotations">Quotations</TabsTrigger>
+            <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
 
@@ -232,6 +313,60 @@ export default function HospitalAdminDashboard() {
 
           {/* Staff Management Tab */}
           <TabsContent value="staff" className="space-y-6">
+            <StaffBulkImport institutionId={institutionId} />
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Bulk enrollment (roster → courses)</CardTitle>
+                <CardDescription>
+                  Creates enrollments and pending M-Pesa payment rows for every person on your staff list.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                  <Label>Program</Label>
+                  <Select value={bulkCourse} onValueChange={(v) => setBulkCourse(v as typeof bulkCourse)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bls">BLS</SelectItem>
+                      <SelectItem value="acls">ACLS</SelectItem>
+                      <SelectItem value="pals">PALS</SelectItem>
+                      <SelectItem value="fellowship">Fellowship</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Training date</Label>
+                  <Input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} />
+                </div>
+                <Button
+                  className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                  disabled={bulkEnrollMutation.isPending || !staffData?.length}
+                  onClick={() => {
+                    if (!institutionId) return;
+                    bulkEnrollMutation.mutate({
+                      institutionId,
+                      courseType: bulkCourse,
+                      trainingDate: new Date(bulkDate),
+                    });
+                  }}
+                >
+                  {bulkEnrollMutation.isPending ? "Running…" : "Run bulk enrollment"}
+                </Button>
+                {bulkEnrollMutation.isSuccess && bulkEnrollMutation.data && (
+                  <p className="text-sm text-green-700">
+                    Created {bulkEnrollMutation.data.enrolledCount} enrollment(s).{" "}
+                    {bulkEnrollMutation.data.failedCount ? `${bulkEnrollMutation.data.failedCount} failed.` : ""}
+                  </p>
+                )}
+                {bulkEnrollMutation.isError && (
+                  <p className="text-sm text-red-600">{bulkEnrollMutation.error.message}</p>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Staff Members</CardTitle>
@@ -279,6 +414,58 @@ export default function HospitalAdminDashboard() {
                   <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-600">No staff members found</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="quotations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Quotations
+                </CardTitle>
+                <CardDescription>Records linked to your institution account</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {quotationsLoading ? (
+                  <p className="text-slate-600">Loading…</p>
+                ) : !quotations?.length ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <p>No quotations yet.</p>
+                    <p className="text-sm mt-2">Request a quote from the institutional page or contact sales.</p>
+                    <Button variant="outline" className="mt-4" onClick={() => navigate("/institutional")}>
+                      Go to institutional page
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left">
+                          <th className="py-2 pr-4">Quote #</th>
+                          <th className="py-2 pr-4">Status</th>
+                          <th className="py-2 pr-4">Total (KES)</th>
+                          <th className="py-2 pr-4">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quotations.map((q) => (
+                          <tr key={q.id} className="border-b">
+                            <td className="py-2 pr-4 font-mono text-xs">{q.quotationNumber}</td>
+                            <td className="py-2 pr-4">
+                              <Badge variant="outline">{q.status ?? "—"}</Badge>
+                            </td>
+                            <td className="py-2 pr-4">{q.totalPrice != null ? q.totalPrice.toLocaleString() : "—"}</td>
+                            <td className="py-2 pr-4">
+                              {q.createdAt ? new Date(q.createdAt).toLocaleDateString() : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>

@@ -203,23 +203,23 @@ curl -X POST http://localhost:3000/api/trpc/auth.logout \
 
 ### Institution Management
 
-```bash
-# Register institution
-POST /api/trpc/institution.register
-{
-  "hospitalName": "Kenyatta National Hospital",
-  "adminEmail": "admin@hospital.com",
-  "adminName": "Dr. John Doe",
-  "phoneNumber": "+254712345678",
-  "county": "Nairobi",
-  "staffCount": 50,
-  "subscriptionPlan": "professional"
-}
+**Auth:** `institution.register`, `completeOnboarding`, `getMyInstitution`, `getStats`, `getStaffMembers`, and other tenant procedures require a **signed-in user** (session / Bearer). Only **`institution.verify`** is public. Non-admin users may only access institutions where `institutionalAccounts.userId` matches their user id.
 
-# Get institution stats
+```bash
+# Who am I linked to? (authenticated)
+GET /api/trpc/institution.getMyInstitution
+
+# Register institution (authenticated — links to your user id)
+POST /api/trpc/institution.register
+# Body: full input per router (hospitalName, hospitalType, admin fields, planId, planPrice, maxStaff, etc.)
+
+# Complete multi-step onboarding (authenticated)
+POST /api/trpc/institution.completeOnboarding
+
+# Get institution stats (must own institutionId or be admin)
 GET /api/trpc/institution.getStats?institutionId=1
 
-# Get staff members
+# Get staff members (must own institutionId or be admin)
 GET /api/trpc/institution.getStaffMembers?institutionId=1
 ```
 

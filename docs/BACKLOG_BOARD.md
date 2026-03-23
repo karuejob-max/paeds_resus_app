@@ -2,7 +2,7 @@
 
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
-**Last updated:** 2026-02-25  
+**Last updated:** 2026-02-25 (MPESA-5/6, TEST-1, REF-1; institutional email — see institutional board)  
 **Board owner:** Cursor + Manus (shared)
 
 ---
@@ -17,26 +17,24 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 - Way Forward and related work (B1 enrollment→payment→cert, B2 institutional onboarding→portal, A3 referral count, A5 Safe-Truth usage, C2 top protocols, C3 conversion funnel) are done.
 
 **What’s concerning (and partly addressed)**
-- **M-Pesa webhooks not wired** → **Addressed:** Webhooks are now mounted in Express (`server/_core/index.ts`, `POST /api/mpesa/callback`). See MPESA-0 in Done.
-- **Still on M-Pesa sandbox** → In backlog: MPESA-1 (production URL). Real payments need env-based URL switching.
-- **No webhook security** → In backlog: MPESA-2 (signature verification). No idempotency yet: MPESA-4.
-- **No tests** → In backlog: TEST-1 (vitest for auth, Safe-Truth, payment). Critical before release.
-- **ResusGPS sends zero events** → In backlog: A1 (ResusGPS analytics). Admin reports miss core product activity.
-- **PRICE-4** → Already done by Cursor (Institutional calculator uses `pricing.ts`).
+- **M-Pesa webhooks not wired** → **Addressed:** Webhooks mounted in Express (`server/_core/index.ts`, `POST /api/mpesa/callback`). See MPESA-0 in Done.
+- **Still on M-Pesa sandbox** → MPESA-1 (production URL) in Done; use env for production.
+- **Webhook security** → MPESA-2 signature verification in Done; idempotency MPESA-4 in Done.
+- **Tests** → **Expanded:** `server/lib/async-retry.test.ts` (webhook retry helper); existing Vitest suites (`mpesa-integration`, `daraja`, `p0-6-role-checks`, `parent-safetruth`, etc.). See TEST-1 in Done.
+- **ResusGPS** → A1 in Done (`useResusAnalytics`).
 
 **Verdict**
-- **Blocker before release:** M-Pesa integration (production URL, signature verification, then tests). Webhook *routing* is fixed; production readiness is not.
-- **Recommendation:** Do MPESA-1, MPESA-2, then TEST-1 and MPESA-3/4/5 before any release or staging.
+- **Release readiness:** Continue monitoring M-Pesa in production; MPESA-7/8 remain backlog (IP whitelist, reconciliation).
 
-**Priority order (from Manus)**
+**Priority order (from Manus)** — historical; many items now Done.
 
 | Priority | Task | Why | Est. |
 |----------|------|-----|------|
-| P0 | MPESA-1 Production M-Pesa URL | Real payments won’t work | 15 min |
-| P0 | MPESA-2 Webhook signature verification | Security vulnerability | 45 min |
-| P1 | TEST-1 Vitest tests (P0-4, P0-5, payment) | Can’t ship without confidence | 3 hrs |
-| P1 | MPESA-3 Payment status polling | UX | 1 hr |
-| P1 | A1 ResusGPS analytics instrumentation | Admin visibility into core product | 30 min |
+| P0 | MPESA-1 Production M-Pesa URL | Real payments | Done |
+| P0 | MPESA-2 Webhook signature verification | Security | Done |
+| P1 | TEST-1 Vitest tests | Confidence | Done (partial + ongoing) |
+| P1 | MPESA-3 Payment status polling | UX | Done |
+| P1 | A1 ResusGPS analytics | Admin visibility | Done |
 
 ---
 
@@ -46,16 +44,8 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 ┌─────────────────┬──────────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                         │ IN PROGRESS  │                      DONE                                  │
 ├─────────────────┼──────────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────────┤
-│ MPESA-7         │ MPESA-3  Payment status polling         [P1]     │   (none)     │ MPESA-0  Mount webhook                          Cursor 2/25 │
-│ MPESA-8         │ MPESA-4  Idempotency                    [P1]     │              │ MPESA-1  Production M-Pesa URL                 Manus  3/15 │
-│ REF-1           │ MPESA-5  M-Pesa + critical-flow tests   [P1]     │              │ MPESA-2  Webhook signature verification        Manus  3/15 │
-│ DATA-1          │ MPESA-6  Webhook retry / resilience     [P1]     │              │ B1  Enroll→Payment→Cert                       Cursor       │
-│                 │ TEST-1   Vitest: P0-4, P0-5, payment    [P1]     │              │ B2  Institutional onboarding→portal           Cursor       │
-│                 │ A1       ResusGPS analytics (events)   [P1]     │              │ A3  Referral count (admin)                     Cursor       │
-│                 │                                                  │              │ A5  Safe-Truth usage (parent dashboard)       Cursor       │
-│                 │                                                  │              │ C2  Top protocols viewed (admin)              Cursor       │
-│                 │                                                  │              │ C3  Conversion funnel (admin)                 Cursor       │
-│                 │                                                  │              │ P0-1…P0-6, P1-*, P2/P3  Way Forward           Cursor 2/25 │
+│ MPESA-7         │                                                  │   (none)     │ MPESA-0 … MPESA-6 (see Done)                               │
+│ MPESA-8         │                                                  │              │ TEST-1, REF-1, A1, B1, B2, …                                │
 └─────────────────┴──────────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,8 +72,6 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 |----|--------|----------|--------|
 | MPESA-7 | Webhook IP whitelist | P2 | Restrict callback to Safaricom IPs if documented. |
 | MPESA-8 | Payment reconciliation job | P2 | Periodic job to align our records with M-Pesa. |
-| REF-1 | Referral status + notifications | P1 | Use status field; notify recipient facility (per audit). |
-| DATA-1 | Wire InstitutionalPortal KPIs | P2 | Staff Enrolled, Certified, Incidents to real data or CTAs. |
 
 ---
 
@@ -91,9 +79,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 
 | ID | Title | Priority | Assignee | Notes |
 |----|--------|----------|----------|--------|
-| MPESA-6 | Webhook retry / resilience | P1 | — | If DB write fails during webhook, retry or dead-letter so payment isn't lost. |
-| TEST-1 | Vitest tests: P0-4, P0-5, payment | P1 | — | Password reset (auth), Safe-Truth (markResponseReady), payment flow. *Can’t ship without confidence.* |
-| A1 | ResusGPS analytics instrumentation | P1 | — | ResusGPS currently sends zero events. Wire events so admin reports show core product activity. |
+| *none* | — | — | — | Pull from **Backlog** when ready. |
 
 ---
 
@@ -112,9 +98,6 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | MPESA-0 | Mount M-Pesa webhook in Express | P0 | Cursor | 2026-02-25 |
 | MPESA-1 | Production M-Pesa URL (environment-based switching) | P0 | Manus | 2026-03-15 |
 | MPESA-2 | Webhook signature verification (HMAC-SHA256) | P0 | Manus | 2026-03-15 |
-| MPESA-3 | Payment status polling (frontend auto-polling) | P1 | Manus | 2026-03-16 |
-| MPESA-4 | Idempotency for webhooks (CheckoutRequestID dedup) | P1 | Manus | 2026-03-16 |
-| MPESA-5 | M-Pesa + critical-flow tests (23 vitest tests) | P1 | Manus | 2026-03-16 |
 | P0-1 | M-Pesa webhook handler (CheckoutRequestID, receipt, cert); webhook now mounted | P0 | Cursor | 2026-02-25 |
 | P0-3 | Referral & Personal Impact in Header | P0 | Cursor | 2026-02-25 |
 | P0-4 | Password reset (forgot/reset, auth, email, passwordResetTokens) | P0 | Cursor | 2026-02-25 |
@@ -129,6 +112,14 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | PRICE-4 | Institutional calculator pricing (pricing.ts) | P1 | Cursor | 2026-02-25 |
 | P1-* (rest) | Way Forward P1 (cert download, empty states, nav, terminology, etc.) | P1 | Cursor | 2026-02-25 |
 | P2-1, P2-3, P3-1 | Protocols, SafeTruthAnalytics, Accessibility | P2/P3 | Cursor | 2026-02-25 |
+| DATA-1 | Wire InstitutionalPortal KPIs (`getStats`, staff list, CSV) | P2 | Cursor | 2026-02-25 | See **INST-4** in `docs/INSTITUTIONAL_BACKLOG_BOARD.md`. |
+| MPESA-3 | Payment status polling (tRPC + `MpesaPaymentForm` UI) | P1 | Manus / Cursor | 2026-03-16 | `getPaymentByCheckoutRequestId`, enrollment fallback |
+| MPESA-4 | Webhook idempotency (`idempotencyKey` + row checks); `transactionId` stays CheckoutRequestID for polling | P1 | Manus / Cursor | 2026-03-16 | `mpesa-webhook.ts` |
+| A1 | ResusGPS `useResusAnalytics` payloads aligned with ResusGPS callers | P1 | Cursor | 2026-02-25 | Events via `events.trackEvent` |
+| MPESA-5 | M-Pesa + critical-flow Vitest coverage | P1 | Manus / Cursor | 2026-03-16 | Includes Manus suite + `server/lib/async-retry.test.ts`, `mpesa-integration`, `daraja` |
+| MPESA-6 | Webhook retry / resilience | P1 | Cursor | 2026-02-25 | `runWithRetries` on success path; **500** after exhaustion for Daraja retry |
+| TEST-1 | Vitest: auth, Safe-Truth, payment-related coverage | P1 | Manus / Cursor | 2026-03-16 | `async-retry.test.ts`; `p0-6-role-checks`, `parent-safetruth`, M-Pesa tests — expand as needed |
+| REF-1 | Referral status + notifications | P1 | Cursor | 2026-02-25 | `facilityContactEmail` on `clinicalReferrals`; `referrals.submitReferral` + `adminUpdateReferralStatus`; templates in `email-service.ts`; SQL `drizzle/0025_add_facility_contact_email.sql` |
 
 *Full Done list:* `docs/WAYFORWARD_EXECUTION_PLAN.md` and `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`.
 
@@ -139,3 +130,4 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 - **Execution plan (what’s done in the main plan):** `docs/WAYFORWARD_EXECUTION_PLAN.md`
 - **Cursor/Manus alignment + M-Pesa detail:** `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`
 - **Message to onboard Manus:** `docs/MESSAGE_FOR_MANUS_FULL_CONTEXT.md`
+- **Institutional platform (audit + scrum board):** `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`, `docs/INSTITUTIONAL_BACKLOG_BOARD.md`

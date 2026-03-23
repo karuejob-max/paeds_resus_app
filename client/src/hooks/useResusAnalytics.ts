@@ -66,10 +66,13 @@ export function useResusAnalytics() {
         patientWeight,
       }),
 
-    trackAssessmentCompleted: (totalThreats: number, interventionsCount: number) =>
+    trackAssessmentCompleted: (
+      phaseOrMetric?: string | number,
+      elapsedOrSecondary?: number | string
+    ) =>
       trackEvent('resus_assessment', 'Assessment Completed', {
-        totalThreats,
-        interventionsCount,
+        phase: phaseOrMetric,
+        elapsedOrSecondary,
       }),
 
     // Letter progression events
@@ -109,10 +112,10 @@ export function useResusAnalytics() {
       trackEvent('resus_intervention', 'Intervention Skipped', { interventionName }),
 
     // Reassessment events
-    trackReassessmentPerformed: (reassessmentType: string, outcome: string) =>
+    trackReassessmentPerformed: (reassessmentType?: string, outcome?: string) =>
       trackEvent('resus_reassessment', 'Reassessment Performed', {
-        reassessmentType,
-        outcome,
+        reassessmentType: reassessmentType ?? 'return_to_primary',
+        outcome: outcome ?? 'n/a',
       }),
 
     // Diagnosis events

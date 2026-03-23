@@ -27,6 +27,7 @@ export default function Referral() {
     reason: "",
     referralType: "hospital" as const,
     facilityName: "",
+    facilityContactEmail: "",
     notes: "",
   });
 
@@ -48,13 +49,12 @@ export default function Referral() {
         reason: "",
         referralType: "hospital",
         facilityName: "",
+        facilityContactEmail: "",
         notes: "",
       });
       refetchReferrals();
     },
   });
-
-  const referralsQuery = { data: referralsData || [], isLoading: referralsLoading };
 
   if (loading) {
     return (
@@ -67,7 +67,7 @@ export default function Referral() {
     );
   }
 
-  const referrals = referralsQuery.data || [];
+  const referrals = referralsData?.referrals ?? [];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -87,7 +87,10 @@ export default function Referral() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await submitReferralMutation.mutateAsync(formData);
+      await submitReferralMutation.mutateAsync({
+        ...formData,
+        facilityContactEmail: formData.facilityContactEmail.trim() || undefined,
+      });
     } catch (error) {
       console.error("Failed to submit referral:", error);
     }
@@ -206,6 +209,18 @@ export default function Referral() {
                         value={formData.facilityName}
                         onChange={handleInputChange}
                         placeholder="Target facility"
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="facilityContactEmail">Facility contact email (optional)</Label>
+                      <Input
+                        id="facilityContactEmail"
+                        name="facilityContactEmail"
+                        type="email"
+                        value={formData.facilityContactEmail}
+                        onChange={handleInputChange}
+                        placeholder="receiving@hospital.go.ke — for notifications"
                       />
                     </div>
                   </div>

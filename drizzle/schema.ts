@@ -2118,6 +2118,8 @@ export const clinicalReferrals = mysqlTable("clinicalReferrals", {
   reason: text("reason").notNull(),
   referralType: mysqlEnum("referralType", ["hospital", "specialist", "imaging", "lab"]).notNull(),
   facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  /** Optional: receiving facility contact for referral notifications (REF-1). */
+  facilityContactEmail: varchar("facilityContactEmail", { length: 320 }),
   notes: text("notes"),
   status: mysqlEnum("status", ["pending", "accepted", "rejected", "completed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
