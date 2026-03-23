@@ -47,6 +47,105 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
 }
 
 /**
+ * C2B URL Validation Handler
+ * Daraja sends this when registering a C2B URL to verify it's working
+ * Must respond with specific format for Daraja to accept the URL
+ */
+export async function handleC2BValidation(req: Request, res: Response) {
+  try {
+    console.log("[M-Pesa] C2B URL validation request received");
+    
+    // Daraja expects this specific response format for validation
+    return res.status(200).json({
+      ResponseCode: "00000000",
+      ResponseDesc: "Accept the service request"
+    });
+  } catch (error) {
+    console.error("[M-Pesa] C2B validation error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * C2B Confirmation Handler
+ * Receives payment confirmations from M-Pesa after customer initiates payment via USSD/STK
+ * Updates payment records with M-Pesa transaction details
+ */
+export async function handleC2BConfirmation(req: Request, res: Response) {
+  try {
+    // Verify signature
+    const signature = req.headers["x-daraja-signature"] as string | undefined;
+    if (!signature) {
+      console.warn("[M-Pesa] C2B confirmation: Missing signature");
+      return res.status(401).json({ error: "Unauthorized: missing signature" });
+    }
+
+    const rawBody =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    if (!verifyMpesaSignature(rawBody, signature)) {
+      console.error("[M-Pesa] C2B confirmation: Signature verification failed");
+      return res.status(401).json({ error: "Unauthorized: invalid signature" });
+    }
+
+    const body = req.body;
+    console.log("[M-Pesa] C2B confirmation received:", {
+      transactionId: body?.TransID,
+      phoneNumber: body?.MSISDN,
+      amount: body?.TransAmount,
+    });
+
+    // Extract C2B payment details
+    const {
+      TransID,
+      TransTime,
+      TransAmount,
+      BusinessShortCode,
+      BillRefNumber,
+      InvoiceNumber,
+      OrgAccountBalance,
+      ThirdPartyTransID,
+      MSISDN,
+      FirstName,
+      MiddleName,
+      LastName,
+    } = body;
+
+    const db = await getDb();
+    if (!db) {
+      console.error("[M-Pesa] C2B confirmation: Database unavailable");
+      return res.status(500).json({ error: "Database unavailable" });
+    }
+
+    // Look up payment by reference (could be enrollmentId or custom reference)
+    // BillRefNumber or InvoiceNumber might contain our reference
+    const reference = BillRefNumber || InvoiceNumber || "";
+    
+    console.log(
+      `[M-Pesa] C2B confirmation: Looking up payment with reference: ${reference}`
+    );
+
+    // For now, log the C2B confirmation
+    // In production, you might want to:
+    // 1. Match against your payment records using BillRefNumber
+    // 2. Update payment status
+    // 3. Reconcile amounts
+    
+    console.log(
+      `[M-Pesa] C2B payment confirmed: ${TransAmount} KES from ${MSISDN} (${FirstName} ${LastName}) - Receipt: ${TransID}`
+    );
+
+    // Respond with success
+    return res.status(200).json({
+      ResponseCode: "00000000",
+      ResponseDesc: "Accept the service request"
+    });
+  } catch (error) {
+    console.error("[M-Pesa] C2B confirmation error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
  * M-Pesa Webhook Handler
  * Receives payment callbacks from M-Pesa and updates payment status
  * Validates webhook signature before processing

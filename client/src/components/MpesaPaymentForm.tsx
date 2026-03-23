@@ -46,10 +46,8 @@ export function MpesaPaymentForm({
         setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone.");
         setCheckoutRequestID(data.checkoutRequestID || "");
         
-        // Start polling for payment status
-  
-
-        onPaymentSuccess?.(data);
+        // Don't call onPaymentSuccess yet - wait for polling to complete
+        // onPaymentSuccess will be called when payment is confirmed via webhook
       } else {
         setPaymentStatus("error");
         setStatusMessage(data.error || "Payment initiation failed");
@@ -71,7 +69,10 @@ export function MpesaPaymentForm({
         // Payment successful
         setPaymentStatus("success");
         setStatusMessage("Payment successful! Certificate issued.");
-        onPaymentSuccess?.(data);
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          onPaymentSuccess?.(data);
+        }, 1500);
       } else if (data.resultCode === 1) {
         // Payment failed
         setPaymentStatus("error");

@@ -18,6 +18,8 @@ import {
   handleMpesaWebhook,
   handleMpesaQueryWebhook,
   handleMpesaTimeoutWebhook,
+  handleC2BValidation,
+  handleC2BConfirmation,
 } from "../webhooks/mpesa-webhook";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -48,12 +50,26 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // M-Pesa callbacks (single URL; Daraja sends STK result here)
-  app.post("/api/payment/callback", express.json(), (req, res) => {
+  // M-Pesa callbacks (single URL; Daraja sends STK result and C2B confirmations here)
+  app.post("/api/payment/callback", express.json(), async (req, res) => {
     const body = req.body?.Body;
+    
+    // C2B URL Validation (Daraja sends this when registering the URL)
+    if (!body && !req.body?.Body && Object.keys(req.body || {}).length === 0) {
+      return handleC2BValidation(req as any, res);
+    }
+    
+    // C2B Confirmation (actual payment confirmation from M-Pesa)
+    if (req.body?.TransID && req.body?.TransAmount) {
+      return handleC2BConfirmation(req as any, res);
+    }
+    
+    // STK Push Query Response
     if (body?.checkoutQueryResponse) {
       return handleMpesaQueryWebhook(req as any, res);
     }
+    
+    // STK Push Callback
     if (body?.stkCallback) {
       const code = body.stkCallback?.ResultCode;
       if (code === 0) {
@@ -61,6 +77,7 @@ async function startServer() {
       }
       return handleMpesaTimeoutWebhook(req as any, res);
     }
+    
     return res.status(400).json({ error: "Invalid webhook payload" });
   });
 
