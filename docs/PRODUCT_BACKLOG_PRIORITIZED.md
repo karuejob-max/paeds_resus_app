@@ -9,6 +9,52 @@
 
 ---
 
+## Impact × feasibility (recommended order)
+
+Use this when choosing the **next** piece of work. **Impact** = clinical safety, revenue, trust, or growth. **Feasibility** = time to ship safely with current codebase and team bandwidth.
+
+| Zone | Meaning | Action |
+|------|---------|--------|
+| **A — High impact, high feasibility** | Strong ROI; small risk | **Do next** (this week / sprint) |
+| **B — High impact, lower feasibility** | Worth it; must be sliced | **Thin vertical slice**, then iterate |
+| **C — Lower impact, high feasibility** | Polish / hygiene | **Batch** after A or in cooldown weeks |
+| **D — Lower impact, lower feasibility** | Expensive nice-to-haves | **Defer** until A/B clear |
+
+### A — Do next (impact + feasibility)
+
+| Item | Why here |
+|------|----------|
+| **P0-PAY-1 (ops)** | One **live** small STK + webhook check using `MPESA_PRODUCTION_CHECKLIST.md` — highest revenue/trust leverage, **no code** if env is right. |
+| **M-Pesa env consistency** | Align **`MPESA_ENV`** vs **`MPESA_ENVIRONMENT`** usage across `mpesa-real` / services / readiness so prod/sandbox is never ambiguous (**S** code + doc tweak). |
+| **Test & type hardening** | Fix **flaky or failing** Vitest (e.g. M-Pesa critical flow expectations, Kaizen mocks) and worst **TS** debt on hot paths — improves feasibility of everything else (**S–M**). |
+| **P1-CERT-1 (notifications)** | **Email (or SMS) nudge** when `expiryDate` within N days — builds on existing cert data + renewal CTAs; clear B2B/B2C revenue loop (**M**, bounded scope). |
+
+### B — Slice thin (high impact, heavier lift)
+
+| Item | First slice |
+|------|-------------|
+| **P1-RESUS-1** | **End-of-session summary** only: structured fields + “Copy summary” / PDF one-pager — no full “handoff v2” yet. |
+| **P2-BULK-1** | **Create + list** `trainingSchedules` in UI (tenant-scoped); **attendance** in a second slice. |
+| **P3-GOV-1** | **Incidents CSV** export (institution-scoped, redacted columns) before PDF/committee polish. |
+
+### C — Batch when capacity allows
+
+| Item | Notes |
+|------|--------|
+| **P2-LAND-1 (full)** | Dedicated `/` or `/start` chooser vs ResusGPS-first — good UX, not blocking revenue. |
+| **P0-NAV-1 (BottomNav)** | Provider surfaces only; small UI win. |
+| **Observability** | Structured fields on M-Pesa webhook + Sentry (or similar) in prod. |
+
+### D — Defer
+
+| Item | Notes |
+|------|--------|
+| **P3-ML-1** | Governance + validation cost too high until metrics baseline exists. |
+| **P3-INT-1 (broad)** | Start with **audit CSV** only if enterprise pull is real. |
+| **P3-LOC-1 (broad offline)** | Scope to **one protocol bundle** or don’t start. |
+
+---
+
 ## Prioritization lens
 
 | Factor | Weight (guidance) |
@@ -82,11 +128,11 @@ These unblock money, certificates, or core trust.
 
 ---
 
-## Suggested next three sprints (example)
+## Suggested next three sprints (impact × feasibility)
 
-1. **Sprint A:** P1-RESUS-1 (scope a thin slice: session summary export).  
-2. **Sprint B:** P2-BULK-1 (schedules CRUD) or P3-GOV-1 (exports).  
-3. **Sprint C:** Hardening — flaky tests (`mpesa-critical-flow`, `kaizen`), TS debt on `ResusGPS` / `admin-stats` drizzle typing.
+1. **Sprint 1:** **P0-PAY-1 live test** + **M-Pesa env alignment** + **fix worst test/TS regressions** (unblocks confident shipping).  
+2. **Sprint 2:** **P1-CERT-1 notifications** (expiry email/SMS MVP) + **P1-RESUS-1 slice** (session summary export only).  
+3. **Sprint 3:** **P2-BULK-1** (schedules create/list) *or* **P3-GOV-1** (incidents CSV), whichever matches sales/governance pressure.
 
 ---
 
@@ -97,3 +143,4 @@ These unblock money, certificates, or core trust.
 | 2026-02-25 | Initial impact-prioritized backlog created from mission, README, and `PLATFORM_AUDIT_WHAT_IS_MISSING.md`. |
 | 2026-02-25 | P0-ENROLL-1 / P0-NAV-1 / P1-SAFE-1 (partial): `enrollment.getById`, Payment lock + M-Pesa enrollment guard, Home hub cards, `getSafeTruthStats.totalSubmissions`, LearnerDashboard parent KPIs. |
 | 2026-02-25 | Remaining backlog pass: P0-PAY-1 support (readiness + runbook), P1-INST-1 funnel, P1-CERT-1 renewal UX, P1-ADM-1 + P2-MPESA-1 reconciliation UI, P2-SUP-1 routes, P2-LAND-1 header links, P2-REF-1 referral timeline, institution stats on Learner dashboard, admin user search/CSV. |
+| 2026-02-25 | Added **Impact × feasibility** section and re-ordered suggested sprints around ops closure, env consistency, test/TS hardening, cert notifications, then thin ResusGPS / B2B slices. |
