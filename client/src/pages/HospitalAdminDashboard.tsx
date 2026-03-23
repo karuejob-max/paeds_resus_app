@@ -19,14 +19,20 @@ import {
   Clock,
   Award,
   DollarSign,
+  Plus,
+  Upload,
 } from "lucide-react";
-import { getLoginUrl } from "@/const";
+import { AddStaffForm } from "@/components/AddStaffForm";
+import { BulkStaffImport } from "@/components/BulkStaffImport";
+import { StaffList } from "@/components/StaffList";
 
 export default function HospitalAdminDashboard() {
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [institutionId, setInstitutionId] = useState<number | null>(null);
+  const [showAddStaffForm, setShowAddStaffForm] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   // Fetch institution stats
   const { data: stats, isLoading: statsLoading } = trpc.institution.getStats.useQuery(
@@ -35,7 +41,7 @@ export default function HospitalAdminDashboard() {
   );
 
   // Fetch staff members
-  const { data: staffData, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
+  const { data: staffData, isLoading: staffLoading, refetch: refetchStaff } = trpc.institution.getStaffMembers.useQuery(
     { institutionId: institutionId || 1 },
     { enabled: !!institutionId }
   );
