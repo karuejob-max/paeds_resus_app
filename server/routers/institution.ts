@@ -1,4 +1,4 @@
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
@@ -9,10 +9,16 @@ import {
   quotations,
   contracts,
   trainingSchedules,
+  incidents,
+  institutionalAnalytics,
 } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
 import { assertInstitutionAccess } from "../lib/institution-access";
+import {
+  rollupInstitutionalAnalyticsForAccount,
+  rollupAllInstitutionalAccounts,
+} from "../institutional-analytics-rollup";
 
 export const institutionRouter = router({
   /** Primary institution for the signed-in user (most recently created if multiple). */
@@ -585,6 +591,135 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
       }
     }),
+
+  /** INST-13: List incidents for tenant. */
+  getIncidents: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        limit: z.number().min(1).max(200).default(100),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return await db
+        .select()
+        .from(incidents)
+        .where(eq(incidents.institutionalAccountId, input.institutionId))
+        .orderBy(desc(incidents.incidentDate))
+        .limit(input.limit);
+    }),
+
+  /** INST-13: Log a new incident (tenant-scoped). */
+  createIncident: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        incidentDate: z.coerce.date(),
+        incidentType: z.enum([
+          "cardiac_arrest",
+          "respiratory_failure",
+          "severe_sepsis",
+          "shock",
+          "trauma",
+          "other",
+        ]),
+        patientAge: z.number().int().min(0).max(600).optional(),
+        responseTime: z.number().int().min(0).optional(),
+        staffInvolved: z.array(z.number().int()).optional(),
+        protocolsUsed: z.array(z.string()).optional(),
+        outcome: z.enum(["pCOSCA", "ROSC", "mortality", "ongoing_resuscitation", "unknown"]),
+        neurologicalStatus: z
+          .enum(["intact", "mild_impairment", "moderate_impairment", "severe_impairment", "unknown"])
+          .optional(),
+        systemGapsIdentified: z.array(z.string()).optional(),
+        improvementsImplemented: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const { institutionId, staffInvolved, protocolsUsed, systemGapsIdentified, ...rest } = input;
+
+      await db.insert(incidents).values({
+        institutionalAccountId: institutionId,
+        incidentDate: rest.incidentDate,
+        incidentType: rest.incidentType,
+        patientAge: rest.patientAge ?? null,
+        responseTime: rest.responseTime ?? null,
+        staffInvolved: staffInvolved?.length ? JSON.stringify(staffInvolved) : null,
+        protocolsUsed: protocolsUsed?.length ? JSON.stringify(protocolsUsed) : null,
+        outcome: rest.outcome,
+        neurologicalStatus: rest.neurologicalStatus ?? null,
+        systemGapsIdentified: systemGapsIdentified?.length ? JSON.stringify(systemGapsIdentified) : null,
+        improvementsImplemented: rest.improvementsImplemented ?? null,
+        notes: rest.notes ?? null,
+      });
+
+      try {
+        await rollupInstitutionalAnalyticsForAccount(institutionId);
+      } catch (e) {
+        console.warn("[institution] createIncident rollup skipped:", e);
+      }
+
+      return { success: true };
+    }),
+
+  /** INST-14: Rolled-up metrics for charts / KPIs. */
+  getInstitutionalAnalytics: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const row = await db
+        .select()
+        .from(institutionalAnalytics)
+        .where(eq(institutionalAnalytics.institutionalAccountId, input.institutionId))
+        .limit(1);
+      return row[0] ?? null;
+    }),
+
+  /** INST-14: Recompute rollup for one institution (tenant). */
+  refreshInstitutionalAnalytics: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await rollupInstitutionalAnalyticsForAccount(input.institutionId);
+      return { success: true };
+    }),
+
+  /** INST-14: Recompute rollups for all institutions (platform admin). */
+  adminRunInstitutionalAnalyticsRollupAll: adminProcedure.mutation(async () => {
+    return rollupAllInstitutionalAccounts();
+  }),
 
   verify: publicProcedure
     .input(z.object({ institutionId: z.number() }))

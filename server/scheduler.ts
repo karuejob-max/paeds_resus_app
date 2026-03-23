@@ -3,6 +3,7 @@ import { getDb } from "./db";
 import { sendPaymentReminder, sendTrainingConfirmation } from "./email";
 import { eq, and, lt } from "drizzle-orm";
 import { enrollments, payments, smsReminders } from "../drizzle/schema";
+import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 
 /**
  * Initialize scheduled jobs for automated reminders and follow-ups
@@ -19,7 +20,23 @@ export function initializeScheduler() {
   // Run SMS reminders every 6 hours
   scheduleSmsReminders();
 
+  // INST-14: Nightly rollup for institutional portal charts (~03:20 server time)
+  scheduleInstitutionalAnalyticsRollup();
+
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleInstitutionalAnalyticsRollup() {
+  cron.schedule("20 3 * * *", async () => {
+    try {
+      const result = await rollupAllInstitutionalAccounts();
+      console.log(
+        `[Scheduler] institutionalAnalytics rollup completed for ${result.updated} account(s)`
+      );
+    } catch (error) {
+      console.error("[Scheduler] institutionalAnalytics rollup failed:", error);
+    }
+  });
 }
 
 /**

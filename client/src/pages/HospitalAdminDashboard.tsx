@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import {
   BarChart3,
@@ -31,6 +32,8 @@ import {
   Award,
   DollarSign,
   FileText,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
@@ -43,6 +46,31 @@ export default function HospitalAdminDashboard() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [bulkCourse, setBulkCourse] = useState<"bls" | "acls" | "pals" | "fellowship">("bls");
   const [bulkDate, setBulkDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [incidentForm, setIncidentForm] = useState({
+    incidentDate: new Date().toISOString().slice(0, 16),
+    incidentType: "other" as
+      | "cardiac_arrest"
+      | "respiratory_failure"
+      | "severe_sepsis"
+      | "shock"
+      | "trauma"
+      | "other",
+    patientAge: "",
+    responseTime: "",
+    outcome: "unknown" as "pCOSCA" | "ROSC" | "mortality" | "ongoing_resuscitation" | "unknown",
+    neurologicalStatus: "" as
+      | ""
+      | "intact"
+      | "mild_impairment"
+      | "moderate_impairment"
+      | "severe_impairment"
+      | "unknown",
+    staffIdsCsv: "",
+    protocolsCsv: "",
+    gapsCsv: "",
+    improvements: "",
+    notes: "",
+  });
 
   const utils = trpc.useUtils();
 
@@ -80,11 +108,38 @@ export default function HospitalAdminDashboard() {
     { enabled: !!institutionId }
   );
 
+  const { data: incidentsList, isLoading: incidentsLoading } = trpc.institution.getIncidents.useQuery(
+    { institutionId: institutionId!, limit: 100 },
+    { enabled: !!institutionId }
+  );
+
+  const { data: rolledUpAnalytics, isLoading: analyticsLoading } = trpc.institution.getInstitutionalAnalytics.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
   const bulkEnrollMutation = trpc.institution.bulkEnrollFromStaffRoster.useMutation({
     onSuccess: () => {
       if (institutionId) {
         void utils.institution.getStats.invalidate({ institutionId });
         void utils.institution.getStaffMembers.invalidate({ institutionId });
+      }
+    },
+  });
+
+  const createIncidentMutation = trpc.institution.createIncident.useMutation({
+    onSuccess: () => {
+      if (institutionId) {
+        void utils.institution.getIncidents.invalidate({ institutionId });
+        void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
+      }
+    },
+  });
+
+  const refreshAnalyticsMutation = trpc.institution.refreshInstitutionalAnalytics.useMutation({
+    onSuccess: () => {
+      if (institutionId) {
+        void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
       }
     },
   });
@@ -232,10 +287,11 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="incidents">Incidents</TabsTrigger>
             <TabsTrigger value="quotations">Quotations</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -281,6 +337,72 @@ export default function HospitalAdminDashboard() {
                     </Button>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* INST-14: rolled-up analytics (nightly job + refresh) */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="w-5 h-5" />
+                    Institutional analytics
+                  </CardTitle>
+                  <CardDescription>
+                    Aggregated metrics (updated nightly, or when you log incidents / refresh)
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={!institutionId || refreshAnalyticsMutation.isPending}
+                  onClick={() => institutionId && refreshAnalyticsMutation.mutate({ institutionId })}
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshAnalyticsMutation.isPending ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {analyticsLoading ? (
+                  <p className="text-sm text-slate-500">Loading…</p>
+                ) : !rolledUpAnalytics ? (
+                  <p className="text-sm text-slate-600">
+                    No rollup row yet. Click <strong>Refresh</strong> to compute from staff roster and incidents.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-slate-500">Staff enrolled</p>
+                      <p className="text-xl font-semibold">{rolledUpAnalytics.totalStaffEnrolled ?? 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Certified</p>
+                      <p className="text-xl font-semibold">{rolledUpAnalytics.totalStaffCertified ?? 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Cert. rate</p>
+                      <p className="text-xl font-semibold">{rolledUpAnalytics.certificationRate ?? 0}%</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Incidents logged</p>
+                      <p className="text-xl font-semibold">{rolledUpAnalytics.incidentsHandled ?? 0}</p>
+                    </div>
+                    {rolledUpAnalytics.averageResponseTime != null && (
+                      <div>
+                        <p className="text-slate-500">Avg response (s)</p>
+                        <p className="text-xl font-semibold">{rolledUpAnalytics.averageResponseTime}</p>
+                      </div>
+                    )}
+                    {rolledUpAnalytics.averageCompletionTime != null && (
+                      <div>
+                        <p className="text-slate-500">Avg completion (days)</p>
+                        <p className="text-xl font-semibold">{rolledUpAnalytics.averageCompletionTime}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -466,6 +588,234 @@ export default function HospitalAdminDashboard() {
                             <td className="py-2 pr-4">
                               {row.enrolledCount ?? 0} / {row.maxCapacity}
                             </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="incidents" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  Log incident
+                </CardTitle>
+                <CardDescription>
+                  Clinical resuscitation / emergency events for governance and analytics (INST-13).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Incident date & time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={incidentForm.incidentDate}
+                      onChange={(e) => setIncidentForm((f) => ({ ...f, incidentDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={incidentForm.incidentType}
+                      onValueChange={(v) =>
+                        setIncidentForm((f) => ({ ...f, incidentType: v as typeof f.incidentType }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cardiac_arrest">Cardiac arrest</SelectItem>
+                        <SelectItem value="respiratory_failure">Respiratory failure</SelectItem>
+                        <SelectItem value="severe_sepsis">Severe sepsis</SelectItem>
+                        <SelectItem value="shock">Shock</SelectItem>
+                        <SelectItem value="trauma">Trauma</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Patient age (months, optional)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={incidentForm.patientAge}
+                      onChange={(e) => setIncidentForm((f) => ({ ...f, patientAge: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Response time (seconds, optional)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={incidentForm.responseTime}
+                      onChange={(e) => setIncidentForm((f) => ({ ...f, responseTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Outcome</Label>
+                    <Select
+                      value={incidentForm.outcome}
+                      onValueChange={(v) =>
+                        setIncidentForm((f) => ({ ...f, outcome: v as typeof f.outcome }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pCOSCA">pCOSCA</SelectItem>
+                        <SelectItem value="ROSC">ROSC</SelectItem>
+                        <SelectItem value="mortality">Mortality</SelectItem>
+                        <SelectItem value="ongoing_resuscitation">Ongoing resuscitation</SelectItem>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Neurological status (optional)</Label>
+                    <Select
+                      value={incidentForm.neurologicalStatus || "none"}
+                      onValueChange={(v) =>
+                        setIncidentForm((f) => ({
+                          ...f,
+                          neurologicalStatus: v === "none" ? "" : (v as typeof f.neurologicalStatus),
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        <SelectItem value="intact">Intact</SelectItem>
+                        <SelectItem value="mild_impairment">Mild impairment</SelectItem>
+                        <SelectItem value="moderate_impairment">Moderate impairment</SelectItem>
+                        <SelectItem value="severe_impairment">Severe impairment</SelectItem>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Staff member IDs (optional, comma-separated roster IDs)</Label>
+                  <Input
+                    placeholder="e.g. 1, 2, 3"
+                    value={incidentForm.staffIdsCsv}
+                    onChange={(e) => setIncidentForm((f) => ({ ...f, staffIdsCsv: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Protocols used (comma-separated)</Label>
+                  <Input
+                    placeholder="e.g. PALS, CPR"
+                    value={incidentForm.protocolsCsv}
+                    onChange={(e) => setIncidentForm((f) => ({ ...f, protocolsCsv: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>System gaps (comma-separated)</Label>
+                  <Input
+                    value={incidentForm.gapsCsv}
+                    onChange={(e) => setIncidentForm((f) => ({ ...f, gapsCsv: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Improvements implemented</Label>
+                  <Textarea
+                    rows={2}
+                    value={incidentForm.improvements}
+                    onChange={(e) => setIncidentForm((f) => ({ ...f, improvements: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    rows={3}
+                    value={incidentForm.notes}
+                    onChange={(e) => setIncidentForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+                <Button
+                  className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                  disabled={!institutionId || createIncidentMutation.isPending}
+                  onClick={() => {
+                    if (!institutionId) return;
+                    const staffInvolved = incidentForm.staffIdsCsv
+                      .split(",")
+                      .map((s) => parseInt(s.trim(), 10))
+                      .filter((n) => !Number.isNaN(n));
+                    const protocolsUsed = incidentForm.protocolsCsv
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const systemGapsIdentified = incidentForm.gapsCsv
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    createIncidentMutation.mutate({
+                      institutionId,
+                      incidentDate: new Date(incidentForm.incidentDate),
+                      incidentType: incidentForm.incidentType,
+                      patientAge: incidentForm.patientAge ? parseInt(incidentForm.patientAge, 10) : undefined,
+                      responseTime: incidentForm.responseTime ? parseInt(incidentForm.responseTime, 10) : undefined,
+                      outcome: incidentForm.outcome,
+                      neurologicalStatus: incidentForm.neurologicalStatus || undefined,
+                      staffInvolved: staffInvolved.length ? staffInvolved : undefined,
+                      protocolsUsed: protocolsUsed.length ? protocolsUsed : undefined,
+                      systemGapsIdentified: systemGapsIdentified.length ? systemGapsIdentified : undefined,
+                      improvementsImplemented: incidentForm.improvements.trim() || undefined,
+                      notes: incidentForm.notes.trim() || undefined,
+                    });
+                  }}
+                >
+                  {createIncidentMutation.isPending ? "Saving…" : "Save incident"}
+                </Button>
+                {createIncidentMutation.isSuccess && (
+                  <p className="text-sm text-green-700">Incident saved. Analytics rollup updated.</p>
+                )}
+                {createIncidentMutation.isError && (
+                  <p className="text-sm text-red-600">{createIncidentMutation.error.message}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent incidents</CardTitle>
+                <CardDescription>Newest first</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {incidentsLoading ? (
+                  <p className="text-sm text-slate-500">Loading…</p>
+                ) : !incidentsList?.length ? (
+                  <p className="text-sm text-slate-600">No incidents recorded yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-slate-600">
+                          <th className="py-2 pr-4">Date</th>
+                          <th className="py-2 pr-4">Type</th>
+                          <th className="py-2 pr-4">Outcome</th>
+                          <th className="py-2 pr-4">Response (s)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incidentsList.map((row) => (
+                          <tr key={row.id} className="border-b border-slate-100">
+                            <td className="py-2 pr-4 whitespace-nowrap">
+                              {row.incidentDate ? new Date(row.incidentDate).toLocaleString() : "—"}
+                            </td>
+                            <td className="py-2 pr-4 capitalize">{row.incidentType?.replace(/_/g, " ")}</td>
+                            <td className="py-2 pr-4">{row.outcome}</td>
+                            <td className="py-2 pr-4">{row.responseTime ?? "—"}</td>
                           </tr>
                         ))}
                       </tbody>

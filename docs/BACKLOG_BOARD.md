@@ -2,7 +2,7 @@
 
 > **For Manus:** This is the **single backlog we must follow**. When you start work, open this file first. Pick from **To Do** (or move a **Backlog** item to To Do), move it to **In Progress**, and when done move it to **Done** and update `docs/WAYFORWARD_EXECUTION_PLAN.md` or the alignment doc as needed. Cursor and the product owner use this board as the source of truth for what’s next.
 
-**Last updated:** 2026-02-25 (MPESA-7/8 shipped; DB 0025 script + referrals table prerequisite)  
+**Last updated:** 2026-02-25 (institutional backlog INST-13/14 complete; main board clear)  
 **Board owner:** Cursor + Manus (shared)
 
 ---
@@ -24,7 +24,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 - **ResusGPS** → A1 in Done (`useResusAnalytics`).
 
 **Verdict**
-- **Release readiness:** Continue monitoring M-Pesa in production; MPESA-7/8 remain backlog (IP whitelist, reconciliation).
+- **Release readiness:** Continue monitoring M-Pesa in production; institutional items through **INST-14** are done (see `INSTITUTIONAL_BACKLOG_BOARD.md`).
 
 **Priority order (from Manus)** — historical; many items now Done.
 

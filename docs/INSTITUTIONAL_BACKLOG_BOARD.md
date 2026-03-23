@@ -2,11 +2,11 @@
 
 > **Purpose:** Scrum-style board for **institutional (B2B / hospital)** work only.  
 > **How to use:** Before starting, check **In Progress** (avoid duplicate work). Move cards **To Do → In Progress → Done**. Always set **Owner** when In Progress, and **Done by + Date** when complete.  
-> **Last updated:** 2026-02-25 (INST-12 schedule tab + `getTrainingSchedules`)  
+> **Last updated:** 2026-02-25 (INST-13/14 complete — institutional backlog clear)  
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
-**Main platform board (M-Pesa, tests, etc.):** `docs/BACKLOG_BOARD.md`
+**Main platform (M-Pesa, tests, etc.):** `docs/BACKLOG_BOARD.md`
 
 ---
 
@@ -16,12 +16,11 @@
 ┌─────────────────┬──────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                     │ IN PROGRESS  │                      DONE                            │
 ├─────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
-│ INST-13         │                                                 │   (none)     │ INST-0 … INST-12 (see Done)                            │
-│ INST-14         │                                                 │              │                                                        │
+│ (TBD)           │                                                 │   (none)     │ INST-0 … INST-14 (see Done)                          │
 └─────────────────┴──────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘
 ```
 
-\* Hospital admin now resolves **`institutionId` via `getMyInstitution`** (no hardcoded `1`).
+\* Hospital admin resolves **`institutionId` via `getMyInstitution`**.
 
 ---
 
@@ -40,8 +39,7 @@
 
 | ID | Title | Priority | Impact | Ease (1–5) | Notes |
 |----|--------|----------|--------|------------|--------|
-| INST-13 | Incidents tab: list + create tied to `incidents` + institution scope | P2 | M | 2 | Align with Safe-Truth / clinical governance later if needed. |
-| INST-14 | `institutionalAnalytics` rollup job (nightly) for portal charts | P3 | M | 2 | Optional once raw stats are correct. |
+| *TBD* | Next B2B priorities | — | — | — | e.g. attendance CRUD, schedule create, incidents export |
 
 ---
 
@@ -49,7 +47,7 @@
 
 | ID | Title | P | Owner | Notes |
 |----|--------|---|-------|--------|
-| — | *None* | — | — | Pull from **Backlog** when ready. |
+| — | *None* | — | — | — |
 
 ---
 
@@ -80,14 +78,16 @@
 | INST-8 | `/institutional-portal` → `/hospital-admin-dashboard`; welcome on dashboard | P1 | Cursor | 2026-02-25 | Single institutional UX |
 | INST-9 | `bulkEnrollFromStaffRoster` + fixed `processBulkEnrollment` enroll/payment ids | P1 | Cursor | 2026-02-25 | Staff tab |
 | INST-10 | Quotations tab (`getQuotations`) on hospital admin | P2 | Cursor | 2026-02-25 | List view; PDF export later |
-| INST-11 | Institutional notifications — SendGrid/Mailgun via `email-service` | P2 | Cursor | 2026-02-25 | `institutionalNotificationsRouter`: enrollment + completion + batch (`recipientEmails`); tenant `assertInstitutionAccess` |
-| INST-12 | Training schedules: list API + hospital admin **Schedule** tab | P2 | Cursor | 2026-02-25 | `institution.getTrainingSchedules`; `HospitalAdminDashboard` Schedule tab; attendance CRUD later |
+| INST-11 | Institutional notifications — SendGrid/Mailgun via `email-service` | P2 | Cursor | 2026-02-25 | `institutionalNotificationsRouter` |
+| INST-12 | Training schedules: list API + hospital admin **Schedule** tab | P2 | Cursor | 2026-02-25 | `getTrainingSchedules` |
+| INST-13 | Incidents: `getIncidents` + `createIncident` + **Incidents** tab | P2 | Cursor | 2026-02-25 | Tenant-scoped; JSON fields for staff/protocols/gaps |
+| INST-14 | `institutionalAnalytics` rollup + nightly cron + Overview card + refresh | P3 | Cursor | 2026-02-25 | `institutional-analytics-rollup.ts`, `03:20` cron, `ENABLE_SCHEDULER` / production |
 
 ---
 
 ## Sync with main board
 
-- **DATA-1** (InstitutionalPortal KPIs): **done** in this pass (INST-4). Update `BACKLOG_BOARD.md` DATA-1 to Done when you sync the main board.
+- **DATA-1** (InstitutionalPortal KPIs): **done** (INST-4).
 
 ---
 
@@ -98,5 +98,6 @@
 | 2026-02-25 | Initial board + audit split from platform-wide backlog. |
 | 2026-02-25 | INST-1–6 implemented (backend tenant model + portal/onboarding). |
 | 2026-02-25 | INST-7–10: lead capture, portal redirect, bulk enroll API, quotations tab. |
-| 2026-02-25 | INST-11: institutional email templates + `sendEmail` in notifications router; shared `institution-access` lib. |
-| 2026-02-25 | INST-12: `getTrainingSchedules` + Schedule tab on hospital admin dashboard. |
+| 2026-02-25 | INST-11: institutional email via `email-service`. |
+| 2026-02-25 | INST-12: training schedule list + tab. |
+| 2026-02-25 | INST-13/14: incidents UI + analytics rollup + scheduler wiring. |

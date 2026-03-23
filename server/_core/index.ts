@@ -20,6 +20,7 @@ import {
   handleMpesaTimeoutWebhook,
 } from "../webhooks/mpesa-webhook";
 import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
+import { initializeScheduler } from "../scheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -97,6 +98,9 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    if (process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULER === "1") {
+      initializeScheduler();
+    }
   });
 }
 
