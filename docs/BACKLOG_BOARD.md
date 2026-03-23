@@ -134,6 +134,8 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | P2-SUP-1 | `/help`, `/privacy`, `/terms`, `/about` | P2 | Cursor | 2026-02-25 | `App.tsx`, new pages |
 | P2-LAND-1b | Anonymous header: Parents, Institutions, Help | P2 | Cursor | 2026-02-25 | `Header.tsx` |
 | P2-REF-1b | Referral status timeline on list cards | P2 | Cursor | 2026-02-25 | `Referral.tsx` |
+| MPESA-ENV-1 | Unified `MPESA_ENVIRONMENT` + `MPESA_ENV` (`mpesa-env.ts`); webhook 400 before DB for missing CheckoutRequestID | P1 | Cursor | 2026-02-25 | `server/lib/mpesa-env.ts`, `mpesa-webhook.ts` |
+| CERT-EMAIL-1 | User-triggered renewal reminder email (`certificateRenewalReminder` template + tRPC) | P1 | Cursor | 2026-02-25 | `certificates` router, `LearnerDashboard.tsx` |
 
 *Full Done list:* `docs/WAYFORWARD_EXECUTION_PLAN.md` and `docs/CURSOR_MANUS_STATUS_ALIGNMENT.md`.
 

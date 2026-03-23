@@ -25,9 +25,9 @@ Use this when choosing the **next** piece of work. **Impact** = clinical safety,
 | Item | Why here |
 |------|----------|
 | **P0-PAY-1 (ops)** | One **live** small STK + webhook check using `MPESA_PRODUCTION_CHECKLIST.md` — highest revenue/trust leverage, **no code** if env is right. |
-| **M-Pesa env consistency** | Align **`MPESA_ENV`** vs **`MPESA_ENVIRONMENT`** usage across `mpesa-real` / services / readiness so prod/sandbox is never ambiguous (**S** code + doc tweak). |
+| **M-Pesa env consistency** | **Shipped:** `server/lib/mpesa-env.ts` — **`MPESA_ENVIRONMENT` wins** over `MPESA_ENV`; used by `mpesa-real`, `services/mpesa`, readiness. |
 | **Test & type hardening** | Fix **flaky or failing** Vitest (e.g. M-Pesa critical flow expectations, Kaizen mocks) and worst **TS** debt on hot paths — improves feasibility of everything else (**S–M**). |
-| **P1-CERT-1 (notifications)** | **Email (or SMS) nudge** when `expiryDate` within N days — builds on existing cert data + renewal CTAs; clear B2B/B2C revenue loop (**M**, bounded scope). |
+| **P1-CERT-1 (notifications)** | **Shipped (user-triggered):** `certificates.requestRenewalReminderEmail` + template `certificateRenewalReminder`; Learner dashboard button. **Next:** scheduled/cron or rate-limited auto-send if desired. |
 
 ### B — Slice thin (high impact, heavier lift)
 
@@ -88,7 +88,7 @@ These unblock money, certificates, or core trust.
 | **P1-RESUS-1** | **ResusGPS: outcomes + handoff** | Core clinical differentiator; ties analytics to real resuscitation quality. | L | Structured end-of-session summary, optional export, tighter protocol adherence prompts where evidence supports. |
 | **P1-SAFE-1** | **Safe-Truth: parent metrics from DB** | Hardcoded parent dashboard numbers erode trust (`PLATFORM_AUDIT` §3.3). | S–M | **Shipped:** Parent Learner dashboard + `getSafeTruthStats.totalSubmissions`; ParentSafeTruth wired. **Shipped:** Institution role on Learner dashboard uses `institution.getStats` (replaces hardcoded zeros). |
 | **P1-INST-1** | **Institutional funnel clarity** | “For Institutions” vs gated portal confuses buyers (`PLATFORM_AUDIT` §3.2). | M | **Shipped:** Funnel strip on `/institutional` (quote vs portal); `#quote` anchor; `/contact` → quote section. |
-| **P1-CERT-1** | **Certificate renewal & reminders** | Drives repeat revenue and compliance for hospitals. | M | **Shipped (UX):** Expiry warnings, renew CTAs to `/enroll` on Learner dashboard. **Future:** email/SMS hooks from `certificates`. |
+| **P1-CERT-1** | **Certificate renewal & reminders** | Drives repeat revenue and compliance for hospitals. | M | **Shipped:** Expiry UX + renew CTAs + **email reminder** (`requestRenewalReminderEmail`). **Future:** SMS or scheduled sends. |
 | **P1-ADM-1** | **Admin: operational dashboards** | Faster support and fraud/payment investigation. | M | **Shipped:** `/admin/mpesa-reconciliation` (stale list, STK reconcile, CSV); `getUsers` search + CSV export in Reports; `getOperationalReadiness`. |
 
 ---
@@ -144,3 +144,4 @@ These unblock money, certificates, or core trust.
 | 2026-02-25 | P0-ENROLL-1 / P0-NAV-1 / P1-SAFE-1 (partial): `enrollment.getById`, Payment lock + M-Pesa enrollment guard, Home hub cards, `getSafeTruthStats.totalSubmissions`, LearnerDashboard parent KPIs. |
 | 2026-02-25 | Remaining backlog pass: P0-PAY-1 support (readiness + runbook), P1-INST-1 funnel, P1-CERT-1 renewal UX, P1-ADM-1 + P2-MPESA-1 reconciliation UI, P2-SUP-1 routes, P2-LAND-1 header links, P2-REF-1 referral timeline, institution stats on Learner dashboard, admin user search/CSV. |
 | 2026-02-25 | Added **Impact × feasibility** section and re-ordered suggested sprints around ops closure, env consistency, test/TS hardening, cert notifications, then thin ResusGPS / B2B slices. |
+| 2026-02-25 | Zone A delivery: `server/lib/mpesa-env.ts` (MPESA_ENVIRONMENT + MPESA_ENV, former wins); webhook validates CheckoutRequestID before DB; `certificateRenewalReminder` email + `requestRenewalReminderEmail` tRPC; admin readiness shows env source; mpesa critical-flow idempotency test fixed. |

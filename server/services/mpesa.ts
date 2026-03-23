@@ -3,6 +3,8 @@
  * Handles authentication with Daraja API and STK Push payment initiation
  */
 
+import { getMpesaDeploymentMode } from "../lib/mpesa-env";
+
 interface TokenResponse {
   access_token: string;
   expires_in: string | number;
@@ -36,7 +38,7 @@ class MpesaService {
     this.consumerSecret = process.env.DARAJA_CONSUMER_SECRET || "";
     this.paybill = process.env.MPESA_PAYBILL || "";
     this.accountNumber = process.env.MPESA_ACCOUNT || "";
-    this.environment = (process.env.MPESA_ENVIRONMENT as "sandbox" | "production") || "sandbox";
+    this.environment = getMpesaDeploymentMode();
 
     // Set baseUrl based on environment
     if (this.environment === "production") {

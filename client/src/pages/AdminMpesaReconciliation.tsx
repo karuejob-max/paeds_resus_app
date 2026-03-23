@@ -101,7 +101,9 @@ export default function AdminMpesaReconciliation() {
               <Badge variant={readiness.databaseConnected ? "default" : "destructive"}>
                 DB {readiness.databaseConnected ? "OK" : "down"}
               </Badge>
-              <Badge variant="secondary">Env: {readiness.mpesaEnvironment}</Badge>
+              <Badge variant="secondary">
+                Env: {readiness.mpesaEnvironment} · {readiness.mpesaEnvironmentSource}
+              </Badge>
               <Badge variant={readiness.allRequiredForStk ? "default" : "outline"}>
                 STK config {readiness.allRequiredForStk ? "complete" : "incomplete"}
               </Badge>

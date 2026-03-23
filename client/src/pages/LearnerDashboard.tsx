@@ -7,6 +7,7 @@ import { AlertCircle, Award, BookOpen, Download, FileText, Loader2, Users } from
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
   if (!expiryDate) return null;
@@ -27,6 +28,13 @@ export default function LearnerDashboard() {
     { enabled: isAuthenticated && selectedRole === "parent" }
   );
   const downloadCert = trpc.certificates.download.useMutation();
+  const renewalReminderEmail = trpc.certificates.requestRenewalReminderEmail.useMutation({
+    onSuccess: (r) => {
+      if (r.success) toast.success("Renewal reminder sent to your email.");
+      else toast.error(r.error ?? "Could not send email.");
+    },
+    onError: (e) => toast.error(e.message || "Could not send email."),
+  });
   const myCertificates = certData?.success ? certData.certificates ?? [] : [];
 
   const { data: myInstitution } = trpc.institution.getMyInstitution.useQuery(undefined, {
@@ -187,9 +195,21 @@ export default function LearnerDashboard() {
                 <AlertDescription className="text-amber-900/90">
                   {renewalAttention.length} certificate(s) expire within 90 days or are expired. Recertify to stay
                   compliant.
-                  <Button className="mt-3 bg-amber-700 hover:bg-amber-800" size="sm" onClick={() => navigate("/enroll")}>
-                    Renew / recertify
-                  </Button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button className="bg-amber-700 hover:bg-amber-800" size="sm" onClick={() => navigate("/enroll")}>
+                      Renew / recertify
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-800 text-amber-900 bg-white/80"
+                      disabled={renewalReminderEmail.isPending}
+                      onClick={() => renewalReminderEmail.mutate()}
+                    >
+                      {renewalReminderEmail.isPending ? "Sending…" : "Email me a reminder"}
+                    </Button>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}

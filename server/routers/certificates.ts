@@ -8,6 +8,7 @@ import {
   getCertificatesByUserId,
   getCertificateForDownload,
 } from "../certificates";
+import { sendEmail } from "../email-service";
 import { generateCertificatePDF as generateCertificatePDFBranded } from "../certificate-pdf";
 
 const certificateSchema = z.object({
@@ -160,6 +161,55 @@ export const certificateRouter = router({
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
+  }),
+
+  /**
+   * P1-CERT-1: Send renewal reminder email (user-initiated; requires expiring cert + email on account).
+   */
+  requestRenewalReminderEmail: protectedProcedure.mutation(async ({ ctx }) => {
+    const email = ctx.user.email?.trim();
+    if (!email) {
+      return { success: false as const, error: "Add an email to your account to receive reminders." };
+    }
+
+    const list = await getCertificatesByUserId(ctx.user.id);
+    const now = Date.now();
+    const msPerDay = 86400000;
+    const attention = list.filter((c) => {
+      if (!c.expiryDate) return false;
+      const t = new Date(c.expiryDate).getTime();
+      if (Number.isNaN(t)) return false;
+      const days = Math.ceil((t - now) / msPerDay);
+      return days <= 90 && days >= -730;
+    });
+
+    if (attention.length === 0) {
+      return {
+        success: false as const,
+        error: "No certificates need renewal within the reminder window.",
+      };
+    }
+
+    const base = process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://app.paedsresus.com";
+    const renewLink = `${base}/enroll`;
+    const programSummary = attention
+      .map((c) => {
+        const label = (c.programType || "course").toUpperCase();
+        const exp = c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : "—";
+        return `${label} - expires ${exp}`;
+      })
+      .join("\n");
+
+    const result = await sendEmail(email, "certificateRenewalReminder", {
+      userName: ctx.user.name?.trim() || "there",
+      programSummary,
+      renewLink,
+    });
+
+    if (!result.success) {
+      return { success: false as const, error: result.error ?? "Email could not be sent." };
+    }
+    return { success: true as const, messageId: result.messageId };
   }),
 
   // Download certificate (generate PDF on demand)

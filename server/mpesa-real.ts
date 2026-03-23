@@ -6,11 +6,12 @@
 
 import axios from "axios";
 
+import { isMpesaProduction } from "./lib/mpesa-env";
+
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
 
-// Use sandbox for development, production for live
-const API_URL = process.env.MPESA_ENV === "production" ? MPESA_API_URL : MPESA_SANDBOX_URL;
+const API_URL = isMpesaProduction() ? MPESA_API_URL : MPESA_SANDBOX_URL;
 
 interface MpesaConfig {
   consumerKey: string;

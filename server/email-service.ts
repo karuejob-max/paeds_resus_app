@@ -411,6 +411,31 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     text: `Referral for {{patientName}} (from {{referringProvider}}) is now {{newStatus}}.\n{{appLink}}\n\nPaeds Resus Limited`,
     variables: ["patientName", "referringProvider", "newStatus", "appLink"],
   },
+
+  certificateRenewalReminder: {
+    id: "certificate-renewal-reminder",
+    name: "Certificate renewal reminder",
+    subject: "Renew your Paeds Resus certification",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Certificate renewal</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{userName}},</p>
+          <p>One or more of your certificates need renewal soon:</p>
+          <p style="background: white; padding: 12px; border-radius: 6px; border-left: 4px solid #ff6633;">{{programSummary}}</p>
+          <p>You can recertify through the platform to stay compliant.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{renewLink}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Enrol to renew</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{userName}},\n\nYour certificates need renewal attention:\n{{programSummary}}\n\nRenew here: {{renewLink}}\n\nPaeds Resus Limited`,
+    variables: ["userName", "programSummary", "renewLink"],
+  },
 };
 
 /**

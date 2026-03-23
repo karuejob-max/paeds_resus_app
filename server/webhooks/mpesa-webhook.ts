@@ -89,19 +89,20 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
     const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } =
       stkCallback;
+
+    // MPESA-4: Require CheckoutRequestID before touching DB (validates payload; avoids 500 when DB test-mocked)
+    const idempotencyKey =
+      typeof CheckoutRequestID === "string" ? CheckoutRequestID.trim() : String(CheckoutRequestID ?? "").trim();
+
+    if (!idempotencyKey) {
+      console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
+      return res.status(400).json({ error: "Missing CheckoutRequestID" });
+    }
+
     const db = await getDb();
 
     if (!db) {
       return res.status(500).json({ error: "Database unavailable" });
-    }
-
-    // MPESA-4: Idempotency check - prevent duplicate webhook processing
-    // Use CheckoutRequestID as the idempotency key
-    const idempotencyKey = CheckoutRequestID || "";
-    
-    if (!idempotencyKey) {
-      console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
-      return res.status(400).json({ error: "Missing CheckoutRequestID" });
     }
 
     // Check if this webhook has already been processed

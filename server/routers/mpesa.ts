@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
+import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 
 export const mpesaRouter = router({
   /**
@@ -424,10 +425,11 @@ export const mpesaRouter = router({
   getOperationalReadiness: adminProcedure.query(async () => {
     const db = await getDb();
     const callback = process.env.MPESA_CALLBACK_URL?.trim() ?? "";
-    const mpesaEnv = process.env.MPESA_ENV === "production" ? "production" : "sandbox";
+    const mpesaEnv = getMpesaDeploymentMode();
     return {
       databaseConnected: !!db,
       mpesaEnvironment: mpesaEnv,
+      mpesaEnvironmentSource: getMpesaEnvironmentSource(),
       consumerKeySet: Boolean(process.env.MPESA_CONSUMER_KEY?.trim()),
       consumerSecretSet: Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()),
       shortcodeSet: Boolean(process.env.MPESA_SHORTCODE?.trim()),
