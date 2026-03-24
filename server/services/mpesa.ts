@@ -219,7 +219,14 @@ class MpesaService {
   }
 }
 
-// Export singleton instance
-export const mpesaService = new MpesaService();
+/** Lazy singleton so importing the app router does not require Daraja env (e.g. Vitest). */
+let mpesaServiceSingleton: MpesaService | null = null;
+
+export function getMpesaService(): MpesaService {
+  if (!mpesaServiceSingleton) {
+    mpesaServiceSingleton = new MpesaService();
+  }
+  return mpesaServiceSingleton;
+}
 
 export type { STKPushResponse, STKPushError };

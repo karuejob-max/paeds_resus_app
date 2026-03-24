@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { inArray } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   saveCertificate,
@@ -9,6 +10,8 @@ import {
   getCertificateForDownload,
 } from "../certificates";
 import { sendEmail } from "../email-service";
+import { getDb } from "../db";
+import { certificates } from "../../drizzle/schema";
 import { generateCertificatePDF as generateCertificatePDFBranded } from "../certificate-pdf";
 
 const certificateSchema = z.object({
@@ -209,6 +212,20 @@ export const certificateRouter = router({
     if (!result.success) {
       return { success: false as const, error: result.error ?? "Email could not be sent." };
     }
+
+    const db = await getDb();
+    if (db && attention.length > 0) {
+      await db
+        .update(certificates)
+        .set({ renewalReminderSentAt: new Date() })
+        .where(
+          inArray(
+            certificates.id,
+            attention.map((c) => c.id)
+          )
+        );
+    }
+
     return { success: true as const, messageId: result.messageId };
   }),
 

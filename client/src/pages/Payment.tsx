@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "wouter";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
 import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } from "lucide-react";
 import { individualCourses, fellowshipTiers } from "@/const/pricing";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function Payment() {
   useScrollToTop();
@@ -32,7 +36,30 @@ export default function Payment() {
     { enabled: enrollmentIdFromEnroll !== undefined }
   );
 
+  const { data: payCaps } = trpc.mpesa.getClientPaymentCapabilities.useQuery(undefined, {
+    staleTime: 60_000,
+  });
+
+  const [bankReference, setBankReference] = useState("");
+
+  const recordBankPayment = trpc.enrollment.recordPayment.useMutation({
+    onSuccess: () => {
+      toast.success(
+        "Payment details saved. Our team will verify your bank transfer—check your email and learner dashboard for updates."
+      );
+      setBankReference("");
+    },
+    onError: (e) => toast.error(e.message || "Could not record payment"),
+  });
+
   const lockCourseSelection = Boolean(enrollmentIdFromEnroll && enrollmentRow);
+
+  useEffect(() => {
+    if (!payCaps) return;
+    if (!payCaps.stkPushOffered && paymentMethod === "mpesa") {
+      setPaymentMethod("bank");
+    }
+  }, [payCaps, paymentMethod]);
 
   useEffect(() => {
     if (enrollmentIdFromEnroll !== undefined) {
@@ -87,29 +114,63 @@ export default function Payment() {
 
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
 
-  const paymentMethods = [
-    {
-      id: "mpesa",
-      name: "M-Pesa",
-      description: "Instant mobile money payment",
-      icon: Smartphone,
-      available: true,
-    },
-    {
-      id: "bank",
-      name: "Bank Transfer",
-      description: "Direct bank account transfer",
-      icon: Building2,
-      available: true,
-    },
-    {
-      id: "card",
-      name: "Card Payment",
-      description: "Visa, Mastercard, American Express",
-      icon: CreditCard,
-      available: false,
-    },
-  ];
+  const mpesaSelectable = payCaps?.stkPushOffered ?? true;
+
+  const paymentMethods = useMemo(
+    () => [
+      {
+        id: "mpesa" as const,
+        name: "M-Pesa",
+        description: mpesaSelectable
+          ? "Instant mobile money payment"
+          : "Unavailable — use bank transfer or contact support",
+        icon: Smartphone,
+        available: mpesaSelectable,
+      },
+      {
+        id: "bank" as const,
+        name: "Bank Transfer",
+        description: "Direct bank transfer — recommended when mobile money is paused",
+        icon: Building2,
+        available: true,
+      },
+      {
+        id: "card" as const,
+        name: "Card Payment",
+        description: "Visa, Mastercard, American Express",
+        icon: CreditCard,
+        available: false,
+      },
+    ],
+    [mpesaSelectable]
+  );
+
+  const canSubmitBankIntent = Boolean(
+    enrollmentIdFromEnroll &&
+      enrollmentRow &&
+      selectedCourseData &&
+      !recordBankPayment.isPending
+  );
+
+  const copyBankInstructions = () => {
+    if (!selectedCourseData) return;
+    const lines = [
+      "Paeds Resus — bank transfer",
+      "Bank: Equity Bank Kenya",
+      "Account name: Paeds Resus",
+      "Account number: 1150286006733",
+      `Amount (KES): ${selectedCourseData.price.toLocaleString()}`,
+      enrollmentIdFromEnroll
+        ? `Reference: include enrollment #${enrollmentIdFromEnroll} in the transfer narration`
+        : "Reference: use your full name + course",
+      "",
+      "After paying, use the button on the site to register your transfer and send proof to payments@paeds-resus.com",
+    ];
+    void navigator.clipboard.writeText(lines.join("\n")).then(
+      () => toast.success("Bank details copied"),
+      () => toast.error("Could not copy — select and copy manually")
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -165,6 +226,13 @@ export default function Payment() {
               {enrollmentRow.programType === "fellowship" ? "fellowship tier" : enrollmentRow.programType.toUpperCase()}
               ).
             </AlertDescription>
+          </Alert>
+        )}
+        {payCaps?.userMessage && (
+          <Alert className="border-amber-200 bg-amber-50/90">
+            <AlertCircle className="h-4 w-4 text-amber-800" />
+            <AlertTitle className="text-amber-950">Payments notice</AlertTitle>
+            <AlertDescription className="text-amber-900">{payCaps.userMessage}</AlertDescription>
           </Alert>
         )}
 
@@ -250,14 +318,15 @@ export default function Payment() {
                       return (
                         <button
                           key={method.id}
-                          onClick={() => setPaymentMethod(method.id as any)}
+                          type="button"
+                          onClick={() => method.available && setPaymentMethod(method.id)}
                           disabled={!method.available}
                           className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                             paymentMethod === method.id
                               ? "border-blue-500 bg-blue-50"
                               : method.available
-                              ? "border-slate-200 hover:border-blue-300"
-                              : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                                ? "border-slate-200 hover:border-blue-300"
+                                : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -268,7 +337,7 @@ export default function Payment() {
                             </div>
                             {!method.available && (
                               <Badge className="ml-auto" variant="secondary">
-                                Coming Soon
+                                {method.id === "mpesa" ? "Unavailable" : "Coming Soon"}
                               </Badge>
                             )}
                           </div>

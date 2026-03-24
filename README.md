@@ -6,6 +6,13 @@
 
 Paeds Resus is a comprehensive digital platform designed to train healthcare professionals in pediatric resuscitation and track patient safety incidents. By combining evidence-based training with real-world incident analysis, we empower healthcare systems to save children's lives.
 
+### Product and backlog docs
+
+- **High-impact roadmap (comprehensive):** [`docs/BACKLOG_HIGH_IMPACT.md`](docs/BACKLOG_HIGH_IMPACT.md)
+- **Prioritized P0–P3 IDs:** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md)
+- **Scrum Done (main platform):** [`docs/BACKLOG_BOARD.md`](docs/BACKLOG_BOARD.md)
+- **Institutional (B2B) board:** [`docs/INSTITUTIONAL_BACKLOG_BOARD.md`](docs/INSTITUTIONAL_BACKLOG_BOARD.md)
+
 ---
 
 ## Platform Overview

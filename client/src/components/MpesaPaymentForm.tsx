@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,8 @@ interface MpesaPaymentFormProps {
   courseName: string;
   amount: number;
   enrollmentId?: number;
-  onPaymentSuccess?: (data: unknown) => void;
+  /** Called once when payment is confirmed (webhook/poll), not when STK is only initiated. */
+  onPaymentComplete?: () => void;
   onPaymentError?: (error: string) => void;
 }
 
@@ -19,9 +20,10 @@ export function MpesaPaymentForm({
   courseName,
   amount,
   enrollmentId,
-  onPaymentSuccess,
+  onPaymentComplete,
   onPaymentError,
 }: MpesaPaymentFormProps) {
+  const completionNotified = useRef(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
@@ -84,6 +86,12 @@ export function MpesaPaymentForm({
     }
   }, [enrollmentPoll, paymentStatus, checkoutRequestID, onPaymentError]);
 
+  useEffect(() => {
+    if (paymentStatus !== "success" || completionNotified.current) return;
+    completionNotified.current = true;
+    onPaymentComplete?.();
+  }, [paymentStatus, onPaymentComplete]);
+
   const initiatePaymentMutation = trpc.mpesa.initiatePayment.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -94,7 +102,6 @@ export function MpesaPaymentForm({
         if (data.enrollmentId) {
           setPollEnrollmentId(data.enrollmentId);
         }
-        onPaymentSuccess?.(data);
       } else {
         setPaymentStatus("error");
         setStatusMessage(data.error || "Payment initiation failed");

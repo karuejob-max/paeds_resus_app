@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmergencyProtocolViewer } from "@/components/EmergencyProtocolViewer";
 import { AlertCircle, BookOpen, Shield } from "lucide-react";
+import { BottomNav } from "@/components/BottomNav";
 
 export const EmergencyProtocols: React.FC = () => {
   const [selectedProtocol, setSelectedProtocol] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export const EmergencyProtocols: React.FC = () => {
 
   if (showViewer && selectedProtocol) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gray-50 p-4 pb-24 md:pb-4">
         <Button
           onClick={() => {
             setShowViewer(false);
@@ -75,12 +76,13 @@ export const EmergencyProtocols: React.FC = () => {
             setSelectedProtocol(null);
           }}
         />
+        <BottomNav />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 p-4 pb-24 md:pb-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -213,6 +215,7 @@ export const EmergencyProtocols: React.FC = () => {
           </div>
         </Card>
       </div>
+      <BottomNav />
     </div>
   );
 };

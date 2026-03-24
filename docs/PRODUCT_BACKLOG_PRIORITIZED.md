@@ -1,6 +1,7 @@
 # Paeds Resus — Product backlog (impact-prioritized)
 
 > **Purpose:** Single **prioritized** view of what to build next, ordered by **user + business impact**, not by completion history.  
+> **Comprehensive high-impact roadmap (pillars + sequencing):** **`docs/BACKLOG_HIGH_IMPACT.md`**.  
 > **Complements:** `docs/BACKLOG_BOARD.md` (scrum / Done archive) and `docs/INSTITUTIONAL_BACKLOG_BOARD.md` (B2B scrum).  
 > **How to use:** Work **top-down** within each tier. When an item ships, move it to the appropriate scrum board **Done** row and trim or re-rank this file.
 

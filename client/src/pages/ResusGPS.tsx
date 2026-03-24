@@ -11,6 +11,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
+import { BottomNav } from '@/components/BottomNav';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { Button } from '@/components/ui/button';
@@ -79,6 +81,7 @@ import {
   Eye,
   Siren,
   FileText,
+  Copy,
   ListChecks,
   Timer,
   ChevronDown,
@@ -277,6 +280,16 @@ export default function ResusGPS() {
     URL.revokeObjectURL(url);
   };
 
+  /** HI-CLIN-1: Same text as export — copy for handoff / EHR paste */
+  const handleCopySummary = useCallback(() => {
+    trackButtonClick('Copy session summary');
+    const text = exportClinicalRecord(session);
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success('Session summary copied to clipboard'),
+      () => toast.error('Could not copy — use Export or check permissions')
+    );
+  }, [session, trackButtonClick]);
+
   const handleNewCase = () => {
     setSession(createSession(getWeightInKg(), demographics.age || null));
     timer.reset();
@@ -305,6 +318,7 @@ export default function ResusGPS() {
         onOpenInterventions={() => setInterventionPanelOpen(true)}
         onCardiacArrest={handleCardiacArrest}
         onExport={handleExport}
+        onCopySummary={handleCopySummary}
         onNewCase={handleNewCase}
         onShowLog={() => setShowEventLog(true)}
       />
@@ -337,7 +351,7 @@ export default function ResusGPS() {
       )}
 
       {/* Main Content */}
-      <main className="container max-w-2xl pb-32">
+      <main className="container max-w-2xl pb-32 max-md:pb-40">
         {session.phase === 'IDLE' && (
           <IdleScreen
             weight={weight}
@@ -393,6 +407,7 @@ export default function ResusGPS() {
             setSession={setSession}
             diagnoses={diagnoses}
             onExport={handleExport}
+            onCopySummary={handleCopySummary}
           />
         )}
       </main>
@@ -518,7 +533,10 @@ export default function ResusGPS() {
               })}
             </div>
           </ScrollArea>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCopySummary}>
+              <Copy className="h-4 w-4 mr-2" /> Copy summary
+            </Button>
             <Button variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
@@ -538,6 +556,8 @@ export default function ResusGPS() {
           </span>
         </button>
       )}
+
+      <BottomNav />
     </div>
   );
 }
@@ -554,6 +574,7 @@ function TopBar({
   onOpenInterventions,
   onCardiacArrest,
   onExport,
+  onCopySummary,
   onNewCase,
   onShowLog,
 }: {
@@ -566,6 +587,7 @@ function TopBar({
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
   onExport: () => void;
+  onCopySummary: () => void;
   onNewCase: () => void;
   onShowLog: () => void;
 }) {
@@ -652,6 +674,16 @@ function TopBar({
         {/* Log */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
           <FileText className="h-4 w-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onCopySummary}
+          title="Copy session summary"
+          aria-label="Copy session summary"
+        >
+          <Copy className="h-4 w-4" />
         </Button>
         {/* New Case */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
@@ -1297,12 +1329,16 @@ function PostPrimaryScreen({
   setSession,
   diagnoses,
   onExport,
+  onCopySummary,
 }: {
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   diagnoses: DiagnosisSuggestion[];
   onExport: () => void;
+  onCopySummary: () => void;
 }) {
+  const { trackButtonClick } = useAnalytics('ResusGPS');
+
   return (
     <div className="py-6 space-y-6">
       {/* Vital Signs Summary */}
@@ -1434,11 +1470,17 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {/* Export */}
-      <Button className="w-full py-4" onClick={onExport}>
-        <Download className="h-4 w-4 mr-2" />
-        Export Clinical Record
-      </Button>
+      {/* Export / copy (HI-CLIN-1) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Button className="w-full py-4" variant="outline" onClick={onCopySummary}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy summary
+        </Button>
+        <Button className="w-full py-4" onClick={onExport}>
+          <Download className="h-4 w-4 mr-2" />
+          Export clinical record
+        </Button>
+      </div>
     </div>
   );
 }

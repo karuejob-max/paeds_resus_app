@@ -91,6 +91,8 @@ export const certificates = mysqlTable("certificates", {
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
   verificationCode: varchar("verificationCode", { length: 255 }).unique(),
+  /** Set when user or scheduled job sends a renewal reminder (HI-CERT-1 dedupe). */
+  renewalReminderSentAt: timestamp("renewalReminderSentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

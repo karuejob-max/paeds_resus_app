@@ -138,11 +138,37 @@ export const mpesaRouter = router({
       if (!row.length) {
         return { ok: true as const, found: false as const, status: null as null };
       }
+
+      const pay = row[0];
+      // Dev/mock STK: completion is tracked in the mock store, not the webhook. Sync DB before returning so polling works.
+      if (
+        pay.status === "pending" &&
+        pay.paymentMethod === "mpesa" &&
+        typeof pay.transactionId === "string" &&
+        pay.transactionId.startsWith("MOCK_")
+      ) {
+        await reconcilePaymentRowByStkQuery(pay.id);
+        const again = await db
+          .select()
+          .from(payments)
+          .where(and(eq(payments.transactionId, input.checkoutRequestID), eq(payments.userId, ctx.user.id)))
+          .orderBy(desc(payments.id))
+          .limit(1);
+        if (again.length) {
+          return {
+            ok: true as const,
+            found: true as const,
+            status: again[0].status as string | null,
+            payment: again[0],
+          };
+        }
+      }
+
       return {
         ok: true as const,
         found: true as const,
-        status: row[0].status as string | null,
-        payment: row[0],
+        status: pay.status as string | null,
+        payment: pay,
       };
     }),
 
@@ -420,26 +446,87 @@ export const mpesaRouter = router({
     }),
 
   /**
+   * Learner-facing: whether to promote STK vs bank (no secrets). Honors DISABLE_MPESA_STK.
+   */
+  getClientPaymentCapabilities: protectedProcedure.query(async () => {
+    const mpesaEnv = getMpesaDeploymentMode();
+    const disabled =
+      process.env.DISABLE_MPESA_STK === "1" ||
+      process.env.DISABLE_MPESA_STK === "true" ||
+      process.env.DISABLE_MPESA_STK === "yes";
+
+    const callbackRaw =
+      process.env.MPESA_CALLBACK_URL?.trim() ||
+      (process.env.CALLBACK_URL?.trim()
+        ? `${process.env.CALLBACK_URL.replace(/\/$/, "")}/api/mpesa/callback`
+        : "");
+    const callbackOk = Boolean(callbackRaw && !callbackRaw.includes("example.com"));
+
+    const keyPair =
+      (Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) &&
+        Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim())) ||
+      (Boolean(process.env.MPESA_CONSUMER_KEY?.trim()) &&
+        Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()));
+
+    const paybillOk = Boolean(
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
+    );
+    const passkeyOk = Boolean(process.env.MPESA_PASSKEY?.trim());
+
+    const stkInfrastructureReady = keyPair && paybillOk && passkeyOk && callbackOk;
+    const stkOffered = !disabled && stkInfrastructureReady;
+
+    return {
+      mpesaEnvironment: mpesaEnv,
+      stkPushOffered: stkOffered,
+      stkDisabledByConfig: disabled,
+      bankTransferAvailable: true,
+      userMessage: disabled
+        ? "Mobile Money (STK) checkout is temporarily turned off. Use bank transfer below, or contact support."
+        : !stkInfrastructureReady
+          ? "Mobile Money is not fully configured on this server. Use bank transfer—we’ll confirm your payment and activate your course."
+          : null,
+    };
+  }),
+
+  /**
    * P0-PAY-1 / ops: non-secret config flags for production readiness (admin only).
    */
   getOperationalReadiness: adminProcedure.query(async () => {
     const db = await getDb();
-    const callback = process.env.MPESA_CALLBACK_URL?.trim() ?? "";
+    const callback =
+      process.env.MPESA_CALLBACK_URL?.trim() ||
+      (process.env.CALLBACK_URL?.trim()
+        ? `${process.env.CALLBACK_URL.replace(/\/$/, "")}/api/mpesa/callback`
+        : "");
     const mpesaEnv = getMpesaDeploymentMode();
+    const darajaOrMpesaKey =
+      Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) ||
+      Boolean(process.env.MPESA_CONSUMER_KEY?.trim());
+    const darajaOrMpesaSecret =
+      Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim()) ||
+      Boolean(process.env.MPESA_CONSUMER_SECRET?.trim());
     return {
       databaseConnected: !!db,
       mpesaEnvironment: mpesaEnv,
       mpesaEnvironmentSource: getMpesaEnvironmentSource(),
-      consumerKeySet: Boolean(process.env.MPESA_CONSUMER_KEY?.trim()),
-      consumerSecretSet: Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()),
-      shortcodeSet: Boolean(process.env.MPESA_SHORTCODE?.trim()),
+      consumerKeySet: darajaOrMpesaKey,
+      consumerSecretSet: darajaOrMpesaSecret,
+      shortcodeSet: Boolean(
+        process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
+      ),
       passkeySet: Boolean(process.env.MPESA_PASSKEY?.trim()),
       callbackUrlSet: Boolean(callback && !callback.includes("example.com")),
       callbackIpAllowlistSet: Boolean(process.env.MPESA_CALLBACK_IP_ALLOWLIST?.trim()),
+      disableStkFlagSet: Boolean(
+        process.env.DISABLE_MPESA_STK === "1" ||
+          process.env.DISABLE_MPESA_STK === "true" ||
+          process.env.DISABLE_MPESA_STK === "yes"
+      ),
       allRequiredForStk:
-        Boolean(process.env.MPESA_CONSUMER_KEY?.trim()) &&
-        Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()) &&
-        Boolean(process.env.MPESA_SHORTCODE?.trim()) &&
+        darajaOrMpesaKey &&
+        darajaOrMpesaSecret &&
+        Boolean(process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()) &&
         Boolean(process.env.MPESA_PASSKEY?.trim()) &&
         Boolean(callback && !callback.includes("example.com")),
     };

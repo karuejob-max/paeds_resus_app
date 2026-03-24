@@ -6,7 +6,8 @@
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
-**Main platform (M-Pesa, tests, etc.):** `docs/BACKLOG_BOARD.md`
+**Main platform (M-Pesa, tests, etc.):** `docs/BACKLOG_BOARD.md`  
+**Cross-cutting high-impact roadmap:** `docs/BACKLOG_HIGH_IMPACT.md`
 
 ---
 

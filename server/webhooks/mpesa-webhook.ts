@@ -28,11 +28,14 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
       .update(body)
       .digest("base64");
 
-    // Compare signatures (constant-time comparison to prevent timing attacks)
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(computedSignature),
-      Buffer.from(signature)
-    );
+    // Constant-time compare only when lengths match (timingSafeEqual throws on mismatch — treat as invalid)
+    const computedBuf = Buffer.from(computedSignature, "utf8");
+    const receivedBuf = Buffer.from(signature, "utf8");
+    if (computedBuf.length !== receivedBuf.length) {
+      console.warn("[M-Pesa] Signature length mismatch");
+      return false;
+    }
+    const isValid = crypto.timingSafeEqual(computedBuf, receivedBuf);
 
     if (!isValid) {
       console.warn(

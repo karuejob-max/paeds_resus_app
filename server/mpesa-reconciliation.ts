@@ -39,6 +39,15 @@ export async function reconcilePaymentRowByStkQuery(paymentId: number): Promise<
 
   const stk = await queryStk(checkoutId);
   if (!stkResultIsSuccess(stk.resultCode)) {
+    const code = String(stk.resultCode ?? "");
+    const stillProcessing = code === "2031" || /still processing/i.test(String(stk.resultDesc ?? ""));
+    // Mock/real STK: persist terminal failure so UI polling stops (mock store can mark failed while DB stayed pending).
+    if (!stillProcessing && payment.status === "pending") {
+      await db
+        .update(payments)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(eq(payments.id, payment.id));
+    }
     return {
       ok: false,
       error: stk.resultDesc || `STK query not successful (code ${stk.resultCode})`,

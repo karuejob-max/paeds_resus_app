@@ -36,6 +36,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
+import { buildIncidentsGovernanceCsv, downloadCsv } from "@/lib/incidentsCsv";
+import { toast } from "sonner";
 
 const WELCOME_KEY = "institutionalPortalWelcome";
 
@@ -787,9 +789,28 @@ export default function HospitalAdminDashboard() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Recent incidents</CardTitle>
-                <CardDescription>Newest first</CardDescription>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
+                <div>
+                  <CardTitle>Recent incidents</CardTitle>
+                  <CardDescription>Newest first</CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-2"
+                  disabled={!incidentsList?.length}
+                  onClick={() => {
+                    if (!incidentsList?.length) return;
+                    const csv = buildIncidentsGovernanceCsv(incidentsList ?? []);
+                    const slug = new Date().toISOString().slice(0, 10);
+                    downloadCsv(`incidents-governance-${slug}.csv`, csv);
+                    toast.success("Downloaded CSV (notes excluded for governance)");
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
               </CardHeader>
               <CardContent>
                 {incidentsLoading ? (

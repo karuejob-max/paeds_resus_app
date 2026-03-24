@@ -193,10 +193,28 @@ export async function getEnrollmentsByUserId(userId: number) {
 }
 
 // Payment queries
-export async function createPayment(data: any) {
+/** Insert payment row and return its id (same pattern as createEnrollment). */
+export async function createPayment(data: {
+  enrollmentId: number;
+  userId: number;
+  amount: number;
+  paymentMethod: string;
+  transactionId?: string | null;
+  status?: string;
+  smsConfirmationSent?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+} & Record<string, unknown>): Promise<{ id: number } | null> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.insert(payments).values(data);
+  await db.insert(payments).values(data as any);
+  const list = await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(and(eq(payments.enrollmentId, data.enrollmentId), eq(payments.userId, data.userId)))
+    .orderBy(desc(payments.id))
+    .limit(1);
+  return list[0] ?? null;
 }
 
 export async function getPaymentsByEnrollmentId(enrollmentId: number) {

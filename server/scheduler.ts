@@ -4,6 +4,7 @@ import { sendPaymentReminder, sendTrainingConfirmation } from "./email";
 import { eq, and, lt } from "drizzle-orm";
 import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
+import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 
 /**
  * Initialize scheduled jobs for automated reminders and follow-ups
@@ -23,7 +24,23 @@ export function initializeScheduler() {
   // INST-14: Nightly rollup for institutional portal charts (~03:20 server time)
   scheduleInstitutionalAnalyticsRollup();
 
+  // HI-CERT-1: Daily renewal reminder emails (deduped per certificate row)
+  scheduleCertificateRenewalReminders();
+
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleCertificateRenewalReminders() {
+  cron.schedule("15 10 * * *", async () => {
+    try {
+      const result = await runScheduledCertificateRenewalReminders();
+      console.log(
+        `[Scheduler] certificate renewal reminders: users=${result.usersNotified} certs=${result.certsMarked} (${result.skipped})`
+      );
+    } catch (error) {
+      console.error("[Scheduler] certificate renewal reminders failed:", error);
+    }
+  });
 }
 
 function scheduleInstitutionalAnalyticsRollup() {
