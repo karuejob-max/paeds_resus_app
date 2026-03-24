@@ -25,6 +25,13 @@ import {
 import { AddStaffForm } from "@/components/AddStaffForm";
 import { BulkStaffImport } from "@/components/BulkStaffImport";
 import { StaffList } from "@/components/StaffList";
+import { CourseAssignmentModal } from "@/components/CourseAssignmentModal";
+import { StaffProgressTable } from "@/components/StaffProgressTable";
+import { CertificateManagement } from "@/components/CertificateManagement";
+
+function getLoginUrl() {
+  return process.env.VITE_OAUTH_PORTAL_URL || "https://manus.im/login";
+}
 
 export default function HospitalAdminDashboard() {
   const { user, isAuthenticated } = useAuth();
@@ -33,6 +40,7 @@ export default function HospitalAdminDashboard() {
   const [institutionId, setInstitutionId] = useState<number | null>(null);
   const [showAddStaffForm, setShowAddStaffForm] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showCourseAssignment, setShowCourseAssignment] = useState(false);
 
   // Fetch institution stats
   const { data: stats, isLoading: statsLoading } = trpc.institution.getStats.useQuery(
