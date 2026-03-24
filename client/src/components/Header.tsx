@@ -183,6 +183,11 @@ export default function Header() {
               className="hidden md:flex items-center gap-1 text-sm text-gray-600 mr-2"
               aria-label="Explore by audience"
             >
+              <Link href="/start">
+                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer font-medium text-gray-800">
+                  Start
+                </span>
+              </Link>
               <Link href="/parent-safe-truth">
                 <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Parents</span>
               </Link>
@@ -287,11 +292,11 @@ export default function Header() {
                     Sign In
                   </Button>
                 </a>
-                <a href={getLoginUrl()} className="hidden sm:block">
+                <Link href="/start" className="hidden sm:block">
                   <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
-                    Get Started
+                    Get started
                   </Button>
-                </a>
+                </Link>
               </div>
             )}
 
@@ -314,6 +319,9 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b pb-3">
                 <p className="text-xs font-semibold text-gray-500 mb-1">Explore</p>
+                <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-gray-800 font-medium">Start</span>
+                </Link>
                 <Link href="/parent-safe-truth" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-gray-700">Parents</span>
                 </Link>

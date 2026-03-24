@@ -8,6 +8,7 @@ Paeds Resus is a comprehensive digital platform designed to train healthcare pro
 
 ### Product and backlog docs
 
+- **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)
 - **High-impact roadmap (comprehensive):** [`docs/BACKLOG_HIGH_IMPACT.md`](docs/BACKLOG_HIGH_IMPACT.md)
 - **Prioritized P0–P3 IDs:** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md)
 - **Scrum Done (main platform):** [`docs/BACKLOG_BOARD.md`](docs/BACKLOG_BOARD.md)

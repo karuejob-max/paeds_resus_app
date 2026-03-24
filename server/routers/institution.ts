@@ -9,6 +9,7 @@ import {
   quotations,
   contracts,
   trainingSchedules,
+  courses,
   incidents,
   institutionalAnalytics,
 } from "../../drizzle/schema";
@@ -502,6 +503,74 @@ export const institutionRouter = router({
         .from(trainingSchedules)
         .where(eq(trainingSchedules.institutionalAccountId, input.institutionId))
         .orderBy(desc(trainingSchedules.scheduledDate));
+    }),
+
+  /**
+   * HI-B2B-1: Create a training schedule row (tenant-scoped). Resolves catalog `courseId` from program type.
+   */
+  createTrainingSchedule: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+        trainingType: z.enum(["online", "hands_on", "hybrid"]),
+        scheduledDate: z.coerce.date(),
+        startTime: z.string().max(10).optional(),
+        endTime: z.string().max(10).optional(),
+        location: z.string().max(255).optional(),
+        instructorName: z.string().max(255).optional(),
+        maxCapacity: z.number().int().min(1).max(2000),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const courseRows = await db
+        .select({ id: courses.id })
+        .from(courses)
+        .where(eq(courses.programType, input.programType))
+        .orderBy(courses.id)
+        .limit(1);
+
+      if (!courseRows.length) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "No course catalog entry for this program type. Add rows to the `courses` table or contact support.",
+        });
+      }
+
+      const courseId = courseRows[0].id;
+
+      await db.insert(trainingSchedules).values({
+        institutionalAccountId: input.institutionId,
+        courseId,
+        trainingType: input.trainingType,
+        scheduledDate: input.scheduledDate,
+        startTime: input.startTime?.trim() || undefined,
+        endTime: input.endTime?.trim() || undefined,
+        location: input.location?.trim() || undefined,
+        instructorName: input.instructorName?.trim() || undefined,
+        maxCapacity: input.maxCapacity,
+        enrolledCount: 0,
+        status: "scheduled",
+      });
+
+      const created = await db
+        .select({ id: trainingSchedules.id })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.institutionalAccountId, input.institutionId))
+        .orderBy(desc(trainingSchedules.id))
+        .limit(1);
+
+      return { success: true as const, scheduleId: created[0]?.id ?? null };
     }),
 
   getStats: protectedProcedure

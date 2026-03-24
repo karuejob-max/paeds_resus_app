@@ -21,6 +21,7 @@ import Help from "./pages/Help";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import About from "./pages/About";
+import Start from "./pages/Start";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import Enroll from "./pages/Enroll";
@@ -113,6 +114,7 @@ function Router() {
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
           <Route path="/about" component={About} />
+          <Route path="/start" component={Start} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
           <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />

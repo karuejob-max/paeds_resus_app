@@ -29,6 +29,8 @@
 - **HI-PLAT-4:** **BottomNav** on ResusGPS + Emergency Protocols (mobile); provider nav = Hub / Resus / Protocols / Refer.
 - **HI-CERT-1:** **Scheduled** renewal reminder emails (daily ~10:15 server time when scheduler runs) + `renewalReminderSentAt` dedupe; user-triggered reminder also sets dedupe flag.
 - **HI-CLIN-1 (thin slice):** ResusGPS **copy session summary** (clipboard + toast) in top bar, event log dialog, and post-primary screen.
+- **HI-PLAT-3 (slice):** **`/start`** role chooser + header/mobile **Start** + **Get started** CTA; anonymous BottomNav updated.
+- **HI-B2B-1 (slice):** **`createTrainingSchedule`** + hospital admin **Schedule** tab form (catalog `courses` row per program type required).
 
 ---
 
@@ -62,7 +64,7 @@
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| HI-B2B-1 | Training schedules CRUD | L | Create/list first |
+| HI-B2B-1 | Training schedules CRUD | L | **Shipped (create + list):** `createTrainingSchedule` + Schedule tab UI; edit/delete/attendance = HI-B2B-2 |
 | HI-B2B-2 | Attendance UI | L | After schedules |
 | HI-B2B-3 | Incidents CSV export | M | **Shipped (v1):** client export from `getIncidents` list; notes excluded |
 | HI-B2B-4 | Quote/contract PDF polish | M | |
@@ -73,7 +75,7 @@
 |----|------|--------|-------|
 | HI-PLAT-1 | Structured logs + Sentry | M | M-Pesa correlation |
 | HI-PLAT-2 | Vitest + TS hardening | M | Kaizen, ResusGPS, admin-stats |
-| HI-PLAT-3 | Full role landing chooser | M | Header links done |
+| HI-PLAT-3 | Full role landing chooser | M | **Shipped (slice):** `/start` + nav CTAs; optional polish on `/` redirect |
 | HI-PLAT-4 | BottomNav on clinical surfaces | S | **Shipped:** `ResusGPS.tsx`, `EmergencyProtocols.tsx` + provider BottomNav links |
 | HI-PLAT-5 | Offline: one protocol bundle | L | Narrow scope |
 
@@ -118,3 +120,4 @@ M-Pesa pending to completed; enroll to pay conversion; cert downloads/renewals; 
 | 2026-02-25 | Initial version. |
 | 2026-02-25 | M-Pesa webhook: length-safe signature compare. `createPayment` / `recordPayment` return real payment id. |
 | 2026-02-25 | HI-B2B-3 incidents CSV; HI-PLAT-4 BottomNav; HI-CERT-1 scheduled renewal + `renewalReminderSentAt`; HI-CLIN-1 copy summary. |
+| 2026-02-25 | HI-PLAT-3 `/start` chooser; HI-B2B-1 schedule create API + hospital admin form. |

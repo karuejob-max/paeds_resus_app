@@ -74,6 +74,18 @@ export default function HospitalAdminDashboard() {
     notes: "",
   });
 
+  /** HI-B2B-1: New training session form */
+  const [scheduleForm, setScheduleForm] = useState({
+    programType: "bls" as "bls" | "acls" | "pals" | "fellowship",
+    trainingType: "hands_on" as "online" | "hands_on" | "hybrid",
+    scheduledDate: new Date().toISOString().slice(0, 16),
+    startTime: "",
+    endTime: "",
+    location: "",
+    instructorName: "",
+    maxCapacity: "24",
+  });
+
   const utils = trpc.useUtils();
 
   useEffect(() => {
@@ -136,6 +148,17 @@ export default function HospitalAdminDashboard() {
         void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
       }
     },
+  });
+
+  const createTrainingScheduleMutation = trpc.institution.createTrainingSchedule.useMutation({
+    onSuccess: () => {
+      if (institutionId) {
+        void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+        void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
+      }
+      toast.success("Training session scheduled");
+    },
+    onError: (err) => toast.error(err.message || "Could not create schedule"),
   });
 
   const refreshAnalyticsMutation = trpc.institution.refreshInstitutionalAnalytics.useMutation({
@@ -555,7 +578,134 @@ export default function HospitalAdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="w-5 h-5" />
-                  Training schedule
+                  Add training session
+                </CardTitle>
+                <CardDescription>
+                  HI-B2B-1: Create a schedule row for your institution (requires matching course catalog program type).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Program</Label>
+                    <Select
+                      value={scheduleForm.programType}
+                      onValueChange={(v) =>
+                        setScheduleForm((f) => ({ ...f, programType: v as typeof f.programType }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bls">BLS</SelectItem>
+                        <SelectItem value="acls">ACLS</SelectItem>
+                        <SelectItem value="pals">PALS</SelectItem>
+                        <SelectItem value="fellowship">Fellowship</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Format</Label>
+                    <Select
+                      value={scheduleForm.trainingType}
+                      onValueChange={(v) =>
+                        setScheduleForm((f) => ({ ...f, trainingType: v as typeof f.trainingType }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="hands_on">Hands-on</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Date & time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={scheduleForm.scheduledDate}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, scheduledDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Start time (optional HH:MM)</Label>
+                    <Input
+                      placeholder="09:00"
+                      value={scheduleForm.startTime}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, startTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End time (optional HH:MM)</Label>
+                    <Input
+                      placeholder="17:00"
+                      value={scheduleForm.endTime}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, endTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Location</Label>
+                    <Input
+                      placeholder="Simulation lab / ward / link"
+                      value={scheduleForm.location}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, location: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Instructor name (optional)</Label>
+                    <Input
+                      value={scheduleForm.instructorName}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, instructorName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max capacity</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={2000}
+                      value={scheduleForm.maxCapacity}
+                      onChange={(e) => setScheduleForm((f) => ({ ...f, maxCapacity: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                  disabled={!institutionId || createTrainingScheduleMutation.isPending}
+                  onClick={() => {
+                    if (!institutionId) return;
+                    const cap = parseInt(scheduleForm.maxCapacity, 10);
+                    if (!Number.isFinite(cap) || cap < 1) {
+                      toast.error("Enter a valid capacity");
+                      return;
+                    }
+                    createTrainingScheduleMutation.mutate({
+                      institutionId,
+                      programType: scheduleForm.programType,
+                      trainingType: scheduleForm.trainingType,
+                      scheduledDate: new Date(scheduleForm.scheduledDate),
+                      startTime: scheduleForm.startTime.trim() || undefined,
+                      endTime: scheduleForm.endTime.trim() || undefined,
+                      location: scheduleForm.location.trim() || undefined,
+                      instructorName: scheduleForm.instructorName.trim() || undefined,
+                      maxCapacity: cap,
+                    });
+                  }}
+                >
+                  {createTrainingScheduleMutation.isPending ? "Saving…" : "Create session"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Upcoming & past sessions
                 </CardTitle>
                 <CardDescription>Sessions linked to your institution (INST-12)</CardDescription>
               </CardHeader>

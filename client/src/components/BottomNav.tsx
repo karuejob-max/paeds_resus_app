@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Home, Users, TrendingUp, Share2, MessageCircle, BarChart3, BookOpen, Siren } from "lucide-react";
+import { Home, Users, TrendingUp, Share2, MessageCircle, BarChart3, BookOpen, Siren, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const BottomNav: React.FC = () => {
@@ -14,9 +14,10 @@ export const BottomNav: React.FC = () => {
   const getNavItems = () => {
     if (!isAuthenticated) {
       return [
-        { path: "/", label: "Home", icon: Home },
-        { path: "/institutional", label: "For Providers", icon: Users },
-        { path: "/parent-safe-truth", label: "For Parents", icon: MessageCircle },
+        { path: "/start", label: "Start", icon: Compass },
+        { path: "/resus", label: "Resus", icon: Siren },
+        { path: "/institutional", label: "Hospitals", icon: Users },
+        { path: "/parent-safe-truth", label: "Parents", icon: MessageCircle },
       ];
     }
 
