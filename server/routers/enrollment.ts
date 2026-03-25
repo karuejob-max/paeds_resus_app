@@ -190,11 +190,10 @@ export const enrollmentRouter = router({
         .from(payments)
         .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.status, "pending")));
 
+      const pendingSum = pendingList.reduce((s, p) => s + (p.amount ?? 0), 0);
+      // Parentheses required: cannot mix ?? and || without disambiguation (esbuild / TS5076).
       let amount =
-        input.amountPaid ??
-        pendingList.reduce((s, p) => s + (p.amount ?? 0), 0) ||
-        enrollment.amountPaid ||
-        0;
+        (input.amountPaid ?? pendingSum) || enrollment.amountPaid || 0;
 
       for (const p of pendingList) {
         await db
