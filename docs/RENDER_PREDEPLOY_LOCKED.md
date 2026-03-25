@@ -1,5 +1,21 @@
 # Pre-Deploy Command is locked on Render
 
+## certificates.renewalReminderSentAt (migration 0026)
+
+If production logs show **`Unknown column 'renewalReminderSentAt' in 'field list'`** on `certificates`, the Aiven/MySQL schema is behind the app (HI-CERT-1 renewal dedupe column).
+
+**Fix (one-time):** From any machine that can reach the DB with the same `DATABASE_URL` as Render:
+
+```bash
+DATABASE_URL="mysql://..." pnpm run db:apply-0026
+```
+
+Or run **`pnpm run db:apply-0026`** in a Render **Shell** (if enabled) with env already set. The script is idempotent.
+
+Equivalent raw SQL: `drizzle/0026_certificate_renewal_reminder_sent_at.sql`.
+
+---
+
 The Pre-Deploy Command field shows a lock icon and cannot be edited. Common causes:
 
 1. **Managed by Blueprint** – Service is controlled by a `render.yaml`. Edit the YAML in the repo.

@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-03-25 | Cursor | Ops: `pnpm run db:apply-0026` idempotent script + `RENDER_PREDEPLOY_LOCKED.md` section for production missing `certificates.renewalReminderSentAt` (fixes Render/Aiven ER_BAD_FIELD_ERROR). | pushed |
 | 2026-03-25 | Cursor | HI-B2B-1: `updateTrainingSchedule`, `deleteTrainingSchedule` (tenant-scoped; delete clears `trainingAttendance` for that session); `getTrainingSchedules` joins `courses` for `programType`. Hospital Admin **Schedule** tab: edit dialog, mark cancelled, delete confirm. HI-PLAT-2 slice: `server/lib/structured-log.test.ts`. | 77ab344 |
 | 2026-03-25 | Cursor | HI-PLAT-1 / HI-SAFE-1 / HI-CLIN-3 / HI-ENT-1 (slices): `server/lib/structured-log.ts` + `logStructured` on M-Pesa STK callback and Safe-Truth `markResponseReady`; `getSafeTruthStats.reviewedSubmissionsCount` + prominent alert on `ParentSafeTruth`; `adminStats.getReport.resusGpsAnalyticsLastDays` (`resus_*` events) + Reports UI card; `adminStats.getAdminAuditLog` + CSV + preview on Admin Reports; Safe-Truth response-ready email line about spam folder. | 50d44ed |
 | 2026-03-25 | Cursor | HI-B2B-2: training attendance — `getTrainingAttendanceForSchedule`, `upsertTrainingAttendance`, `registerAllStaffForTrainingSession` in `institution` router; Hospital Admin Schedule tab **Roster** UI; `enrolledCount` synced from attendance rows. Vite `chunkSizeWarningLimit` 900 for deploy chunk warning. | d2c28f8 |
