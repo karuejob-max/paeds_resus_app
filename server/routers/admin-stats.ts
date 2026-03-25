@@ -9,6 +9,7 @@ import {
   analyticsEvents,
   parentSafeTruthSubmissions,
   clinicalReferrals,
+  adminAuditLog,
 } from "../../drizzle/schema";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
@@ -56,6 +57,10 @@ export const adminStatsRouter = router({
           conversionFunnel: { enrolled: 0, completed: 0, conversionPercent: 0 },
           topProtocolsViewed: [] as { protocol: string; count: number }[],
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
+          resusGpsAnalyticsLastDays: {
+            totalEvents: 0,
+            eventTypes: [] as { eventType: string; count: number }[],
+          },
         };
       }
 
@@ -141,6 +146,21 @@ export const adminStatsRouter = router({
         count,
       }));
 
+      const resusCounts: Record<string, number> = {};
+      analyticsInPeriod.forEach((e) => {
+        const key = (e.eventType || e.eventName || "").toString();
+        if (!key.startsWith("resus_")) return;
+        const bucket = e.eventType || e.eventName || "resus_other";
+        resusCounts[bucket] = (resusCounts[bucket] || 0) + 1;
+      });
+      const resusGpsAnalyticsLastDays = {
+        totalEvents: Object.values(resusCounts).reduce((a, b) => a + b, 0),
+        eventTypes: Object.entries(resusCounts)
+          .map(([eventType, count]) => ({ eventType, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 15),
+      };
+
       // Count unique active users in last N days
       const activeUsersResult = await db
         .selectDistinct({ userId: analyticsEvents.userId })
@@ -216,9 +236,31 @@ export const adminStatsRouter = router({
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
         },
+        resusGpsAnalyticsLastDays,
         activeUsersLastDays,
         topProtocolsViewed,
       };
+    }),
+
+  /** Recent admin audit log rows (sanitized inputs only). */
+  getAdminAuditLog: adminProcedure
+    .input(z.object({ limit: z.number().min(1).max(2000).default(500) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [] };
+      const limit = input?.limit ?? 500;
+      const rows = await db
+        .select({
+          id: adminAuditLog.id,
+          adminUserId: adminAuditLog.adminUserId,
+          procedurePath: adminAuditLog.procedurePath,
+          inputSummary: adminAuditLog.inputSummary,
+          createdAt: adminAuditLog.createdAt,
+        })
+        .from(adminAuditLog)
+        .orderBy(desc(adminAuditLog.createdAt))
+        .limit(limit);
+      return { rows };
     }),
 
   /** List registered users (admin only); optional filter by userType. */

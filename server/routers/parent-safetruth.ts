@@ -10,6 +10,7 @@ import {
 import { eq, desc, and, gte, lte, count } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
+import { logStructured } from "../lib/structured-log";
 
 /** EAT = UTC+3. "This month" = calendar month in EAT per platform. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -106,7 +107,12 @@ export const parentSafeTruthRouter = router({
   getSafeTruthStats: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) {
-      return { submissionsThisMonth: 0, lastSubmission: null, totalSubmissions: 0 };
+      return {
+        submissionsThisMonth: 0,
+        lastSubmission: null,
+        totalSubmissions: 0,
+        reviewedSubmissionsCount: 0,
+      };
     }
     const now = new Date();
     const year = now.getFullYear();
@@ -136,10 +142,18 @@ export const parentSafeTruthRouter = router({
       .from(parentSafeTruthSubmissions)
       .where(eq(parentSafeTruthSubmissions.userId, ctx.user.id));
 
+    const [reviewedRow] = await db
+      .select({ total: count() })
+      .from(parentSafeTruthSubmissions)
+      .where(
+        and(eq(parentSafeTruthSubmissions.userId, ctx.user.id), eq(parentSafeTruthSubmissions.status, "reviewed"))
+      );
+
     return {
       submissionsThisMonth: inMonth.length,
       lastSubmission: last[0]?.createdAt ?? null,
       totalSubmissions: Number(totalRow?.total ?? 0),
+      reviewedSubmissionsCount: Number(reviewedRow?.total ?? 0),
     };
   }),
 
@@ -247,12 +261,21 @@ export const parentSafeTruthRouter = router({
         .set({ status: "reviewed", updatedAt: new Date() })
         .where(eq(parentSafeTruthSubmissions.id, input.submissionId));
 
+      let parentNotified = false;
       if (sub.parentEmail && !sub.isAnonymous) {
-        await sendEmail(sub.parentEmail, "safetruthResponseReady", {
+        const emailResult = await sendEmail(sub.parentEmail, "safetruthResponseReady", {
           parentName: sub.parentName || "Parent",
-          dashboardLink: process.env.APP_BASE_URL ? `${process.env.APP_BASE_URL.replace(/\/$/, "")}/parent-safe-truth` : "https://app.paedsresus.com/parent-safe-truth",
+          dashboardLink: process.env.APP_BASE_URL
+            ? `${process.env.APP_BASE_URL.replace(/\/$/, "")}/parent-safe-truth`
+            : "https://app.paedsresus.com/parent-safe-truth",
         });
+        parentNotified = Boolean(emailResult.success);
       }
+
+      logStructured("safetruth_response_ready", {
+        submissionId: input.submissionId,
+        parentNotified,
+      });
 
       return { success: true };
     }),

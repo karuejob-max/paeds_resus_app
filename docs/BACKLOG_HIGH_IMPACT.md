@@ -2,7 +2,7 @@
 
 **Purpose:** Mission-aligned backlog of high-impact capabilities (B2C, B2B, clinical, ops). Use for roadmap reviews, sprint planning, and partner conversations.
 
-**Last updated:** 2026-02-25  
+**Last updated:** 2026-03-25  
 **Also read:** `PRODUCT_BACKLOG_PRIORITIZED.md` (tiered IDs), `BACKLOG_BOARD.md`, `INSTITUTIONAL_BACKLOG_BOARD.md`, `MPESA_PRODUCTION_CHECKLIST.md`.
 
 ---
@@ -32,6 +32,10 @@
 - **HI-PLAT-3 (slice):** **`/start`** role chooser + header/mobile **Start** + **Get started** CTA; anonymous BottomNav updated.
 - **HI-B2B-1 (slice):** **`createTrainingSchedule`** + hospital admin **Schedule** tab form (catalog `courses` row per program type required).
 - **HI-B2B-2 (slice):** **`getTrainingAttendanceForSchedule`**, **`upsertTrainingAttendance`**, **`registerAllStaffForTrainingSession`** + hospital admin **Roster** panel; syncs `enrolledCount` on the schedule.
+- **HI-PLAT-1 (slice):** **`structured-log`** JSON lines; **`mpesa_stk_callback`** and **`safetruth_response_ready`** tags (Render/log search).
+- **HI-SAFE-1 (slice):** **`reviewedSubmissionsCount`** + dashboard **alert**; response-ready email **spam-folder** note; structured log on mark ready.
+- **HI-CLIN-3 (thin):** Admin report **`resusGpsAnalyticsLastDays`** (events with type prefix **`resus_`**) + Reports card.
+- **HI-ENT-1 (thin):** **`getAdminAuditLog`** + Admin Reports **CSV** + preview list.
 
 ---
 
@@ -43,7 +47,7 @@
 |----|------|--------|-------|
 | HI-CLIN-1 | ResusGPS session summary + export | L | **Shipped (slice):** copy-to-clipboard + existing `.txt` export; PDF/modal polish still optional |
 | HI-CLIN-2 | Evidence-gated protocol prompts | M-L | Reduce alert fatigue |
-| HI-CLIN-3 | Analytics to QI / hospital narrative | M | Link ResusGPS usage to admin story |
+| HI-CLIN-3 | Analytics to QI / hospital narrative | M | **Shipped (thin slice):** `resusGpsAnalyticsLastDays` in `adminStats.getReport` + Admin Reports ResusGPS card |
 
 ### Training, payments, certificates
 
@@ -58,7 +62,7 @@
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| HI-SAFE-1 | In-app + email polish for response ready | S-M | |
+| HI-SAFE-1 | In-app + email polish for response ready | S-M | **Shipped (slice):** reviewed count + alert + email spam note + `safetruth_response_ready` log |
 | HI-SAFE-2 | Aggregate insights for hospitals (redacted) | M | Institutional analytics |
 
 ### Institutional B2B
@@ -74,7 +78,7 @@
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| HI-PLAT-1 | Structured logs + Sentry | M | M-Pesa correlation |
+| HI-PLAT-1 | Structured logs + Sentry | M | **Shipped (slice):** `logStructured` + M-Pesa STK + Safe-Truth ready; Sentry still optional |
 | HI-PLAT-2 | Vitest + TS hardening | M | Kaizen, ResusGPS, admin-stats |
 | HI-PLAT-3 | Full role landing chooser | M | **Shipped (slice):** `/start` + nav CTAs; optional polish on `/` redirect |
 | HI-PLAT-4 | BottomNav on clinical surfaces | S | **Shipped:** `ResusGPS.tsx`, `EmergencyProtocols.tsx` + provider BottomNav links |
@@ -82,7 +86,7 @@
 
 ### Enterprise (defer)
 
-| HI-ENT-1 | Audit CSV export | M | |
+| HI-ENT-1 | Audit CSV export | M | **Shipped (thin slice):** `getAdminAuditLog` + Reports CSV + preview |
 | HI-ENT-2 | ML triage assist | L | After baseline metrics |
 
 ---
@@ -123,3 +127,4 @@ M-Pesa pending to completed; enroll to pay conversion; cert downloads/renewals; 
 | 2026-02-25 | HI-B2B-3 incidents CSV; HI-PLAT-4 BottomNav; HI-CERT-1 scheduled renewal + `renewalReminderSentAt`; HI-CLIN-1 copy summary. |
 | 2026-02-25 | HI-PLAT-3 `/start` chooser; HI-B2B-1 schedule create API + hospital admin form. |
 | 2026-03-25 | HI-B2B-2 training attendance tRPC + hospital admin roster UI; Vite `chunkSizeWarningLimit` 900. |
+| 2026-03-25 | HI-PLAT-1 structured logs (M-Pesa + Safe-Truth); HI-SAFE-1 reviewed alert + email; HI-CLIN-3 ResusGPS admin slice; HI-ENT-1 audit CSV. |

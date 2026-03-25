@@ -284,12 +284,13 @@ export const emailTemplates: Record<string, EmailTemplate> = {
             <a href="{{dashboardLink}}" style="background: #ff6633; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View dashboard</a>
           </div>
           <p style="font-size: 12px; color: #666;">Thank you for helping improve pediatric care.</p>
+          <p style="font-size: 12px; color: #666;">If you don't see our emails, please check your spam or promotions folder.</p>
           <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
           <p style="font-size: 12px; color: #666;">Paeds Resus Limited · paedsresus254@gmail.com</p>
         </div>
       </div>
     `,
-    text: `Hello {{parentName}},\n\nYour Safe-Truth submission has been reviewed. View your dashboard: {{dashboardLink}}\n\nPaeds Resus Limited`,
+    text: `Hello {{parentName}},\n\nYour Safe-Truth submission has been reviewed. View your dashboard: {{dashboardLink}}\n\nIf you don't see our emails, check spam or promotions.\n\nPaeds Resus Limited`,
     variables: ["parentName", "dashboardLink"],
   },
 

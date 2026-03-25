@@ -4,6 +4,7 @@ import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { runWithRetries } from "../lib/async-retry";
+import { logStructured } from "../lib/structured-log";
 import crypto from "crypto";
 
 /**
@@ -101,6 +102,12 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
       return res.status(400).json({ error: "Missing CheckoutRequestID" });
     }
+
+    logStructured("mpesa_stk_callback", {
+      checkoutRequestId: idempotencyKey,
+      resultCode: ResultCode,
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc.slice(0, 200) : String(ResultDesc ?? ""),
+    });
 
     const db = await getDb();
 

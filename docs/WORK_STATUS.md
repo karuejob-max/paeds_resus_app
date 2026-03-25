@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-03-25 | Cursor | HI-PLAT-1 / HI-SAFE-1 / HI-CLIN-3 / HI-ENT-1 (slices): `server/lib/structured-log.ts` + `logStructured` on M-Pesa STK callback and Safe-Truth `markResponseReady`; `getSafeTruthStats.reviewedSubmissionsCount` + prominent alert on `ParentSafeTruth`; `adminStats.getReport.resusGpsAnalyticsLastDays` (`resus_*` events) + Reports UI card; `adminStats.getAdminAuditLog` + CSV + preview on Admin Reports; Safe-Truth response-ready email line about spam folder. | bb5ab84 |
 | 2026-03-25 | Cursor | HI-B2B-2: training attendance — `getTrainingAttendanceForSchedule`, `upsertTrainingAttendance`, `registerAllStaffForTrainingSession` in `institution` router; Hospital Admin Schedule tab **Roster** UI; `enrolledCount` synced from attendance rows. Vite `chunkSizeWarningLimit` 900 for deploy chunk warning. | d2c28f8 |
 | 2026-03-25 | Cursor | Render deploy: fixed esbuild error in `server/routers/enrollment.ts` — mixed `??` and `||` without parentheses in `adminConfirmOfflinePayment`; clarified as `(input.amountPaid ?? pendingSum)` then fallback to `enrollment.amountPaid` and `0`. | 01a48f0 |
 | 2025-03-07 | Manus | Phase 1: Analytics Instrumentation — created useResusAnalytics hook, integrated event tracking at ResusGPS lifecycle points (assessment start, questions, interventions, cardiac arrest, ROSC), events flow to analyticsEvents table, admin reports now show real activity | 7041295, 337aa52 |
