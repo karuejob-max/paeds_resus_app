@@ -30,7 +30,7 @@
 - **HI-CERT-1:** **Scheduled** renewal reminder emails (daily ~10:15 server time when scheduler runs) + `renewalReminderSentAt` dedupe; user-triggered reminder also sets dedupe flag.
 - **HI-CLIN-1 (thin slice):** ResusGPS **copy session summary** (clipboard + toast) in top bar, event log dialog, and post-primary screen.
 - **HI-PLAT-3 (slice):** **`/start`** role chooser + header/mobile **Start** + **Get started** CTA; anonymous BottomNav updated.
-- **HI-B2B-1 (slice):** **`createTrainingSchedule`** + hospital admin **Schedule** tab form (catalog `courses` row per program type required).
+- **HI-B2B-1 (slice):** **`createTrainingSchedule`**, **`updateTrainingSchedule`**, **`deleteTrainingSchedule`** + hospital admin **Schedule** tab (form + edit dialog, cancel shortcut, delete with confirm); list includes **`programType`** via `courses` join.
 - **HI-B2B-2 (slice):** **`getTrainingAttendanceForSchedule`**, **`upsertTrainingAttendance`**, **`registerAllStaffForTrainingSession`** + hospital admin **Roster** panel; syncs `enrolledCount` on the schedule.
 - **HI-PLAT-1 (slice):** **`structured-log`** JSON lines; **`mpesa_stk_callback`** and **`safetruth_response_ready`** tags (Render/log search).
 - **HI-SAFE-1 (slice):** **`reviewedSubmissionsCount`** + dashboard **alert**; response-ready email **spam-folder** note; structured log on mark ready.
@@ -69,7 +69,7 @@
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| HI-B2B-1 | Training schedules CRUD | L | **Shipped (create + list):** `createTrainingSchedule` + Schedule tab UI; edit/delete/attendance = HI-B2B-2 |
+| HI-B2B-1 | Training schedules CRUD | L | **Shipped (create + list + edit/delete):** `createTrainingSchedule`, `updateTrainingSchedule`, `deleteTrainingSchedule`; Schedule tab + roster (attendance = HI-B2B-2) |
 | HI-B2B-2 | Attendance UI | L | **Shipped (v1):** roster + status select + register-all; skills score / feedback later |
 | HI-B2B-3 | Incidents CSV export | M | **Shipped (v1):** client export from `getIncidents` list; notes excluded |
 | HI-B2B-4 | Quote/contract PDF polish | M | |
@@ -79,7 +79,7 @@
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
 | HI-PLAT-1 | Structured logs + Sentry | M | **Shipped (slice):** `logStructured` + M-Pesa STK + Safe-Truth ready; Sentry still optional |
-| HI-PLAT-2 | Vitest + TS hardening | M | Kaizen, ResusGPS, admin-stats |
+| HI-PLAT-2 | Vitest + TS hardening | M | **Shipped (slice):** `server/lib/structured-log.test.ts`; repo-wide `tsc --noEmit` clean still TBD |
 | HI-PLAT-3 | Full role landing chooser | M | **Shipped (slice):** `/start` + nav CTAs; optional polish on `/` redirect |
 | HI-PLAT-4 | BottomNav on clinical surfaces | S | **Shipped:** `ResusGPS.tsx`, `EmergencyProtocols.tsx` + provider BottomNav links |
 | HI-PLAT-5 | Offline: one protocol bundle | L | Narrow scope |
@@ -128,3 +128,4 @@ M-Pesa pending to completed; enroll to pay conversion; cert downloads/renewals; 
 | 2026-02-25 | HI-PLAT-3 `/start` chooser; HI-B2B-1 schedule create API + hospital admin form. |
 | 2026-03-25 | HI-B2B-2 training attendance tRPC + hospital admin roster UI; Vite `chunkSizeWarningLimit` 900. |
 | 2026-03-25 | HI-PLAT-1 structured logs (M-Pesa + Safe-Truth); HI-SAFE-1 reviewed alert + email; HI-CLIN-3 ResusGPS admin slice; HI-ENT-1 audit CSV. |
+| 2026-03-25 | HI-B2B-1 schedule update/delete + hospital admin UI; HI-PLAT-2 `structured-log` Vitest. |

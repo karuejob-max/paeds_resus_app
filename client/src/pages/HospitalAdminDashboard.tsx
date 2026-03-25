@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -34,12 +36,36 @@ import {
   FileText,
   AlertTriangle,
   RefreshCw,
+  Pencil,
+  Trash2,
+  Ban,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { buildIncidentsGovernanceCsv, downloadCsv } from "@/lib/incidentsCsv";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const WELCOME_KEY = "institutionalPortalWelcome";
+
+type InstitutionOutputs = inferRouterOutputs<AppRouter>["institution"];
+type TrainingScheduleListRow = InstitutionOutputs["getTrainingSchedules"][number];
 
 export default function HospitalAdminDashboard() {
   const { isAuthenticated } = useAuth();
@@ -88,6 +114,22 @@ export default function HospitalAdminDashboard() {
 
   /** HI-B2B-2: which session’s attendance roster is open */
   const [selectedScheduleForAttendance, setSelectedScheduleForAttendance] = useState<number | null>(null);
+
+  /** HI-B2B-1: edit / delete session */
+  const [scheduleEditOpen, setScheduleEditOpen] = useState(false);
+  const [scheduleEditTarget, setScheduleEditTarget] = useState<TrainingScheduleListRow | null>(null);
+  const [scheduleEditForm, setScheduleEditForm] = useState({
+    programType: "bls" as "bls" | "acls" | "pals" | "fellowship",
+    trainingType: "hands_on" as "online" | "hands_on" | "hybrid",
+    scheduledDate: "",
+    startTime: "",
+    endTime: "",
+    location: "",
+    instructorName: "",
+    maxCapacity: "24",
+    status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled",
+  });
+  const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleListRow | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -163,6 +205,60 @@ export default function HospitalAdminDashboard() {
     },
     onError: (err) => toast.error(err.message || "Could not create schedule"),
   });
+
+  const updateTrainingScheduleMutation = trpc.institution.updateTrainingSchedule.useMutation({
+    onSuccess: (_data, vars) => {
+      if (institutionId) {
+        void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+        void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
+        void utils.institution.getTrainingAttendanceForSchedule.invalidate({
+          institutionId,
+          trainingScheduleId: vars.trainingScheduleId,
+        });
+      }
+    },
+    onError: (err) => toast.error(err.message || "Could not update session"),
+  });
+
+  const deleteTrainingScheduleMutation = trpc.institution.deleteTrainingSchedule.useMutation({
+    onSuccess: (_data, vars) => {
+      if (institutionId) {
+        void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+        void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
+      }
+      setSelectedScheduleForAttendance((cur) => (cur === vars.trainingScheduleId ? null : cur));
+      toast.success("Session removed");
+      setScheduleDeleteTarget(null);
+    },
+    onError: (err) => toast.error(err.message || "Could not remove session"),
+  });
+
+  const openScheduleEdit = (row: TrainingScheduleListRow) => {
+    setScheduleEditTarget(row);
+    const pt = row.programType;
+    const st = row.status ?? "scheduled";
+    setScheduleEditForm({
+      programType: (pt === "bls" || pt === "acls" || pt === "pals" || pt === "fellowship" ? pt : "bls") as
+        | "bls"
+        | "acls"
+        | "pals"
+        | "fellowship",
+      trainingType: row.trainingType,
+      scheduledDate: row.scheduledDate
+        ? new Date(row.scheduledDate).toISOString().slice(0, 16)
+        : new Date().toISOString().slice(0, 16),
+      startTime: row.startTime ?? "",
+      endTime: row.endTime ?? "",
+      location: row.location ?? "",
+      instructorName: row.instructorName ?? "",
+      maxCapacity: String(row.maxCapacity ?? 24),
+      status:
+        st === "in_progress" || st === "completed" || st === "cancelled" || st === "scheduled"
+          ? st
+          : "scheduled",
+    });
+    setScheduleEditOpen(true);
+  };
 
   const { data: attendanceRoster, isLoading: attendanceRosterLoading } =
     trpc.institution.getTrainingAttendanceForSchedule.useQuery(
@@ -766,6 +862,7 @@ export default function HospitalAdminDashboard() {
                           <th className="py-2 pr-4">Location</th>
                           <th className="py-2 pr-4">Capacity</th>
                           <th className="py-2 pr-4">Attendance</th>
+                          <th className="py-2 pr-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -796,6 +893,55 @@ export default function HospitalAdminDashboard() {
                               >
                                 {selectedScheduleForAttendance === row.id ? "Close" : "Roster"}
                               </Button>
+                            </td>
+                            <td className="py-2 pl-2 text-right whitespace-nowrap">
+                              <div className="flex flex-wrap justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-2"
+                                  onClick={() => openScheduleEdit(row)}
+                                  disabled={updateTrainingScheduleMutation.isPending}
+                                  title="Edit session"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                {row.status !== "cancelled" ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
+                                    disabled={!institutionId || updateTrainingScheduleMutation.isPending}
+                                    title="Mark cancelled"
+                                    onClick={() => {
+                                      if (!institutionId) return;
+                                      updateTrainingScheduleMutation.mutate(
+                                        {
+                                          institutionId,
+                                          trainingScheduleId: row.id,
+                                          status: "cancelled",
+                                        },
+                                        { onSuccess: () => toast.success("Session marked cancelled") }
+                                      );
+                                    }}
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-2 text-destructive hover:text-destructive"
+                                  disabled={deleteTrainingScheduleMutation.isPending}
+                                  title="Delete session"
+                                  onClick={() => setScheduleDeleteTarget(row)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -910,6 +1056,207 @@ export default function HospitalAdminDashboard() {
                 </CardContent>
               </Card>
             )}
+
+            <Dialog
+              open={scheduleEditOpen}
+              onOpenChange={(o) => {
+                setScheduleEditOpen(o);
+                if (!o) setScheduleEditTarget(null);
+              }}
+            >
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit training session</DialogTitle>
+                  <DialogDescription>
+                    Changes apply only to your institution. Capacity cannot be set below the current enrolled count.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+                  <div className="space-y-2">
+                    <Label>Program</Label>
+                    <Select
+                      value={scheduleEditForm.programType}
+                      onValueChange={(v) =>
+                        setScheduleEditForm((f) => ({ ...f, programType: v as typeof f.programType }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bls">BLS</SelectItem>
+                        <SelectItem value="acls">ACLS</SelectItem>
+                        <SelectItem value="pals">PALS</SelectItem>
+                        <SelectItem value="fellowship">Fellowship</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Delivery</Label>
+                    <Select
+                      value={scheduleEditForm.trainingType}
+                      onValueChange={(v) =>
+                        setScheduleEditForm((f) => ({ ...f, trainingType: v as typeof f.trainingType }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="hands_on">Hands-on</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Date & time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={scheduleEditForm.scheduledDate}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, scheduledDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Start (HH:MM)</Label>
+                    <Input
+                      placeholder="09:00"
+                      value={scheduleEditForm.startTime}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, startTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End (HH:MM)</Label>
+                    <Input
+                      placeholder="17:00"
+                      value={scheduleEditForm.endTime}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, endTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Location</Label>
+                    <Input
+                      value={scheduleEditForm.location}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, location: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Instructor</Label>
+                    <Input
+                      value={scheduleEditForm.instructorName}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, instructorName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max capacity</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={2000}
+                      value={scheduleEditForm.maxCapacity}
+                      onChange={(e) => setScheduleEditForm((f) => ({ ...f, maxCapacity: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={scheduleEditForm.status}
+                      onValueChange={(v) =>
+                        setScheduleEditForm((f) => ({
+                          ...f,
+                          status: v as typeof f.status,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="in_progress">In progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button type="button" variant="outline" onClick={() => setScheduleEditOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                    disabled={!institutionId || !scheduleEditTarget || updateTrainingScheduleMutation.isPending}
+                    onClick={() => {
+                      if (!institutionId || !scheduleEditTarget) return;
+                      const cap = parseInt(scheduleEditForm.maxCapacity, 10);
+                      if (!Number.isFinite(cap) || cap < 1) {
+                        toast.error("Enter a valid capacity");
+                        return;
+                      }
+                      updateTrainingScheduleMutation.mutate(
+                        {
+                          institutionId,
+                          trainingScheduleId: scheduleEditTarget.id,
+                          programType: scheduleEditForm.programType,
+                          trainingType: scheduleEditForm.trainingType,
+                          scheduledDate: new Date(scheduleEditForm.scheduledDate),
+                          startTime: scheduleEditForm.startTime.trim() ? scheduleEditForm.startTime.trim() : null,
+                          endTime: scheduleEditForm.endTime.trim() ? scheduleEditForm.endTime.trim() : null,
+                          location: scheduleEditForm.location.trim() ? scheduleEditForm.location.trim() : null,
+                          instructorName: scheduleEditForm.instructorName.trim()
+                            ? scheduleEditForm.instructorName.trim()
+                            : null,
+                          maxCapacity: cap,
+                          status: scheduleEditForm.status,
+                        },
+                        {
+                          onSuccess: () => {
+                            toast.success("Session updated");
+                            setScheduleEditOpen(false);
+                            setScheduleEditTarget(null);
+                          },
+                        }
+                      );
+                    }}
+                  >
+                    {updateTrainingScheduleMutation.isPending ? "Saving…" : "Save changes"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog
+              open={scheduleDeleteTarget != null}
+              onOpenChange={(open) => {
+                if (!open) setScheduleDeleteTarget(null);
+              }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this training session?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes the session and all attendance rows linked to it.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Back</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                    onClick={() => {
+                      if (!institutionId || !scheduleDeleteTarget) return;
+                      deleteTrainingScheduleMutation.mutate({
+                        institutionId,
+                        trainingScheduleId: scheduleDeleteTarget.id,
+                      });
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
 
           <TabsContent value="incidents" className="space-y-6">

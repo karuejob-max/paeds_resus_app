@@ -542,8 +542,26 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return await db
-        .select()
+        .select({
+          id: trainingSchedules.id,
+          institutionalAccountId: trainingSchedules.institutionalAccountId,
+          courseId: trainingSchedules.courseId,
+          trainingType: trainingSchedules.trainingType,
+          scheduledDate: trainingSchedules.scheduledDate,
+          startTime: trainingSchedules.startTime,
+          endTime: trainingSchedules.endTime,
+          location: trainingSchedules.location,
+          instructorId: trainingSchedules.instructorId,
+          instructorName: trainingSchedules.instructorName,
+          maxCapacity: trainingSchedules.maxCapacity,
+          enrolledCount: trainingSchedules.enrolledCount,
+          status: trainingSchedules.status,
+          createdAt: trainingSchedules.createdAt,
+          updatedAt: trainingSchedules.updatedAt,
+          programType: courses.programType,
+        })
         .from(trainingSchedules)
+        .leftJoin(courses, eq(trainingSchedules.courseId, courses.id))
         .where(eq(trainingSchedules.institutionalAccountId, input.institutionId))
         .orderBy(desc(trainingSchedules.scheduledDate));
     }),
@@ -614,6 +632,144 @@ export const institutionRouter = router({
         .limit(1);
 
       return { success: true as const, scheduleId: created[0]?.id ?? null };
+    }),
+
+  /**
+   * HI-B2B-1: Update an existing training session (tenant-scoped). Optional fields only; omitted = unchanged.
+   */
+  updateTrainingSchedule: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        trainingScheduleId: z.number().int().positive(),
+        programType: z.enum(["bls", "acls", "pals", "fellowship"]).optional(),
+        trainingType: z.enum(["online", "hands_on", "hybrid"]).optional(),
+        scheduledDate: z.coerce.date().optional(),
+        startTime: z.union([z.string().max(10), z.null()]).optional(),
+        endTime: z.union([z.string().max(10), z.null()]).optional(),
+        location: z.union([z.string().max(255), z.null()]).optional(),
+        instructorName: z.union([z.string().max(255), z.null()]).optional(),
+        maxCapacity: z.number().int().min(1).max(2000).optional(),
+        status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
+
+      const [current] = await db
+        .select()
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.trainingScheduleId))
+        .limit(1);
+      if (!current) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Training session not found." });
+      }
+
+      let courseId = current.courseId;
+      if (input.programType !== undefined) {
+        const courseRows = await db
+          .select({ id: courses.id })
+          .from(courses)
+          .where(eq(courses.programType, input.programType))
+          .orderBy(courses.id)
+          .limit(1);
+        if (!courseRows.length) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "No course catalog entry for this program type. Add rows to the `courses` table or contact support.",
+          });
+        }
+        courseId = courseRows[0].id;
+      }
+
+      if (input.maxCapacity !== undefined) {
+        const enrolled = current.enrolledCount ?? 0;
+        if (input.maxCapacity < enrolled) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Max capacity cannot be less than current enrolled count (${enrolled}).`,
+          });
+        }
+      }
+
+      const setPayload: {
+        courseId: number;
+        updatedAt: Date;
+        trainingType?: (typeof trainingSchedules.$inferSelect)["trainingType"];
+        scheduledDate?: Date;
+        startTime?: string | null;
+        endTime?: string | null;
+        location?: string | null;
+        instructorName?: string | null;
+        maxCapacity?: number;
+        status?: (typeof trainingSchedules.$inferSelect)["status"];
+      } = { courseId, updatedAt: new Date() };
+      if (input.trainingType !== undefined) setPayload.trainingType = input.trainingType;
+      if (input.scheduledDate !== undefined) setPayload.scheduledDate = input.scheduledDate;
+      if (input.startTime !== undefined) {
+        setPayload.startTime =
+          input.startTime === null ? null : input.startTime.trim() === "" ? null : input.startTime.trim();
+      }
+      if (input.endTime !== undefined) {
+        setPayload.endTime =
+          input.endTime === null ? null : input.endTime.trim() === "" ? null : input.endTime.trim();
+      }
+      if (input.location !== undefined) {
+        setPayload.location =
+          input.location === null ? null : input.location.trim() === "" ? null : input.location.trim();
+      }
+      if (input.instructorName !== undefined) {
+        setPayload.instructorName =
+          input.instructorName === null
+            ? null
+            : input.instructorName.trim() === ""
+              ? null
+              : input.instructorName.trim();
+      }
+      if (input.maxCapacity !== undefined) setPayload.maxCapacity = input.maxCapacity;
+      if (input.status !== undefined) setPayload.status = input.status;
+
+      await db.update(trainingSchedules).set(setPayload).where(eq(trainingSchedules.id, input.trainingScheduleId));
+
+      return { success: true as const };
+    }),
+
+  /**
+   * HI-B2B-1: Remove a training session and its attendance rows (tenant-scoped).
+   */
+  deleteTrainingSchedule: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        trainingScheduleId: z.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
+
+      await db
+        .delete(trainingAttendance)
+        .where(eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId));
+      await db.delete(trainingSchedules).where(eq(trainingSchedules.id, input.trainingScheduleId));
+
+      return { success: true as const };
     }),
 
   /**
