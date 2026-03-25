@@ -9,17 +9,60 @@ import {
   quotations,
   contracts,
   trainingSchedules,
+  trainingAttendance,
   courses,
   incidents,
   institutionalAnalytics,
 } from "../../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import {
   rollupInstitutionalAnalyticsForAccount,
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
+
+type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+async function assertTrainingScheduleForInstitution(
+  db: DbClient,
+  institutionId: number,
+  trainingScheduleId: number
+) {
+  const rows = await db
+    .select({ id: trainingSchedules.id })
+    .from(trainingSchedules)
+    .where(
+      and(
+        eq(trainingSchedules.id, trainingScheduleId),
+        eq(trainingSchedules.institutionalAccountId, institutionId)
+      )
+    )
+    .limit(1);
+  if (!rows.length) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Training session not found for this institution.",
+    });
+  }
+}
+
+async function syncTrainingScheduleEnrolledCount(db: DbClient, trainingScheduleId: number) {
+  const [row] = await db
+    .select({ n: count() })
+    .from(trainingAttendance)
+    .where(
+      and(
+        eq(trainingAttendance.trainingScheduleId, trainingScheduleId),
+        inArray(trainingAttendance.attendanceStatus, ["registered", "attended", "absent"])
+      )
+    );
+  const n = Number(row?.n ?? 0);
+  await db
+    .update(trainingSchedules)
+    .set({ enrolledCount: n, updatedAt: new Date() })
+    .where(eq(trainingSchedules.id, trainingScheduleId));
+}
 
 export const institutionRouter = router({
   /** Primary institution for the signed-in user (most recently created if multiple). */
@@ -571,6 +614,163 @@ export const institutionRouter = router({
         .limit(1);
 
       return { success: true as const, scheduleId: created[0]?.id ?? null };
+    }),
+
+  /**
+   * HI-B2B-2: Roster + attendance rows for one training session (tenant-scoped).
+   */
+  getTrainingAttendanceForSchedule: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        trainingScheduleId: z.number().int().positive(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
+
+      const rows = await db
+        .select({
+          staffMemberId: institutionalStaffMembers.id,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+          attendanceId: trainingAttendance.id,
+          attendanceStatus: trainingAttendance.attendanceStatus,
+        })
+        .from(institutionalStaffMembers)
+        .leftJoin(
+          trainingAttendance,
+          and(
+            eq(trainingAttendance.staffMemberId, institutionalStaffMembers.id),
+            eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId)
+          )
+        )
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId))
+        .orderBy(asc(institutionalStaffMembers.staffName));
+
+      return { rows };
+    }),
+
+  /** HI-B2B-2: Create or update one staff member’s attendance for a session. */
+  upsertTrainingAttendance: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        trainingScheduleId: z.number().int().positive(),
+        staffMemberId: z.number().int().positive(),
+        attendanceStatus: z.enum(["registered", "attended", "absent", "cancelled"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
+
+      const staffOk = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(
+          and(
+            eq(institutionalStaffMembers.id, input.staffMemberId),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+          )
+        )
+        .limit(1);
+      if (!staffOk.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Staff member not found for this institution." });
+      }
+
+      const existing = await db
+        .select()
+        .from(trainingAttendance)
+        .where(
+          and(
+            eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
+            eq(trainingAttendance.staffMemberId, input.staffMemberId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length) {
+        await db
+          .update(trainingAttendance)
+          .set({ attendanceStatus: input.attendanceStatus, updatedAt: new Date() })
+          .where(eq(trainingAttendance.id, existing[0].id));
+      } else {
+        await db.insert(trainingAttendance).values({
+          trainingScheduleId: input.trainingScheduleId,
+          staffMemberId: input.staffMemberId,
+          attendanceStatus: input.attendanceStatus,
+        });
+      }
+
+      await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
+      return { success: true as const };
+    }),
+
+  /** HI-B2B-2: Register all roster staff as `registered` when they have no row yet. */
+  registerAllStaffForTrainingSession: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        trainingScheduleId: z.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
+
+      const staff = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+      let added = 0;
+      for (const s of staff) {
+        const ex = await db
+          .select({ id: trainingAttendance.id })
+          .from(trainingAttendance)
+          .where(
+            and(
+              eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
+              eq(trainingAttendance.staffMemberId, s.id)
+            )
+          )
+          .limit(1);
+        if (ex.length) continue;
+        await db.insert(trainingAttendance).values({
+          trainingScheduleId: input.trainingScheduleId,
+          staffMemberId: s.id,
+          attendanceStatus: "registered",
+        });
+        added += 1;
+      }
+
+      await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
+      return { success: true as const, added };
     }),
 
   getStats: protectedProcedure

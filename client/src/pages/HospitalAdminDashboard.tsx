@@ -86,6 +86,9 @@ export default function HospitalAdminDashboard() {
     maxCapacity: "24",
   });
 
+  /** HI-B2B-2: which session’s attendance roster is open */
+  const [selectedScheduleForAttendance, setSelectedScheduleForAttendance] = useState<number | null>(null);
+
   const utils = trpc.useUtils();
 
   useEffect(() => {
@@ -159,6 +162,42 @@ export default function HospitalAdminDashboard() {
       toast.success("Training session scheduled");
     },
     onError: (err) => toast.error(err.message || "Could not create schedule"),
+  });
+
+  const { data: attendanceRoster, isLoading: attendanceRosterLoading } =
+    trpc.institution.getTrainingAttendanceForSchedule.useQuery(
+      {
+        institutionId: institutionId!,
+        trainingScheduleId: selectedScheduleForAttendance!,
+      },
+      { enabled: !!institutionId && selectedScheduleForAttendance != null }
+    );
+
+  const upsertAttendanceMutation = trpc.institution.upsertTrainingAttendance.useMutation({
+    onSuccess: () => {
+      if (institutionId && selectedScheduleForAttendance != null) {
+        void utils.institution.getTrainingAttendanceForSchedule.invalidate({
+          institutionId,
+          trainingScheduleId: selectedScheduleForAttendance,
+        });
+        void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+      }
+    },
+    onError: (err) => toast.error(err.message || "Could not update attendance"),
+  });
+
+  const registerAllStaffMutation = trpc.institution.registerAllStaffForTrainingSession.useMutation({
+    onSuccess: (data) => {
+      if (institutionId && selectedScheduleForAttendance != null) {
+        void utils.institution.getTrainingAttendanceForSchedule.invalidate({
+          institutionId,
+          trainingScheduleId: selectedScheduleForAttendance,
+        });
+        void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+      }
+      toast.success(data.added ? `Registered ${data.added} staff` : "Roster was already complete");
+    },
+    onError: (err) => toast.error(err.message || "Could not register roster"),
   });
 
   const refreshAnalyticsMutation = trpc.institution.refreshInstitutionalAnalytics.useMutation({
@@ -726,6 +765,7 @@ export default function HospitalAdminDashboard() {
                           <th className="py-2 pr-4">Status</th>
                           <th className="py-2 pr-4">Location</th>
                           <th className="py-2 pr-4">Capacity</th>
+                          <th className="py-2 pr-4">Attendance</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -740,6 +780,23 @@ export default function HospitalAdminDashboard() {
                             <td className="py-2 pr-4">
                               {row.enrolledCount ?? 0} / {row.maxCapacity}
                             </td>
+                            <td className="py-2 pr-4">
+                              <Button
+                                type="button"
+                                variant={selectedScheduleForAttendance === row.id ? "default" : "outline"}
+                                size="sm"
+                                className={
+                                  selectedScheduleForAttendance === row.id
+                                    ? "bg-[#1a4d4d] hover:bg-[#0d3333]"
+                                    : ""
+                                }
+                                onClick={() =>
+                                  setSelectedScheduleForAttendance((cur) => (cur === row.id ? null : row.id))
+                                }
+                              >
+                                {selectedScheduleForAttendance === row.id ? "Close" : "Roster"}
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -748,6 +805,111 @@ export default function HospitalAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {selectedScheduleForAttendance != null && institutionId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Session attendance (HI-B2B-2)</CardTitle>
+                  <CardDescription>
+                    Register roster staff and mark attended / absent. Enrolled count on the session updates from
+                    non-cancelled rows.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={registerAllStaffMutation.isPending}
+                      onClick={() =>
+                        registerAllStaffMutation.mutate({
+                          institutionId,
+                          trainingScheduleId: selectedScheduleForAttendance,
+                        })
+                      }
+                    >
+                      Register all staff (missing rows only)
+                    </Button>
+                  </div>
+                  {attendanceRosterLoading ? (
+                    <p className="text-sm text-slate-500">Loading roster…</p>
+                  ) : !attendanceRoster?.rows?.length ? (
+                    <p className="text-sm text-slate-600">No staff on roster. Add staff in the Staff tab first.</p>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-md">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-left text-slate-600">
+                            <th className="py-2 px-3">Name</th>
+                            <th className="py-2 px-3">Role</th>
+                            <th className="py-2 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {attendanceRoster.rows.map((r) => (
+                            <tr key={r.staffMemberId} className="border-b border-slate-100">
+                              <td className="py-2 px-3">
+                                <div className="font-medium text-slate-900">{r.staffName}</div>
+                                <div className="text-xs text-slate-500">{r.staffEmail}</div>
+                              </td>
+                              <td className="py-2 px-3 capitalize">{r.staffRole?.replace(/_/g, " ")}</td>
+                              <td className="py-2 px-3 min-w-[200px]">
+                                {r.attendanceId == null ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={upsertAttendanceMutation.isPending}
+                                    onClick={() =>
+                                      upsertAttendanceMutation.mutate({
+                                        institutionId,
+                                        trainingScheduleId: selectedScheduleForAttendance,
+                                        staffMemberId: r.staffMemberId,
+                                        attendanceStatus: "registered",
+                                      })
+                                    }
+                                  >
+                                    Register on session
+                                  </Button>
+                                ) : (
+                                  <Select
+                                    value={r.attendanceStatus ?? "registered"}
+                                    onValueChange={(v) =>
+                                      upsertAttendanceMutation.mutate({
+                                        institutionId,
+                                        trainingScheduleId: selectedScheduleForAttendance,
+                                        staffMemberId: r.staffMemberId,
+                                        attendanceStatus: v as
+                                          | "registered"
+                                          | "attended"
+                                          | "absent"
+                                          | "cancelled",
+                                      })
+                                    }
+                                    disabled={upsertAttendanceMutation.isPending}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="registered">Registered</SelectItem>
+                                      <SelectItem value="attended">Attended</SelectItem>
+                                      <SelectItem value="absent">Absent</SelectItem>
+                                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="incidents" className="space-y-6">

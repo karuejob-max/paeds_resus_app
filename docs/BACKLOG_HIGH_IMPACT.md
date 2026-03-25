@@ -31,6 +31,7 @@
 - **HI-CLIN-1 (thin slice):** ResusGPS **copy session summary** (clipboard + toast) in top bar, event log dialog, and post-primary screen.
 - **HI-PLAT-3 (slice):** **`/start`** role chooser + header/mobile **Start** + **Get started** CTA; anonymous BottomNav updated.
 - **HI-B2B-1 (slice):** **`createTrainingSchedule`** + hospital admin **Schedule** tab form (catalog `courses` row per program type required).
+- **HI-B2B-2 (slice):** **`getTrainingAttendanceForSchedule`**, **`upsertTrainingAttendance`**, **`registerAllStaffForTrainingSession`** + hospital admin **Roster** panel; syncs `enrolledCount` on the schedule.
 
 ---
 
@@ -65,7 +66,7 @@
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
 | HI-B2B-1 | Training schedules CRUD | L | **Shipped (create + list):** `createTrainingSchedule` + Schedule tab UI; edit/delete/attendance = HI-B2B-2 |
-| HI-B2B-2 | Attendance UI | L | After schedules |
+| HI-B2B-2 | Attendance UI | L | **Shipped (v1):** roster + status select + register-all; skills score / feedback later |
 | HI-B2B-3 | Incidents CSV export | M | **Shipped (v1):** client export from `getIncidents` list; notes excluded |
 | HI-B2B-4 | Quote/contract PDF polish | M | |
 
@@ -121,3 +122,4 @@ M-Pesa pending to completed; enroll to pay conversion; cert downloads/renewals; 
 | 2026-02-25 | M-Pesa webhook: length-safe signature compare. `createPayment` / `recordPayment` return real payment id. |
 | 2026-02-25 | HI-B2B-3 incidents CSV; HI-PLAT-4 BottomNav; HI-CERT-1 scheduled renewal + `renewalReminderSentAt`; HI-CLIN-1 copy summary. |
 | 2026-02-25 | HI-PLAT-3 `/start` chooser; HI-B2B-1 schedule create API + hospital admin form. |
+| 2026-03-25 | HI-B2B-2 training attendance tRPC + hospital admin roster UI; Vite `chunkSizeWarningLimit` 900. |
