@@ -404,4 +404,95 @@ export const institutionRouter = router({
         });
       }
     }),
+
+  // Update staff member role (RBAC)
+  updateStaffRole: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        staffMemberId: z.number(),
+        newRole: z.enum(["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        // Verify staff member exists
+        const staffMember = await db
+          .select()
+          .from(institutionalStaffMembers)
+          .where(
+            and(
+              eq(institutionalStaffMembers.id, input.staffMemberId),
+              eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+            )
+          )
+          .limit(1);
+
+        if (staffMember.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Staff member not found",
+          });
+        }
+
+        // Update the role
+        await db
+          .update(institutionalStaffMembers)
+          .set({ institutionalRole: input.newRole })
+          .where(eq(institutionalStaffMembers.id, input.staffMemberId));
+
+        return {
+          success: true,
+          message: `Role updated to ${input.newRole}`,
+        };
+      } catch (error) {
+        console.error("Error updating staff role:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update staff role",
+        });
+      }
+    }),
+
+  // Get staff roles for an institution
+  getStaffRoles: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input }) => {
+      try {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        const staffMembers = await db
+          .select({
+            id: institutionalStaffMembers.id,
+            staffName: institutionalStaffMembers.staffName,
+            staffEmail: institutionalStaffMembers.staffEmail,
+            department: institutionalStaffMembers.department,
+            institutionalRole: institutionalStaffMembers.institutionalRole,
+            staffRole: institutionalStaffMembers.staffRole,
+          })
+          .from(institutionalStaffMembers)
+          .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+        return staffMembers;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch staff roles",
+        });
+      }
+    }),
 });

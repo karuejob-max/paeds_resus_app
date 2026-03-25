@@ -201,42 +201,11 @@ export const paymentsRouter = router({
         convertedAmount,
         convertedCurrency: input.to,
         rate: conversion.rate,
-        timestamp: conversion.timestamp,
       };
     }),
 
   /**
-   * Get payment statistics (admin only)
-   */
-  getStatistics: adminProcedure.query(() => {
-    const stats = paymentService.getPaymentStatistics();
-    return {
-      success: true,
-      ...stats,
-    };
-  }),
-
-  /**
-   * Get webhook logs (admin only)
-   */
-  getWebhookLogs: adminProcedure
-    .input(
-      z.object({
-        limit: z.number().min(1).max(200).optional().default(100),
-      })
-    )
-    .query(({ input }) => {
-      const logs = paymentService.getWebhookLogs(input.limit);
-      return {
-        success: true,
-        logs,
-        total: logs.length,
-      };
-    }),
-
-  /**
-   * Initiate STK Push payment via Daraja
-   * Sends M-Pesa prompt to user's phone
+   * Initiate M-Pesa STK Push
    */
   initiateSTKPush: protectedProcedure
     .input(
@@ -266,6 +235,119 @@ export const paymentsRouter = router({
         const message =
           error instanceof Error ? error.message : "Payment initiation failed";
         throw new Error(message);
+      }
+    }),
+
+  /**
+   * Get payment status by CheckoutRequestID
+   * Used for polling payment completion after STK Push
+   */
+  getPaymentStatus: protectedProcedure
+    .input(
+      z.object({
+        checkoutRequestId: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const { getDb } = await import("../db");
+        const { payments } = await import("../../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+
+        const db = await getDb();
+        if (!db) {
+          return {
+            status: "pending",
+            message: "Database unavailable",
+          };
+        }
+
+        // Look up payment by CheckoutRequestID (stored in transactionId)
+        const paymentRecords = await db
+          .select()
+          .from(payments)
+          .where(eq(payments.transactionId, input.checkoutRequestId));
+
+        if (paymentRecords.length === 0) {
+          return {
+            status: "not_found",
+            message: "Payment not found",
+          };
+        }
+
+        const payment = paymentRecords[0];
+
+        return {
+          status: payment.status,
+          amount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          transactionId: payment.transactionId,
+          updatedAt: payment.updatedAt,
+          message:
+            payment.status === "completed"
+              ? "Payment successful"
+              : payment.status === "failed"
+                ? "Payment failed"
+                : "Payment pending",
+        };
+      } catch (error) {
+        console.error("Error getting payment status:", error);
+        return {
+          status: "error",
+          message: "Failed to get payment status",
+        };
+      }
+    }),
+
+  /**
+   * Store CheckoutRequestID for polling
+   * Called after initiating STK Push to create a payment record
+   */
+  storeCheckoutRequest: protectedProcedure
+    .input(
+      z.object({
+        checkoutRequestId: z.string(),
+        merchantRequestId: z.string(),
+        phoneNumber: z.string(),
+        amount: z.number(),
+        courseId: z.string(),
+        courseName: z.string(),
+        enrollmentId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { getDb } = await import("../db");
+        const { payments } = await import("../../drizzle/schema");
+
+        const db = await getDb();
+        if (!db) {
+          throw new Error("Database unavailable");
+        }
+
+        // Create payment record with pending status
+        // enrollmentId is required by schema; use 0 as placeholder if not provided
+        const result = await db.insert(payments).values({
+          enrollmentId: input.enrollmentId || 0,
+          userId: ctx.user.id,
+          amount: input.amount,
+          paymentMethod: "mpesa",
+          status: "pending",
+          transactionId: input.checkoutRequestId,
+          idempotencyKey: input.checkoutRequestId,
+        });
+
+        return {
+          success: true,
+          paymentId: (result as any).insertId,
+          checkoutRequestId: input.checkoutRequestId,
+          message: "Payment request stored",
+        };
+      } catch (error) {
+        console.error("Error storing checkout request:", error);
+        throw new Error(
+          error instanceof Error ? error.message : "Failed to store payment request"
+        );
       }
     }),
 });
