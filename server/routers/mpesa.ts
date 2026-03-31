@@ -1,9 +1,12 @@
 import { z } from "zod";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
+import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
+import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
+import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 
 export const mpesaRouter = router({
   /**
@@ -115,6 +118,90 @@ export const mpesaRouter = router({
           error: error.message || "Query failed",
         };
       }
+    }),
+
+  /**
+   * Poll local DB for STK outcome (webhook updates this row; transactionId stays as CheckoutRequestID).
+   */
+  getPaymentByCheckoutRequestId: protectedProcedure
+    .input(z.object({ checkoutRequestID: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { ok: false as const, found: false as const, status: null as null };
+      }
+      const row = await db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.transactionId, input.checkoutRequestID), eq(payments.userId, ctx.user.id)))
+        .orderBy(desc(payments.id))
+        .limit(1);
+      if (!row.length) {
+        return { ok: true as const, found: false as const, status: null as null };
+      }
+
+      const pay = row[0];
+      // Dev/mock STK: completion is tracked in the mock store, not the webhook. Sync DB before returning so polling works.
+      if (
+        pay.status === "pending" &&
+        pay.paymentMethod === "mpesa" &&
+        typeof pay.transactionId === "string" &&
+        pay.transactionId.startsWith("MOCK_")
+      ) {
+        await reconcilePaymentRowByStkQuery(pay.id);
+        const again = await db
+          .select()
+          .from(payments)
+          .where(and(eq(payments.transactionId, input.checkoutRequestID), eq(payments.userId, ctx.user.id)))
+          .orderBy(desc(payments.id))
+          .limit(1);
+        if (again.length) {
+          return {
+            ok: true as const,
+            found: true as const,
+            status: again[0].status as string | null,
+            payment: again[0],
+          };
+        }
+      }
+
+      return {
+        ok: true as const,
+        found: true as const,
+        status: pay.status as string | null,
+        payment: pay,
+      };
+    }),
+
+  /**
+   * Poll by enrollment (fallback if checkout lookup fails).
+   */
+  getPaymentStatusForEnrollment: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { ok: false as const, error: "no_db" as const };
+      }
+      const enr = await db
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      if (!enr.length) {
+        return { ok: false as const, error: "enrollment_not_found" as const };
+      }
+      const pay = await db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.userId, ctx.user.id)))
+        .orderBy(desc(payments.id))
+        .limit(1);
+      return {
+        ok: true as const,
+        enrollmentPaymentStatus: enr[0].paymentStatus,
+        paymentStatus: pay[0]?.status ?? null,
+      };
     }),
 
   /**
@@ -315,5 +402,134 @@ export const mpesaRouter = router({
         error: error.message || "Failed to fetch payment stats",
       };
     }
+  }),
+
+  /**
+   * MPESA-8: List stale M-Pesa payments still pending (admin reconciliation).
+   */
+  getStaleMpesaPendingForReconciliation: adminProcedure
+    .input(
+      z.object({
+        olderThanHours: z.number().min(1).max(720).default(24),
+        limit: z.number().min(1).max(500).default(100),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const cutoff = new Date(Date.now() - input.olderThanHours * 60 * 60 * 1000);
+      const rows = await db
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.status, "pending"),
+            eq(payments.paymentMethod, "mpesa"),
+            lt(payments.createdAt, cutoff)
+          )
+        )
+        .orderBy(desc(payments.id))
+        .limit(input.limit);
+      return {
+        olderThanHours: input.olderThanHours,
+        count: rows.length,
+        payments: rows,
+      };
+    }),
+
+  /**
+   * MPESA-8: Run Daraja STK Query for one payment row and finalize if Safaricom reports success.
+   */
+  adminReconcileMpesaPayment: adminProcedure
+    .input(z.object({ paymentId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      return reconcilePaymentRowByStkQuery(input.paymentId);
+    }),
+
+  /**
+   * Learner-facing: whether to promote STK vs bank (no secrets). Honors DISABLE_MPESA_STK.
+   */
+  getClientPaymentCapabilities: protectedProcedure.query(async () => {
+    const mpesaEnv = getMpesaDeploymentMode();
+    const disabled =
+      process.env.DISABLE_MPESA_STK === "1" ||
+      process.env.DISABLE_MPESA_STK === "true" ||
+      process.env.DISABLE_MPESA_STK === "yes";
+
+    const callbackRaw =
+      process.env.MPESA_CALLBACK_URL?.trim() ||
+      (process.env.CALLBACK_URL?.trim()
+        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
+        : "");
+    const callbackOk = Boolean(callbackRaw && !callbackRaw.includes("example.com"));
+
+    const keyPair =
+      (Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) &&
+        Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim())) ||
+      (Boolean(process.env.MPESA_CONSUMER_KEY?.trim()) &&
+        Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()));
+
+    const paybillOk = Boolean(
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
+    );
+    const passkeyOk = Boolean(process.env.MPESA_PASSKEY?.trim());
+
+    const stkInfrastructureReady = keyPair && paybillOk && passkeyOk && callbackOk;
+    const stkOffered = !disabled && stkInfrastructureReady;
+
+    return {
+      mpesaEnvironment: mpesaEnv,
+      stkPushOffered: stkOffered,
+      stkDisabledByConfig: disabled,
+      bankTransferAvailable: true,
+      userMessage: disabled
+        ? "Mobile Money (STK) checkout is temporarily turned off. Use bank transfer below, or contact support."
+        : !stkInfrastructureReady
+          ? "Mobile Money is not fully configured on this server. Use bank transfer—we’ll confirm your payment and activate your course."
+          : null,
+    };
+  }),
+
+  /**
+   * P0-PAY-1 / ops: non-secret config flags for production readiness (admin only).
+   */
+  getOperationalReadiness: adminProcedure.query(async () => {
+    const db = await getDb();
+    const callback =
+      process.env.MPESA_CALLBACK_URL?.trim() ||
+      (process.env.CALLBACK_URL?.trim()
+        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
+        : "");
+    const mpesaEnv = getMpesaDeploymentMode();
+    const darajaOrMpesaKey =
+      Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) ||
+      Boolean(process.env.MPESA_CONSUMER_KEY?.trim());
+    const darajaOrMpesaSecret =
+      Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim()) ||
+      Boolean(process.env.MPESA_CONSUMER_SECRET?.trim());
+    return {
+      databaseConnected: !!db,
+      mpesaEnvironment: mpesaEnv,
+      mpesaEnvironmentSource: getMpesaEnvironmentSource(),
+      consumerKeySet: darajaOrMpesaKey,
+      consumerSecretSet: darajaOrMpesaSecret,
+      shortcodeSet: Boolean(
+        process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
+      ),
+      passkeySet: Boolean(process.env.MPESA_PASSKEY?.trim()),
+      callbackUrlSet: Boolean(callback && !callback.includes("example.com")),
+      callbackIpAllowlistSet: Boolean(process.env.MPESA_CALLBACK_IP_ALLOWLIST?.trim()),
+      disableStkFlagSet: Boolean(
+        process.env.DISABLE_MPESA_STK === "1" ||
+          process.env.DISABLE_MPESA_STK === "true" ||
+          process.env.DISABLE_MPESA_STK === "yes"
+      ),
+      allRequiredForStk:
+        darajaOrMpesaKey &&
+        darajaOrMpesaSecret &&
+        Boolean(process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()) &&
+        Boolean(process.env.MPESA_PASSKEY?.trim()) &&
+        Boolean(callback && !callback.includes("example.com")),
+    };
   }),
 });

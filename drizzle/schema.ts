@@ -70,6 +70,8 @@ export const payments = mysqlTable("payments", {
   amount: int("amount").notNull(), // in cents (KES)
   paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
   transactionId: varchar("transactionId", { length: 255 }),
+  // MPESA-4: Idempotency key to prevent duplicate webhook processing
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
   idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(), // For webhook deduplication (CheckoutRequestID)
@@ -91,6 +93,8 @@ export const certificates = mysqlTable("certificates", {
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
   verificationCode: varchar("verificationCode", { length: 255 }).unique(),
+  /** Set when user or scheduled job sends a renewal reminder (HI-CERT-1 dedupe). */
+  renewalReminderSentAt: timestamp("renewalReminderSentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -2119,6 +2123,8 @@ export const clinicalReferrals = mysqlTable("clinicalReferrals", {
   reason: text("reason").notNull(),
   referralType: mysqlEnum("referralType", ["hospital", "specialist", "imaging", "lab"]).notNull(),
   facilityName: varchar("facilityName", { length: 255 }).notNull(),
+  /** Optional: receiving facility contact for referral notifications (REF-1). */
+  facilityContactEmail: varchar("facilityContactEmail", { length: 320 }),
   notes: text("notes"),
   status: mysqlEnum("status", ["pending", "accepted", "rejected", "completed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

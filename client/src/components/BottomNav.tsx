@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Home, Users, TrendingUp, Share2, MessageCircle, BarChart3 } from "lucide-react";
+import { Home, Users, TrendingUp, Share2, MessageCircle, BarChart3, BookOpen, Siren, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const BottomNav: React.FC = () => {
@@ -14,17 +14,19 @@ export const BottomNav: React.FC = () => {
   const getNavItems = () => {
     if (!isAuthenticated) {
       return [
-        { path: "/", label: "Home", icon: Home },
-        { path: "/institutional", label: "For Providers", icon: Users },
-        { path: "/parent-safe-truth", label: "For Parents", icon: MessageCircle },
+        { path: "/start", label: "Start", icon: Compass },
+        { path: "/resus", label: "Resus", icon: Siren },
+        { path: "/institutional", label: "Hospitals", icon: Users },
+        { path: "/parent-safe-truth", label: "Parents", icon: MessageCircle },
       ];
     }
 
     if (role === "provider") {
+      // HI-PLAT-4: Clinical thumb-nav — ResusGPS + protocols + referral (hub is /home)
       return [
-        { path: "/", label: "Home", icon: Home },
-        { path: "/patients", label: "Patients", icon: Users },
-        { path: "/performance-dashboard", label: "Performance", icon: BarChart3 },
+        { path: "/home", label: "Hub", icon: Home },
+        { path: "/resus", label: "Resus", icon: Siren },
+        { path: "/protocols", label: "Protocols", icon: BookOpen },
         { path: "/referral", label: "Refer", icon: Share2 },
       ];
     }

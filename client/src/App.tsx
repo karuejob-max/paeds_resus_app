@@ -13,10 +13,15 @@ import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
 import SafeTruth from "./pages/SafeTruth";
-import InstitutionalPortal from "./pages/InstitutionalPortal";
 import Institutional from "./pages/Institutional";
 import AdminHub from "./pages/AdminHub";
 import AdminReports from "./pages/AdminReports";
+import AdminMpesaReconciliation from "./pages/AdminMpesaReconciliation";
+import Help from "./pages/Help";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
+import About from "./pages/About";
+import Start from "./pages/Start";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import Enroll from "./pages/Enroll";
@@ -48,6 +53,18 @@ function Redirect({ to }: { to: string }) {
     setLocation(to);
   }, [to, setLocation]);
   return null;
+}
+
+/** Full navigation so URL hash is preserved (wouter setLocation may drop hash). */
+function RedirectToInstitutionalQuote() {
+  useEffect(() => {
+    window.location.replace(`${window.location.origin}/institutional#quote`);
+  }, []);
+  return (
+    <div className="p-8 text-center text-muted-foreground text-sm">
+      Redirecting to institutional quote…
+    </div>
+  );
 }
 
 function ScrollToTop() {
@@ -87,10 +104,17 @@ function Router() {
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/safe-truth" component={SafeTruth} />
-          <Route path="/institutional-portal" component={InstitutionalPortal} />
+          {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
+          <Route path="/institutional-portal">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
           <Route path="/institutional" component={Institutional} />
           <Route path="/admin" component={AdminHub} />
           <Route path="/admin/reports" component={AdminReports} />
+          <Route path="/admin/mpesa-reconciliation" component={AdminMpesaReconciliation} />
+          <Route path="/help" component={Help} />
+          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/terms" component={TermsOfUse} />
+          <Route path="/about" component={About} />
+          <Route path="/start" component={Start} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
           <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
@@ -123,12 +147,9 @@ function Router() {
           <Route path="/pricing-calculator">{() => <Redirect to="/institutional" />}</Route>
           <Route path="/roi-calculator">{() => <Redirect to="/institutional" />}</Route>
           {/* contact, resources, legal/support: point to existing pages */}
-          <Route path="/contact">{() => <Redirect to="/institutional" />}</Route>
+          <Route path="/contact" component={RedirectToInstitutionalQuote} />
           <Route path="/resources">{() => <Redirect to="/learner-dashboard" />}</Route>
-          <Route path="/privacy">{() => <Redirect to="/institutional" />}</Route>
-          <Route path="/terms">{() => <Redirect to="/institutional" />}</Route>
-          <Route path="/about">{() => <Redirect to="/institutional" />}</Route>
-          <Route path="/faq">{() => <Redirect to="/learner-dashboard" />}</Route>
+          <Route path="/faq">{() => <Redirect to="/help" />}</Route>
           <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
           {/* / : logged-in → Home hub; anonymous → ResusGPS */}

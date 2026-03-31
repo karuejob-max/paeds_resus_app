@@ -1,24 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { AlertCircle, CheckCircle2, Loader2, Phone, AlertTriangle } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AlertCircle, CheckCircle2, Loader2, Phone } from "lucide-react";
 
 interface MpesaPaymentFormProps {
   courseId: string;
   courseName: string;
   amount: number;
   enrollmentId?: number;
-  onPaymentSuccess?: (data: any) => void;
+  /** Called once when payment is confirmed (webhook/poll), not when STK is only initiated. */
+  onPaymentComplete?: () => void;
   onPaymentError?: (error: string) => void;
 }
 
@@ -27,27 +20,88 @@ export function MpesaPaymentForm({
   courseName,
   amount,
   enrollmentId,
-  onPaymentSuccess,
+  onPaymentComplete,
   onPaymentError,
 }: MpesaPaymentFormProps) {
+  const completionNotified = useRef(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [checkoutRequestID, setCheckoutRequestID] = useState("");
-  const [pollCount, setPollCount] = useState(0);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [confirmedPhoneNumber, setConfirmedPhoneNumber] = useState("");
+  const [pollEnrollmentId, setPollEnrollmentId] = useState<number | null>(null);
+
+  const { data: checkoutPoll } = trpc.mpesa.getPaymentByCheckoutRequestId.useQuery(
+    { checkoutRequestID },
+    {
+      enabled: paymentStatus === "processing" && checkoutRequestID.length > 0,
+      refetchInterval: (q) => {
+        const s = q.state.data?.status;
+        if (s === "completed" || s === "failed") return false;
+        return 3000;
+      },
+    }
+  );
+
+  const { data: enrollmentPoll } = trpc.mpesa.getPaymentStatusForEnrollment.useQuery(
+    { enrollmentId: pollEnrollmentId! },
+    {
+      enabled: paymentStatus === "processing" && !!pollEnrollmentId && !checkoutRequestID,
+      refetchInterval: (q) => {
+        const s = q.state.data?.paymentStatus ?? q.state.data?.enrollmentPaymentStatus;
+        if (s === "completed" || s === "failed") return false;
+        return 3000;
+      },
+    }
+  );
+
+  useEffect(() => {
+    if (paymentStatus !== "processing") return;
+
+    if (checkoutPoll?.found && checkoutPoll.status === "completed") {
+      setPaymentStatus("success");
+      setStatusMessage("Payment received. Thank you!");
+      return;
+    }
+    if (checkoutPoll?.found && checkoutPoll.status === "failed") {
+      setPaymentStatus("error");
+      setStatusMessage("Payment was not completed. You can try again.");
+      onPaymentError?.("Payment failed");
+    }
+  }, [checkoutPoll, paymentStatus, onPaymentError]);
+
+  useEffect(() => {
+    if (paymentStatus !== "processing" || checkoutRequestID) return;
+    if (!enrollmentPoll?.ok) return;
+
+    const pay = enrollmentPoll.paymentStatus;
+    const enr = enrollmentPoll.enrollmentPaymentStatus;
+    if (pay === "completed" || enr === "completed") {
+      setPaymentStatus("success");
+      setStatusMessage("Payment received. Thank you!");
+    } else if (pay === "failed") {
+      setPaymentStatus("error");
+      setStatusMessage("Payment was not completed.");
+      onPaymentError?.("Payment failed");
+    }
+  }, [enrollmentPoll, paymentStatus, checkoutRequestID, onPaymentError]);
+
+  useEffect(() => {
+    if (paymentStatus !== "success" || completionNotified.current) return;
+    completionNotified.current = true;
+    onPaymentComplete?.();
+  }, [paymentStatus, onPaymentComplete]);
 
   const initiatePaymentMutation = trpc.mpesa.initiatePayment.useMutation({
     onSuccess: (data) => {
       if (data.success) {
         setPaymentStatus("processing");
-        setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone.");
-        setCheckoutRequestID(data.checkoutRequestID || "");
-        
-        // Don't call onPaymentSuccess yet - wait for polling to complete
-        // onPaymentSuccess will be called when payment is confirmed via webhook
+        setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone. Waiting for confirmation…");
+        const ck = data.checkoutRequestID || "";
+        setCheckoutRequestID(ck);
+        if (data.enrollmentId) {
+          setPollEnrollmentId(data.enrollmentId);
+        }
       } else {
         setPaymentStatus("error");
         setStatusMessage(data.error || "Payment initiation failed");
@@ -63,53 +117,6 @@ export function MpesaPaymentForm({
     },
   });
 
-  const queryPaymentStatusMutation = trpc.mpesa.queryPaymentStatus.useMutation({
-    onSuccess: (data) => {
-      if (data.resultCode === 0) {
-        // Payment successful
-        setPaymentStatus("success");
-        setStatusMessage("Payment successful! Certificate issued.");
-        // Redirect after a short delay to show success message
-        setTimeout(() => {
-          onPaymentSuccess?.(data);
-        }, 1500);
-      } else if (data.resultCode === 1) {
-        // Payment failed
-        setPaymentStatus("error");
-        setStatusMessage("Payment failed. Please try again.");
-        onPaymentError?.("Payment failed");
-      }
-      // resultCode 2 = user timeout, keep polling
-    },
-    onError: (error) => {
-      // Continue polling on transient errors
-      console.error("Payment status query error:", error);
-    },
-  });
-
-  // Start polling for payment status after STK push
-  useEffect(() => {
-    if (!checkoutRequestID || paymentStatus !== "processing") return;
-
-    const pollInterval = setInterval(() => {
-      queryPaymentStatusMutation.mutate({ checkoutRequestID });
-    }, 3000); // Poll every 3 seconds
-
-    // Stop polling after 2 minutes
-    const timeout = setTimeout(() => {
-      clearInterval(pollInterval);
-      if (paymentStatus === "processing") {
-        setPaymentStatus("error");
-        setStatusMessage("Payment confirmation timeout. Please check your M-Pesa balance.");
-      }
-    }, 120000);
-
-    return () => {
-      clearInterval(pollInterval);
-      clearTimeout(timeout);
-    };
-  }, [checkoutRequestID, paymentStatus]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -118,19 +125,14 @@ export function MpesaPaymentForm({
       return;
     }
 
-    // Show confirmation dialog instead of directly initiating payment
-    setConfirmedPhoneNumber(phoneNumber);
-    setShowConfirmation(true);
-  };
-
-  const handleConfirmPayment = () => {
-    setShowConfirmation(false);
     setIsLoading(true);
     setPaymentStatus("processing");
     setStatusMessage("Initiating payment...");
+    setCheckoutRequestID("");
+    setPollEnrollmentId(enrollmentId ?? null);
 
     initiatePaymentMutation.mutate({
-      phoneNumber: confirmedPhoneNumber,
+      phoneNumber,
       amount,
       courseId,
       courseName,
@@ -138,193 +140,108 @@ export function MpesaPaymentForm({
     });
   };
 
-  const formatPhoneNumber = (phone: string) => {
-    // Format phone number for display
-    if (phone.startsWith("254")) {
-      return `+${phone.slice(0, 3)} ${phone.slice(3, 6)} ${phone.slice(6)}`;
-    }
-    return phone;
-  };
-
   return (
-    <>
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Phone className="w-5 h-5 text-green-600" />
-            M-Pesa Payment
-          </CardTitle>
-          <CardDescription>Pay for {courseName}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Amount Display */}
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <p className="text-sm text-slate-600">Amount to Pay</p>
-              <p className="text-3xl font-bold text-slate-900">KES {amount.toLocaleString()}</p>
-            </div>
-
-            {/* Phone Number Input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                M-Pesa Phone Number
-              </label>
-              <Input
-                type="tel"
-                placeholder="0712345678 or 254712345678"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                disabled={isLoading || paymentStatus === "success"}
-                className="w-full"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Enter your M-Pesa registered phone number
-              </p>
-            </div>
-
-            {/* Status Messages */}
-            {statusMessage && (
-              <div
-                className={`p-3 rounded-lg flex items-start gap-2 ${
-                  paymentStatus === "success"
-                    ? "bg-green-50 border border-green-200"
-                    : paymentStatus === "error"
-                    ? "bg-red-50 border border-red-200"
-                    : "bg-blue-50 border border-blue-200"
-                }`}
-              >
-                {paymentStatus === "success" ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                ) : paymentStatus === "error" ? (
-                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <Loader2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" />
-                )}
-                <p
-                  className={`text-sm ${
-                    paymentStatus === "success"
-                      ? "text-green-700"
-                      : paymentStatus === "error"
-                      ? "text-red-700"
-                      : "text-blue-700"
-                  }`}
-                >
-                  {statusMessage}
-                </p>
-              </div>
-            )}
-
-            {/* Instructions */}
-            {paymentStatus === "processing" && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm font-medium text-amber-900 mb-2">What to do next:</p>
-                <ol className="text-sm text-amber-800 space-y-1 list-decimal list-inside">
-                  <li>A popup will appear on your phone</li>
-                  <li>Enter your M-Pesa PIN</li>
-                  <li>Wait for confirmation</li>
-                </ol>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={isLoading || paymentStatus === "success"}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : paymentStatus === "success" ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Payment Complete
-                </>
-              ) : (
-                <>
-                  <Phone className="w-4 h-4 mr-2" />
-                  Pay KES {amount.toLocaleString()}
-                </>
-              )}
-            </Button>
-
-            {/* Footer */}
-            <p className="text-xs text-slate-500 text-center">
-              Secure payment powered by M-Pesa. Your phone number is encrypted.
-            </p>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
-              Confirm Payment
-            </DialogTitle>
-            <DialogDescription>
-              Please review the payment details before proceeding
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* Course Details */}
-            <div className="p-4 bg-slate-50 rounded-lg space-y-3">
-              <div>
-                <p className="text-sm text-slate-600">Course</p>
-                <p className="font-bold text-slate-900">{courseName}</p>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm text-slate-600">Amount</p>
-                <p className="text-2xl font-bold text-green-600">KES {amount.toLocaleString()}</p>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm text-slate-600">Payment To</p>
-                <p className="font-bold text-slate-900">Paeds Resus Limited</p>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm text-slate-600">Phone Number</p>
-                <p className="font-bold text-slate-900">{formatPhoneNumber(confirmedPhoneNumber)}</p>
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-900">
-                <strong>Note:</strong> You will receive an M-Pesa prompt on your phone. Enter your PIN to complete the payment.
-              </p>
-            </div>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Phone className="w-5 h-5 text-green-600" />
+          M-Pesa Payment
+        </CardTitle>
+        <CardDescription>Pay for {courseName}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-4 bg-slate-50 rounded-lg">
+            <p className="text-sm text-slate-600">Amount to Pay</p>
+            <p className="text-3xl font-bold text-slate-900">KES {amount.toLocaleString()}</p>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmation(false)}
-              disabled={isLoading}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">M-Pesa Phone Number</label>
+            <Input
+              type="tel"
+              placeholder="0712345678 or 254712345678"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              disabled={isLoading || paymentStatus === "success"}
+              className="w-full"
+            />
+            <p className="text-xs text-slate-500 mt-1">Enter your M-Pesa registered phone number</p>
+          </div>
+
+          {statusMessage && (
+            <div
+              className={`p-3 rounded-lg flex items-start gap-2 ${
+                paymentStatus === "success"
+                  ? "bg-green-50 border border-green-200"
+                  : paymentStatus === "error"
+                    ? "bg-red-50 border border-red-200"
+                    : "bg-blue-50 border border-blue-200"
+              }`}
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmPayment}
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
+              {paymentStatus === "success" ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+              ) : paymentStatus === "error" ? (
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
               ) : (
-                "Confirm & Pay"
+                <Loader2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" />
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+              <p
+                className={`text-sm ${
+                  paymentStatus === "success"
+                    ? "text-green-700"
+                    : paymentStatus === "error"
+                      ? "text-red-700"
+                      : "text-blue-700"
+                }`}
+              >
+                {statusMessage}
+              </p>
+            </div>
+          )}
+
+          {paymentStatus === "processing" && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm font-medium text-amber-900 mb-2">What to do next:</p>
+              <ol className="text-sm text-amber-800 space-y-1 list-decimal list-inside">
+                <li>Check your phone for the M-Pesa prompt</li>
+                <li>Enter your M-Pesa PIN</li>
+                <li>This page updates automatically when payment completes</li>
+              </ol>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={isLoading || paymentStatus === "success" || paymentStatus === "processing"}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : paymentStatus === "success" ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Payment Complete
+              </>
+            ) : paymentStatus === "processing" ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Waiting for payment…
+              </>
+            ) : (
+              <>
+                <Phone className="w-4 h-4 mr-2" />
+                Pay KES {amount.toLocaleString()}
+              </>
+            )}
+          </Button>
+
+          <p className="text-xs text-slate-500 text-center">Secure payment powered by M-Pesa.</p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

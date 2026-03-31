@@ -6,6 +6,14 @@
 
 Paeds Resus is a comprehensive digital platform designed to train healthcare professionals in pediatric resuscitation and track patient safety incidents. By combining evidence-based training with real-world incident analysis, we empower healthcare systems to save children's lives.
 
+### Product and backlog docs
+
+- **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)
+- **High-impact roadmap (comprehensive):** [`docs/BACKLOG_HIGH_IMPACT.md`](docs/BACKLOG_HIGH_IMPACT.md)
+- **Prioritized P0–P3 IDs:** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md)
+- **Scrum Done (main platform):** [`docs/BACKLOG_BOARD.md`](docs/BACKLOG_BOARD.md)
+- **Institutional (B2B) board:** [`docs/INSTITUTIONAL_BACKLOG_BOARD.md`](docs/INSTITUTIONAL_BACKLOG_BOARD.md)
+
 ---
 
 ## Platform Overview
@@ -203,23 +211,23 @@ curl -X POST http://localhost:3000/api/trpc/auth.logout \
 
 ### Institution Management
 
-```bash
-# Register institution
-POST /api/trpc/institution.register
-{
-  "hospitalName": "Kenyatta National Hospital",
-  "adminEmail": "admin@hospital.com",
-  "adminName": "Dr. John Doe",
-  "phoneNumber": "+254712345678",
-  "county": "Nairobi",
-  "staffCount": 50,
-  "subscriptionPlan": "professional"
-}
+**Auth:** `institution.register`, `completeOnboarding`, `getMyInstitution`, `getStats`, `getStaffMembers`, and other tenant procedures require a **signed-in user** (session / Bearer). Only **`institution.verify`** is public. Non-admin users may only access institutions where `institutionalAccounts.userId` matches their user id.
 
-# Get institution stats
+```bash
+# Who am I linked to? (authenticated)
+GET /api/trpc/institution.getMyInstitution
+
+# Register institution (authenticated — links to your user id)
+POST /api/trpc/institution.register
+# Body: full input per router (hospitalName, hospitalType, admin fields, planId, planPrice, maxStaff, etc.)
+
+# Complete multi-step onboarding (authenticated)
+POST /api/trpc/institution.completeOnboarding
+
+# Get institution stats (must own institutionId or be admin)
 GET /api/trpc/institution.getStats?institutionId=1
 
-# Get staff members
+# Get staff members (must own institutionId or be admin)
 GET /api/trpc/institution.getStaffMembers?institutionId=1
 ```
 

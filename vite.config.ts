@@ -20,6 +20,8 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    /** Render/Vite: large clinical bundles; warning only — prefer code-splitting over failing CI noise */
+    chunkSizeWarningLimit: 900,
   },
   server: {
     host: true,

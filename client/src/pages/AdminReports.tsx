@@ -2,13 +2,30 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, BookOpen, Award, Heart, Activity, Send, TrendingUp, FileText } from "lucide-react";
+import {
+  Shield,
+  Users,
+  BookOpen,
+  Award,
+  Heart,
+  Activity,
+  Send,
+  TrendingUp,
+  FileText,
+  Download,
+  MapPin,
+  ClipboardList,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [showUsers, setShowUsers] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   const { data: report, isLoading: reportLoading } = trpc.adminStats.getReport.useQuery(
     { lastDays: 7 },
@@ -16,9 +33,50 @@ export default function AdminReports() {
   );
 
   const { data: usersData } = trpc.adminStats.getUsers.useQuery(
-    { limit: 50 },
+    { limit: 200, search: userSearch.trim() || undefined },
     { enabled: showUsers && isAuthenticated && (user as { role?: string })?.role === "admin" }
   );
+
+  const { data: auditData } = trpc.adminStats.getAdminAuditLog.useQuery(
+    { limit: 1000 },
+    { enabled: showAudit && isAuthenticated && (user as { role?: string })?.role === "admin" }
+  );
+
+  const downloadUsersCsv = () => {
+    if (!usersData?.users.length) return;
+    const headers = ["id", "name", "email", "userType", "createdAt"];
+    const rows = usersData.users.map((u) =>
+      headers.map((h) => JSON.stringify(String((u as Record<string, unknown>)[h] ?? ""))).join(",")
+    );
+    const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadAuditCsv = () => {
+    if (!auditData?.rows.length) return;
+    const headers = ["id", "adminUserId", "procedurePath", "inputSummary", "createdAt"];
+    const rows = auditData.rows.map((r) =>
+      headers
+        .map((h) => {
+          const v = (r as Record<string, unknown>)[h];
+          const s = v instanceof Date ? v.toISOString() : String(v ?? "");
+          return JSON.stringify(s);
+        })
+        .join(",")
+    );
+    const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `admin-audit-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -102,8 +160,28 @@ export default function AdminReports() {
                 >
                   {showUsers ? "Hide" : "Show"} registered users list
                 </button>
+                {showUsers && (
+                  <div className="mt-4 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[200px]">
+                      <label htmlFor="admin-user-search" className="text-xs text-muted-foreground block mb-1">
+                        Search name or email
+                      </label>
+                      <Input
+                        id="admin-user-search"
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder="Type to filter…"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={downloadUsersCsv} disabled={!usersData?.users.length}>
+                      <Download className="h-4 w-4 mr-1" />
+                      Export CSV
+                    </Button>
+                  </div>
+                )}
                 {showUsers && usersData && (
                   <div className="mt-4 overflow-x-auto">
+                    <p className="text-xs text-muted-foreground mb-2">Showing {usersData.users.length} of {usersData.total} matches</p>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
@@ -295,6 +373,91 @@ export default function AdminReports() {
                   <p className="text-sm text-muted-foreground">
                     No analytics events recorded yet. Events are stored when the app tracks usage (e.g. Paeds Resus sessions, page views).
                   </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ResusGPS analytics (subset of events) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  ResusGPS (clinical flow)
+                </CardTitle>
+                <CardDescription>
+                  Events whose type starts with <code className="text-xs">resus_</code> in {report.lastDaysLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{report.resusGpsAnalyticsLastDays.totalEvents}</p>
+                <p className="text-sm text-muted-foreground mb-3">ResusGPS-related events</p>
+                {report.resusGpsAnalyticsLastDays.eventTypes.length > 0 ? (
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">By event type:</p>
+                    <ul className="list-disc list-inside text-muted-foreground">
+                      {report.resusGpsAnalyticsLastDays.eventTypes.map((e) => (
+                        <li key={e.eventType}>
+                          {e.eventType}: {e.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No ResusGPS events in this window yet. They appear when providers use the Paeds Resus assessment
+                    flow.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Admin audit log export */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Admin audit log
+                </CardTitle>
+                <CardDescription>Recent admin procedure calls (sanitized inputs).</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAudit(!showAudit)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {showAudit ? "Hide" : "Load recent entries"}
+                </button>
+                {showAudit && auditData && (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Showing {auditData.rows.length} most recent row{auditData.rows.length !== 1 ? "s" : ""}.
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={downloadAuditCsv} disabled={!auditData.rows.length}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download CSV
+                    </Button>
+                    {auditData.rows.length > 0 ? (
+                      <ul className="max-h-48 overflow-y-auto space-y-2 text-xs border rounded-md p-2 bg-muted/30">
+                        {auditData.rows.slice(0, 20).map((r) => (
+                          <li key={r.id} className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{r.procedurePath}</span>
+                            <span className="mx-1">·</span>
+                            admin #{r.adminUserId}
+                            <span className="mx-1">·</span>
+                            {new Date(r.createdAt).toLocaleString()}
+                            {r.inputSummary ? (
+                              <span className="block truncate" title={r.inputSummary}>
+                                {r.inputSummary}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No audit rows yet.</p>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

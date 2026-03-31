@@ -284,13 +284,158 @@ export const emailTemplates: Record<string, EmailTemplate> = {
             <a href="{{dashboardLink}}" style="background: #ff6633; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View dashboard</a>
           </div>
           <p style="font-size: 12px; color: #666;">Thank you for helping improve pediatric care.</p>
+          <p style="font-size: 12px; color: #666;">If you don't see our emails, please check your spam or promotions folder.</p>
           <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
           <p style="font-size: 12px; color: #666;">Paeds Resus Limited · paedsresus254@gmail.com</p>
         </div>
       </div>
     `,
-    text: `Hello {{parentName}},\n\nYour Safe-Truth submission has been reviewed. View your dashboard: {{dashboardLink}}\n\nPaeds Resus Limited`,
+    text: `Hello {{parentName}},\n\nYour Safe-Truth submission has been reviewed. View your dashboard: {{dashboardLink}}\n\nIf you don't see our emails, check spam or promotions.\n\nPaeds Resus Limited`,
     variables: ["parentName", "dashboardLink"],
+  },
+
+  institutionalEnrollmentReminder: {
+    id: "institutional-enrollment-reminder",
+    name: "Institutional enrollment reminder",
+    subject: "Training enrollment reminder — {{courseName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0;">Paeds Resus</h1>
+          <p style="margin: 8px 0 0 0; font-size: 14px;">Institutional training</p>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{staffName}},</p>
+          <p>This is a reminder to complete enrollment for <strong>{{courseName}}</strong>.</p>
+          <p><strong>Deadline:</strong> {{enrollmentDeadline}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{courseLink}}" style="background: #ff6633; color: white; padding: 12px 28px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Open course</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited · paedsresus254@gmail.com</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{staffName}},\n\nReminder: enroll in {{courseName}} by {{enrollmentDeadline}}.\n\n{{courseLink}}\n\nPaeds Resus Limited`,
+    variables: ["staffName", "courseName", "enrollmentDeadline", "courseLink"],
+  },
+
+  institutionalCourseCompletion: {
+    id: "institutional-course-completion",
+    name: "Institutional course completion",
+    subject: "Congratulations — {{courseName}} completed",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6633 0%, #e55a22 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0;">Course completed</h1>
+          <p style="margin: 8px 0 0 0; font-size: 14px;">{{courseName}}</p>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Congratulations {{staffName}},</p>
+          <p>You have completed <strong>{{courseName}}</strong>.</p>
+          <p><strong>Certificate:</strong> {{certificateNumber}}<br><strong>Completion date:</strong> {{completionDate}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{dashboardLink}}" style="background: #1a4d4d; color: white; padding: 12px 28px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View dashboard</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Congratulations {{staffName}},\n\nYou completed {{courseName}}.\nCertificate: {{certificateNumber}}\nDate: {{completionDate}}\n\n{{dashboardLink}}\n\nPaeds Resus Limited`,
+    variables: ["staffName", "courseName", "certificateNumber", "completionDate", "dashboardLink"],
+  },
+
+  institutionalBatchNotice: {
+    id: "institutional-batch-notice",
+    name: "Institutional batch notice",
+    subject: "{{subjectLine}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <p style="white-space: pre-wrap;">{{bodyMessage}}</p>
+        <p><a href="{{appLink}}">Paeds Resus</a></p>
+        <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+      </div>
+    `,
+    text: "{{bodyMessage}}\n\n{{appLink}}\n\nPaeds Resus Limited",
+    variables: ["subjectLine", "bodyMessage", "appLink"],
+  },
+
+  referralNewFacility: {
+    id: "referral-new-facility",
+    name: "New clinical referral (facility)",
+    subject: "Incoming referral — {{urgency}} — {{facilityName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #1a4d4d; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">Clinical referral notification</h2>
+        </div>
+        <div style="padding: 20px; background: #f9f9f9;">
+          <p>{{facilityName}},</p>
+          <p>A referral has been submitted for your facility.</p>
+          <p><strong>Urgency:</strong> {{urgency}}<br><strong>From:</strong> {{providerName}}<br><strong>Summary:</strong> {{patientSummary}}</p>
+          <p style="font-size: 12px; color: #666;">Use your usual clinical channels to coordinate care. This message is informational only.</p>
+          <p><a href="{{appLink}}">Open Paeds Resus</a></p>
+        </div>
+      </div>
+    `,
+    text: `Referral for {{facilityName}} ({{urgency}}) from {{providerName}}.\n{{patientSummary}}\n\n{{appLink}}\n\nPaeds Resus`,
+    variables: ["facilityName", "providerName", "patientSummary", "urgency", "appLink"],
+  },
+
+  referralStatusProvider: {
+    id: "referral-status-provider",
+    name: "Referral status update (referring provider)",
+    subject: "Referral update — {{newStatus}} — {{patientName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <p>Hello,</p>
+        <p>Your referral for <strong>{{patientName}}</strong> to <strong>{{facilityName}}</strong> is now: <strong>{{newStatus}}</strong>.</p>
+        <p><a href="{{appLink}}">View in Paeds Resus</a></p>
+        <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+      </div>
+    `,
+    text: `Referral update: {{patientName}} → {{facilityName}} is now {{newStatus}}.\n{{appLink}}\n\nPaeds Resus Limited`,
+    variables: ["patientName", "facilityName", "newStatus", "appLink"],
+  },
+
+  referralStatusFacility: {
+    id: "referral-status-facility",
+    name: "Referral status update (facility contact)",
+    subject: "Referral status — {{newStatus}} — {{patientName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <p>Hello,</p>
+        <p>Referral for <strong>{{patientName}}</strong> from <strong>{{referringProvider}}</strong> is now: <strong>{{newStatus}}</strong>.</p>
+        <p><a href="{{appLink}}">Open Paeds Resus</a></p>
+        <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+      </div>
+    `,
+    text: `Referral for {{patientName}} (from {{referringProvider}}) is now {{newStatus}}.\n{{appLink}}\n\nPaeds Resus Limited`,
+    variables: ["patientName", "referringProvider", "newStatus", "appLink"],
+  },
+
+  certificateRenewalReminder: {
+    id: "certificate-renewal-reminder",
+    name: "Certificate renewal reminder",
+    subject: "Renew your Paeds Resus certification",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Certificate renewal</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{userName}},</p>
+          <p>One or more of your certificates need renewal soon:</p>
+          <p style="background: white; padding: 12px; border-radius: 6px; border-left: 4px solid #ff6633;">{{programSummary}}</p>
+          <p>You can recertify through the platform to stay compliant.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{renewLink}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Enrol to renew</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{userName}},\n\nYour certificates need renewal attention:\n{{programSummary}}\n\nRenew here: {{renewLink}}\n\nPaeds Resus Limited`,
+    variables: ["userName", "programSummary", "renewLink"],
   },
 };
 

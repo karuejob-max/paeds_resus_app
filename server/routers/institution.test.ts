@@ -49,7 +49,7 @@ function createPublicContext(): TrpcContext {
 describe("Institution Router", () => {
   describe("register", () => {
     it("should register a new institution successfully", async () => {
-      const ctx = createPublicContext();
+      const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
       const result = await caller.institution.register({
@@ -76,7 +76,7 @@ describe("Institution Router", () => {
     });
 
     it("should reject invalid hospital name", async () => {
-      const ctx = createPublicContext();
+      const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
       try {
@@ -103,7 +103,7 @@ describe("Institution Router", () => {
     });
 
     it("should reject invalid email", async () => {
-      const ctx = createPublicContext();
+      const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
       try {

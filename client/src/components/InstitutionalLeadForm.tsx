@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { MessageCircle, CheckCircle } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 interface LeadFormData {
   institutionName: string;
@@ -27,6 +28,13 @@ export function InstitutionalLeadForm() {
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const submitLead = trpc.institution.submitLeadInquiry.useMutation({
+    onError: (err) => {
+      setSaveError(err.message || "Could not save your request. You can still use WhatsApp.");
+    },
+  });
 
   const courses = [
     { id: "BLS", name: "BLS (10,000 KES)", price: 10000 },
@@ -53,34 +61,40 @@ export function InstitutionalLeadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSaveError("");
 
     try {
-      // Generate WhatsApp message with quote
-      const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Cost: ${discountedTotal.toLocaleString()} KES\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
-
-      // Open WhatsApp with pre-filled message
-      const whatsappUrl = `https://wa.me/254706781260?text=${encodeURIComponent(whatsappMessage)}`;
-      window.open(whatsappUrl, "_blank");
-
-      // Mark as submitted
-      setSubmitted(true);
-      setTimeout(() => {
-        setSubmitted(false);
-        setFormData({
-          institutionName: "",
-          contactName: "",
-          contactEmail: "",
-          contactPhone: "",
-          staffCount: 0,
-          preferredCourse: "BLS",
-          message: "",
-        });
-      }, 3000);
-    } catch (error) {
-      console.error("Error submitting form:", error);
-    } finally {
-      setLoading(false);
+      await submitLead.mutateAsync({
+        institutionName: formData.institutionName,
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        contactPhone: formData.contactPhone,
+        staffCount: formData.staffCount,
+        preferredCourse: formData.preferredCourse,
+        message: formData.message || undefined,
+      });
+    } catch {
+      /* onError sets saveError */
     }
+
+    const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Cost: ${discountedTotal.toLocaleString()} KES\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
+    const whatsappUrl = `https://wa.me/254706781260?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(whatsappUrl, "_blank");
+
+    setSubmitted(true);
+    setLoading(false);
+    setTimeout(() => {
+      setSubmitted(false);
+      setFormData({
+        institutionName: "",
+        contactName: "",
+        contactEmail: "",
+        contactPhone: "",
+        staffCount: 0,
+        preferredCourse: "BLS",
+        message: "",
+      });
+    }, 4000);
   };
 
   if (submitted) {
@@ -89,8 +103,9 @@ export function InstitutionalLeadForm() {
         <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-green-900 mb-2">Quote Request Sent!</h3>
         <p className="text-green-700">
-          Our sales team will contact you shortly via WhatsApp and email with a personalized quote.
+          Your details were saved and WhatsApp opened. Our team will follow up shortly.
         </p>
+        {saveError && <p className="text-amber-800 text-sm mt-2">{saveError}</p>}
       </Card>
     );
   }
@@ -98,6 +113,11 @@ export function InstitutionalLeadForm() {
   return (
     <Card className="p-8 bg-white">
       <h2 className="text-2xl font-bold mb-6">Get a Personalized Quote</h2>
+      {saveError && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+          {saveError} WhatsApp will still open so you can reach us directly.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

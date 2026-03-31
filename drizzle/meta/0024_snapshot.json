@@ -6546,8 +6546,6 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-<<<<<<< HEAD
-=======
     "passwordResetTokens": {
       "name": "passwordResetTokens",
       "columns": {
@@ -6608,7 +6606,6 @@
       },
       "checkConstraint": {}
     },
->>>>>>> 0255caa (P0-4: Password reset (forgot/reset pages, auth procedures, email template, passwordResetTokens table); P0-5: Safe-Truth markResponseReady + email, parent dashboard shows Response ready)
     "patientVitals": {
       "name": "patientVitals",
       "columns": {

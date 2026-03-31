@@ -2,7 +2,8 @@ import { useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Shield, TrendingUp } from "lucide-react";
+import { CheckCircle2, Heart, Shield, TrendingUp } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ParentSafeTruthForm from "@/components/ParentSafeTruthForm";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -49,6 +50,18 @@ export default function ParentSafeTruth() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4">
+        {isAuthenticated && stats && stats.reviewedSubmissionsCount > 0 && (
+          <Alert className="mb-8 border-emerald-600/40 bg-emerald-50/90 text-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-50 dark:border-emerald-500/40">
+            <CheckCircle2 className="text-emerald-700 dark:text-emerald-400" />
+            <AlertTitle>Response ready</AlertTitle>
+            <AlertDescription>
+              You have {stats.reviewedSubmissionsCount} reviewed submission
+              {stats.reviewedSubmissionsCount !== 1 ? "s" : ""}. Check &quot;Your submissions&quot; below—we also email
+              you when a response is ready (check spam if you don&apos;t see it).
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Usage this month (when logged in) */}
         {isAuthenticated && stats !== undefined && (
           <Card className="mb-8 border-[#2d5f5f]/30 bg-white/80">

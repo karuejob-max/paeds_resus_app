@@ -1,12 +1,17 @@
 import { z } from "zod";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { eq, and } from "drizzle-orm";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   createEnrollment,
   getEnrollmentsByUserId,
   createPayment,
   getPaymentsByEnrollmentId,
   createSmsReminder,
+  getDb,
 } from "../db";
+import { enrollments, payments } from "../../drizzle/schema";
+import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship"]),
@@ -57,12 +62,20 @@ export const enrollmentRouter = router({
     return await getEnrollmentsByUserId(ctx.user.id);
   }),
 
-  // Get enrollment details
+  // Get enrollment details (current user only — used to lock Payment to the same enrollment as Enroll)
   getById: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
-    .query(async ({ input }) => {
-      // TODO: Add enrollment retrieval by ID
-      return null;
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const rows = await db
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      return rows[0] ?? null;
     }),
 
   // Record a payment
@@ -81,6 +94,11 @@ export const enrollmentRouter = router({
         updatedAt: new Date(),
       });
 
+      const paymentId = result?.id ?? 0;
+      if (!paymentId) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to record payment" });
+      }
+
       // Create SMS reminder for payment confirmation
       if (ctx.user.phone) {
         await createSmsReminder({
@@ -93,13 +111,25 @@ export const enrollmentRouter = router({
         });
       }
 
-      return { success: true, paymentId: 1 };
+      return { success: true, paymentId };
     }),
 
-  // Get payments for an enrollment
+  // Get payments for an enrollment (only if it belongs to the current user)
   getPaymentsByEnrollmentId: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const own = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      if (!own.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
+      }
       return await getPaymentsByEnrollmentId(input.enrollmentId);
     }),
 
@@ -119,6 +149,88 @@ export const enrollmentRouter = router({
         amount: input.amount,
         status: "completed",
         message: "Payment verified successfully",
+      };
+    }),
+
+  /**
+   * After bank/wire proof is verified offline, mark enrollment paid and issue certificate (admin).
+   * Use when STK/C2B is unavailable or for institutional settlements.
+   */
+  adminConfirmOfflinePayment: adminProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number().int().positive(),
+        amountPaid: z.number().int().min(0).optional(),
+        internalNote: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const enrRows = await db
+        .select()
+        .from(enrollments)
+        .where(eq(enrollments.id, input.enrollmentId))
+        .limit(1);
+      if (!enrRows.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
+      }
+      const enrollment = enrRows[0];
+
+      if (input.internalNote?.trim()) {
+        console.info(
+          `[adminConfirmOfflinePayment] enrollment=${input.enrollmentId} note=${input.internalNote.trim().slice(0, 200)}`
+        );
+      }
+
+      const pendingList = await db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.status, "pending")));
+
+      const pendingSum = pendingList.reduce((s, p) => s + (p.amount ?? 0), 0);
+      // Parentheses required: cannot mix ?? and || without disambiguation (esbuild / TS5076).
+      let amount =
+        (input.amountPaid ?? pendingSum) || enrollment.amountPaid || 0;
+
+      for (const p of pendingList) {
+        await db
+          .update(payments)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(payments.id, p.id));
+      }
+
+      if (pendingList.length === 0) {
+        await db.insert(payments).values({
+          enrollmentId: input.enrollmentId,
+          userId: enrollment.userId,
+          amount: amount || 0,
+          paymentMethod: "bank_transfer",
+          transactionId: `admin-offline-${Date.now()}`,
+          status: "completed",
+          smsConfirmationSent: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as typeof payments.$inferInsert);
+      }
+
+      await db
+        .update(enrollments)
+        .set({
+          paymentStatus: "completed",
+          amountPaid: amount,
+          updatedAt: new Date(),
+        })
+        .where(eq(enrollments.id, input.enrollmentId));
+
+      const cert = await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
+      return {
+        success: true as const,
+        certificateIssued: cert.issued,
+        certificateError: cert.error ?? null,
+        amountApplied: amount,
       };
     }),
 });

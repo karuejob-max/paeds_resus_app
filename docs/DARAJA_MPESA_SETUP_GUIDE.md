@@ -152,7 +152,7 @@ MPESA_PAYBILL=4034223
 MPESA_ACCOUNT=Clients 3 names
 MPESA_ACCOUNT_NAME=Paeds Resus Limited
 MPESA_ENVIRONMENT=production  # or 'sandbox' for testing
-MPESA_CALLBACK_URL=https://paedsresus.com/api/mpesa/callback
+MPESA_CALLBACK_URL=https://paedsresus.com/api/payment/callback
 ```
 
 ### 3.2 Create .env.local (for local development)
@@ -168,7 +168,7 @@ MPESA_PAYBILL=4034223
 MPESA_ACCOUNT=Clients 3 names
 MPESA_ACCOUNT_NAME=Paeds Resus Limited
 MPESA_ENVIRONMENT=sandbox
-MPESA_CALLBACK_URL=http://localhost:3000/api/mpesa/callback
+MPESA_CALLBACK_URL=http://localhost:3000/api/payment/callback
 ```
 
 ### 3.3 Load Secrets in Server Code
@@ -431,7 +431,7 @@ In `server/_core/index.ts`, add webhook handler:
 
 ```typescript
 // M-Pesa Callback Webhook
-app.post('/api/mpesa/callback', express.json(), async (req, res) => {
+app.post('/api/payment/callback', express.json(), async (req, res) => {
   try {
     console.log('M-Pesa Callback received:', JSON.stringify(req.body, null, 2));
 
@@ -588,7 +588,7 @@ brew install ngrok
 ngrok http 3000
 
 # Use ngrok URL as callback
-MPESA_CALLBACK_URL=https://abc123.ngrok.io/api/mpesa/callback
+MPESA_CALLBACK_URL=https://abc123.ngrok.io/api/payment/callback
 ```
 
 ---
@@ -599,14 +599,14 @@ MPESA_CALLBACK_URL=https://abc123.ngrok.io/api/mpesa/callback
 
 1. Change `MPESA_ENVIRONMENT=production`
 2. Use production credentials (not sandbox)
-3. Update `MPESA_CALLBACK_URL` to `https://paedsresus.com/api/mpesa/callback`
+3. Update `MPESA_CALLBACK_URL` to `https://paedsresus.com/api/payment/callback`
 
 ### 7.2 Verify Webhook URL
 
 Ensure:
 - ✅ URL is HTTPS (not HTTP)
 - ✅ URL is publicly accessible
-- ✅ Firewall allows POST requests to `/api/mpesa/callback`
+- ✅ Firewall allows POST requests to `/api/payment/callback`
 - ✅ Server responds with 200 OK
 
 ### 7.3 Test with Real Transaction
@@ -737,7 +737,7 @@ setTimeout(async () => {
 | `/oauth/v1/generate` | GET | Get access token |
 | `/mpesa/stkpush/v1/processrequest` | POST | Initiate STK Push |
 | `/mpesa/stkpushquery/v1/query` | POST | Query transaction status |
-| `/api/mpesa/callback` | POST | Receive payment callback |
+| `/api/payment/callback` | POST | Receive payment callback |
 
 ### Important Values
 
@@ -747,7 +747,7 @@ setTimeout(async () => {
 | **Account** | Clients 3 names |
 | **Account Name** | Paeds Resus Limited |
 | **Environment** | production (after testing) |
-| **Callback URL** | https://paedsresus.com/api/mpesa/callback |
+| **Callback URL** | https://paedsresus.com/api/payment/callback |
 
 ### Test Credentials (Sandbox)
 

@@ -1,6 +1,7 @@
+import { randomUUID } from "crypto";
 import { getDb } from "./db";
 import { enrollments, users, institutionalAccounts, payments } from "../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 /**
  * Institutional Bulk Enrollment Service
@@ -107,17 +108,16 @@ export async function processBulkEnrollment(
         let userId: number;
 
         if (user.length === 0) {
-          // Create new user
-          const newUserResult = await db.insert(users).values({
-            openId: `inst-${request.institutionId}-${Date.now()}-${Math.random()}`,
+          const openId = `inst-${request.institutionId}-${randomUUID()}`.slice(0, 64);
+          await db.insert(users).values({
+            openId,
             name: staff.name,
             email: staff.email,
-            phone: staff.phone,
+            phone: staff.phone || null,
             userType: "institutional",
             role: "user",
           });
 
-          // Get the inserted user ID
           const insertedUsers = await db
             .select()
             .from(users)
@@ -133,26 +133,36 @@ export async function processBulkEnrollment(
           userId = user[0].id;
         }
 
-        // Create enrollment
-        const enrollmentResult = await db.insert(enrollments).values({
-          userId: userId,
-          programType: request.courseType as any,
+        await db.insert(enrollments).values({
+          userId,
+          programType: request.courseType as "bls" | "acls" | "pals" | "fellowship",
           trainingDate: request.trainingDate,
           paymentStatus: "pending",
           amountPaid: 0,
         });
 
-        // Create payment record
+        const recentEnr = await db
+          .select()
+          .from(enrollments)
+          .where(eq(enrollments.userId, userId))
+          .orderBy(desc(enrollments.id))
+          .limit(1);
+        const enrollmentId = recentEnr[0]?.id;
+        if (!enrollmentId) {
+          failedEmails.push(staff.email);
+          continue;
+        }
+
         await db.insert(payments).values({
-          enrollmentId: userId * 1000 + Math.floor(Math.random() * 1000),
-          userId: userId,
+          enrollmentId,
+          userId,
           amount: pricing.pricePerStaff,
           paymentMethod: "mpesa",
           status: "pending",
-          transactionId: `BULK-${request.institutionId}-${Date.now()}`,
+          transactionId: `BULK-PENDING-${enrollmentId}-${Date.now()}`,
         });
 
-        enrollmentIds.push(userId * 1000 + Math.floor(Math.random() * 1000));
+        enrollmentIds.push(enrollmentId);
         enrolledCount++;
       } catch (error: any) {
         console.error(`Failed to enroll ${staff.email}:`, error);

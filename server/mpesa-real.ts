@@ -6,11 +6,14 @@
 
 import axios from "axios";
 
+import { isMpesaProduction } from "./lib/mpesa-env";
+import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
+import { getDarajaTimestampNairobi } from "./lib/daraja-timestamp";
+
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
 
-// Use sandbox for development, production for live
-const API_URL = process.env.MPESA_ENV === "production" ? MPESA_API_URL : MPESA_SANDBOX_URL;
+const API_URL = isMpesaProduction() ? MPESA_API_URL : MPESA_SANDBOX_URL;
 
 interface MpesaConfig {
   consumerKey: string;
@@ -50,16 +53,19 @@ let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
 /**
  * Get M-Pesa OAuth access token
+ * Supports both MPESA_* and DARAJA_* env names (see docs/MPESA_CONFIG_REFERENCE.md).
  */
-async function getMpesaAccessToken(): Promise<string> {
+export async function getMpesaAccessToken(): Promise<string> {
   try {
     // Return cached token if still valid
     if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
       return cachedAccessToken.token;
     }
 
-    const consumerKey = process.env.MPESA_CONSUMER_KEY;
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+    const consumerKey =
+      process.env.MPESA_CONSUMER_KEY?.trim() || process.env.DARAJA_CONSUMER_KEY?.trim();
+    const consumerSecret =
+      process.env.MPESA_CONSUMER_SECRET?.trim() || process.env.DARAJA_CONSUMER_SECRET?.trim();
 
     if (!consumerKey || !consumerSecret) {
       throw new Error("M-Pesa credentials not configured");
@@ -109,9 +115,11 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       };
     }
 
-    const shortCode = process.env.MPESA_SHORTCODE;
-    const passKey = process.env.MPESA_PASSKEY;
-    const callbackUrl = process.env.MPESA_CALLBACK_URL || "https://example.com/api/mpesa/callback";
+    const shortCode =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim();
+    const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "https://www.paedsresus.com";
+    const callbackUrl = resolveStkCallbackUrlFromEnv(appBase);
 
     if (!shortCode || !passKey) {
       return {
@@ -123,8 +131,8 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
     // Get access token
     const accessToken = await getMpesaAccessToken();
 
-    // Generate timestamp
-    const timestamp = new Date().toISOString().replace(/[:-]/g, "").split(".")[0];
+    // Timestamp must be Kenya (EAT), not UTC — Daraja error 400.002.02 otherwise
+    const timestamp = getDarajaTimestampNairobi();
 
     // Generate password: base64(shortCode + passKey + timestamp)
     const password = Buffer.from(`${shortCode}${passKey}${timestamp}`).toString("base64");
@@ -171,7 +179,39 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       };
     }
   } catch (error: any) {
-    console.error("Error initiating M-Pesa STK Push:", error.message);
+    const status = error?.response?.status;
+    const reqUrl = error?.config?.url ?? error?.request?.path;
+    const darajaBody = error?.response?.data;
+    const darajaHint =
+      darajaBody && typeof darajaBody === "object"
+        ? JSON.stringify(darajaBody)
+        : darajaBody != null
+          ? String(darajaBody)
+          : "";
+    console.error(
+      "[M-Pesa STK] initiate failed:",
+      error.message,
+      status != null ? `httpStatus=${status}` : "",
+      reqUrl != null ? `url=${reqUrl}` : "",
+      darajaHint ? `daraja=${darajaHint.slice(0, 500)}` : ""
+    );
+    if (status === 400) {
+      let userMsg =
+        "Daraja returned 400. Ensure MPESA_CALLBACK_URL is your full callback (we append /api/payment/callback if you only set the domain), MPESA_ENVIRONMENT=production with production keys, and passkey/shortcode match the live app.";
+      if (darajaBody && typeof darajaBody === "object" && "errorMessage" in darajaBody) {
+        userMsg = String((darajaBody as { errorMessage?: string }).errorMessage ?? userMsg);
+      } else if (darajaHint) {
+        userMsg = `${userMsg} Details: ${darajaHint.slice(0, 280)}`;
+      }
+      return { success: false, error: userMsg };
+    }
+    if (status === 404 && reqUrl) {
+      return {
+        success: false,
+        error:
+          "Daraja API returned 404 (wrong URL or environment). Check server logs for `url=`. Ensure MPESA_ENVIRONMENT matches your credentials (sandbox vs production).",
+      };
+    }
     return {
       success: false,
       error: error.message || "Payment initiation failed",
@@ -184,8 +224,9 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
  */
 export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus> {
   try {
-    const shortCode = process.env.MPESA_SHORTCODE;
-    const passKey = process.env.MPESA_PASSKEY;
+    const shortCode =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim();
 
     if (!shortCode || !passKey) {
       return {
@@ -197,8 +238,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
     // Get access token
     const accessToken = await getMpesaAccessToken();
 
-    // Generate timestamp
-    const timestamp = new Date().toISOString().replace(/[:-]/g, "").split(".")[0];
+    const timestamp = getDarajaTimestampNairobi();
 
     // Generate password
     const password = Buffer.from(`${shortCode}${passKey}${timestamp}`).toString("base64");

@@ -1,7 +1,10 @@
+import type { Request, Response } from "express";
 import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import { runWithRetries } from "../lib/async-retry";
+import { logStructured } from "../lib/structured-log";
 import crypto from "crypto";
 import type { Request, Response } from "express";
 
@@ -27,11 +30,14 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
       .update(body)
       .digest("base64");
 
-    // Compare signatures (constant-time comparison to prevent timing attacks)
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(computedSignature),
-      Buffer.from(signature)
-    );
+    // Constant-time compare only when lengths match (timingSafeEqual throws on mismatch — treat as invalid)
+    const computedBuf = Buffer.from(computedSignature, "utf8");
+    const receivedBuf = Buffer.from(signature, "utf8");
+    if (computedBuf.length !== receivedBuf.length) {
+      console.warn("[M-Pesa] Signature length mismatch");
+      return false;
+    }
+    const isValid = crypto.timingSafeEqual(computedBuf, receivedBuf);
 
     if (!isValid) {
       console.warn(
@@ -149,6 +155,7 @@ export async function handleC2BConfirmation(req: Request, res: Response) {
  * M-Pesa Webhook Handler
  * Receives payment callbacks from M-Pesa and updates payment status
  * Validates webhook signature before processing
+ * MPESA-4: Implements idempotency to prevent duplicate webhook processing
  */
 export async function handleMpesaWebhook(req: Request, res: Response) {
   try {
@@ -186,14 +193,42 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
     const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } =
       stkCallback;
+
+    // MPESA-4: Require CheckoutRequestID before touching DB (validates payload; avoids 500 when DB test-mocked)
+    const idempotencyKey =
+      typeof CheckoutRequestID === "string" ? CheckoutRequestID.trim() : String(CheckoutRequestID ?? "").trim();
+
+    if (!idempotencyKey) {
+      console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
+      return res.status(400).json({ error: "Missing CheckoutRequestID" });
+    }
+
+    logStructured("mpesa_stk_callback", {
+      checkoutRequestId: idempotencyKey,
+      resultCode: ResultCode,
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc.slice(0, 200) : String(ResultDesc ?? ""),
+    });
+
     const db = await getDb();
 
     if (!db) {
       return res.status(500).json({ error: "Database unavailable" });
     }
 
+    // Check if this webhook has already been processed
+    const existingPayment = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.idempotencyKey, idempotencyKey))
+      .limit(1);
+
+    if (existingPayment.length > 0) {
+      console.info(`[M-Pesa] Webhook already processed for CheckoutRequestID: ${idempotencyKey}. Skipping duplicate.`);
+      return res.status(200).json({ success: true, message: "Webhook already processed" });
+    }
+
     // We store checkoutRequestID in payments.transactionId when initiating STK push; callback sends CheckoutRequestID and (on success) MpesaReceiptNumber in metadata
-    const lookupId = CheckoutRequestID || "";
+    const lookupId = idempotencyKey;
 
     const metadata = CallbackMetadata?.Item || [];
     let phoneNumber = "";
@@ -221,49 +256,72 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       const payment = paymentRecords[0];
 
-      // Update payment status and store M-Pesa receipt number for records
-      await db
-        .update(payments)
-        .set({
-          status: "completed",
-          transactionId: mpesaReceiptNumber || payment.transactionId,
-          updatedAt: new Date(),
-        })
-        .where(eq(payments.id, payment.id));
+      // Idempotent: row-level + MPESA-4 global key (above)
+      if (payment.status === "completed" || payment.idempotencyKey === idempotencyKey) {
+        console.log(`[M-Pesa] Already completed for checkout ${lookupId}; acknowledging`);
+        return res.status(200).json({ success: true, message: "Already processed" });
+      }
 
-      // Update enrollment payment status
-      if (payment.enrollmentId) {
-        const enrollmentRecords = await db
-          .select()
-          .from(enrollments)
-          .where(eq(enrollments.id, payment.enrollmentId));
+      if (mpesaReceiptNumber) {
+        console.log(`[M-Pesa] Receipt: ${mpesaReceiptNumber} for checkout ${lookupId}`);
+      }
 
-        if (enrollmentRecords.length > 0) {
-          const enrollment = enrollmentRecords[0];
-          await db
-            .update(enrollments)
-            .set({
-              paymentStatus: "completed",
-              amountPaid: amount,
-              updatedAt: new Date(),
-            })
-            .where(eq(enrollments.id, enrollment.id));
+      try {
+        await runWithRetries(
+          async () => {
+            await db
+              .update(payments)
+              .set({
+                status: "completed",
+                // Keep transactionId = CheckoutRequestID so clients can poll by checkout id; receipt logged above
+                idempotencyKey: idempotencyKey,
+                updatedAt: new Date(),
+              })
+              .where(eq(payments.id, payment.id));
 
-          // Create certificate when payment completes
-          const certResult = await issueCertificateForEnrollmentIfEligible(
-            payment.enrollmentId
-          );
-          if (certResult.issued) {
-            console.log(
-              `Certificate issued for enrollment ${payment.enrollmentId}`
-            );
-          } else if (certResult.error) {
-            console.warn(
-              `Certificate not issued for enrollment ${payment.enrollmentId}:`,
-              certResult.error
-            );
-          }
-        }
+            if (payment.enrollmentId) {
+              const enrollmentRecords = await db
+                .select()
+                .from(enrollments)
+                .where(eq(enrollments.id, payment.enrollmentId));
+
+              if (enrollmentRecords.length > 0) {
+                const enrollment = enrollmentRecords[0];
+                await db
+                  .update(enrollments)
+                  .set({
+                    paymentStatus: "completed",
+                    amountPaid: amount,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(enrollments.id, enrollment.id));
+
+                const certResult = await issueCertificateForEnrollmentIfEligible(
+                  payment.enrollmentId
+                );
+                if (certResult.issued) {
+                  console.log(
+                    `Certificate issued for enrollment ${payment.enrollmentId}`
+                  );
+                } else if (certResult.error) {
+                  console.warn(
+                    `Certificate not issued for enrollment ${payment.enrollmentId}:`,
+                    certResult.error
+                  );
+                }
+              }
+            }
+          },
+          { retries: 3, delayMs: 300, label: "mpesa-webhook-payment-complete" }
+        );
+      } catch (persistError) {
+        console.error(
+          "[M-Pesa] Persist failed after retries (returning 500 for Daraja retry):",
+          persistError
+        );
+        return res.status(500).json({
+          error: "Transient persistence failure; callback may be retried",
+        });
       }
 
       console.log(
@@ -272,13 +330,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res
         .status(200)
         .json({ success: true, message: "Payment verified" });
-    } else {
-      // Payment failed or user cancelled
-      console.log(
-        `[M-Pesa] Payment failed: ${lookupId} - ResultCode: ${ResultCode}, Desc: ${ResultDesc}`
-      );
-
-      // Update payment status to failed
+    } else if (ResultCode === 1) {
+      // Failure: ResultCode 1
+      console.warn(`Payment failed for CheckoutRequestID: ${lookupId}`);
       const paymentRecords = await db
         .select()
         .from(payments)
@@ -286,19 +340,27 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        if (payment.status === "failed" || payment.status === "completed") {
+          return res.status(200).json({ success: true, message: "Already finalized" });
+        }
         await db
           .update(payments)
           .set({
             status: "failed",
+            idempotencyKey: idempotencyKey,
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
       }
-
       return res
         .status(200)
         .json({ success: true, message: "Payment failure recorded" });
     }
+
+    console.log(
+      `[M-Pesa] Non-success callback ResultCode=${ResultCode} for ${lookupId}: ${ResultDesc}`
+    );
+    return res.status(200).json({ success: true, message: "Callback acknowledged" });
   } catch (error) {
     console.error("[M-Pesa] Webhook handler error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -379,6 +441,9 @@ export async function handleMpesaTimeoutWebhook(
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        if (payment.status === "completed" || payment.status === "failed") {
+          return res.status(200).json({ success: true });
+        }
         await db
           .update(payments)
           .set({

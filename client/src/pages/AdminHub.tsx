@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminHub() {
@@ -39,6 +39,22 @@ export default function AdminHub() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-1">
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/mpesa-reconciliation")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  M-Pesa reconciliation
+                </CardTitle>
+                <CardDescription>
+                  Stale pending payments, STK query reconcile, export CSV, config readiness
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/admin/reports")}

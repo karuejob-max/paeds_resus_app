@@ -6,15 +6,31 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2, FileText, Users, CreditCard, CheckCheck, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Users, CreditCard, CheckCheck } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
+import { getLoginUrl } from "@/const";
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const completeOnboarding = trpc.institution.completeOnboarding.useMutation({
+    onSuccess: () => {
+      setSuccess(true);
+      sessionStorage.setItem("institutionalPortalWelcome", "1");
+      setTimeout(() => navigate("/hospital-admin-dashboard"), 2000);
+    },
+    onError: (err) => {
+      setError(err.message || "Failed to create account");
+      setLoading(false);
+    },
+  });
 
   const [formData, setFormData] = useState({
     institutionName: "",
@@ -55,22 +71,48 @@ export default function InstitutionalOnboarding() {
     setError("");
     setLoading(true);
 
+    if (!isAuthenticated) {
+      setError("Please sign in to complete institutional onboarding.");
+      setLoading(false);
+      return;
+    }
+
     if (!formData.agreeToTerms) {
       setError("You must agree to the terms and conditions");
       setLoading(false);
       return;
     }
 
+    if (!formData.institutionType) {
+      setError("Please select an institution type.");
+      setLoading(false);
+      return;
+    }
+
+    const staffCount = parseInt(formData.healthcareStaffCount, 10);
+    if (Number.isNaN(staffCount) || staffCount < 1) {
+      setError("Enter a valid healthcare staff count.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setSuccess(true);
-      setTimeout(() => {
-        sessionStorage.setItem("institutionalPortalWelcome", "1");
-        navigate("/institutional-portal");
-      }, 2000);
-    } catch (err) {
-      setError("Failed to create account");
+      await completeOnboarding.mutateAsync({
+        institutionName: formData.institutionName,
+        institutionType: formData.institutionType,
+        registrationNumber: formData.registrationNumber,
+        healthcareStaffCount: staffCount,
+        country: formData.country,
+        city: formData.city,
+        address: formData.address,
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        contactPhone: formData.contactPhone,
+        contactDesignation: formData.contactDesignation,
+        programInterest: formData.programInterest,
+      });
+    } catch {
+      // onError sets message + loading false
     } finally {
       setLoading(false);
     }
@@ -92,6 +134,16 @@ export default function InstitutionalOnboarding() {
           <p className="text-lg text-slate-600">
             Equip your healthcare team with life-saving BLS and ACLS skills
           </p>
+          {!isAuthenticated && (
+            <Card className="mt-6 p-4 text-left max-w-xl mx-auto border-amber-200 bg-amber-50">
+              <p className="text-sm text-amber-900 mb-3">
+                Sign in first so we can link this facility to your account.
+              </p>
+              <a href={getLoginUrl()}>
+                <Button className="bg-blue-900 hover:bg-blue-800">Sign in</Button>
+              </a>
+            </Card>
+          )}
         </div>
 
         {/* Progress Steps */}

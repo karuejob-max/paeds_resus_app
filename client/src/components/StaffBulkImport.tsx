@@ -28,13 +28,16 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
   const [results, setResults] = useState<ImportResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const utils = trpc.useUtils();
 
   const bulkImportMutation = trpc.institution.bulkImportStaff.useMutation({
     onSuccess: (data) => {
-      setResults(data.data?.imported || []);
+      setResults((data.data?.imported as unknown as ImportResult[]) || []);
       setShowResults(true);
       setIsProcessing(false);
       setProgress(100);
+      void utils.institution.getStaffMembers.invalidate({ institutionId });
+      void utils.institution.getStats.invalidate({ institutionId });
     },
     onError: (error) => {
       setResults([{ staffEmail: "error", error: error.message }]);

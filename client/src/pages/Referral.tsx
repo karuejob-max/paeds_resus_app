@@ -27,6 +27,7 @@ export default function Referral() {
     reason: "",
     referralType: "hospital" as const,
     facilityName: "",
+    facilityContactEmail: "",
     notes: "",
   });
 
@@ -48,13 +49,12 @@ export default function Referral() {
         reason: "",
         referralType: "hospital",
         facilityName: "",
+        facilityContactEmail: "",
         notes: "",
       });
       refetchReferrals();
     },
   });
-
-  const referralsQuery = { data: referralsData || [], isLoading: referralsLoading };
 
   if (loading) {
     return (
@@ -67,7 +67,7 @@ export default function Referral() {
     );
   }
 
-  const referrals = referralsQuery.data || [];
+  const referrals = referralsData?.referrals ?? [];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -87,7 +87,10 @@ export default function Referral() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await submitReferralMutation.mutateAsync(formData);
+      await submitReferralMutation.mutateAsync({
+        ...formData,
+        facilityContactEmail: formData.facilityContactEmail.trim() || undefined,
+      });
     } catch (error) {
       console.error("Failed to submit referral:", error);
     }
@@ -208,6 +211,18 @@ export default function Referral() {
                         placeholder="Target facility"
                       />
                     </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="facilityContactEmail">Facility contact email (optional)</Label>
+                      <Input
+                        id="facilityContactEmail"
+                        name="facilityContactEmail"
+                        type="email"
+                        value={formData.facilityContactEmail}
+                        onChange={handleInputChange}
+                        placeholder="receiving@hospital.go.ke — for notifications"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -300,6 +315,33 @@ export default function Referral() {
                       <p className="text-sm text-gray-700">{referral.notes}</p>
                     </div>
                   )}
+
+                  <div className="border-l-2 border-slate-200 pl-4 space-y-4 mt-4 mb-4">
+                    <div className="relative">
+                      <span className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-green-500 ring-4 ring-white" />
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted</p>
+                      <p className="text-sm text-gray-800">{new Date(referral.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className="relative">
+                      <span
+                        className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${
+                          referral.status === "pending" ? "bg-amber-400" : "bg-green-500"
+                        }`}
+                      />
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</p>
+                      <p className="text-sm font-medium capitalize text-gray-900">{referral.status}</p>
+                      <p className="text-xs text-gray-500">
+                        Last update: {new Date(referral.updatedAt).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {referral.status === "pending" &&
+                          "Our team will update this when the receiving facility responds."}
+                        {referral.status === "accepted" && "Referral was accepted — follow local handover protocols."}
+                        {referral.status === "rejected" && "This referral was not accepted; consider alternatives."}
+                        {referral.status === "completed" && "This referral pathway is marked complete."}
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline">

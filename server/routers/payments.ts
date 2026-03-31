@@ -1,7 +1,7 @@
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { paymentService } from "../payments";
-import { mpesaService } from "../services/mpesa";
+import { getMpesaService } from "../services/mpesa";
 
 export const paymentsRouter = router({
   /**
@@ -218,7 +218,7 @@ export const paymentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const stkResponse = await mpesaService.initiateSTKPush(
+        const stkResponse = await getMpesaService().initiateSTKPush(
           input.phoneNumber,
           input.amount,
           `${ctx.user.id}-${input.courseId}`,

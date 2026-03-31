@@ -47,11 +47,12 @@ export const institutionalNavItems: NavItem[] = [
 
 // Support & Information — point to existing routes (contact/faq redirect in App)
 export const supportNavItems: NavItem[] = [
-  { label: "Contact", href: "/contact", description: "Enquiries and institutional contact" },
-  { label: "FAQ", href: "/faq", description: "Frequently asked questions" },
+  { label: "Help", href: "/help", description: "Help centre and common paths" },
+  { label: "Contact", href: "/contact", description: "Institutional quote and enquiries" },
+  { label: "FAQ", href: "/faq", description: "FAQ (help centre)" },
 ];
 
-// Legal & Compliance — point to existing routes (privacy/terms/about redirect in App)
+// Legal & Compliance
 export const legalNavItems: NavItem[] = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },

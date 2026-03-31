@@ -30,7 +30,7 @@
 
 | Component | Status | Impact | What's Needed |
 |-----------|--------|--------|---------------|
-| **Webhook Handler** | ❌ Missing | Payments complete but NO certificate issued | Implement `/api/mpesa/callback` handler |
+| **Webhook Handler** | ❌ Missing | Payments complete but NO certificate issued | Implement `/api/payment/callback` handler |
 | **Payment Page Wiring** | ❌ Missing | Users can't initiate STK Push from UI | Wire `Payment.tsx` to `initiateSTKPush` procedure |
 | **End-to-End Test** | ❌ Not Done | Can't verify payment flow works | Test with phone 254708374149 |
 
@@ -49,7 +49,7 @@ Service sends STK Push to M-Pesa API ✅
     ↓
 User receives prompt on phone, enters PIN
     ↓
-M-Pesa sends callback to /api/mpesa/callback
+M-Pesa sends callback to /api/payment/callback
     ↓
 [MISSING] Webhook handler receives callback
     ↓
@@ -84,7 +84,7 @@ User sees "Payment Complete" and certificate in LearnerDashboard
 
 ### PRIORITY 1: M-Pesa Webhook (CRITICAL)
 
-**Task:** Implement webhook handler at `/api/mpesa/callback`
+**Task:** Implement webhook handler at `/api/payment/callback`
 
 **What it does:**
 1. Receives payment callback from M-Pesa
@@ -193,7 +193,7 @@ Week 3:
 ### M-Pesa Webhook Handler Pseudocode
 
 ```typescript
-// POST /api/mpesa/callback
+// POST /api/payment/callback
 export async function handleMpesaCallback(req: Request) {
   const data = req.body;
   

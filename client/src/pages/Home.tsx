@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase } from "lucide-react";
+import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase, Share2, BarChart3 } from "lucide-react";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -147,6 +147,30 @@ export default function Home() {
               <div>
                 <CardTitle>My learning</CardTitle>
                 <CardDescription>View your progress and certificates.</CardDescription>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/referral")}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="h-5 w-5" />
+                  Refer colleagues
+                </CardTitle>
+                <CardDescription>Invite others and track referral impact.</CardDescription>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/personal-impact")}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Personal impact
+                </CardTitle>
+                <CardDescription>See how your contributions add up over time.</CardDescription>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardHeader>

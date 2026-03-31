@@ -18,9 +18,10 @@ import {
   handleMpesaWebhook,
   handleMpesaQueryWebhook,
   handleMpesaTimeoutWebhook,
-  handleC2BValidation,
-  handleC2BConfirmation,
 } from "../webhooks/mpesa-webhook";
+import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
+import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
+import { initializeScheduler } from "../scheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,32 +45,26 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // MPESA-7: behind reverse proxy, set TRUST_PROXY=true so req.ip matches client (for IP allowlist)
+  if (process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1") {
+    app.set("trust proxy", true);
+  }
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // M-Pesa callbacks (single URL; Daraja sends STK result and C2B confirmations here)
-  app.post("/api/payment/callback", express.json(), async (req, res) => {
+  // STK / Daraja callbacks (canonical path per Safaricom URL naming; legacy alias for old Daraja configs)
+  const mpesaStkCallbackHandler: express.RequestHandler = (req, res) => {
+    if (!isMpesaCallbackIpAllowed(req)) {
+      console.warn("[M-Pesa] Callback rejected: IP not in MPESA_CALLBACK_IP_ALLOWLIST");
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const body = req.body?.Body;
-    
-    // C2B URL Validation (Daraja sends this when registering the URL)
-    if (!body && !req.body?.Body && Object.keys(req.body || {}).length === 0) {
-      return handleC2BValidation(req as any, res);
-    }
-    
-    // C2B Confirmation (actual payment confirmation from M-Pesa)
-    if (req.body?.TransID && req.body?.TransAmount) {
-      return handleC2BConfirmation(req as any, res);
-    }
-    
-    // STK Push Query Response
     if (body?.checkoutQueryResponse) {
       return handleMpesaQueryWebhook(req as any, res);
     }
-    
-    // STK Push Callback
     if (body?.stkCallback) {
       const code = body.stkCallback?.ResultCode;
       if (code === 0) {
@@ -77,9 +72,10 @@ async function startServer() {
       }
       return handleMpesaTimeoutWebhook(req as any, res);
     }
-    
     return res.status(400).json({ error: "Invalid webhook payload" });
-  });
+  };
+  app.post(STK_CALLBACK_PATH, express.json(), mpesaStkCallbackHandler);
+  app.post(STK_CALLBACK_PATH_LEGACY, express.json(), mpesaStkCallbackHandler);
 
   // tRPC API
   app.use(
@@ -105,6 +101,9 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    if (process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULER === "1") {
+      initializeScheduler();
+    }
   });
 }
 

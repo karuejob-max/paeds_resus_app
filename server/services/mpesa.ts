@@ -3,6 +3,10 @@
  * Handles authentication with Daraja API and STK Push payment initiation
  */
 
+import { getMpesaDeploymentMode } from "../lib/mpesa-env";
+import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
+import { getDarajaTimestampNairobi } from "../lib/daraja-timestamp";
+
 interface TokenResponse {
   access_token: string;
   expires_in: string | number;
@@ -36,7 +40,7 @@ class MpesaService {
     this.consumerSecret = process.env.DARAJA_CONSUMER_SECRET || "";
     this.paybill = process.env.MPESA_PAYBILL || "";
     this.accountNumber = process.env.MPESA_ACCOUNT || "";
-    this.environment = (process.env.MPESA_ENVIRONMENT as "sandbox" | "production") || "sandbox";
+    this.environment = getMpesaDeploymentMode();
 
     // Set baseUrl based on environment
     if (this.environment === "production") {
@@ -146,7 +150,9 @@ class MpesaService {
       PartyA: phoneNumber,
       PartyB: this.paybill,
       PhoneNumber: phoneNumber,
-      CallBackURL: `${process.env.CALLBACK_URL || "https://paedsresus.com"}/api/payment/callback`,
+      CallBackURL: defaultStkCallbackUrl(
+        process.env.CALLBACK_URL?.trim() || process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com"
+      ),
       AccountReference: this.accountNumber,
       TransactionDesc: description,
     };
@@ -188,18 +194,10 @@ class MpesaService {
   }
 
   /**
-   * Generate timestamp in format YYYYMMDDHHmmss
+   * Daraja expects YYYYMMDDHHmmss in Kenya (EAT), not server local / UTC.
    */
   private getTimestamp(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-
-    return `${year}${month}${day}${hours}${minutes}${seconds}`;
+    return getDarajaTimestampNairobi();
   }
 
   /**
@@ -217,7 +215,14 @@ class MpesaService {
   }
 }
 
-// Export singleton instance
-export const mpesaService = new MpesaService();
+/** Lazy singleton so importing the app router does not require Daraja env (e.g. Vitest). */
+let mpesaServiceSingleton: MpesaService | null = null;
+
+export function getMpesaService(): MpesaService {
+  if (!mpesaServiceSingleton) {
+    mpesaServiceSingleton = new MpesaService();
+  }
+  return mpesaServiceSingleton;
+}
 
 export type { STKPushResponse, STKPushError };

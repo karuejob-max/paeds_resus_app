@@ -40,7 +40,7 @@ MPESA_ACCOUNT_NAME=Paeds Resus Limited
 3. **Password Generation:** Service creates Base64(Paybill + Passkey + Timestamp)
 4. **STK Push Request:** Service sends STK Push request with password to M-Pesa
 5. **User Prompt:** M-Pesa sends prompt to user's phone to enter PIN
-6. **Callback:** M-Pesa sends payment result to webhook at `/api/mpesa/callback`
+6. **Callback:** M-Pesa sends payment result to webhook at `/api/payment/callback` (legacy `/api/mpesa/callback` still accepted)
 
 ## Testing
 

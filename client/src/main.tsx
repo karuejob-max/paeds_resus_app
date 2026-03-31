@@ -39,10 +39,24 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+/**
+ * tRPC HTTP endpoint. Default is same-origin `/api/trpc` (single Render service).
+ * If the SPA is served from a host that does not run the API (e.g. www static + API on apex),
+ * set `VITE_TRPC_URL` at build time to the full API URL, e.g. `https://paedsresus.com/api/trpc`.
+ */
+function getTrpcHttpUrl(): string {
+  const raw = import.meta.env.VITE_TRPC_URL?.trim();
+  if (raw) {
+    const u = raw.replace(/\/$/, "");
+    return u.endsWith("/api/trpc") ? u : `${u}/api/trpc`;
+  }
+  return "/api/trpc";
+}
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: getTrpcHttpUrl(),
       transformer: superjson,
       fetch(input, init) {
         return globalThis.fetch(input, {

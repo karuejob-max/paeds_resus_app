@@ -176,6 +176,13 @@
       "when": 1773577752290,
       "tag": "0024_add-password-reset-tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1775000000000,
+      "tag": "0026_certificate_renewal_reminder_sent_at",
+      "breakpoints": true
     }
   ]
 }

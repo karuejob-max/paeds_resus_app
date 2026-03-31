@@ -314,10 +314,12 @@ describe("Error Handling & Edge Cases", () => {
     }
   });
 
-  it("should prevent unauthorized access", async () => {
-    try {
-      const result = await appRouter.createCaller(createTestContext(1, "user")).institution.register({
-        hospitalName: "Unauthorized Hospital",
+  it("should require authentication for institution.register", async () => {
+    const ctx = { user: null, req: {} as any, res: {} as any };
+    const caller = appRouter.createCaller(ctx as any);
+    await expect(
+      caller.institution.register({
+        hospitalName: "No Auth Hospital",
         hospitalType: "private",
         county: "Nairobi",
         phone: "+254712345678",
@@ -331,17 +333,8 @@ describe("Error Handling & Edge Cases", () => {
         planId: "basic",
         planPrice: 5000,
         maxStaff: 20,
-      });
-      
-      // If we get here, check if result indicates failure
-      if (!result.success) {
-        expect(result.success).toBe(false);
-        console.log("✓ Error Handling 2: Unauthorized access prevented");
-      }
-    } catch (error) {
-      // Expected behavior - unauthorized access throws error
-      expect(error).toBeDefined();
-      console.log("✓ Error Handling 2: Unauthorized access prevented (error thrown)");
-    }
+      })
+    ).rejects.toThrow();
+    console.log("✓ Error Handling 2: Unauthenticated register rejected");
   });
 });

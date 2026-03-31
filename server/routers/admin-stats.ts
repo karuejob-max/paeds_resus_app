@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -9,6 +9,7 @@ import {
   analyticsEvents,
   parentSafeTruthSubmissions,
   clinicalReferrals,
+  adminAuditLog,
 } from "../../drizzle/schema";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
@@ -56,6 +57,10 @@ export const adminStatsRouter = router({
           conversionFunnel: { enrolled: 0, completed: 0, conversionPercent: 0 },
           topProtocolsViewed: [] as { protocol: string; count: number }[],
           analyticsLastDays: { count: 0, eventTypes: [] as { eventType: string; count: number }[] },
+          resusGpsAnalyticsLastDays: {
+            totalEvents: 0,
+            eventTypes: [] as { eventType: string; count: number }[],
+          },
         };
       }
 
@@ -141,6 +146,21 @@ export const adminStatsRouter = router({
         count,
       }));
 
+      const resusCounts: Record<string, number> = {};
+      analyticsInPeriod.forEach((e) => {
+        const key = (e.eventType || e.eventName || "").toString();
+        if (!key.startsWith("resus_")) return;
+        const bucket = e.eventType || e.eventName || "resus_other";
+        resusCounts[bucket] = (resusCounts[bucket] || 0) + 1;
+      });
+      const resusGpsAnalyticsLastDays = {
+        totalEvents: Object.values(resusCounts).reduce((a, b) => a + b, 0),
+        eventTypes: Object.entries(resusCounts)
+          .map(([eventType, count]) => ({ eventType, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 15),
+      };
+
       // Count unique active users in last N days
       const activeUsersResult = await db
         .selectDistinct({ userId: analyticsEvents.userId })
@@ -216,19 +236,44 @@ export const adminStatsRouter = router({
           count: analyticsInPeriod.length,
           eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
         },
+        resusGpsAnalyticsLastDays,
         activeUsersLastDays,
         topProtocolsViewed,
       };
     }),
 
+  /** Recent admin audit log rows (sanitized inputs only). */
+  getAdminAuditLog: adminProcedure
+    .input(z.object({ limit: z.number().min(1).max(2000).default(500) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [] };
+      const limit = input?.limit ?? 500;
+      const rows = await db
+        .select({
+          id: adminAuditLog.id,
+          adminUserId: adminAuditLog.adminUserId,
+          procedurePath: adminAuditLog.procedurePath,
+          inputSummary: adminAuditLog.inputSummary,
+          createdAt: adminAuditLog.createdAt,
+        })
+        .from(adminAuditLog)
+        .orderBy(desc(adminAuditLog.createdAt))
+        .limit(limit);
+      return { rows };
+    }),
+
   /** List registered users (admin only); optional filter by userType. */
   getUsers: adminProcedure
     .input(
-      z.object({
-        userType: z.enum(["individual", "parent", "institutional"]).optional(),
-        limit: z.number().min(1).max(500).default(100),
-        offset: z.number().min(0).default(0),
-      }).optional()
+      z
+        .object({
+          userType: z.enum(["individual", "parent", "institutional"]).optional(),
+          search: z.string().max(200).optional(),
+          limit: z.number().min(1).max(500).default(100),
+          offset: z.number().min(0).default(0),
+        })
+        .optional()
     )
     .query(async ({ input }) => {
       const db = await getDb();
@@ -236,7 +281,17 @@ export const adminStatsRouter = router({
       const limit = input?.limit ?? 100;
       const offset = input?.offset ?? 0;
 
-      const where = input?.userType ? eq(users.userType, input.userType) : undefined;
+      const rawSearch = input?.search?.trim().replace(/[%_\\]/g, "") ?? "";
+      const searchPattern = rawSearch.length > 0 ? `%${rawSearch}%` : null;
+
+      const parts: SQL[] = [];
+      if (input?.userType) parts.push(eq(users.userType, input.userType));
+      if (searchPattern) {
+        parts.push(or(like(users.email, searchPattern), like(users.name, searchPattern)));
+      }
+      const whereCombined =
+        parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
+
       let listQuery = db
         .select({
           id: users.id,
@@ -249,11 +304,11 @@ export const adminStatsRouter = router({
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset(offset);
-      if (where) listQuery = listQuery.where(where);
+      if (whereCombined) listQuery = listQuery.where(whereCombined);
       const result = await listQuery;
 
       let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
-      if (where) countQuery = countQuery.where(where);
+      if (whereCombined) countQuery = countQuery.where(whereCombined);
       const countResult = await countQuery;
       const total = Number(countResult[0]?.count ?? 0);
 
