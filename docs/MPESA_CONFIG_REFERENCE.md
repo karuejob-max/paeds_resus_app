@@ -32,6 +32,17 @@
 
 All M-Pesa credentials are stored as **Manus secrets** and automatically injected into the environment. Do NOT hardcode these values.
 
+### STK entrypoint (`mpesa.initiatePayment`)
+
+The `mpesa` tRPC router uses `server/mpesa.ts`, which calls **Safaricom Daraja** (`server/mpesa-real.ts`) in production unless:
+
+- `MPESA_USE_MOCK=1` (local/testing only — **no real PIN prompt**), or
+- tests (`VITEST` set — uses mock).
+
+**Do not set `MPESA_USE_MOCK` on Render production.**
+
+Consumer keys: `MPESA_CONSUMER_KEY` / `MPESA_CONSUMER_SECRET` **or** `DARAJA_CONSUMER_KEY` / `DARAJA_CONSUMER_SECRET`. Shortcode: `MPESA_SHORTCODE` **or** `MPESA_PAYBILL`.
+
 ### Required Secrets
 
 ```

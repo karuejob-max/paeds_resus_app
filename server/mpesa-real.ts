@@ -51,16 +51,19 @@ let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
 /**
  * Get M-Pesa OAuth access token
+ * Supports both MPESA_* and DARAJA_* env names (see docs/MPESA_CONFIG_REFERENCE.md).
  */
-async function getMpesaAccessToken(): Promise<string> {
+export async function getMpesaAccessToken(): Promise<string> {
   try {
     // Return cached token if still valid
     if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
       return cachedAccessToken.token;
     }
 
-    const consumerKey = process.env.MPESA_CONSUMER_KEY;
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+    const consumerKey =
+      process.env.MPESA_CONSUMER_KEY?.trim() || process.env.DARAJA_CONSUMER_KEY?.trim();
+    const consumerSecret =
+      process.env.MPESA_CONSUMER_SECRET?.trim() || process.env.DARAJA_CONSUMER_SECRET?.trim();
 
     if (!consumerKey || !consumerSecret) {
       throw new Error("M-Pesa credentials not configured");
@@ -110,9 +113,11 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       };
     }
 
-    const shortCode = process.env.MPESA_SHORTCODE;
-    const passKey = process.env.MPESA_PASSKEY;
-    const callbackUrl = process.env.MPESA_CALLBACK_URL || "https://example.com/api/mpesa/callback";
+    const shortCode =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim();
+    const callbackUrl =
+      process.env.MPESA_CALLBACK_URL?.trim() || "https://example.com/api/mpesa/callback";
 
     if (!shortCode || !passKey) {
       return {
@@ -185,8 +190,9 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
  */
 export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus> {
   try {
-    const shortCode = process.env.MPESA_SHORTCODE;
-    const passKey = process.env.MPESA_PASSKEY;
+    const shortCode =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim();
 
     if (!shortCode || !passKey) {
       return {
