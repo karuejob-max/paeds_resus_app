@@ -6,6 +6,7 @@ import { payments, enrollments } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
+import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 
 export const mpesaRouter = router({
   /**
@@ -458,7 +459,7 @@ export const mpesaRouter = router({
     const callbackRaw =
       process.env.MPESA_CALLBACK_URL?.trim() ||
       (process.env.CALLBACK_URL?.trim()
-        ? `${process.env.CALLBACK_URL.replace(/\/$/, "")}/api/mpesa/callback`
+        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
         : "");
     const callbackOk = Boolean(callbackRaw && !callbackRaw.includes("example.com"));
 
@@ -497,7 +498,7 @@ export const mpesaRouter = router({
     const callback =
       process.env.MPESA_CALLBACK_URL?.trim() ||
       (process.env.CALLBACK_URL?.trim()
-        ? `${process.env.CALLBACK_URL.replace(/\/$/, "")}/api/mpesa/callback`
+        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
         : "");
     const mpesaEnv = getMpesaDeploymentMode();
     const darajaOrMpesaKey =

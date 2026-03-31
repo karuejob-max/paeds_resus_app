@@ -7,6 +7,7 @@
 import axios from "axios";
 
 import { isMpesaProduction } from "./lib/mpesa-env";
+import { defaultStkCallbackUrl } from "./lib/mpesa-callback-path";
 
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
@@ -118,7 +119,7 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
     const passKey = process.env.MPESA_PASSKEY?.trim();
     const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "https://www.paedsresus.com";
     const callbackUrl =
-      process.env.MPESA_CALLBACK_URL?.trim() || `${appBase}/api/mpesa/callback`;
+      process.env.MPESA_CALLBACK_URL?.trim() || defaultStkCallbackUrl(appBase);
 
     if (!shortCode || !passKey) {
       return {

@@ -4,6 +4,7 @@
  */
 
 import { getMpesaDeploymentMode } from "../lib/mpesa-env";
+import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 
 interface TokenResponse {
   access_token: string;
@@ -148,7 +149,9 @@ class MpesaService {
       PartyA: phoneNumber,
       PartyB: this.paybill,
       PhoneNumber: phoneNumber,
-      CallBackURL: `${process.env.CALLBACK_URL || "https://paedsresus.com"}/api/mpesa/callback`,
+      CallBackURL: defaultStkCallbackUrl(
+        process.env.CALLBACK_URL?.trim() || process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com"
+      ),
       AccountReference: this.accountNumber,
       TransactionDesc: description,
     };

@@ -52,7 +52,7 @@ Manus’s audit (2026-03-15) is correct: the integration was **not production-re
 
 - **Webhooks mounted in Express**  
   The handlers in `server/webhooks/mpesa-webhook.ts` were never registered. They are now mounted in `server/_core/index.ts`:
-  - `POST /api/mpesa/callback` → delegates by payload to `handleMpesaWebhook`, `handleMpesaQueryWebhook`, or `handleMpesaTimeoutWebhook`.
+  - `POST /api/payment/callback` (canonical) and `POST /api/mpesa/callback` (legacy) → same handler; delegates by payload to `handleMpesaWebhook`, `handleMpesaQueryWebhook`, or `handleMpesaTimeoutWebhook`.
 
 So: **M-Pesa callbacks will no longer 404**; payment status and certificate issuance can run when Daraja hits the callback URL.
 

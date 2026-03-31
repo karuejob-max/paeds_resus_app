@@ -17,7 +17,7 @@
 | **Account Name** | Paeds Resus Limited |
 | **Payment Type** | Lipa na M-Pesa (STK Push) |
 | **Environment** | production |
-| **Callback URL** | `https://www.paedsresus.com/api/mpesa/callback` or apex — must match **exactly** what is registered in Daraja (not `/api/payment/callback`; that path is not used by this app). |
+| **Callback URL** | `https://www.paedsresus.com/api/payment/callback` (canonical; avoids “mpesa” in the path per Safaricom naming). Must match **exactly** what is registered in Daraja. Legacy alias: `POST /api/mpesa/callback` still works. |
 
 ### Previous Configuration (Deprecated)
 
@@ -53,7 +53,7 @@ MPESA_PAYBILL              # 4034223
 MPESA_ACCOUNT              # Clients 3 names
 MPESA_ACCOUNT_NAME         # Paeds Resus Limited
 MPESA_ENVIRONMENT          # production or sandbox
-MPESA_CALLBACK_URL         # https://paedsresus.com/api/mpesa/callback
+MPESA_CALLBACK_URL         # https://paedsresus.com/api/payment/callback
 ```
 
 ### Local Development
@@ -68,7 +68,7 @@ MPESA_PAYBILL=4034223
 MPESA_ACCOUNT=Clients 3 names
 MPESA_ACCOUNT_NAME=Paeds Resus Limited
 MPESA_ENVIRONMENT=sandbox
-MPESA_CALLBACK_URL=http://localhost:3000/api/mpesa/callback
+MPESA_CALLBACK_URL=http://localhost:3000/api/payment/callback
 ```
 
 ---
@@ -130,7 +130,7 @@ trpc.payments.getPaymentStats.useQuery();
 
 ### Webhook
 
-M-Pesa callbacks are received at `/api/mpesa/callback` and processed in `server/_core/index.ts`.
+STK callbacks are received at **`/api/payment/callback`** (and **`/api/mpesa/callback`** as legacy) in `server/_core/index.ts`.
 
 ---
 

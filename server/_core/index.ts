@@ -20,6 +20,7 @@ import {
   handleMpesaTimeoutWebhook,
 } from "../webhooks/mpesa-webhook";
 import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
+import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
 import { initializeScheduler } from "../scheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -54,8 +55,8 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // M-Pesa callbacks (single URL; Daraja sends STK result here)
-  app.post("/api/mpesa/callback", express.json(), (req, res) => {
+  // STK / Daraja callbacks (canonical path per Safaricom URL naming; legacy alias for old Daraja configs)
+  const mpesaStkCallbackHandler: express.RequestHandler = (req, res) => {
     if (!isMpesaCallbackIpAllowed(req)) {
       console.warn("[M-Pesa] Callback rejected: IP not in MPESA_CALLBACK_IP_ALLOWLIST");
       return res.status(403).json({ error: "Forbidden" });
@@ -72,7 +73,9 @@ async function startServer() {
       return handleMpesaTimeoutWebhook(req as any, res);
     }
     return res.status(400).json({ error: "Invalid webhook payload" });
-  });
+  };
+  app.post(STK_CALLBACK_PATH, express.json(), mpesaStkCallbackHandler);
+  app.post(STK_CALLBACK_PATH_LEGACY, express.json(), mpesaStkCallbackHandler);
 
   // tRPC API
   app.use(

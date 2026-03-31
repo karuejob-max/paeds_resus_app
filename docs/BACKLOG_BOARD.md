@@ -19,7 +19,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 - Way Forward and related work (B1 enrollment→payment→cert, B2 institutional onboarding→portal, A3 referral count, A5 Safe-Truth usage, C2 top protocols, C3 conversion funnel) are done.
 
 **What’s concerning (and partly addressed)**
-- **M-Pesa webhooks not wired** → **Addressed:** Webhooks mounted in Express (`server/_core/index.ts`, `POST /api/mpesa/callback`). See MPESA-0 in Done.
+- **M-Pesa webhooks not wired** → **Addressed:** Webhooks mounted in Express (`server/_core/index.ts`, `POST /api/payment/callback` + legacy `/api/mpesa/callback`). See MPESA-0 in Done.
 - **Still on M-Pesa sandbox** → MPESA-1 (production URL) in Done; use env for production.
 - **Webhook security** → MPESA-2 signature verification in Done; idempotency MPESA-4 in Done.
 - **Tests** → **Expanded:** `server/lib/async-retry.test.ts` (webhook retry helper); existing Vitest suites (`mpesa-integration`, `daraja`, `p0-6-role-checks`, `parent-safetruth`, etc.). See TEST-1 in Done.
@@ -120,7 +120,7 @@ Summary of Manus’s analysis; use this to prioritise and to avoid regressions.
 | MPESA-6 | Webhook retry / resilience | P1 | Cursor | 2026-02-25 | `runWithRetries` on success path; **500** after exhaustion for Daraja retry |
 | TEST-1 | Vitest: auth, Safe-Truth, payment-related coverage | P1 | Manus / Cursor | 2026-03-16 | `async-retry.test.ts`; `p0-6-role-checks`, `parent-safetruth`, M-Pesa tests — expand as needed |
 | REF-1 | Referral status + notifications | P1 | Cursor | 2026-02-25 | `facilityContactEmail` on `clinicalReferrals`; `referrals.submitReferral` + `adminUpdateReferralStatus`; templates in `email-service.ts`; SQL `drizzle/0025_add_facility_contact_email.sql` |
-| MPESA-7 | Webhook IP allowlist (opt-in) | P2 | Cursor | 2026-02-25 | `MPESA_CALLBACK_IP_ALLOWLIST` + `TRUST_PROXY`; `server/lib/mpesa-callback-ip.ts`; `POST /api/mpesa/callback` |
+| MPESA-7 | Webhook IP allowlist (opt-in) | P2 | Cursor | 2026-02-25 | `MPESA_CALLBACK_IP_ALLOWLIST` + `TRUST_PROXY`; `server/lib/mpesa-callback-ip.ts`; `POST /api/payment/callback` |
 | MPESA-8 | M-Pesa reconciliation (admin) | P2 | Cursor | 2026-02-25 | `mpesa.getStaleMpesaPendingForReconciliation`, `mpesa.adminReconcileMpesaPayment`; `server/mpesa-reconciliation.ts` |
 | P0-ENROLL-1 | Enrollment `getById` (owner-scoped); Payment course lock; M-Pesa `enrollmentId` only after verify; `getPaymentsByEnrollmentId` tenant check | P0 | Cursor | 2026-02-25 | `server/routers/enrollment.ts`, `client/src/pages/Payment.tsx` |
 | P0-NAV-1b | Referral + Personal Impact cards on provider Home hub (`/home`) | P0 | Cursor | 2026-02-25 | `client/src/pages/Home.tsx` (Header already had P0-NAV) |
