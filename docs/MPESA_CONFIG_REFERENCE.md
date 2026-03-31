@@ -17,7 +17,7 @@
 | **Account Name** | Paeds Resus Limited |
 | **Payment Type** | Lipa na M-Pesa (STK Push) |
 | **Environment** | production |
-| **Callback URL** | https://paedsresus.com/api/mpesa/callback |
+| **Callback URL** | `https://www.paedsresus.com/api/mpesa/callback` or apex — must match **exactly** what is registered in Daraja (not `/api/payment/callback`; that path is not used by this app). |
 
 ### Previous Configuration (Deprecated)
 

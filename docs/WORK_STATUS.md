@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-03-25 | Cursor | M-Pesa 404 diagnosis: `VITE_TRPC_URL` optional in `main.tsx` when www/API split; `MPESA_CALLBACK_URL` default from `APP_BASE_URL` + `/api/mpesa/callback` (not example.com); clearer Daraja 404 message + server log `url=`. Docs callback path vs Manus `/api/payment/callback` typo. | pushed |
 | 2026-03-25 | Cursor | M-Pesa: `server/mpesa.ts` now uses **real Daraja** (`mpesa-real`) by default so `mpesa.initiatePayment` triggers STK on phone; mock only when `MPESA_USE_MOCK` or Vitest. `mpesa-real` accepts `DARAJA_*` keys and `MPESA_PAYBILL` as shortcode fallback. Docs `.env.example` + `MPESA_CONFIG_REFERENCE.md`. | b03694e |
 | 2026-03-25 | Cursor | Ops: `pnpm run db:apply-0026` idempotent script + `RENDER_PREDEPLOY_LOCKED.md` section for production missing `certificates.renewalReminderSentAt` (fixes Render/Aiven ER_BAD_FIELD_ERROR). | 1f1792a |
 | 2026-03-25 | Cursor | HI-B2B-1: `updateTrainingSchedule`, `deleteTrainingSchedule` (tenant-scoped; delete clears `trainingAttendance` for that session); `getTrainingSchedules` joins `courses` for `programType`. Hospital Admin **Schedule** tab: edit dialog, mark cancelled, delete confirm. HI-PLAT-2 slice: `server/lib/structured-log.test.ts`. | 77ab344 |

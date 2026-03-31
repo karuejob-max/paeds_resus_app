@@ -116,8 +116,9 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
     const shortCode =
       process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
     const passKey = process.env.MPESA_PASSKEY?.trim();
+    const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "https://www.paedsresus.com";
     const callbackUrl =
-      process.env.MPESA_CALLBACK_URL?.trim() || "https://example.com/api/mpesa/callback";
+      process.env.MPESA_CALLBACK_URL?.trim() || `${appBase}/api/mpesa/callback`;
 
     if (!shortCode || !passKey) {
       return {
@@ -177,7 +178,21 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       };
     }
   } catch (error: any) {
-    console.error("Error initiating M-Pesa STK Push:", error.message);
+    const status = error?.response?.status;
+    const reqUrl = error?.config?.url ?? error?.request?.path;
+    console.error(
+      "[M-Pesa STK] initiate failed:",
+      error.message,
+      status != null ? `httpStatus=${status}` : "",
+      reqUrl != null ? `url=${reqUrl}` : ""
+    );
+    if (status === 404 && reqUrl) {
+      return {
+        success: false,
+        error:
+          "Daraja API returned 404 (wrong URL or environment). Check server logs for `url=`. Ensure MPESA_ENVIRONMENT matches your credentials (sandbox vs production).",
+      };
+    }
     return {
       success: false,
       error: error.message || "Payment initiation failed",
