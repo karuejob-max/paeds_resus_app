@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-03-31 | Cursor | **`docs/PLATFORM_SOURCE_OF_TRUTH.md`** expanded: single onboarding source for **who we are / why / what / for whom**; mission; offerings table; audiences; surfaces map; stack; guardrails; all prior technical decisions preserved (auth, reports EAT, funnel, deployment, priorities). | (this commit) |
+| 2026-03-31 | Cursor | **`docs/PLATFORM_SOURCE_OF_TRUTH.md`** expanded: single onboarding source for **who we are / why / what / for whom**; mission; offerings table; audiences; surfaces map; stack; guardrails; all prior technical decisions preserved (auth, reports EAT, funnel, deployment, priorities). | 3fcc96e |
 | 2026-03-31 | Cursor | M-Pesa STK **AccountReference** (phone “Account no.” line): was **`userId` only** (e.g. `1` → “Account no. 1”). Now **`buildStkAccountReference`**: learner **first name** + **`E{enrollmentId}`** (e.g. `MARYE42`), max 12 chars, normalized in `mpesa-real`. Retry uses same helper. | 6819998 |
 | 2026-03-31 | Cursor | M-Pesa STK: **`getDarajaTimestampNairobi()`** (`server/lib/daraja-timestamp.ts`) — Daraja password timestamp must be `YYYYMMDDHHmmss` in **Africa/Nairobi (EAT)**; UTC (`toISOString`) or server TZ (e.g. Render UTC) caused **400.002.02 Invalid Timestamp**. Wired in `mpesa-real.ts` (STK + query) and `services/mpesa.ts` `getTimestamp()`. | 5bc8c77 |
 | 2026-03-25 | Cursor | M-Pesa: `resolveStkCallbackUrlFromEnv` appends `/api/payment/callback` when `MPESA_CALLBACK_URL` is origin-only (fixes Daraja HTTP 400); clearer 400 errors + Daraja body in logs; `.env.example` notes `MPESA_ENVIRONMENT=production` for prod keys. | 7b70506 |
