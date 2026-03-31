@@ -5,6 +5,7 @@
 
 import { getMpesaDeploymentMode } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
+import { getDarajaTimestampNairobi } from "../lib/daraja-timestamp";
 
 interface TokenResponse {
   access_token: string;
@@ -193,18 +194,10 @@ class MpesaService {
   }
 
   /**
-   * Generate timestamp in format YYYYMMDDHHmmss
+   * Daraja expects YYYYMMDDHHmmss in Kenya (EAT), not server local / UTC.
    */
   private getTimestamp(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-
-    return `${year}${month}${day}${hours}${minutes}${seconds}`;
+    return getDarajaTimestampNairobi();
   }
 
   /**

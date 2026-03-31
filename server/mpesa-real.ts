@@ -8,6 +8,7 @@ import axios from "axios";
 
 import { isMpesaProduction } from "./lib/mpesa-env";
 import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
+import { getDarajaTimestampNairobi } from "./lib/daraja-timestamp";
 
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
@@ -130,8 +131,8 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
     // Get access token
     const accessToken = await getMpesaAccessToken();
 
-    // Generate timestamp
-    const timestamp = new Date().toISOString().replace(/[:-]/g, "").split(".")[0];
+    // Timestamp must be Kenya (EAT), not UTC — Daraja error 400.002.02 otherwise
+    const timestamp = getDarajaTimestampNairobi();
 
     // Generate password: base64(shortCode + passKey + timestamp)
     const password = Buffer.from(`${shortCode}${passKey}${timestamp}`).toString("base64");
@@ -237,8 +238,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
     // Get access token
     const accessToken = await getMpesaAccessToken();
 
-    // Generate timestamp
-    const timestamp = new Date().toISOString().replace(/[:-]/g, "").split(".")[0];
+    const timestamp = getDarajaTimestampNairobi();
 
     // Generate password
     const password = Buffer.from(`${shortCode}${passKey}${timestamp}`).toString("base64");
