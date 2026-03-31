@@ -7,7 +7,7 @@
 import axios from "axios";
 
 import { isMpesaProduction } from "./lib/mpesa-env";
-import { defaultStkCallbackUrl } from "./lib/mpesa-callback-path";
+import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
 
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
@@ -118,8 +118,7 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
     const passKey = process.env.MPESA_PASSKEY?.trim();
     const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "https://www.paedsresus.com";
-    const callbackUrl =
-      process.env.MPESA_CALLBACK_URL?.trim() || defaultStkCallbackUrl(appBase);
+    const callbackUrl = resolveStkCallbackUrlFromEnv(appBase);
 
     if (!shortCode || !passKey) {
       return {
@@ -181,12 +180,30 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
   } catch (error: any) {
     const status = error?.response?.status;
     const reqUrl = error?.config?.url ?? error?.request?.path;
+    const darajaBody = error?.response?.data;
+    const darajaHint =
+      darajaBody && typeof darajaBody === "object"
+        ? JSON.stringify(darajaBody)
+        : darajaBody != null
+          ? String(darajaBody)
+          : "";
     console.error(
       "[M-Pesa STK] initiate failed:",
       error.message,
       status != null ? `httpStatus=${status}` : "",
-      reqUrl != null ? `url=${reqUrl}` : ""
+      reqUrl != null ? `url=${reqUrl}` : "",
+      darajaHint ? `daraja=${darajaHint.slice(0, 500)}` : ""
     );
+    if (status === 400) {
+      let userMsg =
+        "Daraja returned 400. Ensure MPESA_CALLBACK_URL is your full callback (we append /api/payment/callback if you only set the domain), MPESA_ENVIRONMENT=production with production keys, and passkey/shortcode match the live app.";
+      if (darajaBody && typeof darajaBody === "object" && "errorMessage" in darajaBody) {
+        userMsg = String((darajaBody as { errorMessage?: string }).errorMessage ?? userMsg);
+      } else if (darajaHint) {
+        userMsg = `${userMsg} Details: ${darajaHint.slice(0, 280)}`;
+      }
+      return { success: false, error: userMsg };
+    }
     if (status === 404 && reqUrl) {
       return {
         success: false,

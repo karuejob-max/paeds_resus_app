@@ -6,7 +6,8 @@ Use this before and after go-live. **Admin → M-Pesa reconciliation** shows non
 
 - [ ] **`MPESA_ENVIRONMENT=production`** when using live Daraja (preferred). **`MPESA_ENV`** is a legacy alias; if both are set, **`MPESA_ENVIRONMENT` wins**. Admin readiness shows which source was used.
 - [ ] `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY` set (no placeholders).
-- [ ] `MPESA_CALLBACK_URL` is your **public HTTPS** URL ending in `/api/payment/callback` (not `example.com`).
+- [ ] `MPESA_ENVIRONMENT=production` when using **production** Daraja consumer key/secret (otherwise the app calls **sandbox** hosts and requests fail).
+- [ ] `MPESA_CALLBACK_URL` is either the full URL ending in `/api/payment/callback`, or **only** `https://your-domain.com` — the server appends the path if missing. Must match what is registered in Daraja.
 - [ ] Optional: `MPESA_CALLBACK_IP_ALLOWLIST` for extra callback hardening; `TRUST_PROXY` if behind a reverse proxy.
 
 ## Application
