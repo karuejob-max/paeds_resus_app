@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-03-31 | Cursor | M-Pesa STK: **`getDarajaTimestampNairobi()`** (`server/lib/daraja-timestamp.ts`) — Daraja password timestamp must be `YYYYMMDDHHmmss` in **Africa/Nairobi (EAT)**; UTC (`toISOString`) or server TZ (e.g. Render UTC) caused **400.002.02 Invalid Timestamp**. Wired in `mpesa-real.ts` (STK + query) and `services/mpesa.ts` `getTimestamp()`. | c574403 |
+| 2026-03-31 | Cursor | M-Pesa STK: **`getDarajaTimestampNairobi()`** (`server/lib/daraja-timestamp.ts`) — Daraja password timestamp must be `YYYYMMDDHHmmss` in **Africa/Nairobi (EAT)**; UTC (`toISOString`) or server TZ (e.g. Render UTC) caused **400.002.02 Invalid Timestamp**. Wired in `mpesa-real.ts` (STK + query) and `services/mpesa.ts` `getTimestamp()`. | 5bc8c77 |
 | 2026-03-25 | Cursor | M-Pesa: `resolveStkCallbackUrlFromEnv` appends `/api/payment/callback` when `MPESA_CALLBACK_URL` is origin-only (fixes Daraja HTTP 400); clearer 400 errors + Daraja body in logs; `.env.example` notes `MPESA_ENVIRONMENT=production` for prod keys. | 7b70506 |
 | 2026-03-25 | Cursor | M-Pesa: canonical Daraja STK callback path **`/api/payment/callback`** (Safaricom naming); `server/lib/mpesa-callback-path.ts`; Express mounts payment + legacy mpesa alias; defaults in `mpesa-real`, `services/mpesa`, `mpesa` router use `defaultStkCallbackUrl`. Docs updated. | 13aa3a7 |
 | 2026-03-25 | Cursor | M-Pesa 404 diagnosis: `VITE_TRPC_URL` optional in `main.tsx` when www/API split; `MPESA_CALLBACK_URL` default from `APP_BASE_URL` + `/api/mpesa/callback` (not example.com); clearer Daraja 404 message + server log `url=`. Docs callback path vs Manus `/api/payment/callback` typo. | b4ec87f |
