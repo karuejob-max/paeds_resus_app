@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-03-31 | Cursor | M-Pesa STK **AccountReference** (phone “Account no.” line): was **`userId` only** (e.g. `1` → “Account no. 1”). Now **`buildStkAccountReference`**: learner **first name** + **`E{enrollmentId}`** (e.g. `MARYE42`), max 12 chars, normalized in `mpesa-real`. Retry uses same helper. | (this commit) |
+| 2026-03-31 | Cursor | M-Pesa STK **AccountReference** (phone “Account no.” line): was **`userId` only** (e.g. `1` → “Account no. 1”). Now **`buildStkAccountReference`**: learner **first name** + **`E{enrollmentId}`** (e.g. `MARYE42`), max 12 chars, normalized in `mpesa-real`. Retry uses same helper. | 6819998 |
 | 2026-03-31 | Cursor | M-Pesa STK: **`getDarajaTimestampNairobi()`** (`server/lib/daraja-timestamp.ts`) — Daraja password timestamp must be `YYYYMMDDHHmmss` in **Africa/Nairobi (EAT)**; UTC (`toISOString`) or server TZ (e.g. Render UTC) caused **400.002.02 Invalid Timestamp**. Wired in `mpesa-real.ts` (STK + query) and `services/mpesa.ts` `getTimestamp()`. | 5bc8c77 |
 | 2026-03-25 | Cursor | M-Pesa: `resolveStkCallbackUrlFromEnv` appends `/api/payment/callback` when `MPESA_CALLBACK_URL` is origin-only (fixes Daraja HTTP 400); clearer 400 errors + Daraja body in logs; `.env.example` notes `MPESA_ENVIRONMENT=production` for prod keys. | 7b70506 |
 | 2026-03-25 | Cursor | M-Pesa: canonical Daraja STK callback path **`/api/payment/callback`** (Safaricom naming); `server/lib/mpesa-callback-path.ts`; Express mounts payment + legacy mpesa alias; defaults in `mpesa-real`, `services/mpesa`, `mpesa` router use `defaultStkCallbackUrl`. Docs updated. | 13aa3a7 |
