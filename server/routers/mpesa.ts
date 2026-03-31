@@ -7,6 +7,7 @@ import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
+import { buildStkAccountReference } from "../lib/daraja-account-reference";
 
 export const mpesaRouter = router({
   /**
@@ -52,10 +53,16 @@ export const mpesaRouter = router({
           }
         }
 
+        const accountReference = buildStkAccountReference({
+          enrollmentId,
+          learnerName: ctx.user?.name,
+          userId: ctx.user?.id ?? 0,
+        });
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: input.amount,
-          accountReference: `${ctx.user?.id || "GUEST"}`,
+          accountReference,
           transactionDesc: `Payment for ${input.courseName}`,
           orderId: orderId,
         });
@@ -319,10 +326,16 @@ export const mpesaRouter = router({
         }
 
         // Initiate new M-Pesa payment
+        const accountReference = buildStkAccountReference({
+          enrollmentId: paymentRecord.enrollmentId,
+          learnerName: ctx.user?.name,
+          userId: ctx.user?.id ?? 0,
+        });
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: paymentRecord.amount,
-          accountReference: `${ctx.user?.id}`,
+          accountReference,
           transactionDesc: `Retry payment for course`,
           orderId: `ORDER-RETRY-${Date.now()}`,
         } as any);
