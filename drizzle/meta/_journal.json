@@ -183,6 +183,13 @@
       "when": 1775000000000,
       "tag": "0026_certificate_renewal_reminder_sent_at",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1774941925398,
+      "tag": "0026_white_toad",
+      "breakpoints": true
     }
   ]
 }
