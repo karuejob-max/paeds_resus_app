@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-03-25 | Cursor | M-Pesa: canonical Daraja STK callback path **`/api/payment/callback`** (Safaricom naming); `server/lib/mpesa-callback-path.ts`; Express mounts payment + legacy mpesa alias; defaults in `mpesa-real`, `services/mpesa`, `mpesa` router use `defaultStkCallbackUrl`. Docs updated. | pushed |
+| 2026-03-25 | Cursor | M-Pesa: canonical Daraja STK callback path **`/api/payment/callback`** (Safaricom naming); `server/lib/mpesa-callback-path.ts`; Express mounts payment + legacy mpesa alias; defaults in `mpesa-real`, `services/mpesa`, `mpesa` router use `defaultStkCallbackUrl`. Docs updated. | 13aa3a7 |
 | 2026-03-25 | Cursor | M-Pesa 404 diagnosis: `VITE_TRPC_URL` optional in `main.tsx` when www/API split; `MPESA_CALLBACK_URL` default from `APP_BASE_URL` + `/api/mpesa/callback` (not example.com); clearer Daraja 404 message + server log `url=`. Docs callback path vs Manus `/api/payment/callback` typo. | b4ec87f |
 | 2026-03-25 | Cursor | M-Pesa: `server/mpesa.ts` now uses **real Daraja** (`mpesa-real`) by default so `mpesa.initiatePayment` triggers STK on phone; mock only when `MPESA_USE_MOCK` or Vitest. `mpesa-real` accepts `DARAJA_*` keys and `MPESA_PAYBILL` as shortcode fallback. Docs `.env.example` + `MPESA_CONFIG_REFERENCE.md`. | b03694e |
 | 2026-03-25 | Cursor | Ops: `pnpm run db:apply-0026` idempotent script + `RENDER_PREDEPLOY_LOCKED.md` section for production missing `certificates.renewalReminderSentAt` (fixes Render/Aiven ER_BAD_FIELD_ERROR). | 1f1792a |
