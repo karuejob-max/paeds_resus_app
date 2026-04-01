@@ -82,7 +82,7 @@ export default function LearnerDashboard() {
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">Sign in to access your dashboard</p>
             <a href={getLoginUrl()}>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800">Sign In</Button>
+              <Button className="w-full" variant="default">Sign In</Button>
             </a>
           </CardContent>
         </Card>
@@ -364,7 +364,7 @@ export default function LearnerDashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-blue-600 mb-2">{instStats.totalStaff}</p>
+                    <p className="text-3xl font-bold text-brand-orange mb-2">{instStats.totalStaff}</p>
                     <p className="text-muted-foreground">Total staff on roster</p>
                     <p className="text-sm text-muted-foreground mt-2">{instStats.enrolledStaff} enrolled in training</p>
                   </CardContent>

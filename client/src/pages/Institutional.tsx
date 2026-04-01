@@ -144,7 +144,7 @@ export default function Institutional() {
       <section className="py-16 px-4 bg-gradient-to-b from-white to-orange-50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Available Training Programs</h2>
-          <p className="text-center text-gray-600 mb-8">Click on any course to calculate pricing for your institution</p>
+          <p className="text-center text-muted-foreground mb-8">Click on any course to calculate pricing for your institution</p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {getAllCourses().map((course) => (
               <Card
@@ -157,7 +157,7 @@ export default function Institutional() {
                   <CardDescription>{course.duration}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-gray-700">{course.description}</p>
+                  <p className="text-sm text-foreground/90">{course.description}</p>
                   <div className="bg-[#ff6633]/5 p-3 rounded">
                     <p className="text-sm font-semibold text-[#1a4d4d] mb-2">Topics Covered:</p>
                     <ul className="text-xs space-y-1">
@@ -204,7 +204,7 @@ export default function Institutional() {
                   <CardTitle className="text-[#1a4d4d]">Institutional Dashboard</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm mb-4">Manage your institution, track staff progress, and monitor training outcomes</p>
+                  <p className="text-muted-foreground text-sm mb-4">Manage your institution, track staff progress, and monitor training outcomes</p>
                   <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Access Dashboard</Button>
                 </CardContent>
               </Card>
@@ -216,7 +216,7 @@ export default function Institutional() {
                   <CardTitle className="text-[#1a4d4d]">Pricing Calculator</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm mb-4">Calculate training costs with bulk discounts and see ROI projections</p>
+                  <p className="text-muted-foreground text-sm mb-4">Calculate training costs with bulk discounts and see ROI projections</p>
                   <Button variant="outline" className="w-full border-[#1a4d4d] text-[#1a4d4d] hover:bg-[#1a4d4d]/10">Calculate Pricing</Button>
                 </CardContent>
               </Card>
@@ -228,7 +228,7 @@ export default function Institutional() {
                   <CardTitle className="text-[#1a4d4d]">ROI Calculator</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 text-sm mb-4">Calculate return on investment and financial impact of training</p>
+                  <p className="text-muted-foreground text-sm mb-4">Calculate return on investment and financial impact of training</p>
                   <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Calculate ROI</Button>
                 </CardContent>
               </Card>
@@ -251,7 +251,7 @@ export default function Institutional() {
                     <CardTitle className="text-[#1a4d4d]">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 text-sm">{feature.description}</p>
+                    <p className="text-muted-foreground text-sm">{feature.description}</p>
                   </CardContent>
                 </Card>
               );
@@ -288,11 +288,11 @@ export default function Institutional() {
                     }}
                     className="w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-2">Slide to adjust your institution size</p>
+                  <p className="text-xs text-muted-foreground mt-2">Slide to adjust your institution size</p>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg space-y-3">
-                  <div className="text-xs text-gray-600 bg-white p-2 rounded">
+                <div className="bg-brand-surface p-4 rounded-lg space-y-3 border border-border/60">
+                  <div className="text-xs text-muted-foreground bg-white p-2 rounded">
                     <p className="font-semibold mb-1">How we calculate ({config?.name ?? "Institutional"}):</p>
                     <p>Base price: {(config?.basePricePerSeat ?? 8000).toLocaleString()} KES per person</p>
                     <p>Bulk discount applied based on staff count</p>
@@ -301,7 +301,7 @@ export default function Institutional() {
                     ))}
                   </div>
                   <div className="flex justify-between mb-2 border-t pt-2">
-                    <span className="text-gray-600">Price per person:</span>
+                    <span className="text-muted-foreground">Price per person:</span>
                     <span className="font-bold">{pricePerPerson.toLocaleString()} KES</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
@@ -327,15 +327,15 @@ export default function Institutional() {
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Training Investment:</span>
+                    <span className="text-muted-foreground">Training Investment:</span>
                     <span className="font-bold">{roi.totalCost.toLocaleString()} KES</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Estimated Lives Saved:</span>
+                    <span className="text-muted-foreground">Estimated Lives Saved:</span>
                     <span className="font-bold text-green-900">{roi.estimatedLivesSaved} children</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Estimated Value Created:</span>
+                    <span className="text-muted-foreground">Estimated Value Created:</span>
                     <span className="font-bold">{(roi.totalValue / 1000000).toFixed(1)}M KES</span>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg border-t pt-4">
@@ -364,7 +364,7 @@ export default function Institutional() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b-2 border-gray-300">
+                <tr className="border-b-2 border-border">
                   <th className="text-left py-4 px-4">Staff Count</th>
                   <th className="text-left py-4 px-4">Price per Person</th>
                   <th className="text-left py-4 px-4">Discount</th>
@@ -373,7 +373,7 @@ export default function Institutional() {
               </thead>
               <tbody>
                 {pricingTiers.map((tier) => (
-                  <tr key={String(tier.staff)} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr key={String(tier.staff)} className="border-b border-border hover:bg-muted/40">
                     <td className="py-4 px-4 font-semibold">{tier.staff}+ staff</td>
                     <td className="py-4 px-4">{tier.price.toLocaleString()} KES</td>
                     <td className="py-4 px-4">
@@ -434,7 +434,7 @@ export default function Institutional() {
       </section>
 
       {/* Case Studies */}
-      <section className="py-16 px-4 bg-gray-50">
+      <section className="py-16 px-4 bg-muted/30">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold mb-12 text-center">Success Stories</h2>
           <div className="grid md:grid-cols-2 gap-8">
@@ -507,13 +507,13 @@ export default function Institutional() {
       </section>
 
       {/* Lead Capture Section */}
-      <section id="quote" className="py-16 bg-gray-50 scroll-mt-24">
+      <section id="quote" className="py-16 bg-muted/30 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Ready to Transform Your Facility?
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-muted-foreground">
               Get a personalized quote for your institution. Our team will contact you within 24 hours.
             </p>
           </div>

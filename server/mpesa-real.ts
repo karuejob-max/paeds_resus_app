@@ -264,7 +264,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
       }
     );
 
-    const resultCode = response.data.ResultCode;
+    const resultCode = String(response.data.ResultCode ?? "");
 
     if (resultCode === "0") {
       return {
@@ -293,7 +293,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
       };
     } else {
       return {
-        resultCode: resultCode,
+        resultCode,
         resultDesc: response.data.ResultDesc || "Query failed",
         checkoutRequestID,
       };

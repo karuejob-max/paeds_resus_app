@@ -57,11 +57,11 @@ export default function Start() {
   useScrollToTop();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-24 md:pb-8">
+    <div className="min-h-screen bg-gradient-to-b from-background to-brand-surface/80 pb-24 md:pb-8">
       <div className="max-w-3xl mx-auto px-4 py-12 md:py-16">
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">How do you want to use Paeds Resus?</h1>
-          <p className="text-slate-600 text-lg max-w-xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">How do you want to use Paeds Resus?</h1>
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Pick a path below. You can always use the header to switch later.
           </p>
         </div>
@@ -70,10 +70,10 @@ export default function Start() {
           {tiles.map((tile) => {
             const Icon = tile.icon;
             const inner = (
-              <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <Card className="border-border shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-start gap-4">
-                    <div className="rounded-lg bg-[#1a4d4d]/10 p-3 text-[#1a4d4d]">
+                    <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="flex-1 text-left">
@@ -105,8 +105,8 @@ export default function Start() {
           })}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-10">
-          Clinical emergency? ResusGPS at <Link href="/resus" className="text-[#1a4d4d] underline font-medium">/resus</Link> is the fastest entry.
+        <p className="text-center text-sm text-muted-foreground mt-10">
+          Clinical emergency? ResusGPS at <Link href="/resus" className="text-primary underline font-medium">/resus</Link> is the fastest entry.
         </p>
       </div>
       <BottomNav />
