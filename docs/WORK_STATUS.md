@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-04-01 | Cursor | **Sprint 1 (Measurement Truth MVP) — docs:** `PRODUCT_BACKLOG_PRIORITIZED.md` Sprint 1 section + CEO sprint sequence; new `EVENT_TAXONOMY.md`, `SPRINT_1_IMPLEMENTATION_CHECKLIST.md`, `SPRINT_1_EVENT_AUDIT_TEMPLATE.md`; README links; WORK_STATUS In progress for Cursor. | (this commit) |
+| 2026-04-01 | Cursor | **Sprint 1 (Measurement Truth MVP) — docs:** `PRODUCT_BACKLOG_PRIORITIZED.md` Sprint 1 section + CEO sprint sequence; new `EVENT_TAXONOMY.md`, `SPRINT_1_IMPLEMENTATION_CHECKLIST.md`, `SPRINT_1_EVENT_AUDIT_TEMPLATE.md`; README links; WORK_STATUS In progress for Cursor. | c62dbd2 |
 | 2026-04-01 | Cursor | **README:** “Documentation map (start here)” — ordered links to PLATFORM_SOURCE_OF_TRUTH, STRATEGIC_FOUNDATION, WORK_STATUS, AI_TEAM_WORKFLOW, ENGINEERING_ACCEPTANCE_CHECKLIST, plus `docs/archive/` note. | 5d8ee27 |
 | 2026-04-01 | Cursor | **Strategy docs alignment:** `STRATEGIC_VISION_2031.md` → **`docs/archive/`** (banner + [archive/README.md](./archive/README.md)); **near-term SoT** remains [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) + [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md). *If another machine does not see `docs/STRATEGIC_FOUNDATION.md` or commits `a0d5246`/`359d1a5`, run `git pull` on `main`.* | bd1ebd3 |
 | 2026-03-31 | Cursor | **`docs/STRATEGIC_FOUNDATION.md`**: canonical **strategic** onboarding (single north-star problem, theory of change, LMIC realism, origin narrative, ResusGPS↔learning, institutions/Safe-Truth/Book of the Unforgotten, triage-before-admin pattern, honest outcome claims). **`docs/PLATFORM_SOURCE_OF_TRUTH.md`** links to it from purpose + §2. | a0d5246 |
