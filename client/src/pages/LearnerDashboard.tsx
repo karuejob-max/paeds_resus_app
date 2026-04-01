@@ -232,17 +232,19 @@ export default function LearnerDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="w-5 h-5" />
-                  Certification
+                  Courses & certification
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-slate-600 mb-4">BLS Certification</p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate("/payment")}
-                >
-                  Enroll Now
+              <CardContent className="space-y-3">
+                <p className="text-slate-600 text-sm">
+                  Enroll (e.g. <strong>The systematic approach to a seriously ill child</strong> — PALS, KES 100 test
+                  price), pay with M-Pesa, then open your course modules.
+                </p>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/enroll")}>
+                  Enroll in a course
+                </Button>
+                <Button className="w-full" onClick={() => navigate("/course/seriously-ill-child")}>
+                  Continue: Seriously ill child (PALS)
                 </Button>
               </CardContent>
             </Card>

@@ -357,8 +357,11 @@ export default function Payment() {
                     courseName={selectedCourseData.name}
                     amount={selectedCourseData.price}
                     enrollmentId={mpesaEnrollmentId}
-                    onPaymentSuccess={() => {
-                      // Redirect to success page or dashboard
+                    onPaymentComplete={() => {
+                      if (selectedCourseData.id === "pals" && mpesaEnrollmentId) {
+                        window.location.href = `/course/seriously-ill-child?enrollmentId=${mpesaEnrollmentId}`;
+                        return;
+                      }
                       window.location.href = "/learner-dashboard";
                     }}
                   />

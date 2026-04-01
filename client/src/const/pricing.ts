@@ -43,11 +43,12 @@ export const individualCourses: CoursePrice[] = [
   },
   {
     id: "pals",
-    name: "PALS (Pediatric Advanced Life Support)",
-    description: "Specialized pediatric emergency care and resuscitation",
-    price: 20000,
+    name: "The systematic approach to a seriously ill child",
+    description:
+      "Structured assessment and stabilization for the critically unwell child — aligned with pediatric emergency practice (PALS-level).",
+    price: 100,
     category: "individual",
-    duration: "3 days",
+    duration: "Self-paced",
     level: "Advanced",
   },
 ];

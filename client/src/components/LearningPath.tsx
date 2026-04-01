@@ -45,12 +45,13 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     { enabled: !!selectedModule }
   );
 
-  const userProgressQuery = trpc.learning.getUserProgress.useQuery({
-    courseId: selectedCourse || 0,
-  }, { enabled: !!selectedCourse });
+  const userProgressQuery = trpc.learning.getUserProgress.useQuery(
+    { courseId: enrollmentId },
+    { enabled: !!selectedCourse }
+  );
 
   const courseStatsQuery = trpc.learning.getCourseStats.useQuery(
-    { courseId: selectedCourse! },
+    { courseId: selectedCourse!, enrollmentId },
     { enabled: !!selectedCourse }
   );
 
@@ -61,13 +62,12 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   const handleSubmitQuiz = async () => {
     if (!selectedModule) return;
 
+    const qLen = moduleContentQuery.data?.quizzes?.[0]?.questions?.length || 0;
     const result = await recordQuizAttemptMutation.mutateAsync({
       quizId: moduleContentQuery.data?.quizzes?.[0]?.id || 0,
       moduleId: selectedModule,
       enrollmentId,
-      score: Math.round(
-        (quizAnswers.length / (moduleContentQuery.data?.quizzes?.[0]?.questions?.length || 1)) * 100
-      ),
+      score: Math.round((quizAnswers.length / (qLen || 1)) * 100),
       answers: quizAnswers,
     });
 
@@ -93,7 +93,9 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     );
   }
 
-  const courses = coursesQuery.data || [];
+  const courses = (coursesQuery.data || []).filter(
+    (c: { programType?: string }) => c.programType === programType
+  );
   const stats = courseStatsQuery.data;
 
   return (
@@ -109,9 +111,10 @@ export const LearningPath: React.FC<LearningPathProps> = ({
             {programType.toUpperCase()} Program
           </p>
         </div>
-        {userProgressQuery.data && (
+        {userProgressQuery.data && Array.isArray(userProgressQuery.data) && (
           <div className="text-right">
-            <div className="text-3xl font-bold text-green-600">              {userProgressQuery.data?.progress?.filter((p: any) => p.status === "completed").length || 0}
+            <div className="text-3xl font-bold text-green-600">
+              {userProgressQuery.data.filter((p: any) => p.status === "completed").length}
             </div>
             <p className="text-gray-600">Modules Completed</p>
           </div>

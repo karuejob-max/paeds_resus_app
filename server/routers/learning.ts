@@ -23,17 +23,15 @@ export const learningRouter = router({
     )
     .query(async ({ input }) => {
       const db = await getDb();
-      let query: any = (db as any).select().from(courses);
-
+      if (!db) return [];
       if (input.programType) {
-        // Skip programType filtering for now
+        return (db as any)
+          .select()
+          .from(courses)
+          .where(eq(courses.programType, input.programType as "bls" | "acls" | "pals" | "fellowship"))
+          .orderBy(courses.order);
       }
-
-      if (input.level) {
-        // Skip level filtering for now
-      }
-
-      return query.orderBy((courses as any).order);
+      return (db as any).select().from(courses).orderBy(courses.order);
     }),
 
   // Get course details with modules
@@ -84,9 +82,32 @@ export const learningRouter = router({
         .where(eq(quizzes.moduleId, input.moduleId))
         .orderBy(quizzes.order);
 
+      const quizzesWithQuestions = await Promise.all(
+        moduleQuizzes.map(async (quiz: { id: number }) => {
+          const raw = await (db as any)
+            .select()
+            .from(quizQuestions)
+            .where(eq(quizQuestions.quizId, quiz.id))
+            .orderBy(quizQuestions.order);
+          const questions = raw.map((q: Record<string, unknown>) => {
+            let options: string[] = [];
+            if (q.options) {
+              try {
+                const parsed = JSON.parse(q.options as string);
+                options = Array.isArray(parsed) ? parsed : [];
+              } catch {
+                options = [];
+              }
+            }
+            return { ...q, options };
+          });
+          return { ...quiz, questions };
+        })
+      );
+
       return {
         ...module[0],
-        quizzes: moduleQuizzes,
+        quizzes: quizzesWithQuestions,
       };
     }),
 
@@ -228,7 +249,13 @@ export const learningRouter = router({
 
   // Get course completion stats
   getCourseStats: protectedProcedure
-    .input(z.object({ courseId: z.number() }))
+    .input(
+      z.object({
+        courseId: z.number(),
+        /** When set, stats only count progress rows for this enrollment (recommended). */
+        enrollmentId: z.number().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
 
@@ -238,11 +265,19 @@ export const learningRouter = router({
         .from(modules)
         .where(eq(modules.courseId, input.courseId));
 
+      const moduleIds = new Set(courseModules.map((m: { id: number }) => m.id));
+
       // Get user progress for each module
-      const progress = await (db as any)
+      const progressRows = await (db as any)
         .select()
         .from(userProgress)
-        .where(eq(userProgress.userId, ctx.user.id));
+        .where(
+          input.enrollmentId !== undefined
+            ? and(eq(userProgress.userId, ctx.user.id), eq(userProgress.enrollmentId, input.enrollmentId))
+            : eq(userProgress.userId, ctx.user.id)
+        );
+
+      const progress = progressRows.filter((p: { moduleId: number }) => moduleIds.has(p.moduleId));
 
       const completedModules = progress.filter(
         (p: any) => p.status === "completed"
@@ -253,13 +288,13 @@ export const learningRouter = router({
             progress.length
           : 0;
 
+      const totalModules = courseModules.length;
       return {
-        totalModules: courseModules.length,
+        totalModules,
         completedModules,
         averageScore: Math.round(averageScore),
-        percentComplete: Math.round(
-          (completedModules / courseModules.length) * 100
-        ),
+        percentComplete:
+          totalModules === 0 ? 0 : Math.round((completedModules / totalModules) * 100),
       };
     }),
 

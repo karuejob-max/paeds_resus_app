@@ -42,6 +42,7 @@ import ProblemIdentification from "./pages/ProblemIdentification";
 import Reassessment from "./pages/Reassessment";
 import CirculationAssessment from "./pages/CirculationAssessment";
 import CourseBLS from "./pages/CourseBLS";
+import CourseSeriouslyIllChild from "./pages/CourseSeriouslyIllChild";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
 import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
 import { Toaster } from "@/components/ui/sonner";
@@ -136,6 +137,7 @@ function Router() {
           <Route path="/reassessment" component={Reassessment} />
           <Route path="/circulation-assessment" component={CirculationAssessment} />
           <Route path="/course/bls" component={CourseBLS} />
+          <Route path="/course/seriously-ill-child" component={CourseSeriouslyIllChild} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           {/* case-analysis has no page; redirect to targeted-solutions */}
           <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
