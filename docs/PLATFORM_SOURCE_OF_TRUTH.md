@@ -4,7 +4,9 @@
 
 **Audience:** All developers (including Codex, Manus, Cursor), contractors, and anyone shipping code or product decisions.
 
-**Longer narrative and history:** See [CEO_Platform_Update_And_Reply_To_AI_Team.md](./CEO_Platform_Update_And_Reply_To_AI_Team.md). If this file and the CEO brief ever conflict, **update this file to match the CEO’s stated decision**, then align the brief or note the change in [WORK_STATUS.md](./WORK_STATUS.md).
+**Strategic foundation (read second):** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) — **one holistic problem** (preventable childhood death and harm in low-resource settings), **theory of change** (why ResusGPS + training + institutions + analytics + Safe-Truth), **clinical origin narrative**, **institutional and community patterns**, **Book of the Unforgotten** (ethical frame), and **honest success criteria**. It does **not** override technical decisions in this file; it explains **why** the platform is multi-product.
+
+**Operational CEO narrative:** [CEO_Platform_Update_And_Reply_To_AI_Team.md](./CEO_Platform_Update_And_Reply_To_AI_Team.md). If this file and the CEO brief ever conflict on **product or technical** decisions, **update this file to match the CEO’s stated decision**, then align the brief or note the change in [WORK_STATUS.md](./WORK_STATUS.md).
 
 ---
 
@@ -23,10 +25,12 @@
 
 **Mission (from leadership):** Contribute to a world where **no child dies from a preventable death**, by building a **sustainable, scalable** organisation that improves **paediatric resuscitation and emergency care**.
 
+**Single problem, many levers:** The organisation exists to reduce **preventable childhood mortality and serious harm** in **resource-limited** settings **as efficiently and effectively as reality allows**. That requires **holistic** work—bedside tools, training, **institutional** process and capability, **measurement**, and **community-facing** insight—not a single product in isolation. Full framing: [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
+
 **What that means for engineering:**
 
 - We build **tools and training** that improve **readiness**, **decision-making**, and **access**—for **healthcare providers**, **institutions**, and **parents/guardians**—under one platform so capabilities are **connected**, not fragmented.
-- We **support** clinical and educational judgment; we do **not** replace professional responsibility, local protocols, or licensing requirements. Features should be designed with **appropriate scope** (clear UX, disclaimers where product requires them, no overstated claims).
+- We **support** clinical and educational judgment; we do **not** replace professional responsibility, local protocols, or licensing requirements. Features should be designed with **appropriate scope** (clear UX, disclaimers where product requires them, no overstated claims). **Clinical outcome claims** belong in **governed** evaluation—not in speculative marketing copy; see STRATEGIC_FOUNDATION §12.
 
 ---
 
@@ -166,4 +170,4 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 
 ---
 
-**Last structural update:** 2026-03 — expanded for full developer onboarding (mission, audiences, offerings, guardrails).
+**Last structural update:** 2026-03-31 — linked [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) for holistic mission and theory of change.
