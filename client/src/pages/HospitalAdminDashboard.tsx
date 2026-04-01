@@ -39,6 +39,7 @@ import {
   Pencil,
   Trash2,
   Ban,
+  Loader2,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { buildIncidentsGovernanceCsv, downloadCsv } from "@/lib/incidentsCsv";
@@ -182,6 +183,22 @@ export default function HospitalAdminDashboard() {
     status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled",
   });
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleListRow | null>(null);
+  const [savingAttendanceForStaffId, setSavingAttendanceForStaffId] = useState<number | null>(null);
+  const [manualStaff, setManualStaff] = useState({
+    staffName: "",
+    staffEmail: "",
+    staffPhone: "",
+    staffRole: "nurse" as
+      | "doctor"
+      | "nurse"
+      | "paramedic"
+      | "midwife"
+      | "lab_tech"
+      | "respiratory_therapist"
+      | "support_staff"
+      | "other",
+    department: "",
+  });
 
   const utils = trpc.useUtils();
 
@@ -340,30 +357,53 @@ export default function HospitalAdminDashboard() {
     );
 
   const upsertAttendanceMutation = trpc.institution.upsertTrainingAttendance.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       if (institutionId && selectedScheduleForAttendance != null) {
-        void utils.institution.getTrainingAttendanceForSchedule.invalidate({
+        await utils.institution.getTrainingAttendanceForSchedule.refetch({
           institutionId,
           trainingScheduleId: selectedScheduleForAttendance,
         });
         void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+        void utils.institution.getStaffMembers.invalidate({ institutionId });
+        void utils.institution.getStats.invalidate({ institutionId });
       }
     },
     onError: (err) => toast.error(err.message || "Could not update attendance"),
+    onSettled: () => setSavingAttendanceForStaffId(null),
   });
 
   const registerAllStaffMutation = trpc.institution.registerAllStaffForTrainingSession.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (institutionId && selectedScheduleForAttendance != null) {
-        void utils.institution.getTrainingAttendanceForSchedule.invalidate({
+        await utils.institution.getTrainingAttendanceForSchedule.refetch({
           institutionId,
           trainingScheduleId: selectedScheduleForAttendance,
         });
         void utils.institution.getTrainingSchedules.invalidate({ institutionId });
+        void utils.institution.getStaffMembers.invalidate({ institutionId });
+        void utils.institution.getStats.invalidate({ institutionId });
       }
       toast.success(data.added ? `Registered ${data.added} staff` : "Roster was already complete");
     },
     onError: (err) => toast.error(err.message || "Could not register roster"),
+  });
+
+  const addStaffMemberMutation = trpc.institution.addStaffMember.useMutation({
+    onSuccess: () => {
+      if (institutionId) {
+        void utils.institution.getStaffMembers.invalidate({ institutionId });
+        void utils.institution.getStats.invalidate({ institutionId });
+      }
+      toast.success("Staff member added");
+      setManualStaff({
+        staffName: "",
+        staffEmail: "",
+        staffPhone: "",
+        staffRole: "nurse",
+        department: "",
+      });
+    },
+    onError: (err) => toast.error(err.message || "Could not add staff"),
   });
 
   const refreshAnalyticsMutation = trpc.institution.refreshInstitutionalAnalytics.useMutation({
@@ -673,6 +713,100 @@ export default function HospitalAdminDashboard() {
           <TabsContent value="staff" className="space-y-6">
             <StaffBulkImport institutionId={institutionId} />
 
+            <Card className="border-border/80 shadow-sm">
+              <CardHeader>
+                <CardTitle>Add staff member</CardTitle>
+                <CardDescription>Add one person without uploading a CSV (same roster as bulk import).</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="manual-name">Full name</Label>
+                    <Input
+                      id="manual-name"
+                      value={manualStaff.staffName}
+                      onChange={(e) => setManualStaff((s) => ({ ...s, staffName: e.target.value }))}
+                      autoComplete="name"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="manual-email">Work email</Label>
+                    <Input
+                      id="manual-email"
+                      type="email"
+                      value={manualStaff.staffEmail}
+                      onChange={(e) => setManualStaff((s) => ({ ...s, staffEmail: e.target.value }))}
+                      autoComplete="email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-phone">Phone (optional)</Label>
+                    <Input
+                      id="manual-phone"
+                      value={manualStaff.staffPhone}
+                      onChange={(e) => setManualStaff((s) => ({ ...s, staffPhone: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select
+                      value={manualStaff.staffRole}
+                      onValueChange={(v) =>
+                        setManualStaff((s) => ({ ...s, staffRole: v as typeof s.staffRole }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="doctor">Doctor</SelectItem>
+                        <SelectItem value="nurse">Nurse</SelectItem>
+                        <SelectItem value="paramedic">Paramedic</SelectItem>
+                        <SelectItem value="midwife">Midwife</SelectItem>
+                        <SelectItem value="lab_tech">Lab tech</SelectItem>
+                        <SelectItem value="respiratory_therapist">Respiratory therapist</SelectItem>
+                        <SelectItem value="support_staff">Support staff</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="manual-dept">Department (optional)</Label>
+                    <Input
+                      id="manual-dept"
+                      value={manualStaff.department}
+                      onChange={(e) => setManualStaff((s) => ({ ...s, department: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                  disabled={addStaffMemberMutation.isPending || !manualStaff.staffName.trim() || !manualStaff.staffEmail.trim()}
+                  onClick={() => {
+                    if (!institutionId) return;
+                    addStaffMemberMutation.mutate({
+                      institutionId,
+                      staffName: manualStaff.staffName.trim(),
+                      staffEmail: manualStaff.staffEmail.trim(),
+                      staffPhone: manualStaff.staffPhone.trim() || undefined,
+                      staffRole: manualStaff.staffRole,
+                      department: manualStaff.department.trim() || undefined,
+                    });
+                  }}
+                >
+                  {addStaffMemberMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Add to roster"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Bulk enrollment (roster → courses)</CardTitle>
@@ -829,28 +963,34 @@ export default function HospitalAdminDashboard() {
                     </Select>
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Date & time</Label>
+                    <Label>Session start</Label>
                     <Input
                       type="datetime-local"
                       value={scheduleForm.scheduledDate}
                       onChange={(e) => setScheduleForm((f) => ({ ...f, scheduledDate: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Primary start for this class. The database currently stores one start timestamp; multi-day courses
+                      need an end date field (planned)—use Location to note day 2+ until then.
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Start time (optional HH:MM)</Label>
+                    <Label>Wall-clock start (optional)</Label>
                     <Input
                       placeholder="09:00"
                       value={scheduleForm.startTime}
                       onChange={(e) => setScheduleForm((f) => ({ ...f, startTime: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">Same calendar day as session start; HH:MM if you do not want time in the field above.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>End time (optional HH:MM)</Label>
+                    <Label>Wall-clock end (optional)</Label>
                     <Input
                       placeholder="17:00"
                       value={scheduleForm.endTime}
                       onChange={(e) => setScheduleForm((f) => ({ ...f, endTime: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">Same day; spans past midnight are not modeled yet.</p>
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Location</Label>
@@ -1050,7 +1190,14 @@ export default function HospitalAdminDashboard() {
                         })
                       }
                     >
-                      Register all staff (missing rows only)
+                      {registerAllStaffMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                          Registering…
+                        </>
+                      ) : (
+                        "Register all staff (missing rows only)"
+                      )}
                     </Button>
                   </div>
                   {attendanceRosterLoading ? (
@@ -1081,22 +1228,33 @@ export default function HospitalAdminDashboard() {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    disabled={upsertAttendanceMutation.isPending}
-                                    onClick={() =>
+                                    disabled={savingAttendanceForStaffId === r.staffMemberId}
+                                    onClick={() => {
+                                      if (!institutionId) return;
+                                      setSavingAttendanceForStaffId(r.staffMemberId);
                                       upsertAttendanceMutation.mutate({
                                         institutionId,
                                         trainingScheduleId: selectedScheduleForAttendance,
                                         staffMemberId: r.staffMemberId,
                                         attendanceStatus: "registered",
-                                      })
-                                    }
+                                      });
+                                    }}
                                   >
-                                    Register on session
+                                    {savingAttendanceForStaffId === r.staffMemberId ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 mr-1 animate-spin inline" />
+                                        Saving…
+                                      </>
+                                    ) : (
+                                      "Register on session"
+                                    )}
                                   </Button>
                                 ) : (
                                   <Select
                                     value={r.attendanceStatus ?? "registered"}
-                                    onValueChange={(v) =>
+                                    onValueChange={(v) => {
+                                      if (!institutionId) return;
+                                      setSavingAttendanceForStaffId(r.staffMemberId);
                                       upsertAttendanceMutation.mutate({
                                         institutionId,
                                         trainingScheduleId: selectedScheduleForAttendance,
@@ -1106,9 +1264,9 @@ export default function HospitalAdminDashboard() {
                                           | "attended"
                                           | "absent"
                                           | "cancelled",
-                                      })
-                                    }
-                                    disabled={upsertAttendanceMutation.isPending}
+                                      });
+                                    }}
+                                    disabled={savingAttendanceForStaffId === r.staffMemberId}
                                   >
                                     <SelectTrigger className="h-9">
                                       <SelectValue />
@@ -1185,15 +1343,16 @@ export default function HospitalAdminDashboard() {
                     </Select>
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Date & time</Label>
+                    <Label>Session start</Label>
                     <Input
                       type="datetime-local"
                       value={scheduleEditForm.scheduledDate}
                       onChange={(e) => setScheduleEditForm((f) => ({ ...f, scheduledDate: e.target.value }))}
                     />
+                    <p className="text-xs text-muted-foreground">One start timestamp; note extra days in Location if needed.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Start (HH:MM)</Label>
+                    <Label>Wall-clock start (optional)</Label>
                     <Input
                       placeholder="09:00"
                       value={scheduleEditForm.startTime}
@@ -1201,7 +1360,7 @@ export default function HospitalAdminDashboard() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>End (HH:MM)</Label>
+                    <Label>Wall-clock end (optional)</Label>
                     <Input
                       placeholder="17:00"
                       value={scheduleEditForm.endTime}
@@ -1216,7 +1375,7 @@ export default function HospitalAdminDashboard() {
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Instructor</Label>
+                    <Label>Instructor (display name)</Label>
                     <Input
                       value={scheduleEditForm.instructorName}
                       onChange={(e) => setScheduleEditForm((f) => ({ ...f, instructorName: e.target.value }))}
@@ -1667,7 +1826,11 @@ export default function HospitalAdminDashboard() {
             <Card className="border-border/80 shadow-sm">
               <CardHeader>
                 <CardTitle>Individual Progress</CardTitle>
-                <CardDescription>Roster from the Staff tab; progress reflects enrollment and certification fields.</CardDescription>
+                <CardDescription>
+                  Roster from the Staff tab. Status updates when you register staff on a session and when you mark{" "}
+                  <strong>Attended</strong> (roster enrollment moves toward completed; certification stays in progress until
+                  issued). Session attendance is managed under Schedule → Roster.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {staffLoading ? (

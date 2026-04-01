@@ -66,6 +66,47 @@ async function syncTrainingScheduleEnrolledCount(db: DbClient, trainingScheduleI
     .where(eq(trainingSchedules.id, trainingScheduleId));
 }
 
+/**
+ * Keep institutional staff roster fields loosely aligned with the latest session attendance.
+ * Roster rows use a single enrollment/certification pair (not per-program); see product docs for multi-program roadmap.
+ */
+async function syncStaffRosterFromSessionAttendance(
+  db: DbClient,
+  staffMemberId: number,
+  attendanceStatus: "registered" | "attended" | "absent" | "cancelled"
+) {
+  const [row] = await db
+    .select()
+    .from(institutionalStaffMembers)
+    .where(eq(institutionalStaffMembers.id, staffMemberId))
+    .limit(1);
+  if (!row) return;
+
+  const patch: {
+    updatedAt: Date;
+    enrollmentStatus?: (typeof institutionalStaffMembers.$inferSelect)["enrollmentStatus"];
+    enrollmentDate?: Date;
+    completionDate?: Date;
+    certificationStatus?: (typeof institutionalStaffMembers.$inferSelect)["certificationStatus"];
+  } = { updatedAt: new Date() };
+
+  if (attendanceStatus === "registered" && row.enrollmentStatus === "pending") {
+    patch.enrollmentStatus = "enrolled";
+    patch.enrollmentDate = row.enrollmentDate ?? new Date();
+  }
+  if (attendanceStatus === "attended") {
+    patch.enrollmentStatus = "completed";
+    patch.completionDate = new Date();
+    if (row.certificationStatus === "not_started") {
+      patch.certificationStatus = "in_progress";
+    }
+  }
+
+  if (Object.keys(patch).length > 1) {
+    await db.update(institutionalStaffMembers).set(patch).where(eq(institutionalStaffMembers.id, staffMemberId));
+  }
+}
+
 export const institutionRouter = router({
   /** Primary institution for the signed-in user (most recently created if multiple). */
   getMyInstitution: protectedProcedure.query(async ({ ctx }) => {
@@ -898,6 +939,7 @@ export const institutionRouter = router({
       }
 
       await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
+      await syncStaffRosterFromSessionAttendance(db, input.staffMemberId, input.attendanceStatus);
       return { success: true as const };
     }),
 
@@ -947,6 +989,21 @@ export const institutionRouter = router({
       }
 
       await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          enrollmentStatus: "enrolled",
+          enrollmentDate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            eq(institutionalStaffMembers.enrollmentStatus, "pending")
+          )
+        );
+
       return { success: true as const, added };
     }),
 
