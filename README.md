@@ -18,6 +18,8 @@ Read in this order before deep work:
 
 Long-range or aspirational multi-year material (not near-term commitments) lives under **[`docs/archive/`](docs/archive/)** — see [`docs/archive/README.md`](docs/archive/README.md).
 
+**Sprint 1 (Measurement Truth MVP):** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md) (Sprint 1 section), [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md), [`docs/EVENT_TAXONOMY.md`](docs/EVENT_TAXONOMY.md).
+
 ### Product and backlog docs
 
 - **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)
