@@ -6,6 +6,18 @@
 
 Paeds Resus is a comprehensive digital platform designed to train healthcare professionals in pediatric resuscitation and track patient safety incidents. By combining evidence-based training with real-world incident analysis, we empower healthcare systems to save children's lives.
 
+### Documentation map (start here)
+
+Read in this order before deep work:
+
+1. **[`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md)** — Binding product and technical decisions (auth, roles, report definitions, deployment, priority order).
+2. **[`docs/STRATEGIC_FOUNDATION.md`](docs/STRATEGIC_FOUNDATION.md)** — Why the platform exists, one holistic problem, theory of change, honest success criteria (near-term execution framing).
+3. **[`docs/WORK_STATUS.md`](docs/WORK_STATUS.md)** — What was done, in progress, critique.
+4. **[`docs/AI_TEAM_WORKFLOW.md`](docs/AI_TEAM_WORKFLOW.md)** — How collaborators sync via git.
+5. **[`docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md)** — Pre-merge checks.
+
+Long-range or aspirational multi-year material (not near-term commitments) lives under **[`docs/archive/`](docs/archive/)** — see [`docs/archive/README.md`](docs/archive/README.md).
+
 ### Product and backlog docs
 
 - **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)
