@@ -1,4 +1,4 @@
-import { eq, desc, and, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -77,6 +77,9 @@ export const instructorRouter = router({
         programType: courses.programType,
         courseTitle: courses.title,
         institutionName: institutionalAccounts.companyName,
+        institutionContactName: institutionalAccounts.contactName,
+        institutionContactEmail: institutionalAccounts.contactEmail,
+        institutionContactPhone: institutionalAccounts.contactPhone,
       })
       .from(trainingSchedules)
       .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
@@ -86,9 +89,20 @@ export const instructorRouter = router({
       )
       .where(
         and(eq(trainingSchedules.instructorId, ctx.user.id), isNotNull(trainingSchedules.instructorId))
-      )
-      .orderBy(desc(trainingSchedules.scheduledDate));
+      );
 
-    return { assignments: rows, eligible: true as const };
+    const now = Date.now();
+    const assignments = [...rows].sort((a, b) => {
+      const ta = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
+      const tb = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
+      const aUp = ta >= now;
+      const bUp = tb >= now;
+      if (aUp && !bUp) return -1;
+      if (!aUp && bUp) return 1;
+      if (aUp && bUp) return ta - tb;
+      return tb - ta;
+    });
+
+    return { assignments, eligible: true as const };
   }),
 });

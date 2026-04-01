@@ -25,6 +25,7 @@ import {
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
 import { trackEvent } from "../services/analytics.service";
+import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -768,6 +769,9 @@ export const institutionRouter = router({
           },
           sessionId: `inst_schedule_${scheduleId}`,
         });
+        if (instructorId != null) {
+          void notifyInstructorSessionAssigned(db, scheduleId);
+        }
       }
 
       return { success: true as const, scheduleId };
@@ -842,6 +846,12 @@ export const institutionRouter = router({
         }
       }
 
+      const prevInstructorId = current.instructorId ?? null;
+      let nextInstructorId = prevInstructorId;
+      if (input.instructorUserId !== undefined) {
+        nextInstructorId = input.instructorUserId === null ? null : input.instructorUserId;
+      }
+
       const setPayload: {
         courseId: number;
         updatedAt: Date;
@@ -892,6 +902,10 @@ export const institutionRouter = router({
       if (input.status !== undefined) setPayload.status = input.status;
 
       await db.update(trainingSchedules).set(setPayload).where(eq(trainingSchedules.id, input.trainingScheduleId));
+
+      if (nextInstructorId != null && nextInstructorId !== prevInstructorId) {
+        void notifyInstructorSessionAssigned(db, input.trainingScheduleId);
+      }
 
       return { success: true as const };
     }),

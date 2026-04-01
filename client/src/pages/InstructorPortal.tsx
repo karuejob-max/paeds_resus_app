@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -6,13 +7,49 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
-import { BookOpen, Calendar, CheckCircle2, GraduationCap, Loader2, Lock, Shield } from "lucide-react";
+import { instructorResources } from "@/const/instructorResources";
+import {
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ExternalLink,
+  GraduationCap,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  Shield,
+  User,
+} from "lucide-react";
+
+function startOfTodayLocal(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 export default function InstructorPortal() {
   useScrollToTop();
   const { isAuthenticated, loading } = useAuth();
   const statusQuery = trpc.instructor.getStatus.useQuery(undefined, { enabled: isAuthenticated });
   const assignmentsQuery = trpc.instructor.getMyAssignments.useQuery(undefined, { enabled: isAuthenticated });
+
+  const { upcoming, past } = useMemo(() => {
+    const list = [...(assignmentsQuery.data?.assignments ?? [])];
+    const sod = startOfTodayLocal();
+    const upcomingList: typeof list = [];
+    const pastList: typeof list = [];
+    for (const a of list) {
+      if (!a.scheduledDate) {
+        pastList.push(a);
+        continue;
+      }
+      const t = new Date(a.scheduledDate);
+      if (t >= sod) upcomingList.push(a);
+      else pastList.push(a);
+    }
+    return { upcoming: upcomingList, past: pastList };
+  }, [assignmentsQuery.data?.assignments]);
 
   if (loading) {
     return (
@@ -47,6 +84,69 @@ export default function InstructorPortal() {
   const certified = s?.certified;
   const approved = s?.approved;
   const unlocked = s?.portalUnlocked;
+
+  const renderAssignment = (a: (typeof upcoming)[0]) => (
+    <li
+      key={a.id}
+      className="rounded-lg border border-border p-4 flex flex-col gap-3"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+        <div>
+          <p className="font-medium text-foreground">{a.institutionName ?? "Institution"}</p>
+          <p className="text-sm text-muted-foreground">
+            {a.courseTitle} · <span className="uppercase">{a.programType}</span>
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {a.scheduledDate ? new Date(a.scheduledDate).toLocaleString() : "—"}
+            {a.startTime || a.endTime
+              ? ` · ${[a.startTime, a.endTime].filter(Boolean).join("–")}`
+              : ""}
+            {a.location ? ` · ${a.location}` : ""}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {a.trainingType.replace("_", " ")} · {a.enrolledCount ?? 0}/{a.maxCapacity} enrolled
+          </p>
+        </div>
+        <Badge variant="outline" className="capitalize shrink-0 w-fit">
+          {a.status ?? "scheduled"}
+        </Badge>
+      </div>
+      {(a.institutionContactName || a.institutionContactEmail || a.institutionContactPhone) && (
+        <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-sm">
+          <p className="font-medium text-foreground mb-1 flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5" />
+            Hospital contact
+          </p>
+          {a.institutionContactName ? (
+            <p className="text-foreground/90">{a.institutionContactName}</p>
+          ) : null}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-1.5">
+            {a.institutionContactEmail ? (
+              <a
+                href={`mailto:${a.institutionContactEmail}`}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                {a.institutionContactEmail}
+              </a>
+            ) : null}
+            {a.institutionContactPhone ? (
+              <a
+                href={`tel:${a.institutionContactPhone.replace(/\s/g, "")}`}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                {a.institutionContactPhone}
+              </a>
+            ) : null}
+          </div>
+          {!a.institutionContactEmail && !a.institutionContactPhone ? (
+            <p className="text-xs text-muted-foreground mt-1">Ask your administrator to add contact details on the institution profile.</p>
+          ) : null}
+        </div>
+      )}
+    </li>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background">
@@ -132,7 +232,10 @@ export default function InstructorPortal() {
               <Calendar className="h-5 w-5" />
               My assignments
             </CardTitle>
-            <CardDescription>Hospital sessions where you are the assigned instructor</CardDescription>
+            <CardDescription>
+              Hospital sessions where you are the assigned instructor. Upcoming first; contact the institution for
+              changes.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {assignmentsQuery.isLoading ? (
@@ -147,28 +250,20 @@ export default function InstructorPortal() {
             ) : assignmentsQuery.data?.assignments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No sessions assigned yet.</p>
             ) : (
-              <ul className="space-y-3">
-                {assignmentsQuery.data?.assignments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="rounded-lg border border-border p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"
-                  >
-                    <div>
-                      <p className="font-medium text-foreground">{a.institutionName ?? "Institution"}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {a.courseTitle} · <span className="uppercase">{a.programType}</span>
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {a.scheduledDate ? new Date(a.scheduledDate).toLocaleString() : "—"}
-                        {a.location ? ` · ${a.location}` : ""}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="capitalize shrink-0">
-                      {a.status ?? "scheduled"}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-8">
+                {upcoming.length > 0 ? (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">Upcoming</h3>
+                    <ul className="space-y-3">{upcoming.map(renderAssignment)}</ul>
+                  </div>
+                ) : null}
+                {past.length > 0 ? (
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">Past</h3>
+                    <ul className="space-y-3 opacity-90">{past.map(renderAssignment)}</ul>
+                  </div>
+                ) : null}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -179,13 +274,38 @@ export default function InstructorPortal() {
               <BookOpen className="h-5 w-5" />
               Resources
             </CardTitle>
-            <CardDescription>Central place for instructor materials (coming next)</CardDescription>
+            <CardDescription>Quick links for instructors. Facilitator PDFs and slide decks can be added here as they ship.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Slide decks, facilitator notes, and updates will be linked here as product rolls out. For now, use your
-              learner dashboard and hospital admin contacts for session details.
-            </p>
+            <ul className="space-y-3">
+              {instructorResources.map((r) => (
+                <li
+                  key={r.href + r.title}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border p-3"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{r.title}</p>
+                    <p className="text-sm text-muted-foreground">{r.description}</p>
+                  </div>
+                  {r.external ? (
+                    <a
+                      href={r.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-primary shrink-0"
+                    >
+                      Open <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <Link href={r.href}>
+                      <Button variant="outline" size="sm" className="shrink-0">
+                        Open
+                      </Button>
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </div>
