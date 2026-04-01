@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -7,9 +7,23 @@ import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Brief
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+function mapUserTypeToHeaderRole(ut: string | undefined): "provider" | "parent" | "institution" | null {
+  if (!ut) return null;
+  const m: Record<string, "provider" | "parent" | "institution"> = {
+    individual: "provider",
+    parent: "parent",
+    institutional: "institution",
+  };
+  return m[ut] ?? null;
+}
+
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const { role, setUserRole } = useUserRole();
+  const effectiveRole = useMemo(
+    () => (isAuthenticated ? role ?? mapUserTypeToHeaderRole(user?.userType) : null),
+    [isAuthenticated, role, user?.userType]
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -48,7 +62,8 @@ export default function Header() {
 
   // Get navigation based on role — Dashboard first so provider/parent/institution can get home
   const getNavigation = () => {
-    if (role === "provider") {
+    const r = effectiveRole;
+    if (r === "provider") {
       return [
         { label: "Dashboard", href: "/home", icon: "🏠" },
         { label: "Patients", href: "/patients", icon: "👥" },
@@ -59,14 +74,14 @@ export default function Header() {
         { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
       ];
     }
-    if (role === "institution") {
+    if (r === "institution") {
       return [
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
         { label: "Staff", href: "/institutional-portal", icon: "👥" },
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
-    if (role === "parent") {
+    if (r === "parent") {
       return [
         { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
         { label: "Courses", href: "/learner-dashboard", icon: "📚" },
@@ -114,36 +129,36 @@ export default function Header() {
             <Link href="/">
               <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition flex-shrink-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
                 <img
-                  src="/paeds-resus-logo-brand.png"
+                  src="/favicon.png"
                   alt="Paeds Resus"
-                  className="h-10 w-auto max-w-[140px] sm:max-w-[160px] object-contain dark:brightness-110 dark:contrast-105"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rounded-lg object-cover shrink-0"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/paeds-resus-logo.png";
+                    (e.target as HTMLImageElement).src = "/paeds-resus-logo-brand.png";
                   }}
                 />
-                <span className="font-bold text-base text-foreground hidden md:inline tracking-tight">
-                  Paeds Resus
-                </span>
+                <span className="font-bold text-base text-foreground tracking-tight">Paeds Resus</span>
               </div>
             </Link>
             <ThemeToggle />
           </div>
 
           {/* Role Selector - Persistent and Prominent */}
-          {isAuthenticated && role && (
+          {isAuthenticated && effectiveRole && (
             <div className="relative hidden md:block flex-shrink-0" ref={roleDropdownRef}>
               <button
                 type="button"
                 onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
                 aria-haspopup="true"
                 aria-expanded={roleDropdownOpen}
-                aria-label={`Switch role (current: ${role})`}
+                aria-label={`Switch role (current: ${effectiveRole})`}
                 className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium border border-border focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {role === "provider" && <Stethoscope className="w-4 h-4" />}
-                {role === "parent" && <Heart className="w-4 h-4" />}
-                {role === "institution" && <Briefcase className="w-4 h-4" />}
-                <span className="capitalize">{role}</span>
+                {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
+                {effectiveRole === "parent" && <Heart className="w-4 h-4" />}
+                {effectiveRole === "institution" && <Briefcase className="w-4 h-4" />}
+                <span className="capitalize">{effectiveRole}</span>
                 <ChevronDown className={`w-4 h-4 transition ${roleDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
@@ -161,7 +176,7 @@ export default function Header() {
                           type="button"
                           key={option.value}
                           role="option"
-                          aria-selected={role === option.value}
+                          aria-selected={effectiveRole === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "parent" | "institution";
                             setUserRole(r);
@@ -171,7 +186,7 @@ export default function Header() {
                             else setLocation("/institutional-portal");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
-                            role === option.value
+                            effectiveRole === option.value
                               ? "bg-accent text-foreground font-medium"
                               : "text-foreground/90 hover:bg-muted"
                           }`}
@@ -266,7 +281,7 @@ export default function Header() {
 
                       {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
-                        <Link href={role === "parent" ? "/parent-safe-truth" : role === "institution" ? "/hospital-admin-dashboard" : "/home"}>
+                        <Link href={effectiveRole === "parent" ? "/parent-safe-truth" : effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -363,7 +378,7 @@ export default function Header() {
               </div>
             )}
             {/* Mobile Role Selector */}
-            {isAuthenticated && role && (
+            {isAuthenticated && effectiveRole && (
               <div className="px-3 py-2 mb-3 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Switch Role:</p>
                 <div className="space-y-1">
@@ -379,7 +394,7 @@ export default function Header() {
                         else setLocation("/institutional-portal");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
-                        role === option.value
+                        effectiveRole === option.value
                           ? "bg-accent text-foreground font-medium"
                           : "text-foreground/90 hover:bg-muted"
                       }`}

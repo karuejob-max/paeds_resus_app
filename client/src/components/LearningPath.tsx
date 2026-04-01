@@ -98,6 +98,24 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   );
   const stats = courseStatsQuery.data;
 
+  if (!coursesQuery.isLoading && courses.length === 0) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-4 space-y-4">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <BookOpen size={28} className="text-brand-orange" />
+          Personalized Learning Path
+        </h1>
+        <p className="text-muted-foreground">{programType.toUpperCase()} Program</p>
+        <Card className="p-6 border-dashed">
+          <p className="text-foreground/90 mb-2">No course modules are available yet for this program.</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            If you just deployed, the catalog may still be loading — refresh the page. Otherwise contact support.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
       {/* Header */}

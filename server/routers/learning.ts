@@ -11,6 +11,7 @@ import {
   userProgress,
   enrollments,
 } from "../../drizzle/schema";
+import { ensurePalsSeriouslyIllCatalog } from "../lib/ensure-pals-seriously-ill-catalog";
 
 export const learningRouter = router({
   // Get all courses
@@ -25,11 +26,25 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) return [];
       if (input.programType) {
-        return (db as any)
+        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship";
+        let rows = await (db as any)
           .select()
           .from(courses)
-          .where(eq(courses.programType, input.programType as "bls" | "acls" | "pals" | "fellowship"))
+          .where(eq(courses.programType, pt))
           .orderBy(courses.order);
+        if (pt === "pals" && rows.length === 0) {
+          try {
+            await ensurePalsSeriouslyIllCatalog(db);
+            rows = await (db as any)
+              .select()
+              .from(courses)
+              .where(eq(courses.programType, pt))
+              .orderBy(courses.order);
+          } catch (e) {
+            console.error("[learning.getCourses] ensure PALS catalog failed:", e);
+          }
+        }
+        return rows;
       }
       return (db as any).select().from(courses).orderBy(courses.order);
     }),

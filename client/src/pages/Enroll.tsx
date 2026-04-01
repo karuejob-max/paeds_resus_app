@@ -113,15 +113,6 @@ export default function Enroll() {
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               All courses include video lessons, practice, and official certification
             </p>
-            <p className="text-base text-foreground/90 max-w-3xl mx-auto mt-4 leading-relaxed">
-              <strong>The systematic approach to a seriously ill child</strong> (program code <span className="font-mono text-sm bg-muted px-1 rounded">pals</span>,{" "}
-              <strong className="text-brand-orange">KES 100</strong>) is listed as its <strong>own card</strong> in the grid below — it is the{" "}
-              <strong>third</strong> tile in the first row on desktop (after BLS and ACLS), or scroll down on mobile. You can jump to it:{" "}
-              <a href="#course-pals" className="text-primary underline font-medium decoration-2 underline-offset-2">
-                #course-pals
-              </a>
-              . After checkout, payment opens at <span className="font-mono text-sm bg-muted px-1 rounded">/payment</span> with that course.
-            </p>
           </div>
 
           {/* Course Cards */}

@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-01 | Cursor | **PALS `/course/seriously-ill-child` empty:** Server `ensurePalsSeriouslyIllCatalog` (shared with seed script); `learning.getCourses` runs it when `programType=pals` returns no rows so production self-heals. **Header:** `effectiveRole = role ?? map(userType)` so nav and role switcher work before localStorage sync and when switching institutional↔provider. **Branding:** `/favicon.png` (tab + apple-touch), theme-color `#1b3d3d`; header uses icon + text (not full wordmark). **Enroll:** removed temporary PALS “third tile / #course-pals” guide. **LearningPath:** empty catalog message. | (this commit) |
 | 2026-04-01 | Cursor | **M-Pesa STK stuck after PIN:** `getPaymentByCheckoutRequestId` / `getPaymentStatusForEnrollment` call `reconcilePaymentRowByStkQuery` for all pending M-Pesa rows (not only `MOCK_`), so DB updates when webhook is delayed or missed. **`queryStk`:** normalize `ResultCode` with `String()` so numeric `0` from Daraja counts as success. **Client:** `MpesaPaymentForm` — “I’ve paid — check status now”, `cta` button, brand-tinted status, 5s poll. **Theme sweep (shell/marketing):** Start, Institutional, PerformanceDashboard, JoinSession, CPRMonitoring, Help, About, NotFound, Footer, VideoTestimonial, RecommendationsPanel, OfflineIndicator, LearnerDashboard touches; clinical protocol pages largely unchanged. | `ada7201` |
 | 2026-04-01 | Cursor | **Brand theme & readability:** CSS tokens `#1B3D3D` / `#F37021`, light default + `ThemeToggle`; `index.css` contrast (muted-foreground, surfaces); Header/Enroll/Payment/LearnerDashboard use semantic colors; `Button` variant `cta`; logo `paeds-resus-logo-brand.png`. | `dcb7679` |
 | 2026-04-01 | Cursor | **Enroll UX:** Copy + anchor `#course-pals` on `/enroll` so “The systematic approach to a seriously ill child” (KES 100) is discoverable; E2E doc “where it appears”. | 3add2ec |
@@ -59,6 +60,7 @@
 
 | Who | What |
 |-----|------|
+| Cursor / product | **Course organization:** Separate AHA-style BLS·ACLS·PALS from Paeds Resus–original offerings in Enroll + `courses` metadata (UX + taxonomy; not implemented yet). |
 | Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
 
 **Sprint 1 note:** Implementation + taxonomy freeze merged; optional **Verification** (Admin Reports / `analyticsEvents`) remains in [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md).
@@ -79,6 +81,7 @@ Any agent can add here. Format: date, reviewer (Codex/Manus/Cursor), subject (e.
 
 | Date | Reviewer | Subject | Notes |
 |------|----------|---------|-------|
+| 2026-04-01 | Cursor | **M-Pesa mock / test rows in DB** | Do **not** bulk-delete real `payments` / `enrollments` on production (audit, finance, certificates). Rows from dev **`MOCK_` CheckoutRequestID** or obvious test users may be removed in **non-prod** only after backup. Prefer **admin reconciliation** + marking failed duplicates over deleting live payment history. |
 | 2026-04-01 | Cursor | Manus “repo alignment” audit vs `main` | On latest `main`, `docs/STRATEGIC_FOUNDATION.md` exists; `PLATFORM_SOURCE_OF_TRUTH.md` links it (not 56-line stub); commits `a0d5246` / `359d1a5` are in history. Likely **stale clone or wrong branch** if missing. **Root** `STRATEGIC_VISION_2031.md` was valid concern—**archived** under `docs/archive/` with explicit “not execution truth” framing. |
 | (add when you review another's work) | | | |
 
