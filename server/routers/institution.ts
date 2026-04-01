@@ -30,12 +30,25 @@ type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
 async function assertApprovedInstructorUser(db: DbClient, userId: number) {
   const [row] = await db
-    .select({ id: users.id, instructorApprovedAt: users.instructorApprovedAt, name: users.name })
+    .select({
+      id: users.id,
+      instructorApprovedAt: users.instructorApprovedAt,
+      instructorCertifiedAt: users.instructorCertifiedAt,
+      instructorNumber: users.instructorNumber,
+      name: users.name,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   if (!row) {
     throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+  }
+  if (!row.instructorCertifiedAt || !row.instructorNumber) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "That account has not completed the Paeds Resus Instructor Course and certification yet. They must enroll, complete modules, and receive their instructor number before assignment.",
+    });
   }
   if (!row.instructorApprovedAt) {
     throw new TRPCError({
@@ -650,9 +663,16 @@ export const institutionRouter = router({
           id: users.id,
           name: users.name,
           email: users.email,
+          instructorNumber: users.instructorNumber,
         })
         .from(users)
-        .where(isNotNull(users.instructorApprovedAt))
+        .where(
+          and(
+            isNotNull(users.instructorApprovedAt),
+            isNotNull(users.instructorCertifiedAt),
+            isNotNull(users.instructorNumber)
+          )
+        )
         .orderBy(asc(users.name));
     }),
 

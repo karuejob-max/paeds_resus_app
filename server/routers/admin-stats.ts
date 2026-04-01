@@ -282,12 +282,13 @@ export const adminStatsRouter = router({
       const parts: SQL[] = [];
       if (input?.userType) parts.push(eq(users.userType, input.userType));
       if (searchPattern) {
-        parts.push(or(like(users.email, searchPattern), like(users.name, searchPattern)));
+        const searchOr = or(like(users.email, searchPattern), like(users.name, searchPattern));
+        if (searchOr) parts.push(searchOr);
       }
       const whereCombined =
         parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
 
-      let listQuery = db
+      const listBase = db
         .select({
           id: users.id,
           name: users.name,
@@ -295,17 +296,17 @@ export const adminStatsRouter = router({
           userType: users.userType,
           createdAt: users.createdAt,
           instructorApprovedAt: users.instructorApprovedAt,
+          instructorCertifiedAt: users.instructorCertifiedAt,
+          instructorNumber: users.instructorNumber,
         })
-        .from(users)
+        .from(users);
+      const result = await (whereCombined ? listBase.where(whereCombined) : listBase)
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset(offset);
-      if (whereCombined) listQuery = listQuery.where(whereCombined);
-      const result = await listQuery;
 
-      let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
-      if (whereCombined) countQuery = countQuery.where(whereCombined);
-      const countResult = await countQuery;
+      const countBase = db.select({ count: sql<number>`count(*)` }).from(users);
+      const countResult = await (whereCombined ? countBase.where(whereCombined) : countBase);
       const total = Number(countResult[0]?.count ?? 0);
 
       return { users: result, total };
@@ -326,6 +327,24 @@ export const adminStatsRouter = router({
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       }
+      if (input.approved) {
+        const [u] = await db
+          .select({
+            instructorCertifiedAt: users.instructorCertifiedAt,
+            instructorNumber: users.instructorNumber,
+          })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+        if (!u?.instructorCertifiedAt || !u.instructorNumber) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Approve only after the user has completed the Instructor Course and received an instructor number (certified).",
+          });
+        }
+      }
+
       await db
         .update(users)
         .set({

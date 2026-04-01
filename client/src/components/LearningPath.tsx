@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 
 interface LearningPathProps {
   enrollmentId: number;
-  programType: "bls" | "acls" | "pals" | "fellowship";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
 }
 
 export const LearningPath: React.FC<LearningPathProps> = ({

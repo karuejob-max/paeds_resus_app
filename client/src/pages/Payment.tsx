@@ -91,7 +91,15 @@ export default function Payment() {
   const mpesaEnrollmentId =
     enrollmentIdFromEnroll !== undefined && enrollmentRow ? enrollmentIdFromEnroll : undefined;
 
-  const courseIcons: Record<string, string> = { bls: "🏥", acls: "❤️", pals: "👶", bronze: "🥉", silver: "🥈", gold: "🥇" };
+  const courseIcons: Record<string, string> = {
+    bls: "🏥",
+    acls: "❤️",
+    pals: "👶",
+    instructor: "🎓",
+    bronze: "🥉",
+    silver: "🥈",
+    gold: "🥇",
+  };
   const fellowshipDurations: Record<string, string> = { bronze: "6 weeks", silver: "12 weeks", gold: "16 weeks" };
   const courses = [
     ...individualCourses.map((c) => ({

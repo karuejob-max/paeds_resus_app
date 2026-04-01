@@ -17,7 +17,7 @@ import { generateCertificatePDF as generateCertificatePDFBranded } from "../cert
 const certificateSchema = z.object({
   enrollmentId: z.number(),
   recipientName: z.string(),
-  programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
   trainingDate: z.date(),
   instructorName: z.string(),
 });

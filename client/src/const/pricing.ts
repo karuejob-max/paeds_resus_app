@@ -51,6 +51,16 @@ export const individualCourses: CoursePrice[] = [
     duration: "Self-paced",
     level: "Advanced",
   },
+  {
+    id: "instructor",
+    name: "Paeds Resus Instructor Course",
+    description:
+      "Train-the-trainer path: complete to receive your Paeds Resus instructor number; platform approval unlocks B2B teaching assignments.",
+    price: 25000,
+    category: "individual",
+    duration: "Self-paced + assessment",
+    level: "Advanced",
+  },
 ];
 
 // Elite Fellowship Tiers

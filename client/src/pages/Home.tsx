@@ -36,11 +36,11 @@ export default function Home() {
     if (loading || !user) return;
     // If they explicitly chose provider role, show hub (don't redirect)
     if (role === "provider") return;
-    if (userType === "parent" && role !== "provider") {
+    if (userType === "parent") {
       setLocation("/parent-safe-truth");
       return;
     }
-    if (userType === "institutional" && role !== "provider") {
+    if (userType === "institutional") {
       setLocation("/institutional-portal");
       return;
     }

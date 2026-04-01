@@ -266,7 +266,9 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
-                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse) ? "fellowship" : selectedCourse) as "bls" | "acls" | "pals" | "fellowship";
+                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse)
+                    ? "fellowship"
+                    : selectedCourse) as "bls" | "acls" | "pals" | "fellowship" | "instructor";
                   createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),

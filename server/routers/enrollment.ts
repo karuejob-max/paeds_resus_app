@@ -15,7 +15,7 @@ import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent } from "../services/analytics.service";
 
 const enrollmentSchema = z.object({
-  programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
   trainingDate: z.date(),
 });
 

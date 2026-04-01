@@ -18,7 +18,7 @@ export const learningPathRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
       })
     )
     .query(async ({ ctx, input }) => {

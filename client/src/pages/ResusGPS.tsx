@@ -185,7 +185,7 @@ export default function ResusGPS() {
     timer.reset();
     timer.start();
     // Track assessment start
-    analytics.trackAssessmentStart(demographics.age, getWeightInKg());
+    analytics.trackAssessmentStart(demographics.age || undefined, getWeightInKg() ?? undefined);
   };
 
   const handleQuickAssessment = (answer: 'sick' | 'not_sick') => {
@@ -203,21 +203,21 @@ export default function ResusGPS() {
   };
 
   const handleCompleteIntervention = (id: string) => {
-    const intervention = session.interventions.find(i => i.id === id);
+    const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     setSession(prev => completeIntervention(prev, id));
     // Track intervention completed
     if (intervention) {
-      trackButtonClick('Log Intervention', { interventionName: intervention.name });
-      analytics.trackInterventionCompleted(intervention.name);
+      trackButtonClick('Log Intervention', { interventionName: intervention.action });
+      analytics.trackInterventionCompleted(intervention.action);
     }
   };
 
   const handleStartIntervention = (id: string) => {
     setSession(prev => startIntervention(prev, id));
     // Track intervention started
-    const intervention = session.interventions.find(i => i.id === id);
+    const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (intervention) {
-      analytics.trackInterventionStarted(intervention.name);
+      analytics.trackInterventionStarted(intervention.action);
     }
   };
 
@@ -386,7 +386,7 @@ export default function ResusGPS() {
             weight={weight}
             onComplete={handleCompleteIntervention}
             onStart={handleStartIntervention}
-            onReturnToPrimary={handleReturnToPrimary}
+            onReturnToPrimary={handleReturnToPrimarySurvey}
             onOpenPanel={() => setInterventionPanelOpen(true)}
           />
         )}

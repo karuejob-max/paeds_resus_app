@@ -54,7 +54,16 @@ export default function AdminReports() {
 
   const downloadUsersCsv = () => {
     if (!usersData?.users.length) return;
-    const headers = ["id", "name", "email", "userType", "instructorApprovedAt", "createdAt"];
+    const headers = [
+      "id",
+      "name",
+      "email",
+      "userType",
+      "instructorNumber",
+      "instructorCertifiedAt",
+      "instructorApprovedAt",
+      "createdAt",
+    ];
     const rows = usersData.users.map((u) =>
       headers.map((h) => JSON.stringify(String((u as Record<string, unknown>)[h] ?? ""))).join(",")
     );
@@ -198,6 +207,7 @@ export default function AdminReports() {
                           <th className="text-left py-2">Name</th>
                           <th className="text-left py-2">Email</th>
                           <th className="text-left py-2">Type</th>
+                          <th className="text-left py-2">Instructor #</th>
                           <th className="text-left py-2">B2B instructor</th>
                           <th className="text-left py-2">Joined</th>
                         </tr>
@@ -208,6 +218,9 @@ export default function AdminReports() {
                             <td className="py-2">{u.name ?? "—"}</td>
                             <td className="py-2">{u.email ?? "—"}</td>
                             <td className="py-2">{u.userType ?? "—"}</td>
+                            <td className="py-2 font-mono text-xs">
+                              {"instructorNumber" in u && u.instructorNumber ? String(u.instructorNumber) : "—"}
+                            </td>
                             <td className="py-2 align-top">
                               {"instructorApprovedAt" in u && u.instructorApprovedAt ? (
                                 <div className="flex flex-wrap items-center gap-2">
@@ -231,7 +244,20 @@ export default function AdminReports() {
                                   variant="outline"
                                   size="sm"
                                   className="h-8"
-                                  disabled={setInstructorApprovalMutation.isPending}
+                                  disabled={
+                                    setInstructorApprovalMutation.isPending ||
+                                    !(
+                                      "instructorCertifiedAt" in u &&
+                                      u.instructorCertifiedAt &&
+                                      "instructorNumber" in u &&
+                                      u.instructorNumber
+                                    )
+                                  }
+                                  title={
+                                    !("instructorCertifiedAt" in u && u.instructorCertifiedAt && "instructorNumber" in u && u.instructorNumber)
+                                      ? "User must complete Instructor Course and receive an instructor number first"
+                                      : undefined
+                                  }
                                   onClick={() =>
                                     setInstructorApprovalMutation.mutate({ userId: u.id, approved: true })
                                   }

@@ -7,7 +7,7 @@ import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Brief
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-function mapUserTypeToHeaderRole(ut: string | undefined): "provider" | "parent" | "institution" | null {
+function mapUserTypeToHeaderRole(ut: string | null | undefined): "provider" | "parent" | "institution" | null {
   if (!ut) return null;
   const m: Record<string, "provider" | "parent" | "institution"> = {
     individual: "provider",
@@ -66,6 +66,7 @@ export default function Header() {
     if (r === "provider") {
       return [
         { label: "Dashboard", href: "/home", icon: "🏠" },
+        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },

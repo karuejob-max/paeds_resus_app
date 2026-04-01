@@ -43,6 +43,8 @@ import Reassessment from "./pages/Reassessment";
 import CirculationAssessment from "./pages/CirculationAssessment";
 import CourseBLS from "./pages/CourseBLS";
 import CourseSeriouslyIllChild from "./pages/CourseSeriouslyIllChild";
+import CourseInstructor from "./pages/CourseInstructor";
+import InstructorPortal from "./pages/InstructorPortal";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
 import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
 import { Toaster } from "@/components/ui/sonner";
@@ -138,6 +140,8 @@ function Router() {
           <Route path="/circulation-assessment" component={CirculationAssessment} />
           <Route path="/course/bls" component={CourseBLS} />
           <Route path="/course/seriously-ill-child" component={CourseSeriouslyIllChild} />
+          <Route path="/course/instructor" component={CourseInstructor} />
+          <Route path="/instructor-portal" component={InstructorPortal} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           {/* Common typo / old links — same page */}
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>

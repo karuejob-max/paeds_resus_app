@@ -41,7 +41,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. |
+| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, the **Instructor Course** (train-the-trainer), and related enrollment and certification flows tied to the `enrollments` / `certificates` model. |
 | **Elite fellowship** | Flagship advanced programme (same platform; programme type in data where applicable). |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
@@ -72,6 +72,7 @@ High-level map (routes may evolve; check the codebase if in doubt):
 |---------|---------|
 | **ResusGPS** | Core provider emergency guidance (e.g. `/` and related flows). |
 | **Provider hub** | `/home` — dashboard: ResusGPS, enroll in courses, learning, links to act as institution or parent. |
+| **Instructor portal** | `/instructor-portal` — instructor journey status, **My assignments** (B2B sessions), resources placeholder; gated on certification + platform approval for full teaching access. |
 | **Parent / guardian** | `/parent-safe-truth` — Safe-Truth and parent-facing resources. |
 | **Institution** | e.g. `/institutional-portal`, hospital admin dashboards — institutional metrics and management. |
 | **Admin** | `/admin` — reports, insights, advanced tools; **admin** access is governed by [§7](#7-auth-and-roles). |
@@ -117,8 +118,9 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 ## 9. Course funnel (data meaning)
 
-- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `fellowship`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
+- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `fellowship` \| `instructor`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
 - **Certified:** A row in **`certificates`** = one certificate. Authoritative fields include `issueDate`, `programType`.
+- **Instructor journey:** Completing the **Instructor Course** (`programType` = `instructor`) issues a certificate and sets **`users.instructorNumber`** + **`users.instructorCertifiedAt`**. **B2B teaching** on institutional schedules still requires **`users.instructorApprovedAt`** (platform admin under Admin → Reports) so hospitals only assign certified, approved instructors.
 
 ---
 
