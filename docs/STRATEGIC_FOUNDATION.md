@@ -1,8 +1,8 @@
 # Paeds Resus — Strategic foundation
 
 **Document type:** Canonical strategy and onboarding narrative for the repository.  
-**Version:** 1.0  
-**Date:** 2026-03-31  
+**Version:** 1.1  
+**Date:** 2026-04-01  
 **Status:** Active — read alongside [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) (technical and product decisions).
 
 **Audience:** Developers, designers, clinical advisors, partners, and anyone who needs to understand **who we are**, **what problem we exist to solve**, **why the platform is shaped as it is**, and **how to judge whether a feature or initiative deserves effort**—without relying on a live briefing from leadership.
@@ -14,6 +14,7 @@
 | [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) | **Binding** product/technical decisions: auth, roles, report definitions, deployment, priority order. |
 | This document | **Strategic intent**, theory of change, clinical and systems context, ethical framing. If there is ever a tension, **technical implementation** follows PLATFORM_SOURCE_OF_TRUTH; **strategic direction** is updated here and in leadership review. |
 | [CEO_Platform_Update_And_Reply_To_AI_Team.md](./CEO_Platform_Update_And_Reply_To_AI_Team.md) | Historical operational detail and Q&A with the AI team. |
+| [archive/STRATEGIC_VISION_2031.md](./archive/STRATEGIC_VISION_2031.md) | **Aspirational long-range** material (multi-year targets, not near-term execution truth). Read for **direction** only; **do not** treat figures as committed or validated. See [archive/README.md](./archive/README.md). |
 
 ---
 
@@ -257,3 +258,4 @@ Build **connected**, **measurable**, and **humble** systems—then **prove** imp
 | Version | Date | Notes |
 |---------|------|--------|
 | 1.0 | 2026-03-31 | Initial canonical strategic foundation for repo onboarding. |
+| 1.1 | 2026-04-01 | Linked archived long-range vision doc; clarified execution vs aspirational material. |
