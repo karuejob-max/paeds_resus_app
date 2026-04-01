@@ -28,6 +28,10 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-01 | Cursor | **Strategy docs alignment:** `STRATEGIC_VISION_2031.md` → **`docs/archive/`** (banner + [archive/README.md](./archive/README.md)); **near-term SoT** remains [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) + [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md). *If another machine does not see `docs/STRATEGIC_FOUNDATION.md` or commits `a0d5246`/`359d1a5`, run `git pull` on `main`.* | bd1ebd3 |
+| 2026-03-31 | Cursor | **`docs/STRATEGIC_FOUNDATION.md`**: canonical **strategic** onboarding (single north-star problem, theory of change, LMIC realism, origin narrative, ResusGPS↔learning, institutions/Safe-Truth/Book of the Unforgotten, triage-before-admin pattern, honest outcome claims). **`docs/PLATFORM_SOURCE_OF_TRUTH.md`** links to it from purpose + §2. | a0d5246 |
+| 2026-03-31 | Cursor | **`docs/PLATFORM_SOURCE_OF_TRUTH.md`** expanded: single onboarding source for **who we are / why / what / for whom**; mission; offerings table; audiences; surfaces map; stack; guardrails; all prior technical decisions preserved (auth, reports EAT, funnel, deployment, priorities). | 3fcc96e |
+| 2026-03-31 | Cursor | M-Pesa STK **AccountReference** (phone “Account no.” line): was **`userId` only** (e.g. `1` → “Account no. 1”). Now **`buildStkAccountReference`**: learner **first name** + **`E{enrollmentId}`** (e.g. `MARYE42`), max 12 chars, normalized in `mpesa-real`. Retry uses same helper. | 6819998 |
 | 2026-03-31 | Cursor | M-Pesa STK: **`getDarajaTimestampNairobi()`** (`server/lib/daraja-timestamp.ts`) — Daraja password timestamp must be `YYYYMMDDHHmmss` in **Africa/Nairobi (EAT)**; UTC (`toISOString`) or server TZ (e.g. Render UTC) caused **400.002.02 Invalid Timestamp**. Wired in `mpesa-real.ts` (STK + query) and `services/mpesa.ts` `getTimestamp()`. | 5bc8c77 |
 | 2026-03-25 | Cursor | M-Pesa: `resolveStkCallbackUrlFromEnv` appends `/api/payment/callback` when `MPESA_CALLBACK_URL` is origin-only (fixes Daraja HTTP 400); clearer 400 errors + Daraja body in logs; `.env.example` notes `MPESA_ENVIRONMENT=production` for prod keys. | 7b70506 |
 | 2026-03-25 | Cursor | M-Pesa: canonical Daraja STK callback path **`/api/payment/callback`** (Safaricom naming); `server/lib/mpesa-callback-path.ts`; Express mounts payment + legacy mpesa alias; defaults in `mpesa-real`, `services/mpesa`, `mpesa` router use `defaultStkCallbackUrl`. Docs updated. | 13aa3a7 |
@@ -66,6 +70,7 @@ Any agent can add here. Format: date, reviewer (Codex/Manus/Cursor), subject (e.
 
 | Date | Reviewer | Subject | Notes |
 |------|----------|---------|-------|
+| 2026-04-01 | Cursor | Manus “repo alignment” audit vs `main` | On latest `main`, `docs/STRATEGIC_FOUNDATION.md` exists; `PLATFORM_SOURCE_OF_TRUTH.md` links it (not 56-line stub); commits `a0d5246` / `359d1a5` are in history. Likely **stale clone or wrong branch** if missing. **Root** `STRATEGIC_VISION_2031.md` was valid concern—**archived** under `docs/archive/` with explicit “not execution truth” framing. |
 | (add when you review another's work) | | | |
 
 ---

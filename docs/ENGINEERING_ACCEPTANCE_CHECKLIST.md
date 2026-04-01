@@ -7,6 +7,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 ## Every PR / sprint slice
 
 - [ ] Aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) (auth, roles, reports definitions, priority order).
+- [ ] If the change affects **positioning**, **multi-product scope**, or **institutional / community** flows, aligns with [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
 - [ ] No new single-role lock; multi-role UI switch and default `userType` behaviour preserved.
 - [ ] Reuses existing routes/components/schemas where possible; no duplicate implementations.
 - [ ] Admin reports: "this month" uses EAT (UTC+3) where applicable; "last 7 days" = rolling 7×24h.

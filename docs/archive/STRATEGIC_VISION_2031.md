@@ -1,5 +1,9 @@
 # Paeds Resus - Strategic Vision & Operational Plan 2026-2031
 
+> **Archive notice (2026-04-01):** This file is **aspirational long-range** material. It is **not** the source of truth for near-term engineering scope, revenue, or validated impact. For onboarding and grounded strategy, use [../STRATEGIC_FOUNDATION.md](../STRATEGIC_FOUNDATION.md) and [../PLATFORM_SOURCE_OF_TRUTH.md](../PLATFORM_SOURCE_OF_TRUTH.md). Numbers below require **leadership review** before external or investor use.
+
+---
+
 ## Executive Summary
 
 Paeds Resus is a fully autonomous pediatric resuscitation training and incident management platform designed to eliminate preventable child deaths across Africa and beyond. This document outlines the comprehensive strategic vision, operational roadmap, and detailed execution plan through 2031.

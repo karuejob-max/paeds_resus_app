@@ -9,6 +9,7 @@ import axios from "axios";
 import { isMpesaProduction } from "./lib/mpesa-env";
 import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
 import { getDarajaTimestampNairobi } from "./lib/daraja-timestamp";
+import { normalizeDarajaAccountReference } from "./lib/daraja-account-reference";
 
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
@@ -148,7 +149,7 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       PartyB: shortCode,
       PhoneNumber: formattedPhone,
       CallBackURL: callbackUrl,
-      AccountReference: request.accountReference,
+      AccountReference: normalizeDarajaAccountReference(request.accountReference),
       TransactionDesc: request.transactionDesc,
     };
 

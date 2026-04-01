@@ -9,7 +9,7 @@
 
 There is no live push between tools. **Realtime = latest committed state in the repo.** When you run (or when Job pulls), you see the latest. So:
 
-1. **Before you do anything:** Pull the repo. Read `docs/PLATFORM_SOURCE_OF_TRUTH.md` and `docs/WORK_STATUS.md` in full.
+1. **Before you do anything:** Pull the repo. Read `docs/PLATFORM_SOURCE_OF_TRUTH.md` and `docs/WORK_STATUS.md` in full. For **why** the platform exists and **how** the products fit together holistically, read `docs/STRATEGIC_FOUNDATION.md` (especially before major feature or positioning work).
 2. **Do your work** (code, docs, config) and run the [ENGINEERING_ACCEPTANCE_CHECKLIST.md](./ENGINEERING_ACCEPTANCE_CHECKLIST.md) before calling it done.
 3. **Update WORK_STATUS.md:** Add what you did under **Done**, adjust **In progress**, add **Blocked** if needed, and under **Critique / review** add any review of another's work (what you checked, issues, suggestions).
 4. **Commit and push** (see section below) so the next person or tool sees your work.
