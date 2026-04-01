@@ -57,13 +57,14 @@ export default function InstitutionalOnboarding() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleProgramToggle = (program: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      programInterest: prev.programInterest.includes(program)
-        ? prev.programInterest.filter((p) => p !== program)
-        : [...prev.programInterest, program],
-    }));
+  /** Program checkboxes: only update from Checkbox `onCheckedChange` (no parent click) — avoids double-toggle + React max update depth (#185). */
+  const setProgramInterest = (programId: string, on: boolean) => {
+    setFormData((prev) => {
+      const has = prev.programInterest.includes(programId);
+      if (on === has) return prev;
+      if (on) return { ...prev, programInterest: [...prev.programInterest, programId] };
+      return { ...prev, programInterest: prev.programInterest.filter((p) => p !== programId) };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,67 +127,67 @@ export default function InstitutionalOnboarding() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-brand-surface/60 py-10 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Partner with Paeds Resus</h1>
-          <p className="text-lg text-slate-600">
-            Equip your healthcare team with life-saving BLS and ACLS skills
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Partner with Paeds Resus</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Paediatric emergency training, institutional dashboards, and scalable programmes for hospitals and teams — start by linking your facility.
           </p>
           {!isAuthenticated && (
-            <Card className="mt-6 p-4 text-left max-w-xl mx-auto border-amber-200 bg-amber-50">
-              <p className="text-sm text-amber-900 mb-3">
+            <Card className="mt-6 p-4 text-left max-w-xl mx-auto border-border bg-secondary/50">
+              <p className="text-sm text-foreground mb-3">
                 Sign in first so we can link this facility to your account.
               </p>
               <a href={getLoginUrl()}>
-                <Button className="bg-blue-900 hover:bg-blue-800">Sign in</Button>
+                <Button variant="default">Sign in</Button>
               </a>
             </Card>
           )}
         </div>
 
         {/* Progress Steps */}
-        <div className="mb-12">
-          <div className="flex justify-between mb-8">
-            {steps.map((s, idx) => {
+        <div className="mb-10">
+          <ol className="flex flex-wrap justify-center gap-2 md:gap-4">
+            {steps.map((s) => {
               const Icon = s.icon;
               const isActive = step === s.number;
               const isCompleted = step > s.number;
               return (
-                <div key={s.number} className="flex flex-col items-center flex-1">
+                <li key={s.number} className="flex items-center gap-2">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-lg scale-110"
+                        ? "bg-brand-orange text-white shadow-md ring-2 ring-brand-orange/30"
                         : isCompleted
-                          ? "bg-green-600 text-white"
-                          : "bg-slate-200 text-slate-600"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {isCompleted ? <CheckCircle2 size={24} /> : <Icon size={24} />}
+                    {isCompleted ? <CheckCircle2 className="size-5" /> : <Icon className="size-5" />}
                   </div>
-                  <p className={`text-sm font-medium text-center ${isActive ? "text-blue-600" : "text-slate-600"}`}>
+                  <span
+                    className={`text-sm font-medium max-w-[7rem] md:max-w-none ${
+                      isActive ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
                     {s.title}
-                  </p>
-                  {idx < steps.length - 1 && (
-                    <div
-                      className={`h-1 flex-1 mx-2 mt-4 ${isCompleted ? "bg-green-600" : "bg-slate-200"}`}
-                    />
-                  )}
-                </div>
+                  </span>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
 
         {/* Form */}
-        <Card className="p-8 shadow-lg">
+        <Card className="p-6 md:p-8 shadow-md border-border">
           <form onSubmit={handleSubmit}>
             {/* Step 1: Institution Details */}
             {step === 1 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">Institution Details</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Institution details</h2>
+                <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya; change it if your facility is elsewhere.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -203,7 +204,10 @@ export default function InstitutionalOnboarding() {
 
                   <div>
                     <Label htmlFor="institutionType">Institution Type *</Label>
-                    <Select value={formData.institutionType} onValueChange={(v) => handleSelectChange("institutionType", v)}>
+                    <Select
+                      value={formData.institutionType ? formData.institutionType : undefined}
+                      onValueChange={(v) => handleSelectChange("institutionType", v)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -251,8 +255,10 @@ export default function InstitutionalOnboarding() {
                       id="country"
                       name="country"
                       value={formData.country}
-                      disabled
-                      className="bg-slate-100"
+                      onChange={handleInputChange}
+                      placeholder="e.g., Kenya"
+                      autoComplete="country-name"
+                      required
                     />
                   </div>
 
@@ -286,7 +292,7 @@ export default function InstitutionalOnboarding() {
             {/* Step 2: Contact Information */}
             {step === 2 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">Contact Information</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-6">Contact information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -341,36 +347,38 @@ export default function InstitutionalOnboarding() {
               </div>
             )}
 
-            {/* Step 3: Program Selection */}
+            {/* Step 3: Program Selection — checkbox only (no row onClick) to avoid double-firing Radix + state loop */}
             {step === 3 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">Program Selection</h2>
-                <p className="text-slate-600 mb-6">Select the training programs you're interested in:</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Program selection</h2>
+                <p className="text-muted-foreground mb-4">
+                  Select the training programmes your institution is interested in (you can choose more than one):
+                </p>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {[
                     { id: "bls", label: "Basic Life Support (BLS)", desc: "CPR, AED, and basic emergency response" },
                     { id: "acls", label: "Advanced Cardiac Life Support (ACLS)", desc: "Advanced cardiac care and medications" },
                     { id: "pals", label: "Pediatric Advanced Life Support (PALS)", desc: "Pediatric emergency care protocols" },
                     { id: "nrp", label: "Neonatal Resuscitation Program (NRP)", desc: "Newborn resuscitation skills" },
-                    { id: "trauma", label: "Trauma & Emergency Response", desc: "Trauma assessment and management" },
+                    { id: "trauma", label: "Trauma & emergency response", desc: "Trauma assessment and management" },
                   ].map((program) => (
-                    <div
+                    <label
                       key={program.id}
-                      className="flex items-start p-4 border-2 border-slate-200 rounded-lg hover:border-blue-400 cursor-pointer transition-colors"
-                      onClick={() => handleProgramToggle(program.id)}
+                      htmlFor={`program-${program.id}`}
+                      className="flex items-start gap-3 p-4 rounded-lg border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
                     >
                       <Checkbox
+                        id={`program-${program.id}`}
                         checked={formData.programInterest.includes(program.id)}
-                        onCheckedChange={() => handleProgramToggle(program.id)}
-                        className="mt-1 mr-4"
-                        id={program.id}
+                        onCheckedChange={(checked) => setProgramInterest(program.id, checked === true)}
+                        className="mt-0.5"
                       />
-                      <div>
-                        <p className="font-semibold text-slate-900">{program.label}</p>
-                        <p className="text-sm text-slate-600">{program.desc}</p>
-                      </div>
-                    </div>
+                      <span className="flex-1">
+                        <span className="font-semibold text-foreground block">{program.label}</span>
+                        <span className="text-sm text-muted-foreground">{program.desc}</span>
+                      </span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -379,11 +387,11 @@ export default function InstitutionalOnboarding() {
             {/* Step 4: Review & Agreement */}
             {step === 4 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-6">Review & Agreement</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-6">Review & agreement</h2>
 
-                <Card className="bg-slate-50 p-6 border-slate-200">
-                  <h3 className="font-semibold text-slate-900 mb-4">Summary</h3>
-                  <div className="space-y-2 text-sm text-slate-700">
+                <Card className="bg-muted/40 p-6 border-border">
+                  <h3 className="font-semibold text-foreground mb-4">Summary</h3>
+                  <div className="space-y-2 text-sm text-foreground/90">
                     <p><strong>Institution:</strong> {formData.institutionName}</p>
                     <p><strong>Type:</strong> {formData.institutionType}</p>
                     <p><strong>Location:</strong> {formData.city}, {formData.country}</p>
@@ -401,16 +409,16 @@ export default function InstitutionalOnboarding() {
                 )}
 
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-3 p-4 bg-brand-surface/80 border border-border rounded-lg">
                     <Checkbox
                       checked={formData.agreeToTerms}
                       onCheckedChange={(checked) =>
-                        setFormData((prev) => ({ ...prev, agreeToTerms: checked as boolean }))
+                        setFormData((prev) => ({ ...prev, agreeToTerms: checked === true }))
                       }
                       className="mt-1"
                       id="terms"
                     />
-                    <div className="text-sm text-slate-700">
+                    <div className="text-sm text-foreground/90">
                       <p>
                         I agree to the Paeds Resus Terms of Service and Privacy Policy. I understand that my institution
                         will be responsible for ensuring all participants complete the required training and assessments.
@@ -429,7 +437,7 @@ export default function InstitutionalOnboarding() {
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t border-slate-200">
+            <div className="flex justify-between mt-8 pt-6 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
@@ -440,20 +448,12 @@ export default function InstitutionalOnboarding() {
               </Button>
 
               {step < 4 ? (
-                <Button
-                  type="button"
-                  onClick={() => setStep(step + 1)}
-                  disabled={loading}
-                >
+                <Button type="button" variant="cta" onClick={() => setStep(step + 1)} disabled={loading}>
                   Next
                 </Button>
               ) : (
-                <Button
-                  type="submit"
-                  disabled={loading || !formData.agreeToTerms}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? "Creating Account..." : "Create Account"}
+                <Button type="submit" variant="cta" disabled={loading || !formData.agreeToTerms}>
+                  {loading ? "Creating account…" : "Create account"}
                 </Button>
               )}
             </div>
@@ -461,15 +461,15 @@ export default function InstitutionalOnboarding() {
         </Card>
 
         {/* Benefits Section */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { title: "Comprehensive Training", desc: "BLS, ACLS, PALS, and specialized programs" },
-            { title: "Paperless System", desc: "Digital enrollment, tracking, and certification" },
-            { title: "Real-Time Analytics", desc: "Monitor staff progress and compliance" },
+            { title: "Comprehensive training", desc: "BLS, ACLS, PALS, and paediatric-focused programmes" },
+            { title: "Paperless workflows", desc: "Digital enrolment, tracking, and certification" },
+            { title: "Institutional insight", desc: "Cohort progress and training visibility" },
           ].map((benefit, i) => (
-            <Card key={i} className="p-6 text-center">
-              <h3 className="font-semibold text-slate-900 mb-2">{benefit.title}</h3>
-              <p className="text-sm text-slate-600">{benefit.desc}</p>
+            <Card key={i} className="p-5 text-center border-border bg-card/80">
+              <h3 className="font-semibold text-foreground mb-2">{benefit.title}</h3>
+              <p className="text-sm text-muted-foreground">{benefit.desc}</p>
             </Card>
           ))}
         </div>
