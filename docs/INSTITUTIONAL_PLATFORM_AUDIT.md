@@ -38,7 +38,7 @@ Until (1) and (2)/(3) are fixed, **institutional admins cannot trust metrics or 
 | Bulk enrollment logic | `server/institutional-enrollment.ts` | **Not wired** to HTTP/tRPC |
 | Schema | `drizzle/schema.ts` | `institutionalAccounts`, `institutionalStaffMembers`, `institutionalInquiries`, `quotations`, `contracts`, `institutionalAnalytics`, incidents-related tables, etc. |
 
-**Routes (from `App.tsx`):** `/institutional`, `/institutional-portal`, `/institution-onboarding`, `/hospital-admin-dashboard` (redirect from `/institutional-dashboard`).
+**Routes (from `App.tsx`):** `/institutional`, `/institutional-portal`, `/institutional-onboarding` (alias: `/institution-onboarding` → redirect), `/hospital-admin-dashboard` (redirect from `/institutional-dashboard`).
 
 ---
 

@@ -4,7 +4,7 @@ import { Link } from "wouter";
 
 export default function Help() {
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <h1 className="text-3xl font-bold">Help centre</h1>
         <p className="text-muted-foreground">Paeds Resus: courses, institutions, parents.</p>

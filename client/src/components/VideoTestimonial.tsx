@@ -40,11 +40,11 @@ export default function VideoTestimonial({
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <CardContent className="p-0">
-        <div className="relative bg-gray-900 aspect-video flex items-center justify-center group cursor-pointer" onClick={handlePlay}>
+        <div className="relative bg-card aspect-video flex items-center justify-center group cursor-pointer" onClick={handlePlay}>
           {thumbnail ? (
             <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-900 to-blue-700" />
+            <div className="w-full h-full bg-gradient-to-br from-brand-teal to-brand-teal/70" />
           )}
 
           {!isPlaying && (
@@ -70,15 +70,15 @@ export default function VideoTestimonial({
 
         <div className="p-6 space-y-3">
           <div>
-            <h3 className="font-bold text-lg text-gray-900">{title}</h3>
-            <p className="text-sm text-blue-600 font-semibold">{hospitalName}</p>
+            <h3 className="font-bold text-lg text-foreground">{title}</h3>
+            <p className="text-sm text-brand-orange font-semibold">{hospitalName}</p>
           </div>
 
-          <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
 
-          <div className="border-t pt-3">
-            <p className="font-semibold text-gray-900">{speakerName}</p>
-            <p className="text-xs text-gray-500">{speakerRole}</p>
+          <div className="border-t border-border pt-3">
+            <p className="font-semibold text-foreground">{speakerName}</p>
+            <p className="text-xs text-muted-foreground">{speakerRole}</p>
           </div>
         </div>
       </CardContent>

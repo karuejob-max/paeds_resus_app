@@ -69,14 +69,14 @@ export default function JoinSession() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
-      <Card className="bg-gray-900/95 border-gray-700 max-w-2xl w-full">
+    <div className="min-h-screen bg-gradient-to-br from-background via-brand-teal/30 to-background flex items-center justify-center p-4">
+      <Card className="bg-card/95 border-border max-w-2xl w-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white text-2xl">
-            <Heart className="h-6 w-6 text-red-500" />
+          <CardTitle className="flex items-center gap-2 text-foreground text-2xl">
+            <Heart className="h-6 w-6 text-brand-orange" />
             Join Resuscitation Session
           </CardTitle>
-          <p className="text-gray-400 text-sm">
+          <p className="text-muted-foreground text-sm">
             Enter the session code to join an active CPR session as a team member
           </p>
         </CardHeader>
@@ -89,7 +89,7 @@ export default function JoinSession() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="sessionCode" className="text-white">
+            <Label htmlFor="sessionCode" className="text-foreground">
               Session Code
             </Label>
             <Input
@@ -100,16 +100,16 @@ export default function JoinSession() {
                 setError('');
               }}
               placeholder="Enter 8-character code"
-              className="bg-gray-800 border-gray-600 text-white text-2xl font-mono text-center tracking-widest uppercase"
+              className="bg-muted border-border text-foreground text-2xl font-mono text-center tracking-widest uppercase"
               maxLength={8}
             />
-            <p className="text-gray-400 text-xs">
+            <p className="text-muted-foreground text-xs">
               Ask the Team Leader for the session code or scan the QR code
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="providerName" className="text-white">
+            <Label htmlFor="providerName" className="text-foreground">
               Your Name
             </Label>
             <Input
@@ -120,12 +120,12 @@ export default function JoinSession() {
                 setError('');
               }}
               placeholder="Enter your full name"
-              className="bg-gray-800 border-gray-600 text-white"
+              className="bg-muted border-border text-foreground"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white">Select Your Role</Label>
+            <Label className="text-foreground">Select Your Role</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {roles.map((role) => (
                 <Button
@@ -137,8 +137,8 @@ export default function JoinSession() {
                   variant={selectedRole === role.value ? 'default' : 'outline'}
                   className={`h-auto py-3 px-4 flex flex-col items-start ${
                     selectedRole === role.value
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                      ? 'bg-brand-orange hover:opacity-90 text-white'
+                      : 'bg-muted hover:bg-muted/80 text-foreground border-border'
                   }`}
                 >
                   <span className="font-semibold text-sm">{role.label}</span>
@@ -151,7 +151,8 @@ export default function JoinSession() {
           <Button
             onClick={handleJoin}
             disabled={joinSessionMutation.isPending || !sessionCode || !providerName || !selectedRole}
-            className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-lg"
+            variant="cta"
+            className="w-full py-6 text-lg"
           >
             {joinSessionMutation.isPending ? (
               <>
@@ -166,9 +167,9 @@ export default function JoinSession() {
             )}
           </Button>
 
-          <div className="bg-blue-900/30 border border-blue-700 p-4 rounded">
-            <p className="text-blue-100 text-sm font-semibold mb-2">How it works:</p>
-            <ol className="text-blue-200 text-xs space-y-1 list-decimal list-inside">
+          <div className="bg-brand-surface border border-border p-4 rounded-lg">
+            <p className="text-foreground text-sm font-semibold mb-2">How it works:</p>
+            <ol className="text-muted-foreground text-xs space-y-1 list-decimal list-inside">
               <li>Get the session code from the Team Leader</li>
               <li>Enter the code and your name above</li>
               <li>Select your role in the resuscitation team</li>

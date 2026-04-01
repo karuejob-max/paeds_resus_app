@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { runWithRetries } from "../lib/async-retry";
 import { logStructured } from "../lib/structured-log";
+import { trackPaymentCompletion } from "../services/analytics.service";
 import crypto from "crypto";
 import type { Request, Response } from "express";
 
@@ -323,6 +324,14 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           error: "Transient persistence failure; callback may be retried",
         });
       }
+
+      await trackPaymentCompletion(
+        payment.userId,
+        payment.amount,
+        "mpesa",
+        mpesaReceiptNumber || lookupId,
+        `mpesa_${lookupId}`,
+      );
 
       console.log(
         `[M-Pesa] Payment verified: ${lookupId} -> ${mpesaReceiptNumber} for ${phoneNumber}`

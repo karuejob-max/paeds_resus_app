@@ -8,6 +8,7 @@ vi.mock("../db", () => ({
   createEnrollment: vi.fn().mockResolvedValue({ id: 1 }),
   createPayment: vi.fn().mockResolvedValue({ id: 1 }),
   createSmsReminder: vi.fn().mockResolvedValue({ insertId: 1 }),
+  trackAnalyticsEvent: vi.fn().mockResolvedValue(undefined),
   getEnrollmentsByUserId: vi.fn().mockResolvedValue([
     {
       id: 1,

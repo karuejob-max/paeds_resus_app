@@ -5,8 +5,10 @@
 > **Complements:** `docs/BACKLOG_BOARD.md` (scrum / Done archive) and `docs/INSTITUTIONAL_BACKLOG_BOARD.md` (B2B scrum).  
 > **How to use:** Work **top-down** within each tier. When an item ships, move it to the appropriate scrum board **Done** row and trim or re-rank this file.
 
-**Last updated:** 2026-02-25  
+**Last updated:** 2026-04-01  
 **Owner:** Product + engineering (shared)
+
+**Active sprint:** [Sprint 1 (2026-Q2) — Measurement Truth MVP](#sprint-1-2026-q2--measurement-truth-mvp) — execution checklist: [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md), audit template: [`SPRINT_1_EVENT_AUDIT_TEMPLATE.md`](./SPRINT_1_EVENT_AUDIT_TEMPLATE.md), taxonomy: [`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md).
 
 ---
 
@@ -129,11 +131,50 @@ These unblock money, certificates, or core trust.
 
 ---
 
-## Suggested next three sprints (impact × feasibility)
+## Sprint 1 (2026-Q2) — Measurement Truth MVP
 
-1. **Sprint 1:** **P0-PAY-1 live test** + **M-Pesa env alignment** + **fix worst test/TS regressions** (unblocks confident shipping).  
-2. **Sprint 2:** **P1-CERT-1 notifications** (expiry email/SMS MVP) + **P1-RESUS-1 slice** (session summary export only).  
-3. **Sprint 3:** **P2-BULK-1** (schedules create/list) *or* **P3-GOV-1** (incidents CSV), whichever matches sales/governance pressure.
+**Aligned with:** [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12 priority **#1** (analytics instrumentation) and [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) §12 (honest measurement).
+
+### One-line goal
+
+By end of sprint, admin **product activity** (`analyticsLastDays` in `adminStats.getReport`) reflects our main **revenue and mission** journeys—not only ResusGPS—and we have a **written event taxonomy** frozen in repo ([`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md)) so we do not regress.
+
+### Definition of done (four outputs)
+
+| # | Output | Evidence |
+|---|--------|----------|
+| 1 | **Audit checklist** | Completed worksheet from [`SPRINT_1_EVENT_AUDIT_TEMPLATE.md`](./SPRINT_1_EVENT_AUDIT_TEMPLATE.md) (or `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`) with journey, step, instrumented Y/N, owner file. |
+| 2 | **2–4 new instrumented steps** | Real `analyticsEvents` rows from **non–ResusGPS** high-value paths (enroll, pay, cert, Safe-Truth, institutional—pick by impact). |
+| 3 | **Admin truth check** | Reports show expected activity; no “mystery zeros” from missing emits or fragmented naming. Note: **`resusGpsAnalyticsLastDays`** only counts `resus_*`; broader activity is **`analyticsLastDays`** — see [`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md). |
+| 4 | **Event taxonomy** | [`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md) updated and merged with the audit PR. |
+
+### Stretch (only if 1–4 are complete)
+
+- **P1-RESUS-1** thin slice: end-of-session **summary export** (bedside → learning) — no dependency on institutional dashboards.
+
+### Explicitly out of scope
+
+- Staging environment → **Sprint 2** (CEO priority #2)
+- ResusGPS v4 → **after** measurement baseline (CEO priority #4)
+- Institutional dashboard v1, triage workflow UI, consultancy features → **later** (post–trusted events)
+
+### Execution notes
+
+- Timebox audit to **½–1 day**.
+- Implement events with **one pattern** (`trackEvent` / `analytics.service`); extend [`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md) in the same PR.
+- Verify in admin; freeze taxonomy + checklist together.
+
+**Checklist:** [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
+## Planned sprints after Sprint 1 (sequence from CEO priorities)
+
+| Sprint | Focus |
+|--------|--------|
+| **2** | **Staging** (develop → staging, main → production) — CEO priority #2 |
+| **3** | **Security baseline** slice (password, session, audit as locked) — CEO priority #3 |
+| **4+** | Institutional visibility / feedback on **trusted** events; then **ResusGPS v4** — CEO priority #4 |
 
 ---
 
@@ -141,6 +182,8 @@ These unblock money, certificates, or core trust.
 
 | Date | Change |
 |------|--------|
+| 2026-04-01 | Sprint 1 **instrumentation slice**: server events for enrollment, M-Pesa initiation/completion, Safe-Truth submission, institutional schedule; see `docs/SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md` and frozen `docs/EVENT_TAXONOMY.md`. |
+| 2026-04-01 | Added **Sprint 1 — Measurement Truth MVP** (docs + taxonomy + checklists); superseded old “suggested next three sprints” with CEO-aligned sequence. |
 | 2026-02-25 | Initial impact-prioritized backlog created from mission, README, and `PLATFORM_AUDIT_WHAT_IS_MISSING.md`. |
 | 2026-02-25 | P0-ENROLL-1 / P0-NAV-1 / P1-SAFE-1 (partial): `enrollment.getById`, Payment lock + M-Pesa enrollment guard, Home hub cards, `getSafeTruthStats.totalSubmissions`, LearnerDashboard parent KPIs. |
 | 2026-02-25 | Remaining backlog pass: P0-PAY-1 support (readiness + runbook), P1-INST-1 funnel, P1-CERT-1 renewal UX, P1-ADM-1 + P2-MPESA-1 reconciliation UI, P2-SUP-1 routes, P2-LAND-1 header links, P2-REF-1 referral timeline, institution stats on Learner dashboard, admin user search/CSV. |

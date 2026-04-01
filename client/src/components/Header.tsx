@@ -1,14 +1,29 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
 import { getLoginUrl } from "@/const";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+function mapUserTypeToHeaderRole(ut: string | undefined): "provider" | "parent" | "institution" | null {
+  if (!ut) return null;
+  const m: Record<string, "provider" | "parent" | "institution"> = {
+    individual: "provider",
+    parent: "parent",
+    institutional: "institution",
+  };
+  return m[ut] ?? null;
+}
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const { role, setUserRole } = useUserRole();
+  const effectiveRole = useMemo(
+    () => (isAuthenticated ? role ?? mapUserTypeToHeaderRole(user?.userType) : null),
+    [isAuthenticated, role, user?.userType]
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -47,7 +62,8 @@ export default function Header() {
 
   // Get navigation based on role — Dashboard first so provider/parent/institution can get home
   const getNavigation = () => {
-    if (role === "provider") {
+    const r = effectiveRole;
+    if (r === "provider") {
       return [
         { label: "Dashboard", href: "/home", icon: "🏠" },
         { label: "Patients", href: "/patients", icon: "👥" },
@@ -58,14 +74,14 @@ export default function Header() {
         { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
       ];
     }
-    if (role === "institution") {
+    if (r === "institution") {
       return [
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
         { label: "Staff", href: "/institutional-portal", icon: "👥" },
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
-    if (role === "parent") {
+    if (r === "parent") {
       return [
         { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
         { label: "Courses", href: "/learner-dashboard", icon: "📚" },
@@ -101,37 +117,57 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200" role="banner" aria-label="Site header">
+    <header
+      className="bg-background shadow-sm sticky top-0 z-50 border-b border-border"
+      role="banner"
+      aria-label="Site header"
+    >
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between gap-4">
-          {/* Logo */}
-          <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition flex-shrink-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-lg">
-              <img src="/paeds-resus-logo.png" alt="Paeds Resus" className="w-10 h-10 rounded-lg object-contain ring-1 ring-gray-200/80" />
-              <span className="font-bold text-base text-gray-900 hidden sm:inline">Paeds Resus</span>
-            </div>
-          </Link>
+          {/* Logo + theme */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link href="/">
+              <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition flex-shrink-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
+                <img
+                  src="/favicon.png"
+                  alt="Paeds Resus"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rounded-lg object-cover shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/paeds-resus-logo-brand.png";
+                  }}
+                />
+                <span className="font-bold text-base text-foreground tracking-tight">Paeds Resus</span>
+              </div>
+            </Link>
+            <ThemeToggle />
+          </div>
 
           {/* Role Selector - Persistent and Prominent */}
-          {isAuthenticated && role && (
+          {isAuthenticated && effectiveRole && (
             <div className="relative hidden md:block flex-shrink-0" ref={roleDropdownRef}>
               <button
                 type="button"
                 onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
                 aria-haspopup="true"
                 aria-expanded={roleDropdownOpen}
-                aria-label={`Switch role (current: ${role})`}
-                className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium border border-gray-200 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                aria-label={`Switch role (current: ${effectiveRole})`}
+                className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium border border-border focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {role === "provider" && <Stethoscope className="w-4 h-4" />}
-                {role === "parent" && <Heart className="w-4 h-4" />}
-                {role === "institution" && <Briefcase className="w-4 h-4" />}
-                <span className="capitalize">{role}</span>
+                {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
+                {effectiveRole === "parent" && <Heart className="w-4 h-4" />}
+                {effectiveRole === "institution" && <Briefcase className="w-4 h-4" />}
+                <span className="capitalize">{effectiveRole}</span>
                 <ChevronDown className={`w-4 h-4 transition ${roleDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {roleDropdownOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10" role="listbox" aria-label="Role options">
+                <div
+                  className="absolute left-0 mt-2 w-56 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border z-10"
+                  role="listbox"
+                  aria-label="Role options"
+                >
                   <div className="p-2">
                     {roleOptions.map((option) => {
                       const Icon = option.icon;
@@ -140,7 +176,7 @@ export default function Header() {
                           type="button"
                           key={option.value}
                           role="option"
-                          aria-selected={role === option.value}
+                          aria-selected={effectiveRole === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "parent" | "institution";
                             setUserRole(r);
@@ -150,9 +186,9 @@ export default function Header() {
                             else setLocation("/institutional-portal");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
-                            role === option.value
-                              ? "bg-blue-50 text-blue-700 font-medium"
-                              : "text-gray-700 hover:bg-gray-50"
+                            effectiveRole === option.value
+                              ? "bg-accent text-foreground font-medium"
+                              : "text-foreground/90 hover:bg-muted"
                           }`}
                         >
                           <Icon className="w-4 h-4" />
@@ -170,7 +206,7 @@ export default function Header() {
           <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
             {navigation.map((link) => (
               <Link key={link.href} href={link.href}>
-                <span className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer text-sm font-medium rounded-lg">
+                <span className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg">
                   {link.label}
                 </span>
               </Link>
@@ -180,22 +216,22 @@ export default function Header() {
           {/* Anonymous quick paths (P2-LAND-1 light touch) */}
           {!isAuthenticated && (
             <nav
-              className="hidden md:flex items-center gap-1 text-sm text-gray-600 mr-2"
+              className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2"
               aria-label="Explore by audience"
             >
               <Link href="/start">
-                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer font-medium text-gray-800">
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   Start
                 </span>
               </Link>
               <Link href="/parent-safe-truth">
-                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Parents</span>
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer">Parents</span>
               </Link>
               <Link href="/institutional">
-                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Institutions</span>
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer">Institutions</span>
               </Link>
               <Link href="/help">
-                <span className="px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer">Help</span>
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer">Help</span>
               </Link>
             </nav>
           )}
@@ -204,8 +240,12 @@ export default function Header() {
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
             {isAuthenticated && (
-              <button type="button" className="p-2 hover:bg-gray-100 rounded-lg transition hidden sm:block focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2" aria-label="Notifications">
-                <Bell className="w-5 h-5 text-gray-700" />
+              <button
+                type="button"
+                className="p-2 hover:bg-accent rounded-lg transition hidden sm:block focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5 text-foreground" />
               </button>
             )}
 
@@ -218,28 +258,32 @@ export default function Header() {
                   aria-haspopup="true"
                   aria-expanded={accountDropdownOpen}
                   aria-label="Account menu"
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm font-medium focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
                     {user?.name?.charAt(0).toUpperCase()}
                   </div>
                   <ChevronDown className={`w-4 h-4 transition ${accountDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {accountDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10" role="menu" aria-label="Account options">
+                  <div
+                    className="absolute right-0 mt-2 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border z-10"
+                    role="menu"
+                    aria-label="Account options"
+                  >
                     <div className="p-3">
                       {/* User Info */}
-                      <div className="px-3 py-2 border-b">
-                        <p className="font-semibold text-sm text-gray-900">{user?.name}</p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
+                      <div className="px-3 py-2 border-b border-border">
+                        <p className="font-semibold text-sm text-foreground">{user?.name}</p>
+                        <p className="text-xs text-muted-foreground">{user?.email}</p>
                       </div>
 
                       {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
-                        <Link href={role === "parent" ? "/parent-safe-truth" : role === "institution" ? "/hospital-admin-dashboard" : "/home"}>
+                        <Link href={effectiveRole === "parent" ? "/parent-safe-truth" : effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
-                            className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer rounded"
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
                             Dashboard
@@ -247,7 +291,7 @@ export default function Header() {
                         </Link>
                         <Link href="/provider-profile">
                           <div
-                            className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer rounded"
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
                             Profile
@@ -256,7 +300,7 @@ export default function Header() {
                         {(user as { role?: string })?.role === "admin" && (
                           <Link href="/admin">
                             <div
-                              className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer rounded flex items-center gap-2"
+                              className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded flex items-center gap-2"
                               onClick={() => setAccountDropdownOpen(false)}
                             >
                               <Shield className="h-4 w-4" />
@@ -267,14 +311,14 @@ export default function Header() {
                       </div>
 
                       {/* Logout */}
-                      <div className="border-t pt-2">
+                      <div className="border-t border-border pt-2">
                         <button
                           type="button"
                           onClick={() => {
                             logout();
                             setAccountDropdownOpen(false);
                           }}
-                          className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition cursor-pointer rounded flex items-center gap-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                          className="w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition cursor-pointer rounded flex items-center gap-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           aria-label="Log out"
                         >
                           <LogOut className="w-4 h-4" />
@@ -288,12 +332,12 @@ export default function Header() {
             ) : (
               <div className="flex items-center gap-2">
                 <a href={getLoginUrl()}>
-                  <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-100 text-xs">
+                  <Button variant="outline" size="sm" className="text-xs">
                     Sign In
                   </Button>
                 </a>
                 <Link href="/start" className="hidden sm:block">
-                  <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
+                  <Button variant="cta" size="sm">
                     Get started
                   </Button>
                 </Link>
@@ -303,7 +347,7 @@ export default function Header() {
             {/* Mobile Menu Button */}
             <button
               type="button"
-              className="lg:hidden p-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
+              className="lg:hidden p-2 text-foreground focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-expanded={mobileMenuOpen}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -315,28 +359,28 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t pt-4" aria-label="Mobile navigation">
+          <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t border-border pt-4" aria-label="Mobile navigation">
             {!isAuthenticated && (
-              <div className="px-3 py-2 mb-2 space-y-1 border-b pb-3">
-                <p className="text-xs font-semibold text-gray-500 mb-1">Explore</p>
+              <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
                 <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-gray-800 font-medium">Start</span>
+                  <span className="block py-2 text-sm text-foreground font-medium">Start</span>
                 </Link>
                 <Link href="/parent-safe-truth" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-gray-700">Parents</span>
+                  <span className="block py-2 text-sm text-foreground/90">Parents</span>
                 </Link>
                 <Link href="/institutional" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-gray-700">Institutions</span>
+                  <span className="block py-2 text-sm text-foreground/90">Institutions</span>
                 </Link>
                 <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-gray-700">Help</span>
+                  <span className="block py-2 text-sm text-foreground/90">Help</span>
                 </Link>
               </div>
             )}
             {/* Mobile Role Selector */}
-            {isAuthenticated && role && (
-              <div className="px-3 py-2 mb-3 border-b pb-3">
-                <p className="text-xs font-semibold text-gray-600 mb-2">Switch Role:</p>
+            {isAuthenticated && effectiveRole && (
+              <div className="px-3 py-2 mb-3 border-b border-border pb-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Switch Role:</p>
                 <div className="space-y-1">
                   {roleOptions.map((option) => (
                     <button
@@ -350,9 +394,9 @@ export default function Header() {
                         else setLocation("/institutional-portal");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
-                        role === option.value
-                          ? "bg-blue-50 text-blue-700 font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
+                        effectiveRole === option.value
+                          ? "bg-accent text-foreground font-medium"
+                          : "text-foreground/90 hover:bg-muted"
                       }`}
                     >
                       {option.label}
@@ -366,7 +410,7 @@ export default function Header() {
             {navigation.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
-                  className="block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded transition cursor-pointer font-medium text-sm"
+                  className="block px-3 py-2 text-foreground/90 hover:bg-accent hover:text-primary rounded transition cursor-pointer font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}

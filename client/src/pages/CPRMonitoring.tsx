@@ -64,7 +64,7 @@ export default function CPRMonitoring() {
   };
 
   const getOutcomeBadge = (outcome: string | null) => {
-    if (!outcome) return <Badge className="bg-gray-600">Unknown</Badge>;
+    if (!outcome) return <Badge className="bg-muted">Unknown</Badge>;
     switch (outcome) {
       case 'ROSC':
         return <Badge className="bg-green-600">ROSC</Badge>;
@@ -75,7 +75,7 @@ export default function CPRMonitoring() {
       case 'ongoing':
         return <Badge className="bg-yellow-600 animate-pulse">Ongoing</Badge>;
       default:
-        return <Badge className="bg-gray-600">{outcome}</Badge>;
+        return <Badge className="bg-muted">{outcome}</Badge>;
     }
   };
 
@@ -86,7 +86,7 @@ export default function CPRMonitoring() {
       case 'completed':
         return <Badge className="bg-green-600">Completed</Badge>;
       case 'abandoned':
-        return <Badge className="bg-gray-600">Abandoned</Badge>;
+        return <Badge className="bg-muted">Abandoned</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -94,14 +94,14 @@ export default function CPRMonitoring() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading sessions...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-xl">Loading sessions...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -110,12 +110,12 @@ export default function CPRMonitoring() {
               <Heart className="h-8 w-8 text-red-500" />
               CPR Session Monitoring
             </h1>
-            <p className="text-gray-400 mt-2">Real-time global cardiac arrest session tracking</p>
+            <p className="text-muted-foreground mt-2">Real-time global cardiac arrest session tracking</p>
           </div>
           <Button
             onClick={() => refetch()}
             variant="outline"
-            className="border-gray-700 text-white"
+            className="border-border"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -124,23 +124,23 @@ export default function CPRMonitoring() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Total Sessions</p>
+                  <p className="text-muted-foreground text-sm">Total Sessions</p>
                   <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
-                <Activity className="h-8 w-8 text-blue-500" />
+                <Activity className="h-8 w-8 text-brand-orange" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Active Now</p>
+                  <p className="text-muted-foreground text-sm">Active Now</p>
                   <p className="text-2xl font-bold text-red-500">{stats.active}</p>
                 </div>
                 <AlertCircle className="h-8 w-8 text-red-500 animate-pulse" />
@@ -148,11 +148,11 @@ export default function CPRMonitoring() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">ROSC Achieved</p>
+                  <p className="text-muted-foreground text-sm">ROSC Achieved</p>
                   <p className="text-2xl font-bold text-green-500">{stats.rosc}</p>
                 </div>
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
@@ -160,11 +160,11 @@ export default function CPRMonitoring() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Mortality</p>
+                  <p className="text-muted-foreground text-sm">Mortality</p>
                   <p className="text-2xl font-bold text-red-500">{stats.mortality}</p>
                 </div>
                 <XCircle className="h-8 w-8 text-red-500" />
@@ -172,14 +172,14 @@ export default function CPRMonitoring() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Avg Duration</p>
+                  <p className="text-muted-foreground text-sm">Avg Duration</p>
                   <p className="text-2xl font-bold">{formatDuration(Math.round(stats.avgDuration))}</p>
                 </div>
-                <Clock className="h-8 w-8 text-blue-500" />
+                <Clock className="h-8 w-8 text-brand-orange" />
               </div>
             </CardContent>
           </Card>
@@ -189,13 +189,13 @@ export default function CPRMonitoring() {
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search by session code or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-800 border-gray-700 text-white"
+                className="pl-10 bg-card border-border text-foreground"
               />
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function CPRMonitoring() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white"
+              className="px-4 py-2 bg-card border border-border rounded-md text-foreground"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -215,7 +215,7 @@ export default function CPRMonitoring() {
             <select
               value={outcomeFilter}
               onChange={(e) => setOutcomeFilter(e.target.value as any)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white"
+              className="px-4 py-2 bg-card border border-border rounded-md text-foreground"
             >
               <option value="all">All Outcomes</option>
               <option value="ROSC">ROSC</option>
@@ -228,35 +228,35 @@ export default function CPRMonitoring() {
       </div>
 
       {/* Sessions Table */}
-      <Card className="bg-gray-800 border-gray-700">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">All Sessions ({filteredSessions.length})</CardTitle>
+          <CardTitle>All Sessions ({filteredSessions.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left p-3 text-gray-400 font-semibold">Session ID</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Code</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Status</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Outcome</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Patient</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Duration</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Started</th>
-                  <th className="text-left p-3 text-gray-400 font-semibold">Actions</th>
+                <tr className="border-b border-border">
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Session ID</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Code</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Status</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Outcome</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Patient</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Duration</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Started</th>
+                  <th className="text-left p-3 text-muted-foreground font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSessions.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center p-8 text-gray-400">
+                    <td colSpan={8} className="text-center p-8 text-muted-foreground">
                       No sessions found
                     </td>
                   </tr>
                 ) : (
                   filteredSessions.map((session) => (
-                    <tr key={session.id} className="border-b border-gray-700 hover:bg-gray-750">
+                    <tr key={session.id} className="border-b border-border hover:bg-muted/40">
                       <td className="p-3 font-mono">#{session.id}</td>
                       <td className="p-3 font-mono font-bold">{session.sessionCode ?? 'N/A'}</td>
                       <td className="p-3">{getStatusBadge(session.status)}</td>
@@ -266,14 +266,14 @@ export default function CPRMonitoring() {
                         {session.patientAgeMonths ? ` • ${session.patientAgeMonths}mo` : ''}
                       </td>
                       <td className="p-3">{formatDuration(session.totalDuration)}</td>
-                      <td className="p-3 text-sm text-gray-400">
+                      <td className="p-3 text-sm text-muted-foreground">
                         {new Date(session.startTime).toLocaleString()}
                       </td>
                       <td className="p-3">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-gray-600 text-white text-xs"
+                          className="border-border text-foreground text-xs"
                           onClick={() => {
                             window.location.href = `/cpr-monitoring/session/${session.id}`;
                           }}

@@ -33,7 +33,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-[#0d3333] text-gray-300 py-8 px-4 border-t-2 border-[#ff6633]" role="contentinfo" aria-label="Site footer">
+    <footer className="bg-brand-teal text-muted-foreground py-8 px-4 border-t-2 border-brand-orange" role="contentinfo" aria-label="Site footer">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
         <div className="grid md:grid-cols-3 gap-8 mb-8">
@@ -45,40 +45,40 @@ export default function Footer() {
               </span>
               <h3 className="text-white font-bold">Paeds Resus</h3>
             </div>
-            <p className="text-sm text-gray-400 mb-2">
+            <p className="text-sm text-white/80 mb-2">
               Transforming paediatric emergency care through clinical excellence and nurse-led resuscitation.
             </p>
-            <p className="text-xs text-gray-500">
-              <strong className="text-gray-400">Platform:</strong> Paeds Resus (brand). <strong className="text-gray-400">Products:</strong> ResusGPS — point-of-care app; Safe-Truth — provider event tool; Parent Safe-Truth — for families.
+            <p className="text-xs text-white/70">
+              <strong className="text-white/85">Platform:</strong> Paeds Resus (brand). <strong className="text-white/85">Products:</strong> ResusGPS — point-of-care app; Safe-Truth — provider event tool; Parent Safe-Truth — for families.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-bold mb-3 text-[#ff6633]">Quick Links</h4>
+            <h4 className="text-white font-bold mb-3 text-brand-orange">Quick Links</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/" className="text-white/70 hover:text-brand-orange transition">
                   Home
                 </Link>
               </li>
               <li>
-                <Link href="/institutional" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/institutional" className="text-white/70 hover:text-brand-orange transition">
                   For Institutions
                 </Link>
               </li>
               <li>
-                <Link href="/safe-truth" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/safe-truth" className="text-white/70 hover:text-brand-orange transition">
                   Safe-Truth
                 </Link>
               </li>
               <li>
-                <Link href="/parent-safe-truth" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/parent-safe-truth" className="text-white/70 hover:text-brand-orange transition">
                   For Parents
                 </Link>
               </li>
               <li>
-                <a href="mailto:paedsresus254@gmail.com" className="text-gray-400 hover:text-[#ff6633] transition flex items-center gap-2">
+                <a href="mailto:paedsresus254@gmail.com" className="text-white/70 hover:text-brand-orange transition flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Contact
                 </a>
@@ -88,25 +88,25 @@ export default function Footer() {
 
           {/* Support & Legal — documented destinations per audit */}
           <div>
-            <h4 className="text-white font-bold mb-3 text-[#ff6633]">Support & Legal</h4>
+            <h4 className="text-white font-bold mb-3 text-brand-orange">Support & Legal</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/contact" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/contact" className="text-white/70 hover:text-brand-orange transition">
                   Contact
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/privacy" className="text-white/70 hover:text-brand-orange transition">
                   Privacy
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/terms" className="text-white/70 hover:text-brand-orange transition">
                   Terms
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="text-gray-400 hover:text-[#ff6633] transition">
+                <Link href="/about" className="text-white/70 hover:text-brand-orange transition">
                   About
                 </Link>
               </li>
@@ -115,8 +115,8 @@ export default function Footer() {
         </div>
 
         {/* Social Media & Copyright */}
-        <div className="border-t border-gray-600 pt-6 flex flex-col md:flex-row items-center justify-between">
-          <p className="text-sm text-gray-400 mb-4 md:mb-0">
+        <div className="border-t border-white/20 pt-6 flex flex-col md:flex-row items-center justify-between">
+          <p className="text-sm text-white/70 mb-4 md:mb-0">
             © {currentYear} Paeds Resus. All rights reserved.
           </p>
           <div className="flex gap-4">
@@ -126,7 +126,7 @@ export default function Footer() {
                 href={social.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-[#ff6633] transition"
+                className="text-white/70 hover:text-brand-orange transition"
                 title={social.name}
               >
                 <social.icon className="w-5 h-5" />

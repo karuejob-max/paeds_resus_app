@@ -8,6 +8,7 @@ import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
+import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 
 export const mpesaRouter = router({
   /**
@@ -51,6 +52,18 @@ export const mpesaRouter = router({
             const list = await db.select().from(enrollments).where(eq(enrollments.userId, ctx.user!.id)).orderBy(desc(enrollments.id)).limit(1);
             enrollmentId = list[0]?.id ?? 0;
           }
+          await trackEvent({
+            userId: ctx.user!.id,
+            eventType: "course_enrollment",
+            eventName: `Enroll ${input.courseId}`,
+            eventData: {
+              courseType: input.courseId,
+              enrollmentId,
+              coursePrice: 0,
+              source: "mpesa_initiate",
+            },
+            sessionId: `enrollment_${enrollmentId}`,
+          });
         }
 
         const accountReference = buildStkAccountReference({
@@ -84,6 +97,14 @@ export const mpesaRouter = router({
         } as any);
 
         const paymentId = (paymentRecord as any)[0]?.id ?? null;
+
+        const checkoutId = mpesaResponse.checkoutRequestID || "";
+        await trackPaymentInitiation(
+          ctx.user!.id,
+          input.amount,
+          "mpesa",
+          checkoutId ? `stk_${checkoutId}` : `stk_order_${orderId}`,
+        );
 
         return {
           success: true,
@@ -148,12 +169,12 @@ export const mpesaRouter = router({
       }
 
       const pay = row[0];
-      // Dev/mock STK: completion is tracked in the mock store, not the webhook. Sync DB before returning so polling works.
+      // Pending M-Pesa: sync from Daraja STK Query when webhook missed or delayed (same path as mock reconcile).
       if (
         pay.status === "pending" &&
         pay.paymentMethod === "mpesa" &&
         typeof pay.transactionId === "string" &&
-        pay.transactionId.startsWith("MOCK_")
+        pay.transactionId.trim().length > 0
       ) {
         await reconcilePaymentRowByStkQuery(pay.id);
         const again = await db
@@ -204,10 +225,36 @@ export const mpesaRouter = router({
         .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.userId, ctx.user.id)))
         .orderBy(desc(payments.id))
         .limit(1);
+      const latest = pay[0];
+      if (
+        latest &&
+        latest.status === "pending" &&
+        latest.paymentMethod === "mpesa" &&
+        typeof latest.transactionId === "string" &&
+        latest.transactionId.trim().length > 0
+      ) {
+        await reconcilePaymentRowByStkQuery(latest.id);
+        const payAgain = await db
+          .select()
+          .from(payments)
+          .where(and(eq(payments.enrollmentId, input.enrollmentId), eq(payments.userId, ctx.user.id)))
+          .orderBy(desc(payments.id))
+          .limit(1);
+        const enrAgain = await db
+          .select()
+          .from(enrollments)
+          .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+          .limit(1);
+        return {
+          ok: true as const,
+          enrollmentPaymentStatus: enrAgain[0]?.paymentStatus ?? enr[0].paymentStatus,
+          paymentStatus: payAgain[0]?.status ?? null,
+        };
+      }
       return {
         ok: true as const,
         enrollmentPaymentStatus: enr[0].paymentStatus,
-        paymentStatus: pay[0]?.status ?? null,
+        paymentStatus: latest?.status ?? null,
       };
     }),
 

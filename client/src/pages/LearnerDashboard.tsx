@@ -74,15 +74,15 @@ export default function LearnerDashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-brand-surface to-background">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Sign In Required</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600 mb-4">Sign in to access your dashboard</p>
+            <p className="text-sm text-muted-foreground mb-4">Sign in to access your dashboard</p>
             <a href={getLoginUrl()}>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800">Sign In</Button>
+              <Button className="w-full" variant="default">Sign In</Button>
             </a>
           </CardContent>
         </Card>
@@ -91,10 +91,10 @@ export default function LearnerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-slate-900 mb-2">Welcome, {user?.name}!</h1>
-        <p className="text-lg text-slate-600 mb-8">
+        <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">Welcome, {user?.name}!</h1>
+        <p className="text-lg text-muted-foreground mb-8">
           {selectedRole === "parent"
             ? "Share your healthcare journey and help improve pediatric care"
             : selectedRole === "provider"
@@ -108,7 +108,7 @@ export default function LearnerDashboard() {
               <div className="text-center py-12">
                 <AlertCircle className="w-16 h-16 text-orange-600 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Select Your Role</h2>
-                <p className="text-slate-600 mb-6">Choose how you'll use the platform</p>
+                <p className="text-muted-foreground mb-6">Choose how you'll use the platform</p>
                 <div className="flex gap-3 justify-center flex-wrap">
                   <Button onClick={() => navigate("/")}>Go Back</Button>
                 </div>
@@ -119,7 +119,7 @@ export default function LearnerDashboard() {
           <div className="space-y-6">
             {parentStatsLoading ? (
               <Card>
-                <CardContent className="pt-6 flex items-center gap-2 text-slate-600">
+                <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Loading your Safe-Truth activity…
                 </CardContent>
@@ -128,26 +128,26 @@ export default function LearnerDashboard() {
               <div className="grid md:grid-cols-3 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500">Submissions this month</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Submissions this month</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-slate-900">{parentStats.submissionsThisMonth}</p>
+                    <p className="text-3xl font-bold text-foreground">{parentStats.submissionsThisMonth}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500">Total stories shared</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total stories shared</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-slate-900">{parentStats.totalSubmissions}</p>
+                    <p className="text-3xl font-bold text-foreground">{parentStats.totalSubmissions}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500">Last submission</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Last submission</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xl font-semibold text-slate-900">
+                    <p className="text-xl font-semibold text-foreground">
                       {parentStats.lastSubmission
                         ? new Date(parentStats.lastSubmission).toLocaleDateString()
                         : "—"}
@@ -165,7 +165,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 mb-4">Share your healthcare journey to help improve pediatric care</p>
+                <p className="text-muted-foreground mb-4">Share your healthcare journey to help improve pediatric care</p>
                 <Button className="w-full" onClick={() => navigate("/parent-safe-truth")}>
                   Share Your Story
                 </Button>
@@ -180,7 +180,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 mb-4">Your feedback helps improve care for families</p>
+                <p className="text-muted-foreground mb-4">Your feedback helps improve care for families</p>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/personal-impact")}>View Impact</Button>
               </CardContent>
             </Card>
@@ -221,7 +221,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 mb-4">Log clinical events to contribute to system improvements</p>
+                <p className="text-muted-foreground mb-4">Log clinical events to contribute to system improvements</p>
                 <Button className="w-full" onClick={() => navigate("/safe-truth")}>
                   Log Event
                 </Button>
@@ -232,17 +232,19 @@ export default function LearnerDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="w-5 h-5" />
-                  Certification
+                  Courses & certification
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-slate-600 mb-4">BLS Certification</p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate("/payment")}
-                >
-                  Enroll Now
+              <CardContent className="space-y-3">
+                <p className="text-muted-foreground text-sm">
+                  Enroll (e.g. <strong>The systematic approach to a seriously ill child</strong> — PALS, KES 100 test
+                  price), pay with M-Pesa, then open your course modules.
+                </p>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/enroll")}>
+                  Enroll in a course
+                </Button>
+                <Button className="w-full" onClick={() => navigate("/course/seriously-ill-child")}>
+                  Continue: Seriously ill child (PALS)
                 </Button>
               </CardContent>
             </Card>
@@ -255,7 +257,7 @@ export default function LearnerDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 mb-4">View gaps identified from logged events and contribute to resolutions</p>
+                <p className="text-muted-foreground mb-4">View gaps identified from logged events and contribute to resolutions</p>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/performance")}>View performance</Button>
               </CardContent>
             </Card>
@@ -271,7 +273,7 @@ export default function LearnerDashboard() {
               <CardContent>
                 {myCertificates.length === 0 ? (
                   <>
-                    <p className="text-slate-600 mb-4">You don't have any certificates yet. Complete a course and payment to receive your certificate.</p>
+                    <p className="text-muted-foreground mb-4">You don't have any certificates yet. Complete a course and payment to receive your certificate.</p>
                     <Button variant="outline" onClick={() => navigate("/payment")}>
                       Enroll in a course
                     </Button>
@@ -284,8 +286,8 @@ export default function LearnerDashboard() {
                       return (
                         <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3">
                           <div>
-                            <p className="font-medium uppercase text-slate-900">{c.programType}</p>
-                            <p className="text-sm text-slate-500">
+                            <p className="font-medium uppercase text-foreground">{c.programType}</p>
+                            <p className="text-sm text-muted-foreground">
                               Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
                               {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
                             </p>
@@ -295,7 +297,7 @@ export default function LearnerDashboard() {
                               </p>
                             )}
                             {c.certificateNumber && (
-                              <p className="text-xs text-slate-400 mt-1">No. {c.certificateNumber}</p>
+                              <p className="text-xs text-muted-foreground/80 mt-1">No. {c.certificateNumber}</p>
                             )}
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -346,7 +348,7 @@ export default function LearnerDashboard() {
             )}
             {instStatsLoading && institutionId ? (
               <Card>
-                <CardContent className="pt-6 flex items-center gap-2 text-slate-600">
+                <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Loading institution metrics…
                 </CardContent>
@@ -362,9 +364,9 @@ export default function LearnerDashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-blue-600 mb-2">{instStats.totalStaff}</p>
-                    <p className="text-slate-600">Total staff on roster</p>
-                    <p className="text-sm text-slate-500 mt-2">{instStats.enrolledStaff} enrolled in training</p>
+                    <p className="text-3xl font-bold text-brand-orange mb-2">{instStats.totalStaff}</p>
+                    <p className="text-muted-foreground">Total staff on roster</p>
+                    <p className="text-sm text-muted-foreground mt-2">{instStats.enrolledStaff} enrolled in training</p>
                   </CardContent>
                 </Card>
 
@@ -374,7 +376,7 @@ export default function LearnerDashboard() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-green-600 mb-2">{instStats.completionRate}%</p>
-                    <p className="text-slate-600">Staff who completed training</p>
+                    <p className="text-muted-foreground">Staff who completed training</p>
                   </CardContent>
                 </Card>
 
@@ -384,7 +386,7 @@ export default function LearnerDashboard() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-purple-600 mb-2">{instStats.certifiedStaff}</p>
-                    <p className="text-slate-600">Certified ({instStats.certificationRate}% of roster)</p>
+                    <p className="text-muted-foreground">Certified ({instStats.certificationRate}% of roster)</p>
                   </CardContent>
                 </Card>
               </div>

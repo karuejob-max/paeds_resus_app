@@ -80,7 +80,7 @@ export default function InstitutionalPortal() {
               <p className="text-sm text-slate-600">
                 Sign in with the account you used for onboarding, or complete institutional onboarding to link a facility.
               </p>
-              <Button onClick={() => navigate("/institution-onboarding")} className="w-full bg-[#1a4d4d] hover:bg-[#0d3333]">
+              <Button onClick={() => navigate("/institutional-onboarding")} className="w-full bg-[#1a4d4d] hover:bg-[#0d3333]">
                 Institutional onboarding
               </Button>
               <Button variant="outline" className="w-full" onClick={() => navigate("/institutional")}>

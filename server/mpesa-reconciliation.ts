@@ -6,6 +6,7 @@ import { getDb } from "./db";
 import { payments, enrollments } from "../drizzle/schema";
 import { queryStk } from "./mpesa";
 import { issueCertificateForEnrollmentIfEligible } from "./certificates";
+import { trackPaymentCompletion } from "./services/analytics.service";
 
 function stkResultIsSuccess(resultCode: unknown): boolean {
   const c = String(resultCode ?? "");
@@ -88,6 +89,14 @@ export async function reconcilePaymentRowByStkQuery(paymentId: number): Promise<
       }
     }
   }
+
+  await trackPaymentCompletion(
+    payment.userId,
+    payment.amount,
+    "mpesa",
+    checkoutId,
+    `mpesa_${checkoutId}`,
+  );
 
   return { ok: true, checkoutRequestID: checkoutId };
 }

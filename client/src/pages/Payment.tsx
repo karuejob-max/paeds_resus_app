@@ -173,12 +173,12 @@ export default function Payment() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background">
       {/* Header */}
-      <section className="bg-gradient-to-r from-blue-900 to-blue-800 text-white py-12 px-4">
+      <section className="bg-gradient-to-r from-[var(--brand-teal)] to-[#143333] text-primary-foreground py-12 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4">Secure Payment</h1>
-          <p className="text-xl text-blue-100">
+          <h1 className="text-4xl font-bold mb-4 tracking-tight">Secure Payment</h1>
+          <p className="text-xl text-white/90">
             Choose your course and complete payment to start your training journey
           </p>
         </div>
@@ -209,10 +209,10 @@ export default function Payment() {
           </Alert>
         )}
         {lockCourseSelection && enrollmentRow && (
-          <Alert className="border-blue-200 bg-blue-50/80">
-            <CheckCircle2 className="h-4 w-4 text-blue-700" />
-            <AlertTitle className="text-blue-900">Completing enrollment #{enrollmentRow.id}</AlertTitle>
-            <AlertDescription className="text-blue-800">
+          <Alert className="border-primary/30 bg-muted/50">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-foreground">Completing enrollment #{enrollmentRow.id}</AlertTitle>
+            <AlertDescription className="text-foreground/90">
               Course selection is locked to match your enrollment so payment applies to the same record.
             </AlertDescription>
           </Alert>
@@ -239,7 +239,7 @@ export default function Payment() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Course Selection */}
           <div className="md:col-span-2">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">Select Your Course</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-6">Select Your Course</h2>
             <div className="space-y-3">
               {courses.map((course) => (
                 <Card
@@ -248,7 +248,7 @@ export default function Payment() {
                     lockCourseSelection ? "cursor-default" : "cursor-pointer hover:shadow-lg"
                   } ${
                     selectedCourse === course.id
-                      ? "ring-2 ring-blue-500 bg-blue-50"
+                      ? "ring-2 ring-primary bg-muted/60"
                       : ""
                   }`}
                   onClick={() => {
@@ -262,14 +262,16 @@ export default function Payment() {
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-3xl">{course.icon}</span>
                           <div>
-                            <h3 className="font-bold text-slate-900">{course.name}</h3>
-                            <p className="text-sm text-slate-600">{course.description}</p>
+                            <h3 className="font-bold text-card-foreground">{course.name}</h3>
+                            <p className="text-sm text-muted-foreground">{course.description}</p>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600">KES {course.price.toLocaleString()}</p>
-                        <p className="text-sm text-slate-600">{course.duration}</p>
+                        <p className="text-2xl font-bold text-brand-orange tabular-nums">
+                          KES {course.price.toLocaleString()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{course.duration}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -289,18 +291,18 @@ export default function Payment() {
                 {selectedCourseData ? (
                   <>
                     <div>
-                      <p className="text-sm text-slate-600">Course</p>
-                      <p className="font-bold text-slate-900">{selectedCourseData.name}</p>
+                      <p className="text-sm text-muted-foreground">Course</p>
+                      <p className="font-bold text-foreground">{selectedCourseData.name}</p>
                     </div>
-                    <div className="border-t pt-4">
-                      <p className="text-sm text-slate-600">Total Amount</p>
-                      <p className="text-3xl font-bold text-blue-600">
+                    <div className="border-t border-border pt-4">
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                      <p className="text-3xl font-bold text-brand-orange tabular-nums">
                         KES {selectedCourseData.price.toLocaleString()}
                       </p>
                     </div>
                   </>
                 ) : (
-                  <p className="text-center text-slate-500 py-8">Select a course to continue</p>
+                  <p className="text-center text-muted-foreground py-8">Select a course to continue</p>
                 )}
               </CardContent>
             </Card>
@@ -323,17 +325,17 @@ export default function Payment() {
                           disabled={!method.available}
                           className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                             paymentMethod === method.id
-                              ? "border-blue-500 bg-blue-50"
+                              ? "border-primary bg-muted/70"
                               : method.available
-                                ? "border-slate-200 hover:border-blue-300"
-                                : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                                ? "border-border hover:border-primary/50"
+                                : "border-border bg-muted/30 opacity-50 cursor-not-allowed"
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <Icon className="w-5 h-5 text-slate-600" />
+                            <Icon className="w-5 h-5 text-foreground" />
                             <div>
-                              <p className="font-semibold text-slate-900">{method.name}</p>
-                              <p className="text-xs text-slate-600">{method.description}</p>
+                              <p className="font-semibold text-foreground">{method.name}</p>
+                              <p className="text-xs text-muted-foreground">{method.description}</p>
                             </div>
                             {!method.available && (
                               <Badge className="ml-auto" variant="secondary">
@@ -357,8 +359,11 @@ export default function Payment() {
                     courseName={selectedCourseData.name}
                     amount={selectedCourseData.price}
                     enrollmentId={mpesaEnrollmentId}
-                    onPaymentSuccess={() => {
-                      // Redirect to success page or dashboard
+                    onPaymentComplete={() => {
+                      if (selectedCourseData.id === "pals" && mpesaEnrollmentId) {
+                        window.location.href = `/course/seriously-ill-child?enrollmentId=${mpesaEnrollmentId}`;
+                        return;
+                      }
                       window.location.href = "/learner-dashboard";
                     }}
                   />

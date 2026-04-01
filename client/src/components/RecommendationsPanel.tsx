@@ -55,7 +55,7 @@ export default function RecommendationsPanel({
         <CardContent>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse" />
+              <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />
             ))}
           </div>
         </CardContent>
@@ -74,7 +74,7 @@ export default function RecommendationsPanel({
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               No recommendations at this time. Keep logging events to get personalized insights!
             </p>
             <Button variant="outline" onClick={onViewMore}>
@@ -111,7 +111,7 @@ export default function RecommendationsPanel({
             <TabsTrigger value="all" className="relative">
               All
               {filteredRecommendations.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-brand-orange text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {filteredRecommendations.length}
                 </span>
               )}
@@ -144,7 +144,7 @@ export default function RecommendationsPanel({
 
           <TabsContent value="all" className="space-y-3 mt-4">
             {filteredRecommendations.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-muted-foreground py-8">
                 No recommendations to display
               </p>
             ) : (
@@ -161,7 +161,7 @@ export default function RecommendationsPanel({
 
           <TabsContent value="high" className="space-y-3 mt-4">
             {highPriority.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-muted-foreground py-8">
                 No critical recommendations
               </p>
             ) : (
@@ -178,7 +178,7 @@ export default function RecommendationsPanel({
 
           <TabsContent value="medium" className="space-y-3 mt-4">
             {mediumPriority.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-muted-foreground py-8">
                 No important recommendations
               </p>
             ) : (
@@ -195,7 +195,7 @@ export default function RecommendationsPanel({
 
           <TabsContent value="completed" className="space-y-3 mt-4">
             {completed.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-muted-foreground py-8">
                 No completed recommendations yet
               </p>
             ) : (

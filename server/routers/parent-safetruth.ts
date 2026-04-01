@@ -11,6 +11,7 @@ import { eq, desc, and, gte, lte, count } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
 import { logStructured } from "../lib/structured-log";
+import { trackEvent } from "../services/analytics.service";
 
 /** EAT = UTC+3. "This month" = calendar month in EAT per platform. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -78,6 +79,18 @@ export const parentSafeTruthRouter = router({
         });
 
       const submissionId = (result as any)[0].insertId || (result as any).insertId;
+
+      await trackEvent({
+        userId: ctx.user.id,
+        eventType: "safetruth_submission",
+        eventName: "Safe-Truth timeline submitted",
+        eventData: {
+          submissionId,
+          childOutcome: input.childOutcome,
+          eventCount: input.events.length,
+        },
+        sessionId: `safetruth_submission_${submissionId}`,
+      });
 
       // Insert events
       for (const event of input.events) {

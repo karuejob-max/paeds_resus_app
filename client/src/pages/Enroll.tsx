@@ -65,33 +65,33 @@ export default function Enroll() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardHeader className="bg-blue-50 border-b">
-            <CardTitle>Sign In to Enroll</CardTitle>
+      <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md shadow-lg border-border">
+          <CardHeader className="bg-muted/50 border-b border-border">
+            <CardTitle className="text-foreground">Sign In to Enroll</CardTitle>
             <CardDescription>Join thousands of parents learning life-saving skills</CardDescription>
           </CardHeader>
           <CardContent className="pt-8">
             <div className="space-y-4 mb-6">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-700">Learn at your own pace</span>
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-foreground/90">Learn at your own pace</span>
               </div>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-700">Get certified immediately</span>
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-foreground/90">Get certified immediately</span>
               </div>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-700">Access lifetime resources</span>
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-foreground/90">Access lifetime resources</span>
               </div>
             </div>
             <a href={getLoginUrl()}>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base">
+              <Button variant="cta" className="w-full h-12 text-base">
                 Sign In to Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </a>
-            <p className="text-xs text-gray-500 text-center mt-4">
+            <p className="text-xs text-muted-foreground text-center mt-4">
               Takes less than 1 minute. No credit card required.
             </p>
           </CardContent>
@@ -103,14 +103,14 @@ export default function Enroll() {
   // Step 1: Course Selection
   if (step === "course-select") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
               Choose Your Course
             </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               All courses include video lessons, practice, and official certification
             </p>
           </div>
@@ -119,10 +119,11 @@ export default function Enroll() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {courses.map((course) => (
               <div
+                id={course.id === "pals" ? "course-pals" : undefined}
                 key={course.id}
                 className={`relative transition-all cursor-pointer ${
                   selectedCourse === course.id
-                    ? "ring-2 ring-blue-600 scale-105"
+                    ? "ring-2 ring-primary scale-[1.02]"
                     : "hover:shadow-lg"
                 }`}
                 onClick={() => {
@@ -131,23 +132,25 @@ export default function Enroll() {
                 }}
               >
                 {course.popular && (
-                  <div className="absolute top-0 right-0 bg-blue-600 text-white px-4 py-1 text-sm font-bold rounded-bl-lg">
+                  <div className="absolute top-0 right-0 bg-brand-orange text-white px-4 py-1 text-sm font-bold rounded-bl-lg">
                     POPULAR
                   </div>
                 )}
-                <Card className={`h-full ${course.popular ? "border-2 border-blue-600" : ""}`}>
-                  <CardHeader className={course.popular ? "bg-blue-50" : ""}>
-                    <CardTitle className="text-xl">{course.name}</CardTitle>
-                    <CardDescription>{course.description}</CardDescription>
+                <Card
+                  className={`h-full border-border ${course.popular ? "border-2 border-primary shadow-md" : "shadow-sm"}`}
+                >
+                  <CardHeader className={course.popular ? "bg-muted/60" : ""}>
+                    <CardTitle className="text-xl text-card-foreground leading-snug">{course.name}</CardTitle>
+                    <CardDescription className="text-muted-foreground">{course.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Price */}
                     <div>
-                      <div className="text-4xl font-bold text-gray-900">
+                      <div className="text-4xl font-bold text-brand-orange tabular-nums">
                         KES {course.price.toLocaleString()}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
-                        <Clock className="w-4 h-4" />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                        <Clock className="w-4 h-4 shrink-0" />
                         {course.duration}
                       </div>
                     </div>
@@ -156,19 +159,16 @@ export default function Enroll() {
                     <ul className="space-y-3">
                       {course.features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-gray-700">{feature}</span>
+                          <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-foreground/90">{feature}</span>
                         </li>
                       ))}
                     </ul>
 
                     {/* CTA Button */}
                     <Button
-                      className={`w-full h-12 text-base ${
-                        course.popular
-                          ? "bg-blue-600 hover:bg-blue-700"
-                          : "bg-gray-200 hover:bg-gray-300 text-gray-900"
-                      }`}
+                      variant={course.popular ? "cta" : "secondary"}
+                      className={`w-full h-12 text-base ${course.popular ? "" : "text-foreground"}`}
                       onClick={() => {
                         setSelectedCourse(course.id);
                         setStep("checkout");
@@ -183,22 +183,22 @@ export default function Enroll() {
           </div>
 
           {/* Trust Signals */}
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
+          <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
-                <Users className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-                <p className="font-semibold text-gray-900 mb-1">10,000+ Enrolled</p>
-                <p className="text-sm text-gray-600">Parents and caregivers trained</p>
+                <Users className="w-8 h-8 text-primary mx-auto mb-3" />
+                <p className="font-semibold text-foreground mb-1">10,000+ Enrolled</p>
+                <p className="text-sm text-muted-foreground">Parents and caregivers trained</p>
               </div>
               <div className="text-center">
-                <Award className="w-8 h-8 text-green-600 mx-auto mb-3" />
-                <p className="font-semibold text-gray-900 mb-1">Official Certificates</p>
-                <p className="text-sm text-gray-600">Recognized and valid</p>
+                <Award className="w-8 h-8 text-brand-orange mx-auto mb-3" />
+                <p className="font-semibold text-foreground mb-1">Official Certificates</p>
+                <p className="text-sm text-muted-foreground">Recognized and valid</p>
               </div>
               <div className="text-center">
-                <Shield className="w-8 h-8 text-purple-600 mx-auto mb-3" />
-                <p className="font-semibold text-gray-900 mb-1">100% Secure</p>
-                <p className="text-sm text-gray-600">Your data is protected</p>
+                <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
+                <p className="font-semibold text-foreground mb-1">100% Secure</p>
+                <p className="text-sm text-muted-foreground">Your data is protected</p>
               </div>
             </div>
           </div>
@@ -213,35 +213,38 @@ export default function Enroll() {
     if (!course) return null;
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
         <div className="max-w-2xl mx-auto">
           {/* Progress */}
           <div className="mb-8 flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setStep("course-select")}
-              className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
+              className="text-primary hover:underline font-medium flex items-center gap-2"
             >
               ← Back
             </button>
-            <div className="flex-1 text-right text-sm text-gray-600">
+            <div className="flex-1 text-right text-sm text-muted-foreground">
               Step 2 of 2
             </div>
           </div>
 
           {/* Order Summary */}
-          <Card className="mb-6 border-2 border-green-200 bg-green-50">
+          <Card className="mb-6 border-2 border-primary/25 bg-muted/40">
             <CardHeader>
-              <CardTitle className="text-green-900">Order Summary</CardTitle>
+              <CardTitle className="text-foreground">Order Summary</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-700">{course.name}</span>
-                  <span className="font-semibold">KES {course.price.toLocaleString()}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-foreground/90">{course.name}</span>
+                  <span className="font-semibold text-foreground tabular-nums">
+                    KES {course.price.toLocaleString()}
+                  </span>
                 </div>
-                <div className="border-t border-green-200 pt-3 flex justify-between">
-                  <span className="font-bold text-green-900">Total</span>
-                  <span className="text-2xl font-bold text-green-900">
+                <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                  <span className="font-bold text-foreground">Total</span>
+                  <span className="text-2xl font-bold text-brand-orange tabular-nums">
                     KES {course.price.toLocaleString()}
                   </span>
                 </div>
@@ -273,7 +276,7 @@ export default function Enroll() {
               >
                 {/* Contact Info */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-900">Contact Information</h3>
+                  <h3 className="font-semibold text-foreground">Contact Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="firstName">First Name</Label>
@@ -330,9 +333,9 @@ export default function Enroll() {
 
                 {/* Payment Method */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-900">Payment Method</h3>
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-gray-700">
+                  <h3 className="font-semibold text-foreground">Payment Method</h3>
+                  <div className="p-4 bg-muted/50 border border-border rounded-lg">
+                    <p className="text-sm text-foreground/90">
                       <strong>M-Pesa:</strong> You'll receive an STK prompt to complete payment
                     </p>
                   </div>
@@ -347,13 +350,13 @@ export default function Enroll() {
                       onChange={(e) => setAgreeToTerms(e.target.checked)}
                       className="w-5 h-5 mt-0.5"
                     />
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm text-foreground/90">
                       I agree to the{" "}
-                      <a href="#" className="text-blue-600 hover:underline">
+                      <a href="/terms" className="text-primary font-medium hover:underline">
                         Terms of Service
                       </a>{" "}
                       and{" "}
-                      <a href="#" className="text-blue-600 hover:underline">
+                      <a href="/privacy" className="text-primary font-medium hover:underline">
                         Privacy Policy
                       </a>
                     </span>
@@ -363,14 +366,15 @@ export default function Enroll() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
+                  variant="cta"
                   disabled={createEnrollment.isPending || !agreeToTerms}
-                  className="w-full bg-green-600 hover:bg-green-700 h-12 text-base"
+                  className="w-full h-12 text-base"
                 >
                   {createEnrollment.isPending ? "Processing..." : "Complete Enrollment"}
                 </Button>
 
                 {/* Security Badge */}
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4" />
                   Secure payment powered by M-Pesa
                 </div>
@@ -386,40 +390,40 @@ export default function Enroll() {
   if (step === "success") {
     const course = courses.find((c) => c.id === selectedCourse);
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-lg border-2 border-green-200">
+      <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md shadow-lg border-2 border-primary/30">
           <CardContent className="pt-8">
             <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-10 h-10 text-green-600" />
+              <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-10 h-10 text-primary" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              <h2 className="text-3xl font-bold text-foreground mb-2">
                 Enrollment Successful!
               </h2>
-              <p className="text-gray-600 mb-6">
-                You're now enrolled in <strong>{course?.name}</strong>
+              <p className="text-muted-foreground mb-6">
+                You're now enrolled in <strong className="text-foreground">{course?.name}</strong>
               </p>
 
               {/* Next Steps */}
-              <div className="bg-blue-50 rounded-lg p-4 mb-6 space-y-3 text-left">
-                <p className="text-sm font-semibold text-gray-900">What happens next:</p>
-                <ul className="space-y-2 text-sm text-gray-700">
+              <div className="bg-muted/50 border border-border rounded-lg p-4 mb-6 space-y-3 text-left">
+                <p className="text-sm font-semibold text-foreground">What happens next:</p>
+                <ul className="space-y-2 text-sm text-foreground/90">
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">1.</span>
+                    <span className="text-brand-orange font-bold">1.</span>
                     <span>Check your email for course access details</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">2.</span>
+                    <span className="text-brand-orange font-bold">2.</span>
                     <span>Start learning immediately</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">3.</span>
+                    <span className="text-brand-orange font-bold">3.</span>
                     <span>Get your certificate upon completion</span>
                   </li>
                 </ul>
               </div>
 
-              <p className="text-xs text-gray-500 mb-4">
+              <p className="text-xs text-muted-foreground mb-4">
                 Redirecting to your dashboard in 3 seconds...
               </p>
             </div>

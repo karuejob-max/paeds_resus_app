@@ -12,6 +12,7 @@ import {
 } from "../db";
 import { enrollments, payments } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import { trackEvent } from "../services/analytics.service";
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship"]),
@@ -53,6 +54,19 @@ export const enrollmentRouter = router({
           createdAt: new Date(),
         });
       }
+
+      await trackEvent({
+        userId: ctx.user.id,
+        eventType: "course_enrollment",
+        eventName: `Enroll ${input.programType}`,
+        eventData: {
+          courseType: input.programType,
+          enrollmentId,
+          coursePrice: 0,
+          source: "enrollment_create",
+        },
+        sessionId: `enrollment_${enrollmentId}`,
+      });
 
       return { success: true, enrollmentId };
     }),
