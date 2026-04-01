@@ -810,8 +810,15 @@ export default function HospitalAdminDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Bulk enrollment (roster → courses)</CardTitle>
-                <CardDescription>
-                  Creates enrollments and pending M-Pesa payment rows for every person on your staff list.
+                <CardDescription className="space-y-2">
+                  <span className="block">
+                    This is when the institution is prompted to pay per seat: for each roster member we create course
+                    enrollments and <strong>pending M-Pesa payment</strong> rows for the program and date you choose.
+                  </span>
+                  <span className="block text-muted-foreground">
+                    Scheduling a session alone does not create payments. Staff complete payment (or you reconcile
+                    offline) via the normal learner payment flow linked to those enrollments.
+                  </span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 max-w-md">

@@ -14,7 +14,8 @@
     "db:fix-users": "node server/fix-users-columns.mjs",
     "db:apply-0025": "node scripts/apply-0025-facility-contact-email.mjs",
     "db:apply-0026": "node scripts/apply-0026-certificate-renewal-reminder.mjs",
-    "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts"
+    "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
+    "verify:analytics": "tsx scripts/verify-analytics-events.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

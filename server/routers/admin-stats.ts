@@ -11,6 +11,7 @@ import {
   clinicalReferrals,
   adminAuditLog,
 } from "../../drizzle/schema";
+import { rollingHoursAgo } from "../lib/report-time-windows";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -19,13 +20,6 @@ function startOfMonthEAT(year: number, month: number): Date {
 
 function endOfMonthEAT(year: number, month: number): Date {
   return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
-}
-
-function daysAgo(days: number) {
-  const x = new Date();
-  x.setDate(x.getDate() - days);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
 }
 
 export const adminStatsRouter = router({
@@ -70,7 +64,7 @@ export const adminStatsRouter = router({
       const periodStart = startOfMonthEAT(year, month);
       const periodEnd = endOfMonthEAT(year, month);
       const lastDays = input?.lastDays ?? 7;
-      const analyticsSince = daysAgo(lastDays);
+      const analyticsSince = rollingHoursAgo(lastDays);
 
       // Users by type
       const allUsers = await db.select({ userType: users.userType }).from(users);
@@ -167,7 +161,7 @@ export const adminStatsRouter = router({
         .from(analyticsEvents)
         .where(
           and(
-            gte(analyticsEvents.createdAt, daysAgo(lastDays)),
+            gte(analyticsEvents.createdAt, rollingHoursAgo(lastDays)),
             analyticsEvents.userId
           )
         );
@@ -201,7 +195,7 @@ export const adminStatsRouter = router({
       return {
         ok: true,
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
-        lastDaysLabel: `Last ${lastDays} days`,
+        lastDaysLabel: `Rolling last ${lastDays} days (×24h from now)`,
         usersByType,
         totalUsers: allUsers.length,
         enrollmentsThisMonth,

@@ -352,7 +352,8 @@ export default function AdminReports() {
                   App & Paeds Resus activity
                 </CardTitle>
                 <CardDescription>
-                  Events in {report.lastDaysLabel} (page views, interactions, usage)
+                  All <code className="text-xs">analyticsEvents</code> in {report.lastDaysLabel} — same rolling window as
+                  the server report (not calendar midnight).
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -385,7 +386,8 @@ export default function AdminReports() {
                   ResusGPS (clinical flow)
                 </CardTitle>
                 <CardDescription>
-                  Events whose type starts with <code className="text-xs">resus_</code> in {report.lastDaysLabel}
+                  Subset: <code className="text-xs">eventType</code> starting with <code className="text-xs">resus_</code>{" "}
+                  in {report.lastDaysLabel}. Mission and revenue events appear in the card above, not only here.
                 </CardDescription>
               </CardHeader>
               <CardContent>
