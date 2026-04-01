@@ -58,10 +58,11 @@ const adminProcedure = t.procedure.use(
       },
     });
 
-    // Log admin action (same as production)
+    // Log admin action (same as production — tRPC v11 uses parsed `input`)
+    const v = opts.input !== undefined ? opts.input : opts.rawInput;
     const inputSummary =
-      typeof opts.rawInput === "object" && opts.rawInput !== null
-        ? JSON.stringify(Object.keys(opts.rawInput as object))
+      v !== undefined && typeof v === "object" && v !== null && !Array.isArray(v)
+        ? JSON.stringify(Object.keys(v as Record<string, unknown>).sort())
         : undefined;
 
     db.insertAdminAuditLog({

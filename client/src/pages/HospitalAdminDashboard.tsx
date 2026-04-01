@@ -161,6 +161,8 @@ export default function HospitalAdminDashboard() {
     startTime: "",
     endTime: "",
     location: "",
+    /** "none" or user id string from `listAssignableInstructors` */
+    instructorUserId: "none" as string,
     instructorName: "",
     maxCapacity: "24",
   });
@@ -178,6 +180,7 @@ export default function HospitalAdminDashboard() {
     startTime: "",
     endTime: "",
     location: "",
+    instructorUserId: "none" as string,
     instructorName: "",
     maxCapacity: "24",
     status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled",
@@ -232,6 +235,11 @@ export default function HospitalAdminDashboard() {
   );
 
   const { data: trainingSchedules, isLoading: schedulesLoading } = trpc.institution.getTrainingSchedules.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId }
+  );
+
+  const { data: assignableInstructors } = trpc.institution.listAssignableInstructors.useQuery(
     { institutionId: institutionId! },
     { enabled: !!institutionId }
   );
@@ -337,6 +345,7 @@ export default function HospitalAdminDashboard() {
       startTime: row.startTime ?? "",
       endTime: row.endTime ?? "",
       location: row.location ?? "",
+      instructorUserId: row.instructorId != null ? String(row.instructorId) : "none",
       instructorName: row.instructorName ?? "",
       maxCapacity: String(row.maxCapacity ?? 24),
       status:
@@ -1008,9 +1017,31 @@ export default function HospitalAdminDashboard() {
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="schedule-instructor">Instructor name (optional)</Label>
+                    <Label>Approved instructor (optional)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Platform admins approve instructors under Admin → Reports. You can still add a display override below.
+                    </p>
+                    <Select
+                      value={scheduleForm.instructorUserId}
+                      onValueChange={(v) => setScheduleForm((f) => ({ ...f, instructorUserId: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {(assignableInstructors ?? []).map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name ?? p.email ?? `User ${p.id}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="schedule-instructor">Display name override (optional)</Label>
                     <p id="schedule-instructor-hint" className="text-xs text-muted-foreground">
-                      Shown on your session list and attendance view so staff know who is leading; not linked to a user account.
+                      If empty, the approved instructor’s account name is used. You can set a custom label for the roster.
                     </p>
                     <Input
                       id="schedule-instructor"
@@ -1048,6 +1079,10 @@ export default function HospitalAdminDashboard() {
                       startTime: scheduleForm.startTime.trim() || undefined,
                       endTime: scheduleForm.endTime.trim() || undefined,
                       location: scheduleForm.location.trim() || undefined,
+                      instructorUserId:
+                        scheduleForm.instructorUserId !== "none"
+                          ? parseInt(scheduleForm.instructorUserId, 10)
+                          : undefined,
                       instructorName: scheduleForm.instructorName.trim() || undefined,
                       maxCapacity: cap,
                     });
@@ -1082,6 +1117,7 @@ export default function HospitalAdminDashboard() {
                           <th className="py-2 pr-4">Type</th>
                           <th className="py-2 pr-4">Status</th>
                           <th className="py-2 pr-4">Location</th>
+                          <th className="py-2 pr-4">Instructor</th>
                           <th className="py-2 pr-4">Capacity</th>
                           <th className="py-2 pr-4">Attendance</th>
                           <th className="py-2 pr-4 text-right">Actions</th>
@@ -1096,6 +1132,11 @@ export default function HospitalAdminDashboard() {
                             <td className="py-2 pr-4 capitalize">{row.trainingType?.replace("_", " ")}</td>
                             <td className="py-2 pr-4 capitalize">{row.status}</td>
                             <td className="py-2 pr-4">{row.location || "—"}</td>
+                            <td className="py-2 pr-4">
+                              {"instructorUserName" in row && row.instructorUserName
+                                ? row.instructorUserName
+                                : row.instructorName || "—"}
+                            </td>
                             <td className="py-2 pr-4">
                               {row.enrolledCount ?? 0} / {row.maxCapacity}
                             </td>
@@ -1382,7 +1423,26 @@ export default function HospitalAdminDashboard() {
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Instructor (display name)</Label>
+                    <Label>Approved instructor</Label>
+                    <Select
+                      value={scheduleEditForm.instructorUserId}
+                      onValueChange={(v) => setScheduleEditForm((f) => ({ ...f, instructorUserId: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {(assignableInstructors ?? []).map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name ?? p.email ?? `User ${p.id}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Display name override</Label>
                     <Input
                       value={scheduleEditForm.instructorName}
                       onChange={(e) => setScheduleEditForm((f) => ({ ...f, instructorName: e.target.value }))}
@@ -1446,6 +1506,10 @@ export default function HospitalAdminDashboard() {
                           startTime: scheduleEditForm.startTime.trim() ? scheduleEditForm.startTime.trim() : null,
                           endTime: scheduleEditForm.endTime.trim() ? scheduleEditForm.endTime.trim() : null,
                           location: scheduleEditForm.location.trim() ? scheduleEditForm.location.trim() : null,
+                          instructorUserId:
+                            scheduleEditForm.instructorUserId === "none"
+                              ? null
+                              : parseInt(scheduleEditForm.instructorUserId, 10),
                           instructorName: scheduleEditForm.instructorName.trim()
                             ? scheduleEditForm.instructorName.trim()
                             : null,

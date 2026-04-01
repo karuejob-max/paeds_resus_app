@@ -14,6 +14,7 @@
     "db:fix-users": "node server/fix-users-columns.mjs",
     "db:apply-0025": "node scripts/apply-0025-facility-contact-email.mjs",
     "db:apply-0026": "node scripts/apply-0026-certificate-renewal-reminder.mjs",
+    "db:apply-0027": "node scripts/apply-0027-instructor-approved.mjs",
     "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
     "verify:analytics": "tsx scripts/verify-analytics-events.ts"
   },

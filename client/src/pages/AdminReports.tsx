@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -42,9 +43,18 @@ export default function AdminReports() {
     { enabled: showAudit && isAuthenticated && (user as { role?: string })?.role === "admin" }
   );
 
+  const utils = trpc.useUtils();
+  const setInstructorApprovalMutation = trpc.adminStats.setInstructorApproval.useMutation({
+    onSuccess: (_data, vars) => {
+      void utils.adminStats.getUsers.invalidate();
+      toast.success(vars.approved ? "Instructor approved for B2B sessions" : "Instructor approval removed");
+    },
+    onError: (e) => toast.error(e.message || "Could not update instructor status"),
+  });
+
   const downloadUsersCsv = () => {
     if (!usersData?.users.length) return;
-    const headers = ["id", "name", "email", "userType", "createdAt"];
+    const headers = ["id", "name", "email", "userType", "instructorApprovedAt", "createdAt"];
     const rows = usersData.users.map((u) =>
       headers.map((h) => JSON.stringify(String((u as Record<string, unknown>)[h] ?? ""))).join(",")
     );
@@ -188,6 +198,7 @@ export default function AdminReports() {
                           <th className="text-left py-2">Name</th>
                           <th className="text-left py-2">Email</th>
                           <th className="text-left py-2">Type</th>
+                          <th className="text-left py-2">B2B instructor</th>
                           <th className="text-left py-2">Joined</th>
                         </tr>
                       </thead>
@@ -197,6 +208,38 @@ export default function AdminReports() {
                             <td className="py-2">{u.name ?? "—"}</td>
                             <td className="py-2">{u.email ?? "—"}</td>
                             <td className="py-2">{u.userType ?? "—"}</td>
+                            <td className="py-2 align-top">
+                              {"instructorApprovedAt" in u && u.instructorApprovedAt ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-medium text-green-800 dark:text-green-200">Approved</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8"
+                                    disabled={setInstructorApprovalMutation.isPending}
+                                    onClick={() =>
+                                      setInstructorApprovalMutation.mutate({ userId: u.id, approved: false })
+                                    }
+                                  >
+                                    Revoke
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8"
+                                  disabled={setInstructorApprovalMutation.isPending}
+                                  onClick={() =>
+                                    setInstructorApprovalMutation.mutate({ userId: u.id, approved: true })
+                                  }
+                                >
+                                  Approve
+                                </Button>
+                              )}
+                            </td>
                             <td className="py-2">
                               {u.createdAt
                                 ? new Date(u.createdAt).toLocaleDateString()

@@ -24,6 +24,8 @@ Long-range or aspirational multi-year material (not near-term commitments) lives
 
 **Admin analytics spot-check:** with `DATABASE_URL` set, run `pnpm run verify:analytics` (optional `VERIFY_LAST_DAYS=7`) — counts `analyticsEvents` by `eventType` for the same rolling window as Admin → Reports (see [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md)).
 
+**B2B instructor column:** production DB needs `pnpm run db:apply-0027` once (adds `users.instructorApprovedAt`; see `.env.example`).
+
 ### Product and backlog docs
 
 - **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)

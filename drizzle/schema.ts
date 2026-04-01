@@ -24,6 +24,8 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  /** Set by platform admin; user may be assigned as `trainingSchedules.instructorId` for B2B sessions. */
+  instructorApprovedAt: timestamp("instructorApprovedAt"),
 });
 
 export type User = typeof users.$inferSelect;

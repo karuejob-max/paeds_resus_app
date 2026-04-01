@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
@@ -293,6 +294,7 @@ export const adminStatsRouter = router({
           email: users.email,
           userType: users.userType,
           createdAt: users.createdAt,
+          instructorApprovedAt: users.instructorApprovedAt,
         })
         .from(users)
         .orderBy(desc(users.createdAt))
@@ -307,5 +309,30 @@ export const adminStatsRouter = router({
       const total = Number(countResult[0]?.count ?? 0);
 
       return { users: result, total };
+    }),
+
+  /**
+   * Approve or revoke a user as an assignable B2B session instructor (Hospital Admin schedule picker).
+   */
+  setInstructorApproval: adminProcedure
+    .input(
+      z.object({
+        userId: z.number().int().positive(),
+        approved: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      await db
+        .update(users)
+        .set({
+          instructorApprovedAt: input.approved ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, input.userId));
+      return { success: true as const };
     }),
 });
