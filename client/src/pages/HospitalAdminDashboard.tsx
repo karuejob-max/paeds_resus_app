@@ -341,7 +341,7 @@ export default function HospitalAdminDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Button onClick={() => navigate("/institution-onboarding")} className="bg-[#1a4d4d] hover:bg-[#0d3333]">
+            <Button onClick={() => navigate("/institutional-onboarding")} className="bg-[#1a4d4d] hover:bg-[#0d3333]">
               Start institutional onboarding
             </Button>
             <Button variant="outline" onClick={() => navigate("/institutional")}>

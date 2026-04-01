@@ -139,6 +139,8 @@ function Router() {
           <Route path="/course/bls" component={CourseBLS} />
           <Route path="/course/seriously-ill-child" component={CourseSeriouslyIllChild} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
+          {/* Common typo / old links — same page */}
+          <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
           {/* case-analysis has no page; redirect to targeted-solutions */}
           <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
           {/* dashboard → home (provider hub) */}
