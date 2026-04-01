@@ -17,6 +17,7 @@ import {
 import { eq, desc, and, inArray, count, asc } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
 import { assertInstitutionAccess } from "../lib/institution-access";
+import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
   rollupInstitutionalAnalyticsForAccount,
   rollupAllInstitutionalAccounts,
@@ -594,6 +595,8 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
+      await ensureCourseCatalogForSchedule(db, input.programType);
+
       const courseRows = await db
         .select({ id: courses.id })
         .from(courses)
@@ -692,6 +695,7 @@ export const institutionRouter = router({
 
       let courseId = current.courseId;
       if (input.programType !== undefined) {
+        await ensureCourseCatalogForSchedule(db, input.programType);
         const courseRows = await db
           .select({ id: courses.id })
           .from(courses)

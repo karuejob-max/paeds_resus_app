@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -63,6 +63,58 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const WELCOME_KEY = "institutionalPortalWelcome";
+
+const PROGRAM_LABELS: Record<"bls" | "acls" | "pals" | "fellowship", string> = {
+  bls: "BLS",
+  acls: "ACLS",
+  pals: "PALS",
+  fellowship: "Fellowship",
+};
+
+function enrollmentProgressPct(status: string | null | undefined): number {
+  switch (status) {
+    case "completed":
+      return 100;
+    case "in_progress":
+      return 66;
+    case "enrolled":
+      return 40;
+    case "dropped":
+      return 0;
+    default:
+      return 10;
+  }
+}
+
+function enrollmentStatusLabel(status: string | null | undefined): string {
+  switch (status) {
+    case "completed":
+      return "Completed";
+    case "in_progress":
+      return "In progress";
+    case "enrolled":
+      return "Enrolled";
+    case "dropped":
+      return "Dropped";
+    default:
+      return "Pending";
+  }
+}
+
+function certificationBadgeLabel(status: string | null | undefined): string {
+  switch (status) {
+    case "certified":
+      return "Certified";
+    case "in_progress":
+      return "Cert. in progress";
+    case "expired":
+      return "Expired";
+    case "renewal_pending":
+      return "Renewal pending";
+    default:
+      return "Not started";
+  }
+}
 
 type InstitutionOutputs = inferRouterOutputs<AppRouter>["institution"];
 type TrainingScheduleListRow = InstitutionOutputs["getTrainingSchedules"][number];
@@ -166,6 +218,24 @@ export default function HospitalAdminDashboard() {
     { institutionId: institutionId! },
     { enabled: !!institutionId }
   );
+
+  const programProgressByType = useMemo(() => {
+    const acc = {
+      bls: { sessions: 0, enrolled: 0, capacity: 0 },
+      acls: { sessions: 0, enrolled: 0, capacity: 0 },
+      pals: { sessions: 0, enrolled: 0, capacity: 0 },
+      fellowship: { sessions: 0, enrolled: 0, capacity: 0 },
+    };
+    for (const row of trainingSchedules ?? []) {
+      const pt = row.programType;
+      if (!pt || !(pt in acc)) continue;
+      const k = pt as keyof typeof acc;
+      acc[k].sessions += 1;
+      acc[k].enrolled += row.enrolledCount ?? 0;
+      acc[k].capacity += row.maxCapacity ?? 0;
+    }
+    return acc;
+  }, [trainingSchedules]);
 
   const { data: incidentsList, isLoading: incidentsLoading } = trpc.institution.getIncidents.useQuery(
     { institutionId: institutionId!, limit: 100 },
@@ -306,15 +376,15 @@ export default function HospitalAdminDashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-b from-background to-brand-surface/60">
+        <Card className="w-full max-w-md border-border/80 shadow-sm">
           <CardHeader>
             <CardTitle>Sign In Required</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600 mb-4">Sign in to access the Hospital Admin Dashboard</p>
+            <p className="text-sm text-muted-foreground mb-4">Sign in to access the Hospital Admin Dashboard</p>
             <a href={getLoginUrl()}>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800">Sign In</Button>
+              <Button className="w-full bg-[#1a4d4d] hover:bg-[#0d3333]">Sign In</Button>
             </a>
           </CardContent>
         </Card>
@@ -324,16 +394,16 @@ export default function HospitalAdminDashboard() {
 
   if (myInstitutionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
-        <p className="text-slate-600">Loading your institution…</p>
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-b from-background to-brand-surface/60">
+        <p className="text-muted-foreground">Loading your institution…</p>
       </div>
     );
   }
 
   if (!institutionId) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100 py-12">
-        <Card className="w-full max-w-lg">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-b from-background to-brand-surface/60 py-12">
+        <Card className="w-full max-w-lg border-border/80 shadow-sm">
           <CardHeader>
             <CardTitle>No institution linked</CardTitle>
             <CardDescription>
@@ -357,16 +427,16 @@ export default function HospitalAdminDashboard() {
   const certificationRate = stats?.certificationRate || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-brand-surface/60 py-12 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Institutional dashboard</h1>
-          <p className="text-lg text-slate-600">Training metrics, staff roster, quotations, and bulk enrollment</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Institutional dashboard</h1>
+          <p className="text-lg text-muted-foreground">Training metrics, staff roster, quotations, and bulk enrollment</p>
         </div>
 
         {showWelcome && (
-          <Alert className="mb-6 border-green-600/50 bg-green-50 text-green-900">
+          <Alert className="mb-6 border-green-600/50 bg-green-50 text-green-900 dark:bg-green-950/40 dark:text-green-100 dark:border-green-700/50">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertDescription className="flex items-center justify-between gap-4">
               <span>Welcome! Your institution is set up. Add staff, run bulk enrollment, and track progress from here.</span>
@@ -379,68 +449,68 @@ export default function HospitalAdminDashboard() {
 
         {/* KPI Cards */}
         <div className="grid md:grid-cols-5 gap-4 mb-8">
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Total Staff
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-blue-600">{stats?.totalStaff || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">Active members</p>
+              <p className="text-3xl font-bold text-primary">{stats?.totalStaff || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Active members</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 Enrolled
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-orange-600">{stats?.enrolledStaff || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">In training</p>
+              <p className="text-3xl font-bold text-brand-orange">{stats?.enrolledStaff || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">In training</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
                 Completed
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-green-600">{stats?.completedStaff || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">{completionRate.toFixed(1)}% rate</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats?.completedStaff || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">{completionRate.toFixed(1)}% rate</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Award className="w-4 h-4" />
                 Certified
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-purple-600">{stats?.certifiedStaff || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">{certificationRate.toFixed(1)}% certified</p>
+              <p className="text-3xl font-bold text-primary">{stats?.certifiedStaff || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">{certificationRate.toFixed(1)}% certified</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
                 ROI
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-teal-600">3.2x</p>
-              <p className="text-xs text-slate-500 mt-1">Estimated impact</p>
+              <p className="text-3xl font-bold text-muted-foreground">—</p>
+              <p className="text-xs text-muted-foreground mt-1">When analytics are available</p>
             </CardContent>
           </Card>
         </div>
@@ -716,7 +786,7 @@ export default function HospitalAdminDashboard() {
                   Add training session
                 </CardTitle>
                 <CardDescription>
-                  HI-B2B-1: Create a schedule row for your institution (requires matching course catalog program type).
+                  Schedule a session for your team. A minimal course catalog entry is created automatically if needed.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 max-w-2xl">
@@ -791,8 +861,13 @@ export default function HospitalAdminDashboard() {
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Instructor name (optional)</Label>
+                    <Label htmlFor="schedule-instructor">Instructor name (optional)</Label>
+                    <p id="schedule-instructor-hint" className="text-xs text-muted-foreground">
+                      Shown on your session list and attendance view so staff know who is leading; not linked to a user account.
+                    </p>
                     <Input
+                      id="schedule-instructor"
+                      aria-describedby="schedule-instructor-hint"
                       value={scheduleForm.instructorName}
                       onChange={(e) => setScheduleForm((f) => ({ ...f, instructorName: e.target.value }))}
                     />
@@ -1560,54 +1635,79 @@ export default function HospitalAdminDashboard() {
 
           {/* Progress Tracking Tab */}
           <TabsContent value="progress" className="space-y-6">
-            <Card>
+            <Card className="border-border/80 shadow-sm">
               <CardHeader>
                 <CardTitle>Course Progress by Program</CardTitle>
+                <CardDescription>
+                  Registered vs capacity across scheduled sessions, by program type (from your Schedule tab).
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {["BLS", "ACLS", "PALS", "Fellowship"].map((program) => (
-                  <div key={program}>
-                    <div className="flex justify-between mb-2">
-                      <span className="font-medium">{program}</span>
-                      <span className="text-sm text-slate-600">45/100 enrolled</span>
+                {(["bls", "acls", "pals", "fellowship"] as const).map((pt) => {
+                  const data = programProgressByType[pt];
+                  const pct =
+                    data.capacity > 0 ? Math.min(100, Math.round((data.enrolled / data.capacity) * 100)) : 0;
+                  const summary =
+                    data.sessions === 0
+                      ? "No sessions scheduled"
+                      : `${data.enrolled} / ${data.capacity} registered`;
+                  return (
+                    <div key={pt}>
+                      <div className="flex justify-between mb-2 gap-2">
+                        <span className="font-medium">{PROGRAM_LABELS[pt]}</span>
+                        <span className="text-sm text-muted-foreground text-right">{summary}</span>
+                      </div>
+                      <Progress value={data.sessions === 0 ? 0 : pct} className="h-2" />
                     </div>
-                    <Progress value={45} className="h-2" />
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/80 shadow-sm">
               <CardHeader>
                 <CardTitle>Individual Progress</CardTitle>
+                <CardDescription>Roster from the Staff tab; progress reflects enrollment and certification fields.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: "Dr. Jane Smith", progress: 100, status: "Certified" },
-                    { name: "Nurse John Doe", progress: 75, status: "In Progress" },
-                    { name: "Dr. Alice Johnson", progress: 50, status: "In Progress" },
-                    { name: "Paramedic Mike Brown", progress: 25, status: "Started" },
-                  ].map((person) => (
-                    <div key={person.name} className="border-b pb-4 last:border-b-0">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-medium text-sm">{person.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={
-                            person.status === "Certified"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-blue-50 text-blue-700"
-                          }
-                        >
-                          {person.status}
-                        </Badge>
-                      </div>
-                      <Progress value={person.progress} className="h-2" />
-                      <p className="text-xs text-slate-600 mt-1">{person.progress}% complete</p>
-                    </div>
-                  ))}
-                </div>
+                {staffLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading staff…</p>
+                ) : !staffData?.length ? (
+                  <p className="text-sm text-muted-foreground">No staff in roster yet. Add staff on the Staff tab.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {staffData.map((person) => {
+                      const pct = enrollmentProgressPct(person.enrollmentStatus);
+                      const cert = certificationBadgeLabel(person.certificationStatus);
+                      const enroll = enrollmentStatusLabel(person.enrollmentStatus);
+                      const certTone =
+                        person.certificationStatus === "certified"
+                          ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800"
+                          : person.certificationStatus === "expired"
+                            ? "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-100"
+                            : "bg-muted text-muted-foreground border-border";
+                      return (
+                        <div key={person.id} className="border-b border-border/80 pb-4 last:border-b-0">
+                          <div className="flex justify-between mb-2 gap-2 flex-wrap">
+                            <span className="font-medium text-sm">{person.staffName}</span>
+                            <div className="flex gap-2 flex-wrap justify-end">
+                              <Badge variant="outline" className={certTone}>
+                                {cert}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                {enroll}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Progress value={pct} className="h-2" />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Enrollment progress (approx.): {pct}%
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
