@@ -1,0 +1,145 @@
+name: Detect Repository Divergence
+
+on:
+  schedule:
+    # Run every 6 hours to check for divergence
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+jobs:
+  detect-divergence:
+    runs-on: ubuntu-latest
+    name: Check for Git Divergence
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history
+
+      - name: Check divergence between main and origin/main
+        id: divergence
+        run: |
+          git fetch origin main
+          
+          # Count commits ahead and behind
+          BEHIND=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo "0")
+          AHEAD=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo "0")
+          
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
+          
+          if [ "$AHEAD" -gt 0 ]; then
+            echo "⚠️  Local is $AHEAD commits BEHIND origin/main"
+          fi
+          
+          if [ "$BEHIND" -gt 0 ]; then
+            echo "⚠️  Local is $BEHIND commits AHEAD of origin/main"
+          fi
+          
+          if [ "$AHEAD" -eq 0 ] && [ "$BEHIND" -eq 0 ]; then
+            echo "✅ Repository is in sync"
+          fi
+
+      - name: Alert if divergence detected
+        if: steps.divergence.outputs.ahead > 0 || steps.divergence.outputs.behind > 0
+        run: |
+          echo "::error::Repository divergence detected!"
+          echo "Commits behind: ${{ steps.divergence.outputs.ahead }}"
+          echo "Commits ahead: ${{ steps.divergence.outputs.behind }}"
+          echo ""
+          echo "Action required:"
+          echo "1. Manus agent: Run ./scripts/sync-with-github.sh"
+          echo "2. Verify: git status"
+          echo "3. Save checkpoint: webdev_save_checkpoint 'Synced with GitHub'"
+          exit 1
+
+      - name: Success - Repository is in sync
+        if: steps.divergence.outputs.ahead == '0' && steps.divergence.outputs.behind == '0'
+        run: |
+          echo "✅ Repository is in sync with origin/main"
+          echo "Last commit: $(git log -1 --pretty=format:'%h - %s')"
+
+      - name: Notify team on divergence
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: 1,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Repository Divergence Detected**\n\nManus local is out of sync with GitHub main.\n\n**Action Required:**\n1. Manus agent: Run `./scripts/sync-with-github.sh`\n2. Verify: `git status`\n3. Save checkpoint: `webdev_save_checkpoint "Synced with GitHub"`\n\nSee docs/GIT_WORKFLOW_FOR_TEAM.md for details.'
+            })
+
+  check-commit-history:
+    runs-on: ubuntu-latest
+    name: Verify Commit History
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Check recent commits
+        run: |
+          echo "📝 Recent commits:"
+          git log --oneline -10
+          
+          echo ""
+          echo "👥 Recent contributors:"
+          git log --format='%an' -10 | sort | uniq -c
+
+      - name: Verify PLATFORM_SOURCE_OF_TRUTH.md exists
+        run: |
+          if [ ! -f "docs/PLATFORM_SOURCE_OF_TRUTH.md" ]; then
+            echo "::error::docs/PLATFORM_SOURCE_OF_TRUTH.md not found!"
+            exit 1
+          fi
+          echo "✅ PLATFORM_SOURCE_OF_TRUTH.md exists"
+
+      - name: Verify STRATEGIC_FOUNDATION.md exists
+        run: |
+          if [ ! -f "docs/STRATEGIC_FOUNDATION.md" ]; then
+            echo "::error::docs/STRATEGIC_FOUNDATION.md not found!"
+            exit 1
+          fi
+          echo "✅ STRATEGIC_FOUNDATION.md exists"
+
+      - name: Verify WORK_STATUS.md exists
+        run: |
+          if [ ! -f "docs/WORK_STATUS.md" ]; then
+            echo "::error::docs/WORK_STATUS.md not found!"
+            exit 1
+          fi
+          echo "✅ WORK_STATUS.md exists"
+
+      - name: Verify GIT_WORKFLOW_FOR_TEAM.md exists
+        run: |
+          if [ ! -f "docs/GIT_WORKFLOW_FOR_TEAM.md" ]; then
+            echo "::warning::docs/GIT_WORKFLOW_FOR_TEAM.md not found"
+          else
+            echo "✅ GIT_WORKFLOW_FOR_TEAM.md exists"
+          fi
+
+  summary:
+    runs-on: ubuntu-latest
+    name: Divergence Check Summary
+    needs: [detect-divergence, check-commit-history]
+    if: always()
+
+    steps:
+      - name: Print summary
+        run: |
+          echo "✅ Divergence detection workflow completed"
+          echo ""
+          echo "Status:"
+          echo "- Divergence check: ${{ needs.detect-divergence.result }}"
+          echo "- Commit history check: ${{ needs.check-commit-history.result }}"
+          echo ""
+          echo "Next steps:"
+          echo "1. If divergence detected, Manus agent runs: ./scripts/sync-with-github.sh"
+          echo "2. Verify all required docs exist"
+          echo "3. Team stays in sync with GitHub main"
