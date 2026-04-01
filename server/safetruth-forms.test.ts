@@ -388,7 +388,8 @@ describe("Form Submission Integration", () => {
   it("should transform provider form data to tRPC format", () => {
     const formData = {
       eventDate: "2026-01-21T14:30:00",
-      patientAge: 5,
+      ageBand: "child",
+      childYears: "5",
       algorithm: "Cardiac Arrest",
       responsiveness: "Unresponsive",
       breathing: "Absent",
@@ -403,7 +404,7 @@ describe("Form Submission Integration", () => {
 
     const trpcData = {
       eventDate: formData.eventDate,
-      childAge: formData.patientAge,
+      childAge: 60,
       eventType: formData.algorithm,
       presentation: JSON.stringify(formData),
       isAnonymous: formData.isAnonymous,
@@ -422,7 +423,7 @@ describe("Form Submission Integration", () => {
     };
 
     expect(trpcData.eventDate).toBe(formData.eventDate);
-    expect(trpcData.childAge).toBe(formData.patientAge);
+    expect(trpcData.childAge).toBe(60);
     expect(trpcData.eventType).toBe(formData.algorithm);
     expect(trpcData.isAnonymous).toBe(formData.isAnonymous);
     expect(trpcData.systemGaps).toEqual(formData.systemGaps);
@@ -431,7 +432,8 @@ describe("Form Submission Integration", () => {
   it("should transform parent form data to tRPC format", () => {
     const formData = {
       eventDate: "2026-01-21",
-      childAge: 5,
+      ageBand: "child",
+      childYears: "5",
       location: "Home",
       recognizedProblem: true,
       calledHelp: true,
@@ -443,7 +445,7 @@ describe("Form Submission Integration", () => {
 
     const trpcData = {
       eventDate: formData.eventDate,
-      childAge: formData.childAge,
+      childAge: 60,
       eventType: "parent-observation",
       presentation: JSON.stringify(formData),
       isAnonymous: formData.isAnonymous,
@@ -462,7 +464,7 @@ describe("Form Submission Integration", () => {
     };
 
     expect(trpcData.eventDate).toBe(formData.eventDate);
-    expect(trpcData.childAge).toBe(formData.childAge);
+    expect(trpcData.childAge).toBe(60);
     expect(trpcData.eventType).toBe("parent-observation");
     expect(trpcData.isAnonymous).toBe(formData.isAnonymous);
     expect(trpcData.chainOfSurvival.recognition).toBe(formData.recognizedProblem);

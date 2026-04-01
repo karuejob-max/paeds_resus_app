@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
 
 const NONE = "__none__";
@@ -21,7 +22,10 @@ const NONE = "__none__";
 export default function ParentSafeTruthForm() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [formData, setFormData] = useState({
-    childAge: "",
+    ageBand: "child" as SafeTruthAgeBand,
+    neonateDays: "",
+    infantMonths: "6",
+    childYears: "",
     eventType: "cardiac-arrest",
     recognizedProblem: false,
     calledHelp: false,
@@ -42,7 +46,12 @@ export default function ParentSafeTruthForm() {
       setError("");
       const submitData = {
         eventDate: new Date().toISOString(),
-        childAge: parseInt(formData.childAge) || 0,
+        childAge: childAgeMonthsForSafeTruth({
+          ageBand: formData.ageBand,
+          neonateDays: formData.neonateDays,
+          infantMonths: formData.infantMonths,
+          childYears: formData.childYears,
+        }),
         eventType: "parent-observation",
         presentation: JSON.stringify(formData),
         isAnonymous,
@@ -64,7 +73,10 @@ export default function ParentSafeTruthForm() {
       setSubmittedData(submitData);
       setShowConfirmation(true);
       setFormData({
-        childAge: "",
+        ageBand: "child",
+        neonateDays: "",
+        infantMonths: "6",
+        childYears: "",
         eventType: "cardiac-arrest",
         recognizedProblem: false,
         calledHelp: false,
@@ -107,18 +119,74 @@ export default function ParentSafeTruthForm() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="child-age">How old was your child? (years)</Label>
-            <Input
-              id="child-age"
-              type="number"
-              min={0}
-              max={25}
-              inputMode="numeric"
-              value={formData.childAge}
-              onChange={(e) => setFormData({ ...formData, childAge: e.target.value })}
-              placeholder="e.g. 3 — a guess is fine"
-            />
+            <Label id="age-band-label">How old was your child?</Label>
+            <Select
+              value={formData.ageBand}
+              onValueChange={(v) => setFormData({ ...formData, ageBand: v as SafeTruthAgeBand })}
+            >
+              <SelectTrigger className="w-full" aria-labelledby="age-band-label">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="neonate">Newborn (neonate — first weeks of life)</SelectItem>
+                <SelectItem value="infant">Young baby (1–12 months)</SelectItem>
+                <SelectItem value="child">Child (about 1 year or older)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {formData.ageBand === "neonate" && (
+            <div className="space-y-2">
+              <Label htmlFor="neonate-days">Days old (optional)</Label>
+              <Input
+                id="neonate-days"
+                type="number"
+                min={0}
+                max={28}
+                inputMode="numeric"
+                value={formData.neonateDays}
+                onChange={(e) => setFormData({ ...formData, neonateDays: e.target.value })}
+                placeholder="e.g. 5 — optional"
+              />
+            </div>
+          )}
+
+          {formData.ageBand === "infant" && (
+            <div className="space-y-2">
+              <Label id="infant-months-label">Months old</Label>
+              <Select
+                value={formData.infantMonths}
+                onValueChange={(v) => setFormData({ ...formData, infantMonths: v })}
+              >
+                <SelectTrigger className="w-full" aria-labelledby="infant-months-label">
+                  <SelectValue placeholder="Choose month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {m} {m === 1 ? "month" : "months"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {formData.ageBand === "child" && (
+            <div className="space-y-2">
+              <Label htmlFor="child-years">Years old (approximate)</Label>
+              <Input
+                id="child-years"
+                type="number"
+                min={1}
+                max={25}
+                inputMode="numeric"
+                value={formData.childYears}
+                onChange={(e) => setFormData({ ...formData, childYears: e.target.value })}
+                placeholder="e.g. 3 — a guess is fine"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label id="event-type-label">What kind of emergency was it?</Label>

@@ -4,9 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
 
 export default function ProviderSafeTruthForm() {
@@ -25,7 +34,12 @@ export default function ProviderSafeTruthForm() {
       setError("");
       const submitData = {
         eventDate: formData.eventDate || new Date().toISOString(),
-        childAge: parseInt(formData.patientAge) || 0,
+        childAge: childAgeMonthsForSafeTruth({
+          ageBand: (formData.ageBand as SafeTruthAgeBand) || "child",
+          neonateDays: formData.neonateDays,
+          infantMonths: formData.infantMonths,
+          childYears: formData.childYears,
+        }),
         eventType: formData.algorithm || "unknown",
         presentation: JSON.stringify(formData),
         isAnonymous,
@@ -72,7 +86,14 @@ export default function ProviderSafeTruthForm() {
         <SubmissionConfirmationModal
           isOpen={showConfirmation}
           isProvider={true}
-          data={submittedData || { eventDate: new Date().toISOString(), childAge: 0, isAnonymous, algorithm: formData.algorithm }}
+          data={
+            submittedData || {
+              eventDate: new Date().toISOString(),
+              childAge: 0,
+              isAnonymous,
+              algorithm: formData.algorithm,
+            }
+          }
           onClose={handleCloseModal}
         />
         <Card>
@@ -90,16 +111,75 @@ export default function ProviderSafeTruthForm() {
               />
             </div>
 
-            <div>
-              <Label>Patient Age (years)</Label>
-              <input
-                type="number"
-                min="0"
-                value={formData.patientAge || ""}
-                onChange={(e) => setFormData({ ...formData, patientAge: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md"
-              />
+            <div className="space-y-2">
+              <Label id="prov-age-band">Patient age</Label>
+              <Select
+                value={formData.ageBand || "child"}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, ageBand: v as SafeTruthAgeBand })
+                }
+              >
+                <SelectTrigger className="w-full" aria-labelledby="prov-age-band">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="neonate">Neonate (first 28 days)</SelectItem>
+                  <SelectItem value="infant">Infant (1–12 months)</SelectItem>
+                  <SelectItem value="child">Child (1 year or older)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {(formData.ageBand || "child") === "neonate" && (
+              <div className="space-y-2">
+                <Label htmlFor="prov-neonate-days">Days of life (optional)</Label>
+                <Input
+                  id="prov-neonate-days"
+                  type="number"
+                  min={0}
+                  max={28}
+                  value={formData.neonateDays || ""}
+                  onChange={(e) => setFormData({ ...formData, neonateDays: e.target.value })}
+                  placeholder="0–28"
+                />
+              </div>
+            )}
+
+            {(formData.ageBand || "child") === "infant" && (
+              <div className="space-y-2">
+                <Label id="prov-infant-m">Months</Label>
+                <Select
+                  value={formData.infantMonths || "6"}
+                  onValueChange={(v) => setFormData({ ...formData, infantMonths: v })}
+                >
+                  <SelectTrigger className="w-full" aria-labelledby="prov-infant-m">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} mo
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {(formData.ageBand || "child") === "child" && (
+              <div className="space-y-2">
+                <Label htmlFor="prov-child-y">Years (approximate)</Label>
+                <Input
+                  id="prov-child-y"
+                  type="number"
+                  min={1}
+                  max={25}
+                  value={formData.childYears || ""}
+                  onChange={(e) => setFormData({ ...formData, childYears: e.target.value })}
+                  placeholder="e.g. 5"
+                />
+              </div>
+            )}
 
             <div>
               <Label>Primary Algorithm</Label>

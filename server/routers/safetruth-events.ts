@@ -44,8 +44,10 @@ export const safeTruthEventsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Verify user is a healthcare provider
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
+        const isParentStory =
+          input.eventType === "parent-observation" && ctx.user.userType === "parent";
+        // Providers and admins use clinical Safe-Truth; parents submit parent-observation only
+        if (!ctx.user.providerType && ctx.user.role !== "admin" && !isParentStory) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Safe-Truth is for healthcare providers only",

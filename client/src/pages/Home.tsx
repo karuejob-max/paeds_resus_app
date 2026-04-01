@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase, Share2, BarChart3 } from "lucide-react";
+import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase, Share2, BarChart3, Shield } from "lucide-react";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -121,14 +121,26 @@ export default function Home() {
           <p className="text-muted-foreground">Choose what you want to do next.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-1">
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/")}>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/resus")}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Stethoscope className="h-5 w-5" />
-                  Paeds Resus
+                  ResusGPS
                 </CardTitle>
-                <CardDescription>Real-time pediatric emergency guidance at the point of care.</CardDescription>
+                <CardDescription>Real-time paediatric emergency guidance at the point of care.</CardDescription>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/safe-truth")}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Safe-Truth (providers)
+                </CardTitle>
+                <CardDescription>Confidential event reporting for clinicians — separate from the parent Safe-Truth story.</CardDescription>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
