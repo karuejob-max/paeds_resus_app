@@ -1,6 +1,6 @@
 # Event taxonomy — `analyticsEvents`
 
-**Status:** Living document — **finalize during Sprint 1 (Measurement Truth)** and merge with the audit checklist.  
+**Status:** Sprint 1 (Measurement Truth MVP) **frozen** 2026-04-01 — extend via PR; do not rename `eventType` values without a migration note.  
 **Storage:** Rows go to MySQL `analyticsEvents` via `server/services/analytics.service.ts` → `trackAnalyticsEvent` (`server/db.ts`).  
 **tRPC:** Clients typically call `trpc.events.trackEvent` (`server/routers/events.ts`).
 
@@ -37,11 +37,12 @@
 | `page_view` | Page viewed | `client/src/hooks/useAnalytics.ts` | timestamp, userAgent | |
 | `enrollment_started` | User started enrollment flow (client) | `useAnalytics.ts` | courseId, courseName | Verify wired on enroll UI. |
 | `payment_initiated` | Client marked payment start | `useAnalytics.ts` | amount, courseId | Distinct from server `payment_initiation`. |
-| `course_enrollment` | Server-tracked enrollment | `analytics.service.ts` / `events` router | courseType, coursePrice | |
-| `payment_initiation` | Server helper | `analytics.service.ts` | amount, paymentMethod | |
-| `payment_completion` | Server helper | `analytics.service.ts` | amount, paymentMethod, transactionId | Wire if M-Pesa success path should mirror. |
+| `course_enrollment` | Server-tracked enrollment row created | `server/routers/enrollment.ts`, `server/routers/mpesa.ts` (inline enroll) | courseType, enrollmentId, source | `trackEvent` → `analytics.service`. |
+| `payment_initiation` | STK payment row created after successful `initiateStkPush` | `server/routers/mpesa.ts` | amount, paymentMethod | Emitted via `trackPaymentInitiation` → `payment_initiation`. |
+| `payment_completion` | M-Pesa payment settled | `server/webhooks/mpesa-webhook.ts`, `server/mpesa-reconciliation.ts` | amount, paymentMethod, transactionId | Authoritative completion; reconcile covers mock / missed webhooks. |
 | `institutional_inquiry` | B2B inquiry | `useAnalytics.ts` | inquiryType | |
-| *TBD* | *Fill gaps from* `docs/SPRINT_1_EVENT_AUDIT_TEMPLATE.md` | | | |
+| `safetruth_submission` | Parent Safe-Truth timeline submitted (server) | `server/routers/parent-safetruth.ts` | submissionId, childOutcome, eventCount | Distinct from monthly `parentSafeTruthSubmissions` KPI; feeds **last 7 days** product activity. |
+| `institution_training_schedule_created` | Hospital training session scheduled | `server/routers/institution.ts` | institutionId, scheduleId, programType, trainingType | |
 
 ---
 
@@ -49,4 +50,5 @@
 
 | Date | Change |
 |------|--------|
+| 2026-04-01 | Sprint 1 freeze: server `course_enrollment`, `payment_initiation`, `payment_completion` (webhook + reconcile), `safetruth_submission`, `institution_training_schedule_created`; see `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`. |
 | 2026-04-01 | Initial taxonomy scaffold for Sprint 1 Measurement Truth MVP. |

@@ -182,6 +182,7 @@ By end of sprint, admin **product activity** (`analyticsLastDays` in `adminStats
 
 | Date | Change |
 |------|--------|
+| 2026-04-01 | Sprint 1 **instrumentation slice**: server events for enrollment, M-Pesa initiation/completion, Safe-Truth submission, institutional schedule; see `docs/SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md` and frozen `docs/EVENT_TAXONOMY.md`. |
 | 2026-04-01 | Added **Sprint 1 — Measurement Truth MVP** (docs + taxonomy + checklists); superseded old “suggested next three sprints” with CEO-aligned sequence. |
 | 2026-02-25 | Initial impact-prioritized backlog created from mission, README, and `PLATFORM_AUDIT_WHAT_IS_MISSING.md`. |
 | 2026-02-25 | P0-ENROLL-1 / P0-NAV-1 / P1-SAFE-1 (partial): `enrollment.getById`, Payment lock + M-Pesa enrollment guard, Home hub cards, `getSafeTruthStats.totalSubmissions`, LearnerDashboard parent KPIs. |

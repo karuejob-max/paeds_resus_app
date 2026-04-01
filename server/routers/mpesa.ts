@@ -8,6 +8,7 @@ import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
+import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 
 export const mpesaRouter = router({
   /**
@@ -51,6 +52,18 @@ export const mpesaRouter = router({
             const list = await db.select().from(enrollments).where(eq(enrollments.userId, ctx.user!.id)).orderBy(desc(enrollments.id)).limit(1);
             enrollmentId = list[0]?.id ?? 0;
           }
+          await trackEvent({
+            userId: ctx.user!.id,
+            eventType: "course_enrollment",
+            eventName: `Enroll ${input.courseId}`,
+            eventData: {
+              courseType: input.courseId,
+              enrollmentId,
+              coursePrice: 0,
+              source: "mpesa_initiate",
+            },
+            sessionId: `enrollment_${enrollmentId}`,
+          });
         }
 
         const accountReference = buildStkAccountReference({
@@ -84,6 +97,14 @@ export const mpesaRouter = router({
         } as any);
 
         const paymentId = (paymentRecord as any)[0]?.id ?? null;
+
+        const checkoutId = mpesaResponse.checkoutRequestID || "";
+        await trackPaymentInitiation(
+          ctx.user!.id,
+          input.amount,
+          "mpesa",
+          checkoutId ? `stk_${checkoutId}` : `stk_order_${orderId}`,
+        );
 
         return {
           success: true,

@@ -8,9 +8,9 @@
 
 ## Pre-sprint (Day 1)
 
-- [ ] Run audit using [SPRINT_1_EVENT_AUDIT_TEMPLATE.md](./SPRINT_1_EVENT_AUDIT_TEMPLATE.md)
-- [ ] Prioritize **2–4** gaps by impact (prefer enroll → pay → completion, Safe-Truth; institutional if **thin**)
-- [ ] Assign owner per gap (name / tool)
+- [x] Run audit using [SPRINT_1_EVENT_AUDIT_TEMPLATE.md](./SPRINT_1_EVENT_AUDIT_TEMPLATE.md)
+- [x] Prioritize **2–4** gaps by impact (prefer enroll → pay → completion, Safe-Truth; institutional if **thin**)
+- [x] Assign owner per gap (name / tool) — Cursor, single PR
 
 ---
 
@@ -18,10 +18,10 @@
 
 Implement `trackEvent` / server analytics helpers with **one naming convention** — update [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md) in the same PR.
 
-- [ ] Gap #1: Journey: _______________ — PR: _______________
-- [ ] Gap #2: Journey: _______________ — PR: _______________
-- [ ] Gap #3: Journey: _______________ — PR: _______________
-- [ ] Gap #4: Journey: _______________ — PR: _______________
+- [x] Gap #1: Journey: **Enroll (server)** — `course_enrollment` — PR: `main` (2026-04-01)
+- [x] Gap #2: Journey: **M-Pesa STK + completion** — `payment_initiation`, `payment_completion` — PR: `main` (2026-04-01)
+- [x] Gap #3: Journey: **Safe-Truth submission** — `safetruth_submission` — PR: `main` (2026-04-01)
+- [x] Gap #4: Journey: **Institutional training schedule** — `institution_training_schedule_created` — PR: `main` (2026-04-01)
 
 ---
 
@@ -37,17 +37,17 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 
 ## Documentation (Day 10)
 
-- [ ] Finalize [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md) table
-- [ ] Save audit result (completed template or `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`)
-- [ ] Update [WORK_STATUS.md](./WORK_STATUS.md) — Done row, clear In progress
+- [x] Finalize [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md) table
+- [x] Save audit result (completed template or `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`)
+- [x] Update [WORK_STATUS.md](./WORK_STATUS.md) — Done row, clear In progress
 - [ ] Optional: link sprint summary in [PRODUCT_BACKLOG_PRIORITIZED.md](./PRODUCT_BACKLOG_PRIORITIZED.md) changelog
 
 ---
 
 ## Regression prevention
 
-- [ ] Add a **Vitest** or smoke note: “events router accepts new types” (if applicable)
-- [ ] Document **do not rename** existing `eventType` without migration note in EVENT_TAXONOMY
+- [x] Add a **Vitest** or smoke note: “events router accepts new types” (if applicable) — `enrollment.test.ts` mocks `trackAnalyticsEvent` for `create` path
+- [x] Document **do not rename** existing `eventType` without migration note in EVENT_TAXONOMY
 
 ---
 

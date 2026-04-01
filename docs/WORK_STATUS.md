@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-01 | Cursor | **Sprint 1 (Measurement Truth MVP) — implementation:** Server `trackEvent` / `trackPayment*` for **revenue + mission + B2B**: `course_enrollment` on `enrollment.create` and inline M-Pesa enroll; `payment_initiation` + `payment_completion` (webhook + `reconcilePaymentRowByStkQuery`); `safetruth_submission` on `parentSafeTruth.submitTimeline`; `institution_training_schedule_created` on `createTrainingSchedule`. **Docs:** `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`; `EVENT_TAXONOMY.md` frozen; checklist + `enrollment.test.ts` `trackAnalyticsEvent` mock. **Remaining:** manual § Verification in `SPRINT_1_IMPLEMENTATION_CHECKLIST.md` (Admin Reports / DB). | (this commit) |
 | 2026-04-01 | Cursor | **Sprint 1 (Measurement Truth MVP) — docs:** `PRODUCT_BACKLOG_PRIORITIZED.md` Sprint 1 section + CEO sprint sequence; new `EVENT_TAXONOMY.md`, `SPRINT_1_IMPLEMENTATION_CHECKLIST.md`, `SPRINT_1_EVENT_AUDIT_TEMPLATE.md`; README links; WORK_STATUS In progress for Cursor. | c62dbd2 |
 | 2026-04-01 | Cursor | **README:** “Documentation map (start here)” — ordered links to PLATFORM_SOURCE_OF_TRUTH, STRATEGIC_FOUNDATION, WORK_STATUS, AI_TEAM_WORKFLOW, ENGINEERING_ACCEPTANCE_CHECKLIST, plus `docs/archive/` note. | 5d8ee27 |
 | 2026-04-01 | Cursor | **Strategy docs alignment:** `STRATEGIC_VISION_2031.md` → **`docs/archive/`** (banner + [archive/README.md](./archive/README.md)); **near-term SoT** remains [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) + [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md). *If another machine does not see `docs/STRATEGIC_FOUNDATION.md` or commits `a0d5246`/`359d1a5`, run `git pull` on `main`.* | bd1ebd3 |
@@ -54,8 +55,9 @@
 
 | Who | What |
 |-----|------|
-| Cursor | **Sprint 1 — Measurement Truth MVP** ([`PRODUCT_BACKLOG_PRIORITIZED.md`](./PRODUCT_BACKLOG_PRIORITIZED.md)): audit journeys → instrument 2–4 gaps → verify admin `analyticsLastDays` vs emits → freeze [`EVENT_TAXONOMY.md`](./EVENT_TAXONOMY.md). Checklist: [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md). |
 | Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
+
+**Sprint 1 note:** Implementation + taxonomy freeze merged; optional **Verification** (Admin Reports / `analyticsEvents`) remains in [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md).
 
 ---
 

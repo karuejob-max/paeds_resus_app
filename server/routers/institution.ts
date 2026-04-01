@@ -21,6 +21,7 @@ import {
   rollupInstitutionalAnalyticsForAccount,
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
+import { trackEvent } from "../services/analytics.service";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -631,7 +632,23 @@ export const institutionRouter = router({
         .orderBy(desc(trainingSchedules.id))
         .limit(1);
 
-      return { success: true as const, scheduleId: created[0]?.id ?? null };
+      const scheduleId = created[0]?.id ?? null;
+      if (scheduleId != null) {
+        await trackEvent({
+          userId: ctx.user.id,
+          eventType: "institution_training_schedule_created",
+          eventName: "Institutional training session scheduled",
+          eventData: {
+            institutionId: input.institutionId,
+            scheduleId,
+            programType: input.programType,
+            trainingType: input.trainingType,
+          },
+          sessionId: `inst_schedule_${scheduleId}`,
+        });
+      }
+
+      return { success: true as const, scheduleId };
     }),
 
   /**
