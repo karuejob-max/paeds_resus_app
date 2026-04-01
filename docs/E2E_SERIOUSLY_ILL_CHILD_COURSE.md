@@ -19,6 +19,12 @@ If the course already exists (title contains “seriously ill”), the script sk
 - **Display name:** “The systematic approach to a seriously ill child”
 - **Price:** KES **100** (test amount)
 
+## Where it appears in the app
+
+- **Page:** **`/enroll`** (you must be **signed in**; anonymous users only see “Sign In to Enroll”).
+- **On the page:** The course is the **PALS** product — card title **“The systematic approach to a seriously ill child”**, **KES 100**. In the grid it is the **third** individual course card (after BLS and ACLS). On wide screens those three sit in one row; on narrow screens, scroll. Anchor: **`/enroll#course-pals`** jumps to that card.
+- **Not shown on:** ResusGPS home (`/`), `/learner-dashboard` (only buttons/links to enroll or continue course — not the full catalog).
+
 ## Flow
 
 1. **Sign in** as a learner (`userType` individual is fine).

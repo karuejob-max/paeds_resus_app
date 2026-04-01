@@ -113,12 +113,22 @@ export default function Enroll() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               All courses include video lessons, practice, and official certification
             </p>
+            <p className="text-base text-gray-700 max-w-3xl mx-auto mt-4 leading-relaxed">
+              <strong>The systematic approach to a seriously ill child</strong> (program code <span className="font-mono text-sm">pals</span>,{" "}
+              <strong>KES 100</strong>) is listed as its <strong>own card</strong> in the grid below — it is the{" "}
+              <strong>third</strong> tile in the first row on desktop (after BLS and ACLS), or scroll down on mobile. You can jump to it:{" "}
+              <a href="#course-pals" className="text-blue-700 underline font-medium">
+                #course-pals
+              </a>
+              . After checkout, payment opens at <span className="font-mono text-sm">/payment</span> with that course.
+            </p>
           </div>
 
           {/* Course Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {courses.map((course) => (
               <div
+                id={course.id === "pals" ? "course-pals" : undefined}
                 key={course.id}
                 className={`relative transition-all cursor-pointer ${
                   selectedCourse === course.id
