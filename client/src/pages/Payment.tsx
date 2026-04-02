@@ -69,6 +69,10 @@ export default function Payment() {
         const tier =
           urlCourseId && ["bronze", "silver", "gold"].includes(urlCourseId) ? urlCourseId : "bronze";
         setSelectedCourse(tier);
+      } else if (p === "pals") {
+        const title = "courseTitle" in enrollmentRow ? (enrollmentRow as { courseTitle?: string | null }).courseTitle : null;
+        const sku = title?.toLowerCase().includes("septic") ? "pals_septic" : "pals";
+        setSelectedCourse(sku);
       } else {
         setSelectedCourse(p);
       }
@@ -82,7 +86,9 @@ export default function Payment() {
     urlCourseId &&
     (enrollmentRow.programType === "fellowship"
       ? !["bronze", "silver", "gold"].includes(urlCourseId)
-      : urlCourseId !== enrollmentRow.programType);
+      : enrollmentRow.programType === "pals"
+        ? !["pals", "pals_septic"].includes(urlCourseId)
+        : urlCourseId !== enrollmentRow.programType);
 
   const enrollmentMissing =
     enrollmentIdFromEnroll !== undefined && enrollmentFetched && !enrollmentLoading && !enrollmentRow;
@@ -95,6 +101,7 @@ export default function Payment() {
     bls: "🏥",
     acls: "❤️",
     pals: "👶",
+    pals_septic: "🩺",
     instructor: "🎓",
     bronze: "🥉",
     silver: "🥈",
@@ -368,6 +375,10 @@ export default function Payment() {
                     amount={selectedCourseData.price}
                     enrollmentId={mpesaEnrollmentId}
                     onPaymentComplete={() => {
+                      if (selectedCourseData.id === "pals_septic" && mpesaEnrollmentId) {
+                        window.location.href = `/course/paediatric-septic-shock?enrollmentId=${mpesaEnrollmentId}`;
+                        return;
+                      }
                       if (selectedCourseData.id === "pals" && mpesaEnrollmentId) {
                         window.location.href = `/course/seriously-ill-child?enrollmentId=${mpesaEnrollmentId}`;
                         return;

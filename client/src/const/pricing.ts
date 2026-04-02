@@ -24,6 +24,17 @@ export interface PricingTier {
 // Individual Provider Courses
 export const individualCourses: CoursePrice[] = [
   {
+    id: "pals_septic",
+    name: "Paediatric septic shock — rapid course + ResusGPS",
+    description:
+      "Evidence-informed micro-course: recognise septic shock early, first-hour principles, escalation. Pairs with ResusGPS at the bedside. Not a substitute for your hospital protocol.",
+    /** Accessible entry price; adjust in one place as you scale volume. */
+    price: 200,
+    category: "individual",
+    duration: "~90 min self-paced",
+    level: "All providers",
+  },
+  {
     id: "bls",
     name: "BLS (Basic Life Support)",
     description: "Essential life support techniques for healthcare providers",

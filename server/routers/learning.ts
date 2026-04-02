@@ -11,17 +11,36 @@ import {
   userProgress,
   enrollments,
 } from "../../drizzle/schema";
-import { ensurePalsSeriouslyIllCatalog } from "../lib/ensure-pals-seriously-ill-catalog";
+import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import {
+  ensurePaediatricSepticShockCatalog,
+  getPaediatricSepticShockCourseId,
+} from "../lib/ensure-paediatric-septic-shock-catalog";
 import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 export const learningRouter = router({
   // Get all courses
+  getSepticShockCourseMeta: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { courseId: null as number | null };
+    try {
+      await ensurePaediatricSepticShockCatalog(db);
+      const id = await getPaediatricSepticShockCourseId(db);
+      return { courseId: id };
+    } catch (e) {
+      console.error("[learning.getSepticShockCourseMeta]", e);
+      return { courseId: null };
+    }
+  }),
+
   getCourses: publicProcedure
     .input(
       z.object({
         programType: z.string().optional(),
         level: z.string().optional(),
+        /** When set (e.g. PALS micro-course), only this catalog row is returned. */
+        courseId: z.number().optional(),
       })
     )
     .query(async ({ input }) => {
@@ -34,8 +53,9 @@ export const learningRouter = router({
           .from(courses)
           .where(eq(courses.programType, pt))
           .orderBy(courses.order);
-        if (pt === "pals" && rows.length === 0) {
+        if (pt === "pals") {
           try {
+            await ensurePaediatricSepticShockCatalog(db);
             await ensurePalsSeriouslyIllCatalog(db);
             rows = await (db as any)
               .select()
@@ -45,6 +65,9 @@ export const learningRouter = router({
           } catch (e) {
             console.error("[learning.getCourses] ensure PALS catalog failed:", e);
           }
+        }
+        if (input.courseId != null) {
+          rows = rows.filter((r: { id: number }) => r.id === input.courseId);
         }
         if (pt === "instructor" && rows.length === 0) {
           try {
@@ -387,11 +410,28 @@ export const learningRouter = router({
         )
         .limit(1);
       if (!enrollment[0]) throw new Error("Enrollment not found");
-      const programCourses = await (db as any)
+      let programCourses = await (db as any)
         .select()
         .from(courses)
         .where(eq(courses.programType, input.programType as any))
         .orderBy(courses.order);
+      if (input.programType === "pals") {
+        try {
+          await ensurePaediatricSepticShockCatalog(db);
+          await ensurePalsSeriouslyIllCatalog(db);
+        } catch (e) {
+          console.error("[learning.getPersonalizedPath] ensure PALS catalog:", e);
+        }
+        const ec = (enrollment[0] as { courseId?: number | null }).courseId;
+        if (ec != null) {
+          programCourses = programCourses.filter((c: { id: number }) => c.id === ec);
+        } else {
+          const sid = await getSeriouslyIllChildCourseId(db);
+          if (sid != null) {
+            programCourses = programCourses.filter((c: { id: number }) => c.id === sid);
+          }
+        }
+      }
       const courseProgress = await Promise.all(
         programCourses.map(async (course: any) => {
           const progress = await (db as any)
@@ -403,13 +443,14 @@ export const learningRouter = router({
                 eq(userProgress.enrollmentId, input.enrollmentId)
               )
             );
-          const completedModules = progress.filter(
-            (p: any) => p.status === "completed"
-          ).length;
           const totalModules = await (db as any)
             .select()
             .from(modules)
             .where(eq(modules.courseId, course.id));
+          const moduleIds = new Set(totalModules.map((m: { id: number }) => m.id));
+          const completedModules = progress.filter(
+            (p: any) => p.status === "completed" && moduleIds.has(p.moduleId)
+          ).length;
           return {
             ...course,
             completedModules,

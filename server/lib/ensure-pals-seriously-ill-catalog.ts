@@ -5,6 +5,16 @@
 import { desc, eq, and, like } from "drizzle-orm";
 import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
 
+export async function getSeriouslyIllChildCourseId(db: any): Promise<number | null> {
+  await ensurePalsSeriouslyIllCatalog(db);
+  const row = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(and(eq(courses.programType, "pals"), like(courses.title, "%seriously ill%")))
+    .limit(1);
+  return row[0]?.id ?? null;
+}
+
 export async function ensurePalsSeriouslyIllCatalog(db: any): Promise<void> {
   const existing = await db
     .select({ id: courses.id })
@@ -24,7 +34,7 @@ export async function ensurePalsSeriouslyIllCatalog(db: any): Promise<void> {
       programType: "pals",
       duration: 180,
       level: "advanced",
-      order: 2,
+      order: 3,
     });
     const row = await db
       .select({ id: courses.id })

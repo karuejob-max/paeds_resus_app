@@ -11,6 +11,10 @@ import {
 } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
+import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import {
+  ensurePaediatricSepticShockCatalog,
+} from "../lib/ensure-paediatric-septic-shock-catalog";
 
 export const learningPathRouter = router({
   // Get personalized learning path for user
@@ -42,11 +46,29 @@ export const learningPathRouter = router({
       }
 
       // Get courses for program
-      const programCourses = await (db as any)
+      let programCourses = await (db as any)
         .select()
         .from(courses)
         .where(eq(courses.programType, input.programType))
         .orderBy(courses.order);
+
+      if (input.programType === "pals") {
+        try {
+          await ensurePaediatricSepticShockCatalog(db);
+          await ensurePalsSeriouslyIllCatalog(db);
+        } catch (e) {
+          console.error("[learningPath.getPersonalizedPath] ensure PALS catalog:", e);
+        }
+        const ec = (enrollment[0] as { courseId?: number | null }).courseId;
+        if (ec != null) {
+          programCourses = programCourses.filter((c: { id: number }) => c.id === ec);
+        } else {
+          const sid = await getSeriouslyIllChildCourseId(db);
+          if (sid != null) {
+            programCourses = programCourses.filter((c: { id: number }) => c.id === sid);
+          }
+        }
+      }
 
       // Get user progress for each course
       const courseProgress = await Promise.all(
@@ -61,13 +83,14 @@ export const learningPathRouter = router({
               )
             );
 
-          const completedModules = progress.filter(
-            (p: any) => p.status === "completed"
-          ).length;
           const totalModules = await (db as any)
             .select()
             .from(modules)
             .where(eq(modules.courseId, course.id));
+          const moduleIds = new Set(totalModules.map((m: { id: number }) => m.id));
+          const completedModules = progress.filter(
+            (p: any) => p.status === "completed" && moduleIds.has(p.moduleId)
+          ).length;
 
           return {
             ...course,

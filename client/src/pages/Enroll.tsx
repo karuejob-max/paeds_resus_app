@@ -50,7 +50,7 @@ export default function Enroll() {
       price: c.price,
       duration: c.duration ?? "",
       features: ["Official certificate upon completion", "Lifetime access to materials"],
-      popular: c.id === "bls",
+      popular: c.id === "pals_septic" || c.id === "bls",
     })),
     ...fellowshipTiers.map((t, i) => ({
       id: fellowshipIds[i] as string,
@@ -120,11 +120,13 @@ export default function Enroll() {
             {courses.map((course) => (
               <div
                 id={
-                  course.id === "pals"
-                    ? "course-pals"
-                    : course.id === "instructor"
-                      ? "course-instructor"
-                      : undefined
+                  course.id === "pals_septic"
+                    ? "course-septic-shock"
+                    : course.id === "pals"
+                      ? "course-pals"
+                      : course.id === "instructor"
+                        ? "course-instructor"
+                        : undefined
                 }
                 key={course.id}
                 className={`relative transition-all cursor-pointer ${
@@ -274,11 +276,21 @@ export default function Enroll() {
                   }
                   const programType = (["bronze", "silver", "gold"].includes(selectedCourse)
                     ? "fellowship"
-                    : selectedCourse) as "bls" | "acls" | "pals" | "fellowship" | "instructor";
-                  createEnrollment.mutate({
+                    : selectedCourse === "pals_septic"
+                      ? "pals"
+                      : selectedCourse) as "bls" | "acls" | "pals" | "fellowship" | "instructor";
+                  const payload: {
+                    programType: typeof programType;
+                    trainingDate: Date;
+                    pricingSku?: "pals" | "pals_septic";
+                  } = {
                     programType,
                     trainingDate: new Date(),
-                  });
+                  };
+                  if (programType === "pals") {
+                    payload.pricingSku = selectedCourse === "pals_septic" ? "pals_septic" : "pals";
+                  }
+                  createEnrollment.mutate(payload);
                 }}
                 className="space-y-6"
               >

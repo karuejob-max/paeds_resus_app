@@ -1,6 +1,7 @@
 // import { PDFDocument, PDFPage, rgb } from "@pdfkit/core"; // Optional PDF library
 import { createHash } from "crypto";
 import { getDb } from "./db";
+import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { certificates, courses, enrollments, modules, userProgress, users } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
@@ -273,6 +274,16 @@ export async function issueCertificateForEnrollmentIfEligible(enrollmentId: numb
           issued: false,
           error:
             "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
+        };
+      }
+    }
+
+    if (enrollment.programType === "pals") {
+      const palsOk = await isPalsEnrollmentModulesComplete(db, enrollmentId, enrollment.userId);
+      if (!palsOk) {
+        return {
+          issued: false,
+          error: "Complete all modules and knowledge checks for this course to receive your certificate.",
         };
       }
     }
