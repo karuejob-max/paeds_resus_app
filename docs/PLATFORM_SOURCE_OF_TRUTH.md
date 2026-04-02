@@ -41,7 +41,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, the **Instructor Course** (train-the-trainer), and related enrollment and certification flows tied to the `enrollments` / `certificates` model. |
+| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (e.g. shock, DKA) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Elite fellowship** | Flagship advanced programme (same platform; programme type in data where applicable). |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
@@ -168,8 +168,44 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 ## 14. Changing this document
 
 - Any change to **canonical decisions** (auth, metrics definitions, priorities, brand rules) belongs **here** first.
+- Updates to **[§15](#15-business-strategy-market-context-and-revenue-focus-leadership)** (business strategy and market framing) should be **leadership-driven** and noted in [WORK_STATUS.md](./WORK_STATUS.md).
 - After substantive edits, note the change in [WORK_STATUS.md](./WORK_STATUS.md) (who, what, date, commit).
 
 ---
 
-**Last structural update:** 2026-03-31 — linked [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) for holistic mission and theory of change.
+## 15. Business strategy, market context, and revenue focus (leadership)
+
+This section records **why** product and pricing choices lean the way they do. It does **not** replace [§12](#12-priority-order-locked) engineering priorities until leadership explicitly updates that list; it **aligns** product meaning (ResusGPS, courses, institutions) with mission and market reality. Deeper narrative: [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
+
+### 15.1 Market reality (Kenya and similar LMIC contexts)
+
+- **Individual BLS/ACLS/PALS demand** is often tied to **job search** and gatekeeping for employment. Once a provider is hired, **renewal motivation** can fall unless employers or regulators require it.
+- **Hospitals** may not prioritize certifying all staff when **no accrediting or regulatory body** mandates BLS/ACLS for every role. That weakens both **direct-to-learner** course marketing and **institutional bulk certification** as the primary growth engine.
+- **Traditional long programmes** (e.g. full PALS in many hours) are **expensive** and cognitively heavy; many who pass remain **under-prepared for real emergencies** they meet on shift.
+
+These constraints are **environmental**, not a failure of clinical education—they shape what Paeds Resus optimises for.
+
+### 15.2 Core product thesis (what we double down on)
+
+- **ResusGPS** is the differentiated bedside product: **structured guidance** from first contact (triage / primary survey) through assessment, problem identification, interventions, reassessment, and **cardiac arrest**—so children receive **more standardised** care regardless of who is on shift.
+- **Training** should reinforce the **same mental model** (e.g. ABCDE) and connect emotionally to **cases providers actually see**. **Short, condition-focused modules** (e.g. shock, DKA, asthma escalation)—paired with ResusGPS—can deliver **tangible impact** faster than only selling long generic certifications.
+- **Low price points at scale** (marginal cost of delivery is low: no halls, no per-head meals) are intentional: **volume + accessibility** advance the mission; **unit economics** must still be tracked in admin and analytics.
+
+### 15.3 Offerings and revenue emphasis (near-term)
+
+| Lane | Role | Notes |
+|------|------|--------|
+| **ResusGPS + micro-courses** | **Primary scale path for individuals** | Condition-focused courses as SKUs; ResusGPS as the ongoing tool. Pricing and catalog evolve; `programType` / course metadata in data should distinguish **short modules** from legacy **BLS/ACLS/PALS** where needed. |
+| **Legacy professional courses** (BLS, ACLS, PALS, Instructor, fellowship) | **Retained** | Still first-class; not deprecated. They serve employers, careers, and pathways that require them. |
+| **Institutions** | **Systems and capability**, not only “sell PALS seats” | Near-term value: **paediatric emergency readiness**, response teams, **consultancy**, **monitoring, evaluation, and learning**—helping hospitals **improve systems**. Teaching staff may be **one** lever, not the whole proposition. |
+| **Long-range institutional signal** | **Aspirational, governed** | A credible **readiness or quality signal** (for parents, insurers, partners) requires **governance**, methodology, and honest metrics—not marketing claims. Document as future when criteria exist. |
+
+### 15.4 What this implies for builders
+
+- **Analytics:** Course and ResusGPS journeys must remain measurable ([§8](#8-admin-reports-definitions), [§9](#9-course-funnel-data-meaning)) so leadership can see **which SKUs and flows** drive impact and revenue.
+- **Clinical and ethical guardrails unchanged:** [§2](#2-why-we-exist-mission); no overstated outcome claims in product copy; evaluation where claims are made.
+- **Naming:** ResusGPS remains **one product** ([§1](#1-who-we-are)); “Paeds Resus” remains the organisation/platform.
+
+---
+
+**Last structural update:** 2026-04-01 — added [§15](#15-business-strategy-market-context-and-revenue-focus-leadership) business strategy and market context (leadership).
