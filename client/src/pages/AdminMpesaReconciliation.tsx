@@ -213,7 +213,11 @@ export default function AdminMpesaReconciliation() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Reconcile failed</AlertTitle>
-            <AlertDescription>{(reconcile.error as Error)?.message ?? "Unknown error"}</AlertDescription>
+            <AlertDescription>
+              {reconcile.error instanceof Error
+                ? reconcile.error.message
+                : String((reconcile.error as { message?: string })?.message ?? reconcile.error ?? "Unknown error")}
+            </AlertDescription>
           </Alert>
         )}
       </div>

@@ -28,6 +28,18 @@ const requireUser = t.middleware(async opts => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
+/** Parsed procedure input (tRPC v11); fallback for tests / edge cases. */
+export function summarizeAdminProcedureInput(opts: {
+  input?: unknown;
+  rawInput?: unknown;
+}): string | undefined {
+  const v = opts.input !== undefined ? opts.input : opts.rawInput;
+  if (v !== undefined && typeof v === "object" && v !== null && !Array.isArray(v)) {
+    return JSON.stringify(Object.keys(v as Record<string, unknown>).sort());
+  }
+  return undefined;
+}
+
 /** Enforces server-side admin role and logs every admin action to adminAuditLog (path + input keys). Use for all admin-only procedures. */
 export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
@@ -44,11 +56,10 @@ export const adminProcedure = t.procedure.use(
       },
     });
 
-    // Phase 3: audit log admin actions (non-blocking)
-    const inputSummary =
-      typeof opts.rawInput === "object" && opts.rawInput !== null
-        ? JSON.stringify(Object.keys(opts.rawInput as object))
-        : undefined;
+    // Phase 3: audit log admin actions (non-blocking); use parsed input (rawInput is not reliable in tRPC v11)
+    const inputSummary = summarizeAdminProcedureInput(
+      opts as { input?: unknown; rawInput?: unknown }
+    );
     db.insertAdminAuditLog({
       adminUserId: ctx.user.id,
       procedurePath: opts.path,

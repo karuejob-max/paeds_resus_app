@@ -1,8 +1,9 @@
 // import { PDFDocument, PDFPage, rgb } from "@pdfkit/core"; // Optional PDF library
 import { createHash } from "crypto";
 import { getDb } from "./db";
-import { desc, eq } from "drizzle-orm";
-import { certificates, enrollments, users } from "../drizzle/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { certificates, courses, enrollments, modules, userProgress, users } from "../drizzle/schema";
+import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 
 interface CertificateData {
   recipientName: string;
@@ -48,7 +49,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     
     has successfully completed the
     
-    ${data.programType}
+    ${data.programType === "instructor" ? "Paeds Resus Instructor" : data.programType}
     
     Training Program
     
@@ -63,6 +64,61 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   `;
 
   return Buffer.from(certificateContent);
+}
+
+/**
+ * Instructor enrollments require all catalog modules marked completed before a certificate is issued.
+ */
+export async function instructorEnrollmentModulesComplete(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  enrollmentId: number
+): Promise<boolean> {
+  const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const enrollment = enrollmentRows[0];
+  if (!enrollment || enrollment.programType !== "instructor") return true;
+
+  await ensureInstructorCourseCatalog(db);
+
+  const courseRows = await db.select({ id: courses.id }).from(courses).where(eq(courses.programType, "instructor"));
+  if (courseRows.length === 0) return false;
+
+  const courseIds = courseRows.map((c) => c.id);
+  const moduleRows = await db.select({ id: modules.id }).from(modules).where(inArray(modules.courseId, courseIds));
+  if (moduleRows.length === 0) return true;
+
+  const moduleIds = moduleRows.map((m) => m.id);
+  const progressRows = await db
+    .select({ moduleId: userProgress.moduleId })
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.enrollmentId, enrollmentId),
+        eq(userProgress.status, "completed"),
+        inArray(userProgress.moduleId, moduleIds)
+      )
+    );
+  const done = new Set(progressRows.map((p) => p.moduleId));
+  return moduleIds.every((id) => done.has(id));
+}
+
+async function assignInstructorNumberIfNeeded(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number
+): Promise<void> {
+  if (!userId) return;
+  const [u] = await db
+    .select({ instructorNumber: users.instructorNumber })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!u || u.instructorNumber) return;
+
+  const year = new Date().getFullYear();
+  const num = `INS-${year}-${String(userId).padStart(5, "0")}`;
+  await db
+    .update(users)
+    .set({ instructorNumber: num, instructorCertifiedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 /**
@@ -103,12 +159,16 @@ export async function saveCertificate(
       enrollmentId,
       userId,
       certificateNumber,
-      programType: programType as "bls" | "acls" | "pals" | "fellowship",
+      programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
       issueDate,
       expiryDate,
       certificateUrl: "", // Would be S3 URL in production
       verificationCode: verificationHash,
     });
+
+    if (programType === "instructor" && userId) {
+      await assignInstructorNumberIfNeeded(db, userId);
+    }
 
     return {
       success: true,
@@ -205,6 +265,17 @@ export async function issueCertificateForEnrollmentIfEligible(enrollmentId: numb
 
     const existing = await getCertificateByEnrollmentId(enrollmentId);
     if (existing) return { issued: true }; // Already has certificate
+
+    if (enrollment.programType === "instructor") {
+      const modulesOk = await instructorEnrollmentModulesComplete(db, enrollmentId);
+      if (!modulesOk) {
+        return {
+          issued: false,
+          error:
+            "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
+        };
+      }
+    }
 
     const userRows = await db.select({ name: users.name }).from(users).where(eq(users.id, enrollment.userId)).limit(1);
     const recipientName = userRows[0]?.name || "Participant";

@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Award, BookOpen, Download, FileText, Loader2, Users } from "lucide-react";
+import { AlertCircle, Award, BookOpen, Download, FileText, GraduationCap, Loader2, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -36,6 +37,17 @@ export default function LearnerDashboard() {
     onError: (e) => toast.error(e.message || "Could not send email."),
   });
   const myCertificates = certData?.success ? certData.certificates ?? [] : [];
+
+  const { data: myEnrollments } = trpc.enrollment.getByUserId.useQuery(undefined, {
+    enabled: isAuthenticated && selectedRole === "provider",
+  });
+  const { data: instructorStatus } = trpc.instructor.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated && selectedRole === "provider",
+  });
+  const instructorEnrollment = useMemo(() => {
+    const rows = myEnrollments ?? [];
+    return rows.filter((e) => e.programType === "instructor").sort((a, b) => b.id - a.id)[0];
+  }, [myEnrollments]);
 
   const { data: myInstitution } = trpc.institution.getMyInstitution.useQuery(undefined, {
     enabled: isAuthenticated && selectedRole === "institution",
@@ -246,6 +258,47 @@ export default function LearnerDashboard() {
                 <Button className="w-full" onClick={() => navigate("/course/seriously-ill-child")}>
                   Continue: Seriously ill child (PALS)
                 </Button>
+
+                <div className="pt-3 mt-3 border-t border-border space-y-2">
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 shrink-0 text-primary" />
+                    Instructor pathway
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Complete the Instructor Course for your instructor number; after platform approval you can be
+                    assigned to hospital teaching sessions.
+                  </p>
+                  {instructorStatus?.certified && instructorStatus.instructorNumber ? (
+                    <p className="text-xs text-muted-foreground">
+                      Your instructor number:{" "}
+                      <span className="font-mono font-semibold text-foreground">{instructorStatus.instructorNumber}</span>
+                      {!instructorStatus.approved && (
+                        <span className="block mt-1">Awaiting platform approval for B2B assignments.</span>
+                      )}
+                    </p>
+                  ) : null}
+                  {instructorEnrollment ? (
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      onClick={() =>
+                        navigate(`/course/instructor?enrollmentId=${instructorEnrollment.id}`)
+                      }
+                    >
+                      Continue: Instructor Course
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate("/enroll#course-instructor")}
+                  >
+                    Enroll: Instructor Course
+                  </Button>
+                  <Button variant="cta" className="w-full" onClick={() => navigate("/instructor-portal")}>
+                    Instructor portal
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

@@ -31,7 +31,7 @@ export async function getDb() {
     try {
       const config = getConnectionConfig(process.env.DATABASE_URL);
       const pool = mysql.createPool(config);
-      _db = drizzle(pool);
+      _db = drizzle(pool) as unknown as NonNullable<typeof _db>;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

@@ -13,8 +13,10 @@ import {
   courses,
   incidents,
   institutionalAnalytics,
+  users,
 } from "../../drizzle/schema";
-import { eq, desc, and, inArray, count, asc } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
+import { eq, desc, and, inArray, count, asc, isNotNull } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
@@ -23,8 +25,41 @@ import {
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
 import { trackEvent } from "../services/analytics.service";
+import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+async function assertApprovedInstructorUser(db: DbClient, userId: number) {
+  const [row] = await db
+    .select({
+      id: users.id,
+      instructorApprovedAt: users.instructorApprovedAt,
+      instructorCertifiedAt: users.instructorCertifiedAt,
+      instructorNumber: users.instructorNumber,
+      name: users.name,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+  }
+  if (!row.instructorCertifiedAt || !row.instructorNumber) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "That account has not completed the Paeds Resus Instructor Course and certification yet. They must enroll, complete modules, and receive their instructor number before assignment.",
+    });
+  }
+  if (!row.instructorApprovedAt) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "That account is not approved as an instructor. Ask a platform admin to approve them under Admin → Reports.",
+    });
+  }
+  return row;
+}
 
 async function assertTrainingScheduleForInstitution(
   db: DbClient,
@@ -584,6 +619,7 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const instructorUser = alias(users, "instructorUser");
       return await db
         .select({
           id: trainingSchedules.id,
@@ -596,6 +632,7 @@ export const institutionRouter = router({
           location: trainingSchedules.location,
           instructorId: trainingSchedules.instructorId,
           instructorName: trainingSchedules.instructorName,
+          instructorUserName: instructorUser.name,
           maxCapacity: trainingSchedules.maxCapacity,
           enrolledCount: trainingSchedules.enrolledCount,
           status: trainingSchedules.status,
@@ -605,8 +642,39 @@ export const institutionRouter = router({
         })
         .from(trainingSchedules)
         .leftJoin(courses, eq(trainingSchedules.courseId, courses.id))
+        .leftJoin(instructorUser, eq(trainingSchedules.instructorId, instructorUser.id))
         .where(eq(trainingSchedules.institutionalAccountId, input.institutionId))
         .orderBy(desc(trainingSchedules.scheduledDate));
+    }),
+
+  /** Approved platform instructors (admin-assigned) for session assignment. */
+  listAssignableInstructors: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          instructorNumber: users.instructorNumber,
+        })
+        .from(users)
+        .where(
+          and(
+            isNotNull(users.instructorApprovedAt),
+            isNotNull(users.instructorCertifiedAt),
+            isNotNull(users.instructorNumber)
+          )
+        )
+        .orderBy(asc(users.name));
     }),
 
   /**
@@ -623,6 +691,8 @@ export const institutionRouter = router({
         endTime: z.string().max(10).optional(),
         location: z.string().max(255).optional(),
         instructorName: z.string().max(255).optional(),
+        /** Must be admin-approved (`users.instructorApprovedAt`); sets `instructorId` + display name. */
+        instructorUserId: z.number().int().positive().optional(),
         maxCapacity: z.number().int().min(1).max(2000),
       })
     )
@@ -655,6 +725,14 @@ export const institutionRouter = router({
 
       const courseId = courseRows[0].id;
 
+      let instructorId: number | undefined;
+      let instructorNameVal = input.instructorName?.trim() || undefined;
+      if (input.instructorUserId != null) {
+        const u = await assertApprovedInstructorUser(db, input.instructorUserId);
+        instructorId = u.id;
+        if (!instructorNameVal && u.name) instructorNameVal = u.name.trim();
+      }
+
       await db.insert(trainingSchedules).values({
         institutionalAccountId: input.institutionId,
         courseId,
@@ -663,7 +741,8 @@ export const institutionRouter = router({
         startTime: input.startTime?.trim() || undefined,
         endTime: input.endTime?.trim() || undefined,
         location: input.location?.trim() || undefined,
-        instructorName: input.instructorName?.trim() || undefined,
+        instructorId,
+        instructorName: instructorNameVal,
         maxCapacity: input.maxCapacity,
         enrolledCount: 0,
         status: "scheduled",
@@ -690,6 +769,9 @@ export const institutionRouter = router({
           },
           sessionId: `inst_schedule_${scheduleId}`,
         });
+        if (instructorId != null) {
+          void notifyInstructorSessionAssigned(db, scheduleId);
+        }
       }
 
       return { success: true as const, scheduleId };
@@ -710,6 +792,7 @@ export const institutionRouter = router({
         endTime: z.union([z.string().max(10), z.null()]).optional(),
         location: z.union([z.string().max(255), z.null()]).optional(),
         instructorName: z.union([z.string().max(255), z.null()]).optional(),
+        instructorUserId: z.union([z.number().int().positive(), z.null()]).optional(),
         maxCapacity: z.number().int().min(1).max(2000).optional(),
         status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional(),
       })
@@ -763,6 +846,12 @@ export const institutionRouter = router({
         }
       }
 
+      const prevInstructorId = current.instructorId ?? null;
+      let nextInstructorId = prevInstructorId;
+      if (input.instructorUserId !== undefined) {
+        nextInstructorId = input.instructorUserId === null ? null : input.instructorUserId;
+      }
+
       const setPayload: {
         courseId: number;
         updatedAt: Date;
@@ -771,6 +860,7 @@ export const institutionRouter = router({
         startTime?: string | null;
         endTime?: string | null;
         location?: string | null;
+        instructorId?: number | null;
         instructorName?: string | null;
         maxCapacity?: number;
         status?: (typeof trainingSchedules.$inferSelect)["status"];
@@ -789,6 +879,17 @@ export const institutionRouter = router({
         setPayload.location =
           input.location === null ? null : input.location.trim() === "" ? null : input.location.trim();
       }
+      if (input.instructorUserId !== undefined) {
+        if (input.instructorUserId === null) {
+          setPayload.instructorId = null;
+        } else {
+          const u = await assertApprovedInstructorUser(db, input.instructorUserId);
+          setPayload.instructorId = u.id;
+          if (input.instructorName === undefined) {
+            setPayload.instructorName = u.name?.trim() || null;
+          }
+        }
+      }
       if (input.instructorName !== undefined) {
         setPayload.instructorName =
           input.instructorName === null
@@ -801,6 +902,10 @@ export const institutionRouter = router({
       if (input.status !== undefined) setPayload.status = input.status;
 
       await db.update(trainingSchedules).set(setPayload).where(eq(trainingSchedules.id, input.trainingScheduleId));
+
+      if (nextInstructorId != null && nextInstructorId !== prevInstructorId) {
+        void notifyInstructorSessionAssigned(db, input.trainingScheduleId);
+      }
 
       return { success: true as const };
     }),

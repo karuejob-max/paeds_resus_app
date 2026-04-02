@@ -19,10 +19,10 @@ export default function SafeTruth() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <Shield className="w-8 h-8" />
-            <h1 className="text-4xl font-bold">Safe-Truth Platform</h1>
+            <h1 className="text-4xl font-bold">Safe-Truth for providers</h1>
           </div>
           <p className="text-lg text-blue-100 max-w-2xl mb-6">
-            A confidential space for healthcare providers to report pediatric emergency events, identify system gaps, and drive continuous improvement in care quality.
+            A confidential space for healthcare providers to report paediatric emergency events, identify system gaps, and drive improvement. Parent and guardian stories live under Parent Safe-Truth, not here.
           </p>
           <div className="flex flex-wrap gap-3">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">

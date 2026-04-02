@@ -25,7 +25,7 @@
 ## 3. Admin audit logging
 
 - **Requirement:** Every admin action (every call to an `adminProcedure`) is logged.
-- **Logged:** Admin user id, procedure path (e.g. `adminStats.getReport`), optional sanitized input, timestamp. No passwords or tokens.
+- **Logged:** Admin user id, procedure path (e.g. `adminStats.getReport`), optional sanitized input (**top-level JSON keys only**, from parsed procedure `input` — see `summarizeAdminProcedureInput` in `server/_core/trpc.ts`), timestamp. No passwords or tokens.
 - **Storage:** `adminAuditLog` table (or equivalent). Retention and export to be defined later (e.g. 90 days, compliance).
 
 ---

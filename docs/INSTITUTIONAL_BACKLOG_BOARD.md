@@ -2,7 +2,7 @@
 
 > **Purpose:** Scrum-style board for **institutional (B2B / hospital)** work only.  
 > **How to use:** Before starting, check **In Progress** (avoid duplicate work). Move cards **To Do → In Progress → Done**. Always set **Owner** when In Progress, and **Done by + Date** when complete.  
-> **Last updated:** 2026-02-25 (INST-13/14 complete — institutional backlog clear)  
+> **Last updated:** 2026-04-01 (INST-15 instructor assignment)  
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
@@ -83,6 +83,7 @@
 | INST-12 | Training schedules: list API + hospital admin **Schedule** tab | P2 | Cursor | 2026-02-25 | `getTrainingSchedules` |
 | INST-13 | Incidents: `getIncidents` + `createIncident` + **Incidents** tab | P2 | Cursor | 2026-02-25 | Tenant-scoped; JSON fields for staff/protocols/gaps |
 | INST-14 | `institutionalAnalytics` rollup + nightly cron + Overview card + refresh | P3 | Cursor | 2026-02-25 | `institutional-analytics-rollup.ts`, `03:20` cron, `ENABLE_SCHEDULER` / production |
+| INST-15 | Admin-approved instructors + `instructorUserId` on training sessions | P1 | Cursor | 2026-04-01 | `users.instructorApprovedAt`, Admin Reports, Hospital Admin Schedule |
 
 ---
 

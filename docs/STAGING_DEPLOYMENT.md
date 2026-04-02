@@ -145,6 +145,18 @@ DATABASE_URL=[staging-connection-string] pnpm db:push
 
 ---
 
+## Weekly discipline (operator checklist)
+
+Use this so **develop → staging → main** stays predictable (CEO priority #2: staging before production).
+
+1. **Sync branches:** `git fetch`; ensure `develop` contains merged feature work intended for QA; no long-lived drift from `main` without intent.
+2. **Staging deploy:** After merge to `develop`, confirm Render (or CI) deployed staging; open staging URL and smoke-test login.
+3. **Measurement (Sprint 1):** On staging DB, run `pnpm run verify:analytics` with staging `DATABASE_URL` (optional `VERIFY_LAST_DAYS=7`). Confirm event types appear after test journeys.
+4. **Admin Reports:** Log in as admin on staging → Reports → confirm **App & Paeds Resus activity** and **ResusGPS** counts match expectations for the rolling window.
+5. **Promote:** Only when staging passes, open PR **develop → main**, merge, deploy production, repeat post-deploy validation (see above).
+
+---
+
 ## PR Verification Workflow
 
 ### Before Merging develop → main

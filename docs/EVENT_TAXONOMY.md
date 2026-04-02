@@ -18,8 +18,10 @@
 
 | Report slice | What it counts |
 |--------------|----------------|
-| **`analyticsLastDays`** (`adminStats.getReport`) | **All** `analyticsEvents` in the rolling window, grouped by `eventType` (fallback to `eventName`). **This is the main “product activity” breadth metric.** |
+| **`analyticsLastDays`** (`adminStats.getReport`) | **All** `analyticsEvents` in the rolling window (**rolling N×24h from “now”**, not calendar midnight — `rollingHoursAgo` in `server/lib/report-time-windows.ts`), grouped by `eventType` (fallback to `eventName`). **This is the main “product activity” breadth metric.** |
 | **`resusGpsAnalyticsLastDays`** | Only rows where `eventType` (or name) **starts with `resus_`**. ResusGPS-specific slice — **not** the whole platform. |
+
+**Verification:** `pnpm run verify:analytics` (requires `DATABASE_URL`) prints counts by `eventType` for the same rolling window.
 
 **Sprint 1 implication:** “Mission + revenue journeys” must show up under **`analyticsLastDays`** (and/or dedicated DB-backed KPIs already on the report). Fixing “mystery zeros” may mean **emitting** events, not only fixing ResusGPS.
 
@@ -51,4 +53,5 @@
 | Date | Change |
 |------|--------|
 | 2026-04-01 | Sprint 1 freeze: server `course_enrollment`, `payment_initiation`, `payment_completion` (webhook + reconcile), `safetruth_submission`, `institution_training_schedule_created`; see `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`. |
+| 2026-04-01 | Admin report window: `analyticsLastDays` uses **rolling N×24h** via `rollingHoursAgo` (not calendar midnight); `pnpm run verify:analytics`. |
 | 2026-04-01 | Initial taxonomy scaffold for Sprint 1 Measurement Truth MVP. |

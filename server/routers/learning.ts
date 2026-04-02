@@ -12,6 +12,8 @@ import {
   enrollments,
 } from "../../drizzle/schema";
 import { ensurePalsSeriouslyIllCatalog } from "../lib/ensure-pals-seriously-ill-catalog";
+import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
+import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 export const learningRouter = router({
   // Get all courses
@@ -26,7 +28,7 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) return [];
       if (input.programType) {
-        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship";
+        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship" | "instructor";
         let rows = await (db as any)
           .select()
           .from(courses)
@@ -42,6 +44,18 @@ export const learningRouter = router({
               .orderBy(courses.order);
           } catch (e) {
             console.error("[learning.getCourses] ensure PALS catalog failed:", e);
+          }
+        }
+        if (pt === "instructor" && rows.length === 0) {
+          try {
+            await ensureInstructorCourseCatalog(db);
+            rows = await (db as any)
+              .select()
+              .from(courses)
+              .where(eq(courses.programType, pt))
+              .orderBy(courses.order);
+          } catch (e) {
+            console.error("[learning.getCourses] ensure Instructor catalog failed:", e);
           }
         }
         return rows;
@@ -195,6 +209,7 @@ export const learningRouter = router({
         .where(
           and(
             eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
             eq(userProgress.moduleId, input.moduleId),
             eq(userProgress.quizId, input.quizId)
           )
@@ -244,7 +259,7 @@ export const learningRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
 
-      // Update all quiz progress for this module to completed
+      // Update all quiz progress for this module to completed (scoped to enrollment)
       await (db as any)
         .update(userProgress)
         .set({
@@ -255,9 +270,12 @@ export const learningRouter = router({
         .where(
           and(
             eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
             eq(userProgress.moduleId, input.moduleId)
           )
         );
+
+      await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
 
       return { success: true };
     }),
@@ -352,7 +370,7 @@ export const learningRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
       })
     )
     .query(async ({ ctx, input }) => {

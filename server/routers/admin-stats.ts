@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
@@ -11,6 +12,7 @@ import {
   clinicalReferrals,
   adminAuditLog,
 } from "../../drizzle/schema";
+import { rollingHoursAgo } from "../lib/report-time-windows";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -19,13 +21,6 @@ function startOfMonthEAT(year: number, month: number): Date {
 
 function endOfMonthEAT(year: number, month: number): Date {
   return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
-}
-
-function daysAgo(days: number) {
-  const x = new Date();
-  x.setDate(x.getDate() - days);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
 }
 
 export const adminStatsRouter = router({
@@ -70,7 +65,7 @@ export const adminStatsRouter = router({
       const periodStart = startOfMonthEAT(year, month);
       const periodEnd = endOfMonthEAT(year, month);
       const lastDays = input?.lastDays ?? 7;
-      const analyticsSince = daysAgo(lastDays);
+      const analyticsSince = rollingHoursAgo(lastDays);
 
       // Users by type
       const allUsers = await db.select({ userType: users.userType }).from(users);
@@ -167,7 +162,7 @@ export const adminStatsRouter = router({
         .from(analyticsEvents)
         .where(
           and(
-            gte(analyticsEvents.createdAt, daysAgo(lastDays)),
+            gte(analyticsEvents.createdAt, rollingHoursAgo(lastDays)),
             analyticsEvents.userId
           )
         );
@@ -201,7 +196,7 @@ export const adminStatsRouter = router({
       return {
         ok: true,
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
-        lastDaysLabel: `Last ${lastDays} days`,
+        lastDaysLabel: `Rolling last ${lastDays} days (×24h from now)`,
         usersByType,
         totalUsers: allUsers.length,
         enrollmentsThisMonth,
@@ -287,31 +282,76 @@ export const adminStatsRouter = router({
       const parts: SQL[] = [];
       if (input?.userType) parts.push(eq(users.userType, input.userType));
       if (searchPattern) {
-        parts.push(or(like(users.email, searchPattern), like(users.name, searchPattern)));
+        const searchOr = or(like(users.email, searchPattern), like(users.name, searchPattern));
+        if (searchOr) parts.push(searchOr);
       }
       const whereCombined =
         parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
 
-      let listQuery = db
+      const listBase = db
         .select({
           id: users.id,
           name: users.name,
           email: users.email,
           userType: users.userType,
           createdAt: users.createdAt,
+          instructorApprovedAt: users.instructorApprovedAt,
+          instructorCertifiedAt: users.instructorCertifiedAt,
+          instructorNumber: users.instructorNumber,
         })
-        .from(users)
+        .from(users);
+      const result = await (whereCombined ? listBase.where(whereCombined) : listBase)
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset(offset);
-      if (whereCombined) listQuery = listQuery.where(whereCombined);
-      const result = await listQuery;
 
-      let countQuery = db.select({ count: sql<number>`count(*)` }).from(users);
-      if (whereCombined) countQuery = countQuery.where(whereCombined);
-      const countResult = await countQuery;
+      const countBase = db.select({ count: sql<number>`count(*)` }).from(users);
+      const countResult = await (whereCombined ? countBase.where(whereCombined) : countBase);
       const total = Number(countResult[0]?.count ?? 0);
 
       return { users: result, total };
+    }),
+
+  /**
+   * Approve or revoke a user as an assignable B2B session instructor (Hospital Admin schedule picker).
+   */
+  setInstructorApproval: adminProcedure
+    .input(
+      z.object({
+        userId: z.number().int().positive(),
+        approved: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      if (input.approved) {
+        const [u] = await db
+          .select({
+            instructorCertifiedAt: users.instructorCertifiedAt,
+            instructorNumber: users.instructorNumber,
+          })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+        if (!u?.instructorCertifiedAt || !u.instructorNumber) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Approve only after the user has completed the Instructor Course and received an instructor number (certified).",
+          });
+        }
+      }
+
+      await db
+        .update(users)
+        .set({
+          instructorApprovedAt: input.approved ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, input.userId));
+      return { success: true as const };
     }),
 });

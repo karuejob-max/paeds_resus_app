@@ -10,6 +10,7 @@ import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendEmail } from "./email-service";
 import { enrollmentRouter } from "./routers/enrollment";
+import { instructorRouter } from "./routers/instructor";
 import { certificateRouter } from "./routers/certificates";
 import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
@@ -210,6 +211,7 @@ export const appRouter = router({
       }),
   }),
   enrollment: enrollmentRouter,
+  instructor: instructorRouter,
   certificates: certificateRouter,
   sms: smsRouter,
   aiLearning: aiLearningRouter,

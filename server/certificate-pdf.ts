@@ -9,7 +9,7 @@ import * as path from "path";
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
   trainingDate: Date;
   instructorName: string;
   certificateNumber: string;
@@ -54,6 +54,13 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     color: { r: 168, g: 85, b: 247 }, // Purple
     hours: 120,
   },
+  instructor: {
+    title: "Paeds Resus Instructor Course",
+    subtitle: "Instructor Certification",
+    description: "Successfully completed the Paeds Resus Instructor Course",
+    color: { r: 26, g: 77, b: 77 },
+    hours: 6,
+  },
 };
 
 /**
@@ -66,7 +73,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     const page = pdfDoc.addPage([612, 792]); // Letter size (8.5" x 11")
 
     const { width, height } = page.getSize();
-    const template = CERTIFICATE_TEMPLATES[data.programType];
+    const template = CERTIFICATE_TEMPLATES[data.programType] ?? CERTIFICATE_TEMPLATES.bls;
 
     // Draw background color bar
     page.drawRectangle({

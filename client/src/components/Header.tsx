@@ -7,7 +7,10 @@ import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Brief
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-function mapUserTypeToHeaderRole(ut: string | undefined): "provider" | "parent" | "institution" | null {
+/** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
+const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
+
+function mapUserTypeToHeaderRole(ut: string | null | undefined): "provider" | "parent" | "institution" | null {
   if (!ut) return null;
   const m: Record<string, "provider" | "parent" | "institution"> = {
     individual: "provider",
@@ -65,7 +68,9 @@ export default function Header() {
     const r = effectiveRole;
     if (r === "provider") {
       return [
+        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
+        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
@@ -76,6 +81,7 @@ export default function Header() {
     }
     if (r === "institution") {
       return [
+        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
         { label: "Staff", href: "/institutional-portal", icon: "👥" },
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
@@ -83,6 +89,7 @@ export default function Header() {
     }
     if (r === "parent") {
       return [
+        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
         { label: "Courses", href: "/learner-dashboard", icon: "📚" },
         { label: "Resources", href: "/parent-safe-truth", icon: "📖" },
@@ -219,6 +226,11 @@ export default function Header() {
               className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2"
               aria-label="Explore by audience"
             >
+              <Link href="/resus">
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
+                  ResusGPS
+                </span>
+              </Link>
               <Link href="/start">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   Start
@@ -287,6 +299,14 @@ export default function Header() {
                             onClick={() => setAccountDropdownOpen(false)}
                           >
                             Dashboard
+                          </div>
+                        </Link>
+                        <Link href="/resus">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            ResusGPS
                           </div>
                         </Link>
                         <Link href="/provider-profile">
@@ -363,6 +383,9 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
+                <Link href="/resus" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-foreground font-medium">ResusGPS</span>
+                </Link>
                 <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground font-medium">Start</span>
                 </Link>

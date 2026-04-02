@@ -25,6 +25,11 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  /** Set by platform admin; user may be assigned as `trainingSchedules.instructorId` for B2B sessions. */
+  instructorApprovedAt: timestamp("instructorApprovedAt"),
+  /** Unique Paeds Resus instructor ID after completing the Instructor Course (certificate issued). */
+  instructorNumber: varchar("instructorNumber", { length: 32 }).unique(),
+  instructorCertifiedAt: timestamp("instructorCertifiedAt"),
 });
 
 export type User = typeof users.$inferSelect;
@@ -46,7 +51,7 @@ export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
 export const enrollments = mysqlTable("enrollments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),
   amountPaid: int("amountPaid").default(0), // in cents (KES)
@@ -88,7 +93,7 @@ export const certificates = mysqlTable("certificates", {
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
   certificateNumber: varchar("certificateNumber", { length: 255 }).unique(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
   issueDate: timestamp("issueDate").notNull(),
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
@@ -677,7 +682,7 @@ export const courses = mysqlTable("courses", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
   duration: int("duration"), // in minutes
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default("beginner"),
   order: int("order").default(0),

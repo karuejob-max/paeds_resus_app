@@ -119,7 +119,13 @@ export default function Enroll() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {courses.map((course) => (
               <div
-                id={course.id === "pals" ? "course-pals" : undefined}
+                id={
+                  course.id === "pals"
+                    ? "course-pals"
+                    : course.id === "instructor"
+                      ? "course-instructor"
+                      : undefined
+                }
                 key={course.id}
                 className={`relative transition-all cursor-pointer ${
                   selectedCourse === course.id
@@ -266,7 +272,9 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
-                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse) ? "fellowship" : selectedCourse) as "bls" | "acls" | "pals" | "fellowship";
+                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse)
+                    ? "fellowship"
+                    : selectedCourse) as "bls" | "acls" | "pals" | "fellowship" | "instructor";
                   createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),

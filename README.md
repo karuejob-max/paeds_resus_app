@@ -22,6 +22,10 @@ Long-range or aspirational multi-year material (not near-term commitments) lives
 
 **E2E test course (PALS, KES 100):** [`docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md`](docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md) — enroll, M-Pesa, modules, certificate; run `pnpm run seed:pals-course` once against your DB.
 
+**Admin analytics spot-check:** with `DATABASE_URL` set, run `pnpm run verify:analytics` (optional `VERIFY_LAST_DAYS=7`) — counts `analyticsEvents` by `eventType` for the same rolling window as Admin → Reports (see [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md)).
+
+**B2B instructor + Instructor Course:** production DB needs `pnpm run db:apply-0027` once (`users.instructorApprovedAt`) and `pnpm run db:apply-0028` once (`programType` includes `instructor`; `users.instructorNumber`, `users.instructorCertifiedAt`; see `.env.example`).
+
 ### Product and backlog docs
 
 - **Public entry chooser:** `/start` (role paths: ResusGPS, sign-in, parents, institutions, help)

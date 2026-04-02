@@ -27,10 +27,10 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 
 ## Verification (Days 8–9)
 
+- [x] **Rolling window:** `adminStats.getReport` uses **rolling N×24h from now** for `analyticsEvents` (see `server/lib/report-time-windows.ts`) — matches PLATFORM_SOURCE_OF_TRUTH §8.
 - [ ] Trigger each instrumented journey on **local or staging** (production only if policy allows)
-- [ ] Confirm new rows appear in **`analyticsEvents`**
-- [ ] Open **Admin → Reports**: `analyticsLastDays` counts move; spot-check **no duplicate eventType chaos**
-- [ ] Confirm **`resusGpsAnalyticsLastDays`** still only counts `resus_*` (expected); mission/revenue events appear under **broader** product activity, not necessarily ResusGPS-only card
+- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set — confirms rows in **`analyticsEvents`** grouped by `eventType` for the same window as Admin Reports
+- [ ] Open **Admin → Reports**: total events and top types match CLI spot-check; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
 - [ ] Naming review: fix fragmented `eventType` / `eventName` pairs if they break grouping
 
 ---
@@ -59,6 +59,6 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 
 ## Explicitly out of scope (this sprint)
 
-- Staging environment → **Sprint 2** (CEO priority #2)
+- Staging environment **automation** (separate Render services remain manual); **discipline** documented in [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md) § Weekly discipline
 - ResusGPS v4 → after measurement baseline (**CEO priority #4**)
 - Institutional dashboard v1 / triage workflow UI / consultancy features → **later**

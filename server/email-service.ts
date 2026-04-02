@@ -437,6 +437,44 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     text: `Hello {{userName}},\n\nYour certificates need renewal attention:\n{{programSummary}}\n\nRenew here: {{renewLink}}\n\nPaeds Resus Limited`,
     variables: ["userName", "programSummary", "renewLink"],
   },
+
+  instructorSessionAssigned: {
+    id: "instructor-session-assigned",
+    name: "Instructor assigned to institutional session",
+    subject: "You are assigned to teach — {{institutionName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Teaching assignment</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{instructorName}},</p>
+          <p>You have been assigned as instructor for a session at <strong>{{institutionName}}</strong>.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background: white; border-radius: 6px;">
+            <tr><td style="padding: 8px 12px; border-bottom: 1px solid #eee;"><strong>Course</strong></td><td style="padding: 8px 12px;">{{courseTitle}} ({{programType}})</td></tr>
+            <tr><td style="padding: 8px 12px; border-bottom: 1px solid #eee;"><strong>When</strong></td><td style="padding: 8px 12px;">{{scheduledSummary}}</td></tr>
+            <tr><td style="padding: 8px 12px; border-bottom: 1px solid #eee;"><strong>Location</strong></td><td style="padding: 8px 12px;">{{locationLine}}</td></tr>
+          </table>
+          <p style="font-size: 14px; color: #333;"><strong>Hospital contact</strong><br/>{{contactLine}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{portalUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Open instructor portal</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{instructorName}},\n\nYou are assigned to teach at {{institutionName}}.\n\nCourse: {{courseTitle}} ({{programType}})\nWhen: {{scheduledSummary}}\nLocation: {{locationLine}}\n\nContact: {{contactLine}}\n\nPortal: {{portalUrl}}\n\nPaeds Resus Limited`,
+    variables: [
+      "instructorName",
+      "institutionName",
+      "courseTitle",
+      "programType",
+      "scheduledSummary",
+      "locationLine",
+      "contactLine",
+      "portalUrl",
+    ],
+  },
 };
 
 /**
