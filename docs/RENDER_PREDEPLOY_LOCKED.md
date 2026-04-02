@@ -1,5 +1,21 @@
 # Pre-Deploy Command is locked on Render
 
+## enrollments.courseId (migration 0029)
+
+If production shows **`Unknown column 'courseId' in 'field list'`** on **`enrollments`** (often when completing enrollment on `/enroll`), the database is behind the app: PALS micro-courses need a nullable `courseId` on `enrollments`.
+
+**Fix (one-time):** From any machine that can reach the DB with the same `DATABASE_URL` as production:
+
+```bash
+DATABASE_URL="mysql://..." pnpm run db:apply-0029
+```
+
+Or run **`pnpm run db:apply-0029`** in a **Render Shell** (if enabled) with env already set. The script is idempotent.
+
+Equivalent raw SQL: `ALTER TABLE enrollments ADD COLUMN courseId int NULL` (see `scripts/apply-0029-enrollments-course-id.mjs`).
+
+---
+
 ## certificates.renewalReminderSentAt (migration 0026)
 
 If production logs show **`Unknown column 'renewalReminderSentAt' in 'field list'`** on `certificates`, the Aiven/MySQL schema is behind the app (HI-CERT-1 renewal dedupe column).

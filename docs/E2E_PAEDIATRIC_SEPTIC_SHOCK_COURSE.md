@@ -6,7 +6,7 @@
 
 ### Migration: enrollment course binding
 
-PALS micro-courses use `enrollments.courseId` so payment unlocks **one** catalog course. Apply once per environment:
+PALS micro-courses use `enrollments.courseId` so payment unlocks **one** catalog course. Apply once per environment (**including production** — without it, enrollment on `/enroll` fails with an insert error mentioning `courseId`):
 
 ```bash
 pnpm run db:apply-0029

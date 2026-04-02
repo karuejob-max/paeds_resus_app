@@ -58,15 +58,29 @@ export const enrollmentRouter = router({
         }
       }
 
-      const result = await createEnrollment({
-        userId: ctx.user.id,
-        programType: input.programType,
-        trainingDate: input.trainingDate,
-        paymentStatus: "pending",
-        courseId: input.programType === "pals" ? courseId : null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      let result: { id: number } | null;
+      try {
+        result = await createEnrollment({
+          userId: ctx.user.id,
+          programType: input.programType,
+          trainingDate: input.trainingDate,
+          paymentStatus: "pending",
+          courseId: input.programType === "pals" ? courseId : null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/courseId|Unknown column/i.test(msg)) {
+          console.error("[enrollment.create] schema missing enrollments.courseId — run db:apply-0029", e);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "Enrollment is temporarily unavailable (database update required). If you run the platform: apply migration enrollments.courseId (pnpm run db:apply-0029). Otherwise contact support.",
+          });
+        }
+        throw e;
+      }
 
       const enrollmentId = result?.id ?? 0;
       if (!enrollmentId) throw new Error("Failed to create enrollment");
