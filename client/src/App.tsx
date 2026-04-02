@@ -43,6 +43,7 @@ import Reassessment from "./pages/Reassessment";
 import CirculationAssessment from "./pages/CirculationAssessment";
 import CourseBLS from "./pages/CourseBLS";
 import CourseSeriouslyIllChild from "./pages/CourseSeriouslyIllChild";
+import CoursePaediatricSepticShock from "./pages/CoursePaediatricSepticShock";
 import CourseInstructor from "./pages/CourseInstructor";
 import InstructorPortal from "./pages/InstructorPortal";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
@@ -140,6 +141,7 @@ function Router() {
           <Route path="/circulation-assessment" component={CirculationAssessment} />
           <Route path="/course/bls" component={CourseBLS} />
           <Route path="/course/seriously-ill-child" component={CourseSeriouslyIllChild} />
+          <Route path="/course/paediatric-septic-shock" component={CoursePaediatricSepticShock} />
           <Route path="/course/instructor" component={CourseInstructor} />
           <Route path="/instructor-portal" component={InstructorPortal} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />

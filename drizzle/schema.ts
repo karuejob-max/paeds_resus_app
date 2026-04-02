@@ -51,6 +51,8 @@ export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
 export const enrollments = mysqlTable("enrollments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /** When set, PALS learning path is limited to this catalog course (micro-course SKU). */
+  courseId: int("courseId"),
   programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),

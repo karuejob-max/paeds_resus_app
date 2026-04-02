@@ -21,15 +21,27 @@ export default function CourseSeriouslyIllChild() {
   const parsed = enrollmentIdParam ? parseInt(enrollmentIdParam, 10) : NaN;
   const enrollmentIdFromUrl = Number.isFinite(parsed) ? parsed : undefined;
 
-  const { data: rows } = trpc.enrollment.getByUserId.useQuery(undefined, {
+  const { data: rows, isLoading: enrollmentsLoading } = trpc.enrollment.getByUserId.useQuery(undefined, {
     enabled: isAuthenticated,
   });
 
+  const { data: palsCatalog, isLoading: catalogLoading } = trpc.learning.getCourses.useQuery({ programType: "pals" });
+  const seriouslyIllCourseId = useMemo(() => {
+    return palsCatalog?.find((c: { title?: string }) => /seriously ill/i.test(c.title ?? ""))?.id as
+      | number
+      | undefined;
+  }, [palsCatalog]);
+
   const palsEnrollmentId = useMemo(() => {
     if (enrollmentIdFromUrl !== undefined) return enrollmentIdFromUrl;
-    const pals = rows?.filter((e) => e.programType === "pals").sort((a, b) => b.id - a.id)[0];
-    return pals?.id;
-  }, [rows, enrollmentIdFromUrl]);
+    if (!rows || seriouslyIllCourseId == null) return undefined;
+    const pals = rows.filter((e) => e.programType === "pals").sort((a, b) => b.id - a.id);
+    const match =
+      pals.find((e) => e.courseId === seriouslyIllCourseId) ?? pals.find((e) => e.courseId == null);
+    return match?.id;
+  }, [rows, enrollmentIdFromUrl, seriouslyIllCourseId]);
+
+  const dataPending = enrollmentsLoading || catalogLoading;
 
   if (!isAuthenticated) {
     return (
@@ -45,6 +57,14 @@ export default function CourseSeriouslyIllChild() {
             </a>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (dataPending) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <p className="text-slate-600 text-sm">Loading your course…</p>
       </div>
     );
   }
@@ -95,7 +115,11 @@ export default function CourseSeriouslyIllChild() {
           Enrollment #{palsEnrollmentId} · After payment, your certificate appears on the learner dashboard.
         </p>
       </div>
-      <LearningPath enrollmentId={palsEnrollmentId} programType="pals" />
+      <LearningPath
+        enrollmentId={palsEnrollmentId}
+        programType="pals"
+        courseId={seriouslyIllCourseId ?? null}
+      />
     </div>
   );
 }

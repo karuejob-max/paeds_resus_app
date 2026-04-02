@@ -17,11 +17,14 @@ import { Progress } from "@/components/ui/progress";
 interface LearningPathProps {
   enrollmentId: number;
   programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
+  /** When set (PALS micro-course), only this catalog course is shown. */
+  courseId?: number | null;
 }
 
 export const LearningPath: React.FC<LearningPathProps> = ({
   enrollmentId,
   programType,
+  courseId: scopeCourseId,
 }) => {
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
@@ -33,6 +36,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   // Queries
   const coursesQuery = trpc.learning.getCourses.useQuery({
     programType,
+    courseId: scopeCourseId ?? undefined,
   });
 
   const courseDetailsQuery = trpc.learning.getCourseDetails.useQuery(
@@ -123,10 +127,11 @@ export const LearningPath: React.FC<LearningPathProps> = ({
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen size={32} className="text-blue-600" />
-            Personalized Learning Path
+            Your learning path
           </h1>
           <p className="text-gray-600 mt-2">
-            {programType.toUpperCase()} Program
+            {programType.toUpperCase()}
+            {scopeCourseId ? " · Focused micro-course" : " Program"}
           </p>
         </div>
         {userProgressQuery.data && Array.isArray(userProgressQuery.data) && (

@@ -249,13 +249,16 @@ export default function LearnerDashboard() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-muted-foreground text-sm">
-                  Enroll (e.g. <strong>The systematic approach to a seriously ill child</strong> — PALS, KES 100 test
-                  price), pay with M-Pesa, then open your course modules.
+                  Enroll (e.g. <strong>Paediatric septic shock</strong> or <strong>The systematic approach to a seriously ill child</strong>),
+                  pay with M-Pesa, then open your course modules.
                 </p>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/enroll")}>
                   Enroll in a course
                 </Button>
-                <Button className="w-full" onClick={() => navigate("/course/seriously-ill-child")}>
+                <Button className="w-full" onClick={() => navigate("/course/paediatric-septic-shock")}>
+                  Continue: Paediatric septic shock
+                </Button>
+                <Button variant="secondary" className="w-full" onClick={() => navigate("/course/seriously-ill-child")}>
                   Continue: Seriously ill child (PALS)
                 </Button>
 

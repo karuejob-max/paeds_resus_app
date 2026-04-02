@@ -10,13 +10,20 @@ import {
   createSmsReminder,
   getDb,
 } from "../db";
-import { enrollments, payments } from "../../drizzle/schema";
+import { enrollments, payments, courses } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent } from "../services/analytics.service";
+import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import {
+  ensurePaediatricSepticShockCatalog,
+  getPaediatricSepticShockCourseId,
+} from "../lib/ensure-paediatric-septic-shock-catalog";
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
   trainingDate: z.date(),
+  /** PALS only: which micro-course SKU (sets enrollments.courseId). */
+  pricingSku: z.enum(["pals", "pals_septic"]).optional(),
 });
 
 const paymentSchema = z.object({
@@ -31,11 +38,32 @@ export const enrollmentRouter = router({
   create: protectedProcedure
     .input(enrollmentSchema)
     .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      let courseId: number | null = null;
+
+      if (input.programType === "pals" && db) {
+        await ensurePaediatricSepticShockCatalog(db);
+        await ensurePalsSeriouslyIllCatalog(db);
+        if (input.pricingSku === "pals_septic") {
+          const id = await getPaediatricSepticShockCourseId(db);
+          courseId = id;
+        } else {
+          courseId = await getSeriouslyIllChildCourseId(db);
+        }
+        if (courseId == null) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not resolve PALS course catalog. Try again or contact support.",
+          });
+        }
+      }
+
       const result = await createEnrollment({
         userId: ctx.user.id,
         programType: input.programType,
         trainingDate: input.trainingDate,
         paymentStatus: "pending",
+        courseId: input.programType === "pals" ? courseId : null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -61,6 +89,7 @@ export const enrollmentRouter = router({
         eventName: `Enroll ${input.programType}`,
         eventData: {
           courseType: input.programType,
+          pricingSku: input.pricingSku ?? null,
           enrollmentId,
           coursePrice: 0,
           source: "enrollment_create",
@@ -89,7 +118,18 @@ export const enrollmentRouter = router({
         .from(enrollments)
         .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
         .limit(1);
-      return rows[0] ?? null;
+      const row = rows[0];
+      if (!row) return null;
+      let courseTitle: string | null = null;
+      if (row.courseId != null) {
+        const ct = await db
+          .select({ title: courses.title })
+          .from(courses)
+          .where(eq(courses.id, row.courseId))
+          .limit(1);
+        courseTitle = ct[0]?.title ?? null;
+      }
+      return { ...row, courseTitle };
     }),
 
   // Record a payment

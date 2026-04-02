@@ -5,6 +5,7 @@ import type { User } from "../../drizzle/schema";
 
 // Mock database functions
 vi.mock("../db", () => ({
+  getDb: vi.fn().mockResolvedValue(null),
   createEnrollment: vi.fn().mockResolvedValue({ id: 1 }),
   createPayment: vi.fn().mockResolvedValue({ id: 1 }),
   createSmsReminder: vi.fn().mockResolvedValue({ insertId: 1 }),

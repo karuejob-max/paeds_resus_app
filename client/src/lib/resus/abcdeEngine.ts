@@ -23,6 +23,8 @@
  * 10. HEART FAILURE SIGNS — gallop, hepatomegaly, JVP checked before bolusing.
  * 
  * Flow: IDLE → QUICK ASSESSMENT → PRIMARY SURVEY (XABCDE) → INTERVENTIONS → SECONDARY SURVEY → DEFINITIVE CARE
+ *
+ * Clinical protocol docs (shock, sepsis, registry): docs/clinical-protocols/
  */
 
 // ─── Types ──────────────────────────────────────────────────
