@@ -1,5 +1,6 @@
 import type { Pathway } from '../stateMachine';
 
+/** Shock pathways — keep in sync with `docs/clinical-protocols/paediatric-septic-shock.md` (septic_shock) and `docs/clinical-protocols/RESUSGPS_REGISTRY.md`. */
 export const shockPathway: Pathway = {
   id: 'shock',
   name: 'Shock / Poor Perfusion',
