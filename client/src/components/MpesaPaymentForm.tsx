@@ -31,11 +31,27 @@ export function MpesaPaymentForm({
   const [statusMessage, setStatusMessage] = useState("");
   const [checkoutRequestID, setCheckoutRequestID] = useState("");
   const [pollEnrollmentId, setPollEnrollmentId] = useState<number | null>(null);
+  /** Delay STK status polling so Daraja can register the checkout before we query (avoids false failures before the phone prompt). */
+  const [pollGateReady, setPollGateReady] = useState(false);
+
+  useEffect(() => {
+    if (paymentStatus !== "processing") {
+      setPollGateReady(false);
+      return;
+    }
+    if (!checkoutRequestID && !pollEnrollmentId) {
+      setPollGateReady(false);
+      return;
+    }
+    setPollGateReady(false);
+    const t = window.setTimeout(() => setPollGateReady(true), 2500);
+    return () => window.clearTimeout(t);
+  }, [paymentStatus, checkoutRequestID, pollEnrollmentId]);
 
   const { data: checkoutPoll } = trpc.mpesa.getPaymentByCheckoutRequestId.useQuery(
     { checkoutRequestID },
     {
-      enabled: paymentStatus === "processing" && checkoutRequestID.length > 0,
+      enabled: paymentStatus === "processing" && checkoutRequestID.length > 0 && pollGateReady,
       refetchInterval: (q) => {
         const s = q.state.data?.status;
         if (s === "completed" || s === "failed") return false;
@@ -47,7 +63,8 @@ export function MpesaPaymentForm({
   const { data: enrollmentPoll } = trpc.mpesa.getPaymentStatusForEnrollment.useQuery(
     { enrollmentId: pollEnrollmentId! },
     {
-      enabled: paymentStatus === "processing" && !!pollEnrollmentId && !checkoutRequestID,
+      enabled:
+        paymentStatus === "processing" && !!pollEnrollmentId && !checkoutRequestID && pollGateReady,
       refetchInterval: (q) => {
         const s = q.state.data?.paymentStatus ?? q.state.data?.enrollmentPaymentStatus;
         if (s === "completed" || s === "failed") return false;
@@ -94,6 +111,7 @@ export function MpesaPaymentForm({
   }, [paymentStatus, onPaymentComplete]);
 
   const checkPaymentNow = () => {
+    setPollGateReady(true);
     void utils.mpesa.getPaymentByCheckoutRequestId.invalidate();
     void utils.mpesa.getPaymentStatusForEnrollment.invalidate();
   };
@@ -214,7 +232,7 @@ export function MpesaPaymentForm({
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                 <li>Check your phone for the M-Pesa prompt</li>
                 <li>Enter your M-Pesa PIN</li>
-                <li>This page checks payment status automatically (every few seconds)</li>
+                <li>This page checks payment status automatically after a short pause (so M-Pesa can show the prompt first), then every few seconds</li>
               </ol>
               <Button type="button" variant="outline" size="sm" className="w-full" onClick={checkPaymentNow}>
                 I&apos;ve paid — check status now
