@@ -6,8 +6,14 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 import QRCode from "qrcode";
 import sharp from "sharp";
+
+/** ESM has no `__dirname`; bundled `dist/index.js` resolves logo paths relative to project root via `process.cwd()` and this fallback. */
+function certificatePdfDir(): string {
+  return path.dirname(fileURLToPath(import.meta.url));
+}
 
 /** Canonical URL for QR codes and printed copy (see PLATFORM_SOURCE_OF_TRUTH §10). */
 export const CERTIFICATE_VERIFY_SITE = "https://www.paedsresus.com";
@@ -84,15 +90,17 @@ function isPngBuffer(buf: Buffer): boolean {
 }
 
 function resolveLogoPngBytes(): Buffer | null {
+  const cwd = process.cwd();
+  const here = certificatePdfDir();
   const candidates = [
-    path.join(process.cwd(), "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(process.cwd(), "client", "public", "paeds-resus-logo.png"),
-    path.join(process.cwd(), "dist", "public", "paeds-resus-logo-brand.png"),
-    path.join(process.cwd(), "dist", "public", "paeds-resus-logo.png"),
-    path.join(__dirname, "..", "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(__dirname, "..", "client", "public", "paeds-resus-logo.png"),
-    path.join(__dirname, "..", "..", "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(__dirname, "..", "..", "client", "public", "paeds-resus-logo.png"),
+    path.join(cwd, "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(cwd, "client", "public", "paeds-resus-logo.png"),
+    path.join(cwd, "dist", "public", "paeds-resus-logo-brand.png"),
+    path.join(cwd, "dist", "public", "paeds-resus-logo.png"),
+    path.join(here, "..", "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(here, "..", "client", "public", "paeds-resus-logo.png"),
+    path.join(here, "..", "..", "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(here, "..", "..", "client", "public", "paeds-resus-logo.png"),
   ];
   for (const p of candidates) {
     try {

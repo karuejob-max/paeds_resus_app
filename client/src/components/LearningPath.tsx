@@ -18,6 +18,8 @@ import {
 import { trpc } from "@/lib/trpc";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { buildPssModuleSteps } from "@/lib/pss-module-formative";
+import { PssModulePagedReader } from "@/components/PssModulePagedReader";
 
 function ModuleHtmlSections({ html }: { html: string }) {
   const sections = useMemo(() => {
@@ -58,12 +60,15 @@ interface LearningPathProps {
   programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
   /** When set (PALS micro-course), only this catalog course is shown. */
   courseId?: number | null;
+  /** Paediatric Septic Shock I: paginated sections + formative checks before graded quiz. */
+  pagedSepticShockModule?: boolean;
 }
 
 export const LearningPath: React.FC<LearningPathProps> = ({
   enrollmentId,
   programType,
   courseId: scopeCourseId,
+  pagedSepticShockModule = false,
 }) => {
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
@@ -75,6 +80,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     passingScore: number;
   } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: number; answer: string }[]>([]);
+  const [pssFlowComplete, setPssFlowComplete] = useState(false);
 
   const coursesQuery = trpc.learning.getCourses.useQuery({
     programType,
@@ -109,6 +115,16 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     if (!selectedModule) return;
     learningPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedModule, showQuiz, showQuizResult]);
+
+  useEffect(() => {
+    setPssFlowComplete(false);
+  }, [selectedModule]);
+
+  const pssPagedSteps = useMemo(() => {
+    if (!pagedSepticShockModule || !moduleContentQuery.data?.content) return [];
+    const order = moduleContentQuery.data.order ?? 0;
+    return buildPssModuleSteps(order, moduleContentQuery.data.content);
+  }, [pagedSepticShockModule, moduleContentQuery.data?.content, moduleContentQuery.data?.order]);
 
   const modulesOrdered = courseDetailsQuery.data?.modules ?? [];
   const nextModuleAfterCurrent = useMemo(() => {
@@ -522,16 +538,46 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                     <h2 className="text-lg font-bold text-foreground md:text-xl">{moduleContentQuery.data?.title}</h2>
                   </div>
                   <div className="p-6 md:p-8">
-                    <ModuleHtmlSections html={moduleContentQuery.data?.content || ""} />
-                    <Button
-                      onClick={() => setShowQuiz(true)}
-                      variant="cta"
-                      size="lg"
-                      className="w-full rounded-xl text-base shadow-sm"
-                    >
-                      Take module quiz
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    {pagedSepticShockModule && pssPagedSteps.length > 0 ? (
+                      <>
+                        {!pssFlowComplete ? (
+                          <PssModulePagedReader
+                            steps={pssPagedSteps}
+                            moduleTitle={moduleContentQuery.data?.title ?? "Module"}
+                            onCompleteFlow={() => setPssFlowComplete(true)}
+                          />
+                        ) : (
+                          <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-4 mb-6 text-sm text-foreground leading-relaxed">
+                            You&apos;ve worked through this module with quick checks along the way. When ready, take the
+                            graded quiz to complete the module and build toward managing septic shock confidently within
+                            your facility&apos;s protocols.
+                          </div>
+                        )}
+                        <Button
+                          onClick={() => setShowQuiz(true)}
+                          variant="cta"
+                          size="lg"
+                          disabled={pagedSepticShockModule && !pssFlowComplete}
+                          className="w-full rounded-xl text-base shadow-sm"
+                        >
+                          Take module quiz
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <ModuleHtmlSections html={moduleContentQuery.data?.content || ""} />
+                        <Button
+                          onClick={() => setShowQuiz(true)}
+                          variant="cta"
+                          size="lg"
+                          className="w-full rounded-xl text-base shadow-sm"
+                        >
+                          Take module quiz
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </Card>
               ) : (

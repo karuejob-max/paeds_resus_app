@@ -182,6 +182,7 @@ export default function CoursePaediatricSepticShock() {
         enrollmentId={septicEnrollmentId}
         programType="pals"
         courseId={meta?.courseId ?? null}
+        pagedSepticShockModule
       />
     </div>
   );
