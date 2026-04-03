@@ -6,6 +6,11 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as fs from "fs";
 import * as path from "path";
+import QRCode from "qrcode";
+import sharp from "sharp";
+
+/** Canonical URL for QR codes and printed copy (see PLATFORM_SOURCE_OF_TRUTH §10). */
+export const CERTIFICATE_VERIFY_SITE = "https://www.paedsresus.com";
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -99,6 +104,32 @@ function resolveLogoPngBytes(): Buffer | null {
   return null;
 }
 
+/** Makes solid black / near-black backgrounds transparent so the mark sits cleanly on cream paper. */
+export async function prepareLogoForCertificatePng(raw: Buffer): Promise<Buffer> {
+  if (!isPngBuffer(raw)) return raw;
+  try {
+    const { data, info } = await sharp(raw).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    if (info.channels !== 4) return raw;
+    const px = new Uint8ClampedArray(data);
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i];
+      const g = px[i + 1];
+      const b = px[i + 2];
+      if (r < 36 && g < 36 && b < 36) {
+        px[i + 3] = 0;
+      }
+    }
+    return await sharp(Buffer.from(px), {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    })
+      .png()
+      .toBuffer();
+  } catch (e) {
+    console.warn("[certificate-pdf] Logo alpha processing failed, using raw PNG:", e);
+    return raw;
+  }
+}
+
 /**
  * Generate certificate PDF (landscape A4-style: 842 × 595 pt)
  */
@@ -141,16 +172,17 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: rgb(0.92, 0.95, 0.95),
   });
 
-  const logoBytes = resolveLogoPngBytes();
+  const rawLogo = resolveLogoPngBytes();
+  const logoBytes = rawLogo ? await prepareLogoForCertificatePng(rawLogo) : null;
   let logoBottomY = height - topBarH - 12;
   if (logoBytes) {
     try {
       const img = await pdfDoc.embedPng(logoBytes);
-      const maxW = 168;
+      const maxW = 152;
       const scale = maxW / img.width;
       const lw = img.width * scale;
       const lh = img.height * scale;
-      const logoY = height - topBarH - 16 - lh;
+      const logoY = height - topBarH - 18 - lh;
       page.drawImage(img, {
         x: width / 2 - lw / 2,
         y: logoY,
@@ -301,17 +333,61 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   page.drawText(`Certificate No. ${data.certificateNumber}`, {
     x: 56,
-    y: footY,
+    y: footY + 18,
     size: 9,
     font,
     color: BRAND.inkMuted,
   });
 
-  const verifyLine = `Verify: www.paedsresus.com/verify · Code ${data.verificationCode}`;
-  page.drawText(verifyLine, {
-    x: width - 56 - font.widthOfTextAtSize(verifyLine, 9),
+  const verifyUrl = `${CERTIFICATE_VERIFY_SITE}/verify?code=${encodeURIComponent(data.verificationCode)}`;
+  let qrEmbedded = false;
+  try {
+    const qrPng = await QRCode.toBuffer(verifyUrl, {
+      type: "png",
+      width: 240,
+      margin: 1,
+      errorCorrectionLevel: "M",
+      color: { dark: "#1b3d3dff", light: "#ffffffff" },
+    });
+    const qrImg = await pdfDoc.embedPng(qrPng);
+    const qrSize = 78;
+    const qrX = width - 56 - qrSize;
+    const qrY = footY + 6;
+    page.drawRectangle({
+      x: qrX - 4,
+      y: qrY - 4,
+      width: qrSize + 8,
+      height: qrSize + 8,
+      color: rgb(1, 1, 1),
+      borderColor: BRAND.teal,
+      borderWidth: 1,
+    });
+    page.drawImage(qrImg, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+    const scanLabel = "Scan to verify authenticity";
+    const scanW = font.widthOfTextAtSize(scanLabel, 7);
+    page.drawText(scanLabel, {
+      x: qrX + (qrSize - scanW) / 2,
+      y: footY - 2,
+      size: 7,
+      font,
+      color: BRAND.inkMuted,
+    });
+    qrEmbedded = true;
+  } catch (e) {
+    console.warn("[certificate-pdf] QR code embed failed:", e);
+  }
+
+  const shortCode =
+    data.verificationCode.length > 20
+      ? `${data.verificationCode.slice(0, 10)}…${data.verificationCode.slice(-6)}`
+      : data.verificationCode;
+  const verifyHint = qrEmbedded
+    ? `Verification: ${CERTIFICATE_VERIFY_SITE.replace("https://", "")}/verify`
+    : `Verify: ${CERTIFICATE_VERIFY_SITE.replace("https://", "")}/verify · ${shortCode}`;
+  page.drawText(verifyHint, {
+    x: 56,
     y: footY,
-    size: 9,
+    size: 8,
     font: fontBold,
     color: BRAND.teal,
   });

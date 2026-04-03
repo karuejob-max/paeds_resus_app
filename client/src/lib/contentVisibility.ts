@@ -54,6 +54,7 @@ export const pageVisibility: PageVisibility = {
   "/help": "all",
   "/support": "all",
   "/verify-certificate": "all",
+  "/verify": "all",
   "/payments": "all",
   "/progress": "all",
   "/achievements": "all",

@@ -4,6 +4,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   saveCertificate,
   verifyCertificate,
+  verifyCertificateByVerificationCode,
   getCertificateByEnrollmentId,
   getCertificateStats,
   getCertificatesByUserId,
@@ -91,6 +92,13 @@ export const certificateRouter = router({
           error: error instanceof Error ? error.message : "Unknown error",
         };
       }
+    }),
+
+  /** Public lookup by verification hash (QR code / PDF footer). */
+  verifyByCode: publicProcedure
+    .input(z.object({ code: z.string().min(16).max(256) }))
+    .query(async ({ input }) => {
+      return verifyCertificateByVerificationCode(input.code.trim());
     }),
 
   // Get current user's certificates (My Certificates)

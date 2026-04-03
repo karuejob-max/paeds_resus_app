@@ -142,6 +142,67 @@ export async function saveCertificate(
 }
 
 /**
+ * Verify authenticity using the unique verification hash printed on the PDF / QR code.
+ */
+export async function verifyCertificateByVerificationCode(code: string): Promise<{
+  valid: boolean;
+  error?: string;
+  certificate?: {
+    certificateNumber: string;
+    programType: string;
+    issueDate: Date | null;
+    expiryDate: Date | null;
+  };
+}> {
+  try {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    const trimmed = code.trim();
+    if (trimmed.length < 16) {
+      return { valid: false, error: "Invalid verification code" };
+    }
+
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.verificationCode, trimmed))
+      .limit(1);
+
+    if (result.length === 0) {
+      return { valid: false, error: "Certificate not found" };
+    }
+
+    const cert = result[0];
+
+    if (cert.expiryDate && cert.expiryDate < new Date()) {
+      return {
+        valid: false,
+        error: "Certificate has expired",
+      };
+    }
+
+    return {
+      valid: true,
+      certificate: {
+        certificateNumber: cert.certificateNumber ?? "",
+        programType: cert.programType,
+        issueDate: cert.issueDate,
+        expiryDate: cert.expiryDate ?? null,
+      },
+    };
+  } catch (error) {
+    console.error("[Certificates] Error verifying by code:", error);
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Verify certificate authenticity
  */
 export async function verifyCertificate(

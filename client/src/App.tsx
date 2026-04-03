@@ -32,6 +32,7 @@ import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import ProviderProfile from "./pages/ProviderProfile";
 import CPRMonitoring from "./pages/CPRMonitoring";
 import Payment from "./pages/Payment";
+import VerifyCertificate from "./pages/VerifyCertificate";
 import Referral from "./pages/Referral";
 import { PersonalImpactDashboard } from "./pages/PersonalImpactDashboard";
 import KaizenDashboard from "./pages/KaizenDashboard";
@@ -130,6 +131,7 @@ function Router() {
           <Route path="/provider-profile" component={ProviderProfile} />
           <Route path="/cpr-monitoring" component={CPRMonitoring} />
           <Route path="/payment" component={Payment} />
+          <Route path="/verify" component={VerifyCertificate} />
           <Route path="/referral" component={Referral} />
           <Route path="/personal-impact" component={PersonalImpactDashboard} />
           <Route path="/kaizen-dashboard" component={KaizenDashboard} />

@@ -216,7 +216,7 @@ This section locks **product behaviour and editorial intent** for **condition-fo
 
 - **Brand:** Paeds Resus UI and downloadable certificates use the same **teal** (`#1B3D3D` / primary) and **orange** (`#F37021` / accent) language as the rest of the platform—see global CSS tokens and shared components (`Button` `variant="cta"`, `brand-surface`, etc.).
 - **Courses / learning surfaces** should not introduce a separate visual system: reuse cards, borders, typography, and spacing patterns from high-traffic pages (e.g. learner dashboard, enroll, payment success).
-- **Certificates (PDF):** Landscape layout, teal/orange framing, **wordmark logo** (`client/public/paeds-resus-logo-brand.png` or `client/public/paeds-resus-logo.png`) embedded when the file is available at runtime; verification line points to **`https://www.paedsresus.com/verify`** (canonical domain per [§10](#10-deployment-and-infrastructure)). **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
+- **Certificates (PDF):** Landscape layout, teal/orange framing, **brand mark** (`client/public/paeds-resus-logo-brand.png` or `client/public/paeds-resus-logo.png`) embedded when the file is available at runtime. Raster logos with a **black backdrop** are processed server-side (near-black pixels made transparent) so the mark blends on cream paper. A **QR code** appears bottom-right, encoding **`https://www.paedsresus.com/verify?code={verificationCode}`** (canonical domain per [§10](#10-deployment-and-infrastructure)); the public **`/verify`** page confirms authenticity via `certificates.verifyByCode`. Printed copy also includes the verification URL in text. **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
 
 ### 16.2 Course learning UX (linear flow)
 
@@ -259,4 +259,4 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-04-03 — §16.1 clarified branded PDF for both issuance and download + alternate logo filename; §16.6 download loading keyed by certificate row `id`.
+**Last structural update:** 2026-04-03 — §16.1 certificate QR (`/verify?code=`), logo knock-out for dark backgrounds, public verify page; §16.6 download loading keyed by certificate row `id`.
