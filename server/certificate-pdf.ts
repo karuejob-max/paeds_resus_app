@@ -18,6 +18,9 @@ function certificatePdfDir(): string {
 /** Canonical URL for QR codes and printed copy (see PLATFORM_SOURCE_OF_TRUTH §10). */
 export const CERTIFICATE_VERIFY_SITE = "https://www.paedsresus.com";
 
+/** Shown under “PAEDS RESUS” on all certificates — neutral; not fellowship-specific. */
+const CERTIFICATE_HEADER_TAGLINE = "Clinical training · Paediatric emergency care";
+
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
   teal: rgb(27 / 255, 61 / 255, 61 / 255),
@@ -53,7 +56,7 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     subtitle: "BLS Certification",
     description:
       "has successfully completed the Basic Life Support training programme and meets the completion requirements of Paeds Resus.",
-    hours: 8,
+    hours: 6,
   },
   acls: {
     title: "Advanced Cardiovascular Life Support",
@@ -117,10 +120,14 @@ function resolveLogoPngBytes(): Buffer | null {
   return null;
 }
 
-/** Makes solid black / near-black backgrounds transparent so the mark sits cleanly on cream paper. */
+/** Makes solid black / near-black backgrounds transparent. Skips processing if the PNG already has alpha (e.g. exported brand mark). */
 export async function prepareLogoForCertificatePng(raw: Buffer): Promise<Buffer> {
   if (!isPngBuffer(raw)) return raw;
   try {
+    const meta = await sharp(raw).metadata();
+    if (meta.hasAlpha) {
+      return raw;
+    }
     const { data, info } = await sharp(raw).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     if (info.channels !== 4) return raw;
     const px = new Uint8ClampedArray(data);
@@ -175,7 +182,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: rgb(1, 1, 1),
   });
 
-  const tag = "Elite Fellowship & Safe-Truth Platform";
+  const tag = CERTIFICATE_HEADER_TAGLINE;
   const tagW = font.widthOfTextAtSize(tag, 8);
   page.drawText(tag, {
     x: width / 2 - tagW / 2,
@@ -276,7 +283,11 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   });
   y -= nameSize + 28;
 
-  const descLines = wrapText(template.description, 88);
+  const courseName = data.courseDisplayName?.trim();
+  const bodyDescription = courseName
+    ? `has successfully completed ${courseName} and meets the completion requirements of Paeds Resus.`
+    : template.description;
+  const descLines = wrapText(bodyDescription, 88);
   for (const line of descLines) {
     const lw = font.widthOfTextAtSize(line, 11);
     page.drawText(line, {

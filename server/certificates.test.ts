@@ -92,6 +92,18 @@ describe("Certificate Service", () => {
       );
       await expectValidBrandedPdf(pdfBuffer);
     });
+
+    it("should generate PALS-track PDF with courseDisplayName (micro-course)", async () => {
+      const pdfBuffer = await generateCertificatePDF(
+        baseCert({
+          programType: "pals",
+          courseDisplayName: "Paediatric Septic Shock I",
+          certificateNumber: "PRES-PSS-001",
+          verificationCode: "verify-pss",
+        })
+      );
+      await expectValidBrandedPdf(pdfBuffer);
+    });
   });
 
   describe("Certificate Validity", () => {

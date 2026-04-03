@@ -41,8 +41,8 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (e.g. shock, DKA) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
-| **Elite fellowship** | Flagship advanced programme (same platform; programme type in data where applicable). |
+| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
+| **Elite fellowship** | **Narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall for “fellowship” in the digital-first path—learners pay per course/SKU. Programme type `fellowship` in data remains where used; naming in UI may evolve with leadership. |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
 | **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth usage, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
@@ -206,6 +206,27 @@ These constraints are **environmental**, not a failure of clinical education—t
 - **Clinical and ethical guardrails unchanged:** [§2](#2-why-we-exist-mission); no overstated outcome claims in product copy; evaluation where claims are made.
 - **Naming:** ResusGPS remains **one product** ([§1](#1-who-we-are)); “Paeds Resus” remains the organisation/platform.
 
+### 15.5 Clinical learning journey and ward excellence (ADF alignment)
+
+This locks **how** we integrate the **Advanced Deterioration Fellowship (ADF)** *ideas* into Paeds Resus **without** importing operational baggage that conflicts with a **digital-first, low-friction** product.
+
+**Keep from ADF (clinical and educational intent):**
+
+- **Narrow ward-level focus:** early recognition of deterioration, **first-hour** safe actions, structured **escalation**, honest **scope** (not ICU substitution).
+- **Delay-reduction mindset:** abnormal sign → recognition → intervention → escalation, with lightweight documentation where the product supports it (ResusGPS, logs, future dashboards).
+- **LMIC-realistic framing:** oxygen, staffing, and senior review constraints; teach **safe action despite scarcity**.
+
+**Do not ship as mandatory in v1 (unless leadership explicitly reintroduces):**
+
+- Application fees, selective admissions interviews, large upfront “fellowship fees,” or required face-to-face blocks for the **default** individual journey.
+- Claims of “fellow” or tier titles **until** completion criteria exist in-product (badges, track completion, or governed assessment).
+
+**Product shape:**
+
+- **Micro-courses** (e.g. Paediatric Septic Shock I) sit **inside** a **progressive journey** narrative—optional naming: clinical journey, track, or fellowship pathway; **SKU pricing remains per course**, not a bundled fellowship price by default.
+- **Legacy BLS / ACLS / PALS** hours (**6 / 16 / 16**) remain first-class certifications alongside the journey.
+- **Future:** optional Level 2/3 labels (stabilisation, systems) only when curriculum and governance exist; align with [§16.3](#163-tiered-courses-per-clinical-topic-naming-and-gating).
+
 ---
 
 ## 16. Learning products: UX, certificates, tiered courses, pedagogy, and ResusGPS alignment
@@ -216,7 +237,7 @@ This section locks **product behaviour and editorial intent** for **condition-fo
 
 - **Brand:** Paeds Resus UI and downloadable certificates use the same **teal** (`#1B3D3D` / primary) and **orange** (`#F37021` / accent) language as the rest of the platform—see global CSS tokens and shared components (`Button` `variant="cta"`, `brand-surface`, etc.).
 - **Courses / learning surfaces** should not introduce a separate visual system: reuse cards, borders, typography, and spacing patterns from high-traffic pages (e.g. learner dashboard, enroll, payment success).
-- **Certificates (PDF):** Landscape layout, teal/orange framing, **brand mark** (`client/public/paeds-resus-logo-brand.png` or `client/public/paeds-resus-logo.png`) embedded when the file is available at runtime. Raster logos with a **black backdrop** are processed server-side (near-black pixels made transparent) so the mark blends on cream paper. A **QR code** appears bottom-right, encoding **`https://www.paedsresus.com/verify?code={verificationCode}`** (canonical domain per [§10](#10-deployment-and-infrastructure)); the public **`/verify`** page confirms authenticity via `certificates.verifyByCode`. Printed copy also includes the verification URL in text. **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
+- **Certificates (PDF):** Landscape layout, teal/orange framing, **brand mark** (`client/public/paeds-resus-logo-brand.png` or `client/public/paeds-resus-logo.png`) embedded when the file is available at runtime. **Header tagline** under “PAEDS RESUS” is **neutral** (clinical training / paediatric emergency care)—not fellowship- or Safe-Truth–specific. PNGs that **already have alpha** are embedded **without** knock-out processing; otherwise near-black pixels are made transparent so legacy raster marks blend on cream paper. When **`courseDisplayName`** is set on the enrolment/certificate payload (e.g. micro-course title), the **body completion sentence** uses that name instead of the generic PALS/BLS paragraph for the same `programType`. A **QR code** appears bottom-right, encoding **`https://www.paedsresus.com/verify?code={verificationCode}`** (canonical domain per [§10](#10-deployment-and-infrastructure)); the public **`/verify`** page confirms authenticity via `certificates.verifyByCode`. Printed copy also includes the verification URL in text. **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
 
 ### 16.2 Course learning UX (linear flow)
 
@@ -259,4 +280,4 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-04-03 — §16.1 certificate QR (`/verify?code=`), logo knock-out for dark backgrounds, public verify page; §16.6 download loading keyed by certificate row `id`.
+**Last structural update:** 2026-04-03 — §15.5 clinical journey / ADF alignment; §16.1 neutral certificate header tagline, alpha-aware logo, `courseDisplayName` body text; BLS certificate hours **6** in generator; §3 courses / fellowship rows updated.
