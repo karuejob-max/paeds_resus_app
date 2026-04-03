@@ -1,20 +1,10 @@
-// import { PDFDocument, PDFPage, rgb } from "@pdfkit/core"; // Optional PDF library
 import { createHash } from "crypto";
 import { getDb } from "./db";
 import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { certificates, courses, enrollments, modules, userProgress, users } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
-
-interface CertificateData {
-  recipientName: string;
-  programType: string;
-  trainingDate: Date;
-  instructorName: string;
-  certificateNumber: string;
-  issueDate: Date;
-  expiryDate?: Date;
-}
+import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
 /**
  * Generate a unique certificate number
@@ -32,39 +22,6 @@ function generateCertificateHash(certificateNumber: string, recipientName: strin
   return createHash("sha256")
     .update(`${certificateNumber}:${recipientName}:${Date.now()}`)
     .digest("hex");
-}
-
-/**
- * Create a PDF certificate
- * Note: In production, use a proper PDF library like PDFKit or ReportLab
- */
-export async function generateCertificatePDF(data: CertificateData): Promise<Buffer> {
-  // For now, return a placeholder buffer
-  // In production, integrate with PDFKit or similar
-  const certificateContent = `
-    CERTIFICATE OF COMPLETION
-    
-    This is to certify that
-    
-    ${data.recipientName}
-    
-    has successfully completed the
-    
-    ${data.programType === "instructor" ? "Paeds Resus Instructor" : data.programType}
-    
-    Training Program
-    
-    Date: ${data.trainingDate.toLocaleDateString()}
-    Instructor: ${data.instructorName}
-    Certificate Number: ${data.certificateNumber}
-    Issue Date: ${data.issueDate.toLocaleDateString()}
-    ${data.expiryDate ? `Expiry Date: ${data.expiryDate.toLocaleDateString()}` : ""}
-    
-    Paeds Resus Limited
-    Transforming Paediatric Emergency Care
-  `;
-
-  return Buffer.from(certificateContent);
 }
 
 /**
@@ -144,15 +101,13 @@ export async function saveCertificate(
     const issueDate = new Date();
     const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year validity
 
-    // Generate PDF
-    const pdfBuffer = await generateCertificatePDF({
+    const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
-      programType,
+      programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
       trainingDate,
-      instructorName,
+      instructorName: instructorName || "Paeds Resus",
       certificateNumber,
-      issueDate,
-      expiryDate,
+      verificationCode: verificationHash,
     });
 
     // Save to database

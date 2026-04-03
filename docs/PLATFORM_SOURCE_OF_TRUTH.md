@@ -208,4 +208,55 @@ These constraints are **environmental**, not a failure of clinical education—t
 
 ---
 
-**Last structural update:** 2026-04-01 — added [§15](#15-business-strategy-market-context-and-revenue-focus-leadership) business strategy and market context (leadership).
+## 16. Learning products: UX, certificates, tiered courses, pedagogy, and ResusGPS alignment
+
+This section locks **product behaviour and editorial intent** for **condition-focused micro-courses**, **certificates**, and **ResusGPS** so implementations stay consistent across releases.
+
+### 16.1 Theme and visual consistency
+
+- **Brand:** Paeds Resus UI and downloadable certificates use the same **teal** (`#1B3D3D` / primary) and **orange** (`#F37021` / accent) language as the rest of the platform—see global CSS tokens and shared components (`Button` `variant="cta"`, `brand-surface`, etc.).
+- **Courses / learning surfaces** should not introduce a separate visual system: reuse cards, borders, typography, and spacing patterns from high-traffic pages (e.g. learner dashboard, enroll, payment success).
+- **Certificates (PDF):** Landscape layout, teal/orange framing, **wordmark logo** (`client/public/paeds-resus-logo-brand.png` or `client/public/paeds-resus-logo.png`) embedded when the file is available at runtime; verification line points to **`https://www.paedsresus.com/verify`** (canonical domain per [§10](#10-deployment-and-infrastructure)). **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
+
+### 16.2 Course learning UX (linear flow)
+
+For each enrolment, the learner should experience a **clear linear path**:
+
+1. **Module content** → **Module quiz** → **Immediate score** (numeric % and pass threshold).
+2. **On pass:** Primary CTA **Continue to next module** (next module in course order). **Do not** force “back to module list” as the only path forward.
+3. **On fail:** Clear retry path; module not marked complete until pass (or policy-defined completion—currently tied to quiz pass in learning router).
+4. **After the final module is passed:** A **primary CTA toward the certificate** (e.g. link to learner dashboard **My Certificates** section with anchor `#my-certificates`), comparable in clarity to the post–M-Pesa “what happens next” flow.
+
+### 16.3 Tiered courses per clinical topic (naming and gating)
+
+- **Pattern:** For major topics (e.g. paediatric septic shock, asthma, convulsive status epilepticus, anaphylaxis), we plan **two course tiers** on the same theme:
+  - **Course I** — foundational recognition, first-hour actions, safe escalation, and **when to refer** (reasons such as need for vasoactive drugs, advanced monitoring, refractory shock, refractory seizures, etc., without turning the course into a tertiary-only manual).
+  - **Course II** — deeper management (e.g. fluid-refractory / catecholamine-refractory shock, second-line therapies, advanced airway, mechanical support where applicable). **Do not** label tiers in the UI as “primary vs tertiary”; describe them as **progression** (“after completing … I, optional … II for …”).
+- **Prerequisite:** Enrolment in **Course II** requires **Course I completed and passed** (quiz threshold met) for that topic. Same pattern for future pairs (e.g. refractory vs super-refractory status).
+- **Pipeline:** Additional tiers (e.g. **Course III** for mechanical circulatory support or ultra-specialised rescue therapies) are **aspirational** until explicitly scheduled; document here when launched.
+
+### 16.4 Pricing rule for tier pairs
+
+- **Course II** list price = **1.5 × Course I** (50% more) for the **same topic line**, unless leadership documents an exception in this file.
+- **Implementation:** Express via catalog / `pricingSku` / metadata—not ad-hoc UI-only numbers.
+
+### 16.5 Editorial and pedagogy (LMIC-safe, policy-first)
+
+- **Local policy first:** Every clinical module must remind learners to follow **facility protocol**, senior decision-making, and formulary. Paeds Resus teaches **principles** and **structured thinking**, not a substitute for hospital policy.
+- **International guidelines as orientation:** Where evidence and consensus exist, be **specific enough to be useful** (e.g. preference for **balanced crystalloids** over normal saline in many resuscitation contexts; **saline remains acceptable** where that is all that is available; avoid over-emphasising **colloids** as first-line plasma expanders). Name common pragmatic choices (e.g. **Ringer’s lactate** where affordable and stocked vs balanced solutions with different brand names).
+- **Regional evidence:** Where landmark trials from similar settings exist (e.g. **FEAST**-informed caution on fluid strategy in certain presentations), relate them to **actionable bedside steps** (small boluses, reassess, stop if overload, escalate)—including **plain-language explanations for nurses** (what “shock” means in observable terms: perfusion, pulse, CRT, breathing, responsiveness).
+- **Small facilities:** Acknowledge **dispensary / clinic / health centre** contexts where one clinician may combine roles; avoid assuming a separate resuscitation team or full ICU infrastructure.
+- **ResusGPS:** Learners who have **completed the relevant course** should be guided to use ResusGPS **with tighter alignment** to the course mental model than naive first-time users. Product direction: **in-course orientation** (how to open the right pathway, use dose tools, and reassessment prompts) and, over time, **differentiated prompts or badges** tied to completion (implementation may evolve; the intent is captured here).
+
+### 16.6 Certificates dashboard behaviour
+
+- **Download:** Only the **row being downloaded** shows a loading state; other certificate rows remain idle.
+
+### 16.7 Current execution focus (rolling)
+
+- **Now:** **Paediatric Septic Shock I** (micro-course content quality, flow, certificate CTA, ResusGPS orientation copy).
+- **Pipeline (not blocking I):** Paediatric Septic Shock II, tier pairs for asthma, CSE, anaphylaxis, etc., per §16.3–16.4.
+
+---
+
+**Last structural update:** 2026-04-03 — §16.1 clarified branded PDF for both issuance and download + alternate logo filename; §16.6 download loading keyed by certificate row `id`.

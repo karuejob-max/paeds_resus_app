@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,8 @@ import {
   Sparkles,
   ClipboardList,
   Clock,
+  PartyPopper,
+  RotateCcw,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Progress } from "@/components/ui/progress";
@@ -31,6 +34,12 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showQuizResult, setShowQuizResult] = useState(false);
+  const [quizResult, setQuizResult] = useState<{
+    score: number;
+    passed: boolean;
+    passingScore: number;
+  } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: number; answer: string }[]>([]);
 
   const coursesQuery = trpc.learning.getCourses.useQuery({
@@ -61,26 +70,61 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   const recordQuizAttemptMutation = trpc.learning.recordQuizAttempt.useMutation();
   const completeModuleMutation = trpc.learning.completeModule.useMutation();
 
+  const modulesOrdered = courseDetailsQuery.data?.modules ?? [];
+  const nextModuleAfterCurrent = useMemo(() => {
+    if (!selectedModule || !modulesOrdered.length) return null;
+    const idx = modulesOrdered.findIndex((m: { id: number }) => m.id === selectedModule);
+    if (idx < 0 || idx >= modulesOrdered.length - 1) return null;
+    return modulesOrdered[idx + 1] as { id: number; title?: string };
+  }, [selectedModule, modulesOrdered]);
+
+  function computeQuizScorePercent(): number {
+    const questions = moduleContentQuery.data?.quizzes?.[0]?.questions ?? [];
+    if (!questions.length) return 0;
+    let correctCount = 0;
+    for (const q of questions) {
+      const userAns = quizAnswers.find((a) => a.questionId === q.id)?.answer;
+      let expected = "";
+      try {
+        const raw = (q as { correctAnswer?: string }).correctAnswer;
+        expected = typeof raw === "string" ? JSON.parse(raw) : String(raw ?? "");
+      } catch {
+        expected = String((q as { correctAnswer?: string }).correctAnswer ?? "");
+      }
+      if (userAns === expected) correctCount++;
+    }
+    return Math.round((correctCount / questions.length) * 100);
+  }
+
   const handleSubmitQuiz = async () => {
     if (!selectedModule) return;
 
-    const qLen = moduleContentQuery.data?.quizzes?.[0]?.questions?.length || 0;
+    const score = computeQuizScorePercent();
     const result = await recordQuizAttemptMutation.mutateAsync({
       quizId: moduleContentQuery.data?.quizzes?.[0]?.id || 0,
       moduleId: selectedModule,
       enrollmentId,
-      score: Math.round((quizAnswers.length / (qLen || 1)) * 100),
+      score,
       answers: quizAnswers,
     });
 
-    if (result.success) {
-      await completeModuleMutation.mutateAsync({
-        moduleId: selectedModule,
-        enrollmentId,
+    if (result.success && "passed" in result && "passingScore" in result) {
+      setQuizResult({
+        score: result.score,
+        passed: result.passed,
+        passingScore: result.passingScore,
       });
+      setShowQuizResult(true);
       setShowQuiz(false);
       setQuizAnswers([]);
-      userProgressQuery.refetch();
+
+      if (result.passed) {
+        await completeModuleMutation.mutateAsync({
+          moduleId: selectedModule,
+          enrollmentId,
+        });
+      }
+      await Promise.all([userProgressQuery.refetch(), courseStatsQuery.refetch()]);
     }
   };
 
@@ -248,6 +292,9 @@ export const LearningPath: React.FC<LearningPathProps> = ({
               setSelectedCourse(null);
               setSelectedModule(null);
               setShowQuiz(false);
+              setShowQuizResult(false);
+              setQuizResult(null);
+              setQuizAnswers([]);
             }}
             variant="outline"
             size="sm"
@@ -272,7 +319,13 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                     type="button"
                     key={module.id}
                     className="group w-full text-left rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:bg-brand-surface/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => setSelectedModule(module.id)}
+                    onClick={() => {
+                      setSelectedModule(module.id);
+                      setShowQuiz(false);
+                      setShowQuizResult(false);
+                      setQuizResult(null);
+                      setQuizAnswers([]);
+                    }}
                   >
                     <div className="flex items-start gap-4">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
@@ -306,6 +359,8 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                 onClick={() => {
                   setSelectedModule(null);
                   setShowQuiz(false);
+                  setShowQuizResult(false);
+                  setQuizResult(null);
                 }}
                 variant="outline"
                 size="sm"
@@ -314,7 +369,114 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                 ← Back to modules
               </Button>
 
-              {!showQuiz ? (
+              {showQuizResult && quizResult ? (
+                <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                  <div
+                    className={cn(
+                      "border-b px-6 py-5",
+                      quizResult.passed
+                        ? "bg-gradient-to-r from-primary/10 to-brand-surface/80"
+                        : "bg-destructive/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      {quizResult.passed ? (
+                        <PartyPopper className="h-8 w-8 text-[var(--brand-orange)]" />
+                      ) : (
+                        <RotateCcw className="h-8 w-8 text-muted-foreground" />
+                      )}
+                      <div>
+                        <h2 className="text-xl font-bold text-foreground">
+                          {quizResult.passed ? "Module complete" : "Not quite there yet"}
+                        </h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {moduleContentQuery.data?.title}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 md:p-8 space-y-6">
+                    <div className="rounded-xl border border-border bg-muted/20 px-6 py-5 text-center">
+                      <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Your score</p>
+                      <p className="text-4xl font-bold tabular-nums text-foreground mt-1">{quizResult.score}%</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Pass mark: {quizResult.passingScore}%
+                      </p>
+                    </div>
+
+                    {quizResult.passed ? (
+                      <div className="space-y-3">
+                        {nextModuleAfterCurrent ? (
+                          <Button
+                            variant="cta"
+                            size="lg"
+                            className="w-full rounded-xl"
+                            onClick={() => {
+                              setSelectedModule(nextModuleAfterCurrent.id);
+                              setShowQuiz(false);
+                              setShowQuizResult(false);
+                              setQuizResult(null);
+                              setQuizAnswers([]);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                          >
+                            Continue: {nextModuleAfterCurrent.title?.trim() || "next module"}
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-sm text-center text-muted-foreground leading-relaxed">
+                              You&apos;ve finished all modules in this course. Download your certificate from your
+                              dashboard.
+                            </p>
+                            <Button variant="cta" size="lg" className="w-full rounded-xl" asChild>
+                              <Link href="/learner-dashboard#my-certificates">View my certificate</Link>
+                            </Button>
+                          </div>
+                        )}
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-xl"
+                          onClick={() => {
+                            setShowQuizResult(false);
+                            setQuizResult(null);
+                          }}
+                        >
+                          Back to module list
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground text-center">
+                          Review the module content and try the quiz again when you&apos;re ready.
+                        </p>
+                        <Button
+                          variant="cta"
+                          className="w-full rounded-xl"
+                          onClick={() => {
+                            setShowQuizResult(false);
+                            setQuizResult(null);
+                            setShowQuiz(true);
+                            setQuizAnswers([]);
+                          }}
+                        >
+                          Retry quiz
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-xl"
+                          onClick={() => {
+                            setShowQuizResult(false);
+                            setQuizResult(null);
+                          }}
+                        >
+                          Back to module content
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ) : !showQuiz ? (
                 <Card className="overflow-hidden rounded-2xl border-border shadow-md">
                   <div className="border-b border-border bg-gradient-to-r from-brand-surface/80 to-card px-6 py-4">
                     <h2 className="text-lg font-bold text-foreground md:text-xl">{moduleContentQuery.data?.title}</h2>

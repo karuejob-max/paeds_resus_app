@@ -7,7 +7,7 @@
 import { desc, eq, and, like } from "drizzle-orm";
 import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
 
-export const PAEDIATRIC_SEPTIC_SHOCK_TITLE = "Paediatric septic shock — recognition and first-hour care";
+export const PAEDIATRIC_SEPTIC_SHOCK_TITLE = "Paediatric Septic Shock I — recognition and first-hour care";
 
 const DISCLAIMER = `<p class="text-sm border-l-4 border-amber-500 pl-3 py-1 my-4 bg-amber-50 dark:bg-amber-950/30"><strong>Educational use only.</strong> This module supports training—not bedside decision-making. Apply your facility&apos;s protocols, senior review, and local formularies. Paeds Resus does not replace professional judgment or licensing requirements.</p>`;
 
@@ -32,11 +32,19 @@ export async function ensurePaediatricSepticShockCatalog(db: any): Promise<void>
 
   if (existing.length > 0) {
     courseId = existing[0].id;
+    await db
+      .update(courses)
+      .set({
+        title: PAEDIATRIC_SEPTIC_SHOCK_TITLE,
+        description:
+          "Tier I — for recognition and first-hour care in any size facility (including small clinics where one clinician wears many hats). Aligns with international sepsis principles; always follow your facility protocol. Use alongside ResusGPS during real cases. A future optional Tier II course will cover advanced management (e.g. refractory shock) for those who complete Tier I.",
+      })
+      .where(eq(courses.id, courseId));
   } else {
     await db.insert(courses).values({
       title: PAEDIATRIC_SEPTIC_SHOCK_TITLE,
       description:
-        "Evidence-informed micro-course: recognise paediatric septic shock early, start time-sensitive care, escalate safely. Pair with ResusGPS at the bedside.",
+        "Tier I — for recognition and first-hour care in any size facility (including small clinics where one clinician wears many hats). Aligns with international sepsis principles; always follow your facility protocol. Use alongside ResusGPS during real cases. A future optional Tier II course will cover advanced management (e.g. refractory shock) for those who complete Tier I.",
       programType: "pals",
       duration: 90,
       level: "advanced",
@@ -97,18 +105,25 @@ export async function ensurePaediatricSepticShockCatalog(db: any): Promise<void>
     "Module 1: Recognise shock early",
     "Clinical patterns, sepsis suspicion, first actions in parallel with ABCDE.",
     `${DISCLAIMER}
+<h2>Who this module is for</h2>
+<p>Many readers work in <strong>small facilities</strong> (dispensary, clinic, or health centre) where <strong>one clinician</strong> may need to think like triage nurse, doctor, and team leader at once. This module stays practical for that reality—while still telling you to use your facility&apos;s protocol and call senior help when available.</p>
 <h2>Why speed matters</h2>
-<p>Paediatric septic shock is a time-critical condition. Early recognition and coordinated treatment are associated with better outcomes in international sepsis programmes. The <strong>Surviving Sepsis Campaign</strong> (children and adult guidelines, including 2026 updates) emphasise timely recognition, source control thinking, and structured resuscitation within your local framework.</p>
+<p>Paediatric septic shock is time-critical. International sepsis programmes (e.g. <strong>Surviving Sepsis Campaign</strong> paediatric/adult updates) stress timely recognition, source-control thinking, and structured resuscitation <strong>within your local framework</strong>.</p>
+<h2>What is &quot;shock&quot; in plain language?</h2>
+<p><strong>Shock</strong> means the body is not delivering enough oxygen and nutrients to the tissues—often because circulation is impaired in the setting of serious infection. You do not need a blood pressure machine to suspect it.</p>
+<p><strong>Watch for:</strong> a child who is <strong>much more unwell than &quot;just a fever&quot;</strong>—very sleepy or irritable, mottled or grey, cool hands/feet, weak pulses, capillary refill longer than your protocol&apos;s cut-off, fast breathing for age, or a fast heart rate that does not improve as you treat the basics. In children, <strong>blood pressure can fall late</strong>; waiting for hypotension alone can delay care.</p>
 <h2>What to look for</h2>
 <ul>
 <li><strong>Behaviour:</strong> irritability, lethargy, poor feeding or interaction (age-dependent).</li>
 <li><strong>Perfusion:</strong> delayed capillary refill, cool extremities, mottled skin, weak pulses.</li>
 <li><strong>Respiratory:</strong> tachypnoea, increased work of breathing; may precede hypotension in children.</li>
-<li><strong>Circulation:</strong> tachycardia; hypotension may be a late sign—do not wait for a “low BP” to act if perfusion is poor.</li>
+<li><strong>Circulation:</strong> tachycardia; hypotension may be a late sign—do not wait for a low BP reading if perfusion is poor.</li>
 </ul>
 <h2>Think in parallel</h2>
 <p>Use a structured primary survey (airway, breathing, circulation, disability, exposure) while considering sepsis as a cause of shock. Identify life threats first; obtain senior help early.</p>
-<p>In <strong>low-resource settings</strong>, the &quot;Ten Steps to Improve Sepsis Care&quot; themes (timely recognition, oxygen, antibiotics when indicated, fluids where appropriate, safe referral pathways) remain highly relevant—adapt delivery to what your facility can safely provide and measure.</p>`,
+<p>In <strong>low-resource settings</strong>, themes from &quot;Ten Steps to Improve Sepsis Care&quot; (timely recognition, oxygen, antibiotics when indicated, fluids where appropriate, safe referral) stay highly relevant—adapt to what your facility can safely provide and measure.</p>
+<h2>ResusGPS and this course</h2>
+<p><strong>ResusGPS</strong> is Paeds Resus&apos;s bedside guidance tool (structured flows, doses, reassessment prompts)—<strong>not a substitute</strong> for your protocol or senior review. After this course, use ResusGPS to walk the <strong>same mental model</strong> you practise here: primary survey first, treat life threats, reassess often, escalate early when the child is not improving. Open the shock / sepsis pathway that matches your scenario and work step by step; if your facility uses a different first-line approach, follow policy and use ResusGPS as a cross-check for doses and missed steps.</p>`,
     25
   );
 
@@ -118,12 +133,15 @@ export async function ensurePaediatricSepticShockCatalog(db: any): Promise<void>
     "Fluids, antibiotics, monitoring—aligned with principles; volumes and choices follow local protocol.",
     `${DISCLAIMER}
 <h2>Principles (not a prescription)</h2>
-<p>International guidelines stress <strong>early appropriate antibiotics</strong> after cultures when feasible, <strong>haemodynamic resuscitation</strong> guided by reassessment, and <strong>escalation</strong> when response is inadequate. Exact fluid types, bolus sizes, and inotrope thresholds differ by age, weight, and national policy—follow your hospital.</p>
-<h2>Fluids</h2>
-<p>Give fluid boluses <strong>with close monitoring</strong> of perfusion, breathing, and heart rate. In some presentations (e.g. concern for myocardial dysfunction or fluid overload), smaller aliquots and earlier escalation may be safer—your protocol should say how.</p>
+<p>International guidance stresses <strong>early appropriate antibiotics</strong> when cultures are feasible without unsafe delay, <strong>haemodynamic resuscitation</strong> guided by reassessment, and <strong>escalation</strong> when response is inadequate. <strong>Your facility protocol</strong> defines exact drug choices, bolus sizes, and when to start vasoactive drugs—this module orients you to common themes.</p>
+<h2>Fluids: crystalloids, evidence, and pragmatism</h2>
+<p>Many international statements <strong>lean toward balanced crystalloids</strong> (e.g. Ringer&apos;s lactate or balanced solutions) rather than <strong>normal saline alone</strong> for resuscitation—yet <strong>saline remains an acceptable alternative</strong> when that is what you have. Brand names and stock vary; <strong>Ringer&apos;s lactate</strong> is often widely available and affordable compared with some balanced brands. <strong>Colloids</strong> are not emphasised as routine first-line plasma expanders in most paediatric sepsis pathways—defer to policy.</p>
+<p>Large trials in African children with febrile illness (e.g. <strong>FEAST</strong>) informed cautious fluid strategies in certain populations and presentations. In teaching terms: prefer <strong>small boluses with frequent reassessment</strong> rather than &quot;pouring in fluid&quot; without looking at the child again. If you see <strong>fluid overload</strong> (e.g. gallop, hepatomegaly, crackles, rising work of breathing), <strong>stop bolusing</strong> and escalate per protocol—do not give another bolus just to complete a number.</p>
+<h2>A bedside pattern many protocols use (example only)</h2>
+<p><strong>Example only—follow your local guideline.</strong> Some teams use a sequence such as: give a crystalloid bolus (often discussed in the range of ~10–20 mL/kg depending on context), <strong>reassess perfusion and breathing</strong>; if shock persists and there is <strong>no sign of fluid overload</strong>, repeat; if still in shock without overload, consider further boluses up to a <strong>cumulative ceiling</strong> your policy sets, then move to second-line therapy if shock continues. If the child is in shock but <strong>shows fluid overload</strong>, <strong>stop boluses</strong> and escalate immediately (referral / inotropic support per protocol).</p>
 <h2>Antibiotics</h2>
-<p>When sepsis is suspected, <strong>do not delay antibiotics</strong> to complete investigations. Choose empiric therapy per local guideline and likely source.</p>
-<h2>Monitoring & reassessment</h2>
+<p>When sepsis is suspected, <strong>do not delay antibiotics</strong> solely to finish tests. Choose empiric therapy per local guideline and likely source.</p>
+<h2>Monitoring &amp; reassessment</h2>
 <p>Reassess after each intervention. Poor response triggers escalation (senior review, second-line therapy, critical care referral)—document clearly.</p>`,
     30
   );

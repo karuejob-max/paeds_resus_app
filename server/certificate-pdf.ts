@@ -1,11 +1,21 @@
 /**
  * Certificate PDF Generation Service
- * Generates branded PDF certificates with verification codes
+ * Generates branded PDF certificates (Paeds Resus teal + orange) with optional logo
  */
 
-import { PDFDocument, PDFPage, rgb, degrees } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as fs from "fs";
 import * as path from "path";
+
+/** Brand tokens aligned with client `index.css` / theme */
+const BRAND = {
+  teal: rgb(27 / 255, 61 / 255, 61 / 255),
+  tealLight: rgb(42 / 255, 90 / 255, 90 / 255),
+  orange: rgb(243 / 255, 112 / 255, 33 / 255),
+  paper: rgb(0.99, 0.99, 0.98),
+  ink: rgb(0.12, 0.14, 0.16),
+  inkMuted: rgb(0.38, 0.4, 0.42),
+};
 
 interface CertificateData {
   recipientName: string;
@@ -21,7 +31,6 @@ interface CertificateTemplate {
   title: string;
   subtitle: string;
   description: string;
-  color: { r: number; g: number; b: number };
   hours: number;
 }
 
@@ -29,221 +38,288 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
   bls: {
     title: "Basic Life Support",
     subtitle: "BLS Certification",
-    description: "Successfully completed the Basic Life Support training course",
-    color: { r: 26, g: 77, b: 77 }, // Teal
+    description:
+      "has successfully completed the Basic Life Support training programme and meets the completion requirements of Paeds Resus.",
     hours: 8,
   },
   acls: {
     title: "Advanced Cardiovascular Life Support",
     subtitle: "ACLS Certification",
-    description: "Successfully completed the Advanced Cardiovascular Life Support training course",
-    color: { r: 220, g: 38, b: 38 }, // Red
+    description:
+      "has successfully completed the Advanced Cardiovascular Life Support training programme and meets the completion requirements of Paeds Resus.",
     hours: 16,
   },
   pals: {
     title: "Pediatric Advanced Life Support",
     subtitle: "PALS Certification",
-    description: "Successfully completed the Pediatric Advanced Life Support training course",
-    color: { r: 59, g: 130, b: 246 }, // Blue
+    description:
+      "has successfully completed the Pediatric Advanced Life Support training programme and meets the completion requirements of Paeds Resus.",
     hours: 16,
   },
   fellowship: {
     title: "Paeds Resus Elite Fellowship",
     subtitle: "Fellowship Certification",
-    description: "Successfully completed the Paeds Resus Elite Fellowship program",
-    color: { r: 168, g: 85, b: 247 }, // Purple
+    description:
+      "has successfully completed the Paeds Resus Elite Fellowship programme and meets the completion requirements of Paeds Resus.",
     hours: 120,
   },
   instructor: {
     title: "Paeds Resus Instructor Course",
     subtitle: "Instructor Certification",
-    description: "Successfully completed the Paeds Resus Instructor Course",
-    color: { r: 26, g: 77, b: 77 },
+    description:
+      "has successfully completed the Paeds Resus Instructor Course and meets the completion requirements of Paeds Resus.",
     hours: 6,
   },
 };
 
-/**
- * Generate certificate PDF
- */
-export async function generateCertificatePDF(data: CertificateData): Promise<Buffer> {
-  try {
-    // Create PDF document
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // Letter size (8.5" x 11")
+function isPngBuffer(buf: Buffer): boolean {
+  return buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+}
 
-    const { width, height } = page.getSize();
-    const template = CERTIFICATE_TEMPLATES[data.programType] ?? CERTIFICATE_TEMPLATES.bls;
-
-    // Draw background color bar
-    page.drawRectangle({
-      x: 0,
-      y: height - 80,
-      width: width,
-      height: 80,
-      color: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-    });
-
-    // Draw decorative border
-    page.drawRectangle({
-      x: 20,
-      y: 20,
-      width: width - 40,
-      height: height - 40,
-      borderColor: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-      borderWidth: 2,
-    });
-
-    // Organization name (top)
-    page.drawText("PAEDS RESUS", {
-      x: width / 2 - 80,
-      y: height - 50,
-      size: 28,
-      color: rgb(1, 1, 1),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Subtitle
-    page.drawText("Elite Fellowship and Safe-Truth Platform", {
-      x: width / 2 - 150,
-      y: height - 70,
-      size: 12,
-      color: rgb(1, 1, 1),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    // Certificate title
-    page.drawText("Certificate of Completion", {
-      x: 50,
-      y: height - 150,
-      size: 36,
-      color: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Program name
-    page.drawText(template.title, {
-      x: 50,
-      y: height - 190,
-      size: 24,
-      color: rgb(0.2, 0.2, 0.2),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Recipient name (large)
-    page.drawText(data.recipientName, {
-      x: 50,
-      y: height - 280,
-      size: 32,
-      color: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Description
-    const descriptionLines = wrapText(template.description, 70);
-    let descY = height - 320;
-    for (const line of descriptionLines) {
-      page.drawText(line, {
-        x: 50,
-        y: descY,
-        size: 12,
-        color: rgb(0.3, 0.3, 0.3),
-        font: await pdfDoc.embedFont("Helvetica"),
-      });
-      descY -= 18;
+function resolveLogoPngBytes(): Buffer | null {
+  const candidates = [
+    path.join(process.cwd(), "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(process.cwd(), "client", "public", "paeds-resus-logo.png"),
+    path.join(process.cwd(), "dist", "public", "paeds-resus-logo-brand.png"),
+    path.join(process.cwd(), "dist", "public", "paeds-resus-logo.png"),
+    path.join(__dirname, "..", "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(__dirname, "..", "client", "public", "paeds-resus-logo.png"),
+    path.join(__dirname, "..", "..", "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(__dirname, "..", "..", "client", "public", "paeds-resus-logo.png"),
+  ];
+  for (const p of candidates) {
+    try {
+      if (!fs.existsSync(p)) continue;
+      const buf = fs.readFileSync(p);
+      if (isPngBuffer(buf)) return buf;
+    } catch {
+      /* continue */
     }
-
-    // Training details section
-    const detailsY = height - 450;
-    page.drawText("Training Details", {
-      x: 50,
-      y: detailsY,
-      size: 14,
-      color: rgb(0.2, 0.2, 0.2),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Training date
-    page.drawText(`Date: ${formatDate(data.trainingDate)}`, {
-      x: 50,
-      y: detailsY - 25,
-      size: 11,
-      color: rgb(0.3, 0.3, 0.3),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    // Hours completed
-    const hours = data.completionHours || template.hours;
-    page.drawText(`Hours Completed: ${hours}`, {
-      x: 50,
-      y: detailsY - 45,
-      size: 11,
-      color: rgb(0.3, 0.3, 0.3),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    // Instructor name
-    page.drawText(`Instructor: ${data.instructorName}`, {
-      x: 50,
-      y: detailsY - 65,
-      size: 11,
-      color: rgb(0.3, 0.3, 0.3),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    // Signature line
-    page.drawLine({
-      start: { x: 50, y: detailsY - 110 },
-      end: { x: 200, y: detailsY - 110 },
-      color: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-      thickness: 2,
-    });
-
-    page.drawText("Authorized Signature", {
-      x: 50,
-      y: detailsY - 125,
-      size: 10,
-      color: rgb(0.4, 0.4, 0.4),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    // Certificate number and verification code (bottom)
-    page.drawText(`Certificate #: ${data.certificateNumber}`, {
-      x: 50,
-      y: 80,
-      size: 10,
-      color: rgb(0.4, 0.4, 0.4),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    page.drawText(`Verification Code: ${data.verificationCode}`, {
-      x: 50,
-      y: 60,
-      size: 10,
-      color: rgb(0.4, 0.4, 0.4),
-      font: await pdfDoc.embedFont("Helvetica"),
-    });
-
-    page.drawText("Verify at: www.paeds-resus.com/verify", {
-      x: 50,
-      y: 40,
-      size: 9,
-      color: rgb(template.color.r / 255, template.color.g / 255, template.color.b / 255),
-      font: await pdfDoc.embedFont("Helvetica-Bold"),
-    });
-
-    // Save and return PDF
-    const pdfBytes = await pdfDoc.save();
-    return Buffer.from(pdfBytes);
-  } catch (error) {
-    console.error("Error generating certificate PDF:", error);
-    throw error;
   }
+  return null;
 }
 
 /**
- * Helper function to wrap text
+ * Generate certificate PDF (landscape A4-style: 842 × 595 pt)
  */
+export async function generateCertificatePDF(data: CertificateData): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+  const width = 842;
+  const height = 595;
+  const page = pdfDoc.addPage([width, height]);
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const template = CERTIFICATE_TEMPLATES[data.programType] ?? CERTIFICATE_TEMPLATES.bls;
+
+  const topBarH = 56;
+  page.drawRectangle({
+    x: 0,
+    y: height - topBarH,
+    width,
+    height: topBarH,
+    color: BRAND.teal,
+  });
+
+  const orgTitle = "PAEDS RESUS";
+  const orgW = fontBold.widthOfTextAtSize(orgTitle, 13);
+  page.drawText(orgTitle, {
+    x: width / 2 - orgW / 2,
+    y: height - 36,
+    size: 13,
+    font: fontBold,
+    color: rgb(1, 1, 1),
+  });
+
+  const tag = "Elite Fellowship & Safe-Truth Platform";
+  const tagW = font.widthOfTextAtSize(tag, 8);
+  page.drawText(tag, {
+    x: width / 2 - tagW / 2,
+    y: height - 50,
+    size: 8,
+    font,
+    color: rgb(0.92, 0.95, 0.95),
+  });
+
+  const logoBytes = resolveLogoPngBytes();
+  let logoBottomY = height - topBarH - 12;
+  if (logoBytes) {
+    try {
+      const img = await pdfDoc.embedPng(logoBytes);
+      const maxW = 168;
+      const scale = maxW / img.width;
+      const lw = img.width * scale;
+      const lh = img.height * scale;
+      const logoY = height - topBarH - 16 - lh;
+      page.drawImage(img, {
+        x: width / 2 - lw / 2,
+        y: logoY,
+        width: lw,
+        height: lh,
+      });
+      logoBottomY = logoY;
+    } catch (e) {
+      console.warn("[certificate-pdf] Could not embed logo:", e);
+    }
+  }
+
+  const panelTop = logoBottomY - 20;
+  const panelBottom = 40;
+
+  page.drawRectangle({
+    x: 36,
+    y: panelBottom,
+    width: width - 72,
+    height: panelTop - panelBottom,
+    borderColor: BRAND.teal,
+    borderWidth: 2,
+    color: BRAND.paper,
+  });
+
+  page.drawRectangle({
+    x: 44,
+    y: panelBottom + 8,
+    width: width - 88,
+    height: panelTop - panelBottom - 16,
+    borderColor: BRAND.orange,
+    borderWidth: 1,
+  });
+
+  let y = panelTop - 56;
+
+  const certLabel = "Certificate of Completion";
+  const certW = fontBold.widthOfTextAtSize(certLabel, 26);
+  page.drawText(certLabel, {
+    x: width / 2 - certW / 2,
+    y,
+    size: 26,
+    font: fontBold,
+    color: BRAND.teal,
+  });
+  y -= 36;
+
+  const subW = font.widthOfTextAtSize(template.subtitle, 12);
+  page.drawText(template.subtitle, {
+    x: width / 2 - subW / 2,
+    y,
+    size: 12,
+    font,
+    color: BRAND.tealLight,
+  });
+  y -= 40;
+
+  const hereby = "This is to certify that";
+  const herebyW = font.widthOfTextAtSize(hereby, 11);
+  page.drawText(hereby, {
+    x: width / 2 - herebyW / 2,
+    y,
+    size: 11,
+    font,
+    color: BRAND.inkMuted,
+  });
+  y -= 44;
+
+  const nameSize = Math.min(34, 18 + Math.max(0, 14 - data.recipientName.length * 0.25));
+  const nameW = fontBold.widthOfTextAtSize(data.recipientName, nameSize);
+  page.drawText(data.recipientName, {
+    x: width / 2 - nameW / 2,
+    y,
+    size: nameSize,
+    font: fontBold,
+    color: BRAND.teal,
+  });
+  y -= nameSize + 28;
+
+  const descLines = wrapText(template.description, 88);
+  for (const line of descLines) {
+    const lw = font.widthOfTextAtSize(line, 11);
+    page.drawText(line, {
+      x: width / 2 - lw / 2,
+      y,
+      size: 11,
+      font,
+      color: BRAND.ink,
+    });
+    y -= 16;
+  }
+
+  y -= 24;
+  const hours = data.completionHours ?? template.hours;
+  const details: [string, string][] = [
+    ["Programme", template.title],
+    ["Completion date", formatDate(data.trainingDate)],
+    ["Credit hours recorded", String(hours)],
+    ["Faculty / signatory", data.instructorName || "Paeds Resus"],
+  ];
+
+  const boxLeft = width / 2 - 220;
+  const boxW = 440;
+  const boxH = details.length * 22 + 24;
+  page.drawRectangle({
+    x: boxLeft,
+    y: y - boxH + 18,
+    width: boxW,
+    height: boxH,
+    color: rgb(0.96, 0.98, 0.98),
+    borderColor: rgb(0.85, 0.9, 0.9),
+    borderWidth: 1,
+  });
+
+  let dy = y - 14;
+  for (const [k, v] of details) {
+    page.drawText(k, {
+      x: boxLeft + 16,
+      y: dy,
+      size: 9,
+      font,
+      color: BRAND.inkMuted,
+    });
+    page.drawText(v, {
+      x: boxLeft + 140,
+      y: dy,
+      size: 10,
+      font: fontBold,
+      color: BRAND.ink,
+    });
+    dy -= 22;
+  }
+
+  const footY = 52;
+  page.drawLine({
+    start: { x: width / 2 - 90, y: footY + 42 },
+    end: { x: width / 2 + 90, y: footY + 42 },
+    color: BRAND.orange,
+    thickness: 2,
+  });
+  page.drawText("Authorised representative", {
+    x: width / 2 - font.widthOfTextAtSize("Authorised representative", 9) / 2,
+    y: footY + 28,
+    size: 9,
+    font,
+    color: BRAND.inkMuted,
+  });
+
+  page.drawText(`Certificate No. ${data.certificateNumber}`, {
+    x: 56,
+    y: footY,
+    size: 9,
+    font,
+    color: BRAND.inkMuted,
+  });
+
+  const verifyLine = `Verify: www.paedsresus.com/verify · Code ${data.verificationCode}`;
+  page.drawText(verifyLine, {
+    x: width - 56 - font.widthOfTextAtSize(verifyLine, 9),
+    y: footY,
+    size: 9,
+    font: fontBold,
+    color: BRAND.teal,
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes);
+}
+
 function wrapText(text: string, maxLength: number): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
@@ -262,16 +338,13 @@ function wrapText(text: string, maxLength: number): string[] {
   return lines;
 }
 
-/**
- * Format date for certificate
- */
 function formatDate(date: Date): string {
   const options: Intl.DateTimeFormatOptions = {
     year: "numeric",
     month: "long",
     day: "numeric",
   };
-  return date.toLocaleDateString("en-US", options);
+  return date.toLocaleDateString("en-GB", options);
 }
 
 /**
@@ -284,7 +357,6 @@ export async function saveCertificateFile(
   try {
     const certificatesDir = path.join(process.cwd(), "certificates");
 
-    // Create directory if it doesn't exist
     if (!fs.existsSync(certificatesDir)) {
       fs.mkdirSync(certificatesDir, { recursive: true });
     }

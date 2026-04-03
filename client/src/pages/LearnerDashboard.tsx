@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -63,10 +63,15 @@ export default function LearnerDashboard() {
     return d !== null && d <= 90;
   });
 
-  const handleDownloadCertificate = (certificateNumber: string) => {
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
+
+  const handleDownloadCertificate = (certificateId: number, certificateNumber: string | null) => {
+    if (!certificateNumber) return;
+    setDownloadingCertificateId(certificateId);
     downloadCert.mutate(
       { certificateNumber },
       {
+        onSettled: () => setDownloadingCertificateId(null),
         onSuccess: (result) => {
           if (!result.success || !("pdfBase64" in result) || !result.pdfBase64) return;
           const bin = atob(result.pdfBase64);
@@ -319,7 +324,7 @@ export default function LearnerDashboard() {
             </Card>
 
             {/* My Certificates */}
-            <Card className="md:col-span-3">
+            <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="w-5 h-5" />
@@ -365,10 +370,10 @@ export default function LearnerDashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={downloadCert.isPending}
-                              onClick={() => c.certificateNumber && handleDownloadCertificate(c.certificateNumber)}
+                              disabled={!c.certificateNumber || downloadingCertificateId === c.id}
+                              onClick={() => handleDownloadCertificate(c.id, c.certificateNumber)}
                             >
-                              {downloadCert.isPending ? (
+                              {c.certificateNumber && downloadingCertificateId === c.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <>
