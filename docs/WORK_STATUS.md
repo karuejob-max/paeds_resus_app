@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-03 | Cursor | **Course learning UI polish:** `LearningPath` — brand teal/orange, calmer stats cards, `max-w-4xl` reading width, hero + progress bar, module list with step badges, prose styling for HTML content, quiz option cards with selected state, `variant="cta"` CTAs; `CoursePaediatricSepticShock` + `CourseSeriouslyIllChild` aligned shells (gradient intro, loading spinner, brand surfaces). | `c99c622` |
 | 2026-04-02 | Cursor | **M-Pesa STK false “payment not completed” before PIN:** Reconcile only marks `failed` on explicit Daraja cancel (`1`, not transport); treat 2031/1037/unknown as non-terminal; `queryStk` catch uses `QUERY_TRANSPORT_ERROR` not `1`. Client delays status poll 2.5s after STK id. Tests: `mpesa-reconciliation.test.ts`. | `9e87c5d` |
 | 2026-04-02 | Cursor | **Production enrollments failing (missing `courseId` column):** `docs/RENDER_PREDEPLOY_LOCKED.md` §0029; clearer `enrollment.create` error when DB lacks `enrollments.courseId`; E2E septic doc notes production must run `pnpm run db:apply-0029`. | `f17ebd9` |
 | 2026-04-02 | Cursor | **Clinical protocols docs + ResusGPS alignment:** `docs/clinical-protocols/` (README, RESUSGPS_REGISTRY, `_TEMPLATE`, `paediatric-septic-shock.md`); `docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md`; README documentation map; code pointers in `pathways/shock.ts` and `abcdeEngine.ts`. | `4c1e1e4` |

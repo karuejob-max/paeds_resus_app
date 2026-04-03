@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LearningPath } from "@/components/LearningPath";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, BookOpen } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
 /**
@@ -45,15 +45,17 @@ export default function CourseSeriouslyIllChild() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-brand-surface">
+        <Card className="max-w-md w-full border-border shadow-sm">
           <CardHeader>
             <CardTitle>Sign in required</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-slate-600 text-sm">Sign in to access your course.</p>
+            <p className="text-muted-foreground text-sm">Sign in to access your course.</p>
             <a href={getLoginUrl()}>
-              <Button className="w-full">Sign in</Button>
+              <Button variant="cta" className="w-full">
+                Sign in
+              </Button>
             </a>
           </CardContent>
         </Card>
@@ -63,31 +65,37 @@ export default function CourseSeriouslyIllChild() {
 
   if (dataPending) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
-        <p className="text-slate-600 text-sm">Loading your course…</p>
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading your course…</p>
+        </div>
       </div>
     );
   }
 
   if (palsEnrollmentId === undefined) {
     return (
-      <div className="min-h-screen bg-slate-50 py-10 px-4">
+      <div className="min-h-screen bg-brand-surface py-10 px-4">
         <div className="max-w-lg mx-auto">
-          <Card>
+          <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <AlertCircle className="w-6 h-6 text-[var(--brand-orange)]" />
                 No enrollment found
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-slate-600 text-sm">
-                Enroll in <strong>The systematic approach to a seriously ill child</strong> first, complete
-                payment, then return here. You can add{" "}
-                <code className="text-xs bg-slate-100 px-1 rounded">?enrollmentId=</code> to the URL after checkout.
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Enrol in <strong>The systematic approach to a seriously ill child</strong> first, complete payment,
+                then return here. You can add{" "}
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">?enrollmentId=</code> to the URL after
+                checkout.
               </p>
-              <Link href="/enroll">
-                <Button className="w-full">Go to enroll</Button>
+              <Link href="/enroll#course-pals">
+                <Button variant="cta" className="w-full">
+                  Go to enroll
+                </Button>
               </Link>
               <Link href="/learner-dashboard">
                 <Button variant="outline" className="w-full gap-2">
@@ -103,18 +111,35 @@ export default function CourseSeriouslyIllChild() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-screen bg-brand-surface py-8 px-4">
+      <div className="max-w-4xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-4">
         <Link href="/learner-dashboard">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 rounded-xl">
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Button>
         </Link>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground max-w-md text-right leading-relaxed">
           Enrollment #{palsEnrollmentId} · After payment, your certificate appears on the learner dashboard.
         </p>
       </div>
+
+      <div className="max-w-4xl mx-auto mb-8 rounded-2xl border border-border bg-gradient-to-br from-card via-card to-brand-surface/50 p-6 md:p-8 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+            <BookOpen className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">PALS micro-course</p>
+            <h1 className="mt-1 text-xl font-bold text-foreground md:text-2xl">Seriously ill child</h1>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              A systematic approach to assessment and stabilisation. Work through modules at your pace, then complete
+              each quiz to confirm understanding.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <LearningPath
         enrollmentId={palsEnrollmentId}
         programType="pals"
