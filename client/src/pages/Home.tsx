@@ -34,8 +34,18 @@ export default function Home() {
   const { role } = useUserRole();
   useEffect(() => {
     if (loading || !user) return;
-    // If they explicitly chose provider role, show hub (don't redirect)
-    if (role === "provider") return;
+    // If they explicitly chose a role via the header dropdown, respect that choice
+    // (role takes precedence over userType from database)
+    if (role === "provider") return; // Stay on provider hub
+    if (role === "parent") {
+      setLocation("/parent-safe-truth");
+      return;
+    }
+    if (role === "institution") {
+      setLocation("/institutional-portal");
+      return;
+    }
+    // If no explicit role chosen yet, use userType from database
     if (userType === "parent") {
       setLocation("/parent-safe-truth");
       return;

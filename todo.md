@@ -100,3 +100,56 @@
 - [x] Stress hyperglycemia awareness (septic child with poor feeding can have ketones + high glucose)
 - [x] Engine presents findings and differentials, not premature diagnoses
 - [x] Lactate assessment option (added to D letter)
+
+
+## Sprint 2: Monetization MVP (Passive Revenue Streams)
+
+### Phase 2.1: Micro-Course Monetization Foundation
+- [ ] Create micro-course catalog schema updates (distinguish micro-courses from legacy BLS/ACLS/PALS)
+- [ ] Define three pilot micro-courses: Shock, DKA, Asthma Escalation
+- [ ] Add pricing to each micro-course (500-1,500 KES)
+- [ ] Build micro-course checkout flow (M-Pesa integration)
+- [ ] Create course completion certificates
+- [ ] Wire micro-course enrollment to analyticsEvents (track: course_enrollment, payment_initiation, payment_completion)
+- [ ] Add email receipts using email-service.ts (Cursor's new service)
+- [ ] Test payment flow end-to-end (M-Pesa STK Push → callback → certificate)
+
+### Phase 2.2: Institutional Readiness Sales Pipeline
+- [ ] Define "Hospital Readiness Assessment" package (what's included, pricing)
+- [ ] Create institutional inquiry form (company, staff count, specific needs)
+- [ ] Build inquiry → sales pipeline (new, contacted, qualified, converted)
+- [ ] Create proposal/quote generation UI
+- [ ] Add institutional onboarding checklist
+- [ ] Build staff training assignment UI (assign micro-courses to staff)
+- [ ] Create institutional reporting dashboard (staff completion rates, usage)
+- [ ] Wire to analyticsEvents (track: institution_training_schedule_created, staff_course_completion)
+
+### Phase 2.3: Measurement & Analytics
+- [ ] Track micro-course → ResusGPS usage correlation (do users who take Shock module use ResusGPS more?)
+- [ ] Monitor payment success rate (% of STK Push that complete)
+- [ ] Calculate support cost per 1,000 users (track support emails per SKU)
+- [ ] Create admin dashboard showing revenue by SKU (micro-courses vs legacy courses vs institutional)
+- [ ] Verify analyticsEvents captures all monetization events
+
+### Phase 2.4: Testing & Launch
+- [ ] Create test data: 5 micro-course enrollments with M-Pesa payments
+- [ ] Verify certificates are generated and emailed
+- [ ] Test institutional inquiry → proposal flow
+- [ ] Verify all events appear in analyticsEvents
+- [ ] Run smoke tests on payment failure scenarios (timeout, user cancels, network error)
+- [ ] Document support playbook (FAQ, common issues, escalation)
+
+### Phase 2.5: Staging Environment (Parallel)
+- [ ] Set up staging database (separate from production)
+- [ ] Configure staging M-Pesa sandbox credentials
+- [ ] Create staging deployment checklist
+- [ ] Test all monetization flows on staging before production
+
+
+## Bug Fixes (Active)
+
+### Navigation Bug: Institutional User Cannot Access Healthcare Provider Platform
+- [x] Diagnose: Check institutional dropdown menu navigation code
+- [x] Fix: Ensure "Healthcare Provider Platform" button routes to correct page (Fixed race condition in Home.tsx redirect logic)
+- [ ] Test: Verify institutional user can navigate to provider platform
+- [ ] Verify: Test role switching and navigation flow

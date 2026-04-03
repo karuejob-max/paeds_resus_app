@@ -190,6 +190,13 @@
       "when": 1774941925398,
       "tag": "0026_white_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1775188687422,
+      "tag": "0027_silent_famine",
+      "breakpoints": true
     }
   ]
 }
