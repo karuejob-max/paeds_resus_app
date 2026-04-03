@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LearningPath } from "@/components/LearningPath";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { ArrowLeft, Heart } from "lucide-react";
+import { ArrowLeft, BookOpen, Heart } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
 /**
@@ -61,7 +61,10 @@ export default function CoursePaediatricSepticShock() {
   if (dataPending) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">Loading your course…</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading your course…</p>
+        </div>
       </div>
     );
   }
@@ -102,25 +105,46 @@ export default function CoursePaediatricSepticShock() {
 
   return (
     <div className="min-h-screen bg-brand-surface py-8 px-4">
-      <div className="max-w-6xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-4xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-4">
         <Link href="/learner-dashboard">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 rounded-xl">
             <ArrowLeft className="w-4 h-4" />
             Dashboard
           </Button>
         </Link>
-        <p className="text-sm text-muted-foreground max-w-xl text-right">
-          Enrollment #{septicEnrollmentId} · Evidence-informed training; always follow your facility&apos;s protocols.
-          Open <Link href="/resus" className="text-primary font-medium underline-offset-2 hover:underline">ResusGPS</Link>{" "}
-          at the bedside when you need step-by-step support.
+        <p className="text-sm text-muted-foreground max-w-md text-right leading-relaxed">
+          Enrollment #{septicEnrollmentId} · Evidence-informed training; follow your facility&apos;s protocols. Use{" "}
+          <Link href="/resus" className="text-primary font-medium underline-offset-2 hover:underline">
+            ResusGPS
+          </Link>{" "}
+          at the bedside for live support.
         </p>
       </div>
-      <div className="max-w-6xl mx-auto mb-6 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-sm">
-        <span className="font-medium text-foreground">Why this course exists: </span>
-        Every hour, children die from sepsis that was recognised too late or treated without a shared plan. This module
-        is built to align with international sepsis care principles (including Surviving Sepsis Campaign updates and
-        low-resource &quot;Ten Steps&quot; themes)—so you can act early, reassess often, and escalate clearly.
+
+      <div className="max-w-4xl mx-auto mb-8 rounded-2xl border border-border bg-gradient-to-br from-card via-card to-brand-surface/50 p-6 md:p-8 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-orange)]/12 text-[var(--brand-orange)]">
+            <Heart className="h-6 w-6" />
+          </span>
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">PALS micro-course</p>
+              <h1 className="mt-1 text-xl font-bold text-foreground md:text-2xl">Paediatric septic shock</h1>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Built around early recognition, fluids and antimicrobials, reassessment, and escalation—aligned with
+              international sepsis care themes and low-resource quality improvement steps.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/80 px-2.5 py-1">
+                <BookOpen className="h-3.5 w-3.5" />
+                Modules + quizzes
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
+
       <LearningPath
         enrollmentId={septicEnrollmentId}
         programType="pals"

@@ -300,8 +300,9 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
     }
   } catch (error: any) {
     console.error("Error querying M-Pesa payment status:", error.message);
+    // Do not use ResultCode "1" here — reconciliation treats "1" as user-cancelled payment.
     return {
-      resultCode: "1",
+      resultCode: "QUERY_TRANSPORT_ERROR",
       resultDesc: error.message || "Query failed",
     };
   }

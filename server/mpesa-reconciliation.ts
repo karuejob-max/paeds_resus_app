@@ -13,6 +13,39 @@ function stkResultIsSuccess(resultCode: unknown): boolean {
   return c === "0";
 }
 
+/**
+ * Daraja STK Query often returns non-zero before the customer sees the PIN prompt
+ * (e.g. 1037, 2031, 500.*). Only persist `failed` when we are confident the attempt
+ * ended in a real user-side failure — otherwise leave `pending` for webhook / later poll.
+ */
+export function shouldMarkPaymentAsFailedFromStkQuery(stk: {
+  resultCode: unknown;
+  resultDesc?: unknown;
+}): boolean {
+  const code = String(stk.resultCode ?? "");
+  const desc = String(stk.resultDesc ?? "");
+
+  if (code === "0") return false;
+
+  if (code === "QUERY_TRANSPORT_ERROR") return false;
+
+  // In-flight / try again later — never mark failed from reconcile
+  if (code === "2031") return false;
+  if (code === "1037") return false;
+  if (/still processing|pending|being processed|try again|system busy/i.test(desc)) return false;
+
+  // User cancelled (real Daraja) — not a query-layer error (legacy catch used code 1 for those)
+  if (code === "1") {
+    if (/axios|ECONN|ETIMEDOUT|ENOTFOUND|network|socket|Query failed|fetch|certificate|404|timeout/i.test(desc)) {
+      return false;
+    }
+    return true;
+  }
+
+  // 1032 / other codes: rely on callback for terminal failure — avoids false "failed" before PIN prompt
+  return false;
+}
+
 export async function reconcilePaymentRowByStkQuery(paymentId: number): Promise<{
   ok: boolean;
   skipped?: string;
@@ -40,10 +73,7 @@ export async function reconcilePaymentRowByStkQuery(paymentId: number): Promise<
 
   const stk = await queryStk(checkoutId);
   if (!stkResultIsSuccess(stk.resultCode)) {
-    const code = String(stk.resultCode ?? "");
-    const stillProcessing = code === "2031" || /still processing/i.test(String(stk.resultDesc ?? ""));
-    // Mock/real STK: persist terminal failure so UI polling stops (mock store can mark failed while DB stayed pending).
-    if (!stillProcessing && payment.status === "pending") {
+    if (payment.status === "pending" && shouldMarkPaymentAsFailedFromStkQuery(stk)) {
       await db
         .update(payments)
         .set({ status: "failed", updatedAt: new Date() })

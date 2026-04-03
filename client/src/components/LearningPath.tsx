@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   CheckCircle,
-  Clock,
-  Zap,
-  TrendingUp,
   Award,
+  TrendingUp,
   ArrowRight,
   Play,
+  Sparkles,
+  ClipboardList,
+  Clock,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 interface LearningPathProps {
   enrollmentId: number;
@@ -29,11 +31,8 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [quizAnswers, setQuizAnswers] = useState<
-    { questionId: number; answer: string }[]
-  >([]);
+  const [quizAnswers, setQuizAnswers] = useState<{ questionId: number; answer: string }[]>([]);
 
-  // Queries
   const coursesQuery = trpc.learning.getCourses.useQuery({
     programType,
     courseId: scopeCourseId ?? undefined,
@@ -59,7 +58,6 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     { enabled: !!selectedCourse }
   );
 
-  // Mutations
   const recordQuizAttemptMutation = trpc.learning.recordQuizAttempt.useMutation();
   const completeModuleMutation = trpc.learning.completeModule.useMutation();
 
@@ -88,10 +86,15 @@ export const LearningPath: React.FC<LearningPathProps> = ({
 
   if (coursesQuery.isLoading) {
     return (
-      <div className="w-full max-w-6xl mx-auto p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-12 bg-gray-200 rounded"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="w-full max-w-4xl mx-auto px-2 sm:px-4">
+        <div className="animate-pulse space-y-6">
+          <div className="h-36 rounded-2xl bg-muted/80" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="h-24 rounded-xl bg-muted/60" />
+            <div className="h-24 rounded-xl bg-muted/60" />
+            <div className="h-24 rounded-xl bg-muted/60" />
+          </div>
+          <div className="h-48 rounded-2xl bg-muted/70" />
         </div>
       </div>
     );
@@ -101,136 +104,145 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     (c: { programType?: string }) => c.programType === programType
   );
   const stats = courseStatsQuery.data;
+  const completedCount =
+    userProgressQuery.data && Array.isArray(userProgressQuery.data)
+      ? userProgressQuery.data.filter((p: { status?: string }) => p.status === "completed").length
+      : 0;
 
   if (!coursesQuery.isLoading && courses.length === 0) {
     return (
-      <div className="w-full max-w-6xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <BookOpen size={28} className="text-brand-orange" />
-          Personalized Learning Path
-        </h1>
-        <p className="text-muted-foreground">{programType.toUpperCase()} Program</p>
-        <Card className="p-6 border-dashed">
-          <p className="text-foreground/90 mb-2">No course modules are available yet for this program.</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            If you just deployed, the catalog may still be loading — refresh the page. Otherwise contact support.
+      <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 space-y-4">
+        <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center">
+          <BookOpen className="mx-auto h-10 w-10 text-muted-foreground/60 mb-3" />
+          <h2 className="text-lg font-semibold text-foreground">No modules yet</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            {programType.toUpperCase()} — we couldn&apos;t load course content. Refresh the page, or contact support if
+            this persists.
           </p>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen size={32} className="text-blue-600" />
-            Your learning path
-          </h1>
-          <p className="text-gray-600 mt-2">
-            {programType.toUpperCase()}
-            {scopeCourseId ? " · Focused micro-course" : " Program"}
-          </p>
-        </div>
-        {userProgressQuery.data && Array.isArray(userProgressQuery.data) && (
-          <div className="text-right">
-            <div className="text-3xl font-bold text-green-600">
-              {userProgressQuery.data.filter((p: any) => p.status === "completed").length}
+    <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 space-y-8 pb-16">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-brand-surface/60 shadow-sm">
+        <div className="absolute right-0 top-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-[var(--brand-orange)]/5 blur-2xl" />
+        <div className="relative p-6 md:p-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Your learning</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl flex items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary shadow-inner">
+                  <BookOpen className="h-5 w-5" />
+                </span>
+                <span>Learning path</span>
+              </h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-xl leading-relaxed">
+                {programType.toUpperCase()}
+                {scopeCourseId ? " · Micro-course" : " program"} — work through each module, then complete the short
+                quiz to track your progress.
+              </p>
             </div>
-            <p className="text-gray-600">Modules Completed</p>
+            {selectedCourse && userProgressQuery.data && Array.isArray(userProgressQuery.data) && (
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-background/80 px-4 py-3 shadow-inner">
+                <div className="text-right">
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{completedCount}</p>
+                  <p className="text-xs text-muted-foreground">modules done</p>
+                </div>
+                <div className="h-10 w-px bg-border" />
+                <Sparkles className="h-5 w-5 text-[var(--brand-orange)] opacity-80" />
+              </div>
+            )}
           </div>
-        )}
+
+          {stats && typeof stats.percentComplete === "number" && (
+            <div className="mt-6 space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Overall progress</span>
+                <span className="font-medium text-foreground tabular-nums">{stats.percentComplete}%</span>
+              </div>
+              <Progress value={stats.percentComplete} className="h-2 bg-muted" />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Course Statistics */}
+      {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600 font-semibold">
-                  Completed Modules
-                </p>
-                <p className="text-2xl font-bold text-blue-900">
-                  {stats.completedModules}
-                </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[
+            {
+              label: "Modules completed",
+              value: stats.completedModules,
+              icon: CheckCircle,
+              accent: "text-primary",
+              bg: "bg-primary/10",
+            },
+            {
+              label: "Average quiz score",
+              value: `${stats.averageScore}%`,
+              icon: Award,
+              accent: "text-[var(--brand-orange)]",
+              bg: "bg-[var(--brand-orange)]/10",
+            },
+            {
+              label: "Course progress",
+              value: `${stats.percentComplete}%`,
+              icon: TrendingUp,
+              accent: "text-primary",
+              bg: "bg-primary/10",
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl", item.bg)}>
+                <item.icon className={cn("h-6 w-6", item.accent)} />
               </div>
-              <CheckCircle size={32} className="text-blue-400" />
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-green-50 border-green-200">
-            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-semibold">
-                  Average Score
-                </p>
-                <p className="text-2xl font-bold text-green-900">
-                  {stats.averageScore}%
-                </p>
+                <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                <p className="text-xl font-bold tabular-nums text-foreground">{item.value}</p>
               </div>
-              <Award size={32} className="text-green-400" />
             </div>
-          </Card>
-
-          <Card className="p-4 bg-purple-50 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-semibold">
-                  Progress
-                </p>
-                <p className="text-2xl font-bold text-purple-900">
-                  {stats.percentComplete}%
-                </p>
-              </div>
-              <TrendingUp size={32} className="text-purple-400" />
-            </div>
-          </Card>
+          ))}
         </div>
       )}
 
-      {/* Course List */}
       {!selectedCourse ? (
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900">Courses</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courses.map((course: any) => (
-              <Card
+          <h2 className="text-lg font-semibold text-foreground">Choose a course</h2>
+          <div className="grid grid-cols-1 gap-4">
+            {courses.map((course: { id: number; title?: string; description?: string }) => (
+              <button
+                type="button"
                 key={course.id}
-                className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 border-gray-200 hover:border-blue-500"
+                className="group text-left rounded-2xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/25 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => setSelectedCourse(course.id)}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2 min-w-0">
+                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                       {course.title}
                     </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {course.description}
-                    </p>
+                    {course.description ? (
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{course.description}</p>
+                    ) : null}
                   </div>
+                  <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm group-hover:bg-primary/90">
+                    <Play className="h-4 w-4" />
+                    Start
+                    <ArrowRight className="h-4 w-4 opacity-80" />
+                  </span>
                 </div>
-
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedCourse(course.id);
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  <Play size={16} className="mr-2" />
-                  Start Learning
-                  <ArrowRight size={16} className="ml-2" />
-                </Button>
-              </Card>
+              </button>
             ))}
           </div>
         </div>
       ) : (
-        // Course Details View
-        <div className="space-y-4">
+        <div className="space-y-6">
           <Button
             onClick={() => {
               setSelectedCourse(null);
@@ -238,150 +250,162 @@ export const LearningPath: React.FC<LearningPathProps> = ({
               setShowQuiz(false);
             }}
             variant="outline"
-            className="mb-4"
+            size="sm"
+            className="gap-2 rounded-xl border-border"
           >
-            ← Back to Courses
+            ← Back to courses
           </Button>
 
           {!selectedModule ? (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {courseDetailsQuery.data?.title}
-              </h2>
-              <p className="text-gray-600">
-                {courseDetailsQuery.data?.description}
-              </p>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold text-foreground md:text-2xl">{courseDetailsQuery.data?.title}</h2>
+                {courseDetailsQuery.data?.description ? (
+                  <p className="text-muted-foreground leading-relaxed">{courseDetailsQuery.data.description}</p>
+                ) : null}
+              </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                {courseDetailsQuery.data?.modules?.map((module: any) => (
-                  <Card
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">Modules</p>
+                {courseDetailsQuery.data?.modules?.map((module: { id: number; title?: string; description?: string; duration?: number }, index: number) => (
+                  <button
+                    type="button"
                     key={module.id}
-                    className="p-4 hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-blue-600"
+                    className="group w-full text-left rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:bg-brand-surface/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setSelectedModule(module.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-gray-900">
-                          {module.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {module.description}
-                        </p>
-                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                          <span>📚 {module.duration || 15} min</span>
-                          <span>📝 Quiz included</span>
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <h3 className="font-semibold text-foreground">{module.title}</h3>
+                        {module.description ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed">{module.description}</p>
+                        ) : null}
+                        <div className="flex flex-wrap gap-3 pt-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            {module.duration ?? 15} min
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <ClipboardList className="h-3.5 w-3.5" />
+                            Includes quiz
+                          </span>
                         </div>
                       </div>
-                      <ArrowRight size={20} className="text-blue-600" />
+                      <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                     </div>
-                  </Card>
+                  </button>
                 ))}
               </div>
             </div>
           ) : (
-            // Module View
-            <div className="space-y-4">
+            <div className="space-y-6">
               <Button
                 onClick={() => {
                   setSelectedModule(null);
                   setShowQuiz(false);
                 }}
                 variant="outline"
-                className="mb-4"
+                size="sm"
+                className="gap-2 rounded-xl"
               >
-                ← Back to Modules
+                ← Back to modules
               </Button>
 
               {!showQuiz ? (
-                <div className="space-y-4">
-                  <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                      {moduleContentQuery.data?.title}
-                    </h2>
+                <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                  <div className="border-b border-border bg-gradient-to-r from-brand-surface/80 to-card px-6 py-4">
+                    <h2 className="text-lg font-bold text-foreground md:text-xl">{moduleContentQuery.data?.title}</h2>
+                  </div>
+                  <div className="p-6 md:p-8">
                     <div
-                      className="prose prose-sm max-w-none mb-6"
+                      className={cn(
+                        "prose prose-neutral max-w-none dark:prose-invert",
+                        "prose-headings:font-semibold prose-headings:text-foreground prose-headings:scroll-mt-20",
+                        "prose-p:text-foreground/90 prose-p:leading-relaxed",
+                        "prose-li:marker:text-primary prose-strong:text-foreground",
+                        "prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
+                        "mb-8"
+                      )}
                       dangerouslySetInnerHTML={{
                         __html: moduleContentQuery.data?.content || "",
                       }}
                     />
-
                     <Button
                       onClick={() => setShowQuiz(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      variant="cta"
                       size="lg"
+                      className="w-full rounded-xl text-base shadow-sm"
                     >
-                      Take Quiz
-                      <ArrowRight size={16} className="ml-2" />
+                      Take module quiz
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                  </Card>
-                </div>
+                  </div>
+                </Card>
               ) : (
-                // Quiz View
-                <Card className="p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                    Quiz: {moduleContentQuery.data?.title}
-                  </h2>
-
-                  <div className="space-y-6">
-                    {moduleContentQuery.data?.quizzes?.[0]?.questions?.map(
-                      (question: any, idx: number) => (
-                        <div key={idx} className="border-b pb-6">
-                          <p className="font-bold text-gray-900 mb-3">
-                            {idx + 1}. {question.question}
-                          </p>
-                          <div className="space-y-2">
-                            {question.options?.map((option: string, optIdx: number) => (
+                <Card className="rounded-2xl border-border shadow-md overflow-hidden">
+                  <div className="border-b border-border bg-muted/30 px-6 py-4">
+                    <h2 className="text-lg font-bold text-foreground">Quiz · {moduleContentQuery.data?.title}</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Select the best answer for each question.</p>
+                  </div>
+                  <div className="p-6 md:p-8 space-y-8">
+                    {moduleContentQuery.data?.quizzes?.[0]?.questions?.map((question: { id: number; question?: string; options?: string[] }, idx: number) => (
+                      <div key={question.id ?? idx} className="space-y-4">
+                        <p className="font-semibold text-foreground leading-snug">
+                          <span className="text-primary tabular-nums">{idx + 1}.</span> {question.question}
+                        </p>
+                        <div className="space-y-2">
+                          {question.options?.map((option: string, optIdx: number) => {
+                            const selected =
+                              quizAnswers.find((a) => a.questionId === question.id)?.answer === option;
+                            return (
                               <label
                                 key={optIdx}
-                                className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50"
+                                className={cn(
+                                  "flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-all",
+                                  selected
+                                    ? "border-primary bg-primary/5 shadow-sm"
+                                    : "border-border bg-card hover:border-primary/35 hover:bg-muted/30"
+                                )}
                               >
                                 <input
                                   type="radio"
-                                  name={`question-${idx}`}
+                                  name={`question-${question.id}-${idx}`}
                                   value={option}
-                                  checked={
-                                    quizAnswers.find(
-                                      (a) => a.questionId === question.id
-                                    )?.answer === option
-                                  }
+                                  checked={selected}
                                   onChange={(e) => {
                                     setQuizAnswers([
-                                      ...quizAnswers.filter(
-                                        (a) => a.questionId !== question.id
-                                      ),
-                                      {
-                                        questionId: question.id,
-                                        answer: e.target.value,
-                                      },
+                                      ...quizAnswers.filter((a) => a.questionId !== question.id),
+                                      { questionId: question.id, answer: e.target.value },
                                     ]);
                                   }}
-                                  className="mr-3"
+                                  className="mt-1 h-4 w-4 shrink-0 border-primary text-primary focus:ring-primary"
                                 />
-                                <span className="text-gray-700">{option}</span>
+                                <span className="text-sm leading-relaxed text-foreground">{option}</span>
                               </label>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
-                      )
-                    )}
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="flex gap-4 mt-6">
+                  <div className="flex flex-col-reverse gap-3 border-t border-border bg-muted/20 p-6 sm:flex-row">
                     <Button
                       onClick={() => setShowQuiz(false)}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 rounded-xl"
                     >
-                      Back
+                      Back to content
                     </Button>
                     <Button
                       onClick={handleSubmitQuiz}
                       disabled={recordQuizAttemptMutation.isPending}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      variant="cta"
+                      className="flex-1 rounded-xl"
                     >
-                      {recordQuizAttemptMutation.isPending
-                        ? "Submitting..."
-                        : "Submit Quiz"}
+                      {recordQuizAttemptMutation.isPending ? "Submitting…" : "Submit answers"}
                     </Button>
                   </div>
                 </Card>
@@ -392,4 +416,4 @@ export const LearningPath: React.FC<LearningPathProps> = ({
       )}
     </div>
   );
-};
+}
