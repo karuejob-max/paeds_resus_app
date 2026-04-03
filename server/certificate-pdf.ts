@@ -92,11 +92,14 @@ function isPngBuffer(buf: Buffer): boolean {
 function resolveLogoPngBytes(): Buffer | null {
   const cwd = process.cwd();
   const here = certificatePdfDir();
+  /** Production bundle lives in `dist/index.js` — Vite emits static files to `dist/public` beside it. */
   const candidates = [
-    path.join(cwd, "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(cwd, "client", "public", "paeds-resus-logo.png"),
+    path.join(here, "public", "paeds-resus-logo-brand.png"),
+    path.join(here, "public", "paeds-resus-logo.png"),
     path.join(cwd, "dist", "public", "paeds-resus-logo-brand.png"),
     path.join(cwd, "dist", "public", "paeds-resus-logo.png"),
+    path.join(cwd, "client", "public", "paeds-resus-logo-brand.png"),
+    path.join(cwd, "client", "public", "paeds-resus-logo.png"),
     path.join(here, "..", "client", "public", "paeds-resus-logo-brand.png"),
     path.join(here, "..", "client", "public", "paeds-resus-logo.png"),
     path.join(here, "..", "..", "client", "public", "paeds-resus-logo-brand.png"),
