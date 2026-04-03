@@ -74,7 +74,15 @@ function RedirectToInstitutionalQuote() {
 
 function ScrollToTop() {
   const [location] = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [location]);
+  useEffect(() => {
+    const id = window.location.hash?.replace(/^#/, "").trim();
+    if (id) {
+      const run = () => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => requestAnimationFrame(run));
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [location]);
   return null;
 }
 

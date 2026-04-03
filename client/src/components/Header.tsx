@@ -186,8 +186,13 @@ export default function Header() {
                           aria-selected={effectiveRole === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "parent" | "institution";
+                            const prev = effectiveRole;
                             setUserRole(r);
                             setRoleDropdownOpen(false);
+                            if (r === "provider" && prev === "institution") {
+                              window.location.assign("/home");
+                              return;
+                            }
                             if (r === "provider") setLocation("/home");
                             else if (r === "parent") setLocation("/parent-safe-truth");
                             else setLocation("/institutional-portal");
@@ -410,8 +415,13 @@ export default function Header() {
                       key={option.value}
                       onClick={() => {
                         const r = option.value as "provider" | "parent" | "institution";
+                        const prev = effectiveRole;
                         setUserRole(r);
                         setMobileMenuOpen(false);
+                        if (r === "provider" && prev === "institution") {
+                          window.location.assign("/home");
+                          return;
+                        }
                         if (r === "provider") setLocation("/home");
                         else if (r === "parent") setLocation("/parent-safe-truth");
                         else setLocation("/institutional-portal");

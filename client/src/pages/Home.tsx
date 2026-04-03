@@ -34,8 +34,13 @@ export default function Home() {
   const { role } = useUserRole();
   useEffect(() => {
     if (loading || !user) return;
-    // If they explicitly chose provider role, show hub (don't redirect)
+    // If they explicitly chose provider role, show hub (don't redirect) — also read storage in case of race
     if (role === "provider") return;
+    try {
+      if (localStorage.getItem("userRole") === "provider") return;
+    } catch {
+      /* ignore */
+    }
     if (userType === "parent") {
       setLocation("/parent-safe-truth");
       return;

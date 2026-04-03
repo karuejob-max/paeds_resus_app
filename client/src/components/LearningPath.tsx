@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,40 @@ import {
 import { trpc } from "@/lib/trpc";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+
+function ModuleHtmlSections({ html }: { html: string }) {
+  const sections = useMemo(() => {
+    const h = html?.trim() ?? "";
+    if (!h) return [];
+    const parts = h.split(/(?=<h2\b)/i).map((s) => s.trim()).filter(Boolean);
+    return parts.length ? parts : [h];
+  }, [html]);
+
+  const prose = cn(
+    "prose prose-neutral max-w-none dark:prose-invert",
+    "prose-headings:font-semibold prose-headings:text-foreground prose-headings:scroll-mt-24",
+    "prose-p:text-foreground/90 prose-p:leading-relaxed",
+    "prose-li:marker:text-primary prose-strong:text-foreground",
+    "prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+  );
+
+  if (sections.length <= 1) {
+    return <div className={cn(prose, "mb-8")} dangerouslySetInnerHTML={{ __html: sections[0] ?? "" }} />;
+  }
+
+  return (
+    <div className="space-y-4 mb-8">
+      {sections.map((chunk, i) => (
+        <Card
+          key={i}
+          className="overflow-hidden rounded-2xl border-border/90 bg-gradient-to-br from-card to-brand-surface/25 shadow-sm"
+        >
+          <div className={cn(prose, "p-5 md:p-6")} dangerouslySetInnerHTML={{ __html: chunk }} />
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 interface LearningPathProps {
   enrollmentId: number;
@@ -69,6 +103,12 @@ export const LearningPath: React.FC<LearningPathProps> = ({
 
   const recordQuizAttemptMutation = trpc.learning.recordQuizAttempt.useMutation();
   const completeModuleMutation = trpc.learning.completeModule.useMutation();
+
+  const learningPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!selectedModule) return;
+    learningPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedModule, showQuiz, showQuizResult]);
 
   const modulesOrdered = courseDetailsQuery.data?.modules ?? [];
   const nextModuleAfterCurrent = useMemo(() => {
@@ -354,7 +394,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6" ref={learningPanelRef}>
               <Button
                 onClick={() => {
                   setSelectedModule(null);
@@ -482,19 +522,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                     <h2 className="text-lg font-bold text-foreground md:text-xl">{moduleContentQuery.data?.title}</h2>
                   </div>
                   <div className="p-6 md:p-8">
-                    <div
-                      className={cn(
-                        "prose prose-neutral max-w-none dark:prose-invert",
-                        "prose-headings:font-semibold prose-headings:text-foreground prose-headings:scroll-mt-20",
-                        "prose-p:text-foreground/90 prose-p:leading-relaxed",
-                        "prose-li:marker:text-primary prose-strong:text-foreground",
-                        "prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-                        "mb-8"
-                      )}
-                      dangerouslySetInnerHTML={{
-                        __html: moduleContentQuery.data?.content || "",
-                      }}
-                    />
+                    <ModuleHtmlSections html={moduleContentQuery.data?.content || ""} />
                     <Button
                       onClick={() => setShowQuiz(true)}
                       variant="cta"

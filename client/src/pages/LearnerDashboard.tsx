@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,15 @@ export default function LearnerDashboard() {
 
   const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
 
+  useEffect(() => {
+    const id = window.location.hash?.replace(/^#/, "").trim();
+    if (id === "my-certificates") {
+      requestAnimationFrame(() =>
+        document.getElementById("my-certificates")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      );
+    }
+  }, []);
+
   const handleDownloadCertificate = (certificateId: number, certificateNumber: string | null) => {
     if (!certificateNumber) return;
     setDownloadingCertificateId(certificateId);
@@ -72,18 +81,35 @@ export default function LearnerDashboard() {
       { certificateNumber },
       {
         onSettled: () => setDownloadingCertificateId(null),
+        onError: (err) => {
+          toast.error(err.message || "Download failed. Try again or contact support.");
+        },
         onSuccess: (result) => {
-          if (!result.success || !("pdfBase64" in result) || !result.pdfBase64) return;
-          const bin = atob(result.pdfBase64);
-          const arr = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-          const blob = new Blob([arr], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = result.filename ?? "certificate.pdf";
-          a.click();
-          URL.revokeObjectURL(url);
+          if (!result.success || !("pdfBase64" in result) || !result.pdfBase64) {
+            const msg =
+              result && typeof result === "object" && "error" in result && typeof result.error === "string"
+                ? result.error
+                : "Could not generate your certificate PDF.";
+            toast.error(msg);
+            return;
+          }
+          try {
+            const bin = atob(result.pdfBase64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            const blob = new Blob([arr], { type: "application/pdf" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = result.filename ?? "certificate.pdf";
+            a.rel = "noopener";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch {
+            toast.error("Your browser could not save the PDF. Try another browser or disable strict download blocking.");
+          }
         },
       }
     );
@@ -347,7 +373,12 @@ export default function LearnerDashboard() {
                       return (
                         <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3">
                           <div>
-                            <p className="font-medium uppercase text-foreground">{c.programType}</p>
+                            <p className="font-medium text-foreground">
+                              {c.courseTitle?.trim() || c.programType.toUpperCase()}
+                            </p>
+                            {c.courseTitle?.trim() ? (
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
+                            ) : null}
                             <p className="text-sm text-muted-foreground">
                               Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
                               {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}

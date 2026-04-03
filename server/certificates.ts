@@ -6,6 +6,20 @@ import { certificates, courses, enrollments, modules, userProgress, users } from
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
+async function getCourseDisplayNameForEnrollment(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  enrollmentId: number
+): Promise<string | undefined> {
+  const rows = await db
+    .select({ title: courses.title })
+    .from(enrollments)
+    .leftJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
+  const t = rows[0]?.title?.trim();
+  return t || undefined;
+}
+
 /**
  * Generate a unique certificate number
  */
@@ -101,6 +115,8 @@ export async function saveCertificate(
     const issueDate = new Date();
     const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year validity
 
+    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, enrollmentId);
+
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
       programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
@@ -108,6 +124,7 @@ export async function saveCertificate(
       instructorName: instructorName || "Paeds Resus",
       certificateNumber,
       verificationCode: verificationHash,
+      ...(courseDisplayName ? { courseDisplayName } : {}),
     });
 
     // Save to database
@@ -339,8 +356,11 @@ export async function getCertificatesByUserId(userId: number) {
         issueDate: certificates.issueDate,
         expiryDate: certificates.expiryDate,
         certificateUrl: certificates.certificateUrl,
+        courseTitle: courses.title,
       })
       .from(certificates)
+      .leftJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
+      .leftJoin(courses, eq(enrollments.courseId, courses.id))
       .where(eq(certificates.userId, userId))
       .orderBy(desc(certificates.issueDate));
     return list;
@@ -360,6 +380,7 @@ export async function getCertificateForDownload(
   cert: (typeof certificates.$inferSelect);
   trainingDate: Date;
   recipientName: string;
+  courseDisplayName?: string;
 } | null> {
   try {
     const db = await getDb();
@@ -387,7 +408,9 @@ export async function getCertificateForDownload(
       .limit(1);
     const recipientName = userRows[0]?.name ?? "Participant";
 
-    return { cert, trainingDate, recipientName };
+    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, cert.enrollmentId);
+
+    return { cert, trainingDate, recipientName, courseDisplayName };
   } catch (err) {
     console.error("[Certificates] getCertificateForDownload:", err);
     return null;

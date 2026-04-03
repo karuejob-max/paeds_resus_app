@@ -30,6 +30,8 @@ interface CertificateData {
   certificateNumber: string;
   verificationCode: string;
   completionHours?: number;
+  /** When set (e.g. PALS micro-course), shown on PDF instead of generic PALS/BLS line */
+  courseDisplayName?: string;
 }
 
 interface CertificateTemplate {
@@ -230,8 +232,9 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   });
   y -= 36;
 
-  const subW = font.widthOfTextAtSize(template.subtitle, 12);
-  page.drawText(template.subtitle, {
+  const subtitleText = (data.courseDisplayName?.trim() || template.subtitle).slice(0, 120);
+  const subW = font.widthOfTextAtSize(subtitleText, 12);
+  page.drawText(subtitleText, {
     x: width / 2 - subW / 2,
     y,
     size: 12,
@@ -277,8 +280,9 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   y -= 24;
   const hours = data.completionHours ?? template.hours;
+  const programmeLabel = data.courseDisplayName?.trim() || template.title;
   const details: [string, string][] = [
-    ["Programme", template.title],
+    ["Programme", programmeLabel.slice(0, 80)],
     ["Completion date", formatDate(data.trainingDate)],
     ["Credit hours recorded", String(hours)],
     ["Faculty / signatory", data.instructorName || "Paeds Resus"],
