@@ -95,19 +95,25 @@ function isPngBuffer(buf: Buffer): boolean {
 function resolveLogoPngBytes(): Buffer | null {
   const cwd = process.cwd();
   const here = certificatePdfDir();
-  /** Production bundle lives in `dist/index.js` — Vite emits static files to `dist/public` beside it. */
-  const candidates = [
-    path.join(here, "public", "paeds-resus-logo-brand.png"),
-    path.join(here, "public", "paeds-resus-logo.png"),
-    path.join(cwd, "dist", "public", "paeds-resus-logo-brand.png"),
-    path.join(cwd, "dist", "public", "paeds-resus-logo.png"),
-    path.join(cwd, "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(cwd, "client", "public", "paeds-resus-logo.png"),
-    path.join(here, "..", "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(here, "..", "client", "public", "paeds-resus-logo.png"),
-    path.join(here, "..", "..", "client", "public", "paeds-resus-logo-brand.png"),
-    path.join(here, "..", "..", "client", "public", "paeds-resus-logo.png"),
+  /** Certificate-specific mark first; then shared brand assets. Production: `dist/public` beside bundled `dist/index.js`. */
+  const logoNames = [
+    "paeds-resus-certificate-logo.png",
+    "paeds-resus-logo-brand.png",
+    "paeds-resus-logo.png",
   ];
+  const publicRoots = [
+    path.join(here, "public"),
+    path.join(cwd, "dist", "public"),
+    path.join(cwd, "client", "public"),
+    path.join(here, "..", "client", "public"),
+    path.join(here, "..", "..", "client", "public"),
+  ];
+  const candidates: string[] = [];
+  for (const root of publicRoots) {
+    for (const name of logoNames) {
+      candidates.push(path.join(root, name));
+    }
+  }
   for (const p of candidates) {
     try {
       if (!fs.existsSync(p)) continue;

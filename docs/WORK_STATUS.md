@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-03 | Cursor | **Certificate PDF logo:** Dedicated mark `client/public/paeds-resus-certificate-logo.png` (shield / cross / EKG / figure asset) resolved **before** header brand files; `certificate-pdf` `resolveLogoPngBytes` uses ordered filename list across `server/public`, `dist/public`, `client/public`. **PLATFORM_SOURCE_OF_TRUTH** §16.1 updated. | `5e79616` |
 | 2026-04-03 | Cursor | **Certificates + strategy doc:** PDF header tagline **neutral** (`Clinical training · Paediatric emergency care`, not fellowship/Safe-Truth). **Body text** uses `courseDisplayName` when set (fixes PALS micro-courses still saying “Pediatric Advanced Life Support…”). **BLS** template hours **6**. **Logo:** brand mark aligned with user asset; **`prepareLogoForCertificatePng`** skips knock-out when PNG has alpha. **PLATFORM_SOURCE_OF_TRUTH** §3 courses/fellowship rows, new **§15.5** (clinical journey / ADF alignment, digital-first, no application-fee baggage), §16.1 updated. Test: PALS + `courseDisplayName`. | `758760f` |
 | 2026-04-03 | Cursor | **Certificate PDF logo path (production):** Resolve brand mark from **`dist/public`** first (`path.relative` to bundled `dist/index.js`) so deployed servers find `paeds-resus-logo-brand.png` after Vite build; `client/public` paths remain fallbacks. | `b0f155c` |
 | 2026-04-03 | Cursor | **Certificate PDF ESM + PSS I paginated learning:** Fixed `__dirname is not defined` in production (`certificate-pdf.ts` uses `import.meta.url`); **Paediatric Septic Shock I** — `pagedSepticShockModule` on `LearningPath`, `PssModulePagedReader` + `buildPssModuleSteps` with interleaved **formative** MCQs (recognition, fluids, escalation); graded quiz gated until flow complete. | `2fa6974` |
@@ -75,7 +76,7 @@
 | 2026-03-25 | Cursor | Render deploy: fixed esbuild error in `server/routers/enrollment.ts` — mixed `??` and `||` without parentheses in `adminConfirmOfflinePayment`; clarified as `(input.amountPaid ?? pendingSum)` then fallback to `enrollment.amountPaid` and `0`. | 01a48f0 |
 | 2025-03-07 | Manus | Phase 1: Analytics Instrumentation — created useResusAnalytics hook, integrated event tracking at ResusGPS lifecycle points (assessment start, questions, interventions, cardiac arrest, ROSC), events flow to analyticsEvents table, admin reports now show real activity | 7041295, 337aa52 |
 | 2025-03 | Manus | Phase 2: Staging Environment — STAGING_DEPLOYMENT.md with branch model (main/develop), manual deploy workflow, staging Render/Aiven setup guide, PR verification checklist, rollback procedure | (pushed) |
-| 2025-03 | Cursor | Phase 3: Security baseline — SECURITY_BASELINE.md; password complexity (min 8 chars, one letter + one number); session max age via SESSION_MAX_AGE_MS (default 1 year); adminAuditLog table + middleware; EAT for admin reports "this month" (startOfMonthEAT/endOfMonthEAT). | (this commit) |
+| 2025-03 | Cursor | Phase 3: Security baseline — SECURITY_BASELINE.md; password complexity (min 8 chars, one letter + one number); session max age via SESSION_MAX_AGE_MS (default 1 year); adminAuditLog table + middleware; EAT for admin reports "this month" (startOfMonthEAT/endOfMonthEAT). | $h |
 
 ---
 
