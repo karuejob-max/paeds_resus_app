@@ -15,7 +15,7 @@ export interface NavItem {
 
 // Main navigation items for Header - ONLY WORKING PAGES
 export const mainNavItems: NavItem[] = [
-  { label: "Safe-Truth", href: "/safe-truth", category: "main" },
+  { label: "Care Signal", href: "/care-signal", category: "main" },
   { label: "For Institutions", href: "/institutional", category: "main" },
   { label: "For Parents", href: "/parent-safe-truth", category: "main" },
   { label: "Courses", href: "/course/bls", category: "main" },
@@ -35,7 +35,7 @@ export const adminNavItems: NavItem[] = [
 
 // Learning & Development - ONLY WORKING PAGES
 export const learningNavItems: NavItem[] = [
-  { label: "Safe-Truth Tool", href: "/safe-truth", description: "Interactive assessment tool" },
+  { label: "Care Signal", href: "/care-signal", description: "Provider incident & near-miss reporting" },
   { label: "BLS Course", href: "/course/bls", description: "Basic Life Support training" },
 ];
 
@@ -63,12 +63,12 @@ export const legalNavItems: NavItem[] = [
 export const footerSections = {
   quickLinks: [
     { label: "Home", href: "/" },
-    { label: "Safe-Truth", href: "/safe-truth" },
+    { label: "Care Signal", href: "/care-signal" },
     { label: "For Institutions", href: "/institutional" },
     { label: "For Parents", href: "/parent-safe-truth" },
   ],
   learning: [
-    { label: "Safe-Truth Tool", href: "/safe-truth" },
+    { label: "Care Signal", href: "/care-signal" },
     { label: "BLS Course", href: "/course/bls" },
   ],
   institutional: [
@@ -86,7 +86,7 @@ export const footerSections = {
 export const dashboardNavItems: NavItem[] = [
   { label: "Learner Dashboard", href: "/learner-dashboard", icon: "📊" },
   { label: "Payment", href: "/payment", icon: "💳" },
-  { label: "Safe-Truth", href: "/safe-truth", icon: "🔍" },
+  { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
   { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
   { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
@@ -96,7 +96,7 @@ export const dashboardNavItems: NavItem[] = [
 // Breadcrumb navigation helper - ONLY WORKING PAGES
 export const breadcrumbMap: Record<string, string[]> = {
   "/": ["Home"],
-  "/safe-truth": ["Home", "Safe-Truth"],
+  "/care-signal": ["Home", "Care Signal"],
   "/parent-safe-truth": ["Home", "Parent Resources"],
   "/course/bls": ["Home", "Courses", "BLS"],
   "/institutional": ["Home", "Institutions"],
@@ -111,5 +111,5 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/personalized-learning": ["Home", "ML", "Learning Path"],
   "/enroll": ["Home", "Enroll"],
   "/protocols": ["Home", "Protocols"],
-  "/safe-truth-analytics": ["Home", "Admin", "Safe-Truth Analytics"],
+  "/care-signal-analytics": ["Home", "Admin", "Care Signal analytics"],
 };

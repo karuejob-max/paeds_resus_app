@@ -138,14 +138,14 @@ export default function Home() {
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
           </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/safe-truth")}>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/care-signal")}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Safe-Truth (providers)
+                  Care Signal
                 </CardTitle>
-                <CardDescription>Confidential event reporting for clinicians — separate from the parent Safe-Truth story.</CardDescription>
+                <CardDescription>Confidential clinical event reporting — separate from parent Safe-Truth.</CardDescription>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardHeader>

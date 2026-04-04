@@ -12,7 +12,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Home from "./pages/Home";
 import ParentSafeTruth from "./pages/ParentSafeTruth";
-import SafeTruth from "./pages/SafeTruth";
+import CareSignal from "./pages/CareSignal";
 import Institutional from "./pages/Institutional";
 import AdminHub from "./pages/AdminHub";
 import AdminReports from "./pages/AdminReports";
@@ -48,7 +48,7 @@ import CoursePaediatricSepticShock from "./pages/CoursePaediatricSepticShock";
 import CourseInstructor from "./pages/CourseInstructor";
 import InstructorPortal from "./pages/InstructorPortal";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
-import SafeTruthAnalytics from "./pages/SafeTruthAnalytics";
+import CareSignalAnalytics from "./pages/CareSignalAnalytics";
 import { Toaster } from "@/components/ui/sonner";
 
 /** Redirects to target path (for routes that have no dedicated page). */
@@ -116,7 +116,8 @@ function Router() {
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
-          <Route path="/safe-truth" component={SafeTruth} />
+          <Route path="/care-signal" component={CareSignal} />
+          <Route path="/safe-truth">{() => <Redirect to="/care-signal" />}</Route>
           {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
           <Route path="/institutional-portal">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
           <Route path="/institutional" component={Institutional} />
@@ -130,7 +131,8 @@ function Router() {
           <Route path="/start" component={Start} />
           <Route path="/hospital-admin-dashboard" component={HospitalAdminDashboard} />
           <Route path="/advanced-analytics" component={AdvancedAnalytics} />
-          <Route path="/safe-truth-analytics" component={SafeTruthAnalytics} />
+          <Route path="/care-signal-analytics" component={CareSignalAnalytics} />
+          <Route path="/safe-truth-analytics">{() => <Redirect to="/care-signal-analytics" />}</Route>
           <Route path="/enroll" component={Enroll} />
           <Route path="/learner-dashboard" component={LearnerDashboard} />
           <Route path="/patients" component={PatientsList} />

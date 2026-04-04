@@ -74,7 +74,7 @@ export default function Header() {
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
-        { label: "Safe-Truth", href: "/safe-truth", icon: "🚨" },
+        { label: "Care Signal", href: "/care-signal", icon: "🚨" },
         { label: "Referral", href: "/referral", icon: "📤" },
         { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
       ];

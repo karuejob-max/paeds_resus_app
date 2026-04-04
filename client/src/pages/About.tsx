@@ -13,7 +13,7 @@ export default function About() {
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>ResusGPS and protocols for time-critical decisions</li>
           <li>Certified courses (BLS, ACLS, PALS, fellowship pathways)</li>
-          <li>Safe-Truth for families and quality improvement</li>
+          <li>Care Signal for clinicians and Safe-Truth for families — quality improvement</li>
           <li>Institutional programmes, analytics, and scale</li>
         </ul>
         <div className="flex flex-wrap gap-3 pt-4">

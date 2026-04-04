@@ -230,7 +230,7 @@ export default function LearnerDashboard() {
               <Card>
                 <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading your Safe-Truth activity…
+                  Loading your Safe-Truth submissions…
                 </CardContent>
               </Card>
             ) : parentStats ? (
@@ -331,8 +331,8 @@ export default function LearnerDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">Log clinical events to contribute to system improvements</p>
-                <Button className="w-full" onClick={() => navigate("/safe-truth")}>
-                  Log Event
+                <Button className="w-full" onClick={() => navigate("/care-signal")}>
+                  Log event (Care Signal)
                 </Button>
               </CardContent>
             </Card>

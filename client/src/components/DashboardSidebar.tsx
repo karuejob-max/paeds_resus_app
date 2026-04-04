@@ -77,9 +77,9 @@ export default function DashboardSidebar() {
                 Elite Fellowship
               </div>
             </Link>
-            <Link href="/safe-truth">
+            <Link href="/care-signal">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
-                Safe-Truth Tool
+                Care Signal
               </div>
             </Link>
             <Link href="/parent-safe-truth">

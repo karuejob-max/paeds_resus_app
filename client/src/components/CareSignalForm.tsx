@@ -18,7 +18,7 @@ import { trpc } from "@/lib/trpc";
 import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
 
-export default function ProviderSafeTruthForm() {
+export default function CareSignalForm() {
   const [step, setStep] = useState(1);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [formData, setFormData] = useState<any>({});
@@ -27,7 +27,7 @@ export default function ProviderSafeTruthForm() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
   
-  const submitMutation = trpc.safeTruthEvents.logEvent.useMutation();
+  const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
 
   const handleSubmit = async () => {
     try {

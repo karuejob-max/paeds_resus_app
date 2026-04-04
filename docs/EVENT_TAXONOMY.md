@@ -46,9 +46,9 @@
 | `safetruth_submission` | Parent Safe-Truth timeline submitted (server) | `server/routers/parent-safetruth.ts` | submissionId, childOutcome, eventCount | Distinct from monthly `parentSafeTruthSubmissions` KPI; feeds **last 7 days** product activity. |
 | `institution_training_schedule_created` | Hospital training session scheduled | `server/routers/institution.ts` | institutionId, scheduleId, programType, trainingType | |
 
-### Planned — Staff Safety Signal (fellowship pillar; not in Sprint 1 freeze)
+### Planned — Care Signal (fellowship pillar; not in Sprint 1 freeze)
 
-When **provider** staff reporting ships, emit via the same `trackEvent` path. **Do not** reuse `safetruth_submission` (that is **parent** Safe-Truth). Target prefix: `staff_safety_*` (e.g. `staff_safety_submission_created`). See [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §17.
+When **provider** Care Signal reporting ships, emit via the same `trackEvent` path. **Do not** reuse `safetruth_submission` (that is **parent** Safe-Truth). Target prefix: `care_signal_*` (e.g. `care_signal_submission_created`). See [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §17.
 
 ---
 
@@ -56,7 +56,7 @@ When **provider** staff reporting ships, emit via the same `trackEvent` path. **
 
 | Date | Change |
 |------|--------|
-| 2026-03-31 | Planned `staff_safety_*` events (distinct from `safetruth_submission`); PSoT §17 / fellowship doc. |
+| 2026-03-31 | Planned `care_signal_*` events (distinct from `safetruth_submission`); PSoT §17 / fellowship doc. |
 | 2026-04-01 | Sprint 1 freeze: server `course_enrollment`, `payment_initiation`, `payment_completion` (webhook + reconcile), `safetruth_submission`, `institution_training_schedule_created`; see `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`. |
 | 2026-04-01 | Admin report window: `analyticsLastDays` uses **rolling N×24h** via `rollingHoursAgo` (not calendar midnight); `pnpm run verify:analytics`. |
 | 2026-04-01 | Initial taxonomy scaffold for Sprint 1 Measurement Truth MVP. |

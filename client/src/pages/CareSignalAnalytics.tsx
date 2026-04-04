@@ -26,7 +26,7 @@ interface Incident {
   recommendations: string[];
 }
 
-export default function SafeTruthAnalytics() {
+export default function CareSignalAnalytics() {
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState("30days");
   const [activeTab, setActiveTab] = useState("overview");
@@ -101,7 +101,7 @@ export default function SafeTruthAnalytics() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Safe-Truth Analytics</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Care Signal analytics</h1>
           <p className="text-lg text-slate-600">
             Incident analysis and system gap identification for continuous improvement
           </p>

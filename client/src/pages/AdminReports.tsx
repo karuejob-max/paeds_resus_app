@@ -125,7 +125,7 @@ export default function AdminReports() {
             <div>
               <h1 className="text-2xl font-bold">Reports & insights</h1>
               <p className="text-muted-foreground">
-                Registered users, enrollments, certifications, Safe-Truth, and app usage
+                Registered users, enrollments, certifications, parent Safe-Truth, and app usage
               </p>
             </div>
           </div>

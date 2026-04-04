@@ -43,10 +43,10 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
 | **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Elite fellowship** | **Narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall for “fellowship” in the digital-first path—learners pay per course/SKU. Programme type `fellowship` in data remains where used; naming in UI may evolve with leadership. |
-| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for fellowship — see **Staff Safety Signal**. |
-| **Staff Safety Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives **automated** fellowship **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
+| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for fellowship — see **Care Signal**. |
+| **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives **automated** fellowship **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
-| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Staff Safety Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
+| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Care Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
 
@@ -285,20 +285,20 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ## 17. Fellowship qualification, provider profile, and internal operational intelligence (non-public)
 
-**PSoT short title:** *Fellowship rules, Staff Safety Signal, cumulative progress, and governance.*  
+**PSoT short title:** *Fellowship rules, Care Signal, cumulative progress, and governance.*  
 **Canonical detail (automation-only, grace rules, launch checklist, accredited facilities policy):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
 ### 17.1 Principles
 
 - **Fellow** is **100% automated** from platform data — **no** manual conferral in v1. If automation is incomplete, **do not** ship Fellow UI.
-- **No fellowship surcharge** — pay **per course/micro-course**; fellowship is **earned** through courses, **ResusGPS**, **Staff Safety Signal**, and **course feedback** (instrumented).
-- **Parent Safe-Truth** and **Staff Safety Signal** are **different products** — never use “Safe-Truth” for **staff** flows in user-facing copy ([§3](#3-what-we-do-offerings)).
+- **No fellowship surcharge** — pay **per course/micro-course**; fellowship is **earned** through courses, **ResusGPS**, **Care Signal**, and **course feedback** (instrumented).
+- **Parent Safe-Truth** and **Care Signal** are **different products** — never use “Safe-Truth” for **staff** flows in user-facing copy ([§3](#3-what-we-do-offerings)).
 
 ### 17.2 Three pillars (all required)
 
 1. **Courses:** **BLS, ACLS, PALS**, plus **every** active ADF micro-course — completion from **DB** (`certificates` / completion rules).
 2. **ResusGPS:** **≥3** attributable cases **per taught condition**, with **server-side** depth rules (anti-gaming).
-3. **Staff Safety Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
+3. **Care Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
 
 ### 17.3 Grace (automated)
 
@@ -324,8 +324,8 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 17.8 Builders
 
-- Implement **Staff Safety Signal** as first-class data model + APIs; wire **analyticsEvents** / admin as needed; **never** mix parent `parentSafeTruthSubmissions` KPIs with staff fellowship metrics.
+- Implement **Care Signal** as first-class data model + APIs; wire **analyticsEvents** / admin as needed; **never** mix parent `parentSafeTruthSubmissions` KPIs with staff fellowship metrics.
 
 ---
 
-**Last structural update:** 2026-03-31 — §17 v2 (Staff Safety Signal, automation-only Fellow, grace rules, launch checklist); [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) v2.0.
+**Last structural update:** 2026-04-04 — Care Signal routes + `careSignalEvents` tRPC; §17; [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).

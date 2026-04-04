@@ -46,7 +46,7 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
     {
       id: "provider",
       label: "Healthcare Provider",
-      description: "Access clinical protocols, Safe-Truth reporting, and professional development resources",
+      description: "Access clinical protocols, Care Signal reporting, and professional development resources",
       icon: Stethoscope,
       color: "from-blue-500 to-indigo-600",
       textColor: "text-blue-600",

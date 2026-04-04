@@ -13,28 +13,28 @@ This document locks:
 1. **What “ADF Fellow” (or equivalent fellow title in UI)** means — **fully automatable** criteria only (no manual conferral).
 2. **Profile and contact data** required for fellowship-path participation and **optional** future programmes (e.g. small-group learning).
 3. **Staff** vs **parent** reporting — **separate names and products** (see §3).
-4. **How** courses, ResusGPS use, **Staff Safety Signal** reporting, and **course feedback** combine into **one cumulative “distance to Fellow”** experience.
+4. **How** courses, ResusGPS use, **Care Signal** reporting, and **course feedback** combine into **one cumulative “distance to Fellow”** experience.
 5. **Grace rules** for monthly staff reporting — strict, automated, with **streak reset** when discipline fails.
 6. **Public** vs **internal** use of facility data — including **future** “Paeds Resus accredited facilities” (not rankings).
 7. **Pre-launch gates** — nothing ships as “Fellowship” until §11 is satisfied.
 
 ---
 
-## 2. Naming: parent Safe-Truth vs staff safety reporting
+## 2. Naming: parent Safe-Truth vs Care Signal (providers)
 
 | Channel | Audience | PSoT name | Notes |
 |---------|-----------|-----------|--------|
 | **Safe-Truth** | **Parents / guardians** | **Safe-Truth** (unchanged) | Guardian experience, timelines, community voice — [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md). **Not** used for fellowship monthly reporting. |
-| **Staff incident & near-miss reporting** | **Healthcare providers** (staff) | **Staff Safety Signal** (canonical **product label** until marketing replaces) | Fellowship **monthly discipline** and QI culture apply **only** to this channel. **Do not** label staff flows “Safe-Truth” in UI — avoids confusion with parent Safe-Truth. **Code** may keep legacy route names until refactored; **user-facing** copy must distinguish. |
+| **Staff incident & near-miss reporting** | **Healthcare providers** (staff) | **Care Signal** (canonical **product label** until marketing replaces) | Fellowship **monthly discipline** and QI culture apply **only** to this channel. **Do not** label staff flows “Safe-Truth” in UI — avoids confusion with parent Safe-Truth. **Routes:** `/care-signal`, `/care-signal-analytics`; **tRPC:** `careSignalEvents` (legacy `/safe-truth` redirects). |
 
-**Marketing may rename** Staff Safety Signal (e.g. branded sub-product) if it remains **visually and verbally distinct** from Safe-Truth.
+**Marketing may rename** Care Signal (e.g. branded sub-product) if it remains **visually and verbally distinct** from Safe-Truth.
 
 ---
 
 ## 3. Commercial model (no fellowship surcharge)
 
 - **No separate fellowship fee.** Revenue remains **per course / micro-course** (and other priced SKUs) as in [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).
-- **Fellowship progress** is earned through **use of platform services** — course completion, **ResusGPS**-attributable cases, **Staff Safety Signal** logs, and **course feedback** (where instrumented) — **not** through a bundled “fellowship purchase.”
+- **Fellowship progress** is earned through **use of platform services** — course completion, **ResusGPS**-attributable cases, **Care Signal** logs, and **course feedback** (where instrumented) — **not** through a bundled “fellowship purchase.”
 
 ---
 
@@ -46,9 +46,9 @@ This document locks:
 |--------|------|------------------------|
 | **A — Courses** | Complete **BLS, ACLS, PALS**, and **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
 | **B — ResusGPS** | For **each taught condition** in the portfolio, **≥3 attributable cases** where the learner **used ResusGPS** to guide care. | Pathway/session IDs, user ID, **minimum depth** thresholds (anti-gaming), timestamps; map **condition ↔ pathway** in config. |
-| **C — Staff Safety Signal** | **24 consecutive qualifying months** of monthly reporting (see §6–7). | Dedicated **staff** submission table(s), EAT calendar month bucketing, immutable audit trail. |
+| **C — Care Signal** | **24 consecutive qualifying months** of monthly reporting (see §6–7). | Dedicated **staff** submission table(s), EAT calendar month bucketing, immutable audit trail. |
 
-**Near misses and non-sentinel events count** toward Staff Safety Signal; structure and minimum fields are product-defined and **validated server-side**.
+**Near misses and non-sentinel events count** toward Care Signal; structure and minimum fields are product-defined and **validated server-side**.
 
 ---
 
@@ -71,17 +71,17 @@ This document locks:
 
 - Course completion (% of required catalog).
 - ResusGPS condition checklist (% conditions meeting **3 cases**).
-- Staff Safety Signal **current streak** / **months completed** toward **24**, and **grace** state.
+- Care Signal **current streak** / **months completed** toward **24**, and **grace** state.
 
 **Copy:** Discipline in logging is **leadership behaviour** training — aligned with safe fluid and escalation decisions (e.g. DCM/SAM vs sepsis). **Do not** shame; **do** show clear **automated** consequences of missed months (see §7).
 
 ---
 
-## 7. Staff Safety Signal — monthly rule and grace (automated)
+## 7. Care Signal — monthly rule and grace (automated)
 
 **Timezone:** Calendar months in **EAT** (consistent with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §8).
 
-**Normal month:** **≥1** eligible Staff Safety Signal submission **created** in that month (exact eligibility = **submitted + passes validation**, not draft).
+**Normal month:** **≥1** eligible Care Signal submission **created** in that month (exact eligibility = **submitted + passes validation**, not draft).
 
 ### 7.1 Grace budget
 
@@ -90,7 +90,7 @@ This document locks:
 
 ### 7.2 Catch-up after a grace month
 
-- If month **M** has **0** eligible events and **counts as using one grace** (grace budget available), then month **M+1** must contain **≥3** eligible Staff Safety Signal events (**not** 2, **not** 1).
+- If month **M** has **0** eligible events and **counts as using one grace** (grace budget available), then month **M+1** must contain **≥3** eligible Care Signal events (**not** 2, **not** 1).
 - If month **M+1** fails to reach **3** eligible events → **consecutive month streak for pillar C resets to zero** (see §7.4). Grace for month M is **not** successfully “closed.”
 
 ### 7.3 One more grace per year (strict reading)
@@ -129,13 +129,13 @@ This document locks:
 
 | Area | Requirement |
 |------|-------------|
-| **Consent** | Layered consent for profile, **Staff Safety Signal**, contact for community programmes, and **analytics**; easy **withdraw** where required. |
+| **Consent** | Layered consent for profile, **Care Signal**, contact for community programmes, and **analytics**; easy **withdraw** where required. |
 | **Data minimisation** | No patient identifiers in free text where avoidable; **structured** incident categories. |
 | **Retention** | Policy per table; **deletion** on account close vs **legal/regulatory hold** documented. |
 | **Access control** | **Admin** and **research** roles; **audit log** for bulk export; **no** public API for identifiable staff–facility joins. |
 | **Accuracy** | Fellow badge **only** if automated checks pass; **appeals** process **documented** (e.g. data bug) — **not** subjective “promotion.” |
 | **Security** | [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §11; encrypt in transit; secrets in env. |
-| **Terms** | ToS / privacy **updated** for Staff Safety Signal, grace rules, streak reset, and **accredited list** when launched. |
+| **Terms** | ToS / privacy **updated** for Care Signal, grace rules, streak reset, and **accredited list** when launched. |
 | **Institutional** | B2B contracts may **add** obligations; **not** weaker than individual protections. |
 
 ---
@@ -146,7 +146,7 @@ This document locks:
 
 ### 11.1 Data & automation
 
-- [ ] **Staff Safety Signal** product live: create/list with **server validation**, **EAT month** bucketing, **immutable** timestamps.
+- [ ] **Care Signal** product live: create/list with **server validation**, **EAT month** bucketing, **immutable** timestamps.
 - [ ] **No** dependency on manual admin toggles for Fellow.
 - [ ] **ResusGPS** → user → pathway → **condition map**; **≥3** sessions per condition with **depth** rules.
 - [ ] **Course completion** pipeline complete for **all** catalog courses in scope.
@@ -182,5 +182,6 @@ This document locks:
 
 | Date | Change |
 |------|--------|
-| 2026-03-31 | **v2.0:** Automation-only fellow; **Staff Safety Signal** vs parent Safe-Truth; no fellowship fee; cumulative progress; grace/catch-up/reset rules; accredited facilities (future); contact consent; launch checklist; legal controls. |
+| 2026-04-04 | Product name **Care Signal** (two words); routes `/care-signal`, tRPC `careSignalEvents`; `/safe-truth` redirects. |
+| 2026-03-31 | **v2.0:** Automation-only fellow; **Care Signal** vs parent Safe-Truth; no fellowship fee; cumulative progress; grace/catch-up/reset rules; accredited facilities (future); contact consent; launch checklist; legal controls. |
 | 2026-03-31 | v1.0: Fellow criteria, profile gate, internal intelligence. |

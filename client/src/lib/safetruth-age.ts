@@ -3,7 +3,7 @@
 export type SafeTruthAgeBand = "neonate" | "infant" | "child";
 
 /**
- * Maps UI age inputs to a single non-negative integer for `safeTruthEvents.logEvent` (`childAge`).
+ * Maps UI age inputs to a single non-negative integer for `careSignalEvents.logEvent` (`childAge`).
  * Stored value is **approximate age in months** (0 = neonate / unknown; 1–12 = infant; 12+ = child years × 12).
  * Full detail stays in `presentation` JSON (`ageBand`, days, months, years).
  */
