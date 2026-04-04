@@ -201,5 +201,6 @@ Revisit **quarterly** or when adding **≥5** new micro-courses — update MECE 
 
 | Date | Change |
 |------|--------|
+| 2026-03-31 | Fellow title criteria, profile gate, internal intelligence: [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md); [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §17. |
 | 2026-03-31 | Linked **24-slot** micro-course backlog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). |
 | 2026-04-04 | Initial publication: MECE portfolio, ADF, domains, incentives, MECE circulatory example. |

@@ -49,7 +49,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
 
-**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md). **24-slot ADF micro-course catalog backlog (named placeholders):** [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md).
+**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md). **24-slot ADF micro-course catalog backlog (named placeholders):** [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md). **Fellowship qualification, provider profile gate, internal intelligence (non-public):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) — canonical detail in **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)**.
 
 ---
 
@@ -221,7 +221,7 @@ This locks **how** we integrate the **Advanced Deterioration Fellowship (ADF)** 
 **Do not ship as mandatory in v1 (unless leadership explicitly reintroduces):**
 
 - Application fees, selective admissions interviews, large upfront “fellowship fees,” or required face-to-face blocks for the **default** individual journey.
-- Claims of “fellow” or tier titles **until** completion criteria exist in-product (badges, track completion, or governed assessment).
+- Claims of “fellow” or tier titles **until** completion criteria are **implemented** or leadership-approved interim copy exists — criteria are locked in **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)** / [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
 **Product shape:**
 
@@ -282,4 +282,36 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-03-31 — [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) (24-slot ADF SKU backlog); [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) (MECE portfolio, ADF, incentives); pre-download certificate feedback; certificate logo blend on PDF.
+## 17. Fellowship qualification, provider profile, and internal operational intelligence (non-public)
+
+**PSoT short title:** *Fellowship rules, provider profile completeness, and internal intelligence.*  
+**Full narrative, criteria tables, and governance suggestions:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+
+This section locks **leadership intent** for how **“ADF Fellow”** (or equivalent) is earned, why **profile data** is required to **enroll in fellowship-path courses**, and how **aggregated operational data** may be used **inside Paeds Resus** (and governed partner research) — **not** for public naming of facilities or individuals by default.
+
+### 17.1 Fellowship qualification (summary)
+
+A provider qualifies as a **fellow** only when **all** of the following are met (detail and edge cases in the linked doc):
+
+1. **Complete the full agreed course set** — **BLS, ACLS, PALS**, plus **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) and updates), completion defined as pass / certify per product rules.
+2. **ResusGPS practice:** For **each condition** taught in that portfolio, **at least three (3) real cases** **managed using ResusGPS** in an attributable way (verification rules TBD in product).
+3. **Safety signal:** **At least one (1) Safe-Truth–eligible submission per calendar month** for **twenty-four (24) consecutive months**; **near misses count** — not only sentinel events.
+
+Until the platform **automates** tracking, fellowship may be **partially manual** or **badge-deferred**; do **not** promise fellow title in UI until implementation matches criteria or leadership approves interim wording.
+
+### 17.2 Enrollment gate (provider profile)
+
+Participation in **fellowship-path / ADF catalogue courses** requires a **complete provider profile**, including at minimum: **cadre**; **facility**; **department**; **country**; **region**; **town / locality** (exact fields in schema/UI). Purpose: **internal** analytics — e.g. regional strain, facility support, workforce and public-health insight — **not** open publication of identifiable sites.
+
+### 17.3 Data use default
+
+- **Internal and governed research / policy insight** — outbreaks, resource gaps, cadre needs, recommendations to facilities and programmes — with **privacy-by-design**, **aggregation**, and **consent** where law or ethics require.
+- **Do not** ship public leaderboards of named facilities or **share identifiable provider–facility links** outside agreed uses without **explicit governance** and **legal review**.
+
+### 17.4 Builders’ note
+
+Extend **enrollment guards**, **profile forms**, **ResusGPS analytics**, and **Safe-Truth / provider safety** flows to match §17.1–17.3 over time; see the linked doc for **consent**, **retention**, **definitions** (“managed case,” missed months), and **research ethics** checklist items.
+
+---
+
+**Last structural update:** 2026-03-31 — §17 fellowship qualification, provider profile, internal intelligence; [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
