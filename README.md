@@ -20,6 +20,8 @@ Long-range or aspirational multi-year material (not near-term commitments) lives
 
 **Sprint 1 (Measurement Truth MVP):** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md) (Sprint 1 section), [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md), [`docs/EVENT_TAXONOMY.md`](docs/EVENT_TAXONOMY.md).
 
+**Courses & ADF (portfolio, MECE map, pricing narrative):** [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).
+
 **Clinical protocols (authoritative + ResusGPS map):** [`docs/clinical-protocols/README.md`](docs/clinical-protocols/README.md) — narrative, evidence alignment, and code mapping; **[`docs/clinical-protocols/RESUSGPS_REGISTRY.md`](docs/clinical-protocols/RESUSGPS_REGISTRY.md)** lists pathway IDs and files.
 
 **E2E test course (PALS, KES 100):** [`docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md`](docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md) — enroll, M-Pesa, modules, certificate; run `pnpm run seed:pals-course` once against your DB.

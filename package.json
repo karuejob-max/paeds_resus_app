@@ -17,6 +17,7 @@
     "db:apply-0027": "node scripts/apply-0027-instructor-approved.mjs",
     "db:apply-0028": "node scripts/apply-0028-instructor-certification.mjs",
     "db:apply-0029": "node scripts/apply-0029-enrollments-course-id.mjs",
+    "db:apply-0030": "node scripts/apply-0030-certificate-download-feedback.mjs",
     "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
     "verify:analytics": "tsx scripts/verify-analytics-events.ts"
   },

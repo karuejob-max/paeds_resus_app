@@ -2,7 +2,15 @@ import { createHash } from "crypto";
 import { getDb } from "./db";
 import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { certificates, courses, enrollments, modules, userProgress, users } from "../drizzle/schema";
+import {
+  certificates,
+  certificateDownloadFeedback,
+  courses,
+  enrollments,
+  modules,
+  userProgress,
+  users,
+} from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
@@ -414,6 +422,62 @@ export async function getCertificateForDownload(
   } catch (err) {
     console.error("[Certificates] getCertificateForDownload:", err);
     return null;
+  }
+}
+
+export async function hasCertificateDownloadFeedback(userId: number, certificateId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: certificateDownloadFeedback.id })
+    .from(certificateDownloadFeedback)
+    .where(
+      and(
+        eq(certificateDownloadFeedback.userId, userId),
+        eq(certificateDownloadFeedback.certificateId, certificateId)
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function submitCertificateDownloadFeedback(params: {
+  userId: number;
+  certificateId: number;
+  rating: number;
+  improvements: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const db = await getDb();
+  if (!db) return { success: false, error: "Database not available" };
+  const r = params.rating;
+  if (r < 1 || r > 5) return { success: false, error: "Rating must be between 1 and 5." };
+  const imp = params.improvements?.trim() ?? "";
+  if (imp.length < 10) {
+    return {
+      success: false,
+      error: "Please write at least 10 characters on what we can improve for this course.",
+    };
+  }
+  const certRows = await db.select().from(certificates).where(eq(certificates.id, params.certificateId)).limit(1);
+  const cert = certRows[0];
+  if (!cert || cert.userId !== params.userId) {
+    return { success: false, error: "Certificate not found or access denied." };
+  }
+  try {
+    await db.insert(certificateDownloadFeedback).values({
+      userId: params.userId,
+      certificateId: params.certificateId,
+      rating: r,
+      improvements: imp,
+    });
+    return { success: true };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Duplicate") || msg.includes("duplicate") || msg.includes("UNIQUE")) {
+      return { success: false, error: "Feedback was already submitted for this certificate." };
+    }
+    console.error("[Certificates] submitCertificateDownloadFeedback:", e);
+    return { success: false, error: "Could not save feedback." };
   }
 }
 

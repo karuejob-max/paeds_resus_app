@@ -106,6 +106,19 @@ export const certificates = mysqlTable("certificates", {
 export type Certificate = typeof certificates.$inferSelect;
 export type InsertCertificate = typeof certificates.$inferInsert;
 
+/** One pre-download feedback row per user per certificate (before PDF download). */
+export const certificateDownloadFeedback = mysqlTable("certificateDownloadFeedback", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  certificateId: int("certificateId").notNull(),
+  rating: int("rating").notNull(),
+  improvements: text("improvements"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CertificateDownloadFeedback = typeof certificateDownloadFeedback.$inferSelect;
+export type InsertCertificateDownloadFeedback = typeof certificateDownloadFeedback.$inferInsert;
+
 // Institutional Accounts table
 export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   id: int("id").autoincrement().primaryKey(),

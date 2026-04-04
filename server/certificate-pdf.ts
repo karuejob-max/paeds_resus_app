@@ -130,18 +130,18 @@ function resolveLogoPngBytes(): Buffer | null {
 export async function prepareLogoForCertificatePng(raw: Buffer): Promise<Buffer> {
   if (!isPngBuffer(raw)) return raw;
   try {
-    const meta = await sharp(raw).metadata();
-    if (meta.hasAlpha) {
-      return raw;
-    }
     const { data, info } = await sharp(raw).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     if (info.channels !== 4) return raw;
     const px = new Uint8ClampedArray(data);
     for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] === 0) continue;
       const r = px[i];
       const g = px[i + 1];
       const b = px[i + 2];
+      // Knock out near-black (export artefacts) and near-white mattes so the mark blends with certificate paper.
       if (r < 36 && g < 36 && b < 36) {
+        px[i + 3] = 0;
+      } else if (r > 245 && g > 245 && b > 245) {
         px[i + 3] = 0;
       }
     }

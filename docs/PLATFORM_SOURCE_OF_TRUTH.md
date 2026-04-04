@@ -49,6 +49,8 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
 
+**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).
+
 ---
 
 ## 4. To whom we deliver (audiences and jobs-to-be-done)
@@ -280,4 +282,4 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-04-03 — §15.5 clinical journey / ADF alignment; §16.1 neutral certificate header tagline, alpha-aware logo, `courseDisplayName` body text; BLS certificate hours **6** in generator; §3 courses / fellowship rows updated.
+**Last structural update:** 2026-04-04 — [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) (MECE portfolio, ADF, incentives); pre-download certificate feedback; certificate logo asset + white-matte knockout for PDF blend.
