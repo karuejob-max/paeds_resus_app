@@ -1,8 +1,8 @@
 # Fellowship qualification, provider profile, and internal operational intelligence
 
 **Status:** Canonical strategy — complements [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md), [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md), and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md).  
-**Version:** 1.0 · **Date:** 2026-03-31  
-**Audience:** Leadership, clinical governance, product, data protection counsel, research leads.
+**Version:** 2.0 · **Date:** 2026-03-31  
+**Audience:** Leadership, clinical governance, product, legal, security, research.
 
 ---
 
@@ -10,83 +10,171 @@
 
 This document locks:
 
-1. **What “ADF Fellow” (or equivalent fellow title in UI)** means in terms of **completed learning** and **demonstrated practice** on the platform.
-2. **What profile data** providers must supply to **participate in fellowship-path courses** (enrollment gate).
-3. **Why we collect that data** and **how we use it** — **internal intelligence and improvement only**, not public disclosure of identifiable facilities or individuals.
-
-Full-cycle intent: connect **provider learning and bedside behaviour** (ResusGPS), **institutional and geographic context** (profile), **honest incident and near-miss signal** (Safe-Truth–compatible flows), and **parent/community** programmes — so Paeds Resus can support **policy-relevant insight**, **targeted health education**, and **facility-specific recommendations** without pretending every linkage is automated on day one.
-
----
-
-## 2. Fellowship qualification (ADF Fellow)
-
-To **qualify as a fellow** (title and credential rules as shown in-product when implemented), a provider must meet **all** of the following:
-
-| Criterion | Rule (leadership-locked) |
-|-----------|---------------------------|
-| **Complete the full individual-provider course set** | Complete **every course** in the agreed **MECE portfolio** for the fellowship path — including **BLS, ACLS, PALS** (blended credential courses) and **every ADF micro-course** in the active catalog (see [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md); list may expand with governance — “complete” = passed / certified per product rules). |
-| **ResusGPS practice volume** | For **each clinical condition** taught in that portfolio, **manage at least three (3) real cases** using **ResusGPS** in a way the platform can **attribute** to the learner (see §5 on verification). “Manage” means **used ResusGPS to guide assessment or treatment decisions** for that encounter, within scope of practice. |
-| **Safe-Truth / safety signal (monthly, two years)** | Log **at least one (1) Safe-Truth–eligible event per calendar month**, **consistently for twenty-four (24) consecutive months**. **Near misses and non-sentinel events count**; the goal is **routine safety culture**, not only catastrophic reporting. |
-
-**Dependencies:** Until the product **records** course completion, ResusGPS case counts per condition, and monthly Safe-Truth (or provider safety) submissions with **auditable timestamps**, fellowship status remains **policy-defined** and may be **tracked manually** or **partially automated**. Update [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) when automation ships.
+1. **What “ADF Fellow” (or equivalent fellow title in UI)** means — **fully automatable** criteria only (no manual conferral).
+2. **Profile and contact data** required for fellowship-path participation and **optional** future programmes (e.g. small-group learning).
+3. **Staff** vs **parent** reporting — **separate names and products** (see §3).
+4. **How** courses, ResusGPS use, **Staff Safety Signal** reporting, and **course feedback** combine into **one cumulative “distance to Fellow”** experience.
+5. **Grace rules** for monthly staff reporting — strict, automated, with **streak reset** when discipline fails.
+6. **Public** vs **internal** use of facility data — including **future** “Paeds Resus accredited facilities” (not rankings).
+7. **Pre-launch gates** — nothing ships as “Fellowship” until §11 is satisfied.
 
 ---
 
-## 3. Enrollment in fellowship-path courses (profile gate)
+## 2. Naming: parent Safe-Truth vs staff safety reporting
 
-To **enroll in fellowship-path offerings** (any course that sits under the **fellowship / ADF** narrative — i.e. participation in our **individual provider course catalogue** tied to that journey), the learner must **complete their provider profile** with at least:
+| Channel | Audience | PSoT name | Notes |
+|---------|-----------|-----------|--------|
+| **Safe-Truth** | **Parents / guardians** | **Safe-Truth** (unchanged) | Guardian experience, timelines, community voice — [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md). **Not** used for fellowship monthly reporting. |
+| **Staff incident & near-miss reporting** | **Healthcare providers** (staff) | **Staff Safety Signal** (canonical **product label** until marketing replaces) | Fellowship **monthly discipline** and QI culture apply **only** to this channel. **Do not** label staff flows “Safe-Truth” in UI — avoids confusion with parent Safe-Truth. **Code** may keep legacy route names until refactored; **user-facing** copy must distinguish. |
 
-| Field | Intent |
-|-------|--------|
-| **Cadre** | Role / professional category (for scope-appropriate messaging and aggregate workforce analytics). |
-| **Place of work — facility** | Organisation name (and identifiers as implemented). |
-| **Place of work — department / unit** | Ward, ED, HDU, etc. |
-| **Country** | Jurisdiction and macro geography. |
-| **Region** | Subnational region (state, county, province — per country taxonomy in product). |
-| **Town / locality** | Finer geographic anchor for clustering (outbreak signals, access issues). |
-
-**Product direction:** Block “Enroll” (or equivalent) until required fields validate; allow **save draft** where UX permits. Exact field names and enums live in **schema + UI**; this document defines **minimum intent**.
+**Marketing may rename** Staff Safety Signal (e.g. branded sub-product) if it remains **visually and verbally distinct** from Safe-Truth.
 
 ---
 
-## 4. Internal use of profile and activity data (non-public)
+## 3. Commercial model (no fellowship surcharge)
 
-Profile and usage data listed above exist primarily to support **Paeds Resus internal** and **partner-governed** uses such as:
-
-- **Regional patterns** — e.g. unusual clustering of **diarrhoeal illness**, **respiratory outbreaks**, or other signals that may warrant **public health attention** or **targeted education** (outputs are **aggregated**; no public maps of named facilities without explicit governance).
-- **Facility-level insight** — **not** published as league tables by default: internal use for **quality improvement**, **recommendations**, and **dialogue** with institutions that opt in or contract for insight.
-- **Research and policy** — resource gaps (e.g. oxygen, staffing), **cadre-specific** training needs, and **evidence** for **policy change recommendations** where ethics and law allow.
-- **Closing the loop** — connect **provider behaviour** (courses, ResusGPS), **institutional context**, **parent-facing** content (Safe-Truth, health education), and **mission metrics** without conflating audiences in UX.
-
-**Default rule:** **Do not** expose **identifiable facility or individual provider** data **publicly** or to **unauthorised third parties**. Aggregates, de-identified research extracts, and **explicit consent** for any broader sharing must be **documented** when those programmes exist.
+- **No separate fellowship fee.** Revenue remains **per course / micro-course** (and other priced SKUs) as in [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).
+- **Fellowship progress** is earned through **use of platform services** — course completion, **ResusGPS**-attributable cases, **Staff Safety Signal** logs, and **course feedback** (where instrumented) — **not** through a bundled “fellowship purchase.”
 
 ---
 
-## 5. Suggested additions (governance and product)
+## 4. Fellowship qualification (all automated)
 
-Leadership and counsel should decide when to lock each item; builders should not invent legal claims.
+**Fellow status may only be awarded when the system can prove every criterion from data.** No manual overrides in v1; if automation is incomplete, **do not** show “Fellow” or equivalent.
 
-| Topic | Why it matters |
-|-------|----------------|
-| **Privacy notice and consent** | Clear copy at profile completion and enrollment: **what** we collect, **why**, **retention**, **who may access**, and **rights** (access, correction, deletion where applicable). |
-| **Defining “3 cases per condition”** | Tie to **ResusGPS pathway or session IDs**, **date range**, and **anti-gaming** rules (e.g. minimum interaction depth — product-defined). |
-| **Attestation vs automated proof** | If automated logging is incomplete, interim **structured attestation** with audit risk accepted by governance. |
-| **Safe-Truth scope for providers** | Confirm which **submission types** satisfy the **monthly** requirement (parent Safe-Truth vs provider incident channel — must align with actual product and ethics). |
-| **“Consistent 24 months”** | Define handling of **one missed month** (grace period vs reset) — product and fairness. |
-| **Data minimisation** | Collect only what is needed for stated uses; **avoid** collecting **patient identifiers** in free text where possible; use **structured fields**. |
-| **Retention and deletion** | How long profile and logs are kept; **deletion** on account closure vs **legal hold** for research. |
-| **Research ethics** | For **publication** or **external sharing**: IRB / ethics board alignment, **de-identification** standards, **opt-in** where required. |
-| **Security** | Align with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §11; access control for **admin** analytics that combine geography + facility. |
-| **Institutional alignment** | Where a provider works under an **institutional** contract, **data use** may be governed by **B2B agreements** in addition to individual consent. |
+| Pillar | Rule | Automation requirement |
+|--------|------|------------------------|
+| **A — Courses** | Complete **BLS, ACLS, PALS**, and **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
+| **B — ResusGPS** | For **each taught condition** in the portfolio, **≥3 attributable cases** where the learner **used ResusGPS** to guide care. | Pathway/session IDs, user ID, **minimum depth** thresholds (anti-gaming), timestamps; map **condition ↔ pathway** in config. |
+| **C — Staff Safety Signal** | **24 consecutive qualifying months** of monthly reporting (see §6–7). | Dedicated **staff** submission table(s), EAT calendar month bucketing, immutable audit trail. |
+
+**Near misses and non-sentinel events count** toward Staff Safety Signal; structure and minimum fields are product-defined and **validated server-side**.
 
 ---
 
-## 6. Relationship to other docs
+## 5. Provider profile and optional contact (enrollment gate + future community)
 
-- **Portfolio and MECE:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)  
-- **24 micro-course slots:** [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)  
-- **Mission and theory of change:** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md)  
-- **Technical and report definitions:** [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) (especially §8, §11)
+### 5.1 Required for fellowship-path enrollment
+
+**Cadre; facility; department; country; region; town** — as in v1.0; block enroll until valid.
+
+### 5.2 Contact for future programmes (e.g. small groups)
+
+- **Email** (usually already account identity) and **mobile number** may be **collected for optional** uses: facilitated discussions, peer learning, SMS reminders for reporting — **only** with **explicit consent** per purpose (checkboxes; not bundled as “accept all”).
+- **Purpose-limited** storage; **unsubscribe** / withdraw from **non-essential** contact without losing core platform access where legally required.
+
+---
+
+## 6. Single cumulative “distance to Fellow” experience
+
+**Product requirement:** One surfaced progress model (dashboard / hub) that **aggregates**:
+
+- Course completion (% of required catalog).
+- ResusGPS condition checklist (% conditions meeting **3 cases**).
+- Staff Safety Signal **current streak** / **months completed** toward **24**, and **grace** state.
+
+**Copy:** Discipline in logging is **leadership behaviour** training — aligned with safe fluid and escalation decisions (e.g. DCM/SAM vs sepsis). **Do not** shame; **do** show clear **automated** consequences of missed months (see §7).
+
+---
+
+## 7. Staff Safety Signal — monthly rule and grace (automated)
+
+**Timezone:** Calendar months in **EAT** (consistent with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §8).
+
+**Normal month:** **≥1** eligible Staff Safety Signal submission **created** in that month (exact eligibility = **submitted + passes validation**, not draft).
+
+### 7.1 Grace budget
+
+- **Two (2) grace periods per calendar year** (EAT year: Jan–Dec).
+- A **grace** is invoked when a month would otherwise have **0** eligible events but the learner **remains in the fellowship pursuit** under catch-up rules.
+
+### 7.2 Catch-up after a grace month
+
+- If month **M** has **0** eligible events and **counts as using one grace** (grace budget available), then month **M+1** must contain **≥3** eligible Staff Safety Signal events (**not** 2, **not** 1).
+- If month **M+1** fails to reach **3** eligible events → **consecutive month streak for pillar C resets to zero** (see §7.4). Grace for month M is **not** successfully “closed.”
+
+### 7.3 One more grace per year (strict reading)
+
+- After a learner **uses one grace** and **successfully completes** the **3-event catch-up month**, they may use **at most one additional grace** in the **same calendar year** (total **≤2** graces/year). **Automation** enforces the count; **no** manual resets.
+
+### 7.4 Third strike — streak reset
+
+- If the learner **skips** a third month ( **0** eligible events in a month **without** a remaining grace that can apply **or** without completing catch-up from a prior grace **or** after exhausting **2** graces in the year with continued failure) — **pillar C consecutive month count resets to zero** and must **restart** the path to **24** qualifying months.
+- **Courses (A)** and **ResusGPS case progress (B)** **do not** reset when pillar C resets — only the **staff reporting streak** and **calendar of qualifying months** for fellowship.
+
+### 7.5 Anti-gaming
+
+- **Minimum interaction depth** on ResusGPS sessions; **dedupe** same-day trivial opens.
+- **Staff submissions** require **structured fields**; rate limits; **no** duplicate event IDs.
+- **Server-side** validation only; client counts are **never** authoritative.
+
+---
+
+## 8. Internal operational intelligence (non-public by default)
+
+- **Profile + activity** for **outbreak signals**, **facility stress**, **cadre gaps**, **policy** — **aggregated**; **no public** identifiable facility tables **except** where §9 applies later.
+- **Course feedback** (e.g. pre-certificate) feeds **improvement**; may join **internal** analytics **without** public attribution.
+
+---
+
+## 9. Future public: Paeds Resus accredited facilities (not rankings)
+
+- **Not** “top hospitals” league tables or **public performance rankings** until governance explicitly approves methodology.
+- **Approved future model:** A **published list** of **Paeds Resus accredited** facilities — derived from **hospital preparedness** assessment and **contractual** accreditation — analogous to how travellers look for **accreditation marks** (e.g. JCI-style **binary** trust: on the list or not), **not** ordinal comparison.
+- **Parents** choosing care in a new city: **directory** use case; **must** include **clear criteria** for accreditation and **disclaimers** (not emergency routing; not liability for outcomes).
+
+---
+
+## 10. Legal, privacy, and vulnerability controls (must implement)
+
+| Area | Requirement |
+|------|-------------|
+| **Consent** | Layered consent for profile, **Staff Safety Signal**, contact for community programmes, and **analytics**; easy **withdraw** where required. |
+| **Data minimisation** | No patient identifiers in free text where avoidable; **structured** incident categories. |
+| **Retention** | Policy per table; **deletion** on account close vs **legal/regulatory hold** documented. |
+| **Access control** | **Admin** and **research** roles; **audit log** for bulk export; **no** public API for identifiable staff–facility joins. |
+| **Accuracy** | Fellow badge **only** if automated checks pass; **appeals** process **documented** (e.g. data bug) — **not** subjective “promotion.” |
+| **Security** | [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §11; encrypt in transit; secrets in env. |
+| **Terms** | ToS / privacy **updated** for Staff Safety Signal, grace rules, streak reset, and **accredited list** when launched. |
+| **Institutional** | B2B contracts may **add** obligations; **not** weaker than individual protections. |
+
+---
+
+## 11. Fellowship launch readiness checklist (block launch until complete)
+
+**Do not** launch **Fellow** title, **fellowship progress UI**, or **public accredited directory** until **all** relevant rows pass.
+
+### 11.1 Data & automation
+
+- [ ] **Staff Safety Signal** product live: create/list with **server validation**, **EAT month** bucketing, **immutable** timestamps.
+- [ ] **No** dependency on manual admin toggles for Fellow.
+- [ ] **ResusGPS** → user → pathway → **condition map**; **≥3** sessions per condition with **depth** rules.
+- [ ] **Course completion** pipeline complete for **all** catalog courses in scope.
+- [ ] **Grace / catch-up / annual grace count / streak reset** implemented and **integration-tested**.
+
+### 11.2 UX & fairness
+
+- [ ] **Single dashboard**: distance to Fellow (A/B/C pillars).
+- [ ] **Clear** messaging: grace **remaining**, catch-up **3 in next month**, **reset** when triggered.
+- [ ] **Staff** flows **never** titled Safe-Truth; parent Safe-Truth **unchanged**.
+
+### 11.3 Legal & policy
+
+- [ ] Privacy policy + ToS + **consent** flows reviewed (counsel).
+- [ ] **Appeals** path for **system errors** only.
+
+### 11.4 Accredited facilities (if launching list)
+
+- [ ] **Accreditation criteria** documented; **not** a ranking; **disclaimers**; **governance** approval.
+
+---
+
+## 12. Relationship to other docs
+
+- [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)  
+- [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)  
+- [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md)  
+- [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §3, §8, §11, **§17**
 
 ---
 
@@ -94,4 +182,5 @@ Leadership and counsel should decide when to lock each item; builders should not
 
 | Date | Change |
 |------|--------|
-| 2026-03-31 | Initial publication: fellow criteria (courses + ResusGPS cases + Safe-Truth cadence), profile gate, internal intelligence uses, suggested governance additions. |
+| 2026-03-31 | **v2.0:** Automation-only fellow; **Staff Safety Signal** vs parent Safe-Truth; no fellowship fee; cumulative progress; grace/catch-up/reset rules; accredited facilities (future); contact consent; launch checklist; legal controls. |
+| 2026-03-31 | v1.0: Fellow criteria, profile gate, internal intelligence. |

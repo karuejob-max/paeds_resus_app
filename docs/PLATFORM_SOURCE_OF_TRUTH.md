@@ -43,9 +43,10 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
 | **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Elite fellowship** | **Narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall for “fellowship” in the digital-first path—learners pay per course/SKU. Programme type `fellowship` in data remains where used; naming in UI may evolve with leadership. |
-| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). |
+| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for fellowship — see **Staff Safety Signal**. |
+| **Staff Safety Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives **automated** fellowship **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
-| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth usage, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
+| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Staff Safety Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
 
@@ -221,7 +222,7 @@ This locks **how** we integrate the **Advanced Deterioration Fellowship (ADF)** 
 **Do not ship as mandatory in v1 (unless leadership explicitly reintroduces):**
 
 - Application fees, selective admissions interviews, large upfront “fellowship fees,” or required face-to-face blocks for the **default** individual journey.
-- Claims of “fellow” or tier titles **until** completion criteria are **implemented** or leadership-approved interim copy exists — criteria are locked in **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)** / [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+- Claims of “fellow” or tier titles **until** **fully automated** checks exist per **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)** — **no** manual conferral; see [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) §11 launch gate.
 
 **Product shape:**
 
@@ -284,34 +285,47 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ## 17. Fellowship qualification, provider profile, and internal operational intelligence (non-public)
 
-**PSoT short title:** *Fellowship rules, provider profile completeness, and internal intelligence.*  
-**Full narrative, criteria tables, and governance suggestions:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+**PSoT short title:** *Fellowship rules, Staff Safety Signal, cumulative progress, and governance.*  
+**Canonical detail (automation-only, grace rules, launch checklist, accredited facilities policy):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
-This section locks **leadership intent** for how **“ADF Fellow”** (or equivalent) is earned, why **profile data** is required to **enroll in fellowship-path courses**, and how **aggregated operational data** may be used **inside Paeds Resus** (and governed partner research) — **not** for public naming of facilities or individuals by default.
+### 17.1 Principles
 
-### 17.1 Fellowship qualification (summary)
+- **Fellow** is **100% automated** from platform data — **no** manual conferral in v1. If automation is incomplete, **do not** ship Fellow UI.
+- **No fellowship surcharge** — pay **per course/micro-course**; fellowship is **earned** through courses, **ResusGPS**, **Staff Safety Signal**, and **course feedback** (instrumented).
+- **Parent Safe-Truth** and **Staff Safety Signal** are **different products** — never use “Safe-Truth” for **staff** flows in user-facing copy ([§3](#3-what-we-do-offerings)).
 
-A provider qualifies as a **fellow** only when **all** of the following are met (detail and edge cases in the linked doc):
+### 17.2 Three pillars (all required)
 
-1. **Complete the full agreed course set** — **BLS, ACLS, PALS**, plus **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) and updates), completion defined as pass / certify per product rules.
-2. **ResusGPS practice:** For **each condition** taught in that portfolio, **at least three (3) real cases** **managed using ResusGPS** in an attributable way (verification rules TBD in product).
-3. **Safety signal:** **At least one (1) Safe-Truth–eligible submission per calendar month** for **twenty-four (24) consecutive months**; **near misses count** — not only sentinel events.
+1. **Courses:** **BLS, ACLS, PALS**, plus **every** active ADF micro-course — completion from **DB** (`certificates` / completion rules).
+2. **ResusGPS:** **≥3** attributable cases **per taught condition**, with **server-side** depth rules (anti-gaming).
+3. **Staff Safety Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
 
-Until the platform **automates** tracking, fellowship may be **partially manual** or **badge-deferred**; do **not** promise fellow title in UI until implementation matches criteria or leadership approves interim wording.
+### 17.3 Grace (automated)
 
-### 17.2 Enrollment gate (provider profile)
+- **≤2 grace periods per calendar year** (EAT). After a **0-event month** using a grace, the **next month** must have **≥3** eligible staff events. **≤1 additional grace** in the same year after a successful catch-up (total **≤2**/year). **Third** failure mode per linked doc → **pillar C streak resets to zero**; pillars A and B **do not** reset.
 
-Participation in **fellowship-path / ADF catalogue courses** requires a **complete provider profile**, including at minimum: **cadre**; **facility**; **department**; **country**; **region**; **town / locality** (exact fields in schema/UI). Purpose: **internal** analytics — e.g. regional strain, facility support, workforce and public-health insight — **not** open publication of identifiable sites.
+### 17.4 Cumulative UX
 
-### 17.3 Data use default
+- **One** learner-facing view of **distance to Fellow** (courses %, ResusGPS checklist, staff streak).
 
-- **Internal and governed research / policy insight** — outbreaks, resource gaps, cadre needs, recommendations to facilities and programmes — with **privacy-by-design**, **aggregation**, and **consent** where law or ethics require.
-- **Do not** ship public leaderboards of named facilities or **share identifiable provider–facility links** outside agreed uses without **explicit governance** and **legal review**.
+### 17.5 Profile and contact
 
-### 17.4 Builders’ note
+- **Required** for fellowship-path enroll: cadre, facility, department, country, region, town.
+- **Email / mobile** for **optional** future programmes (e.g. small groups) — **separate consent** per purpose.
 
-Extend **enrollment guards**, **profile forms**, **ResusGPS analytics**, and **Safe-Truth / provider safety** flows to match §17.1–17.3 over time; see the linked doc for **consent**, **retention**, **definitions** (“managed case,” missed months), and **research ethics** checklist items.
+### 17.6 Public facilities
+
+- **No public performance rankings** of facilities until governance approves methodology.
+- **Future:** **Paeds Resus accredited facilities** list (readiness-based, **binary** accreditation — trust signal, not ordinal league table); disclaimers required.
+
+### 17.7 Launch gate
+
+- Ship **Fellow** / fellowship progress **only** after [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) **§11** checklist passes (automation, UX, legal, security).
+
+### 17.8 Builders
+
+- Implement **Staff Safety Signal** as first-class data model + APIs; wire **analyticsEvents** / admin as needed; **never** mix parent `parentSafeTruthSubmissions` KPIs with staff fellowship metrics.
 
 ---
 
-**Last structural update:** 2026-03-31 — §17 fellowship qualification, provider profile, internal intelligence; [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+**Last structural update:** 2026-03-31 — §17 v2 (Staff Safety Signal, automation-only Fellow, grace rules, launch checklist); [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) v2.0.
