@@ -30,6 +30,20 @@ Equivalent SQL: `drizzle/0030_certificate_download_feedback.sql`.
 
 ---
 
+## careSignalEvents (migration 0031)
+
+If production logs show **`Table '…careSignalEvents' doesn't exist'`** when submitting **Care Signal**, run:
+
+```bash
+DATABASE_URL="mysql://..." pnpm run db:apply-0031
+```
+
+Or **`pnpm run db:apply-0031`** in a Render Shell. Script is idempotent.
+
+Equivalent SQL: `drizzle/0031_care_signal_events.sql`.
+
+---
+
 ## certificates.renewalReminderSentAt (migration 0026)
 
 If production logs show **`Unknown column 'renewalReminderSentAt' in 'field list'`** on `certificates`, the Aiven/MySQL schema is behind the app (HI-CERT-1 renewal dedupe column).

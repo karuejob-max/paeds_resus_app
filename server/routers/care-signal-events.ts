@@ -2,6 +2,8 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
+import { careSignalEvents } from "../../drizzle/schema";
+import { trackEvent } from "../services/analytics.service";
 
 /**
  * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
@@ -54,24 +56,55 @@ export const careSignalEventsRouter = router({
           });
         }
 
-        getDb();
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database unavailable. Please try again later.",
+          });
+        }
+
+        const insertResult = await db.insert(careSignalEvents).values({
+          userId: input.isAnonymous ? null : ctx.user.id,
+          eventDate: new Date(input.eventDate),
+          childAge: input.childAge,
+          eventType: input.eventType,
+          presentation: input.presentation,
+          isAnonymous: input.isAnonymous,
+          chainOfSurvival: JSON.stringify(input.chainOfSurvival),
+          systemGaps: JSON.stringify(input.systemGaps),
+          gapDetails: JSON.stringify(input.gapDetails),
+          outcome: input.outcome,
+          neurologicalStatus: input.neurologicalStatus,
+          status: "submitted",
+        });
+
+        const insertId = (insertResult as unknown as { insertId: number }).insertId;
+
+        await trackEvent({
+          userId: ctx.user.id,
+          eventType: "care_signal_submission_created",
+          eventName: "Care Signal submission",
+          eventData: {
+            careSignalEventId: insertId,
+            eventType: input.eventType,
+            isAnonymous: input.isAnonymous,
+          },
+        });
 
         console.log("[Care Signal Event Logged]", {
+          id: insertId,
           provider: input.isAnonymous ? "ANONYMOUS" : ctx.user.id,
           eventType: input.eventType,
           childAge: input.childAge,
           outcome: input.outcome,
-          systemGaps: input.systemGaps,
           timestamp: new Date().toISOString(),
         });
-
-        // TODO: Insert into database when schema is available
-        // const result = await db.insert(careSignalEvents).values(eventData);
 
         return {
           success: true,
           message: "Event logged successfully! Your report has been submitted confidentially.",
-          eventId: `event-${Date.now()}`,
+          eventId: String(insertId),
           timestamp: new Date(),
         };
       } catch (error) {
