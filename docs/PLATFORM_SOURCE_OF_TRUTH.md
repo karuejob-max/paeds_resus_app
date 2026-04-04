@@ -49,7 +49,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
 
-**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).
+**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md). **24-slot ADF micro-course catalog backlog (named placeholders):** [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md).
 
 ---
 
@@ -282,4 +282,4 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-04-04 — [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) (MECE portfolio, ADF, incentives); pre-download certificate feedback; certificate logo asset + white-matte knockout for PDF blend.
+**Last structural update:** 2026-03-31 — [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) (24-slot ADF SKU backlog); [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) (MECE portfolio, ADF, incentives); pre-download certificate feedback; certificate logo blend on PDF.

@@ -185,6 +185,7 @@ These sit **under the fellowship** but are **not tied** to a single anatomic dom
 ## 16. Product & engineering notes
 
 - **Catalog:** Micro-courses map to `courses` / `modules` / `programType` as product evolves; keep **one source** in the DB for titles and prices.  
+- **24-slot rollout backlog:** Named placeholders for the **~two-year** micro-course cycle — [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) (SKU-oriented list; clinical sign-off before treating titles as final).  
 - **Certificates:** Program types and display names must stay consistent with PDF generation (`server/certificate-pdf.ts`).  
 - **Governance:** Clinical boards should **sign off** new micro-course titles and learning outcomes.
 
@@ -200,4 +201,5 @@ Revisit **quarterly** or when adding **≥5** new micro-courses — update MECE 
 
 | Date | Change |
 |------|--------|
+| 2026-03-31 | Linked **24-slot** micro-course backlog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). |
 | 2026-04-04 | Initial publication: MECE portfolio, ADF, domains, incentives, MECE circulatory example. |
