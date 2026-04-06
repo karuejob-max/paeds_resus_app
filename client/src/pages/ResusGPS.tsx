@@ -21,6 +21,8 @@ import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { useCountdownTimer } from '@/hooks/useCountdownTimer';
 import { TimerCard } from '@/components/TimerCard';
+import { AgeInput } from '@/components/AgeInput';
+import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -627,14 +629,24 @@ n  // Active intervention timers
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">Age</label>
-              <Input
-                placeholder="e.g., 5 years, 3 months, 2 days"
+              <AgeInput
                 value={tempAge}
-                onChange={e => setTempAge(e.target.value)}
-                className="bg-background text-foreground"
+                onChange={(age) => {
+                  setTempAge(age);
+                  // Auto-calculate weight from age if not manually set
+                  if (!tempWeight && age) {
+                    const parsedAge = parseAgeString(age);
+                    if (parsedAge) {
+                      const calculatedWeight = estimateWeightFromAge(parsedAge);
+                      if (calculatedWeight) {
+                        setTempWeight(calculatedWeight.toString());
+                      }
+                    }
+                  }
+                }}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Age helps interpret vital signs with age-appropriate ranges
+                Weight auto-calculated from age (can be overridden)
               </p>
             </div>
           </div>
