@@ -15,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle2, Circle, AlertCircle, TrendingUp } from 'lucide-react';
+import { ConditionRecommendation } from './ConditionRecommendation';
 
 export function FellowshipProgressCard() {
   const { data: progressData, isLoading } = trpc.resusSessionAnalytics.getProviderFellowshipProgress.useQuery();
@@ -77,6 +78,9 @@ export function FellowshipProgressCard() {
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Recommendation section */}
+        <ConditionRecommendation />
+
         {/* Progress bar */}
         <div className="space-y-2">
           <Progress value={pillarB.percentage} className="h-3" />
