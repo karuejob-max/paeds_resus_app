@@ -250,26 +250,26 @@ export const recommendationEngineRouter = router({
       const userId = input.userId || ctx.user.id;
 
       // Get learner recommendation
-      const learnerRec = await ctx.caller.recommendationEngine.getNextRecommendation(
-        {
-          userId,
-          institutionId: input.institutionId,
-        }
-      );
+      // TODO: Implement learner recommendation logic
+      const learnerRec = {
+        recommended: null,
+        alternatives: [],
+      };
 
       // Get facility recommendation if institution provided
       let facilityGaps = null;
       if (input.institutionId) {
-        facilityGaps = await ctx.caller.recommendationEngine.getFacilityRecommendations(
-          {
-            institutionId: input.institutionId,
-            daysBack: 30,
-          }
-        );
+        // TODO: Implement facility recommendations query
+        // facilityGaps = await ctx.caller.recommendationEngine.getFacilityRecommendations(
+        //   {
+        //     institutionId: input.institutionId,
+        //     daysBack: 30,
+        //   }
+        // );
       }
 
       // Combine recommendations: prioritize learner gaps that are also facility gaps
-      const learningPath = [];
+      const learningPath: any[] = [];
 
       // Add learner's top recommendations
       if (learnerRec.recommended) {

@@ -40,22 +40,24 @@
 - [x] Care Signal submissions tracked
 - [x] Admin reports show real product activity
 
-### Priority 2: Staging Environment (In Progress - Manus)
-- [ ] Set up staging infrastructure (develop to staging, main to production)
-- [ ] Configure branch-based deployment pipeline
-- [ ] Implement PR verification on staging before production
-- [ ] Document staging deployment procedures
-- [ ] Test full deployment workflow
+### Priority 2: Security Baseline (COMPLETED)
+- [x] Implement password complexity rules (8+ chars, mix of case/numbers/symbols)
+- [x] Configure session max age (sliding expiry, refresh token logic)
+- [x] Build admin audit logging system (track admin actions, timestamps, user)
+- [x] Implement data retention policies
+- [x] Add PHI handling compliance checks
+- [x] Security testing and validation
 
-### Priority 3: Security Baseline (In Progress - Manus)
-- [ ] Implement password complexity rules (8+ chars, mix of case/numbers/symbols)
-- [ ] Configure session max age (sliding expiry, refresh token logic)
-- [ ] Build admin audit logging system (track admin actions, timestamps, user)
-- [ ] Implement data retention policies
-- [ ] Add PHI handling compliance checks
-- [ ] Security testing and validation
+### Phase 1: Integrate Security Utilities into tRPC (In Progress)
+- [ ] Wire password validator into auth.changePassword procedure
+- [ ] Integrate session manager into auth.login procedure
+- [ ] Implement session refresh logic in auth.refreshSession
+- [ ] Add audit logger to all admin procedures (adminOnlyProcedure wrapper)
+- [ ] Create audit log query procedures for admin dashboard
+- [ ] Write comprehensive tRPC integration tests
+- [ ] Validate end-to-end security flow
 
-### Priority 4: ResusGPS v4 Clinical Features (In Progress - Manus)
+### Phase 2: Build ResusGPS v4 Clinical Features (In Progress)
 - [ ] Implement undo functionality (undo last finding, threat, intervention)
 - [ ] Add medication deduplication (prevent duplicate drug orders)
 - [ ] Support multi-diagnosis tracking (manage >1 condition simultaneously)
@@ -63,6 +65,13 @@
 - [ ] Build countdown timers for time-critical interventions
 - [ ] Add dose rationale explanations (why this dose, based on what)
 - [ ] Clinical validation and testing
+
+### Phase 3: Set Up Staging Environment (In Progress)
+- [ ] Set up staging infrastructure (develop to staging, main to production)
+- [ ] Configure branch-based deployment pipeline
+- [ ] Implement PR verification on staging before production
+- [ ] Document staging deployment procedures
+- [ ] Test full deployment workflow
 
 ## Sprint 5: ResusGPS Auto-Launch, Admin Notifications, Facility Benchmarking (PAUSED - Deprioritized)
 

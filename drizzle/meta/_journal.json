@@ -204,6 +204,13 @@
       "when": 1775455956764,
       "tag": "0028_watery_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1775470457518,
+      "tag": "0029_vengeful_strong_guy",
+      "breakpoints": true
     }
   ]
 }

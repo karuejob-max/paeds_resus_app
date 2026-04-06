@@ -81,7 +81,6 @@ export const payments = mysqlTable("payments", {
   idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
-  idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(), // For webhook deduplication (CheckoutRequestID)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -2192,3 +2191,22 @@ export const webhookRetryQueue = mysqlTable("webhookRetryQueue", {
 
 export type WebhookRetryQueue = typeof webhookRetryQueue.$inferSelect;
 export type InsertWebhookRetryQueue = typeof webhookRetryQueue.$inferInsert;
+
+// Audit Logs - immutable log of all admin actions, auth events, and sensitive data access
+export const auditLogs = mysqlTable("auditLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"), // User who performed the action (nullable for system events)
+  action: varchar("action", { length: 50 }).notNull(), // LOGIN, LOGOUT, PASSWORD_CHANGE, USER_CREATE, etc.
+  resource: varchar("resource", { length: 50 }).notNull(), // user, course, care_signal, safe_truth, etc.
+  resourceId: int("resourceId"), // ID of the resource affected (nullable for system events)
+  changes: json("changes"), // JSON object of what changed (for UPDATE operations)
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("userAgent"), // Browser/client user agent
+  status: mysqlEnum("status", ["success", "failure", "denied"]).notNull(), // Outcome of the action
+  errorMessage: text("errorMessage"), // Error details if status is failure/denied
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  archivedAt: timestamp("archivedAt"), // When log was archived (for retention policy)
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;

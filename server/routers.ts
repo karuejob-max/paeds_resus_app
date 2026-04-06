@@ -16,6 +16,7 @@ import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
 import { securityRouter } from "./routers/security";
+import { securityIntegrationRouter } from "./routers/security-integration";
 import { googleWorkspaceRouter } from "./routers/google-workspace";
 import { personalizationRouter } from "./routers/personalization";
 import { paymentsRouter } from "./routers/payments";
@@ -306,6 +307,7 @@ export const appRouter = router({
   resusAutoLaunch,
   adminNotifications,
   facilityBenchmarking,
+  securityIntegration: securityIntegrationRouter,
 });
 
 export type AppRouter = typeof appRouter;
