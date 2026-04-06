@@ -285,7 +285,7 @@ export default function ResusGPS() {
     ).length;
     
     try {
-      await recordSessionMutation.mutateAsync({
+      const result = await recordSessionMutation.mutateAsync({
         pathway,
         durationSeconds: timer.elapsed,
         interactionsCount: Math.max(interactionCount, 1),
@@ -294,10 +294,24 @@ export default function ResusGPS() {
         sessionId: session.id,
         notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
       });
-      toast.success('Session recorded for fellowship tracking');
+      
+      if (result?.isValid) {
+        const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
+        toast.success(
+          `Valid session: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}`,
+          { duration: 4000 }
+        );
+      } else if (result?.depthScore && result.depthScore < 50) {
+        toast.warning(
+          `Session recorded (depth: ${result.depthScore}%). More interactions needed for fellowship credit.`,
+          { duration: 4000 }
+        );
+      } else {
+        toast.success('Session recorded for fellowship tracking', { duration: 3000 });
+      }
     } catch (error) {
       console.error('Failed to record session:', error);
-      toast.error('Could not record session for analytics');
+      toast.error('Could not record session for analytics', { duration: 3000 });
     }
     
     const text = exportClinicalRecord(session);
@@ -333,15 +347,31 @@ export default function ResusGPS() {
       ).length;
       
       if (timer.elapsed > 60 && interactionCount >= 3) {
-        recordSessionMutation.mutate({
-          pathway,
-          durationSeconds: timer.elapsed,
-          interactionsCount: interactionCount,
-          patientAge: session.patientAge,
-          patientWeight: session.patientWeight,
-          sessionId: session.id,
-          notes: 'Auto-recorded on new case',
-        });
+        recordSessionMutation.mutate(
+          {
+            pathway,
+            durationSeconds: timer.elapsed,
+            interactionsCount: interactionCount,
+            patientAge: session.patientAge,
+            patientWeight: session.patientWeight,
+            sessionId: session.id,
+            notes: 'Auto-recorded on new case',
+          },
+          {
+            onSuccess: (result) => {
+              if (result?.isValid) {
+                const conditionList = result.attributedConditions?.slice(0, 2).join(', ') || 'General resuscitation';
+                toast.success(
+                  `Session recorded: ${conditionList}`,
+                  { duration: 2000 }
+                );
+              }
+            },
+            onError: () => {
+              console.error('Auto-record failed');
+            },
+          }
+        );
       }
     }
     
@@ -359,8 +389,11 @@ export default function ResusGPS() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Recording indicator */}
       {recordSessionMutation.isPending && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2">
-          <p className="text-xs text-blue-900 font-medium">Recording session for fellowship tracking...</p>
+        <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2 animate-pulse">
+          <p className="text-xs text-blue-900 font-medium flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full animate-bounce" />
+            Recording session for fellowship tracking...
+          </p>
         </div>
       )}
       

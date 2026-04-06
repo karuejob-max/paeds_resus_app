@@ -153,3 +153,45 @@
 - [x] Fix: Ensure "Healthcare Provider Platform" button routes to correct page (Fixed race condition in Home.tsx redirect logic)
 - [ ] Test: Verify institutional user can navigate to provider platform
 - [ ] Verify: Test role switching and navigation flow
+
+
+## Sprint 3: ResusGPS Analytics & Recommendations (Parallel Backlog)
+
+### Phase 3.1: Staging Verification & Feedback
+- [ ] Run staging verification checklist (STAGING_VERIFICATION_CHECKLIST.md)
+- [ ] Test ResusGPS session recording end-to-end
+- [ ] Test FellowshipProgressCard on mobile/tablet/desktop
+- [ ] Test ConditionHeatmap CSV export
+- [ ] Verify all analytics events appear in admin reports
+- [ ] Document any issues or performance gaps
+
+### Phase 3.2: ResusGPS UI Feedback (Toast Notifications)
+- [ ] Wire ResusGPS.tsx recordSession call with feedback
+- [ ] Add toast notification: "Session recorded: [Pathway] + [Conditions]"
+- [ ] Add success/error handling for recordSession mutations
+- [ ] Show validation feedback: "Valid session: Meets depth requirements"
+- [ ] Show warning if session doesn't meet depth threshold
+- [ ] Test toast notifications on mobile and desktop
+
+### Phase 3.3: Condition Recommendation Engine
+- [ ] Build recommendNextCondition() procedure (based on gaps + learner progress)
+- [ ] Prioritize: conditions with 0 practice > conditions with 1-2 cases > conditions with 3+ cases
+- [ ] Consider facility-level gaps (conditions not practiced in 30 days)
+- [ ] Add recommendation card to FellowshipProgressCard
+- [ ] Show: "Next recommended: [Condition] (facility gap: 45 days)"
+- [ ] Allow learner to click recommendation to jump to ResusGPS pathway
+- [ ] Test recommendation logic with various scenarios
+
+### Phase 3.4: Testing & Integration
+- [ ] Create integration tests for all 3 features
+- [ ] Test recommendation engine with edge cases (new learner, all conditions complete, facility gaps)
+- [ ] Verify toast notifications don't interfere with ResusGPS flow
+- [ ] Test CSV export with large datasets (100+ sessions)
+- [ ] Performance test: recommendation calculation <500ms
+
+### Phase 3.5: Documentation & Deployment
+- [ ] Update RESUS_ANALYTICS_INTEGRATION_COMPLETE.md with feedback + recommendations
+- [ ] Create RECOMMENDATION_ENGINE.md with algorithm explanation
+- [ ] Update STAGING_DEPLOYMENT.md with new verification steps
+- [ ] Commit all changes with comprehensive message
+- [ ] Ready for production deployment
