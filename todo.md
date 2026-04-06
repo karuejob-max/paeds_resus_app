@@ -33,6 +33,52 @@
 - [x] 43 comprehensive tests passing (including full DKA scenario)
 - [x] Update App.tsx routing for new system
 
+## Sprint 5: ResusGPS Auto-Launch, Admin Notifications, Facility Benchmarking (In Progress - Manus)
+
+### Phase 5.1: ResusGPS Auto-Launch Integration
+- [ ] Create ResusGPS launch handler that accepts pathway parameter
+- [ ] Integrate recommendation AI getAutoLaunchPathway into ResusGPS.tsx
+- [ ] Auto-populate patient demographics from learner profile when launching
+- [ ] Show "Recommended: [Condition]" banner at start
+- [ ] Track recommendation acceptance in analytics
+- [ ] Test auto-launch with all 13 pathways
+- [ ] Verify recommendation updates after each session
+
+### Phase 5.2: Admin Notification Dashboard
+- [ ] Create AdminNotificationDashboard.tsx component
+- [ ] Build real-time alerts: streak milestones, training gaps, engagement drops
+- [ ] Create notification preferences (email, in-app, SMS)
+- [ ] Build notification history with filtering
+- [ ] Add facility-level aggregation (top performers, critical gaps)
+- [ ] Create notification API endpoints
+- [ ] Write tests for notification logic
+- [ ] Wire to /admin/notifications route
+
+### Phase 5.3: Facility Comparison Benchmarking
+- [ ] Create facility benchmarking algorithm (match by size, region, practice patterns)
+- [ ] Build anonymized comparison data (no facility names, only metrics)
+- [ ] Create FacilityBenchmark.tsx component
+- [ ] Show peer comparison: sessions/week, engagement %, critical gaps
+- [ ] Add facility ranking (top 10% performers)
+- [ ] Create benchmarking API endpoints
+- [ ] Write comprehensive tests
+- [ ] Integrate into FacilityTrainingGaps dashboard
+
+### Phase 5.4: Production Testing & Validation
+- [ ] Write integration tests for all 3 features
+- [ ] Performance test: auto-launch <500ms, dashboard load <1s
+- [ ] Security audit: no PII exposure in benchmarks
+- [ ] Timezone validation: EAT consistency across all features
+- [ ] Load test: 100+ concurrent users
+- [ ] Edge case testing: new facilities, single staff, no practice data
+- [ ] Run full test suite (vitest)
+
+### Phase 5.5: Production Deployment
+- [ ] Commit all changes to Git
+- [ ] Update documentation
+- [ ] Create deployment checklist
+- [ ] Ready for production rollout
+
 ## Future Features
 - [ ] SAMPLE history input in Secondary Survey
 - [ ] DKA definitive care protocol (insulin infusion, electrolyte monitoring)
