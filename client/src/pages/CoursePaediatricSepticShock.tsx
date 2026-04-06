@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LearningPath } from "@/components/LearningPath";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { ArrowLeft, BookOpen, Heart } from "lucide-react";
+import { ArrowLeft, BookOpen, Compass, Heart } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
 /**
@@ -145,10 +145,44 @@ export default function CoursePaediatricSepticShock() {
         </div>
       </div>
 
+      <div className="max-w-4xl mx-auto mb-8">
+        <Card className="border-border shadow-sm overflow-hidden rounded-2xl">
+          <CardHeader className="border-b border-border bg-gradient-to-r from-primary/8 to-brand-surface/40 pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                <Compass className="h-5 w-5" />
+              </span>
+              ResusGPS and this course
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-3 text-sm text-muted-foreground leading-relaxed">
+            <p>
+              After you work through these modules, you will get more from{" "}
+              <Link href="/resus" className="text-primary font-medium underline-offset-2 hover:underline">
+                ResusGPS
+              </Link>
+              : the pathways for shock, fluids, and escalation mirror the same ideas you practise here. Open ResusGPS
+              when you are with a sick child, walk the questions step by step, and cross-check against your facility
+              policy.
+            </p>
+            <p>
+              If you have not taken this course yet, ResusGPS is still useful—but completing this course first helps
+              you interpret the prompts and know when to escalate or refer.
+            </p>
+            <Link href="/resus">
+              <Button variant="cta" size="sm" className="rounded-xl mt-1">
+                Open ResusGPS
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
       <LearningPath
         enrollmentId={septicEnrollmentId}
         programType="pals"
         courseId={meta?.courseId ?? null}
+        pagedSepticShockModule
       />
     </div>
   );

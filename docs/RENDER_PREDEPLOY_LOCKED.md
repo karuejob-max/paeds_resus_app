@@ -16,6 +16,34 @@ Equivalent raw SQL: `ALTER TABLE enrollments ADD COLUMN courseId int NULL` (see 
 
 ---
 
+## certificateDownloadFeedback (migration 0030)
+
+If production shows **`Table '…certificateDownloadFeedback' doesn't exist'`** (often when downloading a certificate after the feedback gate shipped), run:
+
+```bash
+DATABASE_URL="mysql://..." pnpm run db:apply-0030
+```
+
+Or run **`pnpm run db:apply-0030`** in a **Render Shell** with env already set. The script is idempotent.
+
+Equivalent SQL: `drizzle/0030_certificate_download_feedback.sql`.
+
+---
+
+## careSignalEvents (migration 0031)
+
+If production logs show **`Table '…careSignalEvents' doesn't exist'`** when submitting **Care Signal**, run:
+
+```bash
+DATABASE_URL="mysql://..." pnpm run db:apply-0031
+```
+
+Or **`pnpm run db:apply-0031`** in a Render Shell. Script is idempotent.
+
+Equivalent SQL: `drizzle/0031_care_signal_events.sql`.
+
+---
+
 ## certificates.renewalReminderSentAt (migration 0026)
 
 If production logs show **`Unknown column 'renewalReminderSentAt' in 'field list'`** on `certificates`, the Aiven/MySQL schema is behind the app (HI-CERT-1 renewal dedupe column).

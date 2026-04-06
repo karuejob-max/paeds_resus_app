@@ -39,7 +39,7 @@ export default function ParentSafeTruthForm() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
 
-  const submitMutation = trpc.safeTruthEvents.logEvent.useMutation();
+  const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
 
   const handleSubmit = async () => {
     try {

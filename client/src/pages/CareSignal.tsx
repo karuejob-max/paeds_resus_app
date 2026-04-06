@@ -3,9 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "lucide-react";
-import ProviderSafeTruthForm from "@/components/ProviderSafeTruthForm";
+import CareSignalForm from "@/components/CareSignalForm";
 
-export default function SafeTruth() {
+export default function CareSignal() {
   const loggerRef = useRef<HTMLDivElement>(null);
 
   const scrollToLogger = () => {
@@ -19,10 +19,10 @@ export default function SafeTruth() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <Shield className="w-8 h-8" />
-            <h1 className="text-4xl font-bold">Safe-Truth for providers</h1>
+            <h1 className="text-4xl font-bold">Care Signal</h1>
           </div>
           <p className="text-lg text-blue-100 max-w-2xl mb-6">
-            A confidential space for healthcare providers to report paediatric emergency events, identify system gaps, and drive improvement. Parent and guardian stories live under Parent Safe-Truth, not here.
+            A confidential space for healthcare providers to report paediatric emergency events, identify system gaps, and drive improvement. Parent and guardian stories live under Safe-Truth (parents), not here.
           </p>
           <div className="flex flex-wrap gap-3">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
@@ -40,7 +40,7 @@ export default function SafeTruth() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto py-8 px-4">
-        {/* Why Safe-Truth Matters */}
+        {/* Why Care Signal matters */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           <Card>
             <CardHeader>
@@ -87,13 +87,13 @@ export default function SafeTruth() {
 
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
-          <ProviderSafeTruthForm />
+          <CareSignalForm />
         </div>
 
         {/* How It Works */}
         <Card className="mb-12">
           <CardHeader>
-            <CardTitle>How Safe-Truth Works</CardTitle>
+            <CardTitle>How Care Signal works</CardTitle>
             <CardDescription>
               A 4-step process to capture, analyze, and improve pediatric emergency care
             </CardDescription>
@@ -177,7 +177,7 @@ export default function SafeTruth() {
               ✓ <strong>Confidential Data:</strong> All reports are stored securely and used only for quality improvement.
             </p>
             <p>
-              ✓ <strong>No Punishment:</strong> Safe-Truth is designed for learning and improvement, not blame or disciplinary action.
+              ✓ <strong>No Punishment:</strong> Care Signal is designed for learning and improvement, not blame or disciplinary action.
             </p>
             <p>
               ✓ <strong>Aggregated Insights:</strong> Facility-level data is anonymized and used to identify trends, not individual performance.

@@ -33,7 +33,7 @@ export const roleBasedPages = {
   provider: [
     "/providers",
     "/elite-fellowship",
-    "/safe-truth",
+    "/care-signal",
     "/resources", // But with provider-specific content
   ],
 
@@ -62,7 +62,7 @@ export const roleBasedPages = {
     "/providers",
     "/institutional",
     "/elite-fellowship",
-    "/safe-truth",
+    "/care-signal",
     "/admin-dashboard",
     "/analytics",
   ],

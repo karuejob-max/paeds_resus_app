@@ -4,10 +4,13 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   saveCertificate,
   verifyCertificate,
+  verifyCertificateByVerificationCode,
   getCertificateByEnrollmentId,
   getCertificateStats,
   getCertificatesByUserId,
   getCertificateForDownload,
+  hasCertificateDownloadFeedback,
+  submitCertificateDownloadFeedback,
 } from "../certificates";
 import { sendEmail } from "../email-service";
 import { getDb } from "../db";
@@ -93,6 +96,13 @@ export const certificateRouter = router({
       }
     }),
 
+  /** Public lookup by verification hash (QR code / PDF footer). */
+  verifyByCode: publicProcedure
+    .input(z.object({ code: z.string().min(16).max(256) }))
+    .query(async ({ input }) => {
+      return verifyCertificateByVerificationCode(input.code.trim());
+    }),
+
   // Get current user's certificates (My Certificates)
   getMyCertificates: protectedProcedure.query(async ({ ctx }) => {
     const list = await getCertificatesByUserId(ctx.user.id);
@@ -103,6 +113,7 @@ export const certificateRouter = router({
         enrollmentId: c.enrollmentId,
         certificateNumber: c.certificateNumber,
         programType: c.programType,
+        courseTitle: c.courseTitle ?? null,
         issueDate: c.issueDate,
         expiryDate: c.expiryDate,
         certificateUrl: c.certificateUrl,
@@ -229,6 +240,45 @@ export const certificateRouter = router({
     return { success: true as const, messageId: result.messageId };
   }),
 
+  /** Whether pre-download feedback exists for this certificate (required before PDF). */
+  getDownloadFeedbackStatus: protectedProcedure
+    .input(z.object({ certificateNumber: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const data = await getCertificateForDownload(input.certificateNumber, ctx.user.id);
+      if (!data) {
+        return { ok: false as const, error: "not_found" as const };
+      }
+      const submitted = await hasCertificateDownloadFeedback(ctx.user.id, data.cert.id);
+      return {
+        ok: true as const,
+        certificateId: data.cert.id,
+        submitted,
+        programType: data.cert.programType,
+        courseTitle: data.courseDisplayName ?? null,
+      };
+    }),
+
+  /** Save one-time feedback before certificate download. */
+  submitDownloadFeedback: protectedProcedure
+    .input(
+      z.object({
+        certificateId: z.number().int().positive(),
+        rating: z.number().int().min(1).max(5),
+        improvements: z.string().min(10).max(8000),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const result = await submitCertificateDownloadFeedback({
+        userId: ctx.user.id,
+        certificateId: input.certificateId,
+        rating: input.rating,
+        improvements: input.improvements,
+      });
+      return result.success
+        ? { success: true as const }
+        : { success: false as const, error: result.error ?? "Failed" };
+    }),
+
   // Download certificate (generate PDF on demand)
   download: protectedProcedure
     .input(z.object({ certificateNumber: z.string() }))
@@ -238,7 +288,15 @@ export const certificateRouter = router({
         if (!data) {
           return { success: false, error: "Certificate not found or access denied" };
         }
-        const { cert, trainingDate, recipientName } = data;
+        const feedbackOk = await hasCertificateDownloadFeedback(ctx.user.id, data.cert.id);
+        if (!feedbackOk) {
+          return {
+            success: false,
+            error: "feedback_required",
+            certificateId: data.cert.id,
+          };
+        }
+        const { cert, trainingDate, recipientName, courseDisplayName } = data;
         const verificationCode = cert.verificationCode ?? cert.certificateNumber ?? "";
         const pdfBuffer = await generateCertificatePDFBranded({
           recipientName,
@@ -247,9 +305,15 @@ export const certificateRouter = router({
           instructorName: "Paeds Resus",
           certificateNumber: cert.certificateNumber ?? "",
           verificationCode,
+          ...(courseDisplayName ? { courseDisplayName } : {}),
         });
         const pdfBase64 = pdfBuffer.toString("base64");
-        const filename = `certificate-${cert.certificateNumber ?? "download"}.pdf`;
+        const slug =
+          (courseDisplayName || cert.programType || "certificate")
+            .replace(/[^a-z0-9]+/gi, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 48) || "certificate";
+        const filename = `${slug}-${cert.certificateNumber ?? "download"}.pdf`;
         return { success: true, pdfBase64, filename };
       } catch (error) {
         console.error("[Certificate Router] Error downloading certificate:", error);

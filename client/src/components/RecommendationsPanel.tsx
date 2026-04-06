@@ -96,7 +96,7 @@ export default function RecommendationsPanel({
               Personalized Recommendations
             </CardTitle>
             <CardDescription>
-              Based on your Safe-Truth events and system gaps identified
+              Based on your Care Signal events and system gaps identified
             </CardDescription>
           </div>
           <Badge variant="secondary">

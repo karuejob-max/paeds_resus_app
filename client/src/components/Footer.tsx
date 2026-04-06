@@ -49,7 +49,7 @@ export default function Footer() {
               Transforming paediatric emergency care through clinical excellence and nurse-led resuscitation.
             </p>
             <p className="text-xs text-white/70">
-              <strong className="text-white/85">Platform:</strong> Paeds Resus (brand). <strong className="text-white/85">Products:</strong> ResusGPS — point-of-care app; Safe-Truth — provider event tool; Parent Safe-Truth — for families.
+              <strong className="text-white/85">Platform:</strong> Paeds Resus (brand). <strong className="text-white/85">Products:</strong> ResusGPS — point-of-care app; Care Signal — provider incident & near-miss reporting; Parent Safe-Truth — for families.
             </p>
           </div>
 
@@ -68,8 +68,8 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/safe-truth" className="text-white/70 hover:text-brand-orange transition">
-                  Safe-Truth
+                <Link href="/care-signal" className="text-white/70 hover:text-brand-orange transition">
+                  Care Signal
                 </Link>
               </li>
               <li>

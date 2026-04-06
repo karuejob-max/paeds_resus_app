@@ -66,7 +66,7 @@ export default function AdminHub() {
                   Reports & insights
                 </CardTitle>
                 <CardDescription>
-                  Registered users, BLS/ACLS enrollments & certifications, Safe-Truth usage, Paeds Resus activity
+                  Registered users, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
                 </CardDescription>
               </div>
             </CardHeader>
@@ -107,16 +107,16 @@ export default function AdminHub() {
 
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/safe-truth-analytics")}
+            onClick={() => setLocation("/care-signal-analytics")}
           >
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <LineChart className="h-5 w-5" />
-                  Safe-Truth Analytics
+                  Care Signal analytics
                 </CardTitle>
                 <CardDescription>
-                  Insights from Safe-Truth event submissions and system gaps
+                  Insights from Care Signal event submissions and system gaps
                 </CardDescription>
               </div>
             </CardHeader>

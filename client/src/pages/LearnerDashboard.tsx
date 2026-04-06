@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
   if (!expiryDate) return null;
@@ -28,6 +29,7 @@ export default function LearnerDashboard() {
     undefined,
     { enabled: isAuthenticated && selectedRole === "parent" }
   );
+  const utils = trpc.useUtils();
   const downloadCert = trpc.certificates.download.useMutation();
   const renewalReminderEmail = trpc.certificates.requestRenewalReminderEmail.useMutation({
     onSuccess: (r) => {
@@ -63,25 +65,120 @@ export default function LearnerDashboard() {
     return d !== null && d <= 90;
   });
 
-  const handleDownloadCertificate = (certificateNumber: string) => {
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
+  const [feedbackDialog, setFeedbackDialog] = useState<{
+    certificateId: number;
+    certificateNumber: string;
+    courseLabel: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const id = window.location.hash?.replace(/^#/, "").trim();
+    if (id === "my-certificates") {
+      requestAnimationFrame(() =>
+        document.getElementById("my-certificates")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      );
+    }
+  }, []);
+
+  const savePdfFromResult = (result: {
+    success?: boolean;
+    pdfBase64?: string;
+    filename?: string | null;
+    error?: string;
+  }) => {
+    if (!result.success || !result.pdfBase64) {
+      const msg =
+        result && typeof result === "object" && typeof result.error === "string"
+          ? result.error
+          : "Could not generate your certificate PDF.";
+      toast.error(msg);
+      return;
+    }
+    try {
+      const bin = atob(result.pdfBase64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename ?? "certificate.pdf";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Your browser could not save the PDF. Try another browser or disable strict download blocking.");
+    }
+  };
+
+  const runCertificateDownload = (certificateNumber: string, certificateId?: number) => {
+    setDownloadingCertificateId(
+      certificateId ?? myCertificates.find((c) => c.certificateNumber === certificateNumber)?.id ?? null
+    );
     downloadCert.mutate(
       { certificateNumber },
       {
+        onSettled: () => setDownloadingCertificateId(null),
+        onError: (err) => {
+          toast.error(err.message || "Download failed. Try again or contact support.");
+        },
         onSuccess: (result) => {
-          if (!result.success || !("pdfBase64" in result) || !result.pdfBase64) return;
-          const bin = atob(result.pdfBase64);
-          const arr = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-          const blob = new Blob([arr], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = result.filename ?? "certificate.pdf";
-          a.click();
-          URL.revokeObjectURL(url);
+          if (!result.success) {
+            if (result.error === "feedback_required" && "certificateId" in result && typeof result.certificateId === "number") {
+              const cert = myCertificates.find((x) => x.certificateNumber === certificateNumber);
+              const label = cert?.courseTitle?.trim() || cert?.programType?.toUpperCase() || "this course";
+              setFeedbackDialog({
+                certificateId: result.certificateId,
+                certificateNumber,
+                courseLabel: label,
+              });
+              return;
+            }
+            const msg =
+              result && typeof result === "object" && typeof result.error === "string"
+                ? result.error
+                : "Could not generate your certificate PDF.";
+            toast.error(msg);
+            return;
+          }
+          savePdfFromResult(result);
         },
       }
     );
+  };
+
+  const handleDownloadCertificate = async (
+    certificateId: number,
+    certificateNumber: string | null,
+    courseTitle: string | null | undefined,
+    programType: string
+  ) => {
+    if (!certificateNumber) return;
+    setDownloadingCertificateId(certificateId);
+    try {
+      const status = await utils.certificates.getDownloadFeedbackStatus.fetch({ certificateNumber });
+      if (!status.ok) {
+        toast.error("Certificate not found.");
+        return;
+      }
+      if (!status.submitted) {
+        const label = courseTitle?.trim() || programType.toUpperCase();
+        setFeedbackDialog({
+          certificateId: status.certificateId,
+          certificateNumber,
+          courseLabel: label,
+        });
+        return;
+      }
+      runCertificateDownload(certificateNumber, certificateId);
+    } catch {
+      toast.error("Could not check download status. Try again.");
+    } finally {
+      setDownloadingCertificateId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -133,7 +230,7 @@ export default function LearnerDashboard() {
               <Card>
                 <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading your Safe-Truth activity…
+                  Loading your Safe-Truth submissions…
                 </CardContent>
               </Card>
             ) : parentStats ? (
@@ -234,8 +331,8 @@ export default function LearnerDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">Log clinical events to contribute to system improvements</p>
-                <Button className="w-full" onClick={() => navigate("/safe-truth")}>
-                  Log Event
+                <Button className="w-full" onClick={() => navigate("/care-signal")}>
+                  Log event (Care Signal)
                 </Button>
               </CardContent>
             </Card>
@@ -319,7 +416,7 @@ export default function LearnerDashboard() {
             </Card>
 
             {/* My Certificates */}
-            <Card className="md:col-span-3">
+            <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="w-5 h-5" />
@@ -342,7 +439,12 @@ export default function LearnerDashboard() {
                       return (
                         <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3">
                           <div>
-                            <p className="font-medium uppercase text-foreground">{c.programType}</p>
+                            <p className="font-medium text-foreground">
+                              {c.courseTitle?.trim() || c.programType.toUpperCase()}
+                            </p>
+                            {c.courseTitle?.trim() ? (
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
+                            ) : null}
                             <p className="text-sm text-muted-foreground">
                               Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
                               {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
@@ -365,10 +467,12 @@ export default function LearnerDashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={downloadCert.isPending}
-                              onClick={() => c.certificateNumber && handleDownloadCertificate(c.certificateNumber)}
+                              disabled={!c.certificateNumber || downloadingCertificateId === c.id}
+                              onClick={() =>
+                                handleDownloadCertificate(c.id, c.certificateNumber, c.courseTitle ?? null, c.programType)
+                              }
                             >
-                              {downloadCert.isPending ? (
+                              {c.certificateNumber && downloadingCertificateId === c.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <>
@@ -385,6 +489,23 @@ export default function LearnerDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {feedbackDialog ? (
+              <CertificateDownloadFeedbackDialog
+                open
+                onOpenChange={(o) => {
+                  if (!o) setFeedbackDialog(null);
+                }}
+                certificateId={feedbackDialog.certificateId}
+                courseLabel={feedbackDialog.courseLabel}
+                onFeedbackSaved={() => {
+                  const num = feedbackDialog.certificateNumber;
+                  const cid = feedbackDialog.certificateId;
+                  setFeedbackDialog(null);
+                  if (num) runCertificateDownload(num, cid);
+                }}
+              />
+            ) : null}
           </div>
         ) : (
           <div className="space-y-6">

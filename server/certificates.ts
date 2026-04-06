@@ -1,19 +1,31 @@
-// import { PDFDocument, PDFPage, rgb } from "@pdfkit/core"; // Optional PDF library
 import { createHash } from "crypto";
 import { getDb } from "./db";
 import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { certificates, courses, enrollments, modules, userProgress, users } from "../drizzle/schema";
+import {
+  certificates,
+  certificateDownloadFeedback,
+  courses,
+  enrollments,
+  modules,
+  userProgress,
+  users,
+} from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
+import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
-interface CertificateData {
-  recipientName: string;
-  programType: string;
-  trainingDate: Date;
-  instructorName: string;
-  certificateNumber: string;
-  issueDate: Date;
-  expiryDate?: Date;
+async function getCourseDisplayNameForEnrollment(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  enrollmentId: number
+): Promise<string | undefined> {
+  const rows = await db
+    .select({ title: courses.title })
+    .from(enrollments)
+    .leftJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
+  const t = rows[0]?.title?.trim();
+  return t || undefined;
 }
 
 /**
@@ -32,39 +44,6 @@ function generateCertificateHash(certificateNumber: string, recipientName: strin
   return createHash("sha256")
     .update(`${certificateNumber}:${recipientName}:${Date.now()}`)
     .digest("hex");
-}
-
-/**
- * Create a PDF certificate
- * Note: In production, use a proper PDF library like PDFKit or ReportLab
- */
-export async function generateCertificatePDF(data: CertificateData): Promise<Buffer> {
-  // For now, return a placeholder buffer
-  // In production, integrate with PDFKit or similar
-  const certificateContent = `
-    CERTIFICATE OF COMPLETION
-    
-    This is to certify that
-    
-    ${data.recipientName}
-    
-    has successfully completed the
-    
-    ${data.programType === "instructor" ? "Paeds Resus Instructor" : data.programType}
-    
-    Training Program
-    
-    Date: ${data.trainingDate.toLocaleDateString()}
-    Instructor: ${data.instructorName}
-    Certificate Number: ${data.certificateNumber}
-    Issue Date: ${data.issueDate.toLocaleDateString()}
-    ${data.expiryDate ? `Expiry Date: ${data.expiryDate.toLocaleDateString()}` : ""}
-    
-    Paeds Resus Limited
-    Transforming Paediatric Emergency Care
-  `;
-
-  return Buffer.from(certificateContent);
 }
 
 /**
@@ -144,15 +123,16 @@ export async function saveCertificate(
     const issueDate = new Date();
     const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year validity
 
-    // Generate PDF
-    const pdfBuffer = await generateCertificatePDF({
+    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, enrollmentId);
+
+    const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
-      programType,
+      programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
       trainingDate,
-      instructorName,
+      instructorName: instructorName || "Paeds Resus",
       certificateNumber,
-      issueDate,
-      expiryDate,
+      verificationCode: verificationHash,
+      ...(courseDisplayName ? { courseDisplayName } : {}),
     });
 
     // Save to database
@@ -181,6 +161,67 @@ export async function saveCertificate(
     console.error("[Certificates] Error saving certificate:", error);
     return {
       success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Verify authenticity using the unique verification hash printed on the PDF / QR code.
+ */
+export async function verifyCertificateByVerificationCode(code: string): Promise<{
+  valid: boolean;
+  error?: string;
+  certificate?: {
+    certificateNumber: string;
+    programType: string;
+    issueDate: Date | null;
+    expiryDate: Date | null;
+  };
+}> {
+  try {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    const trimmed = code.trim();
+    if (trimmed.length < 16) {
+      return { valid: false, error: "Invalid verification code" };
+    }
+
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.verificationCode, trimmed))
+      .limit(1);
+
+    if (result.length === 0) {
+      return { valid: false, error: "Certificate not found" };
+    }
+
+    const cert = result[0];
+
+    if (cert.expiryDate && cert.expiryDate < new Date()) {
+      return {
+        valid: false,
+        error: "Certificate has expired",
+      };
+    }
+
+    return {
+      valid: true,
+      certificate: {
+        certificateNumber: cert.certificateNumber ?? "",
+        programType: cert.programType,
+        issueDate: cert.issueDate,
+        expiryDate: cert.expiryDate ?? null,
+      },
+    };
+  } catch (error) {
+    console.error("[Certificates] Error verifying by code:", error);
+    return {
+      valid: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
@@ -323,8 +364,11 @@ export async function getCertificatesByUserId(userId: number) {
         issueDate: certificates.issueDate,
         expiryDate: certificates.expiryDate,
         certificateUrl: certificates.certificateUrl,
+        courseTitle: courses.title,
       })
       .from(certificates)
+      .leftJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
+      .leftJoin(courses, eq(enrollments.courseId, courses.id))
       .where(eq(certificates.userId, userId))
       .orderBy(desc(certificates.issueDate));
     return list;
@@ -344,6 +388,7 @@ export async function getCertificateForDownload(
   cert: (typeof certificates.$inferSelect);
   trainingDate: Date;
   recipientName: string;
+  courseDisplayName?: string;
 } | null> {
   try {
     const db = await getDb();
@@ -371,10 +416,68 @@ export async function getCertificateForDownload(
       .limit(1);
     const recipientName = userRows[0]?.name ?? "Participant";
 
-    return { cert, trainingDate, recipientName };
+    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, cert.enrollmentId);
+
+    return { cert, trainingDate, recipientName, courseDisplayName };
   } catch (err) {
     console.error("[Certificates] getCertificateForDownload:", err);
     return null;
+  }
+}
+
+export async function hasCertificateDownloadFeedback(userId: number, certificateId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: certificateDownloadFeedback.id })
+    .from(certificateDownloadFeedback)
+    .where(
+      and(
+        eq(certificateDownloadFeedback.userId, userId),
+        eq(certificateDownloadFeedback.certificateId, certificateId)
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function submitCertificateDownloadFeedback(params: {
+  userId: number;
+  certificateId: number;
+  rating: number;
+  improvements: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const db = await getDb();
+  if (!db) return { success: false, error: "Database not available" };
+  const r = params.rating;
+  if (r < 1 || r > 5) return { success: false, error: "Rating must be between 1 and 5." };
+  const imp = params.improvements?.trim() ?? "";
+  if (imp.length < 10) {
+    return {
+      success: false,
+      error: "Please write at least 10 characters on what we can improve for this course.",
+    };
+  }
+  const certRows = await db.select().from(certificates).where(eq(certificates.id, params.certificateId)).limit(1);
+  const cert = certRows[0];
+  if (!cert || cert.userId !== params.userId) {
+    return { success: false, error: "Certificate not found or access denied." };
+  }
+  try {
+    await db.insert(certificateDownloadFeedback).values({
+      userId: params.userId,
+      certificateId: params.certificateId,
+      rating: r,
+      improvements: imp,
+    });
+    return { success: true };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Duplicate") || msg.includes("duplicate") || msg.includes("UNIQUE")) {
+      return { success: false, error: "Feedback was already submitted for this certificate." };
+    }
+    console.error("[Certificates] submitCertificateDownloadFeedback:", e);
+    return { success: false, error: "Could not save feedback." };
   }
 }
 

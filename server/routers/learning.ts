@@ -238,18 +238,26 @@ export const learningRouter = router({
           )
         );
 
+      const quizMeta = await (db as any)
+        .select({ passingScore: quizzes.passingScore })
+        .from(quizzes)
+        .where(eq(quizzes.id, input.quizId))
+        .limit(1);
+      const passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
+      const passed = input.score >= passingScore;
+
       if (existing && existing.length > 0) {
-        // Update existing progress
         await (db as any)
           .update(userProgress)
           .set({
             score: input.score,
             attempts: ((existing[0] as any).attempts || 0) + 1,
+            status: passed ? "completed" : "in_progress",
+            completedAt: passed ? new Date() : (existing[0] as any).completedAt,
             updatedAt: new Date(),
           })
           .where(eq(userProgress.id, (existing[0] as any).id));
       } else {
-        // Create new progress record
         await (db as any).insert(userProgress).values({
           userId: ctx.user.id,
           enrollmentId: input.enrollmentId,
@@ -257,13 +265,14 @@ export const learningRouter = router({
           quizId: input.quizId,
           score: input.score,
           attempts: 1,
-          status: input.score >= 70 ? "completed" : "in_progress",
+          status: passed ? "completed" : "in_progress",
+          completedAt: passed ? new Date() : null,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
       }
 
-      return { success: true, score: input.score };
+      return { success: true, score: input.score, passed, passingScore };
     }),
 
   // Get recommended courses based on performance

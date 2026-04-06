@@ -2,30 +2,39 @@ import { useEffect, useState } from "react";
 
 export type UserRole = "parent" | "provider" | "institution" | null;
 
+const VALID = new Set<string>(["parent", "provider", "institution"]);
+
+function readStoredRole(): UserRole {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem("userRole");
+  if (!v || !VALID.has(v)) return null;
+  return v as UserRole;
+}
+
 /**
  * Hook to get and manage user role from localStorage
  * Provides reactive updates when role changes
+ *
+ * Initial state is read synchronously so the first paint (e.g. Home redirect) sees the role
+ * chosen in the Header. A delayed read in useEffect alone left role null on first render and
+ * sent institutional users back to the hospital dashboard after switching to Healthcare Provider.
  */
 export function useUserRole() {
-  const [role, setRole] = useState<UserRole>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<UserRole>(readStoredRole);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Get role from localStorage
-    const storedRole = localStorage.getItem("userRole") as UserRole;
-    setRole(storedRole);
-    setIsLoading(false);
+    setRole(readStoredRole());
 
-    // Listen for storage changes (e.g., from other tabs)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "userRole") {
-        setRole(e.newValue as UserRole);
+        setRole((e.newValue && VALID.has(e.newValue) ? e.newValue : null) as UserRole);
       }
     };
 
-    // Also listen for custom events from setUserRole
     const handleRoleChange = (e: CustomEvent) => {
-      setRole(e.detail as UserRole);
+      const d = e.detail;
+      setRole(d && VALID.has(d) ? (d as UserRole) : null);
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -43,8 +52,7 @@ export function useUserRole() {
       localStorage.removeItem("userRole");
     }
     setRole(newRole);
-    
-    // Dispatch custom event to notify other components
+
     const event = new CustomEvent("userRoleChanged", { detail: newRole });
     window.dispatchEvent(event);
   };

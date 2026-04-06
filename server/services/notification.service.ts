@@ -256,7 +256,7 @@ export async function sendSystemGapAlert(
       title,
       content,
       priority: "high",
-      actionUrl: `/safe-truth`,
+      actionUrl: `/care-signal`,
     });
   } catch (error) {
     console.error("Error sending system gap alert:", error);

@@ -1,17 +1,19 @@
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { sql } from "drizzle-orm";
+import { careSignalEvents } from "../../drizzle/schema";
+import { trackEvent } from "../services/analytics.service";
 
 /**
- * Safe-Truth Event Logging Router
- * Handles confidential pediatric emergency event reporting
+ * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
+ * Parent short-form observations use the same `logEvent` with `parent-observation` + parent userType.
+ * See PLATFORM_SOURCE_OF_TRUTH §3 / FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md.
  */
 
-export const safeTruthEventsRouter = router({
+export const careSignalEventsRouter = router({
   /**
-   * Log a new Safe-Truth event
+   * Log a Care Signal event (clinical staff) or parent-observation (parent Safe-Truth story short-form).
    */
   logEvent: protectedProcedure
     .input(
@@ -46,19 +48,24 @@ export const safeTruthEventsRouter = router({
       try {
         const isParentStory =
           input.eventType === "parent-observation" && ctx.user.userType === "parent";
-        // Providers and admins use clinical Safe-Truth; parents submit parent-observation only
         if (!ctx.user.providerType && ctx.user.role !== "admin" && !isParentStory) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Safe-Truth is for healthcare providers only",
+            message:
+              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth to share your story.",
           });
         }
 
-        const db = getDb();
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database unavailable. Please try again later.",
+          });
+        }
 
-        // Create event record
-        const eventData = {
-          providerId: input.isAnonymous ? null : ctx.user.id,
+        const insertResult = await db.insert(careSignalEvents).values({
+          userId: input.isAnonymous ? null : ctx.user.id,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
           eventType: input.eventType,
@@ -69,31 +76,39 @@ export const safeTruthEventsRouter = router({
           gapDetails: JSON.stringify(input.gapDetails),
           outcome: input.outcome,
           neurologicalStatus: input.neurologicalStatus,
-          createdAt: new Date(),
           status: "submitted",
-        };
+        });
 
-        // Log to console for audit trail
-        console.log("[Safe-Truth Event Logged]", {
+        const insertId = (insertResult as unknown as { insertId: number }).insertId;
+
+        await trackEvent({
+          userId: ctx.user.id,
+          eventType: "care_signal_submission_created",
+          eventName: "Care Signal submission",
+          eventData: {
+            careSignalEventId: insertId,
+            eventType: input.eventType,
+            isAnonymous: input.isAnonymous,
+          },
+        });
+
+        console.log("[Care Signal Event Logged]", {
+          id: insertId,
           provider: input.isAnonymous ? "ANONYMOUS" : ctx.user.id,
           eventType: input.eventType,
           childAge: input.childAge,
           outcome: input.outcome,
-          systemGaps: input.systemGaps,
           timestamp: new Date().toISOString(),
         });
-
-        // TODO: Insert into database when schema is available
-        // const result = await db.insert(safeTruthEvents).values(eventData);
 
         return {
           success: true,
           message: "Event logged successfully! Your report has been submitted confidentially.",
-          eventId: `event-${Date.now()}`,
+          eventId: String(insertId),
           timestamp: new Date(),
         };
       } catch (error) {
-        console.error("[Safe-Truth Event Error]", error);
+        console.error("[Care Signal Event Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to log event. Please try again.",
@@ -101,9 +116,6 @@ export const safeTruthEventsRouter = router({
       }
     }),
 
-  /**
-   * Get provider's event history (non-anonymous only)
-   */
   getEventHistory: protectedProcedure
     .input(
       z.object({
@@ -113,22 +125,15 @@ export const safeTruthEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        // Verify user is a healthcare provider
         if (!ctx.user.providerType && ctx.user.role !== "admin") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Safe-Truth is for healthcare providers only",
+            message:
+              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
           });
         }
 
-        // TODO: Query from database when schema is available
-        // const events = await db.query.safeTruthEvents.findMany({
-        //   where: eq(safeTruthEvents.providerId, ctx.user.id),
-        //   limit: input.limit,
-        //   offset: input.offset,
-        // });
-
-        console.log(`[Safe-Truth History] Provider ${ctx.user.id} requested event history`);
+        console.log(`[Care Signal History] Provider ${ctx.user.id} requested event history`);
 
         return {
           success: true,
@@ -138,7 +143,7 @@ export const safeTruthEventsRouter = router({
           offset: input.offset,
         };
       } catch (error) {
-        console.error("[Safe-Truth History Error]", error);
+        console.error("[Care Signal History Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to retrieve event history",
@@ -146,31 +151,17 @@ export const safeTruthEventsRouter = router({
       }
     }),
 
-  /**
-   * Get event statistics for provider
-   */
   getEventStats: protectedProcedure.query(async ({ ctx }) => {
     try {
-      // Verify user is a healthcare provider
       if (!ctx.user.providerType && ctx.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Safe-Truth is for healthcare providers only",
+          message:
+            "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
         });
       }
 
-      // TODO: Query from database when schema is available
-      // const stats = await db
-      //   .select({
-      //     totalEvents: count(),
-      //     successfulOutcomes: count(sql`CASE WHEN outcome = 'Survived' THEN 1 END`),
-      //     avgChildAge: sql`AVG(childAge)`,
-      //     mostCommonEventType: sql`MODE(eventType)`,
-      //   })
-      //   .from(safeTruthEvents)
-      //   .where(eq(safeTruthEvents.providerId, ctx.user.id));
-
-      console.log(`[Safe-Truth Stats] Provider ${ctx.user.id} requested statistics`);
+      console.log(`[Care Signal Stats] Provider ${ctx.user.id} requested statistics`);
 
       return {
         success: true,
@@ -180,7 +171,7 @@ export const safeTruthEventsRouter = router({
         mostCommonEventType: "N/A",
       };
     } catch (error) {
-      console.error("[Safe-Truth Stats Error]", error);
+      console.error("[Care Signal Stats Error]", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to retrieve statistics",
@@ -188,9 +179,6 @@ export const safeTruthEventsRouter = router({
     }
   }),
 
-  /**
-   * Get system gap analysis
-   */
   getGapAnalysis: protectedProcedure
     .input(
       z.object({
@@ -199,15 +187,14 @@ export const safeTruthEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        // Verify user is a healthcare provider or admin
         if (!ctx.user.providerType && ctx.user.role !== "admin") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Safe-Truth is for healthcare providers only",
+            message:
+              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
           });
         }
 
-        // TODO: Analyze system gaps from database
         const gapAnalysis = {
           "Knowledge Gap": 0,
           "Resources Gap": 0,
@@ -220,7 +207,7 @@ export const safeTruthEventsRouter = router({
           "Infrastructure Gap": 0,
         };
 
-        console.log(`[Safe-Truth Gap Analysis] Provider ${ctx.user.id} - Timeframe: ${input.timeframe}`);
+        console.log(`[Care Signal Gap Analysis] Provider ${ctx.user.id} - Timeframe: ${input.timeframe}`);
 
         return {
           success: true,
@@ -229,7 +216,7 @@ export const safeTruthEventsRouter = router({
           recommendations: [],
         };
       } catch (error) {
-        console.error("[Safe-Truth Gap Analysis Error]", error);
+        console.error("[Care Signal Gap Analysis Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to analyze system gaps",
@@ -237,9 +224,6 @@ export const safeTruthEventsRouter = router({
       }
     }),
 
-  /**
-   * Submit event for institutional review
-   */
   submitForReview: protectedProcedure
     .input(
       z.object({
@@ -249,15 +233,15 @@ export const safeTruthEventsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Verify user is a healthcare provider or admin
         if (!ctx.user.providerType && ctx.user.role !== "admin") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Safe-Truth is for healthcare providers only",
+            message:
+              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
           });
         }
 
-        console.log(`[Safe-Truth Review] Event ${input.eventId} submitted for review by ${ctx.user.id}`);
+        console.log(`[Care Signal Review] Event ${input.eventId} submitted for review by ${ctx.user.id}`);
 
         return {
           success: true,
@@ -266,7 +250,7 @@ export const safeTruthEventsRouter = router({
           status: "under_review",
         };
       } catch (error) {
-        console.error("[Safe-Truth Review Error]", error);
+        console.error("[Care Signal Review Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to submit event for review",
@@ -274,9 +258,6 @@ export const safeTruthEventsRouter = router({
       }
     }),
 
-  /**
-   * Get recommendations based on event
-   */
   getRecommendations: protectedProcedure
     .input(
       z.object({
@@ -287,15 +268,14 @@ export const safeTruthEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        // Verify user is a healthcare provider
         if (!ctx.user.providerType && ctx.user.role !== "admin") {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Safe-Truth is for healthcare providers only",
+            message:
+              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
           });
         }
 
-        // Generate recommendations based on gaps
         const recommendations = [
           {
             gap: "Knowledge Gap",
@@ -314,7 +294,7 @@ export const safeTruthEventsRouter = router({
           },
         ].filter((rec) => input.systemGaps.includes(rec.gap));
 
-        console.log(`[Safe-Truth Recommendations] Generated for event type: ${input.eventType}`);
+        console.log(`[Care Signal Recommendations] Generated for event type: ${input.eventType}`);
 
         return {
           success: true,
@@ -322,7 +302,7 @@ export const safeTruthEventsRouter = router({
           eventType: input.eventType,
         };
       } catch (error) {
-        console.error("[Safe-Truth Recommendations Error]", error);
+        console.error("[Care Signal Recommendations Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate recommendations",

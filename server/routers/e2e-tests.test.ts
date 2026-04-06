@@ -207,7 +207,7 @@ describe("Hospital Workflow E2E Tests", () => {
     it.skip("should report incident", async () => {
       expect(institutionId).toBeGreaterThan(0);
       
-      const result = await appRouter.createCaller(createTestContext(1, "user")).safeTruthEvents.logEvent({
+      const result = await appRouter.createCaller(createTestContext(1, "user")).careSignalEvents.logEvent({
         institutionId,
         eventType: "cardiac_arrest",
         description: "Test incident report",

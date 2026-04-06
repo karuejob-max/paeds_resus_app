@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 
-export default function SafeTruthLogger() {
+export default function CareSignalLogger() {
   const { user, loading } = useAuth();
   const { role: selectedRole, isLoading: roleLoading } = useUserRole();
   const [step, setStep] = useState<"event" | "chain" | "gaps" | "review">("event");
@@ -72,11 +72,11 @@ export default function SafeTruthLogger() {
     );
   };
 
-  const submitEventMutation = trpc.safeTruthEvents.logEvent.useMutation();
+  const submitEventMutation = trpc.careSignalEvents.logEvent.useMutation();
 
   const handleSubmit = async () => {
     try {
-      console.log("Submitting Safe-Truth event with provider:", user?.id);
+      console.log("Submitting Care Signal event with provider:", user?.id);
       
       const result = await submitEventMutation.mutateAsync({
         eventDate,
@@ -126,7 +126,7 @@ export default function SafeTruthLogger() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600">Please log in to access Safe-Truth event logger.</p>
+            <p className="text-gray-600">Please log in to access the Care Signal event logger.</p>
           </CardContent>
         </Card>
       </div>
@@ -139,7 +139,7 @@ export default function SafeTruthLogger() {
   const isParent = selectedRole === "parent";
   
   // Debug logging
-  console.log("SafeTruthLogger - Access Check:", { 
+  console.log("CareSignalLogger - Access Check:", { 
     userId: user?.id, 
     selectedRole,
     isProvider, 
@@ -158,7 +158,7 @@ export default function SafeTruthLogger() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600">Safe-Truth is for healthcare providers and parents only.</p>
+            <p className="text-gray-600">Care Signal is for healthcare providers. Parents: use Parent Safe-Truth.</p>
           </CardContent>
         </Card>
       </div>
@@ -170,7 +170,7 @@ export default function SafeTruthLogger() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Safe-Truth Logger</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Care Signal logger</h1>
           <p className="text-gray-600">
             {isProvider && !isParent && "Report pediatric emergency events in a safe, confidential space. Your clinical insights help us improve care for all children."}
             {isParent && !isProvider && "Share your child's healthcare journey to help us understand and improve hospital care for all children."}

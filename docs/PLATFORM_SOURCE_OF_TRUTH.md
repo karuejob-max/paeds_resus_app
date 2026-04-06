@@ -41,13 +41,16 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS, ACLS, PALS**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (e.g. shock, DKA) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
-| **Elite fellowship** | Flagship advanced programme (same platform; programme type in data where applicable). |
-| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). |
+| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
+| **Elite fellowship** | **Narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall for “fellowship” in the digital-first path—learners pay per course/SKU. Programme type `fellowship` in data remains where used; naming in UI may evolve with leadership. |
+| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for fellowship — see **Care Signal**. |
+| **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives **automated** fellowship **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
-| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth usage, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
+| **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Care Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
+
+**Course portfolio & ADF strategy (BLS/ACLS/PALS, micro-courses, fellowship vision, MECE map):** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md). **24-slot ADF micro-course catalog backlog (named placeholders):** [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md). **Fellowship qualification, provider profile gate, internal intelligence (non-public):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) — canonical detail in **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)**.
 
 ---
 
@@ -206,6 +209,123 @@ These constraints are **environmental**, not a failure of clinical education—t
 - **Clinical and ethical guardrails unchanged:** [§2](#2-why-we-exist-mission); no overstated outcome claims in product copy; evaluation where claims are made.
 - **Naming:** ResusGPS remains **one product** ([§1](#1-who-we-are)); “Paeds Resus” remains the organisation/platform.
 
+### 15.5 Clinical learning journey and ward excellence (ADF alignment)
+
+This locks **how** we integrate the **Advanced Deterioration Fellowship (ADF)** *ideas* into Paeds Resus **without** importing operational baggage that conflicts with a **digital-first, low-friction** product.
+
+**Keep from ADF (clinical and educational intent):**
+
+- **Narrow ward-level focus:** early recognition of deterioration, **first-hour** safe actions, structured **escalation**, honest **scope** (not ICU substitution).
+- **Delay-reduction mindset:** abnormal sign → recognition → intervention → escalation, with lightweight documentation where the product supports it (ResusGPS, logs, future dashboards).
+- **LMIC-realistic framing:** oxygen, staffing, and senior review constraints; teach **safe action despite scarcity**.
+
+**Do not ship as mandatory in v1 (unless leadership explicitly reintroduces):**
+
+- Application fees, selective admissions interviews, large upfront “fellowship fees,” or required face-to-face blocks for the **default** individual journey.
+- Claims of “fellow” or tier titles **until** **fully automated** checks exist per **[§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public)** — **no** manual conferral; see [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) §11 launch gate.
+
+**Product shape:**
+
+- **Micro-courses** (e.g. Paediatric Septic Shock I) sit **inside** a **progressive journey** narrative—optional naming: clinical journey, track, or fellowship pathway; **SKU pricing remains per course**, not a bundled fellowship price by default.
+- **Legacy BLS / ACLS / PALS** hours (**6 / 16 / 16**) remain first-class certifications alongside the journey.
+- **Future:** optional Level 2/3 labels (stabilisation, systems) only when curriculum and governance exist; align with [§16.3](#163-tiered-courses-per-clinical-topic-naming-and-gating).
+
 ---
 
-**Last structural update:** 2026-04-01 — added [§15](#15-business-strategy-market-context-and-revenue-focus-leadership) business strategy and market context (leadership).
+## 16. Learning products: UX, certificates, tiered courses, pedagogy, and ResusGPS alignment
+
+This section locks **product behaviour and editorial intent** for **condition-focused micro-courses**, **certificates**, and **ResusGPS** so implementations stay consistent across releases.
+
+### 16.1 Theme and visual consistency
+
+- **Brand:** Paeds Resus UI and downloadable certificates use the same **teal** (`#1B3D3D` / primary) and **orange** (`#F37021` / accent) language as the rest of the platform—see global CSS tokens and shared components (`Button` `variant="cta"`, `brand-surface`, etc.).
+- **Courses / learning surfaces** should not introduce a separate visual system: reuse cards, borders, typography, and spacing patterns from high-traffic pages (e.g. learner dashboard, enroll, payment success).
+- **Certificates (PDF):** Landscape layout, teal/orange framing, **brand mark** (`client/public/paeds-resus-certificate-logo.png` preferred, then `paeds-resus-logo-brand.png` or `paeds-resus-logo.png`) embedded when the file is available at runtime. **Header tagline** under “PAEDS RESUS” is **neutral** (clinical training / paediatric emergency care)—not fellowship- or Safe-Truth–specific. PNGs that **already have alpha** are embedded **without** knock-out processing; otherwise near-black pixels are made transparent so legacy raster marks blend on cream paper. When **`courseDisplayName`** is set on the enrolment/certificate payload (e.g. micro-course title), the **body completion sentence** uses that name instead of the generic PALS/BLS paragraph for the same `programType`. A **QR code** appears bottom-right, encoding **`https://www.paedsresus.com/verify?code={verificationCode}`** (canonical domain per [§10](#10-deployment-and-infrastructure)); the public **`/verify`** page confirms authenticity via `certificates.verifyByCode`. Printed copy also includes the verification URL in text. **Issuance** (`saveCertificate` / DB row creation) and **on-demand download** must both use this **same branded** PDF generator so stored files match what learners download.
+
+### 16.2 Course learning UX (linear flow)
+
+For each enrolment, the learner should experience a **clear linear path**:
+
+1. **Module content** → **Module quiz** → **Immediate score** (numeric % and pass threshold).
+2. **On pass:** Primary CTA **Continue to next module** (next module in course order). **Do not** force “back to module list” as the only path forward.
+3. **On fail:** Clear retry path; module not marked complete until pass (or policy-defined completion—currently tied to quiz pass in learning router).
+4. **After the final module is passed:** A **primary CTA toward the certificate** (e.g. link to learner dashboard **My Certificates** section with anchor `#my-certificates`), comparable in clarity to the post–M-Pesa “what happens next” flow.
+
+### 16.3 Tiered courses per clinical topic (naming and gating)
+
+- **Pattern:** For major topics (e.g. paediatric septic shock, asthma, convulsive status epilepticus, anaphylaxis), we plan **two course tiers** on the same theme:
+  - **Course I** — foundational recognition, first-hour actions, safe escalation, and **when to refer** (reasons such as need for vasoactive drugs, advanced monitoring, refractory shock, refractory seizures, etc., without turning the course into a tertiary-only manual).
+  - **Course II** — deeper management (e.g. fluid-refractory / catecholamine-refractory shock, second-line therapies, advanced airway, mechanical support where applicable). **Do not** label tiers in the UI as “primary vs tertiary”; describe them as **progression** (“after completing … I, optional … II for …”).
+- **Prerequisite:** Enrolment in **Course II** requires **Course I completed and passed** (quiz threshold met) for that topic. Same pattern for future pairs (e.g. refractory vs super-refractory status).
+- **Pipeline:** Additional tiers (e.g. **Course III** for mechanical circulatory support or ultra-specialised rescue therapies) are **aspirational** until explicitly scheduled; document here when launched.
+
+### 16.4 Pricing rule for tier pairs
+
+- **Course II** list price = **1.5 × Course I** (50% more) for the **same topic line**, unless leadership documents an exception in this file.
+- **Implementation:** Express via catalog / `pricingSku` / metadata—not ad-hoc UI-only numbers.
+
+### 16.5 Editorial and pedagogy (LMIC-safe, policy-first)
+
+- **Local policy first:** Every clinical module must remind learners to follow **facility protocol**, senior decision-making, and formulary. Paeds Resus teaches **principles** and **structured thinking**, not a substitute for hospital policy.
+- **International guidelines as orientation:** Where evidence and consensus exist, be **specific enough to be useful** (e.g. preference for **balanced crystalloids** over normal saline in many resuscitation contexts; **saline remains acceptable** where that is all that is available; avoid over-emphasising **colloids** as first-line plasma expanders). Name common pragmatic choices (e.g. **Ringer’s lactate** where affordable and stocked vs balanced solutions with different brand names).
+- **Regional evidence:** Where landmark trials from similar settings exist (e.g. **FEAST**-informed caution on fluid strategy in certain presentations), relate them to **actionable bedside steps** (small boluses, reassess, stop if overload, escalate)—including **plain-language explanations for nurses** (what “shock” means in observable terms: perfusion, pulse, CRT, breathing, responsiveness).
+- **Small facilities:** Acknowledge **dispensary / clinic / health centre** contexts where one clinician may combine roles; avoid assuming a separate resuscitation team or full ICU infrastructure.
+- **ResusGPS:** Learners who have **completed the relevant course** should be guided to use ResusGPS **with tighter alignment** to the course mental model than naive first-time users. Product direction: **in-course orientation** (how to open the right pathway, use dose tools, and reassessment prompts) and, over time, **differentiated prompts or badges** tied to completion (implementation may evolve; the intent is captured here).
+
+### 16.6 Certificates dashboard behaviour
+
+- **Download:** Only the **row being downloaded** shows a loading state; other certificate rows remain idle.
+
+### 16.7 Current execution focus (rolling)
+
+- **Now:** **Paediatric Septic Shock I** (micro-course content quality, flow, certificate CTA, ResusGPS orientation copy).
+- **Pipeline (not blocking I):** Paediatric Septic Shock II, tier pairs for asthma, CSE, anaphylaxis, etc., per §16.3–16.4.
+
+---
+
+## 17. Fellowship qualification, provider profile, and internal operational intelligence (non-public)
+
+**PSoT short title:** *Fellowship rules, Care Signal, cumulative progress, and governance.*  
+**Canonical detail (automation-only, grace rules, launch checklist, accredited facilities policy):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+
+### 17.1 Principles
+
+- **Fellow** is **100% automated** from platform data — **no** manual conferral in v1. If automation is incomplete, **do not** ship Fellow UI.
+- **No fellowship surcharge** — pay **per course/micro-course**; fellowship is **earned** through courses, **ResusGPS**, **Care Signal**, and **course feedback** (instrumented).
+- **Parent Safe-Truth** and **Care Signal** are **different products** — never use “Safe-Truth” for **staff** flows in user-facing copy ([§3](#3-what-we-do-offerings)).
+
+### 17.2 Three pillars (all required)
+
+1. **Courses:** **BLS, ACLS, PALS**, plus **every** active ADF micro-course — completion from **DB** (`certificates` / completion rules).
+2. **ResusGPS:** **≥3** attributable cases **per taught condition**, with **server-side** depth rules (anti-gaming).
+3. **Care Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
+
+### 17.3 Grace (automated)
+
+- **≤2 grace periods per calendar year** (EAT). After a **0-event month** using a grace, the **next month** must have **≥3** eligible staff events. **≤1 additional grace** in the same year after a successful catch-up (total **≤2**/year). **Third** failure mode per linked doc → **pillar C streak resets to zero**; pillars A and B **do not** reset.
+
+### 17.4 Cumulative UX
+
+- **One** learner-facing view of **distance to Fellow** (courses %, ResusGPS checklist, staff streak).
+
+### 17.5 Profile and contact
+
+- **Required** for fellowship-path enroll: cadre, facility, department, country, region, town.
+- **Email / mobile** for **optional** future programmes (e.g. small groups) — **separate consent** per purpose.
+
+### 17.6 Public facilities
+
+- **No public performance rankings** of facilities until governance approves methodology.
+- **Future:** **Paeds Resus accredited facilities** list (readiness-based, **binary** accreditation — trust signal, not ordinal league table); disclaimers required.
+
+### 17.7 Launch gate
+
+- Ship **Fellow** / fellowship progress **only** after [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) **§11** checklist passes (automation, UX, legal, security).
+
+### 17.8 Builders
+
+- Implement **Care Signal** as first-class data model + APIs; wire **analyticsEvents** / admin as needed; **never** mix parent `parentSafeTruthSubmissions` KPIs with staff fellowship metrics.
+
+---
+
+**Last structural update:** 2026-04-04 — Care Signal routes + `careSignalEvents` tRPC; §17; [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).

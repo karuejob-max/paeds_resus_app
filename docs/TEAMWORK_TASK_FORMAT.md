@@ -87,6 +87,7 @@ When you change the format, update this section and the table/structure above so
 |------------|----------------|----------------|------------------|------|
 | **Hidden Opportunities** | `MANUS_HIDDEN_OPPORTUNITIES_REPORT.md` | `EXECUTION_PLAN_CURSOR_AND_MANUS.md` | `MESSAGE_FOR_MANUS_SHARED_PLAN.md` | (none; completed) |
 | **Way Forward** | `COMPREHENSIVE_PLATFORM_PLAN.md` | `WAYFORWARD_EXECUTION_PLAN.md` | `MESSAGE_FOR_MANUS_WAYFORWARD.md` | `wayforward-tracking.mdc` |
+| **Parallel backlog (fellowship and scale)** | `PARALLEL_BACKLOG_FELLOWSHIP_AND_SCALE.md` | `PARALLEL_BACKLOG_EXECUTION_PLAN.md` | `MESSAGE_FOR_MANUS_PARALLEL_BACKLOG.md` | (optional) |
 
 ---
 

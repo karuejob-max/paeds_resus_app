@@ -108,6 +108,40 @@ export const certificates = mysqlTable("certificates", {
 export type Certificate = typeof certificates.$inferSelect;
 export type InsertCertificate = typeof certificates.$inferInsert;
 
+/** One pre-download feedback row per user per certificate (before PDF download). */
+export const certificateDownloadFeedback = mysqlTable("certificateDownloadFeedback", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  certificateId: int("certificateId").notNull(),
+  rating: int("rating").notNull(),
+  improvements: text("improvements"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CertificateDownloadFeedback = typeof certificateDownloadFeedback.$inferSelect;
+export type InsertCertificateDownloadFeedback = typeof certificateDownloadFeedback.$inferInsert;
+
+/** Provider Care Signal (incident / near-miss) events; fellowship pillar. Parent short-form may use same table with eventType parent-observation. */
+export const careSignalEvents = mysqlTable("careSignalEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  eventDate: timestamp("eventDate").notNull(),
+  childAge: int("childAge").notNull(),
+  eventType: varchar("eventType", { length: 255 }).notNull(),
+  presentation: text("presentation").notNull(),
+  isAnonymous: boolean("isAnonymous").default(false).notNull(),
+  chainOfSurvival: text("chainOfSurvival").notNull(),
+  systemGaps: text("systemGaps").notNull(),
+  gapDetails: text("gapDetails").notNull(),
+  outcome: varchar("outcome", { length: 512 }).notNull(),
+  neurologicalStatus: varchar("neurologicalStatus", { length: 512 }).notNull(),
+  status: varchar("status", { length: 32 }).default("submitted").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CareSignalEventRow = typeof careSignalEvents.$inferSelect;
+export type InsertCareSignalEvent = typeof careSignalEvents.$inferInsert;
+
 // Institutional Accounts table
 export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   id: int("id").autoincrement().primaryKey(),

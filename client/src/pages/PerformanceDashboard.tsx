@@ -214,9 +214,9 @@ export function PerformanceDashboard() {
               ) : (
                 <div className="text-center py-6">
                   <p className="text-muted-foreground mb-3">No recent activity yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">Log clinical events in Safe-Truth to see your activity here</p>
-                  <a href="/safe-truth" className="inline-block px-4 py-2 bg-brand-orange text-white rounded-md text-sm hover:opacity-90 transition">
-                    Log event in Safe-Truth
+                  <p className="text-sm text-muted-foreground mb-4">Log clinical events in Care Signal to see your activity here</p>
+                  <a href="/care-signal" className="inline-block px-4 py-2 bg-brand-orange text-white rounded-md text-sm hover:opacity-90 transition">
+                    Log event in Care Signal
                   </a>
                 </div>
               )}

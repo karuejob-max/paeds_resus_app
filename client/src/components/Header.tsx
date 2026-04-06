@@ -74,7 +74,7 @@ export default function Header() {
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
         { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
-        { label: "Safe-Truth", href: "/safe-truth", icon: "🚨" },
+        { label: "Care Signal", href: "/care-signal", icon: "🚨" },
         { label: "Referral", href: "/referral", icon: "📤" },
         { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
       ];
@@ -186,8 +186,13 @@ export default function Header() {
                           aria-selected={effectiveRole === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "parent" | "institution";
+                            const prev = effectiveRole;
                             setUserRole(r);
                             setRoleDropdownOpen(false);
+                            if (r === "provider" && prev === "institution") {
+                              window.location.assign("/home");
+                              return;
+                            }
                             if (r === "provider") setLocation("/home");
                             else if (r === "parent") setLocation("/parent-safe-truth");
                             else setLocation("/institutional-portal");
@@ -410,8 +415,13 @@ export default function Header() {
                       key={option.value}
                       onClick={() => {
                         const r = option.value as "provider" | "parent" | "institution";
+                        const prev = effectiveRole;
                         setUserRole(r);
                         setMobileMenuOpen(false);
+                        if (r === "provider" && prev === "institution") {
+                          window.location.assign("/home");
+                          return;
+                        }
                         if (r === "provider") setLocation("/home");
                         else if (r === "parent") setLocation("/parent-safe-truth");
                         else setLocation("/institutional-portal");

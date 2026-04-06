@@ -29,7 +29,7 @@ export const pageVisibility: PageVisibility = {
   // Healthcare Provider specific
   "/providers": ["provider"],
   "/elite-fellowship": ["provider"],
-  "/safe-truth": ["provider", "parent"],
+  "/care-signal": ["provider", "parent"],
   "/safetruth-tool": ["provider", "parent"],
   "/clinical-protocols": ["provider"],
   "/provider-resources": ["provider"],
@@ -54,6 +54,7 @@ export const pageVisibility: PageVisibility = {
   "/help": "all",
   "/support": "all",
   "/verify-certificate": "all",
+  "/verify": "all",
   "/payments": "all",
   "/progress": "all",
   "/achievements": "all",
@@ -100,7 +101,8 @@ export interface NavItemVisibility {
 }
 
 export const navItemVisibility: NavItemVisibility = {
-  "Safe-Truth": ["provider", "parent"],
+  "Care Signal": ["provider"],
+  "Parent Safe-Truth": ["parent"],
   "Elite Fellowship": ["provider"],
   "For Providers": ["provider"],
   "For Institutions": ["institution"],
@@ -154,7 +156,7 @@ export interface FeatureVisibility {
 }
 
 export const featureVisibility: FeatureVisibility = {
-  "Safe-Truth Logging": ["provider", "parent"],
+  "Care Signal": ["provider"],
   "Clinical Protocols": ["provider"],
   "Provider Analytics": ["provider"],
   "Institutional Dashboard": ["institution"],

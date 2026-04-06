@@ -26,7 +26,7 @@ export default function RoleSelector({ onRoleChange }: RoleSelectorProps) {
       value: "provider",
       label: "Healthcare Provider",
       color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-      description: "Access clinical protocols and Safe-Truth",
+      description: "Access clinical protocols, Care Signal, and parent Safe-Truth",
     },
     {
       value: "institution",
@@ -65,7 +65,7 @@ export default function RoleSelector({ onRoleChange }: RoleSelectorProps) {
       // Redirect to home if on a role-specific page
       const roleSpecificPages = [
         "/elite-fellowship",
-        "/safe-truth",
+        "/care-signal",
         "/safetruth-tool",
         "/institutional-analytics",
         "/institutional-management",

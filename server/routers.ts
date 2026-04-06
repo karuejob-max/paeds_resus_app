@@ -32,7 +32,7 @@ import { emailCampaignsRouter } from "./routers/email-campaigns";
 // Remove this import - we'll use the new institution router instead
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
-import { safeTruthEventsRouter } from "./routers/safetruth-events";
+import { careSignalEventsRouter } from "./routers/care-signal-events";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -232,7 +232,7 @@ export const appRouter = router({
   // institutionOnboarding: institutionOnboardingRouter, // Replaced by institution router
   chatSupport: chatSupportRouter,
   aiAssistant: aiAssistantRouter,
-  safeTruthEvents: safeTruthEventsRouter,
+  careSignalEvents: careSignalEventsRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
