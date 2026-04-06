@@ -118,6 +118,9 @@ import { guidelinesRouter } from "./routers/guidelines";
 import { fellowshipPathwaysRouter } from "./routers/fellowship-pathways";
 import { recommendationEngineRouter } from "./routers/recommendation-engine";
 import { streakTrackingRouter } from "./routers/streak-tracking";
+import { resusAutoLaunch } from "./routers/resus-auto-launch";
+import { adminNotifications } from "./routers/admin-notifications";
+import { facilityBenchmarking } from "./routers/facility-benchmarking";
 
 export const appRouter = router({
   system: systemRouter,
@@ -321,6 +324,9 @@ export const appRouter = router({
   patients: patientRouter,
   interventions: interventionRouter,
   provider: providerRouter,
+  resusAutoLaunch,
+  adminNotifications,
+  facilityBenchmarking,
 });
 
 export type AppRouter = typeof appRouter;

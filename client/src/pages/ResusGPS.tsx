@@ -136,6 +136,8 @@ export default function ResusGPS() {
   const analytics = useResusAnalytics();
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+  const [recommendedPathway, setRecommendedPathway] = useState<{ pathway: string; condition: string; message: string } | null>(null);
+  const [showRecommendation, setShowRecommendation] = useState(false);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [tempWeight, setTempWeight] = useState('');
@@ -169,6 +171,15 @@ export default function ResusGPS() {
       setInterventionPanelOpen(true);
     }
   }, [session.phase]);
+
+  // Load recommendation on mount
+  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery(undefined, { enabled: true });
+  useEffect(() => {
+    if (autoLaunchData) {
+      setRecommendedPathway(autoLaunchData);
+      setShowRecommendation(true);
+    }
+  }, [autoLaunchData]);
 
   const weight = session.patientWeight;
   const activeThreats = useMemo(() => getActiveThreats(session), [session]);
