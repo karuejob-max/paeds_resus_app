@@ -58,13 +58,44 @@
 - [ ] Validate end-to-end security flow
 
 ### Phase 2: Build ResusGPS v4 Clinical Features (In Progress)
-- [ ] Implement undo functionality (undo last finding, threat, intervention)
-- [ ] Add medication deduplication (prevent duplicate drug orders)
-- [ ] Support multi-diagnosis tracking (manage >1 condition simultaneously)
-- [ ] Implement structured age input (years/months/weeks for neonates)
-- [ ] Build countdown timers for time-critical interventions
-- [ ] Add dose rationale explanations (why this dose, based on what)
-- [ ] Clinical validation and testing
+
+#### Phase 2a: Undo Functionality
+- [ ] Add undoStack/redoStack to ResusSession type
+- [ ] Create undo-manager.ts utility
+- [ ] Implement pushToUndoStack() before state mutations
+- [ ] Add undo/redo tRPC procedures
+- [ ] Wire UI buttons (Cmd+Z / Ctrl+Z)
+- [ ] Add toast feedback for undo actions
+
+#### Phase 2b: Medication Deduplication
+- [ ] Create isDuplicateDrug() detection logic
+- [ ] Add checkMedicationDuplicate() tRPC procedure
+- [ ] Show warning dialog for duplicates
+- [ ] Log deduplication events to analytics
+
+#### Phase 2c: Countdown Timers
+- [ ] Create TimerCard.tsx component
+- [ ] Add timer state to Intervention type
+- [ ] Implement useTimer() hook with audio alerts
+- [ ] Wire reassessment prompts to timer expiry
+
+#### Phase 2d: Structured Age Input
+- [ ] Create AgeInput.tsx component (years/months/weeks)
+- [ ] Add calculateWeightFromAge() helper
+- [ ] Update calcDose() to use structured age
+- [ ] Add age-based drug restrictions
+
+#### Phase 2e: Multi-Diagnosis Support
+- [ ] Update ResusSession to support diagnosis array
+- [ ] Modify getSuggestedDiagnoses() to return all matches
+- [ ] Create diagnosis cards UI component
+- [ ] Update reassessment for each diagnosis
+
+#### Phase 2f: Dose Rationale Display
+- [ ] Create DoseRationale type with calculation details
+- [ ] Enhance calcDose() to return rationale
+- [ ] Create DoseCard.tsx with expand/collapse
+- [ ] Add AHA 2020 PALS rationale database
 
 ### Phase 3: Set Up Staging Environment (In Progress)
 - [ ] Set up staging infrastructure (develop to staging, main to production)
