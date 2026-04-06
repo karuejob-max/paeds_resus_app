@@ -181,10 +181,10 @@ function Router() {
           <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
           {/* / : logged-in → Home hub; anonymous → ResusGPS */}
-          <Route path="/" component={LandingOrHome} />
-          <Route path="/resus" component={ResusGPS} />
-          {/* Catch all → ResusGPS */}
-          <Route component={ResusGPS} />
+          <Route path="/" component={DefaultPage} />
+          <Route path="/resus" component={Home} />
+          {/* Catch all → Home (temporarily disabled ResusGPS) */}
+          <Route component={Home} />
         </Switch>
       </main>
     </div>

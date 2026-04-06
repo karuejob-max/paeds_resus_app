@@ -1,7 +1,6 @@
 import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { notificationService } from "../notifications";
-import { sendRecommendationNotification } from "../services/notification.service";
 
 export const notificationsRouter = router({
   /**
