@@ -20,6 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConditionHeatmap } from "@/components/ConditionHeatmap";
 
 export default function AdminReports() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -42,6 +45,10 @@ export default function AdminReports() {
     { limit: 1000 },
     { enabled: showAudit && isAuthenticated && (user as { role?: string })?.role === "admin" }
   );
+
+  // Get user's institution for heatmap
+  const { data: userData } = trpc.auth.me.useQuery();
+  const institutionId = (userData as { institutionId?: string })?.institutionId;
 
   const utils = trpc.useUtils();
   const setInstructorApprovalMutation = trpc.adminStats.setInstructorApproval.useMutation({
@@ -118,14 +125,14 @@ export default function AdminReports() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-2xl font-bold">Reports & insights</h1>
               <p className="text-muted-foreground">
-                Registered users, enrollments, certifications, parent Safe-Truth, and app usage
+                Registered users, enrollments, certifications, parent Safe-Truth, ResusGPS analytics, and app usage
               </p>
             </div>
           </div>
@@ -138,12 +145,20 @@ export default function AdminReports() {
           </button>
         </div>
 
-        {reportLoading || !report ? (
-          <p className="text-muted-foreground">Loading report…</p>
-        ) : !report.ok ? (
-          <p className="text-destructive">{report.error ?? "Could not load report."}</p>
-        ) : (
-          <>
+        {/* Tabs for different report sections */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="resus-analytics">ResusGPS Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-8">
+            {reportLoading || !report ? (
+              <p className="text-muted-foreground">Loading report…</p>
+            ) : !report.ok ? (
+              <p className="text-destructive">{report.error ?? "Could not load report."}</p>
+            ) : (
+              <>
             <p className="text-sm text-muted-foreground">
                 Period: {report.periodLabel} · Analytics: {report.lastDaysLabel}
               </p>
@@ -561,8 +576,26 @@ export default function AdminReports() {
                 )}
               </CardContent>
             </Card>
-          </>
-        )}
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="resus-analytics" className="space-y-8">
+            {institutionId ? (
+              <ConditionHeatmap institutionId={institutionId} daysBack={30} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>ResusGPS Analytics</CardTitle>
+                  <CardDescription>Facility-level condition practice patterns</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">No institution associated with your account.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

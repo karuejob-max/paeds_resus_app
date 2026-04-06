@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -266,10 +267,39 @@ export default function ResusGPS() {
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
-  const handleExport = () => {
+  const recordSessionMutation = trpc.resusSessionAnalytics.recordSession.useMutation();
+
+  const handleExport = async () => {
     trackButtonClick('Complete Assessment');
     // Track assessment completed
     analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
+    
+    // Record session for fellowship analytics
+    // Determine pathway from session phase and threats
+    const pathway = session.phase === 'cardiac-arrest' 
+      ? 'cardiac_arrest_protocol'
+      : session.activeThreat?.id || 'general_resus';
+    
+    const interactionCount = session.events.filter(e => 
+      e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+    ).length;
+    
+    try {
+      await recordSessionMutation.mutateAsync({
+        pathway,
+        durationSeconds: timer.elapsed,
+        interactionsCount: Math.max(interactionCount, 1),
+        patientAge: session.patientAge,
+        patientWeight: session.patientWeight,
+        sessionId: session.id,
+        notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
+      });
+      toast.success('Session recorded for fellowship tracking');
+    } catch (error) {
+      console.error('Failed to record session:', error);
+      toast.error('Could not record session for analytics');
+    }
+    
     const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -281,7 +311,7 @@ export default function ResusGPS() {
   };
 
   /** HI-CLIN-1: Same text as export — copy for handoff / EHR paste */
-  const handleCopySummary = useCallback(() => {
+  const handleCopySummary = useCallback(async () => {
     trackButtonClick('Copy session summary');
     const text = exportClinicalRecord(session);
     void navigator.clipboard.writeText(text).then(
@@ -291,6 +321,30 @@ export default function ResusGPS() {
   }, [session, trackButtonClick]);
 
   const handleNewCase = () => {
+    // Optionally record the previous session before starting new one
+    // (only if it had significant activity)
+    if (session.events.length > 5) {
+      const pathway = session.phase === 'cardiac-arrest' 
+        ? 'cardiac_arrest_protocol'
+        : session.activeThreat?.id || 'general_resus';
+      
+      const interactionCount = session.events.filter(e => 
+        e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+      ).length;
+      
+      if (timer.elapsed > 60 && interactionCount >= 3) {
+        recordSessionMutation.mutate({
+          pathway,
+          durationSeconds: timer.elapsed,
+          interactionsCount: interactionCount,
+          patientAge: session.patientAge,
+          patientWeight: session.patientWeight,
+          sessionId: session.id,
+          notes: 'Auto-recorded on new case',
+        });
+      }
+    }
+    
     setSession(createSession(getWeightInKg(), demographics.age || null));
     timer.reset();
     setNumberInput('');
@@ -303,6 +357,13 @@ export default function ResusGPS() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Recording indicator */}
+      {recordSessionMutation.isPending && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2">
+          <p className="text-xs text-blue-900 font-medium">Recording session for fellowship tracking...</p>
+        </div>
+      )}
+      
       {/* Top Bar */}
       <TopBar
         session={session}

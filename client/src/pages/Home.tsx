@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase, Share2, BarChart3, Shield } from "lucide-react";
+import { FellowshipProgressCard } from "@/components/FellowshipProgressCard";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -143,6 +144,15 @@ export default function Home() {
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
           </Card>
+          {/* Fellowship Progress — Pillar B Tracking */}
+          <div className="mt-6 pt-6 border-t">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Fellowship Progress</h2>
+              <p className="text-sm text-muted-foreground">Track your ResusGPS cases toward certification</p>
+            </div>
+            <FellowshipProgressCard />
+          </div>
+
           <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setLocation("/safe-truth")}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
