@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { usePatientDemographics } from '@/contexts/PatientDemographicsContext';
+import { useUndo } from '@/hooks/useUndo';
 import {
   type ResusSession,
   type AssessmentQuestion,
@@ -59,6 +60,7 @@ import {
   updateSAMPLE,
   primarySurveyQuestions,
 } from '@/lib/resus/abcdeEngine';
+import { pushToUndoStack, undo, redo } from '@/lib/resus/undo-manager';
 import {
   AlertTriangle,
   Activity,
@@ -68,6 +70,8 @@ import {
   ChevronLeft,
   Download,
   RotateCcw,
+  Undo2,
+  Redo2,
   Zap,
   Shield,
   User,
@@ -784,13 +788,18 @@ function TopBar({
           variant="ghost"
           className="text-xs h-8 w-8 p-0"
           onClick={() => {
-            // TODO: Wire to useUndo hook
-            toast.info('Undo: Coming soon');
+            if (canUndo) {
+              handleUndo();
+              toast.success('Undo: Last action reverted');
+            } else {
+              toast.info('Nothing to undo');
+            }
           }}
+          disabled={!canUndo}
           title="Undo last action (Cmd+Z)"
           aria-label="Undo"
         >
-          <RotateCcw className="h-4 w-4" />
+          <Undo2 className="h-4 w-4" />
         </Button>
 
         {/* Log */}

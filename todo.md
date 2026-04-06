@@ -57,73 +57,77 @@
 - [ ] Write comprehensive tRPC integration tests
 - [ ] Validate end-to-end security flow
 
-### Phase 2: Build ResusGPS v4 Clinical Features (In Progress)
+### Phase 2: Build ResusGPS v4 Clinical Features (COMPLETE ✅)
 
-#### Phase 2a: Undo Functionality
-- [x] Add undoStack/redoStack to ResusSession type
-- [x] Create undo-manager.ts utility
-- [x] Implement pushToUndoStack() before state mutations
-- [x] Add useUndo() React hook with keyboard shortcuts
-- [x] Wire UI buttons (Cmd+Z / Ctrl+Z)
-- [x] Add comprehensive tests for undo/redo operations
-- [ ] Integrate undo into all question answer handlers
-- [ ] Integrate undo into intervention handlers
-- [ ] Test full resuscitation flow with undo
+### Phase 2 Integration: Wire v4 Features into ResusGPS Component (In Progress)
 
-#### Phase 2b: Medication Deduplication
-- [x] Create isDuplicateDrug() detection logic (medication-deduplication.ts)
-- [x] Implement checkMedicationDuplicate() with exceptions (boluses, different routes, time-based)
-- [x] Create DuplicateWarningDialog component
-- [x] Add comprehensive tests for deduplication logic
-- [ ] Integrate deduplication into startIntervention handler
-- [ ] Wire dialog into ResusGPS component
-- [ ] Log deduplication events to analytics
-- [ ] Test with common drugs (epinephrine, fluids, diazepam)
+#### Phase 2 Integration - 2a: Undo Functionality Integration
+- [ ] Import useUndo() hook into ResusGPS.tsx
+- [ ] Add undo button to TopBar component
+- [ ] Wire undo to answerPrimarySurvey() mutations
+- [ ] Wire undo to startIntervention() mutations
+- [ ] Wire undo to completeIntervention() mutations
+- [ ] Add toast feedback for undo/redo actions
+- [ ] Test Cmd+Z keyboard shortcut in ResusGPS flow
+- [ ] Verify undo doesn't break clinical state machine
+- [ ] Test full resuscitation with undo (enter findings → undo → verify state reverts)
 
-#### Phase 2c: Countdown Timers
-- [x] Create countdown-timer.ts utility with CPR, medication, intervention timers
-- [x] Implement useCountdownTimer() React hook with audio alerts
-- [x] Create TimerCard.tsx component with pause/resume/reset controls
-- [x] Add timer urgency levels (normal/warning/critical) with color coding
-- [x] Implement audio alert patterns (beep, warning, critical)
-- [ ] Integrate timers into intervention lifecycle
-- [ ] Wire reassessment prompts to timer expiry
-- [ ] Test audio alerts across browsers
-- [ ] Persist timers across page reloads (localStorage)
+#### Phase 2 Integration - 2b: Medication Deduplication Integration
+- [ ] Import checkMedicationDuplicate() into ResusGPS.tsx
+- [ ] Import DuplicateWarningDialog component
+- [ ] Call checkMedicationDuplicate() in startIntervention handler
+- [ ] Show DuplicateWarningDialog when duplicate detected
+- [ ] Allow provider to override or cancel duplicate intervention
+- [ ] Log override events to analytics
+- [ ] Test with epinephrine (IV + IO), fluids (bolus + repeat), diazepam
+- [ ] Verify deduplication doesn't block legitimate repeated boluses
+- [ ] Test different routes (IV vs IO) are allowed
 
-#### Phase 2d: Structured Age Input
-- [x] Create age-calculator.ts utility with WHO growth chart weight estimation
-- [x] Implement age-based drug restriction checking (ibuprofen, NSAIDs, antibiotics, etc.)
-- [x] Create AgeInput.tsx component with years/months/weeks spinners
-- [x] Add quick presets (newborn, 1m, 3m, 6m, 1y, 2y, 5y, 10y, 15y)
-- [x] Auto-calculate weight from age with WHO charts
-- [x] Show age category (neonate/infant/toddler/school/adolescent)
-- [ ] Integrate AgeInput into patient info dialog
-- [ ] Update calcDose() to use structured age
-- [ ] Add age-specific dosing notes to dose rationale
-- [ ] Test with neonates, children, adolescents
+#### Phase 2 Integration - 2c: Countdown Timers Integration
+- [ ] Import useCountdownTimer() hook into ResusGPS.tsx
+- [ ] Import TimerCard component
+- [ ] Create timer when startIntervention() is called
+- [ ] Display TimerCard in intervention panel
+- [ ] Trigger reassessment prompt when timer expires
+- [ ] Show audio alert when timer reaches critical (30s remaining)
+- [ ] Allow pause/resume/reset of timers
+- [ ] Persist timer state to localStorage
+- [ ] Test CPR timer (2min), medication timer (3min), intervention timer (5min)
 
-#### Phase 2e: Multi-Diagnosis Support
-- [x] Create multi-diagnosis.ts utility with concurrent diagnosis support
-- [x] Implement suggestDiagnoses() to return all matches (not just top 1)
-- [x] Add diagnosis confidence levels (definite/likely/consider)
-- [x] Create DiagnosisCard.tsx component with findings and interventions
-- [x] Implement diagnosis lifecycle (create, resolve, remove)
-- [ ] Update ResusSession to support diagnosis array
-- [ ] Integrate multi-diagnosis into ResusGPS component
-- [ ] Update reassessment for each diagnosis
-- [ ] Test with concurrent conditions (sepsis+DKA, asthma+pneumonia)
+#### Phase 2 Integration - 2d: Structured Age Input Integration
+- [ ] Import AgeInput component into ResusGPS.tsx
+- [ ] Replace age input in patient info dialog with AgeInput
+- [ ] Auto-calculate weight when age changes
+- [ ] Update all dose calculations to use structured age
+- [ ] Show age category badge in patient info
+- [ ] Add age-based drug restrictions to safety alerts
+- [ ] Show age-specific dosing notes in DoseRationaleCard
+- [ ] Test neonatal dosing (epinephrine 0.01mg/kg)
+- [ ] Test pediatric dosing (epinephrine 0.01mg/kg)
+- [ ] Test adolescent dosing (standard adult doses)
 
-#### Phase 2f: Dose Rationale Display
-- [x] Create DoseRationale type with calculation details and alternatives
-- [x] Implement getDoseRationale() for epinephrine, amiodarone, glucose, diazepam, fluids
-- [x] Add AHA 2020 PALS guideline references
-- [x] Create DoseRationaleCard.tsx with expand/collapse and full reference
-- [x] Implement formatDoseRationale() for plain text export
-- [ ] Integrate DoseRationaleCard into intervention UI
-- [ ] Add more drugs (lidocaine, calcium, magnesium, etc.)
-- [ ] Create printable dose reference card
-- [ ] Add clinical note attachments to rationale
+#### Phase 2 Integration - 2e: Multi-Diagnosis Support Integration
+- [ ] Import DiagnosisCard component into ResusGPS.tsx
+- [ ] Update ResusSession type to support diagnosis array
+- [ ] Modify getSuggestedDiagnoses() to return all matches
+- [ ] Display all diagnosis cards in Secondary Survey
+- [ ] Allow provider to mark diagnosis as definite/likely/consider
+- [ ] Show targeted interventions per diagnosis
+- [ ] Update reassessment flow for each diagnosis
+- [ ] Test concurrent diagnoses (sepsis + DKA)
+- [ ] Test diagnosis resolution (mark as resolved)
+- [ ] Test adding new diagnosis mid-case
+
+#### Phase 2 Integration - 2f: Dose Rationale Display Integration
+- [ ] Import DoseRationaleCard component into ResusGPS.tsx
+- [ ] Call getDoseRationale() when calcDose() is called
+- [ ] Display DoseRationaleCard in intervention panel (expandable)
+- [ ] Show AHA 2020 PALS reference in rationale
+- [ ] Allow export of dose rationale to clinical notes
+- [ ] Add more drugs to getDoseRationale() (lidocaine, calcium, magnesium)
+- [ ] Create printable dose reference card from all rationales
+- [ ] Test rationale for all common drugs (epi, amiodarone, glucose, diazepam, fluids)
+- [ ] Verify rationale updates when age/weight changes
 
 ### Phase 3: Set Up Staging Environment (In Progress)
 - [ ] Set up staging infrastructure (develop to staging, main to production)
