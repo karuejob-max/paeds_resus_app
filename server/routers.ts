@@ -115,6 +115,7 @@ import { interventionRouter } from "./routers/interventions";
 import { providerRouter } from "./routers/provider";
 import { cprSessionRouter } from "./routers/cpr-session";
 import { guidelinesRouter } from "./routers/guidelines";
+import { fellowshipPathwaysRouter } from "./routers/fellowship-pathways";
 
 export const appRouter = router({
   system: systemRouter,
@@ -262,6 +263,7 @@ export const appRouter = router({
   cprClock: cprClockRouter,
   cprSession: cprSessionRouter,
   guidelines: guidelinesRouter,
+  fellowshipPathways: fellowshipPathwaysRouter,
   emergencyProtocols: emergencyProtocolsRouter,
   alerts: alertsRouter,
   diagnosis: diagnosisRouter,
