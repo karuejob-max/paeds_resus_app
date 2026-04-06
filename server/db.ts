@@ -40,6 +40,9 @@ export async function getDb() {
   return _db;
 }
 
+// Export db instance for convenience (use getDb() in async contexts)
+export { _db as db };
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
