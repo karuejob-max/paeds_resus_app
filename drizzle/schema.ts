@@ -728,6 +728,45 @@ export const courses = mysqlTable("courses", {
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = typeof courses.$inferInsert;
 
+// Micro-Courses table (26 courses: foundational + advanced tiers)
+export const microCourses = mysqlTable("microCourses", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: varchar("courseId", { length: 64 }).notNull().unique(), // e.g., 'asthma-i', 'septic-shock-ii'
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  level: mysqlEnum("level", ["foundational", "advanced"]).notNull(),
+  emergencyType: mysqlEnum("emergencyType", ["respiratory", "shock", "seizure", "toxicology", "metabolic", "infectious", "burns", "trauma"]).notNull(),
+  duration: int("duration").notNull(), // in minutes
+  price: int("price").notNull(), // in KES cents (800 KES = 80000 cents)
+  prerequisiteId: varchar("prerequisiteId", { length: 64 }), // e.g., 'asthma-i' is prerequisite for 'asthma-ii'
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MicroCourse = typeof microCourses.$inferSelect;
+export type InsertMicroCourse = typeof microCourses.$inferInsert;
+
+// Micro-Course Enrollments table
+export const microCourseEnrollments = mysqlTable("microCourseEnrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  microCourseId: int("microCourseId").notNull(),
+  enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "active", "completed", "expired"]).default("pending"),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "completed", "free"]).default("pending"),
+  paymentId: int("paymentId"), // links to payments table if paid
+  progressPercentage: int("progressPercentage").default(0),
+  quizScore: int("quizScore"), // percentage (80+ = pass)
+  certificateUrl: text("certificateUrl"),
+  certificateIssuedAt: timestamp("certificateIssuedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MicroCourseEnrollment = typeof microCourseEnrollments.$inferSelect;
+export type InsertMicroCourseEnrollment = typeof microCourseEnrollments.$inferInsert;
+
 // Modules table
 export const modules = mysqlTable("modules", {
   id: int("id").autoincrement().primaryKey(),
@@ -740,6 +779,7 @@ export const modules = mysqlTable("modules", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
 
 export type Module = typeof modules.$inferSelect;
 export type InsertModule = typeof modules.$inferInsert;

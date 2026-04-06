@@ -211,6 +211,13 @@
       "when": 1775470457518,
       "tag": "0029_vengeful_strong_guy",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1775483721728,
+      "tag": "0030_cultured_gamma_corps",
+      "breakpoints": true
     }
   ]
 }

@@ -17,7 +17,7 @@ import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
 import { securityRouter } from "./routers/security";
 import { securityIntegrationRouter } from './routers/security-integration';
-import { microCoursesRouter } from './routers/micro-courses';
+import { microCoursesRouter } from './routers/micro-courses'; // Legacy micro-courses router
 import { googleWorkspaceRouter } from "./routers/google-workspace";
 import { personalizationRouter } from "./routers/personalization";
 import { paymentsRouter } from "./routers/payments";
@@ -103,6 +103,7 @@ import { streakTrackingRouter } from "./routers/streak-tracking";
 import { resusAutoLaunch } from "./routers/resus-auto-launch";
 import { adminNotifications } from "./routers/admin-notifications";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
+import { coursesRouter } from "./routers/courses";
 
 export const appRouter = router({
   system: systemRouter,
@@ -356,6 +357,7 @@ export const appRouter = router({
   // facilityBenchmarking,
   securityIntegration: securityIntegrationRouter,
   microCourses: microCoursesRouter,
+  courses: coursesRouter,
 });
 
 export type AppRouter = typeof appRouter;
