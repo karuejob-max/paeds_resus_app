@@ -17,6 +17,8 @@ import { RecommendationBanner } from '@/components/RecommendationBanner';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
+import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
+import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -229,13 +231,30 @@ export default function ResusGPS() {
     }
   };
 
+  const [duplicateWarning, setDuplicateWarning] = useState<{ intervention: Intervention; duplicate: Intervention } | null>(null);
+
   const handleStartIntervention = (id: string) => {
-    setSession(prev => startIntervention(prev, id));
-    // Track intervention started
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
-    if (intervention) {
-      analytics.trackInterventionStarted(intervention.action);
+    if (!intervention) return;
+
+    // Check for medication duplicates
+    const duplicate = checkMedicationDuplicate(session, intervention);
+    if (duplicate) {
+      setDuplicateWarning({ intervention, duplicate });
+      return;
     }
+
+    // No duplicate, proceed with intervention
+    setSession(prev => startIntervention(prev, id));
+    analytics.trackInterventionStarted(intervention.action);
+  };
+
+  const handleConfirmDuplicateOverride = () => {
+    if (!duplicateWarning) return;
+    setSession(prev => startIntervention(prev, duplicateWarning.intervention.id));
+    analytics.trackInterventionStarted(duplicateWarning.intervention.action);
+    toast.warning('Duplicate intervention started - verify clinical decision');
+    setDuplicateWarning(null);
   };
 
   const handleReturnToPrimarySurvey = () => {
