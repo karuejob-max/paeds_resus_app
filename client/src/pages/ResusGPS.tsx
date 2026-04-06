@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
+import { RecommendationBanner } from '@/components/RecommendationBanner';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';

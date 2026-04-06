@@ -14,7 +14,10 @@ import { z } from 'zod';
 import { db } from '../db';
 import { resusSessionRecords, usersTable } from '../../drizzle/schema';
 import { eq, sql, and, desc, lte } from 'drizzle-orm';
-import { FELLOWSHIP_CONDITIONS } from '../lib/pathway-condition-mapping';
+import { FellowshipCondition, PATHWAY_CONDITION_MAP } from '../lib/pathway-condition-mapping';
+
+// Convert FellowshipCondition enum to array for iteration
+const FELLOWSHIP_CONDITIONS = Object.values(FellowshipCondition);
 
 // Clinical priority scoring (higher = more critical)
 const CLINICAL_PRIORITY: Record<string, number> = {
