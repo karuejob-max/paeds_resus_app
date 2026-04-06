@@ -1557,38 +1557,17 @@ function PostPrimaryScreen({
           </CardHeader>
           <CardContent className="space-y-3">
             {diagnoses.map((dx, i) => (
-              <div key={i} className="bg-accent/30 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-foreground text-sm">{dx.diagnosis}</span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] ${
-                      dx.confidence === 'high'
-                        ? 'border-green-500/50 text-green-400'
-                        : dx.confidence === 'moderate'
-                        ? 'border-amber-500/50 text-amber-400'
-                        : 'border-muted text-muted-foreground'
-                    }`}
-                  >
-                    {dx.confidence}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Supporting: {dx.supportingFindings.join(', ')}
-                </p>
-                <p className="text-xs text-primary">{dx.protocol}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2 text-xs"
-                  onClick={() => {
-                    trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                    setSession(setDefinitiveDiagnosis(session, dx.diagnosis));
-                  }}
-                >
-                  Confirm as Diagnosis
-                </Button>
-              </div>
+              <DiagnosisCard
+                key={i}
+                diagnosis={dx.diagnosis}
+                confidence={dx.confidence}
+                supportingFindings={dx.supportingFindings}
+                protocol={dx.protocol}
+                onConfirm={() => {
+                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis));
+                }}
+              />
             ))}
           </CardContent>
         </Card>
