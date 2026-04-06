@@ -23,6 +23,7 @@ import { paymentsRouter } from "./routers/payments";
 import { collaborationRouter } from "./routers/collaboration";
 import { gamificationRouter } from "./routers/gamification";
 import { aiContentRouter } from "./routers/ai-content";
+import { aiContentGeneration } from "./routers/ai-content-generation";
 import { analyticsRouter } from "./routers/analytics";
 import { searchRecommendationsRouter } from "./routers/search-recommendations";
 import { liveTrainingRouter } from "./routers/live-training";
