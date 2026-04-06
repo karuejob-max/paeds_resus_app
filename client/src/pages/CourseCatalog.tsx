@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Clock, DollarSign, Lock, CheckCircle2 } from 'lucide-react';
+import MpesaEnrollmentModal from '@/components/MpesaEnrollmentModal';
 
 type EmergencyType = 'respiratory' | 'shock' | 'seizure' | 'toxicology' | 'metabolic' | 'infectious' | 'burns' | 'trauma';
 type Level = 'foundational' | 'advanced';
@@ -39,6 +40,8 @@ export default function CourseCatalog() {
   const [selectedCategory, setSelectedCategory] = useState<EmergencyType | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<Level | 'all'>('all');
   const [showEnrolledOnly, setShowEnrolledOnly] = useState(false);
+  const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseCard | null>(null);
 
   // Query all courses
   const { data: coursesData, isLoading } = trpc.courses.listAll.useQuery();
@@ -270,7 +273,7 @@ function EnrollmentButton({
   isAdmin: boolean;
   userId?: number;
 }) {
-  const enrollMutation = trpc.courses.enrollWithMpesa.useMutation();
+  const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
   const adminAccessMutation = trpc.courses.grantAdminAccess.useMutation();
 
   const handleEnroll = async () => {
@@ -279,17 +282,11 @@ function EnrollmentButton({
     if (isAdmin) {
       // Admin gets free access
       await adminAccessMutation.mutateAsync({
-        userId,
-        microCourseId: course.id,
+        courseId: course.courseId,
       });
     } else {
-      // Regular user: initiate M-Pesa payment
-      await enrollMutation.mutateAsync({
-        userId,
-        microCourseId: course.id,
-        courseTitle: course.title,
-        amount: course.price,
-      });
+      // Regular user: open M-Pesa enrollment modal
+      setMpesaModalOpen(true);
     }
   };
 
@@ -310,12 +307,24 @@ function EnrollmentButton({
   }
 
   return (
-    <Button
-      onClick={handleEnroll}
-      disabled={enrollMutation.isPending || adminAccessMutation.isPending}
-      className="w-full bg-blue-600 hover:bg-blue-700"
-    >
-      {isAdmin ? '✓ Get Free Access' : '💳 Enroll Now'}
-    </Button>
+    <>
+      <Button
+        onClick={handleEnroll}
+        disabled={adminAccessMutation.isPending}
+        className="w-full bg-blue-600 hover:bg-blue-700"
+      >
+        {isAdmin ? '✓ Get Free Access' : '💳 Enroll Now'}
+      </Button>
+      {!isAdmin && (
+        <MpesaEnrollmentModal
+          open={mpesaModalOpen}
+          onOpenChange={setMpesaModalOpen}
+          courseId={course.courseId}
+          courseTitle={course.title}
+          price={course.price}
+          duration={course.duration}
+        />
+      )}
+    </>
   );
 }
