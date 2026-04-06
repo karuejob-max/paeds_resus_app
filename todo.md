@@ -115,10 +115,15 @@
 - [ ] Test with concurrent conditions (sepsis+DKA, asthma+pneumonia)
 
 #### Phase 2f: Dose Rationale Display
-- [ ] Create DoseRationale type with calculation details
-- [ ] Enhance calcDose() to return rationale
-- [ ] Create DoseCard.tsx with expand/collapse
-- [ ] Add AHA 2020 PALS rationale database
+- [x] Create DoseRationale type with calculation details and alternatives
+- [x] Implement getDoseRationale() for epinephrine, amiodarone, glucose, diazepam, fluids
+- [x] Add AHA 2020 PALS guideline references
+- [x] Create DoseRationaleCard.tsx with expand/collapse and full reference
+- [x] Implement formatDoseRationale() for plain text export
+- [ ] Integrate DoseRationaleCard into intervention UI
+- [ ] Add more drugs (lidocaine, calcium, magnesium, etc.)
+- [ ] Create printable dose reference card
+- [ ] Add clinical note attachments to rationale
 
 ### Phase 3: Set Up Staging Environment (In Progress)
 - [ ] Set up staging infrastructure (develop to staging, main to production)
