@@ -49,6 +49,7 @@ import CourseInstructor from "./pages/CourseInstructor";
 import InstructorPortal from "./pages/InstructorPortal";
 import InstitutionalOnboarding from "./pages/InstitutionalOnboarding";
 import CareSignalAnalytics from "./pages/CareSignalAnalytics";
+import FacilityTrainingGaps from "./pages/FacilityTrainingGaps";
 import { Toaster } from "@/components/ui/sonner";
 
 /** Redirects to target path (for routes that have no dedicated page). */
@@ -124,6 +125,7 @@ function Router() {
           <Route path="/admin" component={AdminHub} />
           <Route path="/admin/reports" component={AdminReports} />
           <Route path="/admin/mpesa-reconciliation" component={AdminMpesaReconciliation} />
+          <Route path="/admin/institutional-analytics" component={FacilityTrainingGaps} />
           <Route path="/help" component={Help} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
