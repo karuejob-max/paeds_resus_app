@@ -1,0 +1,30 @@
+name: Deploy to Staging & Production
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Render Staging
+        run: |
+          echo "Deploying develop branch to staging environment"
+          # Render auto-deploys on push to GitHub
+          # This workflow confirms the deployment trigger
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Render Production
+        run: |
+          echo "Deploying main branch to production environment"
+          # Render auto-deploys on push to GitHub
+          # This workflow confirms the deployment trigger
