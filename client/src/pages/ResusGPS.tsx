@@ -25,6 +25,8 @@ import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
+import { getDoseRationale } from '@/lib/resus/dose-rationale';
+import { DoseRationaleCard } from '@/components/DoseRationaleCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1744,6 +1746,17 @@ function ThreatCard({
                     )}
                     {intervention.detail && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">{intervention.detail}</p>
+                    )}
+                    {/* Dose Rationale */}
+                    {intervention.dose && (
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <DoseRationaleCard
+                          drug={intervention.action}
+                          dose={calcDose(intervention.dose, weight)}
+                          weight={weight}
+                          rationale={getDoseRationale(intervention.action, weight)}
+                        />
+                      </div>
                     )}
 
                     {/* Status actions */}
