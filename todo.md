@@ -62,12 +62,14 @@
 ### Phase 2 Integration: Wire v4 Features into ResusGPS Component (In Progress)
 
 #### Phase 2 Integration - 2a: Undo Functionality Integration
-- [ ] Import useUndo() hook into ResusGPS.tsx
-- [ ] Add undo button to TopBar component
-- [ ] Wire undo to answerPrimarySurvey() mutations
-- [ ] Wire undo to startIntervention() mutations
-- [ ] Wire undo to completeIntervention() mutations
-- [ ] Add toast feedback for undo/redo actions
+- [x] Import useUndo() hook into ResusGPS.tsx
+- [x] Add undo button to TopBar component (already existed)
+- [x] Wire undo button to handleUndo() function
+- [x] Add Cmd+Z and Cmd+Shift+Z keyboard shortcuts
+- [x] Add toast feedback for undo/redo actions
+- [x] Disable undo button when no undo stack available
+- [x] Build succeeds locally
+- [x] Push to GitHub
 - [ ] Test Cmd+Z keyboard shortcut in ResusGPS flow
 - [ ] Verify undo doesn't break clinical state machine
 - [ ] Test full resuscitation with undo (enter findings → undo → verify state reverts)

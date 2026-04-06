@@ -107,7 +107,15 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user) {
+        await db.createAuditLog({
+          userId: ctx.user.id,
+          action: 'LOGOUT',
+          details: { ip: ctx.req.ip },
+          timestamp: new Date(),
+        }).catch(() => {});
+      }
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {
@@ -152,6 +160,12 @@ export const appRouter = router({
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: sessionMaxAgeMs });
+        await db.createAuditLog({
+          userId: user.id,
+          action: 'LOGIN_SUCCESS',
+          details: { email: input.email, ip: ctx.req.ip },
+          timestamp: new Date(),
+        }).catch(() => {});
         return { success: true };
       }),
     updateUserType: protectedProcedure
@@ -194,6 +208,35 @@ export const appRouter = router({
         const passwordHash = await bcrypt.hash(input.newPassword, 10);
         await db.updateUserPasswordById(row.userId, passwordHash);
         await db.deletePasswordResetToken(input.token);
+        await db.createAuditLog({
+          userId: row.userId,
+          action: 'PASSWORD_RESET',
+          details: { method: 'reset_token' },
+          timestamp: new Date(),
+        }).catch(() => {});
+        return { success: true };
+      }),
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string(),
+        newPassword: z.string().min(8).refine(
+          (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
+          "Password must contain at least one letter and one number"
+        ),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await db.getUserById(ctx.user.id);
+        if (!user?.passwordHash) throw new Error("User not found");
+        const ok = await bcrypt.compare(input.currentPassword, user.passwordHash);
+        if (!ok) throw new Error("Current password is incorrect");
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await db.updateUserPasswordById(ctx.user.id, passwordHash);
+        await db.createAuditLog({
+          userId: ctx.user.id,
+          action: 'PASSWORD_CHANGED',
+          details: { method: 'user_initiated' },
+          timestamp: new Date(),
+        }).catch(() => {});
         return { success: true };
       }),
   }),
