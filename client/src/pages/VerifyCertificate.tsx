@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Search } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
-export function VerifyCertificate() {
+export default function VerifyCertificate() {
   const [certificateId, setCertificateId] = useState("");
   const [staffName, setStaffName] = useState("");
   const [submitted, setSubmitted] = useState(false);

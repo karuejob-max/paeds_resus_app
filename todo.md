@@ -151,8 +151,8 @@
 ### Navigation Bug: Institutional User Cannot Access Healthcare Provider Platform
 - [x] Diagnose: Check institutional dropdown menu navigation code
 - [x] Fix: Ensure "Healthcare Provider Platform" button routes to correct page (Fixed race condition in Home.tsx redirect logic)
-- [ ] Test: Verify institutional user can navigate to provider platform
-- [ ] Verify: Test role switching and navigation flow
+- [x] Test: Verify institutional user can navigate to provider platform
+- [x] Verify: Test role switching and navigation flow
 
 
 ## Sprint 3: ResusGPS Analytics & Recommendations (Parallel Backlog)
@@ -194,4 +194,50 @@
 - [ ] Create RECOMMENDATION_ENGINE.md with algorithm explanation
 - [ ] Update STAGING_DEPLOYMENT.md with new verification steps
 - [ ] Commit all changes with comprehensive message
+- [ ] Ready for production deployment
+
+## Sprint 4: Fellowship Engagement & Institutional Intelligence
+
+### Phase 4.1: Embed Recommendation in FellowshipProgressCard
+- [ ] Wire ConditionRecommendation component into FellowshipProgressCard
+- [ ] Show recommended condition prominently in "Next Steps" section
+- [ ] Add "Practice Now" CTA that launches ResusGPS with recommended pathway
+- [ ] Display facility gap context ("Not practiced in 45 days at your facility")
+- [ ] Test recommendation display on all screen sizes
+- [ ] Verify recommendation updates after each ResusGPS session
+
+### Phase 4.2: Practice Streak Gamification
+- [ ] Create streak tracking schema (condition, consecutive days, current streak count)
+- [ ] Build streak calculation logic (daily practice window, EAT timezone)
+- [ ] Design streak badges (7-day, 14-day, 30-day milestones)
+- [ ] Create StreakBadge component with visual progression
+- [ ] Wire streak display into FellowshipProgressCard
+- [ ] Add streak notifications ("7-day streak! Keep going")
+- [ ] Create streak leaderboard (facility-level, anonymized)
+- [ ] Test streak logic across timezone boundaries
+
+### Phase 4.3: Facility Admin Dashboard
+- [ ] Build FacilityTrainingGapsPage component
+- [ ] Show conditions not practiced in 30/60/90 days
+- [ ] Display staff engagement metrics (avg sessions/week, active learners)
+- [ ] Create drill-down: condition → which staff haven't practiced → recommend training
+- [ ] Add facility comparison (anonymized: "Your facility vs similar-sized hospitals")
+- [ ] Export facility report (PDF with training gaps + recommendations)
+- [ ] Wire to admin /admin/institutional-analytics route
+- [ ] Test with various facility sizes and practice patterns
+
+### Phase 4.4: Testing & Integration
+- [ ] Create integration tests for recommendation embedding
+- [ ] Test streak calculation across month boundaries
+- [ ] Verify streak notifications don't spam users
+- [ ] Test facility dashboard with edge cases (new facility, no practice data)
+- [ ] Performance test: facility dashboard load <1s for 100+ staff
+- [ ] Test leaderboard anonymization (no PII exposure)
+
+### Phase 4.5: Documentation & Deployment
+- [ ] Update FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md with engagement metrics
+- [ ] Create GAMIFICATION_STRATEGY.md (streak rules, badge criteria, leaderboard logic)
+- [ ] Create FACILITY_ADMIN_GUIDE.md (how to interpret training gaps)
+- [ ] Update WORK_STATUS.md with completion notes
+- [ ] Commit all changes
 - [ ] Ready for production deployment

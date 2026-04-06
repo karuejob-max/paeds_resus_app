@@ -279,9 +279,9 @@ export const recommendationEngineRouter = router({
 
       // Add facility critical gaps
       if (facilityGaps?.criticalGaps) {
-        facilityGaps.criticalGaps.forEach((gap) => {
+        facilityGaps.criticalGaps.forEach((gap: any) => {
           if (
-            !learningPath.some((item) => item.condition === gap.condition)
+            !learningPath.some((item: any) => item.condition === gap.condition)
           ) {
             learningPath.push({
               condition: gap.condition,
@@ -297,8 +297,8 @@ export const recommendationEngineRouter = router({
 
       // Add learner alternatives
       if (learnerRec.alternatives) {
-        learnerRec.alternatives.forEach((alt) => {
-          if (!learningPath.some((item) => item.condition === alt.condition)) {
+        learnerRec.alternatives.forEach((alt: any) => {
+          if (!learningPath.some((item: any) => item.condition === alt.condition)) {
             learningPath.push({
               ...alt,
               reason: 'Next condition to practice',

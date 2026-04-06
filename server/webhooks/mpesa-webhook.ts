@@ -7,7 +7,6 @@ import { runWithRetries } from "../lib/async-retry";
 import { logStructured } from "../lib/structured-log";
 import { trackPaymentCompletion } from "../services/analytics.service";
 import crypto from "crypto";
-import type { Request, Response } from "express";
 
 /**
  * Verify M-Pesa webhook signature using Daraja API's Passkey
