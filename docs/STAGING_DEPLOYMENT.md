@@ -133,7 +133,19 @@ VITE_ANALYTICS_WEBSITE_ID=[staging-website-id]
 ```bash
 # Run migrations on staging database
 DATABASE_URL=[staging-connection-string] pnpm db:push
+
+# Apply idempotent migrations (0031 and later)
+# These are applied after pnpm db:push and are safe to run multiple times
+DATABASE_URL=[staging-connection-string] pnpm run db:apply-0031
 ```
+
+**Migration 0031 — Care Signal Events (Fellowship Analytics):**
+- Creates `careSignalEvents` table for provider incident & near-miss reporting
+- Emits `care_signal_submission_created` analytics events when Care Signal is logged
+- Used by fellowship qualification and QI tracking
+- Safe to apply multiple times (idempotent CREATE TABLE IF NOT EXISTS)
+- See [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md) for event details
+- Verify on staging: `pnpm run verify:analytics` should show `care_signal_submission_created` events
 
 ### Domain Configuration
 
@@ -173,7 +185,8 @@ Use this so **develop → staging → main** stays predictable (CEO priority #2:
 ```markdown
 - [ ] Code review completed
 - [ ] Feature tested on staging
-- [ ] Database migrations pass on staging
+- [ ] Database migrations pass on staging (`pnpm db:push`)
+- [ ] Idempotent migrations applied (`pnpm run db:apply-0031` etc.)
 - [ ] Analytics events visible in staging admin reports (if applicable)
 - [ ] No sensitive data in logs or commits
 - [ ] Documentation updated (WORK_STATUS.md, etc.)

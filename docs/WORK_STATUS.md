@@ -118,3 +118,5 @@ Any agent can add here. Format: date, reviewer (Codex/Manus/Cursor), subject (e.
 ---
 
 Last structural update: 2025-02 (WORK_STATUS created).
+
+| 2026-04-06 | Manus | **FB-AN-2 + FB-OPS-1 (parallel backlog):** Migration 0031 applied to production DB; careSignalEvents table verified; test suite confirms analytics event emission path (care_signal_submission_created event type); pnpm run verify:analytics validates query path (0 events expected—no submissions yet). STAGING_DEPLOYMENT.md updated with §0031 notes, idempotent migration pattern, PR approval checklist. Ready for Care Signal submissions to flow through analytics. | fc89a39 (merge) |
