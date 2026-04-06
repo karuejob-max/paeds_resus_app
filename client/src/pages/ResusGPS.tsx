@@ -19,6 +19,8 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
+import { useCountdownTimer } from '@/hooks/useCountdownTimer';
+import { TimerCard } from '@/components/TimerCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -193,6 +195,8 @@ export default function ResusGPS() {
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
+n  // Active intervention timers
+  const [activeTimers, setActiveTimers] = useState<Map<string, any>>(new Map());
 
   // ─── Handlers ───────────────────────────────────────────
 
@@ -247,6 +251,12 @@ export default function ResusGPS() {
     // No duplicate, proceed with intervention
     setSession(prev => startIntervention(prev, id));
     analytics.trackInterventionStarted(intervention.action);
+    
+    // Create timer for intervention (default 5 minutes)
+    const timerDuration = 300; // 5 minutes in seconds
+    const timer = useCountdownTimer(timerDuration);
+    setActiveTimers(prev => new Map(prev).set(id, timer));
+    timer.start();
   };
 
   const handleConfirmDuplicateOverride = () => {
