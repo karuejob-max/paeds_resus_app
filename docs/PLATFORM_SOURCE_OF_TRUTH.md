@@ -253,32 +253,11 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 16.3 Tiered courses per clinical topic (naming and gating)
 
-**Fellowship requirement (§17):** Learners must complete **all 26 ADF micro-courses** to qualify for Fellow status. The 26-course catalog spans 12 clinical domains (ABCDE + toxicology, burns, infectious) with foundational (I) and advanced (II) tiers for major topics.
-
-**Course structure:**
-- **Pattern:** For major topics (e.g. paediatric septic shock, asthma, convulsive status epilepticus, anaphylaxis, burns, toxicology), we plan **two course tiers** on the same theme:
+- **Pattern:** For major topics (e.g. paediatric septic shock, asthma, convulsive status epilepticus, anaphylaxis), we plan **two course tiers** on the same theme:
   - **Course I** — foundational recognition, first-hour actions, safe escalation, and **when to refer** (reasons such as need for vasoactive drugs, advanced monitoring, refractory shock, refractory seizures, etc., without turning the course into a tertiary-only manual).
-  - **Course II** — deeper management (e.g. fluid-refractory / catecholamine-refractory shock, second-line therapies, advanced airway, mechanical support where applicable). **Do not** label tiers in the UI as "primary vs tertiary"; describe them as **progression** ("after completing … I, optional … II for …").
+  - **Course II** — deeper management (e.g. fluid-refractory / catecholamine-refractory shock, second-line therapies, advanced airway, mechanical support where applicable). **Do not** label tiers in the UI as “primary vs tertiary”; describe them as **progression** (“after completing … I, optional … II for …”).
 - **Prerequisite:** Enrolment in **Course II** requires **Course I completed and passed** (quiz threshold met) for that topic. Same pattern for future pairs (e.g. refractory vs super-refractory status).
 - **Pipeline:** Additional tiers (e.g. **Course III** for mechanical circulatory support or ultra-specialised rescue therapies) are **aspirational** until explicitly scheduled; document here when launched.
-
-**26-course catalog (required for fellowship):**
-
-| Domain | Courses | Tier I | Tier II | Notes |
-|--------|---------|--------|---------|-------|
-| **Cross-cutting** | 2 | Systematic approach to seriously ill child | Paediatric cardiac arrest | ABCDE framework foundation + post-ROSC |
-| **A · Airway** | 4 | Asthma, Croup | Asthma II, Upper airway obstruction | Escalation triggers, advanced airway principles |
-| **B · Respiratory** | 2 | Pneumonia, Bronchiolitis | Pneumonia II | Non-invasive support (HFNC/CPAP) referenced in I |
-| **C · Circulatory** | 8 | Septic shock, Hypovolemic shock (diarrhea), Anaphylaxis, Neurogenic shock | Septic shock II, Hypovolemic shock II | Cardiogenic shock (arrhythmias, DCM), PE, tamponade, Tet spells |
-| **D · Neurological** | 2 | Status epilepticus, Febrile seizure | Status epilepticus II | Altered consciousness (meningitis, encephalitis) |
-| **E · Metabolic** | 4 | Hypoglycemia, DKA, Electrolyte disorders, AKI | DKA II | Acute kidney injury in shock contexts |
-| **F · Trauma** | 2 | Trauma primary survey | Traumatic brain injury + massive hemorrhage | ABCDE + cervical spine + TXA awareness |
-| **G · Toxicology** | 2 | Poisoning, Overdose | Caustic ingestion | Common LMIC presentations |
-| **H · Burns** | 2 | Burns recognition & resuscitation | Burns advanced management | TBSA, Parkland, compartment syndrome |
-| **I · Infectious** | 2 | Meningitis, Malaria | (Tier II as needed) | Rapid recognition, antimicrobial timing |
-| **TOTAL** | **26** | **14 foundational** | **12 advanced** | All required for Fellow status |
-
-**Clinical governance:** All 26 courses reviewed and approved by clinical faculty before launch. References: WHO, AHA ECC, CDC, FEAST, AHA PALS/BLS guidelines. Aligned with ResusGPS pathways.
 
 ### 16.4 Pricing rule for tier pairs
 
@@ -308,8 +287,6 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 **PSoT short title:** *Fellowship rules, Care Signal, cumulative progress, and governance.*  
 **Canonical detail (automation-only, grace rules, launch checklist, accredited facilities policy):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
-
-**Fellowship requirement (updated):** Learners must complete **all 26 ADF micro-courses** (not 24) to satisfy pillar A. The 26-course catalog includes toxicology, burns, and infectious disease domains in addition to the original ABCDE + cross-cutting structure. This reflects the breadth of paediatric emergencies in LMIC settings and ensures comprehensive clinical readiness.
 
 ### 17.1 Principles
 

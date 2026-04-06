@@ -5,9 +5,9 @@ import { eq, count, avg } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   institutionalAccounts,
-  
-  
-  
+  institutionalStaffMembers,
+  incidents,
+  institutionalAnalytics,
 } from "../drizzle/schema";
 
 export async function rollupInstitutionalAnalyticsForAccount(institutionalAccountId: number): Promise<void> {

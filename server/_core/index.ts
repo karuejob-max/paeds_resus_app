@@ -19,6 +19,8 @@ import {
   handleMpesaQueryWebhook,
   handleMpesaTimeoutWebhook,
 } from "../webhooks/mpesa-webhook";
+import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
+import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
 import { initializeScheduler } from "../scheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {

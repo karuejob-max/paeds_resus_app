@@ -4,6 +4,7 @@
 import { and, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { getDb } from "./db";
 import { certificates, users } from "../drizzle/schema";
+import { sendEmail } from "./email-service";
 
 function expiryWindowBounds() {
   const now = Date.now();

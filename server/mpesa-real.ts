@@ -7,6 +7,7 @@
 import axios from "axios";
 
 import { isMpesaProduction } from "./lib/mpesa-env";
+import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
 import { getDarajaTimestampNairobi } from "./lib/daraja-timestamp";
 import { normalizeDarajaAccountReference } from "./lib/daraja-account-reference";
 
