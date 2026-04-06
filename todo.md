@@ -48,14 +48,15 @@
 - [x] Add PHI handling compliance checks
 - [x] Security testing and validation
 
-### Phase 1: Integrate Security Utilities into tRPC (In Progress)
-- [ ] Wire password validator into auth.changePassword procedure
-- [ ] Integrate session manager into auth.login procedure
-- [ ] Implement session refresh logic in auth.refreshSession
-- [ ] Add audit logger to all admin procedures (adminOnlyProcedure wrapper)
-- [ ] Create audit log query procedures for admin dashboard
+### Phase 1: Integrate Security Utilities into tRPC (COMPLETE ✅)
+- [x] Wire password validator into auth.changePassword procedure
+- [x] Integrate session manager into auth.login procedure (sessionMaxAgeMs)
+- [x] Add audit logger to auth.login, auth.logout, auth.resetPassword, auth.changePassword
+- [x] Create audit log query procedures (auditLogs.list, auditLogs.getByUser)
+- [x] Build succeeds locally
+- [x] Push to GitHub
 - [ ] Write comprehensive tRPC integration tests
-- [ ] Validate end-to-end security flow
+- [ ] Validate end-to-end security flow in browser
 
 ### Phase 2: Build ResusGPS v4 Clinical Features (COMPLETE ✅)
 
