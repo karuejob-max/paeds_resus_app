@@ -180,8 +180,8 @@ function Router() {
           <Route path="/faq">{() => <Redirect to="/help" />}</Route>
           <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/enroll" />}</Route>
-          {/* / : logged-in → Home hub; anonymous → ResusGPS */}
-          <Route path="/" component={DefaultPage} />
+          {/* / : logged-in → Home hub; anonymous → Home */}
+          <Route path="/" component={Home} />
           <Route path="/resus" component={Home} />
           {/* Catch all → Home (temporarily disabled ResusGPS) */}
           <Route component={Home} />
