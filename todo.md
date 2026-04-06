@@ -401,3 +401,58 @@
 - [ ] Update WORK_STATUS.md with completion notes
 - [ ] Commit all changes to Git
 - [ ] Ready for production deployment
+
+
+## Phase 4: Micro-course Development (Following PSOT §15.2-15.5, §16)
+
+### 4.1: Paediatric Septic Shock I (Foundational)
+- [ ] Create course content outline (recognition, first-hour actions, safe escalation)
+- [ ] Write module 1: Recognition of septic shock (clinical signs, perfusion assessment)
+- [ ] Write module 2: First-hour safe actions (IV access, fluids, antibiotics, escalation)
+- [ ] Write module 3: When to refer (vasoactive drugs, advanced monitoring, refractory shock)
+- [ ] Create module quizzes (pass threshold 80%)
+- [ ] Align with ResusGPS ABCDE mental model
+- [ ] Add LMIC-safe framing (local policy first, pragmatic drug choices)
+- [ ] Create course metadata (programType, pricingSku, courseDisplayName)
+- [ ] Generate branded PDF certificate template
+- [ ] Test full course flow (enroll → complete modules → pass quiz → download certificate)
+
+### 4.2: Paediatric Septic Shock II (Advanced)
+- [ ] Create course content outline (fluid-refractory shock, catecholamine-refractory shock, advanced therapies)
+- [ ] Write modules (deeper management, second-line therapies, advanced monitoring)
+- [ ] Set prerequisite: Septic Shock I must be completed
+- [ ] Price at 1.5× Septic Shock I (per PSOT §16.4)
+- [ ] Test prerequisite enforcement
+
+### 4.3: Clinical Learning Journey Integration
+- [ ] Create "Paediatric Septic Shock" learning journey (Septic Shock I + II + ResusGPS)
+- [ ] Display journey on learner dashboard
+- [ ] Show progression (Course I → Course II → ResusGPS)
+- [ ] Track completion metrics
+- [ ] Update admin reports to show journey enrollment and completion
+
+### 4.4: Additional Micro-courses (Backlog)
+- [ ] Asthma escalation (Course I + II)
+- [ ] Convulsive status epilepticus (Course I + II)
+- [ ] Anaphylaxis (Course I + II)
+- [ ] DKA (Course I + II)
+- [ ] Refer to MICRO_COURSE_CATALOG_BACKLOG.md for full 24-slot catalog
+
+## Phase 5: Institutional Portal Enhancements (Following PSOT §15.3)
+
+### 5.1: Staff Management
+- [ ] Hospital admin can view staff roster
+- [ ] Assign staff to courses
+- [ ] Track course completion per staff member
+- [ ] Generate staff training reports
+
+### 5.2: Institutional Metrics & Readiness Signals
+- [ ] Dashboard showing paediatric emergency readiness
+- [ ] Staff training completion rates
+- [ ] ResusGPS usage metrics
+- [ ] Care Signal incident reporting integration
+
+### 5.3: Care Signal Integration
+- [ ] Provider incident reporting form
+- [ ] Monthly discipline pillar tracking (courses + ResusGPS + Care Signal)
+- [ ] QI culture dashboard for institutions
