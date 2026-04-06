@@ -23,6 +23,8 @@ import { useCountdownTimer } from '@/hooks/useCountdownTimer';
 import { TimerCard } from '@/components/TimerCard';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
+import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
+import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
