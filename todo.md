@@ -104,10 +104,15 @@
 - [ ] Test with neonates, children, adolescents
 
 #### Phase 2e: Multi-Diagnosis Support
+- [x] Create multi-diagnosis.ts utility with concurrent diagnosis support
+- [x] Implement suggestDiagnoses() to return all matches (not just top 1)
+- [x] Add diagnosis confidence levels (definite/likely/consider)
+- [x] Create DiagnosisCard.tsx component with findings and interventions
+- [x] Implement diagnosis lifecycle (create, resolve, remove)
 - [ ] Update ResusSession to support diagnosis array
-- [ ] Modify getSuggestedDiagnoses() to return all matches
-- [ ] Create diagnosis cards UI component
+- [ ] Integrate multi-diagnosis into ResusGPS component
 - [ ] Update reassessment for each diagnosis
+- [ ] Test with concurrent conditions (sepsis+DKA, asthma+pneumonia)
 
 #### Phase 2f: Dose Rationale Display
 - [ ] Create DoseRationale type with calculation details
