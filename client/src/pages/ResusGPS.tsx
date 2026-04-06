@@ -778,6 +778,21 @@ function TopBar({
           </Button>
         )}
 
+        {/* Undo button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={() => {
+            // TODO: Wire to useUndo hook
+            toast.info('Undo: Coming soon');
+          }}
+          title="Undo last action (Cmd+Z)"
+          aria-label="Undo"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+
         {/* Log */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
           <FileText className="h-4 w-4" />

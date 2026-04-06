@@ -178,6 +178,9 @@ export interface ResusSession {
   vitalSigns: VitalSigns;
   fluidTracker: FluidTracker;
   derivedPerfusion: string | null; // engine-derived perfusion state
+  undoStack: ResusSession[]; // Previous states (max 50)
+  redoStack: ResusSession[]; // States after undo (max 50)
+  lastActionId?: string; // Track what was undone for UI feedback
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────
