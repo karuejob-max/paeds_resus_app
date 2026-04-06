@@ -81,10 +81,15 @@
 - [ ] Test with common drugs (epinephrine, fluids, diazepam)
 
 #### Phase 2c: Countdown Timers
-- [ ] Create TimerCard.tsx component
-- [ ] Add timer state to Intervention type
-- [ ] Implement useTimer() hook with audio alerts
+- [x] Create countdown-timer.ts utility with CPR, medication, intervention timers
+- [x] Implement useCountdownTimer() React hook with audio alerts
+- [x] Create TimerCard.tsx component with pause/resume/reset controls
+- [x] Add timer urgency levels (normal/warning/critical) with color coding
+- [x] Implement audio alert patterns (beep, warning, critical)
+- [ ] Integrate timers into intervention lifecycle
 - [ ] Wire reassessment prompts to timer expiry
+- [ ] Test audio alerts across browsers
+- [ ] Persist timers across page reloads (localStorage)
 
 #### Phase 2d: Structured Age Input
 - [ ] Create AgeInput.tsx component (years/months/weeks)
