@@ -92,10 +92,16 @@
 - [ ] Persist timers across page reloads (localStorage)
 
 #### Phase 2d: Structured Age Input
-- [ ] Create AgeInput.tsx component (years/months/weeks)
-- [ ] Add calculateWeightFromAge() helper
+- [x] Create age-calculator.ts utility with WHO growth chart weight estimation
+- [x] Implement age-based drug restriction checking (ibuprofen, NSAIDs, antibiotics, etc.)
+- [x] Create AgeInput.tsx component with years/months/weeks spinners
+- [x] Add quick presets (newborn, 1m, 3m, 6m, 1y, 2y, 5y, 10y, 15y)
+- [x] Auto-calculate weight from age with WHO charts
+- [x] Show age category (neonate/infant/toddler/school/adolescent)
+- [ ] Integrate AgeInput into patient info dialog
 - [ ] Update calcDose() to use structured age
-- [ ] Add age-based drug restrictions
+- [ ] Add age-specific dosing notes to dose rationale
+- [ ] Test with neonates, children, adolescents
 
 #### Phase 2e: Multi-Diagnosis Support
 - [ ] Update ResusSession to support diagnosis array
