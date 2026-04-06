@@ -33,7 +33,38 @@
 - [x] 43 comprehensive tests passing (including full DKA scenario)
 - [x] Update App.tsx routing for new system
 
-## Sprint 5: ResusGPS Auto-Launch, Admin Notifications, Facility Benchmarking (In Progress - Manus)
+## PSoT Priority Order (Locked) - PIVOTING NOW
+
+### Priority 1: Analytics Instrumentation
+- [x] ResusGPS sessions emit to analyticsEvents
+- [x] Care Signal submissions tracked
+- [x] Admin reports show real product activity
+
+### Priority 2: Staging Environment (In Progress - Manus)
+- [ ] Set up staging infrastructure (develop to staging, main to production)
+- [ ] Configure branch-based deployment pipeline
+- [ ] Implement PR verification on staging before production
+- [ ] Document staging deployment procedures
+- [ ] Test full deployment workflow
+
+### Priority 3: Security Baseline (In Progress - Manus)
+- [ ] Implement password complexity rules (8+ chars, mix of case/numbers/symbols)
+- [ ] Configure session max age (sliding expiry, refresh token logic)
+- [ ] Build admin audit logging system (track admin actions, timestamps, user)
+- [ ] Implement data retention policies
+- [ ] Add PHI handling compliance checks
+- [ ] Security testing and validation
+
+### Priority 4: ResusGPS v4 Clinical Features (In Progress - Manus)
+- [ ] Implement undo functionality (undo last finding, threat, intervention)
+- [ ] Add medication deduplication (prevent duplicate drug orders)
+- [ ] Support multi-diagnosis tracking (manage >1 condition simultaneously)
+- [ ] Implement structured age input (years/months/weeks for neonates)
+- [ ] Build countdown timers for time-critical interventions
+- [ ] Add dose rationale explanations (why this dose, based on what)
+- [ ] Clinical validation and testing
+
+## Sprint 5: ResusGPS Auto-Launch, Admin Notifications, Facility Benchmarking (PAUSED - Deprioritized)
 
 ### Phase 5.1: ResusGPS Auto-Launch Integration
 - [ ] Create ResusGPS launch handler that accepts pathway parameter
