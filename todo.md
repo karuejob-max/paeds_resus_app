@@ -60,12 +60,15 @@
 ### Phase 2: Build ResusGPS v4 Clinical Features (In Progress)
 
 #### Phase 2a: Undo Functionality
-- [ ] Add undoStack/redoStack to ResusSession type
-- [ ] Create undo-manager.ts utility
-- [ ] Implement pushToUndoStack() before state mutations
-- [ ] Add undo/redo tRPC procedures
-- [ ] Wire UI buttons (Cmd+Z / Ctrl+Z)
-- [ ] Add toast feedback for undo actions
+- [x] Add undoStack/redoStack to ResusSession type
+- [x] Create undo-manager.ts utility
+- [x] Implement pushToUndoStack() before state mutations
+- [x] Add useUndo() React hook with keyboard shortcuts
+- [x] Wire UI buttons (Cmd+Z / Ctrl+Z)
+- [x] Add comprehensive tests for undo/redo operations
+- [ ] Integrate undo into all question answer handlers
+- [ ] Integrate undo into intervention handlers
+- [ ] Test full resuscitation flow with undo
 
 #### Phase 2b: Medication Deduplication
 - [ ] Create isDuplicateDrug() detection logic
