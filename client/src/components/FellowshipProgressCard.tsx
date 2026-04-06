@@ -60,16 +60,16 @@ export function FellowshipProgressCard() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <CardTitle>Fellowship Progress — Pillar B</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-xl md:text-2xl">Fellowship Progress — Pillar B</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
               ResusGPS cases per taught condition (≥3 required)
             </CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-primary">{pillarB.percentage}%</div>
-            <p className="text-sm text-muted-foreground">
+          <div className="text-left md:text-right">
+            <div className="text-2xl md:text-3xl font-bold text-primary">{pillarB.percentage}%</div>
+            <p className="text-xs md:text-sm text-muted-foreground">
               {pillarB.achieved}/{pillarB.required} conditions
             </p>
           </div>
@@ -87,18 +87,23 @@ export function FellowshipProgressCard() {
 
         {/* Tabs for different views */}
         <Tabs defaultValue="minimum" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="minimum">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Achieved ({progressData.totalConditionsAtMinimum})
+          <TabsList className="grid w-full grid-cols-3 gap-1">
+            <TabsTrigger value="minimum" className="text-xs md:text-sm">
+              <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+              <span className="hidden sm:inline">Achieved</span>
+              <span className="sm:hidden">Done</span>
+              <span className="hidden md:inline"> ({progressData.totalConditionsAtMinimum})</span>
             </TabsTrigger>
-            <TabsTrigger value="progress">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              In Progress ({progressData.conditionsInProgress.length})
+            <TabsTrigger value="progress" className="text-xs md:text-sm">
+              <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+              <span className="hidden sm:inline">In Progress</span>
+              <span className="sm:hidden">Next</span>
+              <span className="hidden md:inline"> ({progressData.conditionsInProgress.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="all">
-              <Circle className="w-4 h-4 mr-2" />
-              All ({pillarB.required})
+            <TabsTrigger value="all" className="text-xs md:text-sm">
+              <Circle className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 flex-shrink-0" />
+              <span className="hidden sm:inline">All</span>
+              <span className="hidden md:inline"> ({pillarB.required})</span>
             </TabsTrigger>
           </TabsList>
 
@@ -177,7 +182,7 @@ export function FellowshipProgressCard() {
 
           {/* All conditions */}
           <TabsContent value="all" className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto">
               {allConditions?.map((cond) => {
                 const achieved = progressData.details.minimum.find(
                   (c) => c.condition === cond.value
@@ -189,7 +194,7 @@ export function FellowshipProgressCard() {
                 return (
                   <div
                     key={cond.value}
-                    className={`p-2 rounded border text-sm ${
+                    className={`p-2 md:p-3 rounded border text-xs md:text-sm ${
                       achieved
                         ? 'bg-green-50 border-green-200'
                         : inProgress
@@ -197,13 +202,13 @@ export function FellowshipProgressCard() {
                         : 'bg-gray-50 border-gray-200'
                     }`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1 md:gap-2">
                       {achieved ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 text-green-600 mt-0.5 flex-shrink-0" />
                       ) : inProgress ? (
-                        <TrendingUp className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                       ) : (
-                        <Circle className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <Circle className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-xs truncate">{cond.label}</p>

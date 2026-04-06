@@ -6,14 +6,17 @@
  * - Provider engagement per condition
  * - Training gaps (conditions with zero practice)
  * - Trends over time
+ * - CSV export for reporting
  */
 
 import React, { useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, Users, Clock, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Users, Clock, AlertTriangle, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ConditionHeatmapProps {
   institutionId: string;
@@ -51,6 +54,38 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
     }));
   }, [heatmapData]);
 
+  const exportToCSV = () => {
+    if (!heatmapData?.heatmap) return;
+
+    const headers = ['Condition', 'Sessions', 'Providers', 'Avg Duration (min)', 'Last Practiced', 'Days Since', 'Trend'];
+    const rows = heatmapData.heatmap.map((c) => [
+      c.label,
+      c.validSessions,
+      c.providersCount,
+      (c.averageDuration / 60).toFixed(1),
+      c.lastPracticed || 'Never',
+      c.daysSinceLast || 'N/A',
+      c.trend || 'stable',
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `condition-heatmap-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast.success('Heatmap exported to CSV');
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -86,37 +121,49 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <CardTitle>Condition Practice Heatmap</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-xl md:text-2xl">Condition Practice Heatmap</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
               {heatmapData.institutionName} — Last {daysBack} days
             </CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-primary">{heatmapData.totalValidSessions}</div>
-            <p className="text-sm text-muted-foreground">total sessions</p>
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+            <div className="text-left md:text-right">
+              <div className="text-2xl md:text-3xl font-bold text-primary">{heatmapData.totalValidSessions}</div>
+              <p className="text-xs md:text-sm text-muted-foreground">total sessions</p>
+            </div>
+            <Button
+              onClick={exportToCSV}
+              variant="outline"
+              size="sm"
+              className="w-full md:w-auto"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:hidden">Export</span>
+            </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
         {/* Key metrics */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              <p className="text-xs font-medium text-blue-900">Conditions Tracked</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+          <div className="p-2 md:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-1 md:gap-2 mb-1">
+              <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
+              <p className="text-xs font-medium text-blue-900">Conditions</p>
             </div>
-            <p className="text-2xl font-bold text-blue-600">{heatmapData.conditionsTracked}</p>
+            <p className="text-xl md:text-2xl font-bold text-blue-600">{heatmapData.conditionsTracked}</p>
           </div>
 
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-green-600" />
-              <p className="text-xs font-medium text-green-900">Avg Providers/Condition</p>
+          <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-1 md:gap-2 mb-1">
+              <Users className="w-3 h-3 md:w-4 md:h-4 text-green-600 flex-shrink-0" />
+              <p className="text-xs font-medium text-green-900">Avg Providers</p>
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-xl md:text-2xl font-bold text-green-600">
               {Math.round(
                 heatmapData.heatmap.reduce((sum, c) => sum + c.providersCount, 0) /
                   Math.max(heatmapData.conditionsTracked, 1)
@@ -124,12 +171,12 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
             </p>
           </div>
 
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-amber-600" />
+          <div className="p-2 md:p-3 bg-amber-50 border border-amber-200 rounded-lg col-span-2 md:col-span-1">
+            <div className="flex items-center gap-1 md:gap-2 mb-1">
+              <Clock className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0" />
               <p className="text-xs font-medium text-amber-900">Avg Duration</p>
             </div>
-            <p className="text-2xl font-bold text-amber-600">
+            <p className="text-xl md:text-2xl font-bold text-amber-600">
               {Math.round(
                 heatmapData.heatmap.reduce((sum, c) => sum + c.averageDuration, 0) /
                   Math.max(heatmapData.conditionsTracked, 1) /
@@ -142,28 +189,29 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
 
         {/* Bar chart */}
         {chartData.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="font-medium text-sm">Top Conditions by Session Count</h3>
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="space-y-2 overflow-x-auto">
+            <h3 className="font-medium text-xs md:text-sm">Top Conditions by Session Count</h3>
+            <ResponsiveContainer width="100%" height={250} minWidth={300}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="name"
                   angle={-45}
                   textAnchor="end"
-                  height={100}
-                  tick={{ fontSize: 12 }}
+                  height={80}
+                  tick={{ fontSize: 10 }}
                 />
-                <YAxis />
+                <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#fff',
                     border: '1px solid #ccc',
                     borderRadius: '4px',
+                    fontSize: '12px',
                   }}
                   formatter={(value) => [value, 'Sessions']}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
                 <Bar dataKey="sessions" fill="#3b82f6" radius={[8, 8, 0, 0]}>
                   {chartData.map((entry, index) => (
                     <Cell
@@ -179,16 +227,16 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
 
         {/* Top conditions table */}
         <div className="space-y-2">
-          <h3 className="font-medium text-sm">Top 5 Practiced Conditions</h3>
+          <h3 className="font-medium text-xs md:text-sm">Top 5 Practiced Conditions</h3>
           <div className="space-y-2">
-            {topConditions.map((condition, idx) => (
+            {topConditions.map((condition) => (
               <div
                 key={condition.condition}
-                className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg"
               >
-                <div className="flex items-center gap-3 flex-1">
+                <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0"
                     style={{
                       backgroundColor: getHeatmapColor(
                         condition.validSessions,
@@ -196,15 +244,14 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
                       ),
                     }}
                   />
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{condition.label}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-xs md:text-sm truncate">{condition.label}</p>
                     <p className="text-xs text-muted-foreground">
-                      {condition.providersCount} provider{condition.providersCount !== 1 ? 's' : ''} •{' '}
-                      {condition.averageDuration}s avg
+                      {condition.providersCount} provider{condition.providersCount !== 1 ? 's' : ''} • {Math.round(condition.averageDuration / 60)} min
                     </p>
                   </div>
                 </div>
-                <Badge variant="secondary">{condition.validSessions} sessions</Badge>
+                <Badge variant="secondary" className="text-xs md:text-sm w-fit">{condition.validSessions} sessions</Badge>
               </div>
             ))}
           </div>
@@ -212,22 +259,22 @@ export function ConditionHeatmap({ institutionId, daysBack = 30 }: ConditionHeat
 
         {/* Training gaps */}
         {trainingGaps.length > 0 && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="p-2 md:p-3 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="font-medium text-sm text-red-900">Training Gaps</p>
+              <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-xs md:text-sm text-red-900">Training Gaps</p>
                 <p className="text-xs text-red-800 mt-1">
                   {trainingGaps.length} condition{trainingGaps.length !== 1 ? 's' : ''} with no practice in the last {daysBack} days:
                 </p>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {trainingGaps.slice(0, 5).map((cond) => (
-                    <Badge key={cond.condition} variant="outline" className="text-red-700 border-red-300">
+                    <Badge key={cond.condition} variant="outline" className="text-red-700 border-red-300 text-xs">
                       {cond.label}
                     </Badge>
                   ))}
                   {trainingGaps.length > 5 && (
-                    <Badge variant="outline" className="text-red-700 border-red-300">
+                    <Badge variant="outline" className="text-red-700 border-red-300 text-xs">
                       +{trainingGaps.length - 5} more
                     </Badge>
                   )}
