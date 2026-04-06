@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Stethoscope, Users, Building2, ArrowRight, Heart, Briefcase, Share2, BarChart3, Shield } from "lucide-react";
 // import { FellowshipProgressCard } from "@/components/FellowshipProgressCard"; // TODO: Deprioritized, unblock staging
+// v2: Force Render redeploy
 
 type UserType = "individual" | "parent" | "institutional";
 
