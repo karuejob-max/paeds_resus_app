@@ -71,10 +71,14 @@
 - [ ] Test full resuscitation flow with undo
 
 #### Phase 2b: Medication Deduplication
-- [ ] Create isDuplicateDrug() detection logic
-- [ ] Add checkMedicationDuplicate() tRPC procedure
-- [ ] Show warning dialog for duplicates
+- [x] Create isDuplicateDrug() detection logic (medication-deduplication.ts)
+- [x] Implement checkMedicationDuplicate() with exceptions (boluses, different routes, time-based)
+- [x] Create DuplicateWarningDialog component
+- [x] Add comprehensive tests for deduplication logic
+- [ ] Integrate deduplication into startIntervention handler
+- [ ] Wire dialog into ResusGPS component
 - [ ] Log deduplication events to analytics
+- [ ] Test with common drugs (epinephrine, fluids, diazepam)
 
 #### Phase 2c: Countdown Timers
 - [ ] Create TimerCard.tsx component
