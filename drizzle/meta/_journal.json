@@ -197,6 +197,13 @@
       "when": 1775188687422,
       "tag": "0027_silent_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1775455956764,
+      "tag": "0028_watery_boomerang",
+      "breakpoints": true
     }
   ]
 }
