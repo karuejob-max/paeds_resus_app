@@ -117,6 +117,7 @@ import { cprSessionRouter } from "./routers/cpr-session";
 import { guidelinesRouter } from "./routers/guidelines";
 import { fellowshipPathwaysRouter } from "./routers/fellowship-pathways";
 import { recommendationEngineRouter } from "./routers/recommendation-engine";
+import { streakTrackingRouter } from "./routers/streak-tracking";
 
 export const appRouter = router({
   system: systemRouter,
@@ -266,6 +267,7 @@ export const appRouter = router({
   guidelines: guidelinesRouter,
   fellowshipPathways: fellowshipPathwaysRouter,
   recommendationEngine: recommendationEngineRouter,
+  streakTracking: streakTrackingRouter,
   emergencyProtocols: emergencyProtocolsRouter,
   alerts: alertsRouter,
   diagnosis: diagnosisRouter,

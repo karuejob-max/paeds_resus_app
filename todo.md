@@ -199,14 +199,14 @@
 ## Sprint 4: Fellowship Engagement & Institutional Intelligence
 
 ### Phase 4.1: Embed Recommendation in FellowshipProgressCard
-- [ ] Wire ConditionRecommendation component into FellowshipProgressCard
-- [ ] Show recommended condition prominently in "Next Steps" section
-- [ ] Add "Practice Now" CTA that launches ResusGPS with recommended pathway
-- [ ] Display facility gap context ("Not practiced in 45 days at your facility")
-- [ ] Test recommendation display on all screen sizes
-- [ ] Verify recommendation updates after each ResusGPS session
+- [x] Wire ConditionRecommendation component into FellowshipProgressCard
+- [x] Show recommended condition prominently in "Next Steps" section
+- [x] Add "Practice Now" CTA that launches ResusGPS with recommended pathway
+- [x] Display facility gap context ("Not practiced in 45 days at your facility")
+- [x] Test recommendation display on all screen sizes
+- [x] Verify recommendation updates after each ResusGPS session
 
-### Phase 4.2: Practice Streak Gamification
+### Phase 4.2: Practice Streak Gamification (In Progress - Manus)
 - [ ] Create streak tracking schema (condition, consecutive days, current streak count)
 - [ ] Build streak calculation logic (daily practice window, EAT timezone)
 - [ ] Design streak badges (7-day, 14-day, 30-day milestones)
@@ -216,7 +216,7 @@
 - [ ] Create streak leaderboard (facility-level, anonymized)
 - [ ] Test streak logic across timezone boundaries
 
-### Phase 4.3: Facility Admin Dashboard
+### Phase 4.3: Facility Admin Dashboard (In Progress - Manus)
 - [ ] Build FacilityTrainingGapsPage component
 - [ ] Show conditions not practiced in 30/60/90 days
 - [ ] Display staff engagement metrics (avg sessions/week, active learners)
@@ -226,18 +226,26 @@
 - [ ] Wire to admin /admin/institutional-analytics route
 - [ ] Test with various facility sizes and practice patterns
 
-### Phase 4.4: Testing & Integration
-- [ ] Create integration tests for recommendation embedding
+### Phase 4.4: ResusGPS Completion Notifications (In Progress - Manus)
+- [ ] Wire ResusGPS completion handler to call recordSession
+- [ ] Display validation feedback ("Session recorded: Septic Shock + Meningitis")
+- [ ] Show next recommended condition in toast
+- [ ] Add session summary (duration, interactions, depth score)
+- [ ] Test notifications don't interfere with ResusGPS flow
+- [ ] Verify notifications appear on all screen sizes
+
+### Phase 4.5: Testing & Integration
+- [ ] Create integration tests for streak system
 - [ ] Test streak calculation across month boundaries
 - [ ] Verify streak notifications don't spam users
 - [ ] Test facility dashboard with edge cases (new facility, no practice data)
 - [ ] Performance test: facility dashboard load <1s for 100+ staff
 - [ ] Test leaderboard anonymization (no PII exposure)
 
-### Phase 4.5: Documentation & Deployment
+### Phase 4.6: Documentation & Deployment
 - [ ] Update FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md with engagement metrics
 - [ ] Create GAMIFICATION_STRATEGY.md (streak rules, badge criteria, leaderboard logic)
 - [ ] Create FACILITY_ADMIN_GUIDE.md (how to interpret training gaps)
 - [ ] Update WORK_STATUS.md with completion notes
-- [ ] Commit all changes
+- [ ] Commit all changes to Git
 - [ ] Ready for production deployment

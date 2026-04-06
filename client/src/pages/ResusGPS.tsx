@@ -297,14 +297,15 @@ export default function ResusGPS() {
       
       if (result?.isValid) {
         const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
+        const nextRec = result.nextRecommendedCondition ? ` Practice next: ${result.nextRecommendedCondition}` : '';
         toast.success(
-          `Valid session: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}`,
-          { duration: 4000 }
+          `Session Valid: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}${nextRec}`,
+          { duration: 5000 }
         );
       } else if (result?.depthScore && result.depthScore < 50) {
         toast.warning(
-          `Session recorded (depth: ${result.depthScore}%). More interactions needed for fellowship credit.`,
-          { duration: 4000 }
+          `Session recorded (depth: ${result.depthScore}%). ${Math.ceil((50 - result.depthScore) / 10)} more interactions needed for fellowship credit.`,
+          { duration: 5000 }
         );
       } else {
         toast.success('Session recorded for fellowship tracking', { duration: 3000 });
