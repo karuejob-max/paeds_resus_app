@@ -6,9 +6,7 @@ import { payments, enrollments } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
-import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
-import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 
 export const mpesaRouter = router({
   /**

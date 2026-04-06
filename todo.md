@@ -456,3 +456,121 @@
 - [ ] Provider incident reporting form
 - [ ] Monthly discipline pillar tracking (courses + ResusGPS + Care Signal)
 - [ ] QI culture dashboard for institutions
+
+
+---
+
+## Fellowship Qualification System Implementation (PSOT §16-17)
+
+### Phase 1: Data & Schema (COMPLETE ✅)
+- [x] PSOT updated: 26-course requirement (toxicology, burns, infectious)
+- [x] Database schema extended: fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets
+- [x] Extended microCourses with isRequired, courseOrder, prerequisite fields
+- [x] Extended microCourseEnrollments with startedAt, prerequisiteValidated fields
+- [x] Migration: 114 tables processed
+
+### Phase 2: Automation & Procedures (IN PROGRESS)
+
+#### 2.1 Course Prerequisite Enforcement
+- [x] Create validatePrerequisite helper function
+- [x] Implement prerequisite validation in fellowship qualification router
+- [x] Update courses router to check prerequisites before enrollment
+- [ ] Write integration test: enroll Course I → fail → cannot enroll Course II → pass → can enroll
+
+#### 2.2 Care Signal Grace/Catch-Up/Streak Logic
+- [x] Create getCareSIgnalMonthlyStatus helper (monthly validation)
+- [x] Create processCareSIgnalMonthly helper (grace/catch-up/streak logic)
+- [x] Implement grace budget tracking (2 per calendar year, EAT)
+- [x] Implement catch-up rule (≥3 events in month after grace)
+- [x] Implement streak reset on 3rd consecutive miss
+- [ ] Write comprehensive tests: normal month, grace month, catch-up success, catch-up fail, streak reset
+
+#### 2.3 Fellowship Qualification System
+- [x] Create fellowshipQualificationRouter with 6 procedures
+- [x] Implement validateEnrollment (prerequisite check)
+- [x] Implement getProgress (all 3 pillars)
+- [x] Implement getCoursePillarStatus (pillar A: 26 required courses)
+- [x] Implement getCareSIgnalPillarStatus (pillar C: 24 months)
+- [ ] Implement getResusGPSPillarStatus (pillar B: condition checklist)
+- [x] Implement getFullStatus (all 3 pillars aggregated)
+- [x] Implement processMonthly (admin: monthly Care Signal processing)
+- [ ] Write integration tests: full journey (courses → ResusGPS → Care Signal → Fellow status)
+
+### Phase 3: UI & Dashboard (NOT STARTED)
+
+#### 3.1 Fellowship Progress Dashboard
+- [ ] Create /fellowship/progress page route in App.tsx
+- [ ] Build FellowshipProgressDashboard.tsx (main component)
+- [ ] Build CoursePillarStatus.tsx (pillar A: required courses, progress bar, link to catalog)
+- [ ] Build ResusGPSConditionChecklist.tsx (pillar B: conditions, session counts, link to ResusGPS)
+- [ ] Build CareSIgnalMonthlyStatus.tsx (pillar C: monthly grid, streak, grace remaining, catch-up required)
+- [ ] Build FellowshipBadge.tsx (Fellow badge with icon for header/profile)
+- [ ] Build StreakResetAlert.tsx (alert when streak resets)
+- [ ] Add fellowship progress link to learner dashboard
+
+#### 3.2 UI Refinement & Messaging
+- [ ] Write grace/catch-up/reset messaging (PSOT: "Discipline in logging is leadership behaviour training")
+- [ ] Add tooltips explaining each pillar, grace rules, catch-up rule, streak reset
+- [ ] Test responsive design (mobile, tablet, desktop)
+- [ ] Accessibility review (color contrast, keyboard navigation, screen reader support)
+
+### Phase 4: Legal, Testing & Launch (NOT STARTED)
+
+#### 4.1 Legal & Compliance
+- [ ] Update privacy policy: Care Signal data collection, grace/streak rules, data retention, user rights
+- [ ] Update ToS: fellowship criteria, grace budget, streak reset, no manual overrides, appeals process
+- [ ] Document appeals process (system errors only, no subjective appeals)
+- [ ] Get legal review and approval
+
+#### 4.2 Testing & Validation
+- [ ] Unit tests: all procedures (90%+ coverage)
+- [ ] Integration tests: full journey (enroll courses → complete → ResusGPS sessions → Care Signal reporting → Fellow status)
+- [ ] E2E tests: real user flow (login → enroll → fail → retry → pass → ResusGPS → Care Signal → progress dashboard)
+- [ ] Grace/streak edge case tests: grace → catch-up success → grace → catch-up fail → reset
+- [ ] Performance test: 100+ concurrent users checking fellowship progress, target <500ms response
+- [ ] Security audit: no PII in public APIs, no privilege escalation, immutable audit trail
+
+#### 4.3 Launch Readiness
+- [ ] Data migration: backfill fellowshipProgress table for existing users
+- [ ] Seed production data: run courses.seedCourses on production DB
+- [ ] Smoke test: critical flows on production (enroll, complete, check progress)
+- [ ] Documentation: update README, deployment guide, API docs
+- [ ] User announcement: email about fellowship qualification system launch
+
+### Critical Gaps to Close (From Audit)
+
+#### Gap 1: Micro-Course Catalog Misalignment
+- [x] PSOT updated to reflect 26-course requirement
+- [ ] Create 10 missing courses (Croup, Upper Airway, Advanced Airway, Bronchiolitis, HFNC/CPAP, Anaphylaxis, Neurogenic, Cardiogenic x2, PE, Tamponade, Tet Spells, Systematic Approach, Cardiac Arrest)
+- [ ] Reclassify 6 extra courses as "elective" (toxicology, burns, infectious)
+- [ ] Set course order 1-26 per PSOT mapping
+- [ ] Clinical review: all 26 courses with trusted references (WHO, AHA ECC, CDC, FEAST)
+
+#### Gap 2: Course Prerequisites Not Enforced
+- [x] Prerequisite enforcement implemented in router
+- [ ] Integration test: verify Course II blocked without Course I completion
+
+#### Gap 3: Care Signal Grace/Catch-Up/Streak Logic Missing
+- [x] Grace logic implemented (2 per calendar year, EAT)
+- [x] Catch-up rule implemented (≥3 events required)
+- [x] Streak reset logic implemented (3rd consecutive miss)
+- [ ] Comprehensive edge case tests
+
+#### Gap 4: No Fellowship Qualification System
+- [x] Router created with 6 procedures
+- [x] Pillar A (courses) implemented
+- [x] Pillar C (Care Signal) implemented
+- [ ] Pillar B (ResusGPS conditions) implemented
+- [ ] Full integration tests
+
+#### Gap 5: No Fellowship Progress Dashboard
+- [ ] Dashboard page created
+- [ ] All 4 pillar components built
+- [ ] Grace/streak messaging added
+- [ ] Accessibility reviewed
+
+#### Gap 6: Legal/Consent Flows Missing
+- [ ] Privacy policy updated
+- [ ] ToS updated
+- [ ] Appeals process documented
+- [ ] Legal review completed

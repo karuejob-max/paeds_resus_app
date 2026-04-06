@@ -8,15 +8,11 @@ import {
   modules,
   quizzes,
   quizQuestions,
-  userProgress,
-  enrollments,
-} from "../../drizzle/schema";
+  enrollments} from "../../drizzle/schema";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
-  getPaediatricSepticShockCourseId,
-} from "../lib/ensure-paediatric-septic-shock-catalog";
-import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
+  getPaediatricSepticShockCourseId} from "../lib/ensure-paediatric-septic-shock-catalog";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 export const learningRouter = router({
@@ -40,8 +36,7 @@ export const learningRouter = router({
         programType: z.string().optional(),
         level: z.string().optional(),
         /** When set (e.g. PALS micro-course), only this catalog row is returned. */
-        courseId: z.number().optional(),
-      })
+        courseId: z.number().optional()})
     )
     .query(async ({ input }) => {
       const db = await getDb();
@@ -109,8 +104,7 @@ export const learningRouter = router({
 
       return {
         ...course[0],
-        modules: courseModules,
-      };
+        modules: courseModules};
     }),
 
   // Get module content with quizzes
@@ -159,8 +153,7 @@ export const learningRouter = router({
 
       return {
         ...module[0],
-        quizzes: quizzesWithQuestions,
-      };
+        quizzes: quizzesWithQuestions};
     }),
 
   // Get quiz questions
@@ -187,8 +180,7 @@ export const learningRouter = router({
         userId: ctx.user.id,
         programType: input.programType,
         trainingDate: new Date(),
-        paymentStatus: "completed",
-      });
+        paymentStatus: "completed"});
 
       return { success: true, message: "Enrolled successfully" };
     }),
@@ -200,11 +192,11 @@ export const learningRouter = router({
       const db = await getDb();
       const progress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.courseId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.courseId)
           )
         );
 
@@ -219,8 +211,7 @@ export const learningRouter = router({
         moduleId: z.number(),
         enrollmentId: z.number(),
         score: z.number(),
-        answers: z.any(),
-      })
+        answers: z.any()})
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -228,13 +219,13 @@ export const learningRouter = router({
       // Check if progress record exists
       const existing = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.quizId, input.quizId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId),
+            eq(learnerProgress.moduleId, input.moduleId),
+            eq(learnerProgress.quizId, input.quizId)
           )
         );
 
@@ -248,17 +239,16 @@ export const learningRouter = router({
 
       if (existing && existing.length > 0) {
         await (db as any)
-          .update(userProgress)
+          .update(learnerProgress)
           .set({
             score: input.score,
             attempts: ((existing[0] as any).attempts || 0) + 1,
             status: passed ? "completed" : "in_progress",
             completedAt: passed ? new Date() : (existing[0] as any).completedAt,
-            updatedAt: new Date(),
-          })
-          .where(eq(userProgress.id, (existing[0] as any).id));
+            updatedAt: new Date()})
+          .where(eq(learnerProgress.id, (existing[0] as any).id));
       } else {
-        await (db as any).insert(userProgress).values({
+        await (db as any).insert(learnerProgress).values({
           userId: ctx.user.id,
           enrollmentId: input.enrollmentId,
           moduleId: input.moduleId,
@@ -268,8 +258,7 @@ export const learningRouter = router({
           status: passed ? "completed" : "in_progress",
           completedAt: passed ? new Date() : null,
           createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+          updatedAt: new Date()});
       }
 
       return { success: true, score: input.score, passed, passingScore };
@@ -293,17 +282,16 @@ export const learningRouter = router({
 
       // Update all quiz progress for this module to completed (scoped to enrollment)
       await (db as any)
-        .update(userProgress)
+        .update(learnerProgress)
         .set({
           status: "completed",
           completedAt: new Date(),
-          updatedAt: new Date(),
-        })
+          updatedAt: new Date()})
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId),
-            eq(userProgress.moduleId, input.moduleId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId),
+            eq(learnerProgress.moduleId, input.moduleId)
           )
         );
 
@@ -318,8 +306,7 @@ export const learningRouter = router({
       z.object({
         courseId: z.number(),
         /** When set, stats only count progress rows for this enrollment (recommended). */
-        enrollmentId: z.number().optional(),
-      })
+        enrollmentId: z.number().optional()})
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -335,11 +322,11 @@ export const learningRouter = router({
       // Get user progress for each module
       const progressRows = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           input.enrollmentId !== undefined
-            ? and(eq(userProgress.userId, ctx.user.id), eq(userProgress.enrollmentId, input.enrollmentId))
-            : eq(userProgress.userId, ctx.user.id)
+            ? and(eq(learnerProgress.userId, ctx.user.id), eq(learnerProgress.enrollmentId, input.enrollmentId))
+            : eq(learnerProgress.userId, ctx.user.id)
         );
 
       const progress = progressRows.filter((p: { moduleId: number }) => moduleIds.has(p.moduleId));
@@ -359,8 +346,7 @@ export const learningRouter = router({
         completedModules,
         averageScore: Math.round(averageScore),
         percentComplete:
-          totalModules === 0 ? 0 : Math.round((completedModules / totalModules) * 100),
-      };
+          totalModules === 0 ? 0 : Math.round((completedModules / totalModules) * 100)};
     }),
 
   // Get learning dashboard
@@ -382,8 +368,7 @@ export const learningRouter = router({
       return {
         ...enrollment,
         course,
-        progress: { completed: 0, total: 0, percentage: 0 },
-      } as any;
+        progress: { completed: 0, total: 0, percentage: 0 }} as any;
     });
 
     return {
@@ -393,8 +378,7 @@ export const learningRouter = router({
       ).length,
       inProgressCourses: courseProgress.filter(
         (c: any) => c.status === "in_progress"
-      ).length,
-    };
+      ).length};
   }),
 
   // Get personalized learning path
@@ -402,8 +386,7 @@ export const learningRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
-      })
+        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"])})
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -445,11 +428,11 @@ export const learningRouter = router({
         programCourses.map(async (course: any) => {
           const progress = await (db as any)
             .select()
-            .from(userProgress)
+            .from(learnerProgress)
             .where(
               and(
-                eq(userProgress.userId, ctx.user.id),
-                eq(userProgress.enrollmentId, input.enrollmentId)
+                eq(learnerProgress.userId, ctx.user.id),
+                eq(learnerProgress.enrollmentId, input.enrollmentId)
               )
             );
           const totalModules = await (db as any)
@@ -467,8 +450,7 @@ export const learningRouter = router({
             progressPercentage:
               totalModules.length > 0
                 ? Math.round((completedModules / totalModules.length) * 100)
-                : 0,
-          };
+                : 0};
         })
       );
       return { enrollment: enrollment[0], courses: courseProgress };
@@ -482,11 +464,11 @@ export const learningRouter = router({
       if (!db) throw new Error("Database connection failed");
       const progress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         );
       const completedModules = progress.filter(
@@ -518,8 +500,7 @@ export const learningRouter = router({
         daysSinceStart,
         estimatedCompletionDays: Math.ceil(
           (100 - completedModules) / parseFloat(learningVelocity)
-        ),
-      };
+        )};
     }),
 
   // Submit quiz
@@ -532,10 +513,8 @@ export const learningRouter = router({
         answers: z.array(
           z.object({
             questionId: z.number(),
-            answer: z.string(),
-          })
-        ),
-      })
+            answer: z.string()})
+        )})
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -565,28 +544,27 @@ export const learningRouter = router({
       const passed = score >= (quiz[0]?.passingScore || 70);
       const existingProgress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.quizId, input.quizId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.moduleId, input.moduleId),
+            eq(learnerProgress.quizId, input.quizId)
           )
         )
         .limit(1);
       if (existingProgress[0]) {
         await (db as any)
-          .update(userProgress)
+          .update(learnerProgress)
           .set({
             score,
             attempts: existingProgress[0].attempts + 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : null,
-          })
-          .where(eq(userProgress.id, existingProgress[0].id));
+            completedAt: passed ? new Date() : null})
+          .where(eq(learnerProgress.id, existingProgress[0].id));
       } else {
         await (db as any)
-          .insert(userProgress)
+          .insert(learnerProgress)
           .values({
             userId: ctx.user.id,
             enrollmentId: input.enrollmentId,
@@ -595,16 +573,14 @@ export const learningRouter = router({
             score,
             attempts: 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : null,
-          });
+            completedAt: passed ? new Date() : null});
       }
       return {
         score,
         passed,
         passingScore: quiz[0]?.passingScore || 70,
         correctAnswers: correctCount,
-        totalQuestions: questions.length,
-      };
+        totalQuestions: questions.length};
     }),
 
   // Mark module as complete
@@ -612,42 +588,38 @@ export const learningRouter = router({
     .input(
       z.object({
         moduleId: z.number(),
-        enrollmentId: z.number(),
-      })
+        enrollmentId: z.number()})
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
       const existingProgress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.moduleId, input.moduleId),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         )
         .limit(1);
       if (existingProgress[0]) {
         await (db as any)
-          .update(userProgress)
+          .update(learnerProgress)
           .set({
             status: "completed",
-            completedAt: new Date(),
-          })
-          .where(eq(userProgress.id, existingProgress[0].id));
+            completedAt: new Date()})
+          .where(eq(learnerProgress.id, existingProgress[0].id));
       } else {
         await (db as any)
-          .insert(userProgress)
+          .insert(learnerProgress)
           .values({
             userId: ctx.user.id,
             enrollmentId: input.enrollmentId,
             moduleId: input.moduleId,
             status: "completed",
-            completedAt: new Date(),
-          });
+            completedAt: new Date()});
       }
       return { success: true };
-    }),
-});
+    })});

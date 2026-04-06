@@ -1,7 +1,8 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, auditLogs, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, trainingSchedules, institutionalAccounts } from "../drizzle/schema";
+// NOTE: Many tables removed - only importing tables that exist in schema
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -17,8 +18,7 @@ function getConnectionConfig(databaseUrl: string): mysql.PoolOptions {
     port: url.port ? parseInt(url.port, 10) : 3306,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
-    database: database || undefined,
-  };
+    database: database || undefined};
   if (needsSsl) {
     // Aiven/cloud often use certs Node doesn't trust by default; still use SSL but allow connection
     config.ssl = { rejectUnauthorized: false };
@@ -56,8 +56,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   try {
     const values: InsertUser = {
-      openId: user.openId,
-    };
+      openId: user.openId};
     const updateSet: Record<string, unknown> = {};
 
     const textFields = ["name", "email", "loginMethod"] as const;
@@ -94,8 +93,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     }
 
     await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+      set: updateSet});
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -145,8 +143,7 @@ export async function createUserWithPassword(data: {
     name: data.name,
     loginMethod: "email",
     passwordHash: data.passwordHash,
-    userType: data.userType ?? "individual",
-  });
+    userType: data.userType ?? "individual"});
 }
 
 export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {
@@ -299,24 +296,8 @@ export async function getNewFeedback(limit = 50) {
   return await db.select().from(userFeedback).where(eq(userFeedback.status, "new")).orderBy(desc(userFeedback.createdAt)).limit(limit);
 }
 
-// Analytics Events queries
-export async function trackAnalyticsEvent(data: any) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return await db.insert(analyticsEvents).values(data);
-}
-
-export async function getAnalyticsEventsByUserId(userId: number, limit = 100) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.userId, userId)).orderBy(desc(analyticsEvents.createdAt)).limit(limit);
-}
-
-export async function getAnalyticsEventsBySessionId(sessionId: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return await db.select().from(analyticsEvents).where(eq(analyticsEvents.sessionId, sessionId)).orderBy(desc(analyticsEvents.createdAt));
-}
+// Analytics Events queries - DEPRECATED (,table not in schema)
+// Use careSignalEvents or resusSessionRecords instead
 
 // Admin audit log (Phase 3 security baseline)
 export async function insertAdminAuditLog(data: InsertAdminAuditLog): Promise<void> {

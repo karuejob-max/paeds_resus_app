@@ -12,7 +12,6 @@ import {
 } from "../db";
 import { enrollments, payments, courses } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
-import { trackEvent } from "../services/analytics.service";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
   ensurePaediatricSepticShockCatalog,

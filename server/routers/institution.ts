@@ -5,16 +5,14 @@ import { getDb } from "../db";
 import {
   institutionalAccounts,
   institutionalInquiries,
-  institutionalStaffMembers,
+  
   quotations,
   contracts,
   trainingSchedules,
-  trainingAttendance,
   courses,
-  incidents,
-  institutionalAnalytics,
-  users,
-} from "../../drizzle/schema";
+  
+  
+  users} from "../../drizzle/schema";
 import { alias } from "drizzle-orm/mysql-core";
 import { eq, desc, and, inArray, count, asc, isNotNull } from "drizzle-orm";
 import { processBulkEnrollment } from "../institutional-enrollment";
@@ -22,9 +20,7 @@ import { assertInstitutionAccess } from "../lib/institution-access";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
   rollupInstitutionalAnalyticsForAccount,
-  rollupAllInstitutionalAccounts,
-} from "../institutional-analytics-rollup";
-import { trackEvent } from "../services/analytics.service";
+  rollupAllInstitutionalAccounts} from "../institutional-analytics-rollup";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -36,8 +32,7 @@ async function assertApprovedInstructorUser(db: DbClient, userId: number) {
       instructorApprovedAt: users.instructorApprovedAt,
       instructorCertifiedAt: users.instructorCertifiedAt,
       instructorNumber: users.instructorNumber,
-      name: users.name,
-    })
+      name: users.name})
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -48,15 +43,13 @@ async function assertApprovedInstructorUser(db: DbClient, userId: number) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        "That account has not completed the Paeds Resus Instructor Course and certification yet. They must enroll, complete modules, and receive their instructor number before assignment.",
-    });
+        "That account has not completed the Paeds Resus Instructor Course and certification yet. They must enroll, complete modules, and receive their instructor number before assignment."});
   }
   if (!row.instructorApprovedAt) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        "That account is not approved as an instructor. Ask a platform admin to approve them under Admin → Reports.",
-    });
+        "That account is not approved as an instructor. Ask a platform admin to approve them under Admin → Reports."});
   }
   return row;
 }
@@ -79,19 +72,18 @@ async function assertTrainingScheduleForInstitution(
   if (!rows.length) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: "Training session not found for this institution.",
-    });
+      message: "Training session not found for this institution."});
   }
 }
 
 async function syncTrainingScheduleEnrolledCount(db: DbClient, trainingScheduleId: number) {
   const [row] = await db
     .select({ n: count() })
-    .from(trainingAttendance)
+    .from(learnerProgress)
     .where(
       and(
-        eq(trainingAttendance.trainingScheduleId, trainingScheduleId),
-        inArray(trainingAttendance.attendanceStatus, ["registered", "attended", "absent"])
+        eq(learnerProgress.trainingScheduleId, trainingScheduleId),
+        inArray(learnerProgress.attendanceStatus, ["registered", "attended", "absent"])
       )
     );
   const n = Number(row?.n ?? 0);
@@ -149,8 +141,7 @@ export const institutionRouter = router({
     if (!db) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Database connection failed",
-      });
+        message: "Database connection failed"});
     }
 
     const rows = await db
@@ -161,8 +152,7 @@ export const institutionRouter = router({
 
     return {
       institution: rows[0] ?? null,
-      institutions: rows,
-    };
+      institutions: rows};
   }),
 
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
@@ -175,29 +165,25 @@ export const institutionRouter = router({
         contactPhone: z.string().min(5),
         staffCount: z.number().int().nonnegative(),
         preferredCourse: z.string().min(1),
-        message: z.string().optional(),
-      })
+        message: z.string().optional()})
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await db.insert(institutionalInquiries).values({
         companyName: input.institutionName,
         staffCount: Math.max(1, input.staffCount),
         specificNeeds: JSON.stringify({
           preferredCourse: input.preferredCourse,
-          message: input.message ?? "",
-        }),
+          message: input.message ?? ""}),
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
-        status: "new",
-      });
+        status: "new"});
       return { success: true as const };
     }),
 
@@ -221,8 +207,7 @@ export const institutionRouter = router({
         adminTitle: z.string(),
         planId: z.string(),
         planPrice: z.number(),
-        maxStaff: z.number(),
-      })
+        maxStaff: z.number()})
     )
     .mutation(async ({ input, ctx }) => {
       try {
@@ -230,8 +215,7 @@ export const institutionRouter = router({
         if (!db) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Database connection failed",
-          });
+            message: "Database connection failed"});
         }
 
         const existing = await db
@@ -247,8 +231,7 @@ export const institutionRouter = router({
             institutionId: existing[0].id,
             message: "You already have an institutional account.",
             nextStep: "portal" as const,
-            alreadyRegistered: true as const,
-          };
+            alreadyRegistered: true as const};
         }
 
         const result = await db.insert(institutionalAccounts).values({
@@ -259,22 +242,19 @@ export const institutionRouter = router({
           contactName: `${input.adminFirstName} ${input.adminLastName}`,
           contactEmail: input.adminEmail,
           contactPhone: input.adminPhone,
-          status: "active",
-        });
+          status: "active"});
 
         return {
           success: true,
           institutionId: (result as unknown as { insertId: number }).insertId || 1,
           message: "Institution registered successfully. Proceeding to payment...",
           nextStep: "payment" as const,
-          alreadyRegistered: false as const,
-        };
+          alreadyRegistered: false as const};
       } catch (error) {
         console.error("Institution registration error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to register institution",
-        });
+          message: "Failed to register institution"});
       }
     }),
 
@@ -296,16 +276,14 @@ export const institutionRouter = router({
         contactEmail: z.string().email(),
         contactPhone: z.string().min(1),
         contactDesignation: z.string().min(1),
-        programInterest: z.array(z.string()),
-      })
+        programInterest: z.array(z.string())})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       const existing = await db
@@ -319,8 +297,7 @@ export const institutionRouter = router({
         return {
           success: true,
           institutionId: existing[0].id,
-          alreadyRegistered: true as const,
-        };
+          alreadyRegistered: true as const};
       }
 
       const accountResult = await db.insert(institutionalAccounts).values({
@@ -331,8 +308,7 @@ export const institutionRouter = router({
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
-        status: "prospect",
-      });
+        status: "prospect"});
 
       const institutionId = (accountResult as unknown as { insertId: number }).insertId;
 
@@ -345,19 +321,16 @@ export const institutionRouter = router({
           city: input.city,
           country: input.country,
           contactDesignation: input.contactDesignation,
-          programInterest: input.programInterest,
-        }),
+          programInterest: input.programInterest}),
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
-        status: "new",
-      });
+        status: "new"});
 
       return {
         success: true,
         institutionId: institutionId || 1,
-        alreadyRegistered: false as const,
-      };
+        alreadyRegistered: false as const};
     }),
 
   getDetails: protectedProcedure
@@ -367,8 +340,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -382,8 +354,7 @@ export const institutionRouter = router({
       if (!institution.length) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Institution not found",
-        });
+          message: "Institution not found"});
       }
 
       return institution[0];
@@ -396,16 +367,14 @@ export const institutionRouter = router({
         companyName: z.string().optional(),
         contactPhone: z.string().optional(),
         contactEmail: z.string().email().optional(),
-        staffCount: z.number().optional(),
-      })
+        staffCount: z.number().optional()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -423,8 +392,7 @@ export const institutionRouter = router({
 
       return {
         success: true,
-        message: "Institution updated successfully",
-      };
+        message: "Institution updated successfully"};
     }),
 
   getStaffMembers: protectedProcedure
@@ -434,8 +402,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -464,16 +431,14 @@ export const institutionRouter = router({
           "other",
         ]),
         department: z.string().optional(),
-        yearsOfExperience: z.number().optional(),
-      })
+        yearsOfExperience: z.number().optional()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -486,14 +451,12 @@ export const institutionRouter = router({
         staffRole: input.staffRole,
         department: input.department || null,
         yearsOfExperience: input.yearsOfExperience || 0,
-        enrollmentStatus: "pending",
-      });
+        enrollmentStatus: "pending"});
 
       return {
         success: true,
         staffId: (result as unknown as { insertId: number }).insertId || 1,
-        message: "Staff member added successfully",
-      };
+        message: "Staff member added successfully"};
     }),
 
   bulkImportStaff: protectedProcedure
@@ -516,18 +479,15 @@ export const institutionRouter = router({
               "other",
             ]),
             department: z.string().optional(),
-            yearsOfExperience: z.number().optional(),
-          })
-        ),
-      })
+            yearsOfExperience: z.number().optional()})
+        )})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -545,18 +505,15 @@ export const institutionRouter = router({
             staffRole: staff.staffRole,
             department: staff.department || null,
             yearsOfExperience: staff.yearsOfExperience || 0,
-            enrollmentStatus: "pending",
-          });
+            enrollmentStatus: "pending"});
 
           imported.push({
             staffEmail: staff.staffEmail,
-            staffId: (result as unknown as { insertId: number }).insertId || 1,
-          });
+            staffId: (result as unknown as { insertId: number }).insertId || 1});
         } catch (error) {
           errors.push({
             staffEmail: staff.staffEmail,
-            error: (error as Error).message,
-          });
+            error: (error as Error).message});
         }
       }
 
@@ -565,8 +522,7 @@ export const institutionRouter = router({
         imported: imported.length,
         errors: errors.length,
         message: `Successfully imported ${imported.length} staff members`,
-        data: { imported, errors },
-      };
+        data: { imported, errors }};
     }),
 
   getQuotations: protectedProcedure
@@ -576,8 +532,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -595,8 +550,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -615,8 +569,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const instructorUser = alias(users, "instructorUser");
@@ -638,8 +591,7 @@ export const institutionRouter = router({
           status: trainingSchedules.status,
           createdAt: trainingSchedules.createdAt,
           updatedAt: trainingSchedules.updatedAt,
-          programType: courses.programType,
-        })
+          programType: courses.programType})
         .from(trainingSchedules)
         .leftJoin(courses, eq(trainingSchedules.courseId, courses.id))
         .leftJoin(instructorUser, eq(trainingSchedules.instructorId, instructorUser.id))
@@ -655,8 +607,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return await db
@@ -664,8 +615,7 @@ export const institutionRouter = router({
           id: users.id,
           name: users.name,
           email: users.email,
-          instructorNumber: users.instructorNumber,
-        })
+          instructorNumber: users.instructorNumber})
         .from(users)
         .where(
           and(
@@ -693,16 +643,14 @@ export const institutionRouter = router({
         instructorName: z.string().max(255).optional(),
         /** Must be admin-approved (`users.instructorApprovedAt`); sets `instructorId` + display name. */
         instructorUserId: z.number().int().positive().optional(),
-        maxCapacity: z.number().int().min(1).max(2000),
-      })
+        maxCapacity: z.number().int().min(1).max(2000)})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
@@ -719,8 +667,7 @@ export const institutionRouter = router({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "No course catalog entry for this program type. Add rows to the `courses` table or contact support.",
-        });
+            "No course catalog entry for this program type. Add rows to the `courses` table or contact support."});
       }
 
       const courseId = courseRows[0].id;
@@ -745,8 +692,7 @@ export const institutionRouter = router({
         instructorName: instructorNameVal,
         maxCapacity: input.maxCapacity,
         enrolledCount: 0,
-        status: "scheduled",
-      });
+        status: "scheduled"});
 
       const created = await db
         .select({ id: trainingSchedules.id })
@@ -765,10 +711,8 @@ export const institutionRouter = router({
             institutionId: input.institutionId,
             scheduleId,
             programType: input.programType,
-            trainingType: input.trainingType,
-          },
-          sessionId: `inst_schedule_${scheduleId}`,
-        });
+            trainingType: input.trainingType},
+          sessionId: `inst_schedule_${scheduleId}`});
         if (instructorId != null) {
           void notifyInstructorSessionAssigned(db, scheduleId);
         }
@@ -794,16 +738,14 @@ export const institutionRouter = router({
         instructorName: z.union([z.string().max(255), z.null()]).optional(),
         instructorUserId: z.union([z.number().int().positive(), z.null()]).optional(),
         maxCapacity: z.number().int().min(1).max(2000).optional(),
-        status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional(),
-      })
+        status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
@@ -830,8 +772,7 @@ export const institutionRouter = router({
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message:
-              "No course catalog entry for this program type. Add rows to the `courses` table or contact support.",
-          });
+              "No course catalog entry for this program type. Add rows to the `courses` table or contact support."});
         }
         courseId = courseRows[0].id;
       }
@@ -841,8 +782,7 @@ export const institutionRouter = router({
         if (input.maxCapacity < enrolled) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `Max capacity cannot be less than current enrolled count (${enrolled}).`,
-          });
+            message: `Max capacity cannot be less than current enrolled count (${enrolled}).`});
         }
       }
 
@@ -917,23 +857,21 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        trainingScheduleId: z.number().int().positive(),
-      })
+        trainingScheduleId: z.number().int().positive()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       await db
-        .delete(trainingAttendance)
-        .where(eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId));
+        .delete(learnerProgress)
+        .where(eq(learnerProgress.trainingScheduleId, input.trainingScheduleId));
       await db.delete(trainingSchedules).where(eq(trainingSchedules.id, input.trainingScheduleId));
 
       return { success: true as const };
@@ -946,16 +884,14 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        trainingScheduleId: z.number().int().positive(),
-      })
+        trainingScheduleId: z.number().int().positive()})
     )
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
@@ -967,15 +903,13 @@ export const institutionRouter = router({
           staffEmail: institutionalStaffMembers.staffEmail,
           staffRole: institutionalStaffMembers.staffRole,
           department: institutionalStaffMembers.department,
-          attendanceId: trainingAttendance.id,
-          attendanceStatus: trainingAttendance.attendanceStatus,
-        })
+          attendanceId: learnerProgress.id,
+          attendanceStatus: learnerProgress.attendanceStatus})
         .from(institutionalStaffMembers)
-        .leftJoin(
-          trainingAttendance,
+        .leftJoin(learnerProgress,
           and(
-            eq(trainingAttendance.staffMemberId, institutionalStaffMembers.id),
-            eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId)
+            eq(learnerProgress.staffMemberId.id),
+            eq(learnerProgress.trainingScheduleId, input.trainingScheduleId)
           )
         )
         .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId))
@@ -991,16 +925,14 @@ export const institutionRouter = router({
         institutionId: z.number().int().positive(),
         trainingScheduleId: z.number().int().positive(),
         staffMemberId: z.number().int().positive(),
-        attendanceStatus: z.enum(["registered", "attended", "absent", "cancelled"]),
-      })
+        attendanceStatus: z.enum(["registered", "attended", "absent", "cancelled"])})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
@@ -1021,26 +953,25 @@ export const institutionRouter = router({
 
       const existing = await db
         .select()
-        .from(trainingAttendance)
+        .from(learnerProgress)
         .where(
           and(
-            eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
-            eq(trainingAttendance.staffMemberId, input.staffMemberId)
+            eq(learnerProgress.trainingScheduleId, input.trainingScheduleId),
+            eq(learnerProgress.staffMemberId, input.staffMemberId)
           )
         )
         .limit(1);
 
       if (existing.length) {
         await db
-          .update(trainingAttendance)
+          .update(learnerProgress)
           .set({ attendanceStatus: input.attendanceStatus, updatedAt: new Date() })
-          .where(eq(trainingAttendance.id, existing[0].id));
+          .where(eq(learnerProgress.id, existing[0].id));
       } else {
-        await db.insert(trainingAttendance).values({
+        await db.insert(learnerProgress).values({
           trainingScheduleId: input.trainingScheduleId,
           staffMemberId: input.staffMemberId,
-          attendanceStatus: input.attendanceStatus,
-        });
+          attendanceStatus: input.attendanceStatus});
       }
 
       await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
@@ -1053,16 +984,14 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        trainingScheduleId: z.number().int().positive(),
-      })
+        trainingScheduleId: z.number().int().positive()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
@@ -1075,21 +1004,20 @@ export const institutionRouter = router({
       let added = 0;
       for (const s of staff) {
         const ex = await db
-          .select({ id: trainingAttendance.id })
-          .from(trainingAttendance)
+          .select({ id: learnerProgress.id })
+          .from(learnerProgress)
           .where(
             and(
-              eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
-              eq(trainingAttendance.staffMemberId, s.id)
+              eq(learnerProgress.trainingScheduleId, input.trainingScheduleId),
+              eq(learnerProgress.staffMemberId, s.id)
             )
           )
           .limit(1);
         if (ex.length) continue;
-        await db.insert(trainingAttendance).values({
+        await db.insert(learnerProgress).values({
           trainingScheduleId: input.trainingScheduleId,
           staffMemberId: s.id,
-          attendanceStatus: "registered",
-        });
+          attendanceStatus: "registered"});
         added += 1;
       }
 
@@ -1100,8 +1028,7 @@ export const institutionRouter = router({
         .set({
           enrollmentStatus: "enrolled",
           enrollmentDate: new Date(),
-          updatedAt: new Date(),
-        })
+          updatedAt: new Date()})
         .where(
           and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
@@ -1119,8 +1046,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
@@ -1141,8 +1067,7 @@ export const institutionRouter = router({
         completedStaff,
         certifiedStaff,
         completionRate: totalStaff > 0 ? Math.round((completedStaff / totalStaff) * 100) : 0,
-        certificationRate: totalStaff > 0 ? Math.round((certifiedStaff / totalStaff) * 100) : 0,
-      };
+        certificationRate: totalStaff > 0 ? Math.round((certifiedStaff / totalStaff) * 100) : 0};
     }),
 
   /**
@@ -1153,16 +1078,14 @@ export const institutionRouter = router({
       z.object({
         institutionId: z.number().int().positive(),
         courseType: z.enum(["bls", "acls", "pals", "fellowship"]),
-        trainingDate: z.coerce.date(),
-      })
+        trainingDate: z.coerce.date()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
@@ -1174,8 +1097,7 @@ export const institutionRouter = router({
       if (staff.length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Add staff to your roster before running bulk enrollment.",
-        });
+          message: "Add staff to your roster before running bulk enrollment."});
       }
 
       const staffList = staff.map((s) => ({
@@ -1183,16 +1105,14 @@ export const institutionRouter = router({
         email: s.staffEmail,
         phone: s.staffPhone?.trim() || "0000000000",
         department: s.department ?? undefined,
-        role: s.staffRole ?? undefined,
-      }));
+        role: s.staffRole ?? undefined}));
 
       try {
         const result = await processBulkEnrollment({
           institutionId: input.institutionId,
           courseType: input.courseType,
           staffList,
-          trainingDate: input.trainingDate,
-        });
+          trainingDate: input.trainingDate});
         return result;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Bulk enrollment failed";
@@ -1205,16 +1125,14 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number(),
-        limit: z.number().min(1).max(200).default(100),
-      })
+        limit: z.number().min(1).max(200).default(100)})
     )
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return await db
@@ -1249,16 +1167,14 @@ export const institutionRouter = router({
           .optional(),
         systemGapsIdentified: z.array(z.string()).optional(),
         improvementsImplemented: z.string().optional(),
-        notes: z.string().optional(),
-      })
+        notes: z.string().optional()})
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
@@ -1276,8 +1192,7 @@ export const institutionRouter = router({
         neurologicalStatus: rest.neurologicalStatus ?? null,
         systemGapsIdentified: systemGapsIdentified?.length ? JSON.stringify(systemGapsIdentified) : null,
         improvementsImplemented: rest.improvementsImplemented ?? null,
-        notes: rest.notes ?? null,
-      });
+        notes: rest.notes ?? null});
 
       try {
         await rollupInstitutionalAnalyticsForAccount(institutionId);
@@ -1296,8 +1211,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const row = await db
@@ -1316,8 +1230,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await rollupInstitutionalAnalyticsForAccount(input.institutionId);
@@ -1336,8 +1249,7 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
+          message: "Database connection failed"});
       }
       const institution = await db
         .select()
@@ -1347,8 +1259,7 @@ export const institutionRouter = router({
 
       return {
         exists: institution.length > 0,
-        active: institution.length > 0 && institution[0].status === "active",
-      };
+        active: institution.length > 0 && institution[0].status === "active"};
     }),
 
   // Update staff member role (RBAC)
@@ -1357,8 +1268,7 @@ export const institutionRouter = router({
       z.object({
         institutionId: z.number(),
         staffMemberId: z.number(),
-        newRole: z.enum(["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
-      })
+        newRole: z.enum(["director", "coordinator", "finance_officer", "department_head", "staff_member"])})
     )
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1366,8 +1276,7 @@ export const institutionRouter = router({
         if (!db) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Database connection failed",
-          });
+            message: "Database connection failed"});
         }
 
         // Verify staff member exists
@@ -1385,8 +1294,7 @@ export const institutionRouter = router({
         if (staffMember.length === 0) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Staff member not found",
-          });
+            message: "Staff member not found"});
         }
 
         // Update the role
@@ -1397,14 +1305,12 @@ export const institutionRouter = router({
 
         return {
           success: true,
-          message: `Role updated to ${input.newRole}`,
-        };
+          message: `Role updated to ${input.newRole}`};
       } catch (error) {
         console.error("Error updating staff role:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update staff role",
-        });
+          message: "Failed to update staff role"});
       }
     }),
 
@@ -1417,8 +1323,7 @@ export const institutionRouter = router({
         if (!db) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Database connection failed",
-          });
+            message: "Database connection failed"});
         }
 
         const staffMembers = await db
@@ -1428,8 +1333,7 @@ export const institutionRouter = router({
             staffEmail: institutionalStaffMembers.staffEmail,
             department: institutionalStaffMembers.department,
             institutionalRole: institutionalStaffMembers.institutionalRole,
-            staffRole: institutionalStaffMembers.staffRole,
-          })
+            staffRole: institutionalStaffMembers.staffRole})
           .from(institutionalStaffMembers)
           .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
 
@@ -1437,8 +1341,6 @@ export const institutionRouter = router({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch staff roles",
-        });
+          message: "Failed to fetch staff roles"});
       }
-    }),
-});
+    })});

@@ -6,15 +6,12 @@ import {
   modules,
   quizzes,
   quizQuestions,
-  userProgress,
-  enrollments,
-} from "../../drizzle/schema";
+  enrollments} from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
-  ensurePaediatricSepticShockCatalog,
-} from "../lib/ensure-paediatric-septic-shock-catalog";
+  ensurePaediatricSepticShockCatalog} from "../lib/ensure-paediatric-septic-shock-catalog";
 
 export const learningPathRouter = router({
   // Get personalized learning path for user
@@ -22,8 +19,7 @@ export const learningPathRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
-      })
+        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"])})
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -75,11 +71,11 @@ export const learningPathRouter = router({
         programCourses.map(async (course: any) => {
           const progress = await (db as any)
             .select()
-            .from(userProgress)
+            .from(learnerProgress)
             .where(
               and(
-                eq(userProgress.userId, ctx.user.id),
-                eq(userProgress.enrollmentId, input.enrollmentId)
+                eq(learnerProgress.userId, ctx.user.id),
+                eq(learnerProgress.enrollmentId, input.enrollmentId)
               )
             );
 
@@ -99,15 +95,13 @@ export const learningPathRouter = router({
             progressPercentage:
               totalModules.length > 0
                 ? Math.round((completedModules / totalModules.length) * 100)
-                : 0,
-          };
+                : 0};
         })
       );
 
       return {
         enrollment: enrollment[0],
-        courses: courseProgress,
-      };
+        courses: courseProgress};
     }),
 
   // Get course details with modules
@@ -135,8 +129,7 @@ export const learningPathRouter = router({
 
       return {
         ...course[0],
-        modules: courseModules,
-      };
+        modules: courseModules};
     }),
 
   // Get module with quiz
@@ -175,15 +168,12 @@ export const learningPathRouter = router({
           questions: questions.map((q: any) => ({
             ...q,
             options: q.options ? JSON.parse(q.options) : [],
-            correctAnswer: q.correctAnswer ? JSON.parse(q.correctAnswer) : null,
-          })),
-        };
+            correctAnswer: q.correctAnswer ? JSON.parse(q.correctAnswer) : null}))};
       }
 
       return {
         ...module[0],
-        quiz: quizWithQuestions,
-      };
+        quiz: quizWithQuestions};
     }),
 
   // Submit quiz answers
@@ -196,10 +186,8 @@ export const learningPathRouter = router({
         answers: z.array(
           z.object({
             questionId: z.number(),
-            answer: z.string(),
-          })
-        ),
-      })
+            answer: z.string()})
+        )})
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -239,29 +227,28 @@ export const learningPathRouter = router({
       // Update user progress
       const existingProgress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.quizId, input.quizId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.moduleId, input.moduleId),
+            eq(learnerProgress.quizId, input.quizId)
           )
         )
         .limit(1);
 
       if (existingProgress[0]) {
         await (db as any)
-          .update(userProgress)
+          .update(learnerProgress)
           .set({
             score,
             attempts: existingProgress[0].attempts + 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : null,
-          })
-          .where(eq(userProgress.id, existingProgress[0].id));
+            completedAt: passed ? new Date() : null})
+          .where(eq(learnerProgress.id, existingProgress[0].id));
       } else {
         await (db as any)
-          .insert(userProgress)
+          .insert(learnerProgress)
           .values({
             userId: ctx.user.id,
             enrollmentId: input.enrollmentId,
@@ -270,8 +257,7 @@ export const learningPathRouter = router({
             score,
             attempts: 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : null,
-          });
+            completedAt: passed ? new Date() : null});
       }
 
       return {
@@ -279,8 +265,7 @@ export const learningPathRouter = router({
         passed,
         passingScore: quiz[0]?.passingScore || 70,
         correctAnswers: correctCount,
-        totalQuestions: questions.length,
-      };
+        totalQuestions: questions.length};
     }),
 
   // Get user progress
@@ -292,14 +277,14 @@ export const learningPathRouter = router({
 
       const progress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         )
-        .orderBy(desc(userProgress.completedAt));
+        .orderBy(desc(learnerProgress.completedAt));
 
       const completedModules = progress.filter(
         (p: any) => p.status === "completed"
@@ -320,8 +305,7 @@ export const learningPathRouter = router({
         inProgressModules,
         averageScore,
         totalAttempts: progress.reduce((sum: number, p: any) => sum + p.attempts, 0),
-        progress,
-      };
+        progress};
     }),
 
   // Generate AI course content
@@ -331,8 +315,7 @@ export const learningPathRouter = router({
         topic: z.string(),
         level: z.enum(["beginner", "intermediate", "advanced"]),
         duration: z.number(), // in minutes
-        ageGroup: z.string().optional(),
-      })
+        ageGroup: z.string().optional()})
     )
     .mutation(async ({ input }) => {
       const prompt = `Generate a comprehensive micro-learning module for ${input.level} level healthcare providers on the topic: "${input.topic}". 
@@ -362,14 +345,11 @@ export const learningPathRouter = router({
           {
             role: "system",
             content:
-              "You are an expert medical educator creating high-quality micro-learning content for pediatric resuscitation training. Generate engaging, practical content.",
-          },
+              "You are an expert medical educator creating high-quality micro-learning content for pediatric resuscitation training. Generate engaging, practical content."},
           {
             role: "user",
-            content: prompt,
-          },
-        ],
-      });
+            content: prompt},
+        ]});
 
       const messageContent = response.choices[0].message.content;
       const content =
@@ -384,8 +364,7 @@ export const learningPathRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        limit: z.number().default(5),
-      })
+        limit: z.number().default(5)})
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
@@ -394,11 +373,11 @@ export const learningPathRouter = router({
       // Get user's weak areas from quiz performance
       const progress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         );
 
@@ -425,8 +404,7 @@ export const learningPathRouter = router({
           return {
             ...course[0],
             reason: `Your score on related module was ${p.score}%`,
-            priority: 100 - p.score,
-          };
+            priority: 100 - p.score};
         })
       );
 
@@ -442,11 +420,11 @@ export const learningPathRouter = router({
 
       const progress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         );
 
@@ -482,8 +460,7 @@ export const learningPathRouter = router({
         daysSinceStart,
         estimatedCompletionDays: Math.ceil(
           (100 - completedModules) / parseFloat(learningVelocity)
-        ),
-      };
+        )};
     }),
 
   // Mark module as completed
@@ -491,8 +468,7 @@ export const learningPathRouter = router({
     .input(
       z.object({
         moduleId: z.number(),
-        enrollmentId: z.number(),
-      })
+        enrollmentId: z.number()})
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -500,36 +476,33 @@ export const learningPathRouter = router({
 
       const existingProgress = await (db as any)
         .select()
-        .from(userProgress)
+        .from(learnerProgress)
         .where(
           and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.enrollmentId, input.enrollmentId)
+            eq(learnerProgress.userId, ctx.user.id),
+            eq(learnerProgress.moduleId, input.moduleId),
+            eq(learnerProgress.enrollmentId, input.enrollmentId)
           )
         )
         .limit(1);
 
       if (existingProgress[0]) {
         await (db as any)
-          .update(userProgress)
+          .update(learnerProgress)
           .set({
             status: "completed",
-            completedAt: new Date(),
-          })
-          .where(eq(userProgress.id, existingProgress[0].id));
+            completedAt: new Date()})
+          .where(eq(learnerProgress.id, existingProgress[0].id));
       } else {
         await (db as any)
-          .insert(userProgress)
+          .insert(learnerProgress)
           .values({
             userId: ctx.user.id,
             enrollmentId: input.enrollmentId,
             moduleId: input.moduleId,
             status: "completed",
-            completedAt: new Date(),
-          });
+            completedAt: new Date()});
       }
 
       return { success: true };
-    }),
-});
+    })});

@@ -38,7 +38,7 @@ export interface PersonalizationRecommendation {
 
 export interface DashboardWidget {
   id: string;
-  type: "progress" | "upcoming" | "recommendations" | "achievements" | "community" | "resources";
+  type: "progress" | "upcoming" | "recommendations" | "," | "community" | "resources";
   title: string;
   content: unknown;
   position: number;
@@ -143,8 +143,7 @@ class PersonalizationEngine {
           description: "Master advanced cardiac resuscitation techniques",
           relevanceScore: 95,
           reason: "Based on your interest in ACLS",
-          actionUrl: "/courses/acls",
-        });
+          actionUrl: "/courses/acls"});
       }
 
       if (profile.experience.yearsInField < 5) {
@@ -154,8 +153,7 @@ class PersonalizationEngine {
           description: "Essential guide for new healthcare providers",
           relevanceScore: 90,
           reason: "Recommended for providers with less than 5 years experience",
-          actionUrl: "/resources/fundamentals",
-        });
+          actionUrl: "/resources/fundamentals"});
       }
 
       recommendations.push({
@@ -164,8 +162,7 @@ class PersonalizationEngine {
         description: "Connect with peers and share best practices",
         relevanceScore: 80,
         reason: "Join your professional community",
-        actionUrl: "/community/providers",
-      });
+        actionUrl: "/community/providers"});
     }
 
     // Institution Recommendations
@@ -176,8 +173,7 @@ class PersonalizationEngine {
         description: "Learn how to establish a comprehensive training program",
         relevanceScore: 95,
         reason: "Perfect for institutional administrators",
-        actionUrl: "/events/institutional-setup",
-      });
+        actionUrl: "/events/institutional-setup"});
 
       recommendations.push({
         type: "resource",
@@ -185,8 +181,7 @@ class PersonalizationEngine {
         description: "Save up to 40% on training for your staff",
         relevanceScore: 85,
         reason: "Cost-effective training for your institution",
-        actionUrl: "/pricing/institutional",
-      });
+        actionUrl: "/pricing/institutional"});
     }
 
     // Parent Recommendations
@@ -197,8 +192,7 @@ class PersonalizationEngine {
         description: "Essential life-saving skills for parents and caregivers",
         relevanceScore: 95,
         reason: "Protect your children with essential first aid knowledge",
-        actionUrl: "/courses/first-aid-parents",
-      });
+        actionUrl: "/courses/first-aid-parents"});
 
       recommendations.push({
         type: "resource",
@@ -206,8 +200,7 @@ class PersonalizationEngine {
         description: "Comprehensive guide to keeping children safe",
         relevanceScore: 90,
         reason: "Recommended for all parents",
-        actionUrl: "/resources/child-safety",
-      });
+        actionUrl: "/resources/child-safety"});
 
       recommendations.push({
         type: "community",
@@ -215,8 +208,7 @@ class PersonalizationEngine {
         description: "Connect with other parents and share experiences",
         relevanceScore: 75,
         reason: "Join a supportive community of parents",
-        actionUrl: "/community/parents",
-      });
+        actionUrl: "/community/parents"});
     }
 
     // Learner Recommendations
@@ -228,8 +220,7 @@ class PersonalizationEngine {
           description: "Start your resuscitation journey",
           relevanceScore: 95,
           reason: "Perfect starting point for beginners",
-          actionUrl: "/courses/bls-fundamentals",
-        });
+          actionUrl: "/courses/bls-fundamentals"});
       } else if (profile.preferences.contentLevel === "intermediate") {
         recommendations.push({
           type: "course",
@@ -237,8 +228,7 @@ class PersonalizationEngine {
           description: "Advance your pediatric resuscitation skills",
           relevanceScore: 95,
           reason: "Next step after BLS",
-          actionUrl: "/courses/pals",
-        });
+          actionUrl: "/courses/pals"});
       }
 
       recommendations.push({
@@ -247,8 +237,7 @@ class PersonalizationEngine {
         description: "Get personalized guidance from experienced professionals",
         relevanceScore: 85,
         reason: "Accelerate your learning with mentorship",
-        actionUrl: "/mentorship",
-      });
+        actionUrl: "/mentorship"});
     }
 
     // Sort by relevance score
@@ -282,11 +271,9 @@ class PersonalizationEngine {
       content: {
         completedCourses: 3,
         inProgressCourses: 2,
-        totalProgress: 45,
-      },
+        totalProgress: 45},
       position: 1,
-      isVisible: true,
-    });
+      isVisible: true});
 
     widgets.push({
       id: "upcoming",
@@ -296,34 +283,28 @@ class PersonalizationEngine {
         events: [
           { title: "PALS Training", date: "2026-02-15", location: "Nairobi" },
           { title: "Webinar: New Protocols", date: "2026-02-20", time: "14:00" },
-        ],
-      },
+        ]},
       position: 2,
-      isVisible: true,
-    });
+      isVisible: true});
 
     widgets.push({
       id: "recommendations",
       type: "recommendations",
       title: "Recommended for You",
       content: {
-        recommendations: this.getRecommendations(userId, 3),
-      },
+        recommendations: this.getRecommendations(userId, 3)},
       position: 3,
-      isVisible: true,
-    });
+      isVisible: true});
 
     widgets.push({
-      id: "achievements",
-      type: "achievements",
+      id: ",",
+      type: ",",
       title: "Your Achievements",
       content: {
         badges: ["First Course", "100% Attendance", "Top Performer"],
-        certificates: profile.experience.certifications,
-      },
+        certificates: profile.experience.certifications},
       position: 4,
-      isVisible: true,
-    });
+      isVisible: true});
 
     // Stakeholder-specific widgets
     if (profile.stakeholderType === "healthcare_provider") {
@@ -334,11 +315,9 @@ class PersonalizationEngine {
         content: {
           peers: 234,
           discussions: 12,
-          newPosts: 3,
-        },
+          newPosts: 3},
         position: 5,
-        isVisible: true,
-      });
+        isVisible: true});
     }
 
     if (profile.stakeholderType === "institution") {
@@ -349,11 +328,9 @@ class PersonalizationEngine {
         content: {
           trainingMaterials: 45,
           certificates: 156,
-          staffMembers: 23,
-        },
+          staffMembers: 23},
         position: 5,
-        isVisible: true,
-      });
+        isVisible: true});
     }
 
     if (profile.stakeholderType === "learner") {
@@ -364,11 +341,9 @@ class PersonalizationEngine {
         content: {
           mentorName: "Dr. Jane Smith",
           nextSession: "2026-02-10",
-          messagesUnread: 2,
-        },
+          messagesUnread: 2},
         position: 5,
-        isVisible: true,
-      });
+        isVisible: true});
     }
 
     this.dashboards.set(userId, widgets);
@@ -434,8 +409,7 @@ class PersonalizationEngine {
     return {
       profile: this.getProfile(userId),
       recommendations: this.getRecommendations(userId),
-      dashboardWidgets: this.dashboards.get(userId)?.length || 0,
-    };
+      dashboardWidgets: this.dashboards.get(userId)?.length || 0};
   }
 }
 

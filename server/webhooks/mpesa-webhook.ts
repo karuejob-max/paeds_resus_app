@@ -3,9 +3,6 @@ import { getDb } from "../db";
 import { payments, enrollments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
-import { runWithRetries } from "../lib/async-retry";
-import { logStructured } from "../lib/structured-log";
-import { trackPaymentCompletion } from "../services/analytics.service";
 import crypto from "crypto";
 
 /**
