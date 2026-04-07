@@ -5,7 +5,7 @@
 
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
-import { db } from '../db';
+import { getDb } from '../db';
 import { microCourses, microCourseEnrollments, payments, users } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
@@ -81,9 +81,12 @@ export const coursesRouter = router({
    */
   listAll: publicProcedure.query(async () => {
     try {
-      const courses = await db?.query.microCourses.findMany();
-      if (courses && courses.length > 0) {
-        return courses;
+      const database = await getDb();
+      if (database) {
+        const courses = await database.query.microCourses.findMany();
+        if (courses && courses.length > 0) {
+          return courses;
+        }
       }
     } catch (error) {
       console.error('Error fetching courses from DB:', error);

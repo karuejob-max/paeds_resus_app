@@ -5,6 +5,7 @@ import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import { getUserByEmail, createUserWithPassword, insertAdminAuditLog } from "./db";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
@@ -136,11 +137,11 @@ export const appRouter = router({
         userType: z.enum(["individual", "parent", "institutional"]),
       }))
       .mutation(async ({ input }) => {
-        const existing = await db.getUserByEmail(input.email);
+        const existing = await getUserByEmail(input.email);
         if (existing) throw new Error("Email already registered");
         const openId = `email:${input.email}`;
         const passwordHash = await bcrypt.hash(input.password, 10);
-        await db.createUserWithPassword({
+        await createUserWithPassword({
           openId,
           email: input.email,
           name: input.name ?? null,
@@ -152,7 +153,7 @@ export const appRouter = router({
     loginWithPassword: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string() }))
       .mutation(async ({ input, ctx }) => {
-        const user = await db.getUserByEmail(input.email);
+        const user = await getUserByEmail(input.email);
         if (!user?.passwordHash) throw new Error("Invalid email or password");
         const ok = await bcrypt.compare(input.password, user.passwordHash);
         if (!ok) throw new Error("Invalid email or password");
@@ -163,10 +164,10 @@ export const appRouter = router({
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: sessionMaxAgeMs });
-        await db.createAuditLog({
+        await insertAdminAuditLog({
           userId: user.id,
           action: 'LOGIN_SUCCESS',
-          details: { email: input.email, ip: ctx.req.ip },
+          details: JSON.stringify({ email: input.email, ip: ctx.req.ip }),
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };
@@ -180,7 +181,7 @@ export const appRouter = router({
     requestPasswordReset: publicProcedure
       .input(z.object({ email: z.string().email() }))
       .mutation(async ({ input }) => {
-        const user = await db.getUserByEmail(input.email);
+        const user = await getUserByEmail(input.email);
         if (!user?.passwordHash) return { success: true }; // Don't leak existence
         const token = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

@@ -456,3 +456,16 @@
 - [ ] Provider incident reporting form
 - [ ] Monthly discipline pillar tracking (courses + ResusGPS + Care Signal)
 - [ ] QI culture dashboard for institutions
+
+
+## Provider Journey Implementation (NEW)
+- [ ] Fix registration bug (backend error preventing account creation)
+- [ ] Add fellowship explanation section to landing page
+- [ ] Create onboarding page after login
+- [ ] Integrate all 26 courses into fellowship dashboard
+- [ ] Make fellowship dashboard default post-login page
+- [ ] Implement progress notifications on course completion
+- [ ] Link ResusGPS cases to fellowship qualification
+- [ ] Implement Care Signal incident reporting interface
+- [ ] Add fellowship qualification celebration page
+- [ ] Test complete provider journey end-to-end
