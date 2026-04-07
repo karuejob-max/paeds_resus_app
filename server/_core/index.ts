@@ -84,6 +84,9 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      batching: {
+        enabled: true,
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
