@@ -3,16 +3,10 @@
  * 
  * Minimalist, decision-free design for healthcare providers after login.
  * 
- * SECTION 1: Paeds Resus Fellowship (Primary)
- * - Overall progress (%)
- * - 3-pillar progress bars
- * - ONE next action recommendation
- * - CTA button to continue
- * 
- * SECTION 2: AHA Courses (Secondary)
- * - BLS, ACLS, PALS cards
- * - Enrollment status
- * - Enroll/Continue buttons
+ * LAYOUT:
+ * 1. Fellowship hero message
+ * 2. 3-pillar progress (starting at 0% for new providers)
+ * 3. AHA courses (BLS, ACLS, PALS)
  */
 
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -35,7 +29,7 @@ export default function ProviderDashboard() {
     return null;
   }
 
-  // Fetch fellowship progress
+  // Fetch fellowship progress (or initialize if doesn't exist)
   const { data: progress, isLoading: progressLoading } = trpc.fellowship.getProgress.useQuery();
 
   // Fetch AHA courses (BLS, ACLS, PALS)
@@ -55,30 +49,17 @@ export default function ProviderDashboard() {
     );
   }
 
-  if (!progress) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5" />
-              Welcome to Paeds Resus
-            </CardTitle>
-            <CardDescription>
-              Start your fellowship journey today.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setLocation("/fellowship")} className="w-full">
-              Begin Fellowship
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Default progress for new providers (0% on all pillars)
+  const defaultProgress = {
+    coursesPillar: { completed: 0, required: 26, percentage: 0 },
+    resusGPSPillar: { conditionsWithThreshold: 0, totalConditionsTaught: 8, percentage: 0 },
+    careSignalPillar: { streak: 0, percentage: 0 },
+    isQualified: false,
+    overallPercentage: 0,
+  };
 
-  const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
+  const displayProgress = progress || defaultProgress;
+  const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = displayProgress;
 
   // Determine next action
   const getNextAction = () => {
@@ -136,13 +117,28 @@ export default function ProviderDashboard() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* SECTION 1: PAEDS RESUS FELLOWSHIP (Primary) */}
+        {/* SECTION 1: FELLOWSHIP HERO MESSAGE */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 rounded-lg p-6 md:p-8 border border-emerald-200 dark:border-emerald-800">
+          <div className="flex items-start gap-4">
+            <Award className="h-8 w-8 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mb-2">
+                Become a Paeds Resus Fellow
+              </h2>
+              <p className="text-emerald-800 dark:text-emerald-200 mb-4">
+                Earn your fellowship through a comprehensive 3-pillar qualification program. Complete courses, manage real ResusGPS cases, and participate in monthly Care Signal reporting to demonstrate mastery in pediatric emergency care.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: 3-PILLAR PROGRESS */}
         <div className="space-y-6">
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <Award className="h-8 w-8 text-emerald-600" />
-              Paeds Resus Fellowship
+              Your Progress
             </h1>
             <p className="text-muted-foreground mt-2">
               {isQualified ? (
@@ -160,7 +156,7 @@ export default function ProviderDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Your Progress</CardTitle>
+                  <CardTitle>Fellowship Qualification</CardTitle>
                   <CardDescription>Complete all 3 pillars to earn your fellowship</CardDescription>
                 </div>
                 <div className="text-right">
@@ -276,7 +272,7 @@ export default function ProviderDashboard() {
           )}
         </div>
 
-        {/* SECTION 2: AHA COURSES (Secondary) */}
+        {/* SECTION 3: AHA COURSES (Secondary) */}
         <div className="border-t pt-8 space-y-4">
           <div>
             <h2 className="text-xl font-semibold">AHA Certification Courses</h2>
