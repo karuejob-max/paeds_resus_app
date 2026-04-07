@@ -22,6 +22,7 @@ import {
 import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
 import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
 import { initializeScheduler } from "../scheduler";
+import { initializeDatabase } from "./initialize";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -101,6 +102,8 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Initialize database (seed courses, etc.)
+    initializeDatabase().catch(err => console.error('[Initialize] Failed:', err));
     if (process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULER === "1") {
       initializeScheduler();
     }
