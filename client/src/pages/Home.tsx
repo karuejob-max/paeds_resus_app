@@ -3,12 +3,11 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
-import ProviderDashboard from "./ProviderDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { Stethoscope, Users, Building2, ArrowRight } from "lucide-react";
+import { Stethoscope, Users, Building2, Award, BookOpen } from "lucide-react";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -123,6 +122,38 @@ export default function Home() {
     );
   }
 
-  // Provider home (individual) — show ProviderDashboard
-  return <ProviderDashboard />;
+  // Provider home (individual) — show minimal 2-button interface
+  if (userType === "individual") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-4">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold">What would you like to do?</h1>
+          </div>
+
+          <Button
+            onClick={() => setLocation("/fellowship")}
+            size="lg"
+            className="w-full h-20 text-lg font-semibold"
+          >
+            <Award className="h-6 w-6 mr-3" />
+            Fellowship
+          </Button>
+
+          <Button
+            onClick={() => setLocation("/aha-courses")}
+            size="lg"
+            variant="outline"
+            className="w-full h-20 text-lg font-semibold"
+          >
+            <BookOpen className="h-6 w-6 mr-3" />
+            AHA Courses
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback (shouldn't reach here)
+  return null;
 }

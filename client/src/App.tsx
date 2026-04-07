@@ -53,6 +53,7 @@ import FacilityTrainingGaps from "./pages/FacilityTrainingGaps";
 import CourseCatalog from "./pages/CourseCatalog";
 import AdminCoursesPanel from "./pages/AdminCoursesPanel";
 import FellowshipDashboard from "./pages/FellowshipDashboard";
+import AHACourses from "./pages/AHACourses";
 import { Toaster } from "@/components/ui/sonner";
 
 /** Redirects to target path (for routes that have no dedicated page). */
@@ -164,6 +165,7 @@ function Router() {
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           <Route path="/courses" component={CourseCatalog} />
           <Route path="/fellowship" component={FellowshipDashboard} />
+          <Route path="/aha-courses" component={AHACourses} />
           <Route path="/admin/courses" component={AdminCoursesPanel} />
           {/* Common typo / old links — same page */}
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
