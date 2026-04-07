@@ -1,7 +1,7 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -521,4 +521,89 @@ export async function calculateNPS() {
   const total = responses.length;
   if (total === 0) return 0;
   return Math.round(((promoters - detractors) / total) * 100);
+}
+
+
+// ============================================================================
+// FELLOWSHIP QUALIFICATION SYSTEM
+// ============================================================================
+
+/**
+ * Create a ResusGPS session record
+ */
+export async function createResusGPSSession(data: InsertResusGPSSession) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(resusGPSSessions).values(data);
+  return result;
+}
+
+/**
+ * Create a ResusGPS case record
+ */
+export async function createResusGPSCase(data: InsertResusGPSCase) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(resusGPSCases).values(data);
+  return result;
+}
+
+/**
+ * Create a fellowship progress record
+ */
+export async function createFellowshipProgress(data: InsertFellowshipProgress) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipProgress).values(data);
+  return result;
+}
+
+/**
+ * Update a fellowship progress record
+ */
+export async function updateFellowshipProgress(
+  userId: number,
+  data: Partial<InsertFellowshipProgress>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .update(fellowshipProgress)
+    .set(data)
+    .where(eq(fellowshipProgress.userId, userId));
+  return result;
+}
+
+/**
+ * Record a grace period usage
+ */
+export async function recordGracePeriod(data: InsertFellowshipGraceUsage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipGraceUsage).values(data);
+  return result;
+}
+
+/**
+ * Record a streak reset
+ */
+export async function recordStreakReset(data: InsertFellowshipStreakReset) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipStreakResets).values(data);
+  return result;
+}
+
+/**
+ * Get fellowship progress for a user
+ */
+export async function getFellowshipProgress(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .select()
+    .from(fellowshipProgress)
+    .where(eq(fellowshipProgress.userId, userId))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
 }

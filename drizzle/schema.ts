@@ -2250,3 +2250,168 @@ export const auditLogs = mysqlTable("auditLogs", {
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+// ============================================================================
+// FELLOWSHIP QUALIFICATION SYSTEM (3 Pillars: Courses, ResusGPS, Care Signal)
+// ============================================================================
+
+/**
+ * ResusGPS Sessions — track each ResusGPS case session initiated by a provider.
+ * Pillar 2: ResusGPS cases (≥3 attributable cases per taught condition).
+ */
+export const resusGPSSessions = mysqlTable("resusGPSSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull().unique(), // UUID for session tracking
+  /** Primary diagnosis/condition (e.g., "septic-shock", "asthma", "status-epilepticus") */
+  primaryDiagnosis: varchar("primaryDiagnosis", { length: 255 }).notNull(),
+  /** Secondary diagnoses if multi-diagnosis session */
+  secondaryDiagnoses: text("secondaryDiagnoses"), // JSON array of diagnosis strings
+  /** Patient age in months (for depth validation) */
+  patientAgeMonths: int("patientAgeMonths").notNull(),
+  /** Patient weight in kg (for dose validation) */
+  patientWeightKg: decimal("patientWeightKg", { precision: 5, scale: 2 }),
+  /** Trauma case? (for trauma pathway tracking) */
+  isTrauma: boolean("isTrauma").default(false),
+  /** Cardiac arrest case? (for CPR tracking) */
+  isCardiacArrest: boolean("isCardiacArrest").default(false),
+  /** Session status: ongoing, completed, abandoned */
+  status: mysqlEnum("status", ["ongoing", "completed", "abandoned"]).default("ongoing"),
+  /** Number of interventions recorded in session */
+  interventionCount: int("interventionCount").default(0),
+  /** Number of reassessments performed */
+  reassessmentCount: int("reassessmentCount").default(0),
+  /** Session duration in seconds */
+  durationSeconds: int("durationSeconds"),
+  /** Outcome: survived, transferred, other */
+  outcome: varchar("outcome", { length: 64 }),
+  /** Depth score (0-100) for anti-gaming validation */
+  depthScore: int("depthScore").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResusGPSSession = typeof resusGPSSessions.$inferSelect;
+export type InsertResusGPSSession = typeof resusGPSSessions.$inferInsert;
+
+/**
+ * ResusGPS Cases — individual cases within a session (for detailed tracking).
+ * Each session may have multiple cases if provider switches between patients.
+ */
+export const resusGPSCases = mysqlTable("resusGPSCases", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(), // FK to resusGPSSessions.sessionId
+  userId: int("userId").notNull(),
+  /** Case identifier within session */
+  caseNumber: int("caseNumber").notNull(), // 1st case, 2nd case, etc.
+  /** Diagnosis for this specific case */
+  diagnosis: varchar("diagnosis", { length: 255 }).notNull(),
+  /** ABCDE assessment completed? */
+  abcdeCompleted: boolean("abcdeCompleted").default(false),
+  /** Interventions performed (JSON array of intervention objects) */
+  interventions: text("interventions"), // JSON array
+  /** Reassessments performed (JSON array of reassessment findings) */
+  reassessments: text("reassessments"), // JSON array
+  /** Case outcome */
+  outcome: varchar("outcome", { length: 64 }),
+  /** Depth score for this case (0-100) */
+  depthScore: int("depthScore").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResusGPSCase = typeof resusGPSCases.$inferSelect;
+export type InsertResusGPSCase = typeof resusGPSCases.$inferInsert;
+
+/**
+ * Fellowship Progress — cumulative tracking of all 3 pillars for each user.
+ * Single row per user; updated as they progress through courses, ResusGPS, Care Signal.
+ */
+export const fellowshipProgress = mysqlTable("fellowshipProgress", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(), // One row per user
+  
+  // PILLAR 1: Courses (BLS, ACLS, PALS + all 26 ADF micro-courses)
+  /** Total courses required for fellowship (26 ADF micro-courses + legacy courses) */
+  totalCoursesRequired: int("totalCoursesRequired").default(26),
+  /** Courses completed (count of certificates with completion date) */
+  coursesCompleted: int("coursesCompleted").default(0),
+  /** Percentage of courses completed (0-100) */
+  coursesPercentage: int("coursesPercentage").default(0),
+  
+  // PILLAR 2: ResusGPS Cases (≥3 cases per taught condition)
+  /** Total ResusGPS cases completed */
+  resusGPSCasesCompleted: int("resusGPSCasesCompleted").default(0),
+  /** Conditions with ≥3 cases (count of conditions meeting threshold) */
+  conditionsWithThreshold: int("conditionsWithThreshold").default(0),
+  /** Total conditions taught (from courses) */
+  totalConditionsTaught: int("totalConditionsTaught").default(0),
+  /** Percentage of conditions with ≥3 cases */
+  resusGPSPercentage: int("resusGPSPercentage").default(0),
+  
+  // PILLAR 3: Care Signal (24 consecutive qualifying months)
+  /** Consecutive months of Care Signal participation (0-24+) */
+  careSignalStreak: int("careSignalStreak").default(0),
+  /** Total Care Signal events submitted */
+  careSignalEventsSubmitted: int("careSignalEventsSubmitted").default(0),
+  /** Percentage of 24-month requirement (0-100) */
+  careSignalPercentage: int("careSignalPercentage").default(0),
+  
+  // OVERALL FELLOWSHIP STATUS
+  /** Fellowship qualified? (all 3 pillars at 100%) */
+  isQualified: boolean("isQualified").default(false),
+  /** Date when fellowship was achieved (if qualified) */
+  qualifiedAt: timestamp("qualifiedAt"),
+  /** Overall completion percentage (average of 3 pillars) */
+  overallPercentage: int("overallPercentage").default(0),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FellowshipProgress = typeof fellowshipProgress.$inferSelect;
+export type InsertFellowshipProgress = typeof fellowshipProgress.$inferInsert;
+
+/**
+ * Fellowship Grace Usage — track grace periods used per user per calendar year (EAT).
+ * Max 2 grace periods per calendar year; after using grace, next month must have ≥3 events.
+ */
+export const fellowshipGraceUsage = mysqlTable("fellowshipGraceUsage", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  /** Calendar year (EAT) when grace was used */
+  year: int("year").notNull(),
+  /** Month (1-12, EAT) when grace was used */
+  month: int("month").notNull(),
+  /** Reason for grace: "zero_events", "insufficient_events", "technical_issue" */
+  reason: varchar("reason", { length: 64 }).notNull(),
+  /** Notes about the grace period */
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FellowshipGraceUsage = typeof fellowshipGraceUsage.$inferSelect;
+export type InsertFellowshipGraceUsage = typeof fellowshipGraceUsage.$inferInsert;
+
+/**
+ * Fellowship Streak Resets — track when Care Signal streak resets (pillar C only).
+ * Pillar A (courses) and B (ResusGPS) do not reset; only C resets on 3rd failure.
+ */
+export const fellowshipStreakResets = mysqlTable("fellowshipStreakResets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  /** Calendar year (EAT) when reset occurred */
+  year: int("year").notNull(),
+  /** Month (1-12, EAT) when reset occurred */
+  month: int("month").notNull(),
+  /** Reason: "third_failure", "manual_admin_reset" */
+  reason: varchar("reason", { length: 64 }).notNull(),
+  /** Previous streak value before reset */
+  previousStreak: int("previousStreak").notNull(),
+  /** Admin notes if manual reset */
+  adminNotes: text("adminNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FellowshipStreakReset = typeof fellowshipStreakResets.$inferSelect;
+export type InsertFellowshipStreakReset = typeof fellowshipStreakResets.$inferInsert;

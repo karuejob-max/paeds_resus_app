@@ -52,6 +52,7 @@ import CareSignalAnalytics from "./pages/CareSignalAnalytics";
 import FacilityTrainingGaps from "./pages/FacilityTrainingGaps";
 import CourseCatalog from "./pages/CourseCatalog";
 import AdminCoursesPanel from "./pages/AdminCoursesPanel";
+import FellowshipProgress from "./pages/FellowshipProgress";
 import { Toaster } from "@/components/ui/sonner";
 
 /** Redirects to target path (for routes that have no dedicated page). */
@@ -162,6 +163,7 @@ function Router() {
           <Route path="/instructor-portal" component={InstructorPortal} />
           <Route path="/institutional-onboarding" component={InstitutionalOnboarding} />
           <Route path="/courses" component={CourseCatalog} />
+          <Route path="/fellowship" component={FellowshipProgress} />
           <Route path="/admin/courses" component={AdminCoursesPanel} />
           {/* Common typo / old links — same page */}
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>

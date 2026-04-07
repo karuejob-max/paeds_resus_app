@@ -104,6 +104,7 @@ import { resusAutoLaunch } from "./routers/resus-auto-launch";
 import { adminNotifications } from "./routers/admin-notifications";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
 import { coursesRouter } from "./routers/courses";
+import { fellowshipRouter } from "./routers/fellowship";
 
 export const appRouter = router({
   system: systemRouter,
@@ -358,6 +359,7 @@ export const appRouter = router({
   securityIntegration: securityIntegrationRouter,
   microCourses: microCoursesRouter,
   courses: coursesRouter,
+  fellowship: fellowshipRouter,
 });
 
 export type AppRouter = typeof appRouter;
