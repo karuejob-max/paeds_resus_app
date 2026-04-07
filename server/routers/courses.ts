@@ -95,12 +95,8 @@ export const coursesRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         const database = await getDb();
-        
-        // If database is unavailable, still return success for now
-        // This allows the UI to show enrollment as pending
         if (!database) {
-          console.warn('Database unavailable for enrollment, but allowing UI to proceed');
-          return { success: true, message: 'Enrollment recorded (pending sync)', enrolled: true };
+          throw new Error('Database unavailable');
         }
 
         // Check if already enrolled
@@ -113,7 +109,7 @@ export const coursesRouter = router({
         });
 
         if (existing) {
-          return { success: true, message: 'Already enrolled in this course', enrolled: true };
+          return { success: false, message: 'Already enrolled in this course', enrolled: true };
         }
 
         // Create enrollment
@@ -128,8 +124,7 @@ export const coursesRouter = router({
         return { success: true, message: 'Successfully enrolled in course', enrolled: true };
       } catch (error) {
         console.error('Error enrolling in course:', error);
-        // Return success anyway to allow UI to proceed
-        return { success: true, message: 'Enrollment recorded (pending sync)', enrolled: true };
+        return { success: false, message: 'Failed to enroll in course', enrolled: false };
       }
     }),
 
