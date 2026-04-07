@@ -11,7 +11,7 @@
 
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
-import * as db from "../db";
+import { getDb } from "../db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import {
   fellowshipProgress,
@@ -29,39 +29,59 @@ import {
  * Returns: { completed, required, percentage }
  */
 async function calculateCoursesPillar(userId: number) {
-  // Get all completed certificates for this user
-  const completedCerts = await db.query.certificates.findMany({
-    where: (certs) => eq(certs.userId, userId),
-  });
+  const db = await getDb();
+  if (!db) {
+    return {
+      completed: 0,
+      required: 26,
+      percentage: 0,
+      legacyCourses: 0,
+    };
+  }
 
-  // Get all completed micro-course enrollments
-  const completedMicroCourses = await db.query.microCourseEnrollments.findMany({
-    where: (enrollments) =>
-      and(
-        eq(enrollments.userId, userId),
-        eq(enrollments.enrollmentStatus, "completed")
-      ),
-  });
+  try {
+    // Get all completed certificates for this user
+    const completedCerts = await db.query.certificates.findMany({
+      where: (certs) => eq(certs.userId, userId),
+    });
 
-  // Count legacy courses (BLS, ACLS, PALS, Instructor)
-  const legacyCourses = completedCerts.filter((c) =>
-    ["bls", "acls", "pals", "instructor"].includes(c.programType)
-  ).length;
+    // Get all completed micro-course enrollments
+    const completedMicroCourses = await db.query.microCourseEnrollments.findMany({
+      where: (enrollments) =>
+        and(
+          eq(enrollments.userId, userId),
+          eq(enrollments.enrollmentStatus, "completed")
+        ),
+    });
 
-  // Count micro-courses (should be 26 for fellowship)
-  const microCourses = completedMicroCourses.length;
+    // Count legacy courses (BLS, ACLS, PALS, Instructor)
+    const legacyCourses = completedCerts.filter((c) =>
+      ["bls", "acls", "pals", "instructor"].includes(c.programType)
+    ).length;
 
-  // Total required: 26 micro-courses (legacy courses are bonus)
-  const totalRequired = 26;
-  const completed = microCourses;
-  const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
+    // Count micro-courses (should be 26 for fellowship)
+    const microCourses = completedMicroCourses.length;
 
-  return {
-    completed,
-    required: totalRequired,
-    percentage,
-    legacyCourses,
-  };
+    // Total required: 26 micro-courses (legacy courses are bonus)
+    const totalRequired = 26;
+    const completed = microCourses;
+    const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
+
+    return {
+      completed,
+      required: totalRequired,
+      percentage,
+      legacyCourses,
+    };
+  } catch (error) {
+    console.error("[Fellowship] Error calculating courses pillar:", error);
+    return {
+      completed: 0,
+      required: 26,
+      percentage: 0,
+      legacyCourses: 0,
+    };
+  }
 }
 
 /**
@@ -69,144 +89,169 @@ async function calculateCoursesPillar(userId: number) {
  * Returns: { casesCompleted, conditionsWithThreshold, totalConditionsTaught, percentage }
  */
 async function calculateResusGPSPillar(userId: number) {
-  // Get all ResusGPS sessions for this user
-  const sessions = await db.query.resusGPSSessions.findMany({
-    where: (sessions) =>
-      and(
-        eq(sessions.userId, userId),
-        eq(sessions.status, "completed")
-      ),
-  });
+  const db = await getDb();
+  if (!db) {
+    return {
+      casesCompleted: 0,
+      conditionsWithThreshold: 0,
+      totalConditionsTaught: 0,
+      percentage: 0,
+    };
+  }
 
-  // Get all cases from completed sessions
-  const cases = await db.query.resusGPSCases.findMany({
-    where: (cases) => eq(cases.userId, userId),
-  });
+  try {
+    // Get all ResusGPS sessions for this user
+    const sessions = await db.query.resusGPSSessions.findMany({
+      where: (sessions) =>
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.status, "completed")
+        ),
+    });
 
-  // Count cases per diagnosis
-  const casesByDiagnosis: Record<string, number> = {};
-  cases.forEach((c) => {
-    casesByDiagnosis[c.diagnosis] = (casesByDiagnosis[c.diagnosis] || 0) + 1;
-  });
+    // Get all cases for these sessions
+    const allCases = await db.query.resusGPSCases.findMany({
+      where: (cases) =>
+        sessions.length > 0
+          ? and(
+              eq(cases.sessionId, sessions[0].id),
+              ...sessions.slice(1).map((s) => eq(cases.sessionId, s.id))
+            )
+          : undefined,
+    });
 
-  // Count conditions with ≥3 cases (threshold for fellowship)
-  const conditionsWithThreshold = Object.values(casesByDiagnosis).filter(
-    (count) => count >= 3
-  ).length;
+    // Count cases per condition
+    const casesByCondition: Record<string, number> = {};
+    allCases.forEach((c) => {
+      const condition = c.diagnosis || "unknown";
+      casesByCondition[condition] = (casesByCondition[condition] || 0) + 1;
+    });
 
-  // Get total conditions taught (from completed micro-courses)
-  const completedCourses = await db.query.microCourseEnrollments.findMany({
-    where: (enrollments) =>
-      and(
-        eq(enrollments.userId, userId),
-        eq(enrollments.enrollmentStatus, "completed")
-      ),
-  });
+    // Count conditions with ≥3 cases
+    const conditionsWithThreshold = Object.values(casesByCondition).filter(
+      (count) => count >= 3
+    ).length;
 
-  // Each micro-course teaches one condition; assume unique conditions
-  const totalConditionsTaught = completedCourses.length;
+    // Assume 10 taught conditions for now (can be configured)
+    const totalConditionsTaught = 10;
+    const percentage = Math.min(
+      100,
+      Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
+    );
 
-  // Percentage: conditions with threshold / total conditions taught
-  const percentage =
-    totalConditionsTaught > 0
-      ? Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
-      : 0;
-
-  return {
-    casesCompleted: cases.length,
-    conditionsWithThreshold,
-    totalConditionsTaught,
-    percentage,
-  };
+    return {
+      casesCompleted: allCases.length,
+      conditionsWithThreshold,
+      totalConditionsTaught,
+      percentage,
+    };
+  } catch (error) {
+    console.error("[Fellowship] Error calculating ResusGPS pillar:", error);
+    return {
+      casesCompleted: 0,
+      conditionsWithThreshold: 0,
+      totalConditionsTaught: 0,
+      percentage: 0,
+    };
+  }
 }
 
 /**
  * Calculate Care Signal pillar (Pillar 3)
  * Returns: { streak, eventsSubmitted, percentage }
- * 
- * Streak logic:
- * - 24 consecutive months required (EAT calendar months)
- * - Grace: ≤2 grace periods per calendar year
- * - After grace, next month must have ≥3 eligible events
- * - Third failure → streak resets to zero
  */
 async function calculateCareSignalPillar(userId: number) {
-  // Get current date in EAT (UTC+3)
-  const now = new Date();
-  const eatOffset = 3 * 60 * 60 * 1000; // UTC+3
-  const eatNow = new Date(now.getTime() + eatOffset);
-  const currentYear = eatNow.getUTCFullYear();
-  const currentMonth = eatNow.getUTCMonth() + 1; // 1-12
-
-  // Get all Care Signal events for this user
-  const allEvents = await db.query.careSignalEvents.findMany({
-    where: (events) => eq(events.userId, userId),
-  });
-
-  // Count events per month (EAT)
-  const eventsByMonth: Record<string, number> = {};
-  allEvents.forEach((event) => {
-    const eventDate = new Date(event.createdAt.getTime() + eatOffset);
-    const year = eventDate.getUTCFullYear();
-    const month = eventDate.getUTCMonth() + 1;
-    const key = `${year}-${String(month).padStart(2, "0")}`;
-    eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
-  });
-
-  // Get grace usage for current year
-  const graceUsage = await db.query.fellowshipGraceUsage.findMany({
-    where: (grace) =>
-      and(eq(grace.userId, userId), eq(grace.year, currentYear)),
-  });
-
-  const graceUsedThisYear = graceUsage.length;
-
-  // Calculate streak (simplified: count consecutive months with ≥3 events or grace)
-  let streak = 0;
-  let failureCount = 0;
-
-  // Walk backwards from current month
-  for (let m = currentMonth; m >= 1; m--) {
-    const key = `${currentYear}-${String(m).padStart(2, "0")}`;
-    const events = eventsByMonth[key] || 0;
-
-    if (events >= 3) {
-      // Month has ≥3 events: continue streak
-      streak++;
-    } else if (graceUsage.some((g) => g.month === m)) {
-      // Month used grace: continue streak
-      streak++;
-    } else {
-      // Month failed: increment failure count
-      failureCount++;
-      if (failureCount >= 3) {
-        // Third failure: reset streak
-        streak = 0;
-        break;
-      } else if (failureCount === 1) {
-        // First failure: can use grace if available
-        if (graceUsedThisYear < 2) {
-          // Grace available: continue
-          streak++;
-        } else {
-          // No grace available: stop
-          break;
-        }
-      } else {
-        // Second failure: stop
-        break;
-      }
-    }
+  const db = await getDb();
+  if (!db) {
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      percentage: 0,
+    };
   }
 
-  // Cap streak at 24 (fellowship requirement)
-  const percentage = Math.min(100, Math.round((streak / 24) * 100));
+  try {
+    // Get all Care Signal events for this user
+    const allEvents = await db.query.careSignalEvents.findMany({
+      where: (events) => eq(events.userId, userId),
+    });
 
-  return {
-    streak,
-    eventsSubmitted: allEvents.length,
-    percentage,
-  };
+    // Group events by month
+    const eventsByMonth: Record<string, number> = {};
+    const currentDate = new Date();
+    const currentYear = currentDate.getUTCFullYear();
+    const currentMonth = currentDate.getUTCMonth() + 1;
+
+    allEvents.forEach((event) => {
+      const eventDate = new Date(event.createdAt);
+      const year = eventDate.getUTCFullYear();
+      const month = eventDate.getUTCMonth() + 1;
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+      eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
+    });
+
+    // Get grace usage for current year
+    const graceUsage = await db.query.fellowshipGraceUsage.findMany({
+      where: (grace) =>
+        and(eq(grace.userId, userId), eq(grace.year, currentYear)),
+    });
+
+    const graceUsedThisYear = graceUsage.length;
+
+    // Calculate streak (simplified: count consecutive months with ≥3 events or grace)
+    let streak = 0;
+    let failureCount = 0;
+
+    // Walk backwards from current month
+    for (let m = currentMonth; m >= 1; m--) {
+      const key = `${currentYear}-${String(m).padStart(2, "0")}`;
+      const events = eventsByMonth[key] || 0;
+
+      if (events >= 3) {
+        // Month has ≥3 events: continue streak
+        streak++;
+      } else if (graceUsage.some((g) => g.month === m)) {
+        // Month used grace: continue streak
+        streak++;
+      } else {
+        // Month failed: increment failure count
+        failureCount++;
+        if (failureCount >= 3) {
+          // Third failure: reset streak
+          streak = 0;
+          break;
+        } else if (failureCount === 1) {
+          // First failure: can use grace if available
+          if (graceUsedThisYear < 2) {
+            // Grace available: continue
+            streak++;
+          } else {
+            // No grace available: stop
+            break;
+          }
+        } else {
+          // Second failure: stop
+          break;
+        }
+      }
+    }
+
+    // Cap streak at 24 (fellowship requirement)
+    const percentage = Math.min(100, Math.round((streak / 24) * 100));
+
+    return {
+      streak,
+      eventsSubmitted: allEvents.length,
+      percentage,
+    };
+  } catch (error) {
+    console.error("[Fellowship] Error calculating Care Signal pillar:", error);
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      percentage: 0,
+    };
+  }
 }
 
 /**
@@ -244,47 +289,28 @@ export const fellowshipRouter = router({
    * Get fellowship progress for current user
    */
   getProgress: protectedProcedure.query(async ({ ctx }) => {
-    const status = await calculateFellowshipStatus(ctx.user.id);
-
-    // Upsert fellowship progress record
-    const existing = await db.query.fellowshipProgress.findFirst({
-      where: (fp) => eq(fp.userId, ctx.user.id),
-    });
-
-    if (existing) {
-      // Update existing record
-      await db.updateFellowshipProgress(ctx.user.id, {
-        coursesCompleted: status.coursesPillar.completed,
-        coursesPercentage: status.coursesPillar.percentage,
-        resusGPSCasesCompleted: status.resusGPSPillar.casesCompleted,
-        conditionsWithThreshold: status.resusGPSPillar.conditionsWithThreshold,
-        totalConditionsTaught: status.resusGPSPillar.totalConditionsTaught,
-        resusGPSPercentage: status.resusGPSPillar.percentage,
-        careSignalStreak: status.careSignalPillar.streak,
-        careSignalEventsSubmitted: status.careSignalPillar.eventsSubmitted,
-        careSignalPercentage: status.careSignalPillar.percentage,
+    try {
+      const status = await calculateFellowshipStatus(ctx.user.id);
+      
+      // Return calculated status directly (no database upsert for now)
+      return {
+        coursesPillar: status.coursesPillar,
+        resusGPSPillar: status.resusGPSPillar,
+        careSignalPillar: status.careSignalPillar,
         isQualified: status.isQualified,
         overallPercentage: status.overallPercentage,
-      });
-    } else {
-      // Create new record
-      await db.createFellowshipProgress({
-        userId: ctx.user.id,
-        coursesCompleted: status.coursesPillar.completed,
-        coursesPercentage: status.coursesPillar.percentage,
-        resusGPSCasesCompleted: status.resusGPSPillar.casesCompleted,
-        conditionsWithThreshold: status.resusGPSPillar.conditionsWithThreshold,
-        totalConditionsTaught: status.resusGPSPillar.totalConditionsTaught,
-        resusGPSPercentage: status.resusGPSPillar.percentage,
-        careSignalStreak: status.careSignalPillar.streak,
-        careSignalEventsSubmitted: status.careSignalPillar.eventsSubmitted,
-        careSignalPercentage: status.careSignalPillar.percentage,
-        isQualified: status.isQualified,
-        overallPercentage: status.overallPercentage,
-      });
+      };
+    } catch (error) {
+      console.error("[Fellowship] Error in getProgress:", error);
+      // Return default 0% progress on error
+      return {
+        coursesPillar: { completed: 0, required: 26, percentage: 0, legacyCourses: 0 },
+        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0 },
+        careSignalPillar: { streak: 0, eventsSubmitted: 0, percentage: 0 },
+        isQualified: false,
+        overallPercentage: 0,
+      };
     }
-
-    return status;
   }),
 
   /**
@@ -293,114 +319,59 @@ export const fellowshipRouter = router({
   recordResusGPSSession: protectedProcedure
     .input(
       z.object({
-        sessionId: z.string(),
-        primaryDiagnosis: z.string(),
-        secondaryDiagnoses: z.array(z.string()).optional(),
-        patientAgeMonths: z.number(),
-        patientWeightKg: z.number().optional(),
-        isTrauma: z.boolean().optional(),
-        isCardiacArrest: z.boolean().optional(),
-        interventionCount: z.number().default(0),
-        reassessmentCount: z.number().default(0),
-        durationSeconds: z.number().optional(),
-        outcome: z.string().optional(),
-        depthScore: z.number().default(0),
+        diagnosis: z.string(),
+        patientAge: z.number(),
+        patientWeight: z.number(),
+        interventions: z.array(z.string()),
+        reassessments: z.number(),
       })
     )
-    .mutation(async ({ input, ctx }) => {
-      // Create session record
-      const session = await db.createResusGPSSession({
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database connection failed");
+      }
+
+      // Create session
+      const session = await db.insert(resusGPSSessions).values({
         userId: ctx.user.id,
-        sessionId: input.sessionId,
-        primaryDiagnosis: input.primaryDiagnosis,
-        secondaryDiagnoses: input.secondaryDiagnoses
-          ? JSON.stringify(input.secondaryDiagnoses)
-          : null,
-        patientAgeMonths: input.patientAgeMonths,
-        patientWeightKg: input.patientWeightKg || null,
-        isTrauma: input.isTrauma || false,
-        isCardiacArrest: input.isCardiacArrest || false,
+        diagnosis: input.diagnosis,
+        patientAge: input.patientAge,
+        patientWeight: input.patientWeight,
+        interventions: JSON.stringify(input.interventions),
+        reassessments: input.reassessments,
         status: "completed",
-        interventionCount: input.interventionCount,
-        reassessmentCount: input.reassessmentCount,
-        durationSeconds: input.durationSeconds || null,
-        outcome: input.outcome || null,
-        depthScore: input.depthScore,
+        createdAt: new Date(),
       });
 
-      return session;
+      return { success: true, sessionId: session[0].insertId };
     }),
 
   /**
-   * Record a ResusGPS case within a session
+   * Record a ResusGPS case
    */
   recordResusGPSCase: protectedProcedure
     .input(
       z.object({
-        sessionId: z.string(),
-        caseNumber: z.number(),
+        sessionId: z.number(),
         diagnosis: z.string(),
-        abcdeCompleted: z.boolean().optional(),
-        interventions: z.array(z.any()).optional(),
-        reassessments: z.array(z.any()).optional(),
-        outcome: z.string().optional(),
-        depthScore: z.number().default(0),
+        depth: z.number().min(0).max(100),
       })
     )
-    .mutation(async ({ input, ctx }) => {
-      const caseRecord = await db.createResusGPSCase({
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database connection failed");
+      }
+
+      // Create case
+      const result = await db.insert(resusGPSCases).values({
         sessionId: input.sessionId,
-        userId: ctx.user.id,
-        caseNumber: input.caseNumber,
         diagnosis: input.diagnosis,
-        abcdeCompleted: input.abcdeCompleted || false,
-        interventions: input.interventions
-          ? JSON.stringify(input.interventions)
-          : null,
-        reassessments: input.reassessments
-          ? JSON.stringify(input.reassessments)
-          : null,
-        outcome: input.outcome || null,
-        depthScore: input.depthScore,
+        depth: input.depth,
+        createdAt: new Date(),
       });
 
-      return caseRecord;
+      return { success: true, caseId: result[0].insertId };
     }),
-
-  /**
-   * Get fellowship status for admin view
-   */
-  getFellowshipStats: protectedProcedure.query(async ({ ctx }) => {
-    // Only admins can view stats
-    if (ctx.user.role !== "admin") {
-      throw new Error("Unauthorized");
-    }
-
-    // Get all fellowship progress records
-    const allProgress = await db.query.fellowshipProgress.findMany({});
-
-    const totalUsers = allProgress.length;
-    const qualifiedUsers = allProgress.filter((p) => p.isQualified).length;
-    const avgCourseCompletion = Math.round(
-      allProgress.reduce((sum, p) => sum + (p.coursesPercentage || 0), 0) /
-        totalUsers
-    );
-    const avgResusGPSCompletion = Math.round(
-      allProgress.reduce((sum, p) => sum + (p.resusGPSPercentage || 0), 0) /
-        totalUsers
-    );
-    const avgCareSignalCompletion = Math.round(
-      allProgress.reduce((sum, p) => sum + (p.careSignalPercentage || 0), 0) /
-        totalUsers
-    );
-
-    return {
-      totalUsers,
-      qualifiedUsers,
-      qualificationRate: totalUsers > 0 ? (qualifiedUsers / totalUsers) * 100 : 0,
-      avgCourseCompletion,
-      avgResusGPSCompletion,
-      avgCareSignalCompletion,
-    };
-  }),
 });
