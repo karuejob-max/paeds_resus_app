@@ -25,6 +25,7 @@ export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
 
   // Redirect if not logged in
   if (!loading && !user) {
@@ -46,8 +47,18 @@ export default function FellowshipDashboard() {
     onSuccess: () => {
       // Refetch enrollments after successful enrollment
       trpc.useUtils().courses.getEnrollments.invalidate();
+      setEnrollingCourseId(null);
+    },
+    onError: (error) => {
+      console.error('Enrollment failed:', error);
+      setEnrollingCourseId(null);
     },
   });
+
+  const handleEnroll = (courseId: string) => {
+    setEnrollingCourseId(courseId);
+    enrollMutation.mutate({ courseId });
+  };
 
   if (loading || isLoading) {
     return (
@@ -285,6 +296,7 @@ export default function FellowshipDashboard() {
                     const courseId = course.courseId || course.id;
                     const isEnrolled = enrolledCourseIds.has(courseId);
                     const isCompleted = completedCourseIds.has(courseId);
+                    const isEnrollingThisCourse = enrollingCourseId === courseId;
                     
                     return (
                       <div
@@ -319,10 +331,10 @@ export default function FellowshipDashboard() {
                           <Button 
                             size="sm" 
                             className="w-full"
-                            onClick={() => enrollMutation.mutate({ courseId })}
-                            disabled={enrollMutation.isPending}
+                            onClick={() => handleEnroll(courseId)}
+                            disabled={isEnrollingThisCourse}
                           >
-                            {enrollMutation.isPending ? "Enrolling..." : "Enroll"}
+                            {isEnrollingThisCourse ? "Enrolling..." : "Enroll"}
                           </Button>
                         )}
                       </div>
