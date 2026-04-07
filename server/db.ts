@@ -29,13 +29,19 @@ function getConnectionConfig(databaseUrl: string): mysql.PoolOptions {
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
+      console.log('[Database] Attempting to connect...');
       const config = getConnectionConfig(process.env.DATABASE_URL);
+      console.log('[Database] Connection config:', { host: config.host, user: config.user, database: config.database });
       const pool = mysql.createPool(config);
+      console.log('[Database] Pool created');
       _db = drizzle(pool) as unknown as NonNullable<typeof _db>;
+      console.log('[Database] Drizzle instance created successfully');
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error instanceof Error ? error.message : String(error));
       _db = null;
     }
+  } else if (!process.env.DATABASE_URL) {
+    console.error('[Database] DATABASE_URL not set in environment');
   }
   return _db;
 }

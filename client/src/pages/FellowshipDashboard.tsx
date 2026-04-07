@@ -56,8 +56,13 @@ export default function FellowshipDashboard() {
   });
 
   const handleEnroll = (courseId: string) => {
+    console.log('[DEBUG] handleEnroll called with courseId:', courseId);
+    console.log('[DEBUG] enrollMutation:', enrollMutation);
+    console.log('[DEBUG] enrollMutation.mutate:', enrollMutation.mutate);
     setEnrollingCourseId(courseId);
+    console.log('[DEBUG] About to call enrollMutation.mutate');
     enrollMutation.mutate({ courseId });
+    console.log('[DEBUG] enrollMutation.mutate called');
   };
 
   if (loading || isLoading) {
