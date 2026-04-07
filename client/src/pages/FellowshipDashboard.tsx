@@ -107,8 +107,8 @@ export default function FellowshipDashboard() {
   const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
 
   // Prepare course data
-  const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.courseId) || []);
-  const completedCourseIds = new Set(enrollments?.filter((e: any) => e.enrollmentStatus === "completed").map((e: any) => e.courseId) || []);
+  const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.course?.courseId) || []);
+  const completedCourseIds = new Set(enrollments?.filter((e: any) => e.enrollmentStatus === "completed").map((e: any) => e.course?.courseId) || []);
 
   // Sort courses by order
   const sortedCourses = [...(allCourses || [])].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
