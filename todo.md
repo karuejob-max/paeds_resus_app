@@ -469,3 +469,39 @@
 - [ ] Implement Care Signal incident reporting interface
 - [ ] Add fellowship qualification celebration page
 - [ ] Test complete provider journey end-to-end
+
+
+---
+
+# Provider Dashboard Implementation (Current Sprint)
+
+## Phase 1: Fellowship Hero & 3-Pillar Progress
+- [ ] Create ProviderDashboard component with fellowship hero card
+- [ ] Add overall progress % calculation
+- [ ] Add 3-pillar progress bars (Micro-courses, ResusGPS, Care Signal)
+- [ ] Implement progress calculation logic
+
+## Phase 2: AHA Courses Section
+- [ ] Add BLS, ACLS, PALS course cards
+- [ ] Show enrollment status and progress per course
+- [ ] Add Enroll/Continue buttons
+
+## Phase 3: Next Action Logic
+- [ ] Determine which pillar is incomplete
+- [ ] Show single recommended next action
+- [ ] Add CTA button to continue fellowship
+
+## Phase 4: Wire into Home Page
+- [ ] Update Home.tsx to show ProviderDashboard after login
+- [ ] Remove old FellowshipDashboard from navigation
+- [ ] Test navigation flow
+
+## Phase 5: End-to-End Testing
+- [ ] Test login → dashboard flow
+- [ ] Verify progress calculations
+- [ ] Test AHA course cards
+- [ ] Verify next action recommendation
+
+## Phase 6: Commit & Verify
+- [ ] Commit to local git
+- [ ] Verify commit on GitHub with git log origin/main
