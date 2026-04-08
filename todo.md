@@ -577,3 +577,62 @@
 - [x] Fixed enrollment data mapping (e.course?.courseId)
 - [x] Enabled tRPC batching in Express middleware
 - [ ] Replace button click with modal-based flow (in progress)
+
+
+## Fellowship Policy Alignment (NEW - PRIORITY)
+
+### Phase 1: Update PSoT and Fellowship Docs
+- [ ] Update docs/PLATFORM_SOURCE_OF_TRUTH.md: Remove AHA from Fellowship criteria
+- [ ] Update docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md: Define new 3-pillar structure (micro-courses only, no AHA)
+- [ ] Clarify that AHA courses are optional, standalone track
+- [ ] Document that first micro-course enrollment = automatic Fellowship journey start
+- [ ] Document that Fellowship progress shown for ALL micro-course enrollees (regardless of stated intention)
+
+### Phase 2: Audit Database Schema and Code Logic
+- [ ] Verify enrollments table supports AHA/micro-course distinction
+- [ ] Check if courseType enum exists (to distinguish AHA vs micro-courses)
+- [ ] Audit Fellowship eligibility logic in server/routers/enrollment.ts
+- [ ] Check if Fellowship progress aggregation correctly excludes AHA
+- [ ] Verify ResusGPS integration with Fellowship (Pillar 2)
+- [ ] Verify Care Signal integration with Fellowship (Pillar 3)
+
+### Phase 3: Update Fellowship Eligibility Logic
+- [ ] Update enrollment mutation to auto-enroll in Fellowship on first micro-course purchase
+- [ ] Update Fellowship progress calculation to exclude AHA courses
+- [ ] Update eligibility check to require ONLY micro-courses (not AHA)
+- [ ] Update qualification detection to exclude AHA from criteria
+- [ ] Test with mixed AHA + micro-course enrollments
+
+### Phase 4: Update UI/UX
+- [ ] Separate AHA courses from Fellowship dashboard
+- [ ] Create dedicated AHA Certification page/section
+- [ ] Update FellowshipDashboard to show only micro-courses in Pillar 1
+- [ ] Update course cards to indicate AHA vs micro-course type
+- [ ] Update enrollment modals to clarify Fellowship vs AHA
+- [ ] Update provider messaging (copy) to reflect new structure
+
+### Phase 5: Test Enrollment Flows
+- [ ] Test micro-course enrollment → auto-enroll in Fellowship
+- [ ] Test AHA course enrollment → does NOT trigger Fellowship
+- [ ] Test mixed enrollments (AHA + micro-courses) → Fellowship progress correct
+- [ ] Test Fellowship progress calculation (26 micro-courses, not AHA)
+- [ ] Test ResusGPS integration (Pillar 2) with Fellowship
+- [ ] Test Care Signal integration (Pillar 3) with Fellowship
+- [ ] Test Fellowship qualification detection
+
+### Phase 6: Investigate Repo vs Deployment Drift
+- [ ] Check deployed commit SHA/branch on paedsresus-mhrec3b6.manus.space
+- [ ] Verify pending database migrations are applied
+- [ ] Compare deployed routes/features against current main branch
+- [ ] Identify why /fellowship route exists in repo but not on live deployment
+- [ ] Identify why Care Signal form exists in repo but not on live deployment
+- [ ] Identify why enrollments schema differs between repo and deployment
+- [ ] Document findings and remediation steps
+
+### Phase 7: Deliver Updated Documentation and Status
+- [ ] Create comprehensive provider journey document (corrected)
+- [ ] Document new Fellowship structure (AHA excluded)
+- [ ] Document AHA Certification track (optional, standalone)
+- [ ] Create implementation checklist for alignment
+- [ ] Report on repo vs deployment drift findings
+- [ ] Provide deployment remediation recommendations
