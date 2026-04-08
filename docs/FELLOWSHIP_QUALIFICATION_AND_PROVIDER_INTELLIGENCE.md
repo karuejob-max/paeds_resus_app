@@ -44,7 +44,7 @@ This document locks:
 
 | Pillar | Rule | Automation requirement |
 |--------|------|------------------------|
-| **A — Courses** | Complete **BLS, ACLS, PALS**, and **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
+| **A — Courses** | Complete **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). **BLS, ACLS, PALS are optional, standalone** offerings and are **not** required for Fellowship. | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
 | **B — ResusGPS** | For **each taught condition** in the portfolio, **≥3 attributable cases** where the learner **used ResusGPS** to guide care. | Pathway/session IDs, user ID, **minimum depth** thresholds (anti-gaming), timestamps; map **condition ↔ pathway** in config. |
 | **C — Care Signal** | **24 consecutive qualifying months** of monthly reporting (see §6–7). | Dedicated **staff** submission table(s), EAT calendar month bucketing, immutable audit trail. |
 

@@ -296,7 +296,7 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 17.2 Three pillars (all required)
 
-1. **Courses:** **BLS, ACLS, PALS**, plus **every** active ADF micro-course — completion from **DB** (`certificates` / completion rules).
+1. **Courses:** **Every** active ADF micro-course — completion from **DB** (`certificates` / completion rules). **Note:** BLS, ACLS, PALS are **optional, standalone** offerings (see [§3](#3-what-we-do-offerings)); they are **not** required for Fellowship qualification.
 2. **ResusGPS:** **≥3** attributable cases **per taught condition**, with **server-side** depth rules (anti-gaming).
 3. **Care Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
 
