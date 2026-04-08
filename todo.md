@@ -551,14 +551,22 @@
 - [ ] Test idempotency (prevent double-click enrollment)
 - [ ] Test error scenarios: network failure, payment timeout, user cancels
 
-### Phase 6: Admin Dashboard (Future)
+### Phase 6: Connect Enrollment to Existing M-Pesa Integration (REQUIRED)
+- [ ] Update EnrollmentModal to call existing mpesa.initiatePayment endpoint
+- [ ] Wire enrollment router to use existing M-Pesa payment flow
+- [ ] Update payment confirmation to trigger enrollment creation
+- [ ] Test enrollment with existing M-Pesa test credentials
+- [ ] Verify payment webhook updates enrollment status
+- [ ] Test all 3 payment flows: admin-free, promo-code, M-Pesa
+
+### Phase 7: Admin Dashboard
 - [ ] Create promo code management interface
 - [ ] Generate new promo codes with expiry and usage limits
 - [ ] View usage analytics and revenue tracking
 - [ ] Manually enroll users (admin override)
 - [ ] View enrollment records and payment history
 
-### Phase 7: Production Deployment
+### Phase 8: Production Deployment
 - [ ] Deploy to Render
 - [ ] Verify all payment methods work in production
 - [ ] Monitor M-Pesa webhook delivery
