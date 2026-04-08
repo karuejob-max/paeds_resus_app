@@ -3,7 +3,7 @@
  */
 
 import { db } from "./db";
-import { microCourses, microCourseEnrollments, promoCodes, users } from "@/drizzle/schema";
+import { microCourses, microCourseEnrollments, promoCodes, users } from "../drizzle/schema";
 import { eq, and, isNull, or, lt } from "drizzle-orm";
 
 /**
