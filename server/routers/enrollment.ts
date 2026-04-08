@@ -18,6 +18,9 @@ import {
   ensurePaediatricSepticShockCatalog,
   getPaediatricSepticShockCourseId,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
+// NEW: Enrollment system imports
+// @ts-ignore - dynamic imports
+import type { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment as createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } from "../db-enrollment";
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
@@ -218,6 +221,174 @@ export const enrollmentRouter = router({
         status: "completed",
         message: "Payment verified successfully",
       };
+    }),
+
+  // NEW: Enroll with payment (M-Pesa, admin free, or promo code)
+  enrollWithPayment: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.string(), // e.g., "asthma-i"
+        phoneNumber: z.string().optional(), // Required for M-Pesa
+        promoCode: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment: createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } = await import("@/server/db-enrollment");
+        
+        const userId = ctx.user.id;
+
+        // 1. Get course details
+        const course = await getCourseDetails(input.courseId);
+        if (!course) {
+          throw new Error("Course not found");
+        }
+
+        // 2. Check if already enrolled
+        const alreadyEnrolled = await isUserEnrolled(userId, course.id);
+        if (alreadyEnrolled) {
+          return {
+            success: false,
+            error: "Already enrolled in this course",
+          };
+        }
+
+        // 3. Check if user is admin (free enrollment)
+        const isAdmin = await isUserAdmin(userId);
+        if (isAdmin) {
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message: "Admin enrollment successful",
+            paymentMethod: "admin-free",
+          };
+        }
+
+        // 4. Handle promo code if provided
+        if (input.promoCode) {
+          const promoValidation = await validatePromoCode(input.promoCode);
+          if (!promoValidation.valid) {
+            return {
+              success: false,
+              error: promoValidation.error,
+            };
+          }
+
+          const finalPrice = calculateFinalPrice(
+            course.price,
+            promoValidation.discountPercent
+          );
+
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "promo-code",
+            promoCodeId: promoValidation.id,
+            amountPaid: finalPrice,
+          });
+
+          // Increment promo code usage
+          await incrementPromoCodeUsage(promoValidation.id);
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message:
+              finalPrice === 0
+                ? "Enrollment successful - Free course via promo code"
+                : `Enrollment successful - ${promoValidation.discountPercent}% discount applied`,
+            paymentMethod: "promo-code",
+            amountPaid: finalPrice,
+          };
+        }
+
+        // 5. M-Pesa payment flow
+        if (!input.phoneNumber) {
+          return {
+            success: false,
+            error: "Phone number required for M-Pesa payment",
+          };
+        }
+
+        // Create pending enrollment record
+        const enrollment = await createEnrollmentDb({
+          userId,
+          microCourseId: course.id,
+          paymentMethod: "m-pesa",
+          amountPaid: course.price,
+        });
+
+        // Initiate M-Pesa STK Push
+        const { initiateMpesaPayment } = await import("@/server/services/mpesa.service");
+        const mpesaResult = await initiateMpesaPayment({
+          phoneNumber: input.phoneNumber,
+          amount: Math.ceil(course.price / 100), // Convert cents to KES
+          accountReference: `ENROLL-${enrollment.insertId}`,
+          transactionDesc: `${course.title} - Paeds Resus Fellowship`,
+          enrollmentId: enrollment.insertId,
+        });
+
+        if (!mpesaResult.success) {
+          return {
+            success: false,
+            error: mpesaResult.error || "Failed to initiate M-Pesa payment",
+          };
+        }
+
+        return {
+          success: true,
+          enrollmentId: enrollment.insertId,
+          message: "M-Pesa STK Push initiated - Check your phone",
+          paymentMethod: "m-pesa",
+          checkoutRequestId: mpesaResult.checkoutRequestId,
+          amountPaid: course.price,
+        };
+      } catch (error) {
+        console.error("[Enrollment] Error in enrollWithPayment:", error);
+        return {
+          success: false,
+          error:
+            error instanceof Error ? error.message : "Enrollment failed",
+        };
+      }
+    }),
+
+  // NEW: Validate promo code before enrollment
+  validatePromo: protectedProcedure
+    .input(z.object({ code: z.string(), coursePrice: z.number() }))
+    .query(async ({ input }) => {
+      try {
+        const { validatePromoCode, calculateFinalPrice } = await import("@/server/db-enrollment");
+        const validation = await validatePromoCode(input.code);
+        if (!validation.valid) {
+          return { valid: false, error: validation.error };
+        }
+
+        const finalPrice = calculateFinalPrice(
+          input.coursePrice,
+          validation.discountPercent
+        );
+        const savings = input.coursePrice - finalPrice;
+
+        return {
+          valid: true,
+          discountPercent: validation.discountPercent,
+          originalPrice: input.coursePrice,
+          finalPrice,
+          savings,
+          description: validation.description,
+        };
+      } catch (error) {
+        console.error("[Enrollment] Error validating promo:", error);
+        return { valid: false, error: "Error validating promo code" };
+      }
     }),
 
   /**

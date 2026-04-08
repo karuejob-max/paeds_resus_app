@@ -20,12 +20,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Stethoscope, AlertCircle, CheckCircle2, Clock, Award, Heart, Zap, Lock } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
+import { EnrollmentModal } from "@/components/EnrollmentModal";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
 
   // Redirect if not logged in
   if (!loading && !user) {
@@ -55,14 +58,15 @@ export default function FellowshipDashboard() {
     },
   });
 
-  const handleEnroll = (courseId: string) => {
-    console.log('[DEBUG] handleEnroll called with courseId:', courseId);
-    console.log('[DEBUG] enrollMutation:', enrollMutation);
-    console.log('[DEBUG] enrollMutation.mutate:', enrollMutation.mutate);
-    setEnrollingCourseId(courseId);
-    console.log('[DEBUG] About to call enrollMutation.mutate');
-    enrollMutation.mutate({ courseId });
-    console.log('[DEBUG] enrollMutation.mutate called');
+  const handleEnrollClick = (course: any) => {
+    setSelectedCourse(course);
+    setIsEnrollmentModalOpen(true);
+  };
+
+  const handleEnrollmentSuccess = () => {
+    // Refetch enrollments after successful enrollment
+    trpc.useUtils().courses.getEnrollments.invalidate();
+    trpc.useUtils().fellowship.getProgress.invalidate();
   };
 
   if (loading || isLoading) {
@@ -336,10 +340,9 @@ export default function FellowshipDashboard() {
                           <Button 
                             size="sm" 
                             className="w-full"
-                            onClick={() => handleEnroll(courseId)}
-                            disabled={isEnrollingThisCourse}
+                            onClick={() => handleEnrollClick(course)}
                           >
-                            {isEnrollingThisCourse ? "Enrolling..." : "Enroll"}
+                            Enroll
                           </Button>
                         )}
                       </div>
@@ -387,17 +390,25 @@ export default function FellowshipDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Qualification Status */}
+          {isQualified && (
+            <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <AlertDescription className="text-emerald-800 dark:text-emerald-200">
+                🎉 Congratulations! You have achieved Paeds Resus Fellowship qualification!
+              </AlertDescription>
+            </Alert>
+          )}
         </Tabs>
 
-        {/* Qualification Status */}
-        {isQualified && (
-          <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <AlertDescription className="text-emerald-800 dark:text-emerald-200">
-              🎉 Congratulations! You have achieved Paeds Resus Fellowship qualification!
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Enrollment Modal */}
+        <EnrollmentModal
+          course={selectedCourse}
+          isOpen={isEnrollmentModalOpen}
+          onClose={() => setIsEnrollmentModalOpen(false)}
+          onEnrollmentSuccess={handleEnrollmentSuccess}
+        />
       </div>
     </div>
   );

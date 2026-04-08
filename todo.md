@@ -505,3 +505,67 @@
 ## Phase 6: Commit & Verify
 - [ ] Commit to local git
 - [ ] Verify commit on GitHub with git log origin/main
+
+
+## Sprint 6: Complete Enrollment System with M-Pesa & Promo Codes
+
+### Phase 1: Database Schema & Promo Codes
+- [ ] Add `promo_codes` table to schema with fields: code, discount_percent, max_uses, uses_count, expires_at, created_by
+- [ ] Update `microCourseEnrollments` table with: promo_code_id, amount_paid, payment_method, transaction_id
+- [ ] Run database migrations (`pnpm db:push`)
+- [ ] Create database helper functions for promo code validation
+
+### Phase 2: Backend API Endpoints
+- [ ] Create `/api/enroll-with-payment` endpoint with logic for:
+  - [ ] Admin free enrollment (check user.role === 'admin')
+  - [ ] Promo code validation and discount application
+  - [ ] M-Pesa payment initiation via STK Push
+  - [ ] Idempotency check (prevent double enrollment)
+- [ ] Create `/api/validate-promo-code` endpoint for real-time validation
+- [ ] Add payment method tracking to enrollment records
+- [ ] Implement proper error handling and response messages
+
+### Phase 3: Frontend Enrollment Modal
+- [ ] Create EnrollmentModal component with:
+  - [ ] Course title, duration, level, and cost display
+  - [ ] Admin free enrollment button (visible only if user is admin)
+  - [ ] Promo code input field with real-time validation
+  - [ ] Phone number input for M-Pesa payment
+  - [ ] Loading states and error messages
+  - [ ] Success confirmation with enrollment details
+- [ ] Replace button click handler to open modal instead of direct mutation
+- [ ] Add toast notifications for user feedback
+
+### Phase 4: M-Pesa Integration
+- [ ] Integrate STK Push initiation in enrollment flow
+- [ ] Handle M-Pesa webhook callbacks for payment confirmation
+- [ ] Create enrollment record on successful payment
+- [ ] Add transaction reference tracking to enrollment
+- [ ] Implement payment timeout handling
+
+### Phase 5: Testing
+- [ ] Test admin enrollment (no payment required)
+- [ ] Test promo code enrollment (free or discounted)
+- [ ] Test M-Pesa payment flow with test credentials
+- [ ] Test edge cases: expired codes, max uses reached, invalid phone
+- [ ] Test idempotency (prevent double-click enrollment)
+- [ ] Test error scenarios: network failure, payment timeout, user cancels
+
+### Phase 6: Admin Dashboard (Future)
+- [ ] Create promo code management interface
+- [ ] Generate new promo codes with expiry and usage limits
+- [ ] View usage analytics and revenue tracking
+- [ ] Manually enroll users (admin override)
+- [ ] View enrollment records and payment history
+
+### Phase 7: Production Deployment
+- [ ] Deploy to Render
+- [ ] Verify all payment methods work in production
+- [ ] Monitor M-Pesa webhook delivery
+- [ ] Test with real M-Pesa credentials
+- [ ] Create checkpoint
+
+## Known Issues Fixed (Enrollment System)
+- [x] Fixed enrollment data mapping (e.course?.courseId)
+- [x] Enabled tRPC batching in Express middleware
+- [ ] Replace button click with modal-based flow (in progress)

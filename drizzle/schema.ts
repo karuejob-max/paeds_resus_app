@@ -747,6 +747,23 @@ export const microCourses = mysqlTable("microCourses", {
 export type MicroCourse = typeof microCourses.$inferSelect;
 export type InsertMicroCourse = typeof microCourses.$inferInsert;
 
+// Promo Codes table
+export const promoCodes = mysqlTable("promoCodes", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 64 }).notNull().unique(), // e.g., 'EARLYBIRD20', 'ADMIN100'
+  discountPercent: int("discountPercent").default(0), // 0-100, 0 means free
+  maxUses: int("maxUses"), // NULL = unlimited
+  usesCount: int("usesCount").default(0),
+  expiresAt: timestamp("expiresAt"),
+  createdBy: int("createdBy").notNull(), // admin user id
+  description: text("description"), // e.g., "Early bird discount for first 100 users"
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PromoCode = typeof promoCodes.$inferSelect;
+export type InsertPromoCode = typeof promoCodes.$inferInsert;
+
 // Micro-Course Enrollments table
 export const microCourseEnrollments = mysqlTable("microCourseEnrollments", {
   id: int("id").autoincrement().primaryKey(),
@@ -754,7 +771,11 @@ export const microCourseEnrollments = mysqlTable("microCourseEnrollments", {
   microCourseId: int("microCourseId").notNull(),
   enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "active", "completed", "expired"]).default("pending"),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "completed", "free"]).default("pending"),
-  paymentId: int("paymentId"), // links to payments table if paid
+  paymentMethod: mysqlEnum("paymentMethod", ["m-pesa", "admin-free", "promo-code"]), // how they enrolled
+  paymentId: int("paymentId"), // links to payments table if paid via M-Pesa
+  promoCodeId: int("promoCodeId"), // links to promoCodes table if used promo code
+  amountPaid: int("amountPaid"), // actual amount paid in KES cents (after discount)
+  transactionId: varchar("transactionId", { length: 255 }), // M-Pesa reference
   progressPercentage: int("progressPercentage").default(0),
   quizScore: int("quizScore"), // percentage (80+ = pass)
   certificateUrl: text("certificateUrl"),
