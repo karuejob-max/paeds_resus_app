@@ -40,8 +40,7 @@ export function EnrollmentModal({
 
   // Mutations
   const validatePromoMutation = trpc.enrollment.validatePromo.useMutation();
-  const enrollFreeMutation = trpc.enrollment.enrollFree.useMutation();
-  const mpesaMutation = trpc.mpesa.initiatePayment.useMutation();
+  const enrollWithPaymentMutation = trpc.enrollment.enrollWithPayment.useMutation();
 
   // Validate promo code
   const validatePromo = async () => {
@@ -77,15 +76,19 @@ export function EnrollmentModal({
 
     setIsLoading(true);
     try {
-      await enrollFreeMutation.mutateAsync({
+      const result = await enrollWithPaymentMutation.mutateAsync({
         courseId: course.courseId,
         promoCode: promoCode || undefined,
       });
-      setEnrollmentStep("success");
-      await utils.courses.getEnrollments.invalidate();
-      onEnrollmentSuccess();
+      if (result.success) {
+        setEnrollmentStep("success");
+        await utils.courses.getEnrollments.invalidate();
+        onEnrollmentSuccess();
+      } else {
+        setStatusMessage(result.error || "Enrollment failed");
+      }
     } catch (error) {
-      setStatusMessage("Error during enrollment");
+      setStatusMessage(error instanceof Error ? error.message : "Error during enrollment");
     } finally {
       setIsLoading(false);
     }
@@ -97,18 +100,16 @@ export function EnrollmentModal({
 
     setIsLoading(true);
     try {
-      const finalPrice = Math.ceil(course.price * (1 - discountPercent / 100));
-      const result = await mpesaMutation.mutateAsync({
-        phoneNumber,
-        amount: finalPrice,
+      const result = await enrollWithPaymentMutation.mutateAsync({
         courseId: course.courseId,
-        courseName: course.title,
+        phoneNumber,
       });
 
       if (result.success) {
         setStatusMessage("STK Push sent! Check your phone for M-Pesa prompt");
         // Wait for webhook confirmation before marking as success
-        setTimeout(() => {
+        setTimeout(async () => {
+          await utils.courses.getEnrollments.invalidate();
           setEnrollmentStep("success");
           onEnrollmentSuccess();
         }, 2000);
@@ -116,7 +117,7 @@ export function EnrollmentModal({
         setStatusMessage(result.error || "Failed to initiate payment");
       }
     } catch (error) {
-      setStatusMessage("Error initiating payment");
+      setStatusMessage(error instanceof Error ? error.message : "Error initiating payment");
     } finally {
       setIsLoading(false);
     }

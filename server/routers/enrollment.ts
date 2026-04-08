@@ -234,7 +234,7 @@ export const enrollmentRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment: createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } = await import("@/server/db-enrollment");
+        const { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment: createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } = await import("../db-enrollment");
         
         const userId = ctx.user.id;
 
@@ -325,14 +325,22 @@ export const enrollmentRouter = router({
           amountPaid: course.price,
         });
 
-        // Initiate M-Pesa STK Push
-        const { initiateMpesaPayment } = await import("@/server/services/mpesa.service");
-        const mpesaResult = await initiateMpesaPayment({
+        // Initiate M-Pesa STK Push using existing M-Pesa integration
+        const { initiateStkPush } = await import("../mpesa");
+        const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
+        
+        const accountReference = buildStkAccountReference({
+          enrollmentId: enrollment.insertId,
+          learnerName: ctx.user.name,
+          userId: ctx.user.id,
+        });
+        
+        const mpesaResult = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: Math.ceil(course.price / 100), // Convert cents to KES
-          accountReference: `ENROLL-${enrollment.insertId}`,
+          accountReference,
           transactionDesc: `${course.title} - Paeds Resus Fellowship`,
-          enrollmentId: enrollment.insertId,
+          orderId: `ENROLL-${enrollment.insertId}`,
         });
 
         if (!mpesaResult.success) {
@@ -347,7 +355,7 @@ export const enrollmentRouter = router({
           enrollmentId: enrollment.insertId,
           message: "M-Pesa STK Push initiated - Check your phone",
           paymentMethod: "m-pesa",
-          checkoutRequestId: mpesaResult.checkoutRequestId,
+          checkoutRequestId: mpesaResult.checkoutRequestID,
           amountPaid: course.price,
         };
       } catch (error) {
@@ -365,7 +373,7 @@ export const enrollmentRouter = router({
     .input(z.object({ code: z.string(), coursePrice: z.number() }))
     .query(async ({ input }) => {
       try {
-        const { validatePromoCode, calculateFinalPrice } = await import("@/server/db-enrollment");
+        const { validatePromoCode, calculateFinalPrice } = await import("../db-enrollment");
         const validation = await validatePromoCode(input.code);
         if (!validation.valid) {
           return { valid: false, error: validation.error };
