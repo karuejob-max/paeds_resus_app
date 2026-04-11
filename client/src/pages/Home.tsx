@@ -95,28 +95,31 @@ export default function Home() {
                 <RadioGroupItem value="individual" id="onb-individual" />
                 <Stethoscope className="h-5 w-5" />
                 <div>
-                  <p className="font-medium">Healthcare provider</p>
-                  <p className="text-sm text-muted-foreground">Paeds Resus, courses, and learning</p>
+                  <p className="font-medium">Healthcare Provider</p>
+                  <p className="text-sm text-muted-foreground">Access ResusGPS, micro-courses, clinical tools, and learning dashboards for individual practice</p>
                 </div>
               </Label>
               <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
                 <RadioGroupItem value="parent" id="onb-parent" />
-                <Users className="h-5 w-5" />
+                <Heart className="h-5 w-5" />
                 <div>
-                  <p className="font-medium">Parent or guardian</p>
-                  <p className="text-sm text-muted-foreground">Safe-Truth and parent resources</p>
+                  <p className="font-medium">Parent / Caregiver</p>
+                  <p className="text-sm text-muted-foreground">Learn pediatric emergency response, first aid, and safety tips for your family</p>
                 </div>
               </Label>
               <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
                 <RadioGroupItem value="institutional" id="onb-institutional" />
                 <Building2 className="h-5 w-5" />
                 <div>
-                  <p className="font-medium">Institution</p>
-                  <p className="text-sm text-muted-foreground">Hospital or organisation portal</p>
+                  <p className="font-medium">Institution / Hospital</p>
+                  <p className="text-sm text-muted-foreground">Manage staff training, track facility performance, and institutional subscriptions</p>
                 </div>
               </Label>
             </RadioGroup>
           </CardContent>
+          <div className="px-6 pb-4 text-center">
+            <p className="text-xs text-muted-foreground">You can change your role anytime from the account menu</p>
+          </div>
         </Card>
       </div>
     );

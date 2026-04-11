@@ -70,6 +70,7 @@ export default function Header() {
       return [
         RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
+        { label: "Courses", href: "/courses", icon: "📚" },
         { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
         { label: "Patients", href: "/patients", icon: "👥" },
         { label: "Protocols", href: "/protocols", icon: "📋" },
