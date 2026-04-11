@@ -302,7 +302,9 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 17.3 Grace (automated)
 
-- **≤2 grace periods per calendar year** (EAT). After a **0-event month** using a grace, the **next month** must have **≥3** eligible staff events. **≤1 additional grace** in the same year after a successful catch-up (total **≤2**/year). **Third** failure mode per linked doc → **pillar C streak resets to zero**; pillars A and B **do not** reset.
+- **Normal month requirement:** **≥1** eligible Care Signal event (ensures engagement without excessive burden).
+- **Grace periods:** **≤2 per calendar year** (EAT). After a **0-event month** using a grace, the **next month** must have **≥3** eligible staff events (catch-up enforcement). **≤1 additional grace** in the same year after a successful catch-up (total **≤2**/year). **Third** failure mode per linked doc → **pillar C streak resets to zero**; pillars A and B **do not** reset.
+- **Rationale:** ≥1 event/month ensures commitment; ≥3 for catch-up ensures accountability after grace is used.
 
 ### 17.4 Cumulative UX
 
