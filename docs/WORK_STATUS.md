@@ -83,6 +83,7 @@
 | 2025-03-07 | Manus | Phase 1: Analytics Instrumentation — created useResusAnalytics hook, integrated event tracking at ResusGPS lifecycle points (assessment start, questions, interventions, cardiac arrest, ROSC), events flow to analyticsEvents table, admin reports now show real activity | 7041295, 337aa52 |
 | 2025-03 | Manus | Phase 2: Staging Environment — STAGING_DEPLOYMENT.md with branch model (main/develop), manual deploy workflow, staging Render/Aiven setup guide, PR verification checklist, rollback procedure | (pushed) |
 | 2025-03 | Cursor | Phase 3: Security baseline — SECURITY_BASELINE.md; password complexity (min 8 chars, one letter + one number); session max age via SESSION_MAX_AGE_MS (default 1 year); adminAuditLog table + middleware; EAT for admin reports "this month" (startOfMonthEAT/endOfMonthEAT). | $h |
+| 2026-04-11 | Cursor | **Care Signal streak + Fellowship tests:** Added `server/routers/fellowship-care-signal-streak.ts` with `computeCareSignalStreak` (forward EAT month order, rolling 24 months; grace rows for all calendar years in window). `fellowship.ts` uses it; grace query now uses `inArray(grace.year, windowYears)`. **ResusGPS:** cases query uses `inArray(cases.sessionId, sessionIds)` (correct OR across sessions; multiple `eq(sessionId, …)` in `and()` matched no rows). Tests import shared streak helper; **14/14** `fellowship.care-signal-pillar.test.ts` pass. (On Manus `419890c`, the same test file reported **8/14 failing** before this follow-up.) | (see commit) |
 
 ---
 
@@ -113,6 +114,7 @@ Any agent can add here. Format: date, reviewer (Codex/Manus/Cursor), subject (e.
 |------|----------|---------|-------|
 | 2026-04-01 | Cursor | **M-Pesa mock / test rows in DB** | Do **not** bulk-delete real `payments` / `enrollments` on production (audit, finance, certificates). Rows from dev **`MOCK_` CheckoutRequestID** or obvious test users may be removed in **non-prod** only after backup. Prefer **admin reconciliation** + marking failed duplicates over deleting live payment history. |
 | 2026-04-01 | Cursor | Manus “repo alignment” audit vs `main` | On latest `main`, `docs/STRATEGIC_FOUNDATION.md` exists; `PLATFORM_SOURCE_OF_TRUTH.md` links it (not 56-line stub); commits `a0d5246` / `359d1a5` are in history. Likely **stale clone or wrong branch** if missing. **Root** `STRATEGIC_VISION_2031.md` was valid concern—**archived** under `docs/archive/` with explicit “not execution truth” framing. |
+| 2026-04-11 | Cursor | Manus Phase 3 (`419890c` area) | **Verified:** join uses string `sessionId`; Care Signal pillar + PSoT edits + test file exist on `main`. **Issue:** `pnpm test -- fellowship.care-signal-pillar.test.ts` was **8/14 red** on merged code: duplicated streak helper in tests did not match router; year-to-January walk + implicit grace inflated counts. **ResusGPS:** `and(...sessions.map(eq sessionId))` is incorrect for multiple sessions (needs `inArray` / `or`). Cursor follow-up extracts shared streak logic and fixes cases query; tests green. |
 | (add when you review another's work) | | | |
 
 ---

@@ -12,7 +12,7 @@
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   fellowshipProgress,
   fellowshipGraceUsage,
@@ -23,6 +23,10 @@ import {
   microCourseEnrollments,
   certificates,
 } from "../../drizzle/schema";
+import {
+  computeCareSignalStreak,
+  enumerateMonthsEndingAt,
+} from "./fellowship-care-signal-streak";
 
 /**
  * Calculate courses completion percentage (Pillar 1)
@@ -110,14 +114,11 @@ async function calculateResusGPSPillar(userId: number) {
     });
 
     // Get all cases for these sessions by matching sessionId (string UUID)
+    const sessionIds = sessions.map((s) => s.sessionId);
     const allCases = await db.query.resusGPSCases.findMany({
       where: (cases) =>
-        sessions.length > 0
-          ? and(
-              eq(cases.userId, userId),
-              // Match cases.sessionId (string) with sessions[].sessionId (string)
-              ...sessions.map((s) => eq(cases.sessionId, s.sessionId))
-            )
+        sessionIds.length > 0
+          ? and(eq(cases.userId, userId), inArray(cases.sessionId, sessionIds))
           : undefined,
     });
 
@@ -198,64 +199,23 @@ async function calculateCareSignalPillar(userId: number) {
       eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
     });
 
-    // Get grace usage for current year
+    const windowKeys = enumerateMonthsEndingAt(currentYear, currentMonth, 24);
+    const windowYears = [
+      ...new Set(windowKeys.map((k) => Number(k.slice(0, 4)))),
+    ];
+
     const graceUsage = await db.query.fellowshipGraceUsage.findMany({
       where: (grace) =>
-        and(eq(grace.userId, userId), eq(grace.year, currentYear)),
+        and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
     });
 
-    const graceUsedThisYear = graceUsage.length;
-
-    // Calculate streak: walk backwards from current month
-    let streak = 0;
-    let failureCount = 0;
-    let graceInProgress = false; // Track if we're in a grace-recovery month
-
-    for (let m = currentMonth; m >= 1; m--) {
-      const key = `${currentYear}-${String(m).padStart(2, "0")}`;
-      const events = eventsByMonth[key] || 0;
-      const usedGraceThisMonth = graceUsage.some((g) => g.month === m);
-
-      if (graceInProgress) {
-        // We're in a catch-up month after grace: require ≥3 events
-        if (events >= 3) {
-          // Catch-up successful: continue streak
-          streak++;
-          graceInProgress = false;
-          failureCount = 0; // Reset failure count after successful catch-up
-        } else {
-          // Catch-up failed: reset streak
-          streak = 0;
-          break;
-        }
-      } else if (usedGraceThisMonth) {
-        // Grace was used this month (0 events): continue streak and mark for catch-up
-        streak++;
-        graceInProgress = true; // Next month must have ≥3 events
-      } else if (events >= 1) {
-        // Normal month with ≥1 event: continue streak
-        streak++;
-        failureCount = 0;
-      } else {
-        // Month with 0 events and no grace
-        failureCount++;
-        if (failureCount >= 3) {
-          // Third failure: reset streak
-          streak = 0;
-          break;
-        } else if (failureCount === 1 || failureCount === 2) {
-          // First or second failure: can use grace if available
-          if (graceUsedThisYear < 2) {
-            // Grace available: treat as grace month
-            streak++;
-            graceInProgress = true; // Next month must have ≥3 events
-          } else {
-            // No grace available: stop
-            break;
-          }
-        }
-      }
-    }
+    const streak = computeCareSignalStreak({
+      eventsByMonth,
+      graceUsage: graceUsage.map((g) => ({ year: g.year, month: g.month })),
+      anchorYear: currentYear,
+      anchorMonth: currentMonth,
+      windowMonths: 24,
+    });
 
     // Cap streak at 24 (fellowship requirement)
     const percentage = Math.min(100, Math.round((streak / 24) * 100));
