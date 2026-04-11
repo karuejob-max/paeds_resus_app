@@ -20,6 +20,7 @@
     "db:apply-0030": "node scripts/apply-0030-certificate-download-feedback.mjs",
     "db:apply-0031": "node scripts/apply-0031-care-signal-events.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
+    "db:test-connection": "node scripts/test-db-connection.mjs",
     "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
     "verify:analytics": "tsx scripts/verify-analytics-events.ts"
   },
