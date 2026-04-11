@@ -21,6 +21,11 @@ vi.mock("../db-enrollment", () => ({
   isUserAdmin: vi.fn(),
 }));
 
+vi.mock("../services/analytics.service", () => ({
+  trackEvent: vi.fn().mockResolvedValue(undefined),
+  trackPaymentInitiation: vi.fn().mockResolvedValue(undefined),
+}));
+
 function createAuthContext(overrides?: Partial<User>): TrpcContext {
   const user: User = {
     id: 1,

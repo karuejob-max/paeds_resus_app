@@ -39,8 +39,8 @@
 | `page_view` | Page viewed | `client/src/hooks/useAnalytics.ts` | timestamp, userAgent | |
 | `enrollment_started` | User started enrollment flow (client) | `useAnalytics.ts` | courseId, courseName | Verify wired on enroll UI. |
 | `payment_initiated` | Client marked payment start | `useAnalytics.ts` | amount, courseId | Distinct from server `payment_initiation`. |
-| `course_enrollment` | Server-tracked enrollment row created | `server/routers/enrollment.ts`, `server/routers/mpesa.ts` (inline enroll) | courseType, enrollmentId, source | `trackEvent` → `analytics.service`. |
-| `payment_initiation` | STK payment row created after successful `initiateStkPush` | `server/routers/mpesa.ts` | amount, paymentMethod | Emitted via `trackPaymentInitiation` → `payment_initiation`. |
+| `course_enrollment` | Server-tracked enrollment row created | `server/routers/enrollment.ts`, `server/routers/mpesa.ts` (inline enroll) | courseType, enrollmentId, source | `trackEvent` → `analytics.service`. **Micro-courses (`enrollWithPayment`):** `eventData.source` = `enroll_with_payment`, `courseType` = `micro_course`, `courseId` = slug, `microCourseId`, `paymentMethod` (`m-pesa` \| `admin-free` \| `promo-code`), `amountPaid`, optional `promoCodeId`. |
+| `payment_initiation` | STK payment row created after successful `initiateStkPush` | `server/routers/mpesa.ts`, `server/routers/enrollment.ts` (`enrollWithPayment` M-Pesa path) | amount (KES), paymentMethod | Emitted via `trackPaymentInitiation` → `payment_initiation`. |
 | `payment_completion` | M-Pesa payment settled | `server/webhooks/mpesa-webhook.ts`, `server/mpesa-reconciliation.ts` | amount, paymentMethod, transactionId | Authoritative completion; reconcile covers mock / missed webhooks. |
 | `institutional_inquiry` | B2B inquiry | `useAnalytics.ts` | inquiryType | |
 | `safetruth_submission` | Parent Safe-Truth timeline submitted (server) | `server/routers/parent-safetruth.ts` | submissionId, childOutcome, eventCount | Distinct from monthly `parentSafeTruthSubmissions` KPI; feeds **last 7 days** product activity. |
@@ -57,6 +57,7 @@ Additional fellowship/QI events may use the same prefix (e.g. streak milestones)
 
 | Date | Change |
 |------|--------|
+| 2026-04-11 | **`enrollWithPayment`** emits **`course_enrollment`** (+ **`payment_initiation`** after successful STK) for micro-course M-Pesa / admin-free / promo paths. |
 | 2026-04-04 | **`care_signal_submission_created`** emitted from `care-signal-events.ts` on successful DB insert. |
 | 2026-03-31 | Planned `care_signal_*` events (distinct from `safetruth_submission`); PSoT §17 / fellowship doc. |
 | 2026-04-01 | Sprint 1 freeze: server `course_enrollment`, `payment_initiation`, `payment_completion` (webhook + reconcile), `safetruth_submission`, `institution_training_schedule_created`; see `SPRINT_1_MEASUREMENT_TRUTH_AUDIT_RESULTS.md`. |

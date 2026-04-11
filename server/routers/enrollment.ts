@@ -12,7 +12,7 @@ import {
 } from "../db";
 import { enrollments, payments, courses } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
-import { trackEvent } from "../services/analytics.service";
+import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
@@ -21,6 +21,34 @@ import {
 // NEW: Enrollment system imports
 // @ts-ignore - dynamic imports
 import type { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment as createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } from "../db-enrollment";
+
+/** Server analytics for micro-course `enrollWithPayment` (PSoT / EVENT_TAXONOMY `course_enrollment`). */
+async function trackMicroCourseEnrollWithPayment(params: {
+  userId: number;
+  courseIdSlug: string;
+  microCourseId: number;
+  enrollmentId: number;
+  paymentMethod: "m-pesa" | "admin-free" | "promo-code";
+  amountPaid: number;
+  promoCodeId?: number | null;
+}) {
+  await trackEvent({
+    userId: params.userId,
+    eventType: "course_enrollment",
+    eventName: `Micro-course enroll ${params.courseIdSlug}`,
+    eventData: {
+      courseType: "micro_course",
+      courseId: params.courseIdSlug,
+      microCourseId: params.microCourseId,
+      enrollmentId: params.enrollmentId,
+      paymentMethod: params.paymentMethod,
+      amountPaid: params.amountPaid,
+      promoCodeId: params.promoCodeId ?? undefined,
+      source: "enroll_with_payment",
+    },
+    sessionId: `micro_enrollment_${params.enrollmentId}`,
+  });
+}
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
@@ -263,6 +291,15 @@ export const enrollmentRouter = router({
             amountPaid: 0,
           });
 
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
           return {
             success: true,
             enrollmentId: enrollment.insertId,
@@ -297,6 +334,16 @@ export const enrollmentRouter = router({
           // Increment promo code usage
           await incrementPromoCodeUsage(promoValidation.id);
 
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "promo-code",
+            amountPaid: finalPrice,
+            promoCodeId: promoValidation.id,
+          });
+
           return {
             success: true,
             enrollmentId: enrollment.insertId,
@@ -317,16 +364,21 @@ export const enrollmentRouter = router({
           };
         }
 
-        // Create pending enrollment record
-        console.log("[Enrollment] Creating enrollment with:", { userId, microCourseId: course.id, paymentMethod: "m-pesa", amountPaid: course.price });
-        console.log("[Enrollment] createEnrollmentDb function:", createEnrollmentDb.toString().substring(0, 100));
         const enrollment = await createEnrollmentDb({
           userId,
           microCourseId: course.id,
           paymentMethod: "m-pesa",
           amountPaid: course.price,
         });
-        console.log("[Enrollment] Created enrollment:", enrollment);
+
+        await trackMicroCourseEnrollWithPayment({
+          userId,
+          courseIdSlug: input.courseId,
+          microCourseId: course.id,
+          enrollmentId: enrollment.insertId,
+          paymentMethod: "m-pesa",
+          amountPaid: course.price,
+        });
 
         // Initiate M-Pesa STK Push using existing M-Pesa integration
         const { initiateStkPush } = await import("../mpesa");
@@ -352,6 +404,15 @@ export const enrollmentRouter = router({
             error: mpesaResult.error || "Failed to initiate M-Pesa payment",
           };
         }
+
+        const kesAmount = Math.ceil(course.price / 100);
+        const checkoutId = mpesaResult.checkoutRequestID || "";
+        await trackPaymentInitiation(
+          userId,
+          kesAmount,
+          "m-pesa",
+          checkoutId ? `stk_${checkoutId}` : `micro_enroll_${enrollment.insertId}`,
+        );
 
         return {
           success: true,

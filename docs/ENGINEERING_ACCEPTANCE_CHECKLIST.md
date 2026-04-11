@@ -36,6 +36,15 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 ---
 
+## Pre-launch / production cut (operator)
+
+- [ ] **`DATABASE_URL`** on the host (e.g. Render) matches the Aiven URI you used for a successful local **`pnpm run db:test-connection`** (and migrations applied — see [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md); full reset: `pnpm run db:fresh-migrate` only when intentional).
+- [ ] **`pnpm run verify:analytics`** against production/staging DB (or run after first real traffic) — confirms `analyticsEvents` pipeline; see [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md).
+- [ ] **Smoke:** sign-in, one learner path (e.g. enroll or course open), Admin Reports load for `OWNER_OPEN_ID` user.
+- [ ] **M-Pesa (if live keys):** `MPESA_CALLBACK_URL` / Daraja callback path documented; optional **`MPESA_CALLBACK_IP_ALLOWLIST`** per [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) / `.env.example`.
+
+---
+
 ## After you finish
 
 - [ ] [WORK_STATUS.md](./WORK_STATUS.md) updated: your work under **Done**, **In progress** adjusted, and any **Critique / review** you want to leave for others.
