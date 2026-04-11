@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-11 | Cursor | **Aiven DB fresh migrate + committed snapshot:** Job fixed `DATABASE_URL`; `pnpm run db:fresh-migrate` completed (117 tables dropped, migrations applied). Committed [DB_SNAPSHOT_AUTOGEN.md](./DB_SNAPSHOT_AUTOGEN.md) (before/after schema, no credentials) for the team. **Deploy:** set Render `DATABASE_URL` to match working `.env`. | (see commit) |
 | 2026-04-11 | Cursor | **Pre-release DB reset tooling:** Deduped `renewalReminderSentAt` in `drizzle/0026_white_toad.sql` (column already added in `0026_certificate_renewal_reminder_sent_at.sql`). Added `scripts/db-snapshot-and-fresh-migrate.mjs` and `pnpm run db:fresh-migrate` — writes `docs/DB_SNAPSHOT_AUTOGEN.md`, drops all tables, runs `drizzle-kit migrate`. **Local run failed:** Aiven `ER_ACCESS_DENIED` — Job must paste current connection URI into `.env` / Render after any Aiven password reset, then re-run. | `d85f162` |
 | 2026-04-04 | Cursor | **Parallel backlog initiative:** [PARALLEL_BACKLOG_FELLOWSHIP_AND_SCALE.md](./PARALLEL_BACKLOG_FELLOWSHIP_AND_SCALE.md) (criteria for simultaneous work), [PARALLEL_BACKLOG_EXECUTION_PLAN.md](./PARALLEL_BACKLOG_EXECUTION_PLAN.md) (FB-DB-1…FB-OPS-1), [MESSAGE_FOR_MANUS_PARALLEL_BACKLOG.md](./MESSAGE_FOR_MANUS_PARALLEL_BACKLOG.md); README + TEAMWORK_TASK_FORMAT links. **Shipped in same batch:** Care Signal **`careSignalEvents`** table + `db:apply-0031`, persist + **`care_signal_submission_created`** analytics. Manus: FB-AN-2, FB-OPS-1. | `a300c75` |
 | 2026-04-04 | Cursor | **Care Signal (rename from Staff Safety Signal):** Provider product **Care Signal** — `/care-signal`, `/care-signal-analytics`; tRPC **`careSignalEvents`**; `CareSignal.tsx`, `CareSignalForm`, `CareSignalLogger`; redirects from `/safe-truth` + `/safe-truth-analytics`. Parent **Safe-Truth** unchanged (`/parent-safe-truth`). Docs/PSoT/EVENT_TAXONOMY `care_signal_*`. | `8962652` |
@@ -103,7 +104,7 @@
 
 | Item | Blocking reason or decision needed |
 |------|-------------------------------------|
-| **Aiven `DATABASE_URL` (Job)** | Cursor could not complete `pnpm run db:fresh-migrate`: access denied for `avnadmin`. Update local `.env` and Render/hosting secrets with the **current** Aiven connection string (after reset, copy from Aiven UI). Then re-run `pnpm run db:fresh-migrate` once; commit optional `docs/DB_SNAPSHOT_AUTOGEN.md` output. |
+| **Render `DATABASE_URL` (Job)** | Local Aiven DB reset + migrate done; snapshot in [DB_SNAPSHOT_AUTOGEN.md](./DB_SNAPSHOT_AUTOGEN.md). Before production deploy, ensure **Render** (or host) `DATABASE_URL` matches the **current** Aiven URI in `.env`. |
 | (add when stuck or when CEO/product decision needed) | |
 
 ---
