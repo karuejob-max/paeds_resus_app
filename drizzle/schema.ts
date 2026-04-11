@@ -2352,7 +2352,7 @@ export const fellowshipProgress = mysqlTable("fellowshipProgress", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().unique(), // One row per user
   
-  // PILLAR 1: Courses (BLS, ACLS, PALS + all 26 ADF micro-courses)
+  // PILLAR 1: Courses (all 26 ADF micro-courses; BLS, ACLS, PALS are optional, standalone)
   /** Total courses required for fellowship (26 ADF micro-courses + legacy courses) */
   totalCoursesRequired: int("totalCoursesRequired").default(26),
   /** Courses completed (count of certificates with completion date) */

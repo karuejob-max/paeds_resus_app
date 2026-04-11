@@ -318,12 +318,15 @@ export const enrollmentRouter = router({
         }
 
         // Create pending enrollment record
+        console.log("[Enrollment] Creating enrollment with:", { userId, microCourseId: course.id, paymentMethod: "m-pesa", amountPaid: course.price });
+        console.log("[Enrollment] createEnrollmentDb function:", createEnrollmentDb.toString().substring(0, 100));
         const enrollment = await createEnrollmentDb({
           userId,
           microCourseId: course.id,
           paymentMethod: "m-pesa",
           amountPaid: course.price,
         });
+        console.log("[Enrollment] Created enrollment:", enrollment);
 
         // Initiate M-Pesa STK Push using existing M-Pesa integration
         const { initiateStkPush } = await import("../mpesa");
