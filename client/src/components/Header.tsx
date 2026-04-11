@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
@@ -254,8 +255,11 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Right Section: Notifications + Account */}
+          {/* Right Section: Install + Notifications + Account */}
           <div className="flex items-center gap-2 ml-auto">
+            {/* Install App Button */}
+            <InstallAppButton />
+
             {/* Notifications */}
             {isAuthenticated && (
               <button
