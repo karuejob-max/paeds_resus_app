@@ -1,9 +1,24 @@
-import { useState, useEffect } from "react";
+/**
+ * Enrollment Modal - Retention-Focused
+ * 
+ * Retention Improvements:
+ * - Payment breakdown with clear amount confirmation
+ * - Flexible phone number input (accepts multiple formats)
+ * - Back button preserves promo code and discount
+ * - 100% discount requires explicit confirmation (not auto-enroll)
+ * - Admin-free option is prominent and clear
+ * - Course details visible in modal
+ * - Progress indicator (Step X/Y)
+ * - Clear error recovery paths
+ * - Loading states prevent duplicate submissions
+ */
+
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Info, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +30,8 @@ interface Course {
   title: string;
   price: number;
   level: "foundational" | "advanced";
+  description?: string;
+  duration?: string;
 }
 
 interface EnrollmentModalProps {
@@ -35,7 +52,7 @@ export function EnrollmentModal({
 
   const [promoCode, setPromoCode] = useState<string>("");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
-  const [enrollmentStep, setEnrollmentStep] = useState<"initial" | "promo" | "payment" | "reconciliation" | "success">("initial");
+  const [enrollmentStep, setEnrollmentStep] = useState<"initial" | "promo" | "payment" | "reconciliation" | "confirm-100" | "success">("initial");
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -44,14 +61,30 @@ export function EnrollmentModal({
   const [enrollmentDate, setEnrollmentDate] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [promoValidationError, setPromoValidationError] = useState<string>("");
 
-  // Phone number validation
+  // Phone number validation - flexible format support
   const validatePhoneNumber = (phone: string): boolean => {
-    const pattern = /^(07\d{8}|254\d{9})$/;
-    return pattern.test(phone.replace(/\s/g, ""));
+    // Remove all non-digits
+    const cleaned = phone.replace(/\D/g, "");
+    // Accept 07XXXXXXXX (10 digits starting with 07)
+    // Accept 254XXXXXXXXX (12 digits starting with 254)
+    return /^(07\d{8}|254\d{9})$/.test(cleaned);
+  };
+
+  // Format phone number for display
+  const formatPhoneDisplay = (phone: string): string => {
+    const cleaned = phone.replace(/\D/g, "");
+    if (cleaned.startsWith("07")) {
+      return `${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 8)} ${cleaned.substring(8)}`;
+    } else if (cleaned.startsWith("254")) {
+      return `+${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)} ${cleaned.substring(9)}`;
+    }
+    return phone;
   };
 
   const isValidPhone = phoneNumber ? validatePhoneNumber(phoneNumber) : false;
+  const phoneDisplay = formatPhoneDisplay(phoneNumber);
 
   // Mutations
   const validatePromoMutation = trpc.enrollment.validatePromo.useMutation();
@@ -65,14 +98,15 @@ export function EnrollmentModal({
     }
 
     setIsLoading(true);
+    setPromoValidationError("");
     setStatusMessage("");
     try {
       const result = await validatePromoMutation.mutateAsync({ code: promoCode });
       if (result.valid) {
         setDiscountPercent(result.discount_percent || 0);
         if (result.discount_percent === 100) {
-          // Free enrollment with promo code
-          await handleFreeEnrollment();
+          // Show confirmation for 100% discount (don't auto-enroll)
+          setEnrollmentStep("confirm-100");
         } else {
           // Show discount preview before moving to payment
           setStatusMessage("");
@@ -90,10 +124,10 @@ export function EnrollmentModal({
         } else {
           errorMsg = `Invalid promo code: ${result.message}`;
         }
-        setStatusMessage(errorMsg);
+        setPromoValidationError(errorMsg);
       }
     } catch (error) {
-      setStatusMessage("Error validating promo code. Please try again.");
+      setPromoValidationError("Error validating promo code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +170,7 @@ export function EnrollmentModal({
     try {
       const result = await enrollWithPaymentMutation.mutateAsync({
         courseId: course.courseId,
-        phoneNumber,
+        phoneNumber: phoneNumber.replace(/\D/g, ""), // Send cleaned phone number
       });
 
       if (result.success) {
@@ -145,7 +179,7 @@ export function EnrollmentModal({
         setPaymentMethod("m-pesa");
         const finalPrice = Math.ceil(course.price * (1 - discountPercent / 100));
         setAmountPaid(finalPrice / 100);
-        // Move to reconciliation step instead of immediate success
+        // Move to reconciliation step
         setEnrollmentStep("reconciliation");
       } else {
         setStatusMessage(result.error || "Failed to initiate payment");
@@ -175,29 +209,57 @@ export function EnrollmentModal({
   const finalPrice = Math.ceil(course.price * (1 - discountPercent / 100));
   const finalPriceKES = (finalPrice / 100).toFixed(2);
   const originalPriceKES = (course.price / 100).toFixed(2);
+  const savingsKES = ((course.price - finalPrice) / 100).toFixed(2);
+
+  // Calculate step number for progress indicator
+  const getStepNumber = () => {
+    switch (enrollmentStep) {
+      case "initial": return "1/4";
+      case "promo": return "2/4";
+      case "payment": return "3/4";
+      case "confirm-100": return "3/4";
+      case "reconciliation": return "4/4";
+      case "success": return "Complete";
+      default: return "";
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Enroll in {course.title}</DialogTitle>
-          <DialogDescription>Complete your enrollment to start learning</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Enroll in {course.title}</DialogTitle>
+              <DialogDescription>Step {getStepNumber()}</DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Initial Step */}
           {enrollmentStep === "initial" && (
             <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
-                <p className="text-sm font-medium">Course Cost: KES {originalPriceKES}</p>
-                <p className="text-xs text-gray-600 mt-1">Level: {course.level}</p>
-                <p className="text-xs text-gray-600">You'll pay via M-Pesa or use a promo code</p>
+              {/* Course Details */}
+              <div className="bg-blue-50 p-4 rounded-md border border-blue-200 space-y-2">
+                <p className="text-sm font-medium">Course Details</p>
+                <div className="text-xs space-y-1 text-gray-700">
+                  <p><span className="font-medium">Level:</span> {course.level}</p>
+                  <p><span className="font-medium">Duration:</span> {course.duration || "2-4 hours"}</p>
+                  {course.description && <p className="text-gray-600">{course.description}</p>}
+                </div>
+              </div>
+
+              {/* Price Information */}
+              <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                <p className="text-sm font-medium text-amber-900">Course Cost: KES {originalPriceKES}</p>
+                <p className="text-xs text-amber-700 mt-1">You can pay with M-Pesa or use a promo code for a discount</p>
               </div>
 
               {/* Primary: Continue to Payment */}
               <Button
                 onClick={() => setEnrollmentStep("payment")}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={isLoading}
               >
                 Continue to Payment
@@ -221,16 +283,19 @@ export function EnrollmentModal({
                 </Tooltip>
               </div>
 
-              {/* Tertiary: Admin Free (if applicable) */}
+              {/* Tertiary: Admin Free (if applicable) - PROMINENT */}
               {isAdmin && (
-                <Button
-                  onClick={handleFreeEnrollment}
-                  disabled={isLoading}
-                  variant="secondary"
-                  className="w-full"
-                >
-                  {isLoading ? "Enrolling..." : "Enroll (Admin - Free)"}
-                </Button>
+                <div className="bg-green-50 p-3 rounded-md border-2 border-green-300">
+                  <p className="text-xs font-medium text-green-700 mb-2">✓ Admin Benefit Available</p>
+                  <Button
+                    onClick={handleFreeEnrollment}
+                    disabled={isLoading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isLoading ? "Enrolling..." : "Enroll for Free (Admin)"}
+                  </Button>
+                  <p className="text-xs text-green-600 mt-2 text-center">You can change your role anytime</p>
+                </div>
               )}
 
               {/* Cancel button */}
@@ -253,21 +318,27 @@ export function EnrollmentModal({
                 <Input
                   id="promo"
                   value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                  placeholder="PROMO123"
+                  onChange={(e) => {
+                    setPromoCode(e.target.value.toUpperCase());
+                    setPromoValidationError("");
+                  }}
+                  placeholder="e.g., WELCOME50"
                   disabled={isLoading}
                   autoFocus
                 />
+                {promoValidationError && (
+                  <p className="text-xs text-red-600 mt-1">{promoValidationError}</p>
+                )}
               </div>
 
               {/* Discount preview */}
               {discountPercent > 0 && (
-                <div className="bg-green-50 p-3 rounded-md border border-green-200">
+                <div className="bg-green-50 p-3 rounded-md border border-green-200 space-y-1">
                   <p className="text-sm font-medium text-green-700">✓ Promo code applied!</p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Discount: {discountPercent}% (KES {((course.price * discountPercent) / 100 / 100).toFixed(2)} off)
+                  <p className="text-xs text-green-600">
+                    Discount: {discountPercent}% (KES {savingsKES} off)
                   </p>
-                  <p className="text-xs text-green-600 font-medium mt-2">
+                  <p className="text-xs text-green-600 font-medium">
                     Final price: KES {finalPriceKES} (was KES {originalPriceKES})
                   </p>
                 </div>
@@ -287,17 +358,18 @@ export function EnrollmentModal({
                   "Validate Code"
                 )}
               </Button>
+
+              {/* Back button - preserves promo code */}
               <Button
                 onClick={() => {
-                  setPromoCode("");
-                  setDiscountPercent(0);
-                  setStatusMessage("");
                   setEnrollmentStep("initial");
+                  setPromoValidationError("");
                 }}
                 variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
             </div>
@@ -306,13 +378,28 @@ export function EnrollmentModal({
           {/* Payment Step */}
           {enrollmentStep === "payment" && (
             <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
-                <p className="text-sm font-medium">Amount to Pay: KES {finalPriceKES}</p>
-                {discountPercent > 0 && (
-                  <p className="text-xs text-green-600 mt-1">Discount Applied: {discountPercent}%</p>
-                )}
+              {/* Payment Breakdown */}
+              <div className="bg-blue-50 p-4 rounded-md border border-blue-200 space-y-2">
+                <p className="text-sm font-medium">Payment Breakdown</p>
+                <div className="text-xs space-y-1 text-gray-700">
+                  <div className="flex justify-between">
+                    <span>Original price:</span>
+                    <span>KES {originalPriceKES}</span>
+                  </div>
+                  {discountPercent > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount ({discountPercent}%):</span>
+                      <span>-KES {savingsKES}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-1 flex justify-between font-medium">
+                    <span>Final Amount:</span>
+                    <span className="text-lg">KES {finalPriceKES}</span>
+                  </div>
+                </div>
               </div>
 
+              {/* Phone Input */}
               <div>
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input
@@ -324,14 +411,29 @@ export function EnrollmentModal({
                   autoFocus
                 />
                 {phoneNumber && !isValidPhone && (
-                  <p className="text-xs text-red-600 mt-1">Phone must be 07XXXXXXXX or 254XXXXXXXXX format</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    ✗ Phone must be 07XXXXXXXX or 254XXXXXXXXX format
+                  </p>
+                )}
+                {phoneNumber && isValidPhone && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Phone: {phoneDisplay}
+                  </p>
                 )}
               </div>
 
+              {/* Payment Confirmation */}
+              <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
+                <p className="text-xs text-amber-900">
+                  <span className="font-medium">Confirmation:</span> I understand I will be charged <span className="font-semibold">KES {finalPriceKES}</span> to <span className="font-semibold">{phoneDisplay || "my phone"}</span>
+                </p>
+              </div>
+
+              {/* Pay Button */}
               <Button
                 onClick={handleMpesaPayment}
                 disabled={isLoading || !isValidPhone}
-                className="w-full"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
               >
                 {isLoading ? (
                   <>
@@ -339,10 +441,11 @@ export function EnrollmentModal({
                     Processing...
                   </>
                 ) : (
-                  "Pay with M-Pesa"
+                  "Confirm & Pay with M-Pesa"
                 )}
               </Button>
 
+              {/* Back button - preserves promo code and discount */}
               <Button
                 onClick={() => {
                   setEnrollmentStep("initial");
@@ -352,6 +455,48 @@ export function EnrollmentModal({
                 className="w-full"
                 disabled={isLoading}
               >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+            </div>
+          )}
+
+          {/* 100% Discount Confirmation Step */}
+          {enrollmentStep === "confirm-100" && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                <p className="font-medium text-lg">This promo code gives you FREE access!</p>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-md border border-green-200 space-y-2">
+                <p className="text-sm font-medium text-green-700">Promo Code: {promoCode}</p>
+                <p className="text-xs text-green-600">
+                  Discount: 100% (Save KES {originalPriceKES})
+                </p>
+                <p className="text-xs text-green-600 font-medium">
+                  You'll pay: KES 0.00
+                </p>
+              </div>
+
+              <Button
+                onClick={handleFreeEnrollment}
+                disabled={isLoading}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isLoading ? "Enrolling..." : "Confirm Enrollment"}
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setEnrollmentStep("promo");
+                  setDiscountPercent(0);
+                }}
+                variant="outline"
+                className="w-full"
+                disabled={isLoading}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
             </div>
@@ -360,10 +505,10 @@ export function EnrollmentModal({
           {/* M-Pesa Reconciliation Step */}
           {enrollmentStep === "reconciliation" && (
             <MpesaReconciliationStatus
-              enrollmentId={enrollmentId}
+              enrollmentId={parseInt(enrollmentId)}
               checkoutRequestId={checkoutRequestId}
-              phoneNumber={phoneNumber}
-              amount={amountPaid}
+              phoneNumber={phoneDisplay}
+              amount={amountPaid * 100}
               onPaymentComplete={handlePaymentComplete}
             />
           )}
@@ -374,6 +519,7 @@ export function EnrollmentModal({
               <div className="text-center">
                 <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
                 <p className="font-medium text-lg">Enrollment Successful!</p>
+                <p className="text-xs text-gray-600 mt-1">Welcome to your course</p>
               </div>
 
               {/* Enrollment Confirmation */}
@@ -388,19 +534,19 @@ export function EnrollmentModal({
                 </div>
               </div>
 
-              {/* Access Duration */}
-              <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+              {/* Access Information */}
+              <div className="bg-blue-50 p-3 rounded-md border border-blue-200 space-y-1">
                 <p className="text-xs text-gray-700">
-                  <span className="font-medium">Access Duration:</span> 1 month from enrollment date
+                  <span className="font-medium">Access Duration:</span> 1 month from enrollment
                 </p>
-                <p className="text-xs text-gray-600 mt-1">
-                  <span className="font-medium">Course Duration:</span> Estimated 2-4 hours
+                <p className="text-xs text-gray-700">
+                  <span className="font-medium">Course Duration:</span> {course.duration || "2-4 hours"}
                 </p>
               </div>
 
               {/* Next Steps */}
               <div className="space-y-2">
-                <Button onClick={onClose} className="w-full bg-green-600 hover:bg-green-700">
+                <Button onClick={onClose} className="w-full bg-green-600 hover:bg-green-700 text-white">
                   Go to Course
                 </Button>
                 <Button onClick={onClose} variant="outline" className="w-full">
