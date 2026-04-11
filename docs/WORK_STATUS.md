@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-11 | Manus | **Enrollment payment flow tests:** 13 comprehensive Vitest tests for M-Pesa (STK push, phone validation), admin-free (role-based, takes priority), promo-code (discount, usage tracking, expiry/max-uses edge cases). All passing. Covers double-enrollment prevention, invalid courses, and flow priority logic. | `b304e96` |
 | 2026-04-11 | Job | **Render:** `DATABASE_URL` updated and saved to match Aiven (same DB as local `.env`). Trigger or wait for API **redeploy** if Render only applies env on deploy. | — |
 | 2026-04-11 | Cursor | **Aiven DB fresh migrate + committed snapshot:** Job fixed `DATABASE_URL`; `pnpm run db:fresh-migrate` completed (117 tables dropped, migrations applied). Committed [DB_SNAPSHOT_AUTOGEN.md](./DB_SNAPSHOT_AUTOGEN.md) (before/after schema, no credentials) for the team. **Deploy:** set Render `DATABASE_URL` to match working `.env`. | `348a10d` |
 | 2026-04-11 | Cursor | **Pre-release DB reset tooling:** Deduped `renewalReminderSentAt` in `drizzle/0026_white_toad.sql` (column already added in `0026_certificate_renewal_reminder_sent_at.sql`). Added `scripts/db-snapshot-and-fresh-migrate.mjs` and `pnpm run db:fresh-migrate` — writes `docs/DB_SNAPSHOT_AUTOGEN.md`, drops all tables, runs `drizzle-kit migrate`. **Local run failed:** Aiven `ER_ACCESS_DENIED` — Job must paste current connection URI into `.env` / Render after any Aiven password reset, then re-run. | `d85f162` |
