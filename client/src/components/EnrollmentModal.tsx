@@ -7,7 +7,7 @@ import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
-import MpesaReconciliationStatus from "./MpesaReconciliationStatus";
+import { MpesaReconciliationStatus } from "./MpesaReconciliationStatus";
 
 interface Course {
   id: number;
