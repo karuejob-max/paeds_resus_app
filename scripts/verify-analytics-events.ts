@@ -10,6 +10,9 @@ import { desc, gte, sql } from "drizzle-orm";
 import { getDb } from "../server/db";
 import { analyticsEvents } from "../drizzle/schema";
 import { rollingHoursAgo } from "../server/lib/report-time-windows";
+import {
+  resolveAnalyticsEventBucket,
+} from "../server/lib/analytics-report-buckets";
 
 async function main() {
   const db = await getDb();
@@ -25,25 +28,41 @@ async function main() {
   const grouped = await db
     .select({
       eventType: analyticsEvents.eventType,
+      eventName: analyticsEvents.eventName,
       n: sql<number>`count(*)`.mapWith(Number),
     })
     .from(analyticsEvents)
     .where(gte(analyticsEvents.createdAt, since))
-    .groupBy(analyticsEvents.eventType)
+    .groupBy(analyticsEvents.eventType, analyticsEvents.eventName)
     .orderBy(desc(sql`count(*)`));
 
-  let total = 0;
+  const total = grouped.reduce((sum, row) => sum + row.n, 0);
+  const eventCounts: Record<string, number> = {};
+  const resusCounts: Record<string, number> = {};
+  let resusTotal = 0;
   for (const row of grouped) {
-    total += row.n;
+    const bucket = resolveAnalyticsEventBucket(row);
+    eventCounts[bucket] = (eventCounts[bucket] ?? 0) + row.n;
+    if (bucket.startsWith("resus_")) {
+      resusCounts[bucket] = (resusCounts[bucket] ?? 0) + row.n;
+      resusTotal += row.n;
+    }
   }
-  console.log(`Total rows: ${total}\nBy eventType:`);
-  for (const row of grouped) {
-    console.log(`  ${row.eventType ?? "(null)"}: ${row.n}`);
+  const sorted = Object.entries(eventCounts).sort((a, b) => b[1] - a[1]);
+  console.log(`Total rows: ${total}\nBy admin-report bucket (eventType fallback eventName):`);
+  for (const [bucket, count] of sorted) {
+    console.log(`  ${bucket}: ${count}`);
   }
 
-  const resus = grouped.filter((r) => (r.eventType ?? "").startsWith("resus_"));
-  const resusSum = resus.reduce((a, r) => a + r.n, 0);
-  console.log(`\nResusGPS slice (eventType starts with resus_): ${resusSum} events`);
+  const resusTop = Object.entries(resusCounts).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  console.log(
+    `\nResusGPS slice (bucket starts with resus_): ${resusTotal} events`
+  );
+  if (resusTop.length > 0) {
+    for (const [bucket, count] of resusTop) {
+      console.log(`  ${bucket}: ${count}`);
+    }
+  }
   process.exit(0);
 }
 

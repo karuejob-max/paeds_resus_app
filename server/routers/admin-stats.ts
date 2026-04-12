@@ -13,6 +13,10 @@ import {
   adminAuditLog,
 } from "../../drizzle/schema";
 import { rollingHoursAgo } from "../lib/report-time-windows";
+import {
+  buildAnalyticsEventSummary,
+  buildResusGpsAnalyticsSummary,
+} from "../lib/analytics-report-buckets";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -131,30 +135,10 @@ export const adminStatsRouter = router({
         })
         .from(analyticsEvents)
         .where(gte(analyticsEvents.createdAt, analyticsSince));
-      const eventCounts: Record<string, number> = {};
-      analyticsInPeriod.forEach((e) => {
-        const key = e.eventType || e.eventName || "other";
-        eventCounts[key] = (eventCounts[key] || 0) + 1;
+      const analyticsSummary = buildAnalyticsEventSummary(analyticsInPeriod, { topLimit: 15 });
+      const resusGpsAnalyticsLastDays = buildResusGpsAnalyticsSummary(analyticsInPeriod, {
+        topLimit: 15,
       });
-      const eventTypes = Object.entries(eventCounts).map(([eventType, count]) => ({
-        eventType,
-        count,
-      }));
-
-      const resusCounts: Record<string, number> = {};
-      analyticsInPeriod.forEach((e) => {
-        const key = (e.eventType || e.eventName || "").toString();
-        if (!key.startsWith("resus_")) return;
-        const bucket = e.eventType || e.eventName || "resus_other";
-        resusCounts[bucket] = (resusCounts[bucket] || 0) + 1;
-      });
-      const resusGpsAnalyticsLastDays = {
-        totalEvents: Object.values(resusCounts).reduce((a, b) => a + b, 0),
-        eventTypes: Object.entries(resusCounts)
-          .map(([eventType, count]) => ({ eventType, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 15),
-      };
 
       // Count unique active users in last N days
       const activeUsersResult = await db
@@ -227,10 +211,7 @@ export const adminStatsRouter = router({
         })(),
         parentSafeTruthThisMonth,
         referralsThisMonth,
-        analyticsLastDays: {
-          count: analyticsInPeriod.length,
-          eventTypes: eventTypes.sort((a, b) => b.count - a.count).slice(0, 15),
-        },
+        analyticsLastDays: analyticsSummary,
         resusGpsAnalyticsLastDays,
         activeUsersLastDays,
         topProtocolsViewed,

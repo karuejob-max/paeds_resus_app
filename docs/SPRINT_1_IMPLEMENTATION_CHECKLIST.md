@@ -29,9 +29,9 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 
 - [x] **Rolling window:** `adminStats.getReport` uses **rolling N×24h from now** for `analyticsEvents` (see `server/lib/report-time-windows.ts`) — matches PLATFORM_SOURCE_OF_TRUTH §8.
 - [ ] Trigger each instrumented journey on **local or staging** (production only if policy allows)
-- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set — confirms rows in **`analyticsEvents`** grouped by `eventType` for the same window as Admin Reports
+- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set — confirms rows in **`analyticsEvents`** grouped by the **same admin bucket rule** (`eventType` fallback `eventName`) for the same window as Admin Reports
 - [ ] Open **Admin → Reports**: total events and top types match CLI spot-check; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
-- [ ] Naming review: fix fragmented `eventType` / `eventName` pairs if they break grouping
+- [x] Naming review: fixed grouping drift by centralizing admin bucket logic (`eventType` fallback `eventName`) in shared helper used by both `adminStats.getReport` and `verify:analytics` (2026-04-12)
 
 ---
 

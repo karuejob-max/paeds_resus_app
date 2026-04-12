@@ -28,6 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-04-12 | Cursor | **Analytics verification parity hardening (Priority #1 closure prep):** Added shared helper `server/lib/analytics-report-buckets.ts` for canonical event bucketing (`eventType` fallback `eventName`) and ResusGPS `resus_` slicing; `adminStats.getReport` and `scripts/verify-analytics-events.ts` now use same logic to prevent CLI-vs-Admin mismatch. Added `server/lib/analytics-report-buckets.test.ts` regression tests. Updated `SPRINT_1_IMPLEMENTATION_CHECKLIST.md` verification wording/status to reflect centralized naming review fix; remaining checklist items require runtime `DATABASE_URL` + real journey trigger/Admin UI check. | `cursor/close-analytics-verification-loop-2b45` |
 | 2026-04-12 | Cursor | **Auditable enrollment integration tests (Manus-aligned):** Added RTL + jsdom devDependencies; Vitest `include` covers `*.tsx` / integration tests; jsdom only for `client/src/components/**` (lib tests stay `node`). Rewrote `EnrollmentModal.integration.test.tsx` (17 cases): mocks `MpesaReconciliationStatus`, fixed `trpc.useUtils` → `getUserEnrollments`, relative imports, `afterEach(cleanup)`. Script `pnpm run test:enrollment-integration`. Doc [MANUS_REPORT_AUDITABLE_DELIVERY.md](./MANUS_REPORT_AUDITABLE_DELIVERY.md). | `fad6f51` |
 | 2026-04-11 | Cursor | **Render build fix:** `EnrollmentModal` imported **default** from `MpesaReconciliationStatus`, which only **named**-exports the component — Vite/Rollup failed on deploy. Switched to `import { MpesaReconciliationStatus }`. | `8c1bcb8` |
 | 2026-04-11 | Cursor | **Login “Failed query” on `users`:** Aiven DB was missing **`users.passwordHash`** (schema behind app). Ran **`pnpm run db:fix-users`** to add column; added **`pnpm run db:check-users-columns`** to verify parity with `drizzle/schema.ts`. If sign-in fails elsewhere with the same error, run **`db:fix-users`** (or full migrations) against that environment’s `DATABASE_URL`. | `d8a956c` |
@@ -113,7 +114,7 @@
 
 | Item | Blocking reason or decision needed |
 |------|-------------------------------------|
-| (add when stuck or when CEO/product decision needed) | |
+| Cloud agent runtime analytics verification | `DATABASE_URL` is not set in this cloud workspace, so `pnpm run verify:analytics` and Admin Reports parity checks against live rows cannot be executed here. Need staging/production DB URL in environment (and one triggered test journey) to complete final Sprint 1 verification ticks. |
 
 ---
 
