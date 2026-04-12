@@ -9,7 +9,9 @@ import { trpc } from "@/lib/trpc";
 import { Stethoscope, Users, Building2, Award, BookOpen, ChevronRight } from "lucide-react";
 import { FeatureDiscoveryDashboard } from "@/components/FeatureDiscoveryDashboard";
 import { QuickStartGuide } from "@/components/QuickStartGuide";
+import { FeatureTour } from "@/components/FeatureTour";
 import { useEffect, useState, useMemo } from "react";
+import { useLocation } from "wouter";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -200,6 +202,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <FeatureTour />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
