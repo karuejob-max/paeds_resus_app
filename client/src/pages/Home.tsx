@@ -11,7 +11,6 @@ import { FeatureDiscoveryDashboard } from "@/components/FeatureDiscoveryDashboar
 import { QuickStartGuide } from "@/components/QuickStartGuide";
 import { FeatureTour } from "@/components/FeatureTour";
 import { useEffect, useState, useMemo } from "react";
-import { useLocation } from "wouter";
 
 type UserType = "individual" | "parent" | "institutional";
 

@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface TourStep {
   element: string;
   intro: string;
   position?: "top" | "bottom" | "left" | "right" | "center";
-  highlightClass?: string;
 }
 
 const PROVIDER_TOUR_STEPS: TourStep[] = [
@@ -110,102 +110,194 @@ const INSTITUTION_TOUR_STEPS: TourStep[] = [
 
 export function FeatureTour() {
   const { user } = useAuth();
-  const [showTour, setShowTour] = useState(false);
-  const [tourStarted, setTourStarted] = useState(false);
-  const tourRef = useRef<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
+    if (!user?.id) return;
+
     // Check if user has completed tour before
-    const hasCompletedTour = localStorage.getItem(`tour-completed-${user?.id}`);
-    if (!hasCompletedTour && !tourStarted) {
-      setShowTour(true);
+    const hasCompletedTour = localStorage.getItem(`tour-completed-${user.id}`);
+    if (!hasCompletedTour) {
+      setShowPrompt(true);
     }
-  }, [user?.id, tourStarted]);
+  }, [user?.id]);
 
-  const startTour = async () => {
-    try {
-      // Dynamically import intro.js only when needed
-      const introJs = (await import("intro.js")).default;
+  const getTourSteps = () => {
+    if (user?.role === "parent") return PARENT_TOUR_STEPS;
+    if (user?.role === "institution") return INSTITUTION_TOUR_STEPS;
+    return PROVIDER_TOUR_STEPS;
+  };
 
-      let steps = PROVIDER_TOUR_STEPS;
-      if (user?.role === "parent") {
-        steps = PARENT_TOUR_STEPS;
-      } else if (user?.role === "institution") {
-        steps = INSTITUTION_TOUR_STEPS;
-      }
+  const steps = getTourSteps();
+  const step = steps[currentStep];
 
-      const intro = introJs();
-      intro.setOptions({
-        steps: steps.map((step) => ({
-          element: step.element,
-          intro: step.intro,
-          position: step.position || "bottom",
-        })),
-        showProgress: true,
-        showBullets: true,
-        exitOnEsc: true,
-        exitOnOverlayClick: true,
-        overlayOpacity: 0.5,
-        disableInteraction: false,
-        nextLabel: "Next →",
-        prevLabel: "← Back",
-        skipLabel: "Skip",
-        doneLabel: "Done",
-      });
+  const startTour = () => {
+    setIsRunning(true);
+    setShowPrompt(false);
+    setCurrentStep(0);
+  };
 
-      intro.onbeforechange(() => {
-        // Scroll element into view
-        const element = document.querySelector(steps[intro._currentStep]?.element || "");
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      });
-
-      intro.oncomplete(() => {
-        localStorage.setItem(`tour-completed-${user?.id}`, "true");
-        setShowTour(false);
-      });
-
-      intro.onexit(() => {
-        localStorage.setItem(`tour-completed-${user?.id}`, "true");
-        setShowTour(false);
-      });
-
-      intro.start();
-      tourRef.current = intro;
-      setTourStarted(true);
-    } catch (error) {
-      console.error("Failed to load tour:", error);
+  const nextStep = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      completeTour();
     }
   };
 
-  if (!showTour) return null;
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
-  return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-xs">
-      <div className="bg-primary text-primary-foreground rounded-lg shadow-lg p-4 space-y-3">
-        <div>
-          <h3 className="font-semibold text-sm">New to PaedsResus?</h3>
-          <p className="text-xs opacity-90 mt-1">
-            Take a quick tour to learn about all available features.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              localStorage.setItem(`tour-completed-${user?.id}`, "true");
-              setShowTour(false);
-            }}
-          >
-            Skip
-          </Button>
-          <Button size="sm" onClick={startTour}>
-            Start Tour
-          </Button>
+  const completeTour = () => {
+    if (user?.id) {
+      localStorage.setItem(`tour-completed-${user.id}`, "true");
+    }
+    setIsRunning(false);
+    setShowPrompt(false);
+  };
+
+  if (!showPrompt && !isRunning) return null;
+
+  // Show prompt to start tour
+  if (showPrompt && !isRunning) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50 max-w-xs">
+        <div className="bg-primary text-primary-foreground rounded-lg shadow-lg p-4 space-y-3 border border-primary/20">
+          <div>
+            <h3 className="font-semibold text-sm">New to PaedsResus?</h3>
+            <p className="text-xs opacity-90 mt-1">
+              Take a quick tour to learn about all available features.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => completeTour()}
+            >
+              Skip
+            </Button>
+            <Button size="sm" onClick={startTour}>
+              Start Tour
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Show tour step
+  if (isRunning && step) {
+    const element = document.querySelector(step.element);
+    if (!element) {
+      return null;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
+
+    let tooltipTop = rect.top + scrollTop;
+    let tooltipLeft = rect.left + scrollLeft;
+
+    // Position tooltip based on preference
+    if (step.position === "bottom") {
+      tooltipTop += rect.height + 16;
+      tooltipLeft += rect.width / 2;
+    } else if (step.position === "top") {
+      tooltipTop -= 16;
+      tooltipLeft += rect.width / 2;
+    } else if (step.position === "left") {
+      tooltipTop += rect.height / 2;
+      tooltipLeft -= 16;
+    } else if (step.position === "right") {
+      tooltipTop += rect.height / 2;
+      tooltipLeft += rect.width + 16;
+    }
+
+    return (
+      <>
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={completeTour}
+          style={{ pointerEvents: "auto" }}
+        />
+
+        {/* Highlight */}
+        <div
+          className="fixed border-2 border-primary rounded-lg z-40 pointer-events-none"
+          style={{
+            top: rect.top + scrollTop - 4,
+            left: rect.left + scrollLeft - 4,
+            width: rect.width + 8,
+            height: rect.height + 8,
+            boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)",
+          }}
+        />
+
+        {/* Tooltip */}
+        <div
+          className="fixed z-50 bg-white text-foreground rounded-lg shadow-2xl p-4 max-w-xs border border-border"
+          style={{
+            top: `${tooltipTop}px`,
+            left: `${tooltipLeft}px`,
+            transform:
+              step.position === "bottom" || step.position === "top"
+                ? "translateX(-50%)"
+                : step.position === "left"
+                  ? "translateX(-100%)"
+                  : "translateX(0)",
+          }}
+        >
+          <div className="space-y-3">
+            <div className="flex justify-between items-start gap-2">
+              <p className="text-sm font-medium flex-1">{step.intro}</p>
+              <button
+                onClick={completeTour}
+                className="text-muted-foreground hover:text-foreground transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex justify-between items-center gap-2">
+              <div className="text-xs text-muted-foreground">
+                {currentStep + 1} / {steps.length}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={prevStep}
+                  disabled={currentStep === 0}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={nextStep}
+                >
+                  {currentStep === steps.length - 1 ? (
+                    "Done"
+                  ) : (
+                    <>
+                      Next <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return null;
 }
