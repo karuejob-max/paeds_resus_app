@@ -28,7 +28,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-04-11 | Cursor | **Render build fix:** `EnrollmentModal` imported **default** from `MpesaReconciliationStatus`, which only **named**-exports the component — Vite/Rollup failed on deploy. Switched to `import { MpesaReconciliationStatus }`. | _pending_ |
+| 2026-04-11 | Cursor | **Render build fix:** `EnrollmentModal` imported **default** from `MpesaReconciliationStatus`, which only **named**-exports the component — Vite/Rollup failed on deploy. Switched to `import { MpesaReconciliationStatus }`. | `8c1bcb8` |
 | 2026-04-11 | Cursor | **Login “Failed query” on `users`:** Aiven DB was missing **`users.passwordHash`** (schema behind app). Ran **`pnpm run db:fix-users`** to add column; added **`pnpm run db:check-users-columns`** to verify parity with `drizzle/schema.ts`. If sign-in fails elsewhere with the same error, run **`db:fix-users`** (or full migrations) against that environment’s `DATABASE_URL`. | `d8a956c` |
 | 2026-04-11 | Manus | **Frontend enrollment integration tests (30+ cases):** EnrollmentModal component tests covering all 3 payment paths (M-Pesa, admin-free, promo-code), navigation, edge cases, error handling, loading states. Tests validate role-based access, discount calculation, phone validation, promo code validation. | `204aa0e` |
 | 2026-04-11 | Manus | **E2E enrollment flow tests (Playwright):** Full user journeys from course selection → enrollment modal → payment → certificate. Tests: admin-free path (no payment), promo code path (discount validation), M-Pesa path (STK push + callback simulation), certificate issuance, double enrollment prevention, course navigation. | `204aa0e` |
