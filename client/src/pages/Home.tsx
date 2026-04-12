@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -7,7 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { Stethoscope, Users, Building2, Award, BookOpen } from "lucide-react";
+import { Stethoscope, Users, Building2, Award, BookOpen, ChevronRight } from "lucide-react";
+import { FeatureDiscoveryDashboard } from "@/components/FeatureDiscoveryDashboard";
+import { QuickStartGuide } from "@/components/QuickStartGuide";
+import { useEffect, useState, useMemo } from "react";
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -22,6 +24,7 @@ export default function Home() {
   });
 
   const userType = user?.userType ?? null;
+  const { role, setUserRole } = useUserRole();
 
   // Not logged in → login
   useEffect(() => {
@@ -30,12 +33,9 @@ export default function Home() {
     }
   }, [loading, user, setLocation]);
 
-  // When user has chosen "parent" or "institution" in the Header, redirect to that area (so default landing matches role)
-  const { role } = useUserRole();
+  // When user has chosen a role in the Header, redirect to that area
   useEffect(() => {
     if (loading || !user) return;
-    // If they explicitly chose a role via the header dropdown, respect that choice
-    // (role takes precedence over userType from database)
     if (role === "provider") return; // Stay on provider hub
     if (role === "parent") {
       setLocation("/parent-safe-truth");
@@ -63,6 +63,7 @@ export default function Home() {
         onSuccess: () => {
           if (type === "parent") setLocation("/parent-safe-truth");
           else if (type === "institutional") setLocation("/institutional-portal");
+          else setUserRole("provider");
         },
       }
     );
@@ -76,87 +77,169 @@ export default function Home() {
     );
   }
 
-  // No userType set (e.g existing user) → show "Who are you?"
+  // No userType set → show "Who are you?"
   if (!userType) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>Choose how you&apos;ll use the platform so we can show you the right tools.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <RadioGroup
-              onValueChange={(v) => handleSetUserType(v as UserType)}
-              className="grid gap-3"
-              disabled={updateUserType.isPending}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2">Welcome to ResusGPS</h1>
+            <p className="text-lg text-muted-foreground">
+              Real-time clinical decision support for pediatric emergencies. Tell us who you are so we can personalize your experience.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {/* Healthcare Provider */}
+            <Card
+              className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+              onClick={() => handleSetUserType("individual")}
             >
-              <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
-                <RadioGroupItem value="individual" id="onb-individual" />
-                <Stethoscope className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Healthcare Provider</p>
-                  <p className="text-sm text-muted-foreground">Access ResusGPS, micro-courses, clinical tools, and learning dashboards for individual practice</p>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Stethoscope className="w-6 h-6 text-primary" />
+                    <div>
+                      <CardTitle>Healthcare Provider</CardTitle>
+                      <CardDescription>Nurse, doctor, or clinical officer</CardDescription>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
-              </Label>
-              <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
-                <RadioGroupItem value="parent" id="onb-parent" />
-                <Heart className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Parent / Caregiver</p>
-                  <p className="text-sm text-muted-foreground">Learn pediatric emergency response, first aid, and safety tips for your family</p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Access ResusGPS bedside tool, complete the Paeds Resus Fellowship, manage patients, and track your clinical performance.
+                </p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li>✓ Real-time clinical decision support</li>
+                  <li>✓ Micro-courses and Fellowship certification</li>
+                  <li>✓ Patient management and tracking</li>
+                  <li>✓ Performance analytics</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Parent/Caregiver */}
+            <Card
+              className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+              onClick={() => handleSetUserType("parent")}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-6 h-6 text-primary" />
+                    <div>
+                      <CardTitle>Parent / Caregiver</CardTitle>
+                      <CardDescription>Learning for family members</CardDescription>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
-              </Label>
-              <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
-                <RadioGroupItem value="institutional" id="onb-institutional" />
-                <Building2 className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Institution / Hospital</p>
-                  <p className="text-sm text-muted-foreground">Manage staff training, track facility performance, and institutional subscriptions</p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Learn pediatric first aid, access safety resources, and understand when to seek emergency care.
+                </p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li>✓ Pediatric first aid training</li>
+                  <li>✓ Safety resources and guides</li>
+                  <li>✓ Emergency response information</li>
+                  <li>✓ Family-focused learning</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Institution */}
+            <Card
+              className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+              onClick={() => handleSetUserType("institutional")}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-6 h-6 text-primary" />
+                    <div>
+                      <CardTitle>Institution</CardTitle>
+                      <CardDescription>Hospital, school, or organization</CardDescription>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
-              </Label>
-            </RadioGroup>
-          </CardContent>
-          <div className="px-6 pb-4 text-center">
-            <p className="text-xs text-muted-foreground">You can change your role anytime from the account menu</p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Train your staff, track facility-wide outcomes, and improve emergency response capabilities.
+                </p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li>✓ Staff training and certification</li>
+                  <li>✓ Facility-wide analytics</li>
+                  <li>✓ Outcome tracking</li>
+                  <li>✓ Institutional reporting</li>
+                </ul>
+              </CardContent>
+            </Card>
           </div>
-        </Card>
-      </div>
-    );
-  }
 
-  // Provider home (individual) — show minimal 2-button interface
-  if (userType === "individual") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-4">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold">What would you like to do?</h1>
-          </div>
-
-          <Button
-            onClick={() => setLocation("/fellowship")}
-            size="lg"
-            className="w-full h-20 text-lg font-semibold"
-          >
-            <Award className="h-6 w-6 mr-3" />
-            Fellowship
-          </Button>
-
-          <Button
-            onClick={() => setLocation("/aha-courses")}
-            size="lg"
-            variant="outline"
-            className="w-full h-20 text-lg font-semibold"
-          >
-            <BookOpen className="h-6 w-6 mr-3" />
-            AHA Courses
-          </Button>
+          <p className="text-center text-sm text-muted-foreground mt-8">
+            💡 You can change your role anytime from the header dropdown
+          </p>
         </div>
       </div>
     );
   }
 
-  // Fallback (shouldn't reach here)
-  return null;
+  // User has a role → show feature discovery dashboard
+  const effectiveRole = useMemo(() => {
+    if (role === "provider" || role === "parent" || role === "institution") return role;
+    if (userType === "individual") return "provider";
+    if (userType === "parent") return "parent";
+    if (userType === "institutional") return "institution";
+    return "provider";
+  }, [role, userType]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">
+            {effectiveRole === "provider" && "Provider Dashboard"}
+            {effectiveRole === "parent" && "Learning Dashboard"}
+            {effectiveRole === "institution" && "Institutional Dashboard"}
+          </h1>
+          <p className="text-muted-foreground">
+            {effectiveRole === "provider" && "Access clinical tools, complete your Fellowship, and manage patients."}
+            {effectiveRole === "parent" && "Learn pediatric first aid and access safety resources."}
+            {effectiveRole === "institution" && "Train your staff and track facility-wide outcomes."}
+          </p>
+        </div>
+
+        {/* Quick Start Guide */}
+        <QuickStartGuide userRole={effectiveRole} />
+
+        {/* Feature Discovery Dashboard */}
+        <FeatureDiscoveryDashboard userRole={effectiveRole} />
+
+        {/* Quick Links Section */}
+        <div className="mt-12 pt-8 border-t">
+          <h2 className="text-xl font-bold mb-4">Quick Links</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button variant="outline" className="justify-start" asChild>
+              <a href="/help">Help & Support</a>
+            </Button>
+            <Button variant="outline" className="justify-start" asChild>
+              <a href="/about">About ResusGPS</a>
+            </Button>
+            <Button variant="outline" className="justify-start" asChild>
+              <a href="/privacy">Privacy Policy</a>
+            </Button>
+            <Button variant="outline" className="justify-start" asChild>
+              <a href="/terms">Terms of Use</a>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

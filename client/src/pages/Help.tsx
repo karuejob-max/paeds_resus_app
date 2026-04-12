@@ -1,12 +1,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { ArrowLeft } from "lucide-react";
 
 export default function Help() {
+  const [, setLocation] = useLocation();
+  
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold">Help centre</h1>
+        <div className="flex items-center gap-2 mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/home")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Button>
+        </div>
+        <h1 className="text-3xl font-bold">Help Centre</h1>
         <p className="text-muted-foreground">Paeds Resus: courses, institutions, parents.</p>
         <Card>
           <CardHeader>

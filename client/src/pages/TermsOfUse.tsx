@@ -1,8 +1,23 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function TermsOfUse() {
+  const [, setLocation] = useLocation();
+  
   return (
     <div className="min-h-screen bg-background py-12 px-4">
+      <div className="max-w-3xl mx-auto mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setLocation("/home")}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Home
+        </Button>
+      </div>
       <article className="max-w-3xl mx-auto prose prose-slate dark:prose-invert">
         <h1>Terms of use</h1>
         <p className="lead text-muted-foreground">
