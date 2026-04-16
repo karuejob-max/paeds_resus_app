@@ -4,6 +4,13 @@ import { getDb } from "../db";
 import { interventions, outcomes, impactMetrics } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 
+function extractInsertId(result: unknown): number {
+  if (Array.isArray(result)) {
+    return Number((result[0] as { insertId?: number } | undefined)?.insertId ?? 0);
+  }
+  return Number((result as { insertId?: number } | undefined)?.insertId ?? 0);
+}
+
 export const interventionRouter = router({
   // Log an intervention
   logIntervention: publicProcedure
@@ -30,7 +37,7 @@ export const interventionRouter = router({
 
       return {
         success: true,
-        interventionId: Number(result[0]?.insertId || 0),
+        interventionId: extractInsertId(result),
         timestamp: new Date(),
       };
     }),
@@ -67,7 +74,7 @@ export const interventionRouter = router({
 
       return {
         success: true,
-        outcomeId: Number(result[0]?.insertId || 0),
+        outcomeId: extractInsertId(result),
         livesSaved,
       };
     }),
@@ -100,7 +107,7 @@ export const interventionRouter = router({
             id: intervention.id,
             interventionType: intervention.interventionType,
             description: intervention.description,
-            timestamp: intervention.timestamp,
+            timestamp: intervention.createdAt,
             outcome: outcomeRecords[0]?.outcome || null,
             timeToOutcome: outcomeRecords[0]?.timeToOutcome || null,
           };
@@ -133,7 +140,7 @@ export const interventionRouter = router({
       : [];
 
     // Recalculate userOutcomes properly
-    let allUserOutcomes: any[] = [];
+    let allUserOutcomes: Array<(typeof outcomes.$inferSelect)> = [];
     for (const intervention of userInterventions) {
       const outcomeRecords = await db
         .select()
@@ -161,7 +168,10 @@ export const interventionRouter = router({
 });
 
 // Helper function to update impact metrics
-async function updateImpactMetrics(db: any, userId: number, livesSaved: number) {
+async function updateImpactMetrics(db: Awaited<ReturnType<typeof getDb>>, userId: number, livesSaved: number) {
+  if (!db) {
+    throw new Error("Database connection failed");
+  }
   // Get today's metrics
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -180,7 +190,7 @@ async function updateImpactMetrics(db: any, userId: number, livesSaved: number) 
 
   if (todayMetrics[0]) {
     // Update existing metric
-    const updated = await db
+    await db
       .update(impactMetrics)
       .set({
         livesSaved: (todayMetrics[0].livesSaved || 0) + livesSaved,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   createEnrollment,
@@ -10,17 +10,50 @@ import {
   createSmsReminder,
   getDb,
 } from "../db";
-import { enrollments, payments, courses } from "../../drizzle/schema";
+import { enrollments, payments, courses, microCourseEnrollments } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
-import { trackEvent } from "../services/analytics.service";
+import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
   getPaediatricSepticShockCourseId,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
+import {
+  INTUBATION_SAMPLE_MICRO_COURSE_ID,
+  ensureIntubationSampleCourseCatalog,
+  getIntubationSampleCourseId,
+} from "../lib/ensure-intubation-sample-course-catalog";
 // NEW: Enrollment system imports
 // @ts-ignore - dynamic imports
 import type { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment as createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } from "../db-enrollment";
+
+/** Server analytics for micro-course `enrollWithPayment` (PSoT / EVENT_TAXONOMY `course_enrollment`). */
+async function trackMicroCourseEnrollWithPayment(params: {
+  userId: number;
+  courseIdSlug: string;
+  microCourseId: number;
+  enrollmentId: number;
+  paymentMethod: "m-pesa" | "admin-free" | "promo-code";
+  amountPaid: number;
+  promoCodeId?: number | null;
+}) {
+  await trackEvent({
+    userId: params.userId,
+    eventType: "course_enrollment",
+    eventName: `Micro-course enroll ${params.courseIdSlug}`,
+    eventData: {
+      courseType: "micro_course",
+      courseId: params.courseIdSlug,
+      microCourseId: params.microCourseId,
+      enrollmentId: params.enrollmentId,
+      paymentMethod: params.paymentMethod,
+      amountPaid: params.amountPaid,
+      promoCodeId: params.promoCodeId ?? undefined,
+      source: "enroll_with_payment",
+    },
+    sessionId: `micro_enrollment_${params.enrollmentId}`,
+  });
+}
 
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
@@ -36,11 +69,23 @@ const paymentSchema = z.object({
   transactionId: z.string().optional(),
 });
 
+function assertProviderOrAdmin(user: { role?: string | null; userType?: string | null }) {
+  const isAdmin = user.role === "admin";
+  const isProvider = user.userType === "individual";
+  if (!isAdmin && !isProvider) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This action is available to provider accounts only.",
+    });
+  }
+}
+
 export const enrollmentRouter = router({
   // Create a new enrollment
   create: protectedProcedure
     .input(enrollmentSchema)
     .mutation(async ({ input, ctx }) => {
+      assertProviderOrAdmin(ctx.user);
       const db = await getDb();
       let courseId: number | null = null;
 
@@ -153,6 +198,7 @@ export const enrollmentRouter = router({
   recordPayment: protectedProcedure
     .input(paymentSchema)
     .mutation(async ({ input, ctx }) => {
+      assertProviderOrAdmin(ctx.user);
       const result = await createPayment({
         enrollmentId: input.enrollmentId,
         userId: ctx.user.id,
@@ -189,6 +235,7 @@ export const enrollmentRouter = router({
   getPaymentsByEnrollmentId: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
     .query(async ({ input, ctx }) => {
+      assertProviderOrAdmin(ctx.user);
       const db = await getDb();
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -230,13 +277,79 @@ export const enrollmentRouter = router({
         courseId: z.string(), // e.g., "asthma-i"
         phoneNumber: z.string().optional(), // Required for M-Pesa
         promoCode: z.string().optional(),
+        paymentPath: z.enum(["stk_push", "manual_lipa"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertProviderOrAdmin(ctx.user);
       try {
-        const { validatePromoCode, getCourseDetails, calculateFinalPrice, isUserEnrolled, createEnrollment: createEnrollmentDb, incrementPromoCodeUsage, isUserAdmin } = await import("../db-enrollment");
+        const { ensureMicroCoursesCatalog } = await import("../lib/micro-course-catalog");
+        await ensureMicroCoursesCatalog();
+
+        const {
+          validatePromoCode,
+          getCourseDetails,
+          calculateFinalPrice,
+          isUserEnrolled,
+          getPendingMpesaEnrollment,
+          setEnrollmentCheckoutRequestId,
+          createEnrollment: createEnrollmentDb,
+          incrementPromoCodeUsage,
+          isUserAdmin,
+        } = await import("../db-enrollment");
         
         const userId = ctx.user.id;
+        const isIntubationSample = input.courseId === INTUBATION_SAMPLE_MICRO_COURSE_ID;
+
+        async function ensureIntubationLearningEnrollment(
+          paymentStatus: "pending" | "completed",
+          amountPaidCents: number
+        ): Promise<number | null> {
+          if (!isIntubationSample) return null;
+          const db = await getDb();
+          if (!db) return null;
+          await ensureIntubationSampleCourseCatalog(db);
+          const intubationCourseId = await getIntubationSampleCourseId(db);
+          if (intubationCourseId == null) return null;
+
+          const existing = await db
+            .select({ id: enrollments.id, paymentStatus: enrollments.paymentStatus })
+            .from(enrollments)
+            .where(
+              and(
+                eq(enrollments.userId, userId),
+                eq(enrollments.programType, "fellowship"),
+                eq(enrollments.courseId, intubationCourseId)
+              )
+            )
+            .orderBy(desc(enrollments.id))
+            .limit(1);
+
+          const row = existing[0];
+          if (!row || (paymentStatus === "pending" && row.paymentStatus === "completed")) {
+            const created = await createEnrollment({
+              userId,
+              programType: "fellowship",
+              trainingDate: new Date(),
+              paymentStatus,
+              amountPaid: paymentStatus === "completed" ? amountPaidCents : 0,
+              courseId: intubationCourseId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+            return created?.id ?? null;
+          }
+
+          await db
+            .update(enrollments)
+            .set({
+              paymentStatus,
+              amountPaid: paymentStatus === "completed" ? amountPaidCents : row.paymentStatus === "completed" ? amountPaidCents : 0,
+              updatedAt: new Date(),
+            })
+            .where(eq(enrollments.id, row.id));
+          return row.id;
+        }
 
         // 1. Get course details
         const course = await getCourseDetails(input.courseId);
@@ -253,12 +366,43 @@ export const enrollmentRouter = router({
           };
         }
 
+        // 2b. If there is a pending M-Pesa attempt, reuse it instead of hard-blocking retry.
+        const pendingMpesaEnrollment = await getPendingMpesaEnrollment(userId, course.id);
+        const isManualLipaPath = input.paymentPath === "manual_lipa";
+        if (
+          pendingMpesaEnrollment &&
+          (isManualLipaPath || Boolean(pendingMpesaEnrollment.transactionId))
+        ) {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", course.price);
+          return {
+            success: true,
+            enrollmentId: pendingMpesaEnrollment.id,
+            message: isManualLipaPath
+              ? "Pending enrollment found - submit your M-Pesa reference after paying via Paybill"
+              : "Pending M-Pesa payment found - continue with your phone prompt",
+            paymentMethod: "m-pesa",
+            checkoutRequestId: pendingMpesaEnrollment.transactionId,
+            amountPaid: course.price,
+            learningEnrollmentId,
+          };
+        }
+
         // 3. Check if user is admin (free enrollment)
         const isAdmin = await isUserAdmin(userId);
         if (isAdmin) {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
           const enrollment = await createEnrollmentDb({
             userId,
             microCourseId: course.id,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
             paymentMethod: "admin-free",
             amountPaid: 0,
           });
@@ -268,6 +412,7 @@ export const enrollmentRouter = router({
             enrollmentId: enrollment.insertId,
             message: "Admin enrollment successful",
             paymentMethod: "admin-free",
+            learningEnrollmentId,
           };
         }
 
@@ -280,22 +425,41 @@ export const enrollmentRouter = router({
               error: promoValidation.error,
             };
           }
+        const promoDiscount = promoValidation.discountPercent ?? 0;
+        const promoCodeId = promoValidation.id;
+        if (!promoCodeId) {
+          return {
+            success: false,
+            error: "Promo code metadata missing",
+          };
+        }
 
           const finalPrice = calculateFinalPrice(
             course.price,
-            promoValidation.discountPercent
+          promoDiscount
           );
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", finalPrice);
 
           const enrollment = await createEnrollmentDb({
             userId,
             microCourseId: course.id,
             paymentMethod: "promo-code",
-            promoCodeId: promoValidation.id,
+            promoCodeId,
             amountPaid: finalPrice,
           });
 
           // Increment promo code usage
-          await incrementPromoCodeUsage(promoValidation.id);
+          await incrementPromoCodeUsage(promoCodeId);
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "promo-code",
+            amountPaid: finalPrice,
+            promoCodeId,
+          });
 
           return {
             success: true,
@@ -306,6 +470,7 @@ export const enrollmentRouter = router({
                 : `Enrollment successful - ${promoValidation.discountPercent}% discount applied`,
             paymentMethod: "promo-code",
             amountPaid: finalPrice,
+            learningEnrollmentId,
           };
         }
 
@@ -317,16 +482,34 @@ export const enrollmentRouter = router({
           };
         }
 
-        // Create pending enrollment record
-        console.log("[Enrollment] Creating enrollment with:", { userId, microCourseId: course.id, paymentMethod: "m-pesa", amountPaid: course.price });
-        console.log("[Enrollment] createEnrollmentDb function:", createEnrollmentDb.toString().substring(0, 100));
         const enrollment = await createEnrollmentDb({
           userId,
           microCourseId: course.id,
           paymentMethod: "m-pesa",
           amountPaid: course.price,
         });
-        console.log("[Enrollment] Created enrollment:", enrollment);
+        const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", course.price);
+
+        await trackMicroCourseEnrollWithPayment({
+          userId,
+          courseIdSlug: input.courseId,
+          microCourseId: course.id,
+          enrollmentId: enrollment.insertId,
+          paymentMethod: "m-pesa",
+          amountPaid: course.price,
+        });
+
+        if (isManualLipaPath) {
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message:
+              "Manual Lipa na M-Pesa selected. Complete Paybill payment, then submit your M-Pesa reference for verification.",
+            paymentMethod: "m-pesa",
+            amountPaid: course.price,
+            learningEnrollmentId,
+          };
+        }
 
         // Initiate M-Pesa STK Push using existing M-Pesa integration
         const { initiateStkPush } = await import("../mpesa");
@@ -353,6 +536,19 @@ export const enrollmentRouter = router({
           };
         }
 
+        if (mpesaResult.checkoutRequestID) {
+          await setEnrollmentCheckoutRequestId(enrollment.insertId, mpesaResult.checkoutRequestID);
+        }
+
+        const kesAmount = Math.ceil(course.price / 100);
+        const checkoutId = mpesaResult.checkoutRequestID || "";
+        await trackPaymentInitiation(
+          userId,
+          kesAmount,
+          "m-pesa",
+          checkoutId ? `stk_${checkoutId}` : `micro_enroll_${enrollment.insertId}`,
+        );
+
         return {
           success: true,
           enrollmentId: enrollment.insertId,
@@ -360,6 +556,7 @@ export const enrollmentRouter = router({
           paymentMethod: "m-pesa",
           checkoutRequestId: mpesaResult.checkoutRequestID,
           amountPaid: course.price,
+          learningEnrollmentId,
         };
       } catch (error) {
         console.error("[Enrollment] Error in enrollWithPayment:", error);
@@ -371,26 +568,92 @@ export const enrollmentRouter = router({
       }
     }),
 
+  submitManualMpesaReference: protectedProcedure
+    .input(
+      z.object({
+        microEnrollmentId: z.number().int().positive(),
+        receiptCode: z.string().min(6).max(40),
+        payerPhone: z.string().min(9).max(20).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertProviderOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const enrollmentRows = await db
+        .select()
+        .from(microCourseEnrollments)
+        .where(
+          and(
+            eq(microCourseEnrollments.id, input.microEnrollmentId),
+            eq(microCourseEnrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      const row = enrollmentRows[0];
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Micro-course enrollment not found" });
+      }
+      const normalizedReceipt = input.receiptCode.trim().toUpperCase();
+      await db
+        .update(microCourseEnrollments)
+        .set({
+          paymentMethod: "m-pesa",
+          paymentStatus: row.paymentStatus === "free" ? "free" : "pending",
+          transactionId: normalizedReceipt,
+          updatedAt: new Date(),
+        })
+        .where(eq(microCourseEnrollments.id, row.id));
+
+      await trackEvent({
+        userId: ctx.user.id,
+        eventType: "payment_initiation",
+        eventName: "Manual Lipa na M-Pesa reference submitted",
+        eventData: {
+          enrollmentId: row.id,
+          microCourseId: row.microCourseId,
+          paymentMethod: "m-pesa",
+          paymentPath: "manual_lipa",
+          receiptCode: normalizedReceipt,
+          payerPhone: input.payerPhone ?? null,
+          amountCents: row.amountPaid ?? null,
+        },
+        sessionId: `micro_enrollment_${row.id}`,
+      });
+
+      return {
+        success: true as const,
+        enrollmentId: row.id,
+        receiptCode: normalizedReceipt,
+        message:
+          "M-Pesa reference received. We will verify payment and activate your enrollment once confirmed.",
+      };
+    }),
+
   // NEW: Validate promo code before enrollment
   validatePromo: protectedProcedure
     .input(z.object({ code: z.string(), coursePrice: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      assertProviderOrAdmin(ctx.user);
       try {
         const { validatePromoCode, calculateFinalPrice } = await import("../db-enrollment");
         const validation = await validatePromoCode(input.code);
         if (!validation.valid) {
           return { valid: false, error: validation.error };
         }
+        const discountPercent = validation.discountPercent ?? 0;
 
         const finalPrice = calculateFinalPrice(
           input.coursePrice,
-          validation.discountPercent
+          discountPercent
         );
         const savings = input.coursePrice - finalPrice;
 
         return {
           valid: true,
-          discountPercent: validation.discountPercent,
+          discountPercent,
           originalPrice: input.coursePrice,
           finalPrice,
           savings,

@@ -52,6 +52,45 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
   }
 }
 
+function isSignatureRequired(): boolean {
+  const raw = process.env.MPESA_REQUIRE_CALLBACK_SIGNATURE?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+/**
+ * Daraja STK callbacks commonly do not send a signature header.
+ * Keep verification available, but don't block callbacks unless explicitly required.
+ */
+function validateOptionalDarajaSignature(
+  req: Request,
+  res: Response,
+  scope: "webhook" | "query" | "timeout" | "c2b"
+): boolean {
+  const signature = req.headers["x-daraja-signature"] as string | undefined;
+  const required = isSignatureRequired();
+
+  if (!signature) {
+    if (required) {
+      console.warn(`[M-Pesa] ${scope}: Missing X-Daraja-Signature header (required=true)`);
+      res.status(401).json({ error: "Unauthorized: missing signature" });
+      return false;
+    }
+    console.warn(
+      `[M-Pesa] ${scope}: Missing X-Daraja-Signature header; continuing because MPESA_REQUIRE_CALLBACK_SIGNATURE is not enabled`
+    );
+    return true;
+  }
+
+  const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  if (!verifyMpesaSignature(rawBody, signature)) {
+    console.error(`[M-Pesa] ${scope}: Signature verification failed`);
+    res.status(401).json({ error: "Unauthorized: invalid signature" });
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * C2B URL Validation Handler
  * Daraja sends this when registering a C2B URL to verify it's working
@@ -79,18 +118,8 @@ export async function handleC2BValidation(req: Request, res: Response) {
  */
 export async function handleC2BConfirmation(req: Request, res: Response) {
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      console.warn("[M-Pesa] C2B confirmation: Missing signature");
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      console.error("[M-Pesa] C2B confirmation: Signature verification failed");
-      return res.status(401).json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "c2b")) {
+      return;
     }
 
     const body = req.body;
@@ -159,24 +188,8 @@ export async function handleC2BConfirmation(req: Request, res: Response) {
  */
 export async function handleMpesaWebhook(req: Request, res: Response) {
   try {
-    // Extract signature from headers
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-
-    if (!signature) {
-      console.warn("[M-Pesa] Missing X-Daraja-Signature header");
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    // Get raw body for signature verification
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-
-    // Verify signature
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      console.error("[M-Pesa] Webhook signature verification failed");
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "webhook")) {
+      return;
     }
 
     const { Body } = req.body;
@@ -384,18 +397,8 @@ export async function handleMpesaQueryWebhook(
   res: Response
 ) {
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "query")) {
+      return;
     }
 
     console.log("[M-Pesa] Query webhook received (not yet implemented)");
@@ -415,18 +418,8 @@ export async function handleMpesaTimeoutWebhook(
   res: Response
 ) {
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "timeout")) {
+      return;
     }
 
     const { Body } = req.body;

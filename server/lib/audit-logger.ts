@@ -83,7 +83,7 @@ export async function logAudit(input: AuditLogInput): Promise<void> {
       userAgent: input.userAgent || null,
       status: input.status,
       errorMessage: input.errorMessage || null,
-      createdAt: Date.now(),
+      createdAt: new Date(),
       archivedAt: null,
     });
   } catch (error) {

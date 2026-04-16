@@ -155,6 +155,18 @@ export default function ParentSafeTruth() {
           </Button>
         </div>
 
+        <Card className="border-border shadow-sm mb-12">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">After you submit</CardTitle>
+            <CardDescription>What to expect from the follow-up process.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-2">
+            <p>We review each story and group patterns that help improve communication and emergency support.</p>
+            <p>If you are signed in, your story status appears under <span className="font-medium text-foreground">Your stories</span>.</p>
+            <p>When a response is ready, we may also send an email update. Please check your spam folder if needed.</p>
+          </CardContent>
+        </Card>
+
         <div ref={formRef} className="scroll-mt-24">
           <ParentSafeTruthForm />
         </div>

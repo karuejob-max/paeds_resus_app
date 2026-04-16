@@ -157,11 +157,13 @@ export interface FluidTracker {
 }
 
 export interface ResusSession {
+  id: string;
   phase: Phase;
   currentLetter: ABCDELetter;
   quickAssessment: 'sick' | 'not_sick' | null;
   findings: Finding[];
   threats: Threat[];
+  activeThreat?: Threat | null;
   safetyAlerts: SafetyAlert[];
   sampleHistory: Partial<SAMPLEHistory>;
   definitiveDiagnosis: string | null;
@@ -1560,11 +1562,13 @@ const safetyRules: SafetyRule[] = [
 
 export function createSession(weight?: number | null, age?: string | null, isTrauma?: boolean): ResusSession {
   return {
+    id: `resus-${Date.now()}`,
     phase: 'IDLE',
     currentLetter: isTrauma ? 'X' : 'A',
     quickAssessment: null,
     findings: [],
     threats: [],
+    activeThreat: null,
     safetyAlerts: [],
     sampleHistory: {},
     definitiveDiagnosis: null,
@@ -1588,6 +1592,8 @@ export function createSession(weight?: number | null, age?: string | null, isTra
       bolusHistory: [],
     },
     derivedPerfusion: null,
+    undoStack: [],
+    redoStack: [],
   };
 }
 
@@ -2184,9 +2190,11 @@ export function exportClinicalRecord(session: ResusSession): string {
     lines.push('');
   }
 
-  // Event Log
+  // Event Log — Filter to clinical events only (exclude keystroke/UI noise)
   lines.push('── EVENT LOG ──');
-  for (const event of session.events) {
+  const clinicalEventTypes = ['phase_change', 'finding', 'threat_identified', 'intervention_started', 'intervention_completed', 'safety_alert', 'note', 'diagnosis', 'cardiac_arrest_start', 'rosc', 'reassessment', 'patient_info_updated'];
+  const clinicalEvents = session.events.filter(e => clinicalEventTypes.includes(e.type));
+  for (const event of clinicalEvents) {
     const time = new Date(event.timestamp).toLocaleTimeString();
     lines.push(`[${time}] ${event.detail}`);
   }

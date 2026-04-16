@@ -134,7 +134,7 @@ Low — ~45 minutes.
 **Effort:** Medium — ~1.5 hours.
 
 ### B2. Institutional Onboarding → First Login to Portal
-**What to do:** Redirect after onboarding to `/institutional-portal`; add welcome state in InstitutionalPortal.  
+**What to do:** Redirect after onboarding to `/hospital-admin-dashboard` (legacy `/institutional-portal` redirect compatibility); add welcome state in institutional dashboard.  
 **Effort:** Low — ~30 minutes.
 
 ---

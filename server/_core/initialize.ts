@@ -3,8 +3,21 @@
  * Runs on server startup to seed data (courses, etc.)
  */
 
-import { db } from "../db";
+import { getDb } from "../db";
 import { microCourses } from "../../drizzle/schema";
+
+function normalizeEmergencyType(
+  emergencyType: string
+): "respiratory" | "shock" | "seizure" | "toxicology" | "metabolic" | "infectious" | "burns" | "trauma" {
+  switch (emergencyType) {
+    case "neurological":
+      return "seizure";
+    case "allergic":
+      return "toxicology";
+    default:
+      return emergencyType as "respiratory" | "shock" | "seizure" | "toxicology" | "metabolic" | "infectious" | "burns" | "trauma";
+  }
+}
 
 const COURSES = [
   { courseId: 'asthma-i', title: 'Paediatric Asthma I: Recognition and Initial Management', description: 'Recognize asthma exacerbation severity, implement rapid bronchodilator therapy (salbutamol), and assess response to treatment.', level: 'foundational' as const, emergencyType: 'respiratory' as const, duration: 45, price: 80000, prerequisiteId: null, order: 1 },
@@ -37,6 +50,7 @@ const COURSES = [
 
 export async function initializeDatabase() {
   try {
+    const db = await getDb();
     if (!db) {
       console.log('[Initialize] Database not available, skipping seed');
       return;
@@ -58,7 +72,7 @@ export async function initializeDatabase() {
         title: course.title,
         description: course.description,
         level: course.level,
-        emergencyType: course.emergencyType,
+        emergencyType: normalizeEmergencyType(course.emergencyType),
         duration: course.duration,
         price: course.price,
         prerequisiteId: course.prerequisiteId,

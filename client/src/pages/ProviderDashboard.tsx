@@ -1,320 +1,243 @@
-/**
- * Provider Dashboard
- * 
- * Minimalist, decision-free design for healthcare providers after login.
- * 
- * LAYOUT:
- * 1. Fellowship hero message
- * 2. 3-pillar progress (starting at 0% for new providers)
- * 3. AHA courses (BLS, ACLS, PALS)
- */
-
+import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Award, BookOpen, Zap, Heart, AlertCircle, ArrowRight, Lock, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, CreditCard, GraduationCap, RefreshCcw, Siren } from "lucide-react";
+import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
+import { Badge } from "@/components/ui/badge";
 
 export default function ProviderDashboard() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
+  const summaryQuery = trpc.dashboards.getSummary.useQuery(undefined, {
+    enabled: Boolean(user),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
 
-  // Redirect if not logged in
-  if (!loading && !user) {
-    setLocation("/login");
-    return null;
-  }
+  useEffect(() => {
+    if (!loading && !user) setLocation("/login");
+  }, [loading, user, setLocation]);
+  const { track } = useProviderConversionAnalytics("/home/provider");
 
-  // Fetch fellowship progress (or initialize if doesn't exist)
-  const { data: progress, isLoading: progressLoading } = trpc.fellowship.getProgress.useQuery();
-
-  // Fetch AHA courses (BLS, ACLS, PALS)
-  const { data: ahaCourses } = trpc.courses.listAll.useQuery();
-
-  // Fetch user enrollments
-  const { data: enrollments } = trpc.courses.getUserEnrollments.useQuery(
-    { userId: user?.id ?? 0 },
-    { enabled: !!user?.id }
-  );
-
-  if (loading || progressLoading) {
+  if (loading || !user || summaryQuery.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Loading dashboard…</p>
+        <Card className="w-full max-w-xl mx-4">
+          <CardHeader>
+            <CardTitle>Loading provider home…</CardTitle>
+            <CardDescription>We&apos;re checking your courses, payments, and ResusGPS access.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="h-24 rounded-lg bg-muted animate-pulse" />
+            <div className="h-11 rounded-lg bg-muted animate-pulse" />
+            <div className="h-11 rounded-lg bg-muted animate-pulse" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // Default progress for new providers (0% on all pillars)
-  const defaultProgress = {
-    coursesPillar: { completed: 0, required: 26, percentage: 0 },
-    resusGPSPillar: { conditionsWithThreshold: 0, totalConditionsTaught: 8, percentage: 0 },
-    careSignalPillar: { streak: 0, percentage: 0 },
-    isQualified: false,
-    overallPercentage: 0,
+  if (summaryQuery.isError || !summaryQuery.data) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8">
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>Provider home is temporarily unavailable</CardTitle>
+              <CardDescription>
+                We couldn&apos;t load your learning and payment summary. You can retry or continue to the main provider areas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Summary unavailable</AlertTitle>
+                <AlertDescription>
+                  {summaryQuery.error?.message || "Please try again in a moment."}
+                </AlertDescription>
+              </Alert>
+              <Button className="w-full justify-between" onClick={() => void summaryQuery.refetch()}>
+                Retry provider home
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" className="w-full justify-between" onClick={() => setLocation("/fellowship")}>
+                <span className="inline-flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Open Fellowship
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>
+                <span className="inline-flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Open AHA Courses
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const { primaryAction, secondaryActions, stats, resusAccess } = summaryQuery.data;
+
+  const recommendationReason =
+    primaryAction.key === "resume_payment"
+      ? "This is first because you already started an AHA enrollment, and payment is the one blocker before learning can continue."
+      : primaryAction.key === "start_course"
+        ? "This is first because you have a paid course ready to begin, so the fastest progress is to enter learning directly."
+        : primaryAction.key === "continue_learning"
+          ? "This is first because you already started a course, and continuing it is the clearest path to completion."
+          : primaryAction.key === "renew_resusgps"
+            ? "This is first because your ResusGPS access needs renewal before you can rely on it from the provider workspace."
+            : "This is first because your learning and payment items are clear, so you can go straight into bedside guidance.";
+
+  const statusHighlights = [
+    {
+      key: "aha",
+      label:
+        stats.unpaidAhaCount > 0
+          ? `${stats.unpaidAhaCount} AHA payment${stats.unpaidAhaCount === 1 ? "" : "s"} pending`
+          : "No unpaid AHA enrollments",
+    },
+    {
+      key: "ready",
+      label:
+        stats.paidNotStartedCount > 0
+          ? `${stats.paidNotStartedCount} paid course${stats.paidNotStartedCount === 1 ? "" : "s"} ready to start`
+          : "No paid courses waiting to start",
+    },
+    {
+      key: "progress",
+      label:
+        stats.inProgressCount > 0
+          ? `${stats.inProgressCount} course${stats.inProgressCount === 1 ? "" : "s"} in progress`
+          : "No course currently in progress",
+    },
+    {
+      key: "resus",
+      label: stats.hasResusGpsAccess
+        ? `ResusGPS access active${resusAccess.expiresAt ? ` until ${new Date(resusAccess.expiresAt).toLocaleDateString()}` : ""}`
+        : "ResusGPS access not currently active",
+    },
+  ];
+
+  const handlePrimaryAction = () => {
+    if (primaryAction.key === "resume_payment") {
+      track("provider_conversion", "provider_next_action_resume_payment_clicked", {
+        source: "provider_home_summary",
+        programType: primaryAction.programType,
+        enrollmentId: primaryAction.enrollmentId,
+      });
+    } else if (primaryAction.key === "start_course") {
+      track("provider_conversion", "provider_next_action_start_course_clicked", {
+        source: "provider_home_summary",
+        enrollmentId: primaryAction.enrollmentId,
+        courseId: primaryAction.courseId,
+        destination: primaryAction.destination,
+      });
+    } else if (primaryAction.key === "continue_learning") {
+      track("provider_conversion", "provider_next_action_continue_learning_clicked", {
+        source: "provider_home_summary",
+        enrollmentId: primaryAction.enrollmentId,
+        courseId: primaryAction.courseId,
+        destination: primaryAction.destination,
+      });
+    } else if (primaryAction.key === "renew_resusgps") {
+      track("provider_conversion", "provider_next_action_renew_resusgps_clicked", {
+        source: "provider_home_summary",
+      });
+    } else {
+      track("provider_conversion", "provider_next_action_open_resusgps_clicked", {
+        source: "provider_home_summary",
+      });
+    }
+
+    setLocation(primaryAction.destination);
   };
 
-  const displayProgress = progress || defaultProgress;
-  const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = displayProgress;
-
-  // Determine next action
-  const getNextAction = () => {
-    if (coursesPillar.percentage < 100) {
-      return {
-        pillar: "Courses",
-        action: `Complete: ${coursesPillar.required - coursesPillar.completed} courses remaining`,
-        icon: BookOpen,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50 dark:bg-blue-950/30",
-        borderColor: "border-blue-200 dark:border-blue-800",
-        cta: "Continue Courses",
-        link: "/fellowship",
-      };
-    }
-    if (resusGPSPillar.percentage < 100) {
-      return {
-        pillar: "ResusGPS",
-        action: `Record cases: ${resusGPSPillar.conditionsWithThreshold} of ${resusGPSPillar.totalConditionsTaught} conditions complete`,
-        icon: Zap,
-        color: "text-purple-600",
-        bgColor: "bg-purple-50 dark:bg-purple-950/30",
-        borderColor: "border-purple-200 dark:border-purple-800",
-        cta: "Launch ResusGPS",
-        link: "/resus",
-      };
-    }
-    if (careSignalPillar.percentage < 100) {
-      return {
-        pillar: "Care Signal",
-        action: `Monthly reporting: ${careSignalPillar.streak} of 24 months complete`,
-        icon: Heart,
-        color: "text-red-600",
-        bgColor: "bg-red-50 dark:bg-red-950/30",
-        borderColor: "border-red-200 dark:border-red-800",
-        cta: "Report Incident",
-        link: "/safe-truth",
-      };
-    }
-    return null;
-  };
-
-  const nextAction = getNextAction();
-
-  // Filter AHA courses (BLS, ACLS, PALS)
-  const ahaCourseTitles = ["BLS", "ACLS", "PALS"];
-  const ahaCoursesFiltered = ahaCourses?.filter((c: any) =>
-    ahaCourseTitles.some(title => c.title.includes(title))
-  ) || [];
-
-  // Prepare enrollment data
-  const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.courseId) || []);
-  const completedCourseIds = new Set(enrollments?.filter((e: any) => e.status === "completed").map((e: any) => e.courseId) || []);
+  const primaryIcon =
+    primaryAction.key === "resume_payment" ? (
+      <CreditCard className="h-4 w-4" />
+    ) : primaryAction.key === "renew_resusgps" ? (
+      <AlertTriangle className="h-4 w-4" />
+    ) : primaryAction.key === "open_resusgps" ? (
+      <Siren className="h-4 w-4" />
+    ) : (
+      <BookOpen className="h-4 w-4" />
+    );
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* SECTION 1: FELLOWSHIP HERO MESSAGE */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 rounded-lg p-6 md:p-8 border border-emerald-200 dark:border-emerald-800">
-          <div className="flex items-start gap-4">
-            <Award className="h-8 w-8 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-1" />
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mb-2">
-                Become a Paeds Resus Fellow
-              </h2>
-              <p className="text-emerald-800 dark:text-emerald-200 mb-4">
-                Earn your fellowship through a comprehensive 3-pillar qualification program. Complete courses, manage real ResusGPS cases, and participate in monthly Care Signal reporting to demonstrate mastery in pediatric emergency care.
-              </p>
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Provider home</CardTitle>
+            <CardDescription>
+              One recommended next step, plus the state behind that recommendation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {statusHighlights.map((item) => (
+                <Badge key={item.key} variant="secondary" className="font-normal">
+                  {item.label}
+                </Badge>
+              ))}
             </div>
-          </div>
-        </div>
-
-        {/* SECTION 2: 3-PILLAR PROGRESS */}
-        <div className="space-y-6">
-          {/* Header */}
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Award className="h-8 w-8 text-emerald-600" />
-              Your Progress
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {isQualified ? (
-                <span className="text-emerald-600 font-medium flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5" /> You are qualified as a Paeds Resus Fellow!
-                </span>
-              ) : (
-                `${overallPercentage}% complete — ${3 - Math.ceil((100 - overallPercentage) / 33)} pillar(s) remaining`
-              )}
-            </p>
-          </div>
-
-          {/* Overall Progress */}
-          <Card className="border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Fellowship Qualification</CardTitle>
-                  <CardDescription>Complete all 3 pillars to earn your fellowship</CardDescription>
-                </div>
-                <div className="text-right">
-                  <div className="text-4xl font-bold text-emerald-700 dark:text-emerald-400">{overallPercentage}%</div>
-                  <p className="text-sm text-muted-foreground">Complete</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Progress value={overallPercentage} className="h-3" />
-            </CardContent>
-          </Card>
-
-          {/* 3-Pillar Progress */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Pillar 1: Courses */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <BookOpen className="h-5 w-5 text-blue-600" />
-                  Courses
+            <Card className="border-primary/40 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base inline-flex items-center gap-2">
+                  {primaryIcon}
+                  {primaryAction.title}
                 </CardTitle>
-                <CardDescription className="text-xs">26 micro-courses</CardDescription>
+                <CardDescription>{primaryAction.description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">{coursesPillar.completed}/{coursesPillar.required}</span>
-                    <Badge variant={coursesPillar.percentage === 100 ? "default" : "secondary"}>
-                      {coursesPillar.percentage}%
-                    </Badge>
-                  </div>
-                  <Progress value={coursesPillar.percentage} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pillar 2: ResusGPS */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Zap className="h-5 w-5 text-purple-600" />
-                  ResusGPS
-                </CardTitle>
-                <CardDescription className="text-xs">Clinical cases</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">{resusGPSPillar.conditionsWithThreshold}/{resusGPSPillar.totalConditionsTaught}</span>
-                    <Badge variant={resusGPSPillar.percentage === 100 ? "default" : "secondary"}>
-                      {resusGPSPillar.percentage}%
-                    </Badge>
-                  </div>
-                  <Progress value={resusGPSPillar.percentage} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pillar 3: Care Signal */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Heart className="h-5 w-5 text-red-600" />
-                  Care Signal
-                </CardTitle>
-                <CardDescription className="text-xs">Monthly reporting</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">{careSignalPillar.streak}/24</span>
-                    <Badge variant={careSignalPillar.percentage === 100 ? "default" : "secondary"}>
-                      {careSignalPillar.percentage}%
-                    </Badge>
-                  </div>
-                  <Progress value={careSignalPillar.percentage} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Next Action (Single CTA) */}
-          {nextAction && !isQualified && (
-            <Card className={`border-2 ${nextAction.borderColor} ${nextAction.bgColor}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <nextAction.icon className={`h-5 w-5 ${nextAction.color}`} />
-                  Next Step: {nextAction.pillar}
-                </CardTitle>
-                <CardDescription>{nextAction.action}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  onClick={() => setLocation(nextAction.link)}
-                  className="w-full"
-                >
-                  {nextAction.cta}
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                <Alert>
+                  <AlertTitle>Why this is your next step</AlertTitle>
+                  <AlertDescription>{recommendationReason}</AlertDescription>
+                </Alert>
+                <Button variant="cta" className="w-full justify-between" onClick={handlePrimaryAction}>
+                  {primaryAction.cta}
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </CardContent>
             </Card>
-          )}
-
-          {/* Qualified Celebration */}
-          {isQualified && (
-            <Alert className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <AlertDescription className="text-emerald-900 dark:text-emerald-100">
-                <strong>Congratulations!</strong> You have completed all requirements for the Paeds Resus Fellowship. Your certificate is ready for download.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* SECTION 3: AHA COURSES (Secondary) */}
-        <div className="border-t pt-8 space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">AHA Certification Courses</h2>
-            <p className="text-sm text-muted-foreground">Optional. Not part of the fellowship.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {ahaCoursesFiltered.map((course: any) => {
-              const isEnrolled = enrolledCourseIds.has(course.id);
-              const isCompleted = completedCourseIds.has(course.id);
-              return (
-                <Card key={course.id} className="hover:border-primary/50 transition-colors">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{course.title}</CardTitle>
-                        <CardDescription className="text-xs mt-1">{course.duration} hours</CardDescription>
-                      </div>
-                      {isCompleted && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
-                      {!isEnrolled && <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {isCompleted && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Completed</p>
-                    )}
-                    {isEnrolled && !isCompleted && (
-                      <Button size="sm" variant="outline" className="w-full">
-                        Continue
-                      </Button>
-                    )}
-                    {!isEnrolled && (
-                      <Button size="sm" className="w-full">
-                        Enroll
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+            {secondaryActions.map((action) => (
+              <Button
+                key={action.key}
+                variant={action.key === "open_fellowship" ? "secondary" : "outline"}
+                className="w-full justify-between"
+                onClick={() => {
+                  track(
+                    "provider_conversion",
+                    action.key === "open_fellowship" ? "provider_cta_open_fellowship" : "provider_cta_open_aha_hub",
+                    { source: "provider_home_summary" }
+                  );
+                  setLocation(action.destination);
+                }}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {action.key === "open_fellowship" ? (
+                    <GraduationCap className="h-4 w-4" />
+                  ) : (
+                    <BookOpen className="h-4 w-4" />
+                  )}
+                  {action.label}
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

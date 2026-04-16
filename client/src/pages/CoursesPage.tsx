@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 export function CoursesPage() {
   const { data: courses, isLoading } = trpc.microCourses.listCourses.useQuery();
-  const enrollMutation = trpc.microCourses.enrollCourse.useMutation({
+  const enrollMutation = trpc.courses.enroll.useMutation({
     onSuccess: () => {
       toast.success('Successfully enrolled in course!');
     },
@@ -57,14 +57,14 @@ export function CoursesPage() {
               description="Master recognition and management of septic shock from foundational to advanced"
               courses={['Septic Shock I', 'Septic Shock II']}
               duration={90}
-              price={800}
+              priceCents={40000}
             />
             <LearningJourneyCard
               title="Paediatric Asthma Journey"
               description="From acute asthma exacerbation to status asthmaticus management"
               courses={['Asthma I', 'Asthma II']}
               duration={90}
-              price={800}
+              priceCents={40000}
               comingSoon
             />
           </div>
@@ -78,14 +78,14 @@ export function CoursesPage() {
  * Course Card: Show course details and enroll button
  */
 function CourseCard({ course, onEnroll, isEnrolling }: { course: any; onEnroll: any; isEnrolling: boolean }) {
-  const priceUSD = (course.price / 100).toFixed(2);
+  const priceKes = (course.price / 100).toFixed(0);
 
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
       <CardHeader>
         <div className="flex items-start justify-between mb-2">
           <Badge variant="outline">{course.level}</Badge>
-          <Badge variant="secondary">${priceUSD}</Badge>
+          <Badge variant="secondary">KES {priceKes}</Badge>
         </div>
         <CardTitle className="text-xl">{course.courseDisplayName}</CardTitle>
         <CardDescription>{course.description}</CardDescription>
@@ -123,7 +123,7 @@ function CourseCard({ course, onEnroll, isEnrolling }: { course: any; onEnroll: 
         {/* Enroll Button */}
         <Button
           className="w-full mt-4"
-          onClick={() => onEnroll({ courseId: course.id })}
+          onClick={() => onEnroll({ courseId: course.courseId ?? course.id })}
           disabled={isEnrolling}
         >
           <ShoppingCart className="h-4 w-4 mr-2" />
@@ -142,24 +142,24 @@ function LearningJourneyCard({
   description,
   courses,
   duration,
-  price,
+  priceCents,
   comingSoon,
 }: {
   title: string;
   description: string;
   courses: string[];
   duration: number;
-  price: number;
+  priceCents: number;
   comingSoon?: boolean;
 }) {
-  const priceUSD = (price / 100).toFixed(2);
+  const priceKes = (priceCents / 100).toFixed(0);
 
   return (
     <Card className={`flex flex-col h-full ${comingSoon ? 'opacity-60' : 'hover:shadow-lg transition-shadow'}`}>
       <CardHeader>
         <div className="flex items-start justify-between mb-2">
           {comingSoon && <Badge variant="outline">Coming Soon</Badge>}
-          <Badge variant="secondary">${priceUSD}</Badge>
+          <Badge variant="secondary">KES {priceKes} total</Badge>
         </div>
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

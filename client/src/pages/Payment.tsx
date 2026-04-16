@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
 import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } from "lucide-react";
-import { individualCourses, fellowshipTiers } from "@/const/pricing";
+import { getIndividualCoursesByTrack, individualCourses } from "@/const/pricing";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
+import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 
 export default function Payment() {
   useScrollToTop();
@@ -23,8 +25,13 @@ export default function Payment() {
   const parsedEnroll = urlEnrollmentId ? parseInt(urlEnrollmentId, 10) : NaN;
   const enrollmentIdFromEnroll = Number.isFinite(parsedEnroll) ? parsedEnroll : undefined;
 
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(urlCourseId || null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(
+    enrollmentIdFromEnroll !== undefined ? null : urlCourseId || null
+  );
+  const [, setLocation] = useLocation();
   const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "bank" | "card">("mpesa");
+  const [bankIntentSaved, setBankIntentSaved] = useState(false);
+  const { track } = useProviderConversionAnalytics("/payment");
 
   const {
     data: enrollmentRow,
@@ -48,11 +55,12 @@ export default function Payment() {
         "Payment details saved. Our team will verify your bank transfer—check your email and learner dashboard for updates."
       );
       setBankReference("");
+      setBankIntentSaved(true);
     },
     onError: (e) => toast.error(e.message || "Could not record payment"),
   });
 
-  const lockCourseSelection = Boolean(enrollmentIdFromEnroll && enrollmentRow);
+  const lockCourseSelection = enrollmentIdFromEnroll !== undefined;
 
   useEffect(() => {
     if (!payCaps) return;
@@ -66,13 +74,7 @@ export default function Payment() {
       if (!enrollmentRow) return;
       const p = enrollmentRow.programType;
       if (p === "fellowship") {
-        const tier =
-          urlCourseId && ["bronze", "silver", "gold"].includes(urlCourseId) ? urlCourseId : "bronze";
-        setSelectedCourse(tier);
-      } else if (p === "pals") {
-        const title = "courseTitle" in enrollmentRow ? (enrollmentRow as { courseTitle?: string | null }).courseTitle : null;
-        const sku = title?.toLowerCase().includes("septic") ? "pals_septic" : "pals";
-        setSelectedCourse(sku);
+        setSelectedCourse(null);
       } else {
         setSelectedCourse(p);
       }
@@ -84,11 +86,7 @@ export default function Payment() {
   const urlCourseMismatch =
     enrollmentRow &&
     urlCourseId &&
-    (enrollmentRow.programType === "fellowship"
-      ? !["bronze", "silver", "gold"].includes(urlCourseId)
-      : enrollmentRow.programType === "pals"
-        ? !["pals", "pals_septic"].includes(urlCourseId)
-        : urlCourseId !== enrollmentRow.programType);
+    urlCourseId !== enrollmentRow.programType;
 
   const enrollmentMissing =
     enrollmentIdFromEnroll !== undefined && enrollmentFetched && !enrollmentLoading && !enrollmentRow;
@@ -101,33 +99,59 @@ export default function Payment() {
     bls: "🏥",
     acls: "❤️",
     pals: "👶",
-    pals_septic: "🩺",
     instructor: "🎓",
-    bronze: "🥉",
-    silver: "🥈",
-    gold: "🥇",
   };
-  const fellowshipDurations: Record<string, string> = { bronze: "6 weeks", silver: "12 weeks", gold: "16 weeks" };
-  const courses = [
-    ...individualCourses.map((c) => ({
+  const selectedTrack = individualCourses.find((c) => c.id === selectedCourse)?.providerTrack;
+  const availableBaseCourses = getIndividualCoursesByTrack("aha_certification");
+  const availableCourses =
+    selectedTrack === "paeds_resus"
+      ? [...availableBaseCourses, ...getIndividualCoursesByTrack("paeds_resus")]
+      : availableBaseCourses;
+  const courses = availableCourses
+    .map((c) => ({
       id: c.id,
-      name: `${c.name} Certification`,
+      name: c.name,
       description: c.description,
       price: c.price,
       duration: c.duration ?? "",
       icon: courseIcons[c.id] ?? "📋",
-    })),
-    ...fellowshipTiers.map((t, i) => ({
-      id: ["bronze", "silver", "gold"][i] as string,
-      name: t.name.split(" ")[0] + " Fellowship",
-      description: t.description,
-      price: t.price,
-      duration: fellowshipDurations[["bronze", "silver", "gold"][i]] ?? "",
-      icon: courseIcons[["bronze", "silver", "gold"][i]] ?? "📋",
-    })),
-  ];
-
+    }));
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
+  const selectedProgramType = enrollmentRow?.programType ?? selectedCourse ?? null;
+  const isPaedsResusPayment = selectedProgramType === "instructor";
+  const paymentPageTitle = lockCourseSelection
+    ? "Complete your payment"
+    : isPaedsResusPayment
+      ? "Pay for Paeds Resus training"
+      : "Pay for AHA certification";
+  const paymentPageSubtitle = lockCourseSelection
+    ? "This payment is locked to your existing enrollment."
+    : isPaedsResusPayment
+      ? "Complete payment for your Paeds Resus instructor pathway enrollment."
+      : "Select BLS, ACLS, or PALS to create and complete enrollment payment.";
+  const courseSelectTitle = lockCourseSelection
+    ? "Enrollment details"
+    : isPaedsResusPayment
+      ? "Select Paeds Resus training"
+      : "Select AHA certification";
+
+  useEffect(() => {
+    if (!selectedCourseData) return;
+    track("provider_conversion", "payment_course_selected", {
+      courseId: selectedCourseData.id,
+      amountCents: selectedCourseData.price,
+      enrollmentId: enrollmentIdFromEnroll ?? null,
+    });
+  }, [selectedCourseData?.id, selectedCourseData?.price, enrollmentIdFromEnroll, track]);
+
+  useEffect(() => {
+    if (!selectedCourseData) return;
+    track("provider_conversion", "payment_method_selected", {
+      paymentMethod,
+      courseId: selectedCourseData.id,
+      amountCents: selectedCourseData.price,
+    });
+  }, [paymentMethod, selectedCourseData?.id, selectedCourseData?.price, track]);
 
   const mpesaSelectable = payCaps?.stkPushOffered ?? true;
 
@@ -137,7 +161,7 @@ export default function Payment() {
         id: "mpesa" as const,
         name: "M-Pesa",
         description: mpesaSelectable
-          ? "Instant mobile money payment"
+          ? "Fastest option - confirmation usually in seconds"
           : "Unavailable — use bank transfer or contact support",
         icon: Smartphone,
         available: mpesaSelectable,
@@ -145,7 +169,7 @@ export default function Payment() {
       {
         id: "bank" as const,
         name: "Bank Transfer",
-        description: "Direct bank transfer — recommended when mobile money is paused",
+        description: "Manual confirmation after transfer review",
         icon: Building2,
         available: true,
       },
@@ -192,9 +216,14 @@ export default function Payment() {
       {/* Header */}
       <section className="bg-gradient-to-r from-[var(--brand-teal)] to-[#143333] text-primary-foreground py-12 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4 tracking-tight">Secure Payment</h1>
+          <h1 className="text-4xl font-bold mb-4 tracking-tight">
+            {paymentPageTitle}
+          </h1>
           <p className="text-xl text-white/90">
-            Choose your course and complete payment to start your training journey
+            {paymentPageSubtitle}
+          </p>
+          <p className="text-sm text-white/80 mt-3">
+            M-Pesa is the fastest path. Most confirmations arrive within seconds after STK approval.
           </p>
         </div>
       </section>
@@ -203,8 +232,8 @@ export default function Payment() {
         {enrollmentIdFromEnroll !== undefined && enrollmentLoading && (
           <Alert>
             <Clock className="h-4 w-4" />
-            <AlertTitle>Loading your enrollment</AlertTitle>
-            <AlertDescription>Checking enrollment #{enrollmentIdFromEnroll}…</AlertDescription>
+            <AlertTitle>Loading your payment details</AlertTitle>
+            <AlertDescription>Confirming the linked enrollment before payment.</AlertDescription>
           </Alert>
         )}
         {enrollmentQueryError && (
@@ -221,14 +250,19 @@ export default function Payment() {
             <AlertDescription>
               This link may be invalid or belong to another account. Go to Enroll to create a new enrollment.
             </AlertDescription>
+            <div className="mt-3">
+              <Button size="sm" variant="secondary" onClick={() => setLocation("/enroll")}>
+                Go to Enroll
+              </Button>
+            </div>
           </Alert>
         )}
         {lockCourseSelection && enrollmentRow && (
           <Alert className="border-primary/30 bg-muted/50">
             <CheckCircle2 className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-foreground">Completing enrollment #{enrollmentRow.id}</AlertTitle>
+            <AlertTitle className="text-foreground">This payment is locked to your enrollment</AlertTitle>
             <AlertDescription className="text-foreground/90">
-              Course selection is locked to match your enrollment so payment applies to the same record.
+              Course selection is locked so your payment is applied to the correct enrollment.
             </AlertDescription>
           </Alert>
         )}
@@ -237,10 +271,22 @@ export default function Payment() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Course adjusted</AlertTitle>
             <AlertDescription>
-              The selected course was aligned with your enrollment (
-              {enrollmentRow.programType === "fellowship" ? "fellowship tier" : enrollmentRow.programType.toUpperCase()}
-              ).
+              The selected course was aligned with your locked enrollment.
             </AlertDescription>
+          </Alert>
+        )}
+        {enrollmentRow?.programType === "fellowship" && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Use Fellowship checkout</AlertTitle>
+            <AlertDescription>
+              Fellowship micro-course payments are handled inside the Fellowship journey. Please return to the Fellowship page and retry checkout there.
+            </AlertDescription>
+            <div className="mt-3">
+              <Button size="sm" variant="secondary" onClick={() => setLocation("/fellowship")}>
+                Open Fellowship
+              </Button>
+            </div>
           </Alert>
         )}
         {payCaps?.userMessage && (
@@ -254,9 +300,11 @@ export default function Payment() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Course Selection */}
           <div className="md:col-span-2">
-            <h2 className="text-2xl font-bold text-foreground mb-6">Select Your Course</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              {courseSelectTitle}
+            </h2>
             <div className="space-y-3">
-              {courses.map((course) => (
+              {(lockCourseSelection ? (selectedCourseData ? [selectedCourseData] : []) : courses).map((course) => (
                 <Card
                   key={course.id}
                   className={`transition-all ${
@@ -375,15 +423,21 @@ export default function Payment() {
                     amount={selectedCourseData.price}
                     enrollmentId={mpesaEnrollmentId}
                     onPaymentComplete={() => {
-                      if (selectedCourseData.id === "pals_septic" && mpesaEnrollmentId) {
-                        window.location.href = `/course/paediatric-septic-shock?enrollmentId=${mpesaEnrollmentId}`;
-                        return;
+                      track("provider_conversion", "payment_completed_redirect", {
+                        paymentMethod: "mpesa",
+                        courseId: selectedCourseData.id,
+                        enrollmentId: mpesaEnrollmentId ?? null,
+                      });
+                      window.location.href = getProviderCourseDestination(
+                        selectedCourseData.id,
+                        mpesaEnrollmentId
+                      );
+                    }}
+                    onPaymentError={(message) => {
+                      if (/payments server|Failed to fetch|network/i.test(message)) {
+                        setPaymentMethod("bank");
+                        toast.error("M-Pesa could not connect. Switched to bank transfer as a fallback.");
                       }
-                      if (selectedCourseData.id === "pals" && mpesaEnrollmentId) {
-                        window.location.href = `/course/seriously-ill-child?enrollmentId=${mpesaEnrollmentId}`;
-                        return;
-                      }
-                      window.location.href = "/learner-dashboard";
                     }}
                   />
                 )}
@@ -414,9 +468,49 @@ export default function Payment() {
                           </p>
                         </div>
                       </div>
-                      <Button className="w-full" variant="outline">
+                      <Button className="w-full" variant="outline" onClick={copyBankInstructions}>
                         Copy Details
                       </Button>
+                      {enrollmentIdFromEnroll && enrollmentRow && (
+                        <div className="space-y-2">
+                          <Label htmlFor="bank-reference">Transfer reference (optional)</Label>
+                          <Input
+                            id="bank-reference"
+                            value={bankReference}
+                            onChange={(e) => setBankReference(e.target.value)}
+                            placeholder="e.g. MPE123ABC or bank receipt number"
+                          />
+                          <Button
+                            className="w-full"
+                            disabled={!canSubmitBankIntent}
+                            onClick={() => {
+                              if (!selectedCourseData || !enrollmentIdFromEnroll) return;
+                              recordBankPayment.mutate({
+                                enrollmentId: enrollmentIdFromEnroll,
+                                amount: selectedCourseData.price,
+                                paymentMethod: "bank_transfer",
+                                transactionId: bankReference.trim() || undefined,
+                              });
+                            }}
+                          >
+                            {recordBankPayment.isPending ? "Saving..." : "I Have Paid by Bank Transfer"}
+                          </Button>
+                          {bankIntentSaved && (
+                            <Button
+                              className="w-full"
+                              variant="secondary"
+                              onClick={() => {
+                                if (!selectedCourseData) return;
+                                setLocation(
+                                  getProviderCourseDestination(selectedCourseData.id, enrollmentIdFromEnroll)
+                                );
+                              }}
+                            >
+                              Continue to learning dashboard
+                            </Button>
+                          )}
+                        </div>
+                      )}
                       <p className="text-xs text-slate-500">
                         After transfer, send proof of payment to payments@paeds-resus.com
                       </p>
@@ -428,36 +522,14 @@ export default function Payment() {
           </div>
         </div>
 
-        {/* Features */}
-        <div className="mt-16 grid md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="pt-6">
-              <CheckCircle2 className="w-8 h-8 text-green-600 mb-4" />
-              <h3 className="font-bold text-slate-900 mb-2">Secure Payment</h3>
-              <p className="text-sm text-slate-600">
-                All transactions are encrypted and secure
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <Clock className="w-8 h-8 text-blue-600 mb-4" />
-              <h3 className="font-bold text-slate-900 mb-2">Instant Confirmation</h3>
-              <p className="text-sm text-slate-600">
-                Receive confirmation immediately after payment
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <AlertCircle className="w-8 h-8 text-orange-600 mb-4" />
-              <h3 className="font-bold text-slate-900 mb-2">Support Available</h3>
-              <p className="text-sm text-slate-600">
-                24/7 customer support for payment issues
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <Alert className="mt-10 border-primary/30 bg-primary/5">
+          <Clock className="h-4 w-4 text-primary" />
+          <AlertTitle>Need a faster checkout?</AlertTitle>
+          <AlertDescription>
+            Use M-Pesa for the quickest confirmation. If you already paid and do not see an update, use the retry/check
+            action in the payment status panel before switching methods.
+          </AlertDescription>
+        </Alert>
       </div>
     </div>
   );

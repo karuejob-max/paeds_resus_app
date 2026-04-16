@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { InstallAppButton } from "@/components/InstallAppButton";
 
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
@@ -71,30 +70,24 @@ export default function Header() {
       return [
         RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
-        { label: "Courses", href: "/courses", icon: "📚" },
-        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
-        { label: "Patients", href: "/patients", icon: "👥" },
-        { label: "Protocols", href: "/protocols", icon: "📋" },
-        { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
+        { label: "Fellowship", href: "/fellowship", icon: "📚" },
+        { label: "AHA", href: "/aha-courses", icon: "🩺" },
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
-        { label: "Referral", href: "/referral", icon: "📤" },
-        { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
+        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
       ];
     }
     if (r === "institution") {
       return [
-        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
-        { label: "Staff", href: "/institutional-portal", icon: "👥" },
+        { label: "Staff", href: "/hospital-admin-dashboard", icon: "👥" },
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
     if (r === "parent") {
       return [
-        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
-        { label: "Courses", href: "/learner-dashboard", icon: "📚" },
-        { label: "Resources", href: "/parent-safe-truth", icon: "📖" },
+        { label: "Safe-Truth", href: "/parent-safe-truth", icon: "🧡" },
+        { label: "Resources", href: "/help", icon: "📖" },
       ];
     }
     return [];
@@ -197,7 +190,7 @@ export default function Header() {
                             }
                             if (r === "provider") setLocation("/home");
                             else if (r === "parent") setLocation("/parent-safe-truth");
-                            else setLocation("/institutional-portal");
+                            else setLocation("/hospital-admin-dashboard");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                             effectiveRole === option.value
@@ -233,11 +226,11 @@ export default function Header() {
               className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2"
               aria-label="Explore by audience"
             >
-              <Link href="/resus">
+              <a href={getLoginUrl("/resus")}>
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   ResusGPS
                 </span>
-              </Link>
+              </a>
               <Link href="/start">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   Start
@@ -255,11 +248,8 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Right Section: Install + Notifications + Account */}
+          {/* Right Section: Notifications + Account */}
           <div className="flex items-center gap-2 ml-auto">
-            {/* Install App Button */}
-            <InstallAppButton />
-
             {/* Notifications */}
             {isAuthenticated && (
               <button
@@ -311,20 +301,22 @@ export default function Header() {
                             Dashboard
                           </div>
                         </Link>
-                        <Link href="/resus">
+                        {effectiveRole === "provider" && (
+                          <Link href="/resus">
+                            <div
+                              className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                              onClick={() => setAccountDropdownOpen(false)}
+                            >
+                              ResusGPS
+                            </div>
+                          </Link>
+                        )}
+                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : effectiveRole === "parent" ? "/parent-safe-truth" : "/provider-profile"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
-                            ResusGPS
-                          </div>
-                        </Link>
-                        <Link href="/provider-profile">
-                          <div
-                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                            onClick={() => setAccountDropdownOpen(false)}
-                          >
-                            Profile
+                            {effectiveRole === "provider" ? "Profile" : "My dashboard"}
                           </div>
                         </Link>
                         {(user as { role?: string })?.role === "admin" && (
@@ -393,9 +385,9 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
-                <Link href="/resus" onClick={() => setMobileMenuOpen(false)}>
+                <a href={getLoginUrl("/resus")} onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground font-medium">ResusGPS</span>
-                </Link>
+                </a>
                 <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground font-medium">Start</span>
                 </Link>
@@ -429,7 +421,7 @@ export default function Header() {
                         }
                         if (r === "provider") setLocation("/home");
                         else if (r === "parent") setLocation("/parent-safe-truth");
-                        else setLocation("/institutional-portal");
+                        else setLocation("/hospital-admin-dashboard");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
                         effectiveRole === option.value

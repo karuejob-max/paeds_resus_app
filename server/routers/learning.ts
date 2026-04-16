@@ -17,6 +17,10 @@ import {
   getPaediatricSepticShockCourseId,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
 import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
+import {
+  ensureIntubationSampleCourseCatalog,
+  getIntubationSampleCourseId,
+} from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 
 export const learningRouter = router({
@@ -30,6 +34,19 @@ export const learningRouter = router({
       return { courseId: id };
     } catch (e) {
       console.error("[learning.getSepticShockCourseMeta]", e);
+      return { courseId: null };
+    }
+  }),
+
+  getIntubationSampleCourseMeta: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { courseId: null as number | null };
+    try {
+      await ensureIntubationSampleCourseCatalog(db);
+      const id = await getIntubationSampleCourseId(db);
+      return { courseId: id };
+    } catch (e) {
+      console.error("[learning.getIntubationSampleCourseMeta]", e);
       return { courseId: null };
     }
   }),

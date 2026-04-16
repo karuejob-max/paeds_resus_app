@@ -18,7 +18,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 ## When touching auth or users
 
 - [ ] Admin only via `OWNER_OPEN_ID`; auth check is `role === 'admin'`.
-- [ ] Post-login redirect follows default `userType` (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`).
+- [ ] Post-login redirect follows default `userType` (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard`; legacy `/institutional-portal` redirects).
 
 ---
 
@@ -33,6 +33,15 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 - [ ] Events flow to existing `events.trackEvent` → `analyticsEvents`; no parallel ad-hoc tracking.
 - [ ] Report KPIs match PLATFORM_SOURCE_OF_TRUTH (Safe-Truth = submissions in month EAT; product activity = events in last 7 days).
+
+---
+
+## Pre-launch / production cut (operator)
+
+- [ ] **`DATABASE_URL`** on the host (e.g. Render) matches the Aiven URI you used for a successful local **`pnpm run db:test-connection`** (and migrations applied — see [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md); full reset: `pnpm run db:fresh-migrate` only when intentional).
+- [ ] **`pnpm run verify:analytics`** against production/staging DB (or run after first real traffic) — confirms `analyticsEvents` pipeline; see [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md).
+- [ ] **Smoke:** sign-in, one learner path (e.g. enroll or course open), Admin Reports load for `OWNER_OPEN_ID` user.
+- [ ] **M-Pesa (if live keys):** `MPESA_CALLBACK_URL` / Daraja callback path documented; optional **`MPESA_CALLBACK_IP_ALLOWLIST`** per [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) / `.env.example`.
 
 ---
 

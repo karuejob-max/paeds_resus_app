@@ -30,7 +30,7 @@ export function StaffList({ institutionId }: StaffListProps) {
     member.staffEmail.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
       case "pending":
         return "bg-yellow-100 text-yellow-800";
@@ -47,7 +47,7 @@ export function StaffList({ institutionId }: StaffListProps) {
     }
   };
 
-  const getCertificationColor = (status: string) => {
+  const getCertificationColor = (status: string | null | undefined) => {
     switch (status) {
       case "certified":
         return "bg-green-100 text-green-800";
@@ -130,16 +130,16 @@ export function StaffList({ institutionId }: StaffListProps) {
                     </TableCell>
                     <TableCell>
                       <Badge className={`capitalize ${getStatusColor(member.enrollmentStatus)}`}>
-                        {member.enrollmentStatus.replace("_", " ")}
+                        {(member.enrollmentStatus ?? "unknown").replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={`capitalize ${getCertificationColor(member.certificationStatus)}`}>
-                        {member.certificationStatus.replace("_", " ")}
+                        {(member.certificationStatus ?? "unknown").replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {member.yearsOfExperience > 0 ? `${member.yearsOfExperience} yrs` : "-"}
+                      {(member.yearsOfExperience ?? 0) > 0 ? `${member.yearsOfExperience} yrs` : "-"}
                     </TableCell>
                   </TableRow>
                 ))}

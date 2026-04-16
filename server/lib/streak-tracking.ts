@@ -11,7 +11,7 @@
 
 import { getDb } from '../db';
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
-import { userStreaks, analyticsEvents } from '../../drizzle/schema';
+import { analyticsEvents } from '../../drizzle/schema';
 
 const EAT_OFFSET = 3 * 60 * 60 * 1000; // UTC+3
 

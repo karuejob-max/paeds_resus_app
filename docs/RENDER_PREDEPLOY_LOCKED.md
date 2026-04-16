@@ -1,5 +1,7 @@
 # Pre-Deploy Command is locked on Render
 
+**Schema parity:** The app expects MySQL schema to match **`drizzle/`** migrations (see `drizzle/meta/_journal.json`). For a **clean database**, run migrations from a machine with `DATABASE_URL` set (e.g. `pnpm exec drizzle-kit migrate` or **`pnpm run db:fresh-migrate`** — the latter **drops all tables** first). Committed snapshot reference: [DB_SNAPSHOT_AUTOGEN.md](./DB_SNAPSHOT_AUTOGEN.md).
+
 ## enrollments.courseId (migration 0029)
 
 If production shows **`Unknown column 'courseId' in 'field list'`** on **`enrollments`** (often when completing enrollment on `/enroll`), the database is behind the app: PALS micro-courses need a nullable `courseId` on `enrollments`.

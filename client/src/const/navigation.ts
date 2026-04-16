@@ -41,7 +41,7 @@ export const learningNavItems: NavItem[] = [
 
 // Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institutional Portal", href: "/institutional-portal", description: "Manage your institution" },
+  { label: "Institutional Dashboard", href: "/hospital-admin-dashboard", description: "Manage your institution" },
   { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
@@ -72,7 +72,7 @@ export const footerSections = {
     { label: "BLS Course", href: "/course/bls" },
   ],
   institutional: [
-    { label: "Institutional Portal", href: "/institutional-portal" },
+    { label: "Institutional Dashboard", href: "/hospital-admin-dashboard" },
     { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
   mlDashboards: [
@@ -100,7 +100,7 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/parent-safe-truth": ["Home", "Parent Resources"],
   "/course/bls": ["Home", "Courses", "BLS"],
   "/institutional": ["Home", "Institutions"],
-  "/institutional-portal": ["Home", "Institutions", "Portal"],
+  "/institutional-portal": ["Home", "Institutions", "Portal (legacy redirect)"],
   "/institutional-onboarding": ["Home", "Institutions", "Onboarding"],
   "/learner-dashboard": ["Home", "Dashboard"],
   "/payment": ["Home", "Payment"],

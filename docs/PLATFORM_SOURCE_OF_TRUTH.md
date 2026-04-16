@@ -77,7 +77,7 @@ High-level map (routes may evolve; check the codebase if in doubt):
 | **Provider hub** | `/home` — dashboard: ResusGPS, enroll in courses, learning, links to act as institution or parent. |
 | **Instructor portal** | `/instructor-portal` — instructor journey status, **My assignments** (B2B sessions), resources placeholder; gated on certification + platform approval for full teaching access. |
 | **Parent / guardian** | `/parent-safe-truth` — Safe-Truth and parent-facing resources. |
-| **Institution** | e.g. `/institutional-portal`, hospital admin dashboards — institutional metrics and management. |
+| **Institution** | Hospital admin institutional dashboards (canonical route: `/hospital-admin-dashboard`; legacy `/institutional-portal` may redirect) — institutional metrics and management. |
 | **Admin** | `/admin` — reports, insights, advanced tools; **admin** access is governed by [§7](#7-auth-and-roles). |
 
 ---
@@ -102,7 +102,7 @@ When you propose changes, assume this stack unless leadership explicitly changes
 | **User types (DB)** | `individual` \| `parent` \| `institutional`. **One** `userType` per user row. There is **no** separate multi-role table yet. |
 | **UI switch** | Any logged-in user may choose **Provider / Parent / Institution** in the UI. That choice is **not** persisted as a second `userType` in the DB; only **default** `userType` is stored for **post-login redirect**. |
 | **Admin** | `role === 'admin'` in the DB. Admin is **granted** when `openId === OWNER_OPEN_ID` at auth/upsert; **authorisation checks** use `ctx.user.role === 'admin'`. No admin by ad-hoc DB edits. |
-| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/institutional-portal`. **No** “last-used role” persisted in DB yet. |
+| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/hospital-admin-dashboard` (legacy `/institutional-portal` may redirect). **No** “last-used role” persisted in DB yet. |
 
 ---
 
@@ -330,4 +330,35 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-**Last structural update:** 2026-04-04 — Care Signal routes + `careSignalEvents` tRPC; §17; [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
+## 18. Conversion and recurring revenue execution model (provider)
+
+This section defines how growth execution integrates with PSoT without diluting canonical decisions.
+
+### 18.1 Scope and companion plan
+
+- **Canonical execution plan:** [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md).
+- The companion plan is **execution-time** (owners, experiments, weekly tasks, expected uplift), not a replacement for platform definitions in this file.
+
+### 18.2 Governance and precedence
+
+- If the companion plan conflicts with this file on **identity, auth, role model, KPI definitions, report windows, or priorities**, **this file wins**.
+- Any experiment that changes canonical definitions must first update this file and be logged in [WORK_STATUS.md](./WORK_STATUS.md).
+- Weekly execution updates belong in [WORK_STATUS.md](./WORK_STATUS.md), not in this file.
+
+### 18.3 Locked growth KPI model (provider lane)
+
+- **North-star:** `active_paying_providers_30d`.
+- **Retention:** renewal rate (30/60/90-day cohorts) and second-purchase rate (within 30 days).
+- **Conversion funnel (minimum):** visitor -> signup -> provider selection -> enroll click -> payment initiation -> payment completion -> first course start -> first course completion -> second purchase.
+- These KPIs are additive to [§8](#8-admin-reports-definitions) and [§9](#9-course-funnel-data-meaning); they do not override those definitions.
+
+### 18.4 Non-negotiable execution constraints
+
+- **Payment trust first:** no growth work should ship while known P0 payment dead-ends remain (stuck pending, false enrolled blocks, missing recovery path).
+- **Single provider payment journey:** avoid fragmented enrollment/payment variants that diverge in behavior.
+- **State-based CTA discipline:** each provider state should have one primary next action (start, resume payment, continue learning, next purchase).
+- **Qualified growth over vanity traffic:** optimize channels and experiments for payment completion and recurrent behavior, not clicks alone.
+
+---
+
+**Last structural update:** 2026-04-13 — Added §18 conversion/recurring revenue execution model and linked 90-day provider plan.

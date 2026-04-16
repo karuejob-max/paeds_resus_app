@@ -1,10 +1,17 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import * as schema from "../drizzle/schema";
 import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-let _db: ReturnType<typeof drizzle> | null = null;
+function createDrizzle(pool: mysql.Pool) {
+  return drizzle(pool, { schema, mode: "default" });
+}
+
+type Database = ReturnType<typeof createDrizzle>;
+
+let _db: Database | null = null;
 
 // mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.
 // Build config from URL and set ssl object when Aiven/cloud SSL is required.
@@ -34,7 +41,7 @@ export async function getDb() {
       console.log('[Database] Connection config:', { host: config.host, user: config.user, database: config.database });
       const pool = mysql.createPool(config);
       console.log('[Database] Pool created');
-      _db = drizzle(pool) as unknown as NonNullable<typeof _db>;
+      _db = createDrizzle(pool);
       console.log('[Database] Drizzle instance created successfully');
     } catch (error) {
       console.error("[Database] Failed to connect:", error instanceof Error ? error.message : String(error));
@@ -46,8 +53,15 @@ export async function getDb() {
   return _db;
 }
 
-// Export db instance for convenience (use getDb() in async contexts)
-export { _db as db };
+// Export a typed db facade for legacy synchronous imports.
+export const db = new Proxy({} as Database, {
+  get(_target, prop, receiver) {
+    if (!_db) {
+      throw new Error("Database client not initialized. Use getDb() in async flows before accessing db.");
+    }
+    return Reflect.get(_db, prop, receiver);
+  },
+}) as Database;
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -115,9 +129,85 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  try {
+    const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    console.warn("[DB] users schema drift detected on getUserByOpenId; using legacy-compatible projection.");
+    const fallback = await db
+      .select({
+        id: users.id,
+        openId: users.openId,
+        name: users.name,
+        email: users.email,
+        loginMethod: users.loginMethod,
+        passwordHash: users.passwordHash,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        lastSignedIn: users.lastSignedIn,
+      })
+      .from(users)
+      .where(eq(users.openId, openId))
+      .limit(1);
+    const row = fallback[0];
+    if (!row) return undefined;
+    return {
+      ...row,
+      phone: null,
+      institutionalRole: null,
+      providerType: null,
+      userType: "individual" as const,
+      instructorApprovedAt: null,
+      instructorNumber: null,
+      instructorCertifiedAt: null,
+      resusGpsAccessExpiresAt: null,
+    };
+  }
+}
 
-  return result.length > 0 ? result[0] : undefined;
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    console.warn("[DB] users schema drift detected on getUserById; using legacy-compatible projection.");
+    const fallback = await db
+      .select({
+        id: users.id,
+        openId: users.openId,
+        name: users.name,
+        email: users.email,
+        loginMethod: users.loginMethod,
+        passwordHash: users.passwordHash,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        lastSignedIn: users.lastSignedIn,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const row = fallback[0];
+    if (!row) return undefined;
+    return {
+      ...row,
+      phone: null,
+      institutionalRole: null,
+      providerType: null,
+      userType: "individual" as const,
+      instructorApprovedAt: null,
+      instructorNumber: null,
+      instructorCertifiedAt: null,
+      resusGpsAccessExpiresAt: null,
+    };
+  }
 }
 
 export async function getUserByEmail(email: string) {
@@ -129,8 +219,36 @@ export async function getUserByEmail(email: string) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) {
-      console.error("[DB] users table may be missing columns. Run: pnpm db:fix-users", msg);
-      throw new Error("Database schema may be out of date. Please ask an admin to run: pnpm db:fix-users");
+      console.warn("[DB] users schema drift detected on getUserByEmail; using legacy-compatible projection.");
+      const fallback = await db
+        .select({
+          id: users.id,
+          openId: users.openId,
+          name: users.name,
+          email: users.email,
+          loginMethod: users.loginMethod,
+          passwordHash: users.passwordHash,
+          role: users.role,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          lastSignedIn: users.lastSignedIn,
+        })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+      const row = fallback[0];
+      if (!row) return undefined;
+      return {
+        ...row,
+        phone: null,
+        institutionalRole: null,
+        providerType: null,
+        userType: "individual" as const,
+        instructorApprovedAt: null,
+        instructorNumber: null,
+        instructorCertifiedAt: null,
+        resusGpsAccessExpiresAt: null,
+      };
     }
     throw err;
   }
@@ -333,6 +451,30 @@ export async function insertAdminAuditLog(data: InsertAdminAuditLog): Promise<vo
   } catch (e) {
     console.error("[DB] insertAdminAuditLog failed:", e);
   }
+}
+
+/**
+ * Backward-compatible audit helper used by legacy router callsites.
+ * Maps legacy payload shape to adminAuditLog schema fields.
+ */
+export async function createAuditLog(data: {
+  userId: number;
+  action: string;
+  details?: unknown;
+  timestamp?: Date;
+}): Promise<void> {
+  const inputSummary =
+    data.details == null
+      ? null
+      : typeof data.details === "string"
+        ? data.details
+        : JSON.stringify(data.details);
+  await insertAdminAuditLog({
+    adminUserId: data.userId,
+    procedurePath: data.action,
+    inputSummary,
+    createdAt: data.timestamp ?? new Date(),
+  });
 }
 
 // Experiments queries

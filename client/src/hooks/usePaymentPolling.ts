@@ -6,7 +6,6 @@ export type PaymentStatus = "pending" | "completed" | "failed" | "not_found" | "
 interface PaymentStatusResult {
   status: PaymentStatus;
   amount?: number;
-  currency?: string;
   paymentMethod?: string;
   transactionId?: string;
   updatedAt?: Date;
@@ -61,7 +60,14 @@ export function usePaymentPolling({
         return;
       }
 
-      const paymentResult = data.data;
+      const paymentResult: PaymentStatusResult = {
+        status: (data.data.status ?? "error") as PaymentStatus,
+        amount: data.data.amount ?? undefined,
+        paymentMethod: data.data.paymentMethod ?? undefined,
+        transactionId: data.data.transactionId ?? undefined,
+        updatedAt: data.data.updatedAt ?? undefined,
+        message: data.data.message,
+      };
       setResult(paymentResult);
       setStatus(paymentResult.status);
 

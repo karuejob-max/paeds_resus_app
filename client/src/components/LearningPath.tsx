@@ -20,6 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { buildPssModuleSteps } from "@/lib/pss-module-formative";
 import { PssModulePagedReader } from "@/components/PssModulePagedReader";
+import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 
 function ModuleHtmlSections({ html }: { html: string }) {
   const sections = useMemo(() => {
@@ -81,6 +82,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: number; answer: string }[]>([]);
   const [pssFlowComplete, setPssFlowComplete] = useState(false);
+  const { track } = useProviderConversionAnalytics("/learning-path");
 
   const coursesQuery = trpc.learning.getCourses.useQuery({
     programType,
@@ -109,6 +111,12 @@ export const LearningPath: React.FC<LearningPathProps> = ({
 
   const recordQuizAttemptMutation = trpc.learning.recordQuizAttempt.useMutation();
   const completeModuleMutation = trpc.learning.completeModule.useMutation();
+  const myMicroEnrollmentsQuery = trpc.courses.getUserEnrollments.useQuery(undefined, {
+    enabled: Boolean(selectedCourse),
+  });
+  const microCatalogQuery = trpc.courses.listAll.useQuery(undefined, {
+    enabled: Boolean(selectedCourse),
+  });
 
   const learningPanelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -127,6 +135,20 @@ export const LearningPath: React.FC<LearningPathProps> = ({
   }, [pagedSepticShockModule, moduleContentQuery.data?.content, moduleContentQuery.data?.order]);
 
   const modulesOrdered = courseDetailsQuery.data?.modules ?? [];
+  const nextPurchaseCourse = useMemo(() => {
+    const enrolled = new Set(
+      (myMicroEnrollmentsQuery.data ?? [])
+        .map((row) => row?.course?.courseId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    );
+    const options = (microCatalogQuery.data ?? []).filter((course) => !enrolled.has(course.courseId));
+    if (!options.length) return null;
+    return [...options].sort((a, b) => {
+      const byLevel = a.level === b.level ? 0 : a.level === "foundational" ? -1 : 1;
+      if (byLevel !== 0) return byLevel;
+      return a.title.localeCompare(b.title);
+    })[0];
+  }, [microCatalogQuery.data, myMicroEnrollmentsQuery.data]);
   const nextModuleAfterCurrent = useMemo(() => {
     if (!selectedModule || !modulesOrdered.length) return null;
     const idx = modulesOrdered.findIndex((m: { id: number }) => m.id === selectedModule);
@@ -175,6 +197,13 @@ export const LearningPath: React.FC<LearningPathProps> = ({
       setQuizAnswers([]);
 
       if (result.passed) {
+        track("provider_conversion", "module_completed", {
+          enrollmentId,
+          moduleId: selectedModule,
+          quizId: moduleContentQuery.data?.quizzes?.[0]?.id || null,
+          score: result.score,
+          passingScore: result.passingScore,
+        });
         await completeModuleMutation.mutateAsync({
           moduleId: selectedModule,
           enrollmentId,
@@ -320,7 +349,14 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                 type="button"
                 key={course.id}
                 className="group text-left rounded-2xl border border-border bg-card p-6 shadow-sm transition-all hover:border-primary/25 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => setSelectedCourse(course.id)}
+                onClick={() => {
+                  track("provider_conversion", "course_started", {
+                    enrollmentId,
+                    courseId: course.id,
+                    programType,
+                  });
+                  setSelectedCourse(course.id);
+                }}
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-2 min-w-0">
@@ -376,6 +412,11 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                     key={module.id}
                     className="group w-full text-left rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:bg-brand-surface/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => {
+                      track("provider_conversion", "module_started", {
+                        enrollmentId,
+                        courseId: selectedCourse,
+                        moduleId: module.id,
+                      });
                       setSelectedModule(module.id);
                       setShowQuiz(false);
                       setShowQuizResult(false);
@@ -485,7 +526,35 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                               You&apos;ve finished all modules in this course. Download your certificate from your
                               dashboard.
                             </p>
-                            <Button variant="cta" size="lg" className="w-full rounded-xl" asChild>
+                            {nextPurchaseCourse ? (
+                              <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3">
+                                <p className="text-sm text-foreground">
+                                  Next recommended course:{" "}
+                                  <span className="font-semibold">{nextPurchaseCourse.title}</span>
+                                </p>
+                                <Button
+                                  variant="cta"
+                                  size="lg"
+                                  className="w-full rounded-xl"
+                                  asChild
+                                >
+                                  <Link
+                                    href={`/enroll?courseId=${nextPurchaseCourse.courseId}`}
+                                    onClick={() =>
+                                      track("provider_conversion", "completion_upsell_clicked", {
+                                        enrollmentId,
+                                        completedCourseId: selectedCourse,
+                                        recommendedCourseId: nextPurchaseCourse.courseId,
+                                        programType,
+                                      })
+                                    }
+                                  >
+                                    Start next recommended course
+                                  </Link>
+                                </Button>
+                              </div>
+                            ) : null}
+                            <Button variant={nextPurchaseCourse ? "outline" : "cta"} size="lg" className="w-full rounded-xl" asChild>
                               <Link href="/learner-dashboard#my-certificates">View my certificate</Link>
                             </Button>
                           </div>

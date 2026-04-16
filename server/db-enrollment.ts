@@ -3,8 +3,9 @@
  */
 
 import { db } from "./db";
+import { ensureMicroCoursesCatalog } from "./lib/micro-course-catalog";
 import { microCourses, microCourseEnrollments, promoCodes, users } from "../drizzle/schema";
-import { eq, and, isNull, or, lt } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 
 /**
  * Validate a promo code and return discount information
@@ -29,7 +30,7 @@ export async function validatePromoCode(code: string) {
     }
 
     // Check if max uses reached
-    if (promo.maxUses && promo.usesCount >= promo.maxUses) {
+    if (promo.maxUses && (promo.usesCount ?? 0) >= promo.maxUses) {
       return { valid: false, error: "Promo code has reached maximum uses" };
     }
 
@@ -51,6 +52,7 @@ export async function validatePromoCode(code: string) {
  */
 export async function getCourseDetails(courseId: string) {
   try {
+    await ensureMicroCoursesCatalog();
     const course = await db
       .select()
       .from(microCourses)
@@ -95,7 +97,11 @@ export async function isUserEnrolled(
       .where(
         and(
           eq(microCourseEnrollments.userId, userId),
-          eq(microCourseEnrollments.microCourseId, microCourseId)
+          eq(microCourseEnrollments.microCourseId, microCourseId),
+          or(
+            eq(microCourseEnrollments.paymentStatus, "completed"),
+            eq(microCourseEnrollments.paymentStatus, "free")
+          )
         )
       )
       .limit(1);
@@ -104,6 +110,56 @@ export async function isUserEnrolled(
   } catch (error) {
     console.error("[DB] Error checking enrollment:", error);
     return false;
+  }
+}
+
+/**
+ * Reuse latest pending M-Pesa enrollment for retry flows.
+ */
+export async function getPendingMpesaEnrollment(
+  userId: number,
+  microCourseId: number
+) {
+  try {
+    const enrollment = await db
+      .select()
+      .from(microCourseEnrollments)
+      .where(
+        and(
+          eq(microCourseEnrollments.userId, userId),
+          eq(microCourseEnrollments.microCourseId, microCourseId),
+          eq(microCourseEnrollments.paymentMethod, "m-pesa"),
+          eq(microCourseEnrollments.paymentStatus, "pending")
+        )
+      )
+      .orderBy(desc(microCourseEnrollments.id))
+      .limit(1);
+
+    return enrollment[0] ?? null;
+  } catch (error) {
+    console.error("[DB] Error getting pending M-Pesa enrollment:", error);
+    return null;
+  }
+}
+
+/**
+ * Persist latest CheckoutRequestID for M-Pesa payment polling.
+ */
+export async function setEnrollmentCheckoutRequestId(
+  enrollmentId: number,
+  checkoutRequestId: string
+) {
+  try {
+    await db
+      .update(microCourseEnrollments)
+      .set({
+        transactionId: checkoutRequestId,
+        enrollmentStatus: "pending",
+        updatedAt: new Date(),
+      })
+      .where(eq(microCourseEnrollments.id, enrollmentId));
+  } catch (error) {
+    console.error("[DB] Error setting enrollment checkout request ID:", error);
   }
 }
 
@@ -128,11 +184,18 @@ export async function createEnrollment(data: {
       promoCodeId: data.promoCodeId,
       amountPaid: data.amountPaid || 0,
       transactionId: data.transactionId,
-      enrollmentStatus: "active",
+      enrollmentStatus: data.paymentMethod === "m-pesa" ? "pending" : "active",
       paymentStatus: data.paymentMethod === "m-pesa" ? "pending" : "completed",
     });
 
-    return result;
+    const raw = result as unknown;
+    const insertId = Array.isArray(raw)
+      ? Number((raw[0] as { insertId?: number })?.insertId ?? 0)
+      : Number((raw as { insertId?: number })?.insertId ?? 0);
+    if (!insertId) {
+      throw new Error("Failed to create enrollment: missing insert id");
+    }
+    return { insertId };
   } catch (error) {
     console.error("[DB] Error creating enrollment:", error);
     throw error;
@@ -147,7 +210,7 @@ export async function incrementPromoCodeUsage(promoCodeId: number) {
     await db
       .update(promoCodes)
       .set({
-        usesCount: promoCodes.usesCount + 1,
+        usesCount: sql`${promoCodes.usesCount} + 1`,
       })
       .where(eq(promoCodes.id, promoCodeId));
   } catch (error) {
@@ -177,7 +240,7 @@ export async function getUserEnrollments(userId: number) {
  */
 export async function updateEnrollmentPaymentStatus(
   enrollmentId: number,
-  status: "pending" | "completed" | "failed",
+  status: "pending" | "completed" | "free",
   transactionId?: string
 ) {
   try {

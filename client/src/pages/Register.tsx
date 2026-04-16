@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
 
 type UserType = "individual" | "parent" | "institutional";
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const { isAuthenticated, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,12 +25,21 @@ export default function Register() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const nextPath = useMemo(() => {
+    return readSafeNextPathFromSearch(search, "/home");
+  }, [search]);
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: () => {
-      setLocation("/login");
+      localStorage.removeItem("userRole");
+      window.dispatchEvent(new CustomEvent("userRoleChanged", { detail: null }));
+      setLocation(buildLoginUrl(nextPath));
     },
     onError: (e) => {
+      if (/Failed to fetch|NetworkError|Load failed/i.test(e.message)) {
+        setError("Could not reach the server. Refresh and try again.");
+        return;
+      }
       setError(e.message);
     },
   });
@@ -44,6 +57,12 @@ export default function Register() {
     }
     registerMutation.mutate({ email, password, name: name || undefined, userType });
   };
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated) return;
+    setLocation(nextPath);
+  }, [isAuthenticated, loading, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

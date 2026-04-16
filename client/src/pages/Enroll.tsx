@@ -1,29 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, CheckCircle2, Clock, Users, Award, Shield, ArrowRight } from "lucide-react";
+import { CheckCircle2, Clock, Shield, ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
-import { individualCourses, fellowshipTiers } from "@/const/pricing";
+import { getIndividualCoursesByTrack } from "@/const/pricing";
 
 export default function Enroll() {
   useScrollToTop();
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState<"course-select" | "checkout" | "success">("course-select");
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    email: user?.email || "",
-    phone: user?.phone || "",
-    firstName: user?.name?.split(" ")[0] || "",
-    lastName: user?.name?.split(" ")[1] || "",
-  });
+  const search = useSearch();
+  const requestedCourseId = new URLSearchParams(search).get("courseId");
+  const [step, setStep] = useState<"course-select" | "checkout" | "success">(
+    requestedCourseId ? "checkout" : "course-select"
+  );
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(requestedCourseId);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const createEnrollment = trpc.enrollment.create.useMutation({
@@ -40,28 +36,33 @@ export default function Enroll() {
     },
   });
 
-  // Single source of truth: pricing.ts (aligned with Payment page)
-  const fellowshipIds = ["bronze", "silver", "gold"];
-  const courses = [
-    ...individualCourses.map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      price: c.price,
-      duration: c.duration ?? "",
-      features: ["Official certificate upon completion", "Lifetime access to materials"],
-      popular: c.id === "pals_septic" || c.id === "bls",
-    })),
-    ...fellowshipTiers.map((t, i) => ({
-      id: fellowshipIds[i] as string,
-      name: t.name.replace(" Paeds Resus Fellowship", ""),
-      description: t.description,
-      price: t.price,
-      duration: "6–12 months",
-      features: t.features.slice(0, 3),
-      popular: false,
-    })),
-  ];
+  const ahaCourses = getIndividualCoursesByTrack("aha_certification");
+  const paedsResusCourses = getIndividualCoursesByTrack("paeds_resus");
+  const enrollableCourses = [...ahaCourses, ...paedsResusCourses];
+  const courses = enrollableCourses.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    price: c.price,
+    duration: c.duration ?? "",
+    features:
+      c.id === "instructor"
+        ? ["Instructor certificate path", "Teaching assignment eligibility after approval"]
+        : ["Official certificate upon completion", "Learning dashboard access after payment"],
+    popular: c.providerTrack === "aha_certification",
+    track: c.providerTrack,
+  }));
+  const ahaEnrollOptions = courses.filter((course) => course.track === "aha_certification");
+  const paedsResusEnrollOptions = courses.filter((course) => course.track === "paeds_resus");
+
+  useEffect(() => {
+    if (!selectedCourse) return;
+    const isKnown = courses.some((c) => c.id === selectedCourse);
+    if (!isKnown) {
+      setSelectedCourse(null);
+      setStep("course-select");
+    }
+  }, [selectedCourse, courses]);
 
   if (!isAuthenticated) {
     return (
@@ -69,21 +70,21 @@ export default function Enroll() {
         <Card className="w-full max-w-md shadow-lg border-border">
           <CardHeader className="bg-muted/50 border-b border-border">
             <CardTitle className="text-foreground">Sign In to Enroll</CardTitle>
-            <CardDescription>Join thousands of parents learning life-saving skills</CardDescription>
+              <CardDescription>Provider enrollment for AHA certification and Paeds Resus pathways</CardDescription>
           </CardHeader>
           <CardContent className="pt-8">
             <div className="space-y-4 mb-6">
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-foreground/90">Learn at your own pace</span>
+                <span className="text-sm text-foreground/90">Choose AHA certification or Paeds Resus instructor path</span>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-foreground/90">Get certified immediately</span>
+                <span className="text-sm text-foreground/90">Pay securely and start learning immediately</span>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-foreground/90">Access lifetime resources</span>
+                <span className="text-sm text-foreground/90">Certificate available after completion requirements</span>
               </div>
             </div>
             <a href={getLoginUrl()}>
@@ -91,9 +92,7 @@ export default function Enroll() {
                 Sign In to Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </a>
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Takes less than 1 minute. No credit card required.
-            </p>
+            <p className="text-xs text-muted-foreground text-center mt-4">Quick sign-in to continue enrollment.</p>
           </CardContent>
         </Card>
       </div>
@@ -108,107 +107,166 @@ export default function Enroll() {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
-              Choose Your Course
+              Choose your provider path
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              All courses include video lessons, practice, and official certification
+              AHA certification (BLS, ACLS, PALS) and Paeds Resus instructor training are separate paths. Fellowship micro-courses are started in Fellowship.
             </p>
           </div>
 
-          {/* Course Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {courses.map((course) => (
-              <div
-                id={
-                  course.id === "pals_septic"
-                    ? "course-septic-shock"
-                    : course.id === "pals"
-                      ? "course-pals"
-                      : course.id === "instructor"
-                        ? "course-instructor"
-                        : undefined
-                }
-                key={course.id}
-                className={`relative transition-all cursor-pointer ${
-                  selectedCourse === course.id
-                    ? "ring-2 ring-primary scale-[1.02]"
-                    : "hover:shadow-lg"
-                }`}
-                onClick={() => {
-                  setSelectedCourse(course.id);
-                  setStep("checkout");
-                }}
-              >
-                {course.popular && (
-                  <div className="absolute top-0 right-0 bg-brand-orange text-white px-4 py-1 text-sm font-bold rounded-bl-lg">
-                    POPULAR
+          <div className="space-y-10">
+            <section>
+              <h2 className="text-2xl font-bold text-foreground mb-2">AHA certification</h2>
+              <p className="text-sm text-muted-foreground mb-5">Choose BLS, ACLS, or PALS.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {ahaEnrollOptions.map((course) => (
+                  <div
+                    id={course.id === "pals" ? "course-pals" : undefined}
+                    key={course.id}
+                    className={`relative transition-all cursor-pointer ${
+                      selectedCourse === course.id
+                        ? "ring-2 ring-primary scale-[1.02]"
+                        : "hover:shadow-lg"
+                    }`}
+                    onClick={() => {
+                      setSelectedCourse(course.id);
+                      setStep("checkout");
+                    }}
+                  >
+                    <Card
+                      className={`h-full border-border ${course.popular ? "border-2 border-primary shadow-md" : "shadow-sm"}`}
+                    >
+                      <CardHeader className={course.popular ? "bg-muted/60" : ""}>
+                        <CardTitle className="text-xl text-card-foreground leading-snug">{course.name}</CardTitle>
+                        <CardDescription className="text-muted-foreground">{course.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div>
+                          <div className="text-4xl font-bold text-brand-orange tabular-nums">
+                            KES {course.price.toLocaleString()}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                            <Clock className="w-4 h-4 shrink-0" />
+                            {course.duration}
+                          </div>
+                        </div>
+                        <ul className="space-y-3">
+                          {course.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-3">
+                              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                              <span className="text-sm text-foreground/90">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <Button
+                          variant={course.popular ? "cta" : "secondary"}
+                          className={`w-full h-12 text-base ${course.popular ? "" : "text-foreground"}`}
+                          onClick={() => {
+                            setSelectedCourse(course.id);
+                            setStep("checkout");
+                          }}
+                        >
+                          Start enrollment <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </CardContent>
+                    </Card>
                   </div>
-                )}
-                <Card
-                  className={`h-full border-border ${course.popular ? "border-2 border-primary shadow-md" : "shadow-sm"}`}
-                >
-                  <CardHeader className={course.popular ? "bg-muted/60" : ""}>
-                    <CardTitle className="text-xl text-card-foreground leading-snug">{course.name}</CardTitle>
-                    <CardDescription className="text-muted-foreground">{course.description}</CardDescription>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Paeds Resus pathways</h2>
+              <p className="text-sm text-muted-foreground mb-5">Instructor training and Fellowship options.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                {paedsResusEnrollOptions.map((course) => (
+                  <div
+                    id={course.id === "instructor" ? "course-instructor" : undefined}
+                    key={course.id}
+                    className={`relative transition-all cursor-pointer ${
+                      selectedCourse === course.id
+                        ? "ring-2 ring-primary scale-[1.02]"
+                        : "hover:shadow-lg"
+                    }`}
+                    onClick={() => {
+                      setSelectedCourse(course.id);
+                      setStep("checkout");
+                    }}
+                  >
+                    <Card className="h-full border-border shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-xl text-card-foreground leading-snug">{course.name}</CardTitle>
+                        <CardDescription className="text-muted-foreground">{course.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div>
+                          <div className="text-4xl font-bold text-brand-orange tabular-nums">
+                            KES {course.price.toLocaleString()}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                            <Clock className="w-4 h-4 shrink-0" />
+                            {course.duration}
+                          </div>
+                        </div>
+                        <ul className="space-y-3">
+                          {course.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-3">
+                              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                              <span className="text-sm text-foreground/90">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <Button
+                          variant="secondary"
+                          className="w-full h-12 text-base text-foreground"
+                          onClick={() => {
+                            setSelectedCourse(course.id);
+                            setStep("checkout");
+                          }}
+                        >
+                          Start enrollment <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              <div
+                className="relative transition-all hover:shadow-lg"
+              >
+                <Card className="h-full border-border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-xl text-card-foreground leading-snug">Paeds Resus Fellowship</CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Fellowship includes micro-courses, ResusGPS, and Care Signal in one journey.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {/* Price */}
-                    <div>
-                      <div className="text-4xl font-bold text-brand-orange tabular-nums">
-                        KES {course.price.toLocaleString()}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                        <Clock className="w-4 h-4 shrink-0" />
-                        {course.duration}
-                      </div>
-                    </div>
-
-                    {/* Features */}
                     <ul className="space-y-3">
-                      {course.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-foreground/90">{feature}</span>
-                        </li>
-                      ))}
+                      <li className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-foreground/90">Micro-courses with direct enroll and payment</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-foreground/90">ResusGPS access extension on course completion</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-foreground/90">Care Signal progress integrated in Fellowship dashboard</span>
+                      </li>
                     </ul>
-
-                    {/* CTA Button */}
                     <Button
-                      variant={course.popular ? "cta" : "secondary"}
-                      className={`w-full h-12 text-base ${course.popular ? "" : "text-foreground"}`}
-                      onClick={() => {
-                        setSelectedCourse(course.id);
-                        setStep("checkout");
-                      }}
+                      variant="outline"
+                      className="w-full h-12 text-base"
+                      onClick={() => setLocation("/fellowship")}
                     >
-                      Enroll Now <ArrowRight className="w-4 h-4 ml-2" />
+                      Open Fellowship <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
                 </Card>
               </div>
-            ))}
-          </div>
-
-          {/* Trust Signals */}
-          <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="text-center">
-                <Users className="w-8 h-8 text-primary mx-auto mb-3" />
-                <p className="font-semibold text-foreground mb-1">10,000+ Enrolled</p>
-                <p className="text-sm text-muted-foreground">Parents and caregivers trained</p>
               </div>
-              <div className="text-center">
-                <Award className="w-8 h-8 text-brand-orange mx-auto mb-3" />
-                <p className="font-semibold text-foreground mb-1">Official Certificates</p>
-                <p className="text-sm text-muted-foreground">Recognized and valid</p>
-              </div>
-              <div className="text-center">
-                <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
-                <p className="font-semibold text-foreground mb-1">100% Secure</p>
-                <p className="text-sm text-muted-foreground">Your data is protected</p>
-              </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>
@@ -263,8 +321,12 @@ export default function Enroll() {
           {/* Checkout Form */}
           <Card>
             <CardHeader>
-              <CardTitle>Complete Your Enrollment</CardTitle>
-              <CardDescription>Quick checkout - takes less than 1 minute</CardDescription>
+              <CardTitle>Review and continue to payment</CardTitle>
+              <CardDescription>
+                Confirm your{" "}
+                {selectedCourse === "instructor" ? "Paeds Resus instructor enrollment" : "AHA certification enrollment"}{" "}
+                and continue to secure payment.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form
@@ -274,89 +336,28 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
-                  const programType = (["bronze", "silver", "gold"].includes(selectedCourse)
-                    ? "fellowship"
-                    : selectedCourse === "pals_septic"
-                      ? "pals"
-                      : selectedCourse) as "bls" | "acls" | "pals" | "fellowship" | "instructor";
+                  const programType = selectedCourse as "bls" | "acls" | "pals" | "instructor";
                   const payload: {
                     programType: typeof programType;
                     trainingDate: Date;
-                    pricingSku?: "pals" | "pals_septic";
+                    pricingSku?: "pals";
                   } = {
                     programType,
                     trainingDate: new Date(),
                   };
                   if (programType === "pals") {
-                    payload.pricingSku = selectedCourse === "pals_septic" ? "pals_septic" : "pals";
+                    payload.pricingSku = "pals";
                   }
                   createEnrollment.mutate(payload);
                 }}
                 className="space-y-6"
               >
-                {/* Contact Info */}
+                {/* Payment path */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-foreground">Contact Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, firstName: e.target.value })
-                        }
-                        placeholder="John"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lastName: e.target.value })
-                        }
-                        placeholder="Doe"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      placeholder="john@example.com"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      placeholder="+254 700 000000"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Payment Method */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-foreground">Payment Method</h3>
+                  <h3 className="font-semibold text-foreground">Payment path</h3>
                   <div className="p-4 bg-muted/50 border border-border rounded-lg">
                     <p className="text-sm text-foreground/90">
-                      <strong>M-Pesa:</strong> You'll receive an STK prompt to complete payment
+                      <strong>M-Pesa:</strong> You will receive an STK prompt immediately after this step.
                     </p>
                   </div>
                 </div>
@@ -390,7 +391,7 @@ export default function Enroll() {
                   disabled={createEnrollment.isPending || !agreeToTerms}
                   className="w-full h-12 text-base"
                 >
-                  {createEnrollment.isPending ? "Processing..." : "Complete Enrollment"}
+                  {createEnrollment.isPending ? "Preparing payment..." : "Continue to payment"}
                 </Button>
 
                 {/* Security Badge */}

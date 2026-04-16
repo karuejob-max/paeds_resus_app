@@ -5,26 +5,28 @@
 
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
+import { loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
 
 /**
- * Micro-course enrollment, module tracking, quiz submission, and certificate generation
+ * Legacy router name: prefer `courses.listAll` + `EnrollmentModal` for paid fellowship micro-courses.
  */
 export const microCoursesRouter = router({
   /**
-   * Get all available micro-courses
+   * Fellowship ADF micro-courses (same catalog as `courses.listAll`).
    */
   listCourses: publicProcedure.query(async () => {
-    // TODO: Fetch from database
-    return [
-      {
-        id: 'septic-shock-i',
-        courseDisplayName: 'Paediatric Septic Shock I: Recognition and First-Hour Safe Actions',
-        level: 'foundational',
-        duration: 45,
-        price: 500, // $5.00
-        description: 'Learn to recognize septic shock and implement first-hour safe actions in low-resource settings.',
-      },
-    ];
+    const rows = await loadMicroCoursesFromDb();
+    return rows.map((r) => ({
+      id: r.courseId,
+      courseId: r.courseId,
+      courseDisplayName: r.title,
+      level: r.level,
+      duration: r.duration,
+      price: r.price,
+      description: r.description ?? '',
+      targetAudience: 'Healthcare providers',
+      alignment: [] as string[],
+    }));
   }),
 
   /**

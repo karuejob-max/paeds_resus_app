@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface SubmissionData {
   eventDate: string;
@@ -27,6 +28,10 @@ export default function SubmissionConfirmationModal({
   data,
   onClose,
 }: SubmissionConfirmationModalProps) {
+  const [, setLocation] = useLocation();
+  const destination = isProvider ? "/care-signal-analytics" : "/parent-safe-truth";
+  const destinationLabel = isProvider ? "Open Care Signal dashboard" : "Go to my Safe-Truth stories";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -108,8 +113,8 @@ export default function SubmissionConfirmationModal({
               <h3 className="font-semibold text-purple-900 mb-2">Your Impact</h3>
               <p className="text-sm text-gray-700">
                 {isProvider
-                  ? "Your clinical insights help us understand what works well in pediatric emergency response and where we need to improve. This data is aggregated with other providers' reports to identify trends and drive systemic improvements."
-                  : "Your family's experience helps us understand how to better support parents and caregivers during pediatric emergencies. Your feedback contributes to system improvements that benefit all families."}
+                  ? "Your clinical insights help identify patterns in emergency response, escalation, and system gaps. We aggregate this to guide quality-improvement priorities."
+                  : "Your family experience helps identify communication and support gaps. We combine stories to improve how parents are informed and supported during emergencies."}
               </p>
             </CardContent>
           </Card>
@@ -121,15 +126,15 @@ export default function SubmissionConfirmationModal({
               <ul className="space-y-2 text-sm text-gray-700">
                 <li className="flex items-start gap-2">
                   <span className="text-gray-600 font-bold">✓</span>
-                  <span>Your submission is {data.isAnonymous ? "completely anonymous" : "securely stored"}</span>
+                  <span>Your submission is {data.isAnonymous ? "sent without your identity" : "stored with your account details"}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-gray-600 font-bold">✓</span>
-                  <span>Data is used only for system improvement, never for individual blame</span>
+                  <span>Data is used for system improvement, not individual blame</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-gray-600 font-bold">✓</span>
-                  <span>Facility-level data is aggregated and anonymized in all reports</span>
+                  <span>Facility-level reporting is aggregated to protect individual privacy</span>
                 </li>
               </ul>
             </CardContent>
@@ -142,19 +147,27 @@ export default function SubmissionConfirmationModal({
               <ul className="space-y-2 text-sm text-gray-700">
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 font-bold">1</span>
-                  <span>Your submission is reviewed and categorized by system gap type</span>
+                  <span>Your submission is queued for review and categorized by issue type.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 font-bold">2</span>
-                  <span>Data is aggregated with other submissions to identify trends</span>
+                  <span>It is aggregated with other reports to identify recurring patterns.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 font-bold">3</span>
-                  <span>Facility leaders receive insights to drive improvement initiatives</span>
+                  <span>
+                    {isProvider
+                      ? "Relevant institutional teams can use trend insights for quality-improvement work."
+                      : "If you are signed in, the status appears in your Safe-Truth stories list when reviewed."}
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 font-bold">4</span>
-                  <span>You can track improvements and outcomes on our dashboard</span>
+                  <span>
+                    {isProvider
+                      ? "You can continue submitting events to build a stronger safety signal over time."
+                      : "We may also send an email update when a review response is available."}
+                  </span>
                 </li>
               </ul>
             </CardContent>
@@ -165,8 +178,17 @@ export default function SubmissionConfirmationModal({
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              onClose();
+              setLocation(destination);
+            }}
+          >
+            {destinationLabel}
+          </Button>
           <Button onClick={onClose} className="bg-green-600 hover:bg-green-700">
-            Submit Another Event
+            {isProvider ? "Submit another event" : "Share another story"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,13 +14,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
+import { CPRClockStreamlined } from '@/components/CPRClockStreamlined';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
-import { useCountdownTimer } from '@/hooks/useCountdownTimer';
-import { TimerCard } from '@/components/TimerCard';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
@@ -162,7 +161,9 @@ export default function ResusGPS() {
   const [expandedThreat, setExpandedThreat] = useState<string | null>(null);
   const [reassessmentMode, setReassessmentMode] = useState<{ interventionId: string; checkIndex: number } | null>(null);
   const [showEventLog, setShowEventLog] = useState(false);
+  const [showCPRClock, setShowCPRClock] = useState(false);
   const timer = useTimer();
+  const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
 
   // Sync demographics
   useEffect(() => {
@@ -188,7 +189,7 @@ export default function ResusGPS() {
   }, [session.phase]);
 
   // Load recommendation on mount
-  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery(undefined, { enabled: true });
+  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery({}, { enabled: true });
   useEffect(() => {
     if (autoLaunchData) {
       setRecommendedPathway(autoLaunchData);
@@ -201,8 +202,6 @@ export default function ResusGPS() {
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
-n  // Active intervention timers
-  const [activeTimers, setActiveTimers] = useState<Map<string, any>>(new Map());
 
   // ─── Handlers ───────────────────────────────────────────
 
@@ -248,9 +247,9 @@ n  // Active intervention timers
     if (!intervention) return;
 
     // Check for medication duplicates
-    const duplicate = checkMedicationDuplicate(session, intervention);
-    if (duplicate) {
-      setDuplicateWarning({ intervention, duplicate });
+    const duplicate = checkMedicationDuplicate(intervention, session);
+    if (duplicate.isDuplicate && duplicate.existingIntervention) {
+      setDuplicateWarning({ intervention, duplicate: duplicate.existingIntervention });
       return;
     }
 
@@ -258,11 +257,6 @@ n  // Active intervention timers
     setSession(prev => startIntervention(prev, id));
     analytics.trackInterventionStarted(intervention.action);
     
-    // Create timer for intervention (default 5 minutes)
-    const timerDuration = 300; // 5 minutes in seconds
-    const timer = useCountdownTimer(timerDuration);
-    setActiveTimers(prev => new Map(prev).set(id, timer));
-    timer.start();
   };
 
   const handleConfirmDuplicateOverride = () => {
@@ -293,6 +287,8 @@ n  // Active intervention timers
     setSession(prev => triggerCardiacArrest(prev));
     timer.reset();
     timer.start();
+    // Show CPR Clock for ACLS-aligned guidance
+    setShowCPRClock(true);
     // Track cardiac arrest triggered
     analytics.trackCardiacArrestTriggered();
   };
@@ -318,7 +314,65 @@ n  // Active intervention timers
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
-  const recordSessionMutation = trpc.resusSessionAnalytics.recordSession.useMutation();
+  const recordSessionMutation =
+    ((trpc as unknown as {
+      resusSessionAnalytics?: {
+        recordSession?: {
+          useMutation?: () => {
+            mutateAsync: (input: unknown) => Promise<any>;
+            mutate: (input: unknown, options?: unknown) => void;
+            isPending?: boolean;
+          };
+        };
+      };
+    }).resusSessionAnalytics?.recordSession?.useMutation?.() ?? {
+      mutateAsync: async () => null,
+      mutate: () => undefined,
+      isPending: false,
+    });
+
+  const handleSaveSession = async () => {
+    trackButtonClick('Save Session for Fellowship Credit');
+    // Record session for fellowship analytics
+    const pathway = session.phase === 'CARDIAC_ARREST' 
+      ? 'cardiac_arrest_protocol'
+      : session.activeThreat?.id || 'general_resus';
+    
+    const interactionCount = session.events.filter(e => 
+      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
+    ).length;
+    
+    try {
+      const result = await recordSessionMutation.mutateAsync({
+        pathway,
+        durationSeconds: timer.elapsed,
+        interactionsCount: Math.max(interactionCount, 1),
+        patientAge: session.patientAge,
+        patientWeight: session.patientWeight,
+        sessionId: session.id,
+        notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
+      });
+      
+      if (result?.isValid) {
+        const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
+        const nextRec = result.nextRecommendedCondition ? ` Practice next: ${result.nextRecommendedCondition}` : '';
+        toast.success(
+          `✅ Session Saved for Fellowship Credit: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}${nextRec}`,
+          { duration: 5000 }
+        );
+      } else if (result?.depthScore && result.depthScore < 50) {
+        toast.warning(
+          `Session saved (depth: ${result.depthScore}%). ${Math.ceil((50 - result.depthScore) / 10)} more interactions needed for full fellowship credit.`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.success('✅ Session saved for fellowship tracking', { duration: 3000 });
+      }
+    } catch (error) {
+      console.error('Failed to save session:', error);
+      toast.error('Could not save session for fellowship credit', { duration: 3000 });
+    }
+  };
 
   const handleExport = async () => {
     trackButtonClick('Complete Assessment');
@@ -327,12 +381,12 @@ n  // Active intervention timers
     
     // Record session for fellowship analytics
     // Determine pathway from session phase and threats
-    const pathway = session.phase === 'cardiac-arrest' 
+    const pathway = session.phase === 'CARDIAC_ARREST' 
       ? 'cardiac_arrest_protocol'
       : session.activeThreat?.id || 'general_resus';
     
     const interactionCount = session.events.filter(e => 
-      e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
     ).length;
     
     try {
@@ -390,12 +444,12 @@ n  // Active intervention timers
     // Optionally record the previous session before starting new one
     // (only if it had significant activity)
     if (session.events.length > 5) {
-      const pathway = session.phase === 'cardiac-arrest' 
+      const pathway = session.phase === 'CARDIAC_ARREST' 
         ? 'cardiac_arrest_protocol'
         : session.activeThreat?.id || 'general_resus';
       
       const interactionCount = session.events.filter(e => 
-        e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+        e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
       ).length;
       
       if (timer.elapsed > 60 && interactionCount >= 3) {
@@ -410,7 +464,7 @@ n  // Active intervention timers
             notes: 'Auto-recorded on new case',
           },
           {
-            onSuccess: (result) => {
+            onSuccess: (result: { isValid?: boolean; attributedConditions?: string[] } | null) => {
               if (result?.isValid) {
                 const conditionList = result.attributedConditions?.slice(0, 2).join(', ') || 'General resuscitation';
                 toast.success(
@@ -456,6 +510,8 @@ n  // Active intervention timers
         weight={weight}
         activeThreats={activeThreats}
         unackedAlerts={unackedAlerts}
+        canUndo={canUndo}
+        onUndo={handleUndo}
         onOpenPatientInfo={() => {
           setTempWeight(session.patientWeight?.toString() || '');
           setTempAge(session.patientAge || '');
@@ -463,6 +519,7 @@ n  // Active intervention timers
         }}
         onOpenInterventions={() => setInterventionPanelOpen(true)}
         onCardiacArrest={handleCardiacArrest}
+        onSaveSession={handleSaveSession}
         onExport={handleExport}
         onCopySummary={handleCopySummary}
         onNewCase={handleNewCase}
@@ -537,7 +594,13 @@ n  // Active intervention timers
           />
         )}
 
-        {session.phase === 'CARDIAC_ARREST' && (
+        {session.phase === 'CARDIAC_ARREST' && showCPRClock && weight ? (
+          <CPRClockStreamlined
+            patientWeight={weight}
+            patientAgeMonths={session.patientAge ? parseInt(session.patientAge.split(' ')[0]) * 12 : undefined}
+            onClose={() => setShowCPRClock(false)}
+          />
+        ) : session.phase === 'CARDIAC_ARREST' ? (
           <CardiacArrestScreen
             session={session}
             weight={weight}
@@ -545,7 +608,7 @@ n  // Active intervention timers
             onComplete={handleCompleteIntervention}
             onROSC={handleROSC}
           />
-        )}
+        ) : null}
 
         {(session.phase === 'SECONDARY_SURVEY' || session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') && (
           <PostPrimaryScreen
@@ -634,17 +697,15 @@ n  // Active intervention timers
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">Age</label>
               <AgeInput
-                value={tempAge}
-                onChange={(age) => {
-                  setTempAge(age);
+                age={parseAgeString(tempAge) ?? { years: 0, months: 0, weeks: 0 }}
+                onAgeChange={(age: StructuredAge) => {
+                  const formattedAge = `${age.years}y ${age.months}m ${age.weeks}w`;
+                  setTempAge(formattedAge);
                   // Auto-calculate weight from age if not manually set
-                  if (!tempWeight && age) {
-                    const parsedAge = parseAgeString(age);
-                    if (parsedAge) {
-                      const calculatedWeight = estimateWeightFromAge(parsedAge);
-                      if (calculatedWeight) {
-                        setTempWeight(calculatedWeight.toString());
-                      }
+                  if (!tempWeight) {
+                    const calculatedWeight = estimateWeightFromAge(age);
+                    if (calculatedWeight) {
+                      setTempWeight(calculatedWeight.toString());
                     }
                   }
                 }}
@@ -726,9 +787,12 @@ function TopBar({
   weight,
   activeThreats,
   unackedAlerts,
+  canUndo,
+  onUndo,
   onOpenPatientInfo,
   onOpenInterventions,
   onCardiacArrest,
+  onSaveSession,
   onExport,
   onCopySummary,
   onNewCase,
@@ -739,9 +803,12 @@ function TopBar({
   weight: number | null;
   activeThreats: Threat[];
   unackedAlerts: typeof session.safetyAlerts;
+  canUndo: boolean;
+  onUndo: () => void;
   onOpenPatientInfo: () => void;
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
+  onSaveSession: () => void;
   onExport: () => void;
   onCopySummary: () => void;
   onNewCase: () => void;
@@ -834,7 +901,7 @@ function TopBar({
           className="text-xs h-8 w-8 p-0"
           onClick={() => {
             if (canUndo) {
-              handleUndo();
+              onUndo();
               toast.success('Undo: Last action reverted');
             } else {
               toast.info('Nothing to undo');
@@ -860,6 +927,18 @@ function TopBar({
           aria-label="Copy session summary"
         >
           <Copy className="h-4 w-4" />
+        </Button>
+        {/* Save Session for Fellowship Credit */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-8 px-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+          onClick={onSaveSession}
+          title="Save session for fellowship credit"
+          aria-label="Save session"
+        >
+          <CheckCircle2 className="h-4 w-4 mr-1" />
+          Save
         </Button>
         {/* New Case */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
@@ -1559,14 +1638,25 @@ function PostPrimaryScreen({
             {diagnoses.map((dx, i) => (
               <DiagnosisCard
                 key={i}
-                diagnosis={dx.diagnosis}
-                confidence={dx.confidence}
-                supportingFindings={dx.supportingFindings}
-                protocol={dx.protocol}
-                onConfirm={() => {
-                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis));
+                diagnosis={{
+                  id: `suggested-${i}`,
+                  condition: dx.diagnosis,
+                  confidence:
+                    dx.confidence === 'high'
+                      ? 'likely'
+                      : dx.confidence === 'moderate'
+                        ? 'consider'
+                        : 'consider',
+                  findings: dx.supportingFindings,
+                  interventions: [dx.protocol],
+                  timestamp: Date.now(),
+                  resolved: false,
                 }}
+                onResolve={() => {
+                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                }}
+                onRemove={() => {}}
               />
             ))}
           </CardContent>
@@ -1729,12 +1819,18 @@ function ThreatCard({
                     {/* Dose Rationale */}
                     {intervention.dose && (
                       <div className="mt-2 pt-2 border-t border-border/50">
-                        <DoseRationaleCard
-                          drug={intervention.action}
-                          dose={calcDose(intervention.dose, weight)}
-                          weight={weight}
-                          rationale={getDoseRationale(intervention.action, weight)}
-                        />
+                        {(() => {
+                          const rationale =
+                            weight != null
+                              ? getDoseRationale(
+                                  intervention.action,
+                                  weight,
+                                  "child",
+                                  intervention.dose.route
+                                )
+                              : null;
+                          return rationale ? <DoseRationaleCard rationale={rationale} /> : null;
+                        })()}
                       </div>
                     )}
 

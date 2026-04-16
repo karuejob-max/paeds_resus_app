@@ -1,26 +1,40 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { readSafeNextPathFromSearch } from "@/lib/authRedirect";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const { isAuthenticated, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const nextPath = useMemo(() => {
+    return readSafeNextPathFromSearch(search, "/home");
+  }, [search]);
 
   const loginMutation = trpc.auth.loginWithPassword.useMutation({
     onSuccess: () => {
-      setLocation("/home");
-      window.location.reload();
+      // Reset role context on fresh sign-in so landing follows server-side userType.
+      localStorage.removeItem("userRole");
+      window.dispatchEvent(new CustomEvent("userRoleChanged", { detail: null }));
+      setLocation(nextPath);
     },
     onError: (e) => {
+      if (/Failed to fetch|NetworkError|Load failed/i.test(e.message)) {
+        setError("Could not reach the server. Refresh and try again.");
+        return;
+      }
       setError(e.message);
     },
   });
@@ -30,6 +44,12 @@ export default function Login() {
     setError("");
     loginMutation.mutate({ email, password });
   };
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated) return;
+    setLocation(nextPath);
+  }, [isAuthenticated, loading, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -41,7 +61,10 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" aria-label="Sign in form">
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <Alert variant="destructive">
+                <AlertTitle>Sign-in failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

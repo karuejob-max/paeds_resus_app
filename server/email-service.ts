@@ -185,6 +185,29 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     ],
   },
 
+  providerLifecycleNudge: {
+    id: "provider-lifecycle-nudge",
+    name: "Provider lifecycle learning nudge",
+    subject: "{{reminderTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Paeds Resus</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{userName}},</p>
+          <p>{{reminderBody}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{actionLink}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">{{actionLabel}}</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{userName}},\n\n{{reminderBody}}\n\n{{actionLabel}}: {{actionLink}}\n\nPaeds Resus Limited`,
+    variables: ["userName", "reminderTitle", "reminderBody", "actionLink", "actionLabel"],
+  },
+
   enrollmentConfirmation: {
     id: "enrollment-confirmation",
     name: "Enrollment Confirmation",

@@ -10,15 +10,31 @@ import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import type { User } from "../../drizzle/schema";
 
+// Avoid touching MySQL during unit tests when CI sets DATABASE_URL (pool exists but tests mock enrollment DB helpers).
+vi.mock("../lib/micro-course-catalog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/micro-course-catalog")>();
+  return {
+    ...actual,
+    ensureMicroCoursesCatalog: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 // Mock db-enrollment functions
 vi.mock("../db-enrollment", () => ({
   validatePromoCode: vi.fn(),
   getCourseDetails: vi.fn(),
   calculateFinalPrice: vi.fn(),
   isUserEnrolled: vi.fn(),
+  getPendingMpesaEnrollment: vi.fn(),
+  setEnrollmentCheckoutRequestId: vi.fn(),
   createEnrollment: vi.fn(),
   incrementPromoCodeUsage: vi.fn(),
   isUserAdmin: vi.fn(),
+}));
+
+vi.mock("../services/analytics.service", () => ({
+  trackEvent: vi.fn().mockResolvedValue(undefined),
+  trackPaymentInitiation: vi.fn().mockResolvedValue(undefined),
 }));
 
 function createAuthContext(overrides?: Partial<User>): TrpcContext {
@@ -29,6 +45,7 @@ function createAuthContext(overrides?: Partial<User>): TrpcContext {
     name: "Test User",
     loginMethod: "manus",
     role: "user",
+    userType: "individual",
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),

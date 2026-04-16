@@ -94,7 +94,7 @@ export default function DashboardSidebar() {
         <div className="mb-8">
           <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Support</h4>
           <div className="space-y-2">
-            <Link href="/learner-dashboard">
+            <Link href="/help">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 FAQ
               </div>

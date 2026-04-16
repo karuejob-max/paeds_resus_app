@@ -18,7 +18,7 @@ These 30 pages are reachable and linked:
 | Home | `/home` |
 | ParentSafeTruth | `/parent-safe-truth` |
 | SafeTruth | `/safe-truth` |
-| InstitutionalPortal | `/institutional-portal` |
+| InstitutionalPortal | `/institutional-portal` (legacy redirect to `/hospital-admin-dashboard`) |
 | Institutional | `/institutional` |
 | AdminHub | `/admin` |
 | AdminReports | `/admin/reports` |

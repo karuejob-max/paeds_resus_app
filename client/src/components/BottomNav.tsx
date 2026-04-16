@@ -33,16 +33,16 @@ export const BottomNav: React.FC = () => {
 
     if (role === "institution") {
       return [
-        { path: "/", label: "Home", icon: Home },
+        { path: "/hospital-admin-dashboard", label: "Home", icon: Home },
         { path: "/hospital-admin-dashboard", label: "Dashboard", icon: BarChart3 },
-        { path: "/institutional-portal", label: "Staff", icon: Users },
+        { path: "/advanced-analytics", label: "Analytics", icon: Users },
       ];
     }
 
     if (role === "parent") {
       return [
-        { path: "/", label: "Home", icon: Home },
-        { path: "/learner-dashboard", label: "Learning", icon: MessageCircle },
+        { path: "/parent-safe-truth", label: "Home", icon: Home },
+        { path: "/parent-safe-truth", label: "Stories", icon: MessageCircle },
         { path: "/personal-impact", label: "Impact", icon: TrendingUp },
       ];
     }

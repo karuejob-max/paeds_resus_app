@@ -22,11 +22,13 @@ import {
   careSignalEvents,
   microCourseEnrollments,
   certificates,
+  users,
 } from "../../drizzle/schema";
 import {
   computeCareSignalStreak,
   enumerateMonthsEndingAt,
 } from "./fellowship-care-signal-streak";
+import { getResusGpsAccessForClient } from "../lib/resusgps-access";
 
 /**
  * Calculate courses completion percentage (Pillar 1)
@@ -272,7 +274,17 @@ export const fellowshipRouter = router({
   getProgress: protectedProcedure.query(async ({ ctx }) => {
     try {
       const status = await calculateFellowshipStatus(ctx.user.id);
-      
+      const db = await getDb();
+      let resusGpsAccessExpiresAt: Date | null = null;
+      if (db) {
+        const u = await db
+          .select({ exp: users.resusGpsAccessExpiresAt })
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1);
+        resusGpsAccessExpiresAt = u[0]?.exp ?? null;
+      }
+
       // Return calculated status directly (no database upsert for now)
       return {
         coursesPillar: status.coursesPillar,
@@ -280,6 +292,7 @@ export const fellowshipRouter = router({
         careSignalPillar: status.careSignalPillar,
         isQualified: status.isQualified,
         overallPercentage: status.overallPercentage,
+        resusGpsAccessExpiresAt,
       };
     } catch (error) {
       console.error("[Fellowship] Error in getProgress:", error);
@@ -290,8 +303,14 @@ export const fellowshipRouter = router({
         careSignalPillar: { streak: 0, eventsSubmitted: 0, percentage: 0 },
         isQualified: false,
         overallPercentage: 0,
+        resusGpsAccessExpiresAt: null as Date | null,
       };
     }
+  }),
+
+  /** ResusGPS access for fellowship-linked 30-day windows (see resusgps-access.ts). */
+  getResusGpsAccessStatus: protectedProcedure.query(async ({ ctx }) => {
+    return getResusGpsAccessForClient(ctx.user.id);
   }),
 
   /**
@@ -326,7 +345,7 @@ export const fellowshipRouter = router({
         sessionId: sessionId,
         primaryDiagnosis: input.primaryDiagnosis,
         patientAgeMonths: input.patientAgeMonths,
-        patientWeightKg: input.patientWeightKg,
+        patientWeightKg: input.patientWeightKg.toString(),
         isTrauma: input.isTrauma || false,
         isCardiacArrest: input.isCardiacArrest || false,
         status: "completed",

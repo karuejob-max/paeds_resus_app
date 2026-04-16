@@ -24,15 +24,17 @@ describe("MPESA-5: M-Pesa Critical Flow Tests", () => {
   });
 
   describe("Webhook Signature Verification", () => {
-    it("should reject webhook without signature header", async () => {
+    it("should allow missing signature header when signature requirement is disabled", async () => {
+      delete process.env.MPESA_REQUIRE_CALLBACK_SIGNATURE;
       mockRequest.body = { Body: { stkCallback: {} } };
 
       await handleMpesaWebhook(mockRequest, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
+      // Request continues to payload validation; this malformed callback fails at CheckoutRequestID validation.
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
       expect(mockResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: expect.stringContaining("signature"),
+          error: expect.stringContaining("CheckoutRequestID"),
         })
       );
     });

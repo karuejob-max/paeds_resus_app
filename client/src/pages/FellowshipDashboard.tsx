@@ -1,12 +1,12 @@
 /**
  * Paeds Resus Fellowship Dashboard
  * 
- * Single unified fellowship tier with 3-pillar qualification system:
+ * Single fellowship path with 3-pillar qualification system:
  * 1. Courses: All 26 micro-courses (displayed with progress)
  * 2. ResusGPS: ≥3 cases per taught condition
  * 3. Care Signal: 24 consecutive months of monthly reporting
  * 
- * All courses are integrated into the fellowship path - no separate tiers.
+ * All courses are integrated into one fellowship path.
  */
 
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -19,43 +19,43 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Stethoscope, AlertCircle, CheckCircle2, Clock, Award, Heart, Zap, Lock } from "lucide-react";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EnrollmentModal } from "@/components/EnrollmentModal";
+import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
+  const utils = trpc.useUtils();
   const [activeTab, setActiveTab] = useState("overview");
-  const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
 
-  // Redirect if not logged in
-  if (!loading && !user) {
-    setLocation("/login");
-    return null;
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      setLocation("/login");
+    }
+  }, [loading, user, setLocation]);
 
   // Fetch fellowship progress
-  const { data: progress, isLoading, error } = trpc.fellowship.getProgress.useQuery();
+  const { data: progress, isLoading, error } = trpc.fellowship.getProgress.useQuery(undefined, {
+    enabled: Boolean(user),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
 
   // Fetch all courses for Pillar 1 display
-  const { data: allCourses = [] } = trpc.courses.listAll.useQuery();
+  const { data: allCourses = [] } = trpc.courses.listAll.useQuery(undefined, {
+    enabled: Boolean(user) && activeTab === "courses",
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
 
   // Fetch user enrollments
-  const { data: enrollments = [] } = trpc.courses.getEnrollments.useQuery();
-
-  // Enrollment mutation
-  const enrollMutation = trpc.courses.enroll.useMutation({
-    onSuccess: () => {
-      // Refetch enrollments after successful enrollment
-      trpc.useUtils().courses.getEnrollments.invalidate();
-      setEnrollingCourseId(null);
-    },
-    onError: (error) => {
-      console.error('Enrollment failed:', error);
-      setEnrollingCourseId(null);
-    },
+  const { data: enrollments = [] } = trpc.courses.getEnrollments.useQuery(undefined, {
+    enabled: Boolean(user) && activeTab === "courses",
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   });
 
   const handleEnrollClick = (course: any) => {
@@ -65,8 +65,8 @@ export default function FellowshipDashboard() {
 
   const handleEnrollmentSuccess = () => {
     // Refetch enrollments after successful enrollment
-    trpc.useUtils().courses.getEnrollments.invalidate();
-    trpc.useUtils().fellowship.getProgress.invalidate();
+    void utils.courses.getEnrollments.invalidate();
+    void utils.fellowship.getProgress.invalidate();
   };
 
   if (loading || isLoading) {
@@ -75,6 +75,9 @@ export default function FellowshipDashboard() {
         <p className="text-muted-foreground">Loading fellowship dashboard…</p>
       </div>
     );
+  }
+  if (!user) {
+    return null;
   }
 
   if (error) {
@@ -105,7 +108,7 @@ export default function FellowshipDashboard() {
           </CardHeader>
           <CardContent>
             <Button onClick={() => setActiveTab("courses")} className="w-full">
-              Start Fellowship Path
+              Open Fellowship courses
             </Button>
           </CardContent>
         </Card>
@@ -117,6 +120,11 @@ export default function FellowshipDashboard() {
 
   // Prepare course data
   const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.course?.courseId) || []);
+  const enrollmentIdByCourseId = new Map<string, number>(
+    (enrollments ?? [])
+      .filter((e: any) => typeof e?.course?.courseId === "string" && typeof e?.id === "number")
+      .map((e: any) => [e.course.courseId as string, e.id as number])
+  );
   const completedCourseIds = new Set(enrollments?.filter((e: any) => e.enrollmentStatus === "completed").map((e: any) => e.course?.courseId) || []);
 
   // Sort courses by order
@@ -132,7 +140,7 @@ export default function FellowshipDashboard() {
             Paeds Resus Fellowship
           </h1>
           <p className="text-muted-foreground">
-            Single unified fellowship tier. Complete all 3 pillars to achieve qualification.
+            One fellowship path with 3 pillars: courses, ResusGPS, and Care Signal.
           </p>
         </div>
 
@@ -141,8 +149,8 @@ export default function FellowshipDashboard() {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle>Fellowship In Progress</CardTitle>
-                <CardDescription>Overall progress: {overallPercentage}% complete. All 3 pillars must reach 100%.</CardDescription>
+                <CardTitle>Fellowship progress</CardTitle>
+                <CardDescription>{overallPercentage}% complete. All 3 pillars must reach 100%.</CardDescription>
               </div>
               <div className="text-right">
                 <div className="text-4xl font-bold">{overallPercentage}%</div>
@@ -159,7 +167,7 @@ export default function FellowshipDashboard() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="courses">Courses ({coursesPillar.completed}/{coursesPillar.required})</TabsTrigger>
+            <TabsTrigger value="courses">Micro-courses ({coursesPillar.completed}/{coursesPillar.required})</TabsTrigger>
             <TabsTrigger value="resusgps">ResusGPS</TabsTrigger>
             <TabsTrigger value="caresignal">Care Signal</TabsTrigger>
           </TabsList>
@@ -172,7 +180,7 @@ export default function FellowshipDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <BookOpen className="h-5 w-5 text-blue-600" />
-                    Pillar 1: Courses
+                    Pillar 1: Micro-courses
                   </CardTitle>
                   <CardDescription>Micro-courses</CardDescription>
                 </CardHeader>
@@ -203,7 +211,7 @@ export default function FellowshipDashboard() {
                     size="sm"
                     className="w-full"
                   >
-                    View Courses
+                    Open courses
                   </Button>
                 </CardContent>
               </Card>
@@ -213,7 +221,7 @@ export default function FellowshipDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Stethoscope className="h-5 w-5 text-green-600" />
-                    Pillar 2: ResusGPS
+                    Pillar 2: ResusGPS cases
                   </CardTitle>
                   <CardDescription>Clinical cases</CardDescription>
                 </CardHeader>
@@ -244,7 +252,7 @@ export default function FellowshipDashboard() {
                     size="sm"
                     className="w-full"
                   >
-                    Launch ResusGPS
+                    Open ResusGPS
                   </Button>
                 </CardContent>
               </Card>
@@ -254,7 +262,7 @@ export default function FellowshipDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Heart className="h-5 w-5 text-red-600" />
-                    Pillar 3: Care Signal
+                    Pillar 3: Care Signal reports
                   </CardTitle>
                   <CardDescription>Monthly reporting</CardDescription>
                 </CardHeader>
@@ -280,12 +288,12 @@ export default function FellowshipDashboard() {
                     </p>
                   </div>
                   <Button
-                    onClick={() => setLocation("/safe-truth")}
+                    onClick={() => setLocation("/care-signal")}
                     variant="outline"
                     size="sm"
                     className="w-full"
                   >
-                    Report Incident
+                    Open Care Signal
                   </Button>
                 </CardContent>
               </Card>
@@ -296,8 +304,11 @@ export default function FellowshipDashboard() {
           <TabsContent value="courses" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>All 26 Micro-Courses</CardTitle>
-                <CardDescription>Complete all courses to fulfill Pillar 1 of your fellowship</CardDescription>
+                <CardTitle>Fellowship micro-courses</CardTitle>
+                <CardDescription>
+                  Complete all 26 toward fellowship certification. Each completed course extends ResusGPS access by 30 days
+                  (stackable). Pay per course (KES 200 each) via M-Pesa or approved paths.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -305,7 +316,6 @@ export default function FellowshipDashboard() {
                     const courseId = course.courseId || course.id;
                     const isEnrolled = enrolledCourseIds.has(courseId);
                     const isCompleted = completedCourseIds.has(courseId);
-                    const isEnrollingThisCourse = enrollingCourseId === courseId;
                     
                     return (
                       <div
@@ -332,8 +342,16 @@ export default function FellowshipDashboard() {
                           <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Completed</p>
                         )}
                         {isEnrolled && !isCompleted && (
-                          <Button size="sm" variant="outline" className="w-full">
-                            Continue
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              const enrollmentId = enrollmentIdByCourseId.get(courseId);
+                              setLocation(getProviderCourseDestination(courseId, enrollmentId));
+                            }}
+                          >
+                            Open course
                           </Button>
                         )}
                         {!isEnrolled && (
@@ -383,7 +401,7 @@ export default function FellowshipDashboard() {
                 <div className="text-center py-12">
                   <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Your monthly Care Signal participation will appear here.</p>
-                  <Button className="mt-4" onClick={() => setLocation("/safe-truth")}>
+                  <Button className="mt-4" onClick={() => setLocation("/care-signal")}>
                     Report Incident
                   </Button>
                 </div>

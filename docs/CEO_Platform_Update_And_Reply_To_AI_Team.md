@@ -46,7 +46,7 @@ Here’s a concise snapshot of where the platform is today and how it’s struct
 - **ResusGPS (/) —** Our real-time paediatric emergency guidance product (ABCDE, protocols, interventions). A key point-of-care offering.
 - **Provider hub (/home) —** Dashboard for providers: access to ResusGPS, Enrol in a course, My learning, plus “Use as Institution” and “Use as Parent” so one person (e.g. medical director or clinician–parent) can reach all our experiences.
 - **Parent & guardian (/parent-safe-truth) —** Safe-Truth and parent-facing resources.
-- **Institution (/institutional-portal, /hospital-admin-dashboard) —** Institutional metrics, staff, and management.
+- **Institution (/hospital-admin-dashboard; legacy `/institutional-portal` redirect) —** Institutional metrics, staff, and management.
 - **Admin —** For the platform owner (me): **Admin** in header/account menu → **Admin hub (/admin)** with:
   - **Reports & insights (/admin/reports)** — Registered users by type, enrollments this month (BLS/ACLS/PALS/Fellowship), certificates issued this month, Parent Safe-Truth usage this month, and app/product activity (last 7 days). Optional list of registered users.
   - **Hospital Admin Dashboard** — Institutional view.
@@ -131,7 +131,7 @@ So that item is **done** for the current scope. What’s still open is: **instru
 
 ### Post-login redirect priority
 
-- **Current:** One-time redirect by **default `userType`** only: individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`. We do **not** use “last-used role” yet.
+- **Current:** One-time redirect by **default `userType`** only: individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard` (legacy `/institutional-portal` redirects). We do **not** use “last-used role” yet.
 - **Default order when one account has multiple roles:** We don’t store “multiple roles” in DB; we have one `userType` and a UI switch. So the only “order” is: **first landing** = by `userType`; after that, the user chooses context from the header. If we later add last-used context (e.g. in localStorage), we can define whether that overrides the first-time redirect; for now it’s “userType only.”
 
 ### Admin reports — definitions (to avoid metric drift)
@@ -210,7 +210,7 @@ Thanks for being part of getting **Paeds Resus** to the next level.
 |-------|--------|
 | **Role model: multi-role table now?** | **No.** Keep single `userType` in DB for now. **Interim source of truth for “this user can switch to X”:** any logged-in user can choose any of the three contexts (Provider / Parent / Institution) in the UI; the DB only stores default `userType` for post-login redirect. Revisit a proper multi-role mapping table when we have a concrete need (e.g. permissions, billing). |
 | **Admin identity** | **Canonical:** Admin = `role === 'admin'` in the DB. **Mechanism:** Only via `openId === OWNER_OPEN_ID` at auth/upsert (e.g. `email:admin@...`). We do **not** allow role elevation by editing `role` in the DB for other users; OWNER_OPEN_ID is the only way to become admin. |
-| **Post-login redirect** | **Default order:** Redirect by **default `userType`** only (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`). We do **not** use “last-used role context” yet. So: first landing = by `userType`; after that, user chooses context from the header. |
+| **Post-login redirect** | **Default order:** Redirect by **default `userType`** only (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard`; legacy `/institutional-portal` redirects). We do **not** use “last-used role context” yet. So: first landing = by `userType`; after that, user chooses context from the header. |
 | **Admin reports — timezone** | **“This month”** = calendar month in **EAT (East Africa Time, UTC+3)**. **“Last 7 days”** = rolling 7×24h from “now.” KPI sources: Safe-Truth = one row per `parentSafeTruthSubmissions` in that month (EAT); product activity = one row per `analyticsEvents` in last 7 days. |
 | **Course funnel** | Authoritative: **Applied/enrolled** = `enrollments` (e.g. `createdAt`, `programType`, `paymentStatus`). **Certified** = `certificates` (`issueDate`, `programType`). We are **not** enforcing a strict state machine yet; we count by date. Propose a short spec if you want formal status transitions. |
 | **Deployment** | **Current:** Single production (Render + Aiven). **No** separate staging yet. **Rule when we add it:** All PRs should be verified on staging before production. |

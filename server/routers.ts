@@ -10,6 +10,7 @@ import { z } from "zod";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendEmail } from "./email-service";
+import { trackEvent } from "./services/analytics.service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { instructorRouter } from "./routers/instructor";
 import { certificateRouter } from "./routers/certificates";
@@ -164,10 +165,10 @@ export const appRouter = router({
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: sessionMaxAgeMs });
-        await insertAdminAuditLog({
+        await db.createAuditLog({
           userId: user.id,
           action: 'LOGIN_SUCCESS',
-          details: JSON.stringify({ email: input.email, ip: ctx.req.ip }),
+          details: { email: input.email, ip: ctx.req.ip },
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };
@@ -176,6 +177,18 @@ export const appRouter = router({
       .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
       .mutation(async ({ input, ctx }) => {
         await db.updateUserType(ctx.user.id, input.userType);
+        if (input.userType === "individual") {
+          await trackEvent({
+            userId: ctx.user.id,
+            eventType: "provider_conversion",
+            eventName: "user_type_updated_to_provider",
+            pageUrl: "/home",
+            eventData: {
+              selectedUserType: input.userType,
+            },
+            sessionId: `user_type_${ctx.user.id}`,
+          });
+        }
         return { success: true };
       }),
     requestPasswordReset: publicProcedure
@@ -351,12 +364,12 @@ export const appRouter = router({
   // kaizenTOC: kaizenTOCRouter,
   // ml: mlRouter,
   // autonomousOrchestration: autonomousOrchestrationRouter,
-  // patients: patientRouter,
-  // interventions: interventionRouter,
-  // provider: providerRouter,
-  // resusAutoLaunch,
-  // adminNotifications,
-  // facilityBenchmarking,
+  patients: patientRouter,
+  interventions: interventionRouter,
+  provider: providerRouter,
+  resusAutoLaunch,
+  adminNotifications,
+  facilityBenchmarking,
   securityIntegration: securityIntegrationRouter,
   microCourses: microCoursesRouter,
   courses: coursesRouter,

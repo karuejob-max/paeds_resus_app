@@ -166,7 +166,7 @@ export function generateDiazepamRationale(
   ageCategory: string,
   route: string
 ): DoseRationale {
-  let dosePerKg: number;
+  let dosePerKg = 0.1;
   let notes: string[] = [];
 
   if (route === 'IV' || route === 'IO') {
@@ -176,6 +176,8 @@ export function generateDiazepamRationale(
     dosePerKg = 0.5; // 0.5 mg/kg PR
     notes.push('Rectal route useful when IV access unavailable');
     notes.push('Preferred in infants/toddlers');
+  } else {
+    notes.push('Defaulted to IV dosing when route-specific guidance was unavailable');
   }
 
   const dose = dosePerKg * weight;

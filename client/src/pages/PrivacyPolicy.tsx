@@ -1,23 +1,8 @@
-import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 
 export default function PrivacyPolicy() {
-  const [, setLocation] = useLocation();
-  
   return (
     <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setLocation("/home")}
-          className="flex items-center gap-2 mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Home
-        </Button>
-      </div>
       <div className="max-w-3xl mx-auto prose prose-slate">
         <h1>Privacy policy</h1>
         <p className="text-muted-foreground">
@@ -32,7 +17,7 @@ export default function PrivacyPolicy() {
         </p>
         <p>
           <Link href="/help" className="underline">
-            Help Centre
+            Help
           </Link>
         </p>
       </div>

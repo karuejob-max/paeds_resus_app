@@ -68,7 +68,7 @@ export default function ProtectedPageWrapper({
                   Go to Home
                 </Button>
                 <Button
-                  onClick={() => navigate("/learner-dashboard")}
+                  onClick={() => navigate("/help")}
                   variant="outline"
                   className="w-full border-[#1a4d4d] text-[#1a4d4d]"
                 >

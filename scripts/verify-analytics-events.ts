@@ -1,15 +1,17 @@
 /**
- * Sprint 1 verification: list analyticsEvents counts by eventType for the same rolling window
- * as adminStats.getReport (PLATFORM: last N days = rolling N×24h).
+ * Sprint 1 verification: analyticsEvents in the rolling window used by adminStats.getReport.
+ * Uses the same aggregation as Admin → Reports (see server/lib/admin-analytics-rollup.ts).
  *
- * Usage: DATABASE_URL=... pnpm run verify:analytics
- * Optional: VERIFY_LAST_DAYS=14
+ * Usage: pnpm run verify:analytics
+ * Requires DATABASE_URL (e.g. from .env at repo root).
+ * Optional: VERIFY_LAST_DAYS=14 (default 7, max 90)
  */
 import "dotenv/config";
-import { desc, gte, sql } from "drizzle-orm";
+import { gte } from "drizzle-orm";
 import { getDb } from "../server/db";
 import { analyticsEvents } from "../drizzle/schema";
 import { rollingHoursAgo } from "../server/lib/report-time-windows";
+import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../server/lib/admin-analytics-rollup";
 
 async function main() {
   const db = await getDb();
@@ -20,30 +22,45 @@ async function main() {
 
   const lastDays = Math.min(90, Math.max(1, parseInt(process.env.VERIFY_LAST_DAYS || "7", 10)));
   const since = rollingHoursAgo(lastDays);
-  console.log(`Rolling window: events with createdAt >= ${since.toISOString()} (${lastDays}×24h)\n`);
+  console.log(
+    `Rolling window: createdAt >= ${since.toISOString()} (${lastDays}×24h from now)\n` +
+      `(Matches adminStats.getReport default lastDays=${lastDays}.)\n`
+  );
 
-  const grouped = await db
+  const analyticsInPeriod = await db
     .select({
       eventType: analyticsEvents.eventType,
-      n: sql<number>`count(*)`.mapWith(Number),
+      eventName: analyticsEvents.eventName,
     })
     .from(analyticsEvents)
-    .where(gte(analyticsEvents.createdAt, since))
-    .groupBy(analyticsEvents.eventType)
-    .orderBy(desc(sql`count(*)`));
+    .where(gte(analyticsEvents.createdAt, since));
 
-  let total = 0;
-  for (const row of grouped) {
-    total += row.n;
-  }
-  console.log(`Total rows: ${total}\nBy eventType:`);
-  for (const row of grouped) {
-    console.log(`  ${row.eventType ?? "(null)"}: ${row.n}`);
+  const all = rollupAnalyticsLastDays(analyticsInPeriod);
+  const resus = rollupResusGpsLastDays(analyticsInPeriod);
+
+  console.log(`Total events (App & Paeds Resus activity): ${all.count}`);
+  console.log("\nTop types (same buckets as Admin Reports — eventType || eventName || other):\n");
+  for (const row of all.eventTypes) {
+    console.log(`  ${row.eventType}: ${row.count}`);
   }
 
-  const resus = grouped.filter((r) => (r.eventType ?? "").startsWith("resus_"));
-  const resusSum = resus.reduce((a, r) => a + r.n, 0);
-  console.log(`\nResusGPS slice (eventType starts with resus_): ${resusSum} events`);
+  console.log(`\nResusGPS slice (eventType starts with resus_): ${resus.totalEvents} events`);
+  for (const row of resus.eventTypes) {
+    console.log(`  ${row.eventType}: ${row.count}`);
+  }
+
+  if (all.count === 0) {
+    console.log(
+      "\n(No rows in window — trigger instrumented journeys or widen VERIFY_LAST_DAYS to confirm pipeline.)"
+    );
+  } else {
+    console.log(
+      "\nOK — compare totals above with Admin → Reports for the same rolling period (lastDays=" +
+        lastDays +
+        ")."
+    );
+  }
+
   process.exit(0);
 }
 

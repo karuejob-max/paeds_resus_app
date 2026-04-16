@@ -28,9 +28,10 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 ## Verification (Days 8–9)
 
 - [x] **Rolling window:** `adminStats.getReport` uses **rolling N×24h from now** for `analyticsEvents` (see `server/lib/report-time-windows.ts`) — matches PLATFORM_SOURCE_OF_TRUTH §8.
+- [x] **CLI ↔ Admin parity:** `pnpm run verify:analytics` uses the same bucketing as Admin → Reports (`server/lib/admin-analytics-rollup.ts`, shared with `adminStats.getReport`). Older CLI versions grouped only SQL `eventType`; that could diverge when bucketing uses `eventType || eventName`.
 - [ ] Trigger each instrumented journey on **local or staging** (production only if policy allows)
-- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set — confirms rows in **`analyticsEvents`** grouped by `eventType` for the same window as Admin Reports
-- [ ] Open **Admin → Reports**: total events and top types match CLI spot-check; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
+- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set (desktop / Render shell — not available in Cursor mobile web without secrets) — totals and top buckets should match **Admin → Reports** for the same `lastDays` (default 7; optional `VERIFY_LAST_DAYS=30`).
+- [ ] Open **Admin → Reports**: spot-check total events and top types against CLI; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
 - [ ] Naming review: fix fragmented `eventType` / `eventName` pairs if they break grouping
 
 ---

@@ -38,7 +38,7 @@ export function STKPushPayment({
     onSuccess: (paymentResult) => {
       toast({
         title: "Payment Successful",
-        description: `Payment of ${paymentResult.amount} ${paymentResult.currency} received`,
+        description: `Payment of ${paymentResult.amount} received`,
       });
       onPaymentSuccess?.();
     },

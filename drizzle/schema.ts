@@ -30,6 +30,8 @@ export const users = mysqlTable("users", {
   /** Unique Paeds Resus instructor ID after completing the Instructor Course (certificate issued). */
   instructorNumber: varchar("instructorNumber", { length: 32 }).unique(),
   instructorCertifiedAt: timestamp("instructorCertifiedAt"),
+  /** Rolling ResusGPS access window: extended by 30 days when a fellowship micro-course is completed (null = unrestricted legacy). */
+  resusGpsAccessExpiresAt: timestamp("resusGpsAccessExpiresAt"),
 });
 
 export type User = typeof users.$inferSelect;

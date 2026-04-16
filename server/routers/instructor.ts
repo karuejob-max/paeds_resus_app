@@ -12,6 +12,12 @@ import {
 export const instructorRouter = router({
   /** Certification + platform approval flags for the instructor journey. */
   getStatus: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.userType !== "individual" && ctx.user.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Instructor portal is available to provider accounts only.",
+      });
+    }
     const db = await getDb();
     if (!db) {
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
@@ -39,6 +45,12 @@ export const instructorRouter = router({
 
   /** B2B sessions where this user is the assigned instructor (`trainingSchedules.instructorId`). */
   getMyAssignments: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.userType !== "individual" && ctx.user.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Instructor assignments are available to provider accounts only.",
+      });
+    }
     const db = await getDb();
     if (!db) {
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });

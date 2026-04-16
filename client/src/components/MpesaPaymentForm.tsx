@@ -134,9 +134,14 @@ export function MpesaPaymentForm({
       setIsLoading(false);
     },
     onError: (error) => {
+      const raw = error.message || "Payment initiation failed";
+      const isNetworkError = /Failed to fetch|NetworkError|Load failed/i.test(raw);
+      const message = isNetworkError
+        ? "Could not reach the payments server. Check your connection, refresh, or use bank transfer."
+        : raw;
       setPaymentStatus("error");
-      setStatusMessage(error.message || "Payment initiation failed");
-      onPaymentError?.(error.message || "Payment initiation failed");
+      setStatusMessage(message);
+      onPaymentError?.(message);
       setIsLoading(false);
     },
   });

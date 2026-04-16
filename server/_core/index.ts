@@ -114,14 +114,3 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
-
-// TEMPORARY DEBUG: Log loaded routers
-import { appRouter } from '../routers';
-const routerKeys = Object.keys(appRouter._def.record || {});
-console.log('[Router Debug] Loaded routers:', routerKeys.length, 'routers');
-console.log('[Router Debug] Has courses:', routerKeys.includes('courses'));
-console.log('[Router Debug] Has fellowship:', routerKeys.includes('fellowship'));
-console.log('[Router Debug] Has microCourses:', routerKeys.includes('microCourses'));
-if (routerKeys.length < 50) {
-  console.log('[Router Debug] All routers:', routerKeys);
-}

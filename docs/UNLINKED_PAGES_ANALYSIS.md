@@ -17,7 +17,7 @@ These are linked from Home, Header, or Footer but have **no** `<Route>` in `App.
 | `/performance-dashboard` | PerformanceDashboard.tsx | Header (Performance) | **Add route** |
 | `/safe-truth` | SafeTruth.tsx | Header (Safe-Truth for providers) | **Add route** (provider Safe-Truth; parent is `/parent-safe-truth`) |
 | `/provider-profile` | ProviderProfile.tsx | Header (Profile) | **Add route** |
-| `/institutional` | Institutional.tsx | Footer (For Institutions) | **Add route** or redirect to `/institutional-portal` |
+| `/institutional` | Institutional.tsx | Footer (For Institutions) | **Add route** or redirect to `/hospital-admin-dashboard` (legacy `/institutional-portal` redirect) |
 | `/cpr-monitoring` | CPRMonitoring.tsx | SessionDetails, internal links | **Add route** |
 | `/payment` | Payment.tsx | LearnerDashboard (payment flow) | **Add route** |
 
@@ -66,7 +66,7 @@ Footer links: `/privacy`, `/terms`, `/about`, `/contact`. If those routes don’
 
 ## 5. Summary: what to do
 
-1. **Add routes in App.tsx** for: `/enroll`, `/learner-dashboard`, `/patients`, `/protocols`, `/performance-dashboard`, `/safe-truth`, `/provider-profile`, `/institutional` (or redirect to `/institutional-portal`), `/cpr-monitoring`, `/payment`. This fixes broken navigation and reuses existing pages.
+1. **Add routes in App.tsx** for: `/enroll`, `/learner-dashboard`, `/patients`, `/protocols`, `/performance-dashboard`, `/safe-truth`, `/provider-profile`, `/institutional` (or redirect to `/hospital-admin-dashboard`; keep `/institutional-portal` as legacy redirect), `/cpr-monitoring`, `/payment`. This fixes broken navigation and reuses existing pages.
 2. **Optional:** Add `/join-session` and `/collaborative-session/:id` if you want join/collab in the main app.
 3. **Protocols:** Ensure `/protocols` (EmergencyProtocols) and, if needed, ResusGPS link to individual protocol pages so nothing is orphaned.
 4. **Footer:** Add minimal Privacy/Terms/About/Contact pages or point footer links to existing content/URLs.
