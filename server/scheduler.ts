@@ -6,11 +6,35 @@ import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 
+function useMpesaMock(): boolean {
+  const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/**
+ * While the Node process is running, refresh the cached Daraja OAuth token before it expires.
+ * (Does not wake a sleeping host — pair with GET /api/health + external ping for that.)
+ */
+function scheduleDarajaTokenWarm() {
+  if (useMpesaMock()) return;
+
+  cron.schedule("*/12 * * * *", async () => {
+    try {
+      const { getMpesaAccessToken } = await import("./mpesa");
+      await getMpesaAccessToken();
+    } catch (error) {
+      console.warn("[Scheduler] Daraja token warm failed:", error instanceof Error ? error.message : error);
+    }
+  });
+}
+
 /**
  * Initialize scheduled jobs for automated reminders and follow-ups
  */
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing automated tasks...");
+
+  scheduleDarajaTokenWarm();
 
   // Run payment reminders every day at 9 AM
   schedulePaymentReminders();

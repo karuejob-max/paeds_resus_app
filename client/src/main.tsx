@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, httpLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -127,48 +127,75 @@ function buildFallbackTrpcUrl(input: RequestInfo | URL, fallbackBase: string): s
 
 const trpcBases = getTrpcHttpBaseCandidates();
 
+/** Shared transport: credentials, response normalization, www/apex fallback. */
+function createTrpcFetch() {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestInit: RequestInit = {
+      ...(init ?? {}),
+      credentials: "include",
+    };
+
+    const exec = async (target: RequestInfo | URL) => {
+      const raw = await globalThis.fetch(target, requestInit);
+      return normalizeTrpcFetchResponse(raw);
+    };
+
+    try {
+      return await exec(input);
+    } catch (error) {
+      if (!isRetriableTrpcTransportError(error) || trpcBases.length < 2) {
+        throw error;
+      }
+      for (const base of trpcBases.slice(1)) {
+        try {
+          const fallbackUrl = buildFallbackTrpcUrl(input, base);
+          return await exec(fallbackUrl);
+        } catch (innerError) {
+          if (!isRetriableTrpcTransportError(innerError)) {
+            throw innerError;
+          }
+        }
+      }
+      throw error;
+    }
+  };
+}
+
+const trpcFetch = createTrpcFetch();
+
+const sharedHttpOptions = {
+  url: trpcBases[0],
+  transformer: superjson,
+  fetch: trpcFetch,
+} as const;
+
+/**
+ * Payment-related mutations must not sit behind a large `events.trackEvent` batch (same microtask
+ * queue + URL batching), or STK can appear minutes late. Send them via `httpLink` (no batching).
+ */
+function isPaymentCriticalPath(path: string): boolean {
+  return (
+    path.startsWith("mpesa.") ||
+    path === "enrollment.enrollWithPayment" ||
+    path === "payments.initiateSTKPush" ||
+    path === "payments.storeCheckoutRequest" ||
+    path === "courses.initiateMpesaPayment"
+  );
+}
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: trpcBases[0],
-      transformer: superjson,
-      /**
-       * Default batching does not cap URL size. Many queued `events.trackEvent` mutations are
-       * merged with `mpesa.initiatePayment` into one batch; procedure paths are concatenated in
-       * the URL (`path1,path2,...?batch=1`), which can exceed proxy limits and return HTTP 414.
-       * A conservative max length splits batches before the URL grows too large.
-       */
-      maxURLLength: 2048,
-      async fetch(input, init) {
-        const requestInit: RequestInit = {
-          ...(init ?? {}),
-          credentials: "include",
-        };
-
-        const exec = async (target: RequestInfo | URL) => {
-          const raw = await globalThis.fetch(target, requestInit);
-          return normalizeTrpcFetchResponse(raw);
-        };
-
-        try {
-          return await exec(input);
-        } catch (error) {
-          if (!isRetriableTrpcTransportError(error) || trpcBases.length < 2) {
-            throw error;
-          }
-          for (const base of trpcBases.slice(1)) {
-            try {
-              const fallbackUrl = buildFallbackTrpcUrl(input, base);
-              return await exec(fallbackUrl);
-            } catch (innerError) {
-              if (!isRetriableTrpcTransportError(innerError)) {
-                throw innerError;
-              }
-            }
-          }
-          throw error;
-        }
-      },
+    splitLink({
+      condition: (op) => isPaymentCriticalPath(op.path),
+      true: httpLink(sharedHttpOptions),
+      false: httpBatchLink({
+        ...sharedHttpOptions,
+        /**
+         * Many queued `events.trackEvent` mutations merge into one batch; procedure paths are
+         * concatenated in the URL (`path1,path2,...?batch=1`), which can exceed proxy limits (414).
+         */
+        maxURLLength: 2048,
+      }),
     }),
   ],
 });

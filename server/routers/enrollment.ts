@@ -512,15 +512,19 @@ export const enrollmentRouter = router({
         }
 
         // Initiate M-Pesa STK Push using existing M-Pesa integration
-        const { initiateStkPush } = await import("../mpesa");
+        const { getMpesaAccessToken, initiateStkPush } = await import("../mpesa");
         const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
-        
+
+        const tokenWarm = getMpesaAccessToken();
+
         const accountReference = buildStkAccountReference({
           enrollmentId: enrollment.insertId,
           learnerName: ctx.user.name,
           userId: ctx.user.id,
         });
-        
+
+        await tokenWarm;
+
         const mpesaResult = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: Math.ceil(course.price / 100), // Convert cents to KES
@@ -542,12 +546,12 @@ export const enrollmentRouter = router({
 
         const kesAmount = Math.ceil(course.price / 100);
         const checkoutId = mpesaResult.checkoutRequestID || "";
-        await trackPaymentInitiation(
+        void trackPaymentInitiation(
           userId,
           kesAmount,
           "m-pesa",
           checkoutId ? `stk_${checkoutId}` : `micro_enroll_${enrollment.insertId}`,
-        );
+        ).catch((err) => console.error("[Analytics] trackPaymentInitiation:", err));
 
         return {
           success: true,

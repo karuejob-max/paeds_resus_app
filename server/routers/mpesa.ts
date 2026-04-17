@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
-import { initiateStkPush, queryStk } from "../mpesa";
+import { getMpesaAccessToken, initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
 import { payments, enrollments, microCourseEnrollments, microCourses } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
@@ -72,6 +72,20 @@ async function syncIntubationLearningEnrollmentOnMicroPaymentSuccess(params: {
 
 export const mpesaRouter = router({
   /**
+   * Prefetch Daraja OAuth token while the user enters their phone number.
+   * Cuts one sequential HTTPS round-trip from the critical path on cold cache.
+   */
+  warmDarajaAuth: protectedProcedure.mutation(async () => {
+    try {
+      await getMpesaAccessToken();
+      return { ok: true as const };
+    } catch (e) {
+      console.error("[M-Pesa] warmDarajaAuth failed:", e);
+      return { ok: false as const };
+    }
+  }),
+
+  /**
    * Initiate M-Pesa STK Push payment
    */
   initiatePayment: protectedProcedure
@@ -132,6 +146,9 @@ export const mpesaRouter = router({
           userId: ctx.user?.id ?? 0,
         });
 
+        const tokenWarm = getMpesaAccessToken();
+        await tokenWarm;
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: input.amount,
@@ -159,12 +176,12 @@ export const mpesaRouter = router({
         const paymentId = (paymentRecord as any)[0]?.id ?? null;
 
         const checkoutId = mpesaResponse.checkoutRequestID || "";
-        await trackPaymentInitiation(
+        void trackPaymentInitiation(
           ctx.user!.id,
           input.amount,
           "mpesa",
           checkoutId ? `stk_${checkoutId}` : `stk_order_${orderId}`,
-        );
+        ).catch((err) => console.error("[Analytics] trackPaymentInitiation:", err));
 
         return {
           success: true,
@@ -581,6 +598,9 @@ export const mpesaRouter = router({
           learnerName: ctx.user?.name,
           userId: ctx.user?.id ?? 0,
         });
+
+        const tokenWarm = getMpesaAccessToken();
+        await tokenWarm;
 
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,

@@ -7,8 +7,6 @@ import Header from "./components/Header";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
-import Home from "./pages/Home";
-import Payment from "./pages/Payment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -65,6 +63,8 @@ const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
+const Home = lazy(() => import("./pages/Home"));
+const Payment = lazy(() => import("./pages/Payment"));
 
 /** Redirects to target path (for routes that have no dedicated page). */
 function Redirect({ to }: { to: string }) {
@@ -519,12 +519,18 @@ function AdminGate({ children }: { children: ReactNode }) {
 function RootEntry() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
-  const defaultRole = mapUserTypeToRole(user?.userType);
+  const roleForHome = mapUserTypeToRole(user?.userType);
 
   useEffect(() => {
     if (loading) return;
-    setLocation(isAuthenticated ? getRoleHomePath(defaultRole) : "/start");
-  }, [defaultRole, isAuthenticated, loading, setLocation]);
+    const dest = isAuthenticated ? getRoleHomePath(roleForHome) : "/start";
+    if (dest === "/home") void import("./pages/Home");
+    else if (dest === "/parent-safe-truth") void import("./pages/ParentSafeTruth");
+    else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
+    setLocation(dest);
+  }, [isAuthenticated, loading, roleForHome, setLocation]);
+
+  if (!loading) return null;
 
   return (
     <RouteLoadingState

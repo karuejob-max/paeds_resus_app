@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useSearch } from "wouter";
@@ -46,6 +46,14 @@ export default function Payment() {
   const { data: payCaps } = trpc.mpesa.getClientPaymentCapabilities.useQuery(undefined, {
     staleTime: 60_000,
   });
+
+  const warmDarajaAuth = trpc.mpesa.warmDarajaAuth.useMutation();
+  const paymentPageWarmOnce = useRef(false);
+  useEffect(() => {
+    if (!payCaps?.stkPushOffered || paymentPageWarmOnce.current) return;
+    paymentPageWarmOnce.current = true;
+    warmDarajaAuth.mutate();
+  }, [payCaps?.stkPushOffered, warmDarajaAuth]);
 
   const [bankReference, setBankReference] = useState("");
 

@@ -14,7 +14,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
-import { CPRClockStreamlined } from '@/components/CPRClockStreamlined';
+import { CPRClockTeam } from '@/components/CPRClockTeam';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
@@ -333,7 +333,6 @@ export default function ResusGPS() {
 
   const handleSaveSession = async () => {
     trackButtonClick('Save Session for Fellowship Credit');
-    // Record session for fellowship analytics
     const pathway = session.phase === 'CARDIAC_ARREST' 
       ? 'cardiac_arrest_protocol'
       : session.activeThreat?.id || 'general_resus';
@@ -594,9 +593,9 @@ export default function ResusGPS() {
           />
         )}
 
-        {session.phase === 'CARDIAC_ARREST' && showCPRClock && weight ? (
-          <CPRClockStreamlined
-            patientWeight={weight}
+        {session.phase === 'CARDIAC_ARREST' && showCPRClock ? (
+          <CPRClockTeam
+            patientWeight={weight || undefined}
             patientAgeMonths={session.patientAge ? parseInt(session.patientAge.split(' ')[0]) * 12 : undefined}
             onClose={() => setShowCPRClock(false)}
           />
@@ -671,13 +670,14 @@ export default function ResusGPS() {
 
       {/* Patient Info Dialog */}
       <Dialog open={patientInfoOpen} onOpenChange={setPatientInfoOpen}>
-        <DialogContent className="bg-background border-border">
+        <DialogContent className="bg-background border-border flex flex-col max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="text-foreground">Patient Information</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Update weight and age at any point. Drug doses recalculate automatically.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">Weight (kg)</label>
@@ -688,6 +688,11 @@ export default function ResusGPS() {
                 onChange={e => setTempWeight(e.target.value)}
                 className="bg-background text-foreground"
               />
+              {tempWeight && (
+                <p className="text-xs text-green-400 mt-1">
+                  ✓ Weight set to {tempWeight} kg
+                </p>
+              )}
               {!tempWeight && (
                 <p className="text-xs text-amber-400 mt-1">
                   Without weight, drug doses show per-kg calculations only
@@ -706,6 +711,7 @@ export default function ResusGPS() {
                     const calculatedWeight = estimateWeightFromAge(age);
                     if (calculatedWeight) {
                       setTempWeight(calculatedWeight.toString());
+                      toast.success(`Weight auto-calculated: ${calculatedWeight} kg`);
                     }
                   }
                 }}
@@ -715,9 +721,17 @@ export default function ResusGPS() {
               </p>
             </div>
           </div>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
             <Button variant="outline" onClick={() => setPatientInfoOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdatePatientInfo}>Update</Button>
+            <Button 
+              onClick={handleUpdatePatientInfo}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2"
+              disabled={!tempWeight && !tempAge}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Save Weight & Age
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

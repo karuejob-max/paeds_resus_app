@@ -636,3 +636,30 @@
 - [ ] Create implementation checklist for alignment
 - [ ] Report on repo vs deployment drift findings
 - [ ] Provide deployment remediation recommendations
+
+
+## ResusGPS UX/UI Audit (April 17, 2026) - CRITICAL ISSUES
+
+### Blocking Issues (2-Star Rating)
+- [ ] Dialog scrolling broken - Patient Info Dialog cannot scroll up/down, content cut off
+- [ ] Save button invisible - User cannot find "Save Weight & Age" button in dialog
+- [ ] CPR Clock not linking - CPRClockTeam component not properly integrated/triggered
+- [ ] User cannot proceed past Patient Info Dialog to primary survey - BLOCKS ENTIRE APP
+
+### Root Causes to Investigate
+- [ ] DialogContent max-height may be too small or overflow hidden
+- [ ] Save button may be outside viewport or hidden by parent container
+- [ ] CPR Clock may not be triggering on cardiac arrest detection
+- [ ] Dialog may not have proper scrolling container
+
+### Fixes Required
+- [ ] Fix DialogContent scrolling (add max-h-[80vh] and overflow-y-auto)
+- [ ] Ensure Save button is visible and clickable
+- [ ] Verify CPR Clock integration and triggering logic
+- [ ] Test complete flow: Idle → Patient Info → Assessment → CPR Clock (if cardiac arrest)
+
+### Testing Required
+- [ ] Browser test: Open Patient Info Dialog and verify scrolling works
+- [ ] Browser test: Verify Save button is visible and clickable
+- [ ] Browser test: Trigger cardiac arrest and verify CPR Clock appears
+- [ ] Browser test: Complete full resuscitation flow without blocking

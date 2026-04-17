@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "fedace8a-c5fa-4c6e-8f7f-96d55ce40921",
+  "id": "965a4c4f-b102-42ee-aed6-c871f7198ec8",
   "prevId": "6db05468-08bb-4313-9329-dfdade2ec7d6",
   "tables": {
     "accreditationApplications": {

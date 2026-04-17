@@ -115,8 +115,8 @@ class PWAManager {
 
     try {
       await this.registration.showNotification(title, {
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon: "/favicon.png",
+        badge: "/favicon.png",
         ...options,
       });
     } catch (error) {

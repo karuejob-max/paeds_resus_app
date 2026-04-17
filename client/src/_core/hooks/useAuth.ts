@@ -1,4 +1,5 @@
 import { getLoginUrl } from "@/const";
+import { readCachedAuthMe } from "@/lib/auth-session-cache";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
@@ -13,9 +14,16 @@ export function useAuth(options?: UseAuthOptions) {
     options ?? {};
   const utils = trpc.useUtils();
 
+  const initialMe = useMemo(() => readCachedAuthMe(), []);
+
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    /** Hydrate from localStorage so first paint can skip the “loading” shell when we know last session state */
+    ...(initialMe !== undefined ? { initialData: initialMe } : {}),
+    staleTime: 0,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: true,
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -44,14 +52,17 @@ export function useAuth(options?: UseAuthOptions) {
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
+      /** Pending only when we have no cached hint and no data yet (first visit / hard refresh with empty storage). */
+      loading:
+        (meQuery.isPending && initialMe === undefined) || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
     };
   }, [
     meQuery.data,
     meQuery.error,
-    meQuery.isLoading,
+    meQuery.isPending,
+    initialMe,
     logoutMutation.error,
     logoutMutation.isPending,
   ]);
@@ -67,7 +78,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if ((meQuery.isPending && initialMe === undefined) || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
@@ -77,7 +88,8 @@ export function useAuth(options?: UseAuthOptions) {
     redirectOnUnauthenticated,
     redirectPath,
     logoutMutation.isPending,
-    meQuery.isLoading,
+    meQuery.isPending,
+    initialMe,
     state.user,
   ]);
 

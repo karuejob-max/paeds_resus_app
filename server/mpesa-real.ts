@@ -5,6 +5,7 @@
  */
 
 import axios from "axios";
+import https from "node:https";
 
 import { isMpesaProduction } from "./lib/mpesa-env";
 import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
@@ -15,6 +16,11 @@ const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
 
 const API_URL = isMpesaProduction() ? MPESA_API_URL : MPESA_SANDBOX_URL;
+
+/** Reuse TLS to Safaricom so OAuth + STK can share a warm connection when possible. */
+const darajaHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
+
+const darajaAxiosConfig = { httpsAgent: darajaHttpsAgent, timeout: 45_000 } as const;
 
 interface MpesaConfig {
   consumerKey: string;
@@ -78,6 +84,7 @@ export async function getMpesaAccessToken(): Promise<string> {
       headers: {
         Authorization: `Basic ${auth}`,
       },
+      ...darajaAxiosConfig,
     });
 
     const token = response.data.access_token;
@@ -162,6 +169,7 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
+        ...darajaAxiosConfig,
       }
     );
 
@@ -261,6 +269,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
+        ...darajaAxiosConfig,
       }
     );
 

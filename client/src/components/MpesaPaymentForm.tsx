@@ -116,11 +116,21 @@ export function MpesaPaymentForm({
     void utils.mpesa.getPaymentStatusForEnrollment.invalidate();
   };
 
+  const warmDarajaAuth = trpc.mpesa.warmDarajaAuth.useMutation();
+  const warmDarajaOnce = useRef(false);
+  useEffect(() => {
+    if (warmDarajaOnce.current) return;
+    warmDarajaOnce.current = true;
+    warmDarajaAuth.mutate();
+  }, [warmDarajaAuth]);
+
   const initiatePaymentMutation = trpc.mpesa.initiatePayment.useMutation({
     onSuccess: (data) => {
       if (data.success) {
         setPaymentStatus("processing");
-        setStatusMessage("STK Push sent! Enter your M-Pesa PIN on your phone. Waiting for confirmation…");
+        setStatusMessage(
+          "Request accepted—check your phone for the M-Pesa PIN prompt. It usually appears within seconds; on busy networks or after the server has been idle it can take 1–3 minutes. Waiting for confirmation…"
+        );
         const ck = data.checkoutRequestID || "";
         setCheckoutRequestID(ck);
         if (data.enrollmentId) {
@@ -156,7 +166,9 @@ export function MpesaPaymentForm({
 
     setIsLoading(true);
     setPaymentStatus("processing");
-    setStatusMessage("Initiating payment...");
+    setStatusMessage(
+      "Contacting M-Pesa… If this is the first payment after a quiet period, the server may need a moment to wake up—usually under a minute."
+    );
     setCheckoutRequestID("");
     setPollEnrollmentId(enrollmentId ?? null);
 
@@ -235,9 +247,9 @@ export function MpesaPaymentForm({
             <div className="p-3 bg-secondary border border-border rounded-lg space-y-3">
               <p className="text-sm font-medium text-foreground mb-2">What to do next:</p>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Check your phone for the M-Pesa prompt</li>
+                <li>Watch for the M-Pesa prompt on your phone (Safaricom sometimes delivers it slowly when the network is busy)</li>
                 <li>Enter your M-Pesa PIN</li>
-                <li>This page checks payment status automatically after a short pause (so M-Pesa can show the prompt first), then every few seconds</li>
+                <li>This page pauses briefly so the prompt can appear, then checks payment status every few seconds</li>
               </ol>
               <Button type="button" variant="outline" size="sm" className="w-full" onClick={checkPaymentNow}>
                 I&apos;ve paid — check status now
