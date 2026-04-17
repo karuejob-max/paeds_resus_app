@@ -61,6 +61,7 @@ const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboardi
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
+const MicroCoursesLanding = lazy(() => import("./pages/MicroCoursesLanding"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const Home = lazy(() => import("./pages/Home"));
@@ -304,6 +305,11 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>
+          <Route path="/micro-courses">{() => (
+            <RoleGate allowed={["provider"]}>
+              <MicroCoursesLanding />
+            </RoleGate>
+          )}</Route>
           <Route path="/fellowship">{() => (
             <RoleGate allowed={["provider"]}>
               <FellowshipDashboard />
