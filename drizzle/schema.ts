@@ -742,6 +742,7 @@ export const microCourses = mysqlTable("microCourses", {
   price: int("price").notNull(), // in KES cents (800 KES = 80000 cents)
   prerequisiteId: varchar("prerequisiteId", { length: 64 }), // e.g., 'asthma-i' is prerequisite for 'asthma-ii'
   order: int("order").default(0),
+  isPublished: boolean("isPublished").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

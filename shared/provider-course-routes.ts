@@ -43,6 +43,17 @@ export function getProviderCourseDestination(
       : "/course/intubation-essentials";
   }
 
+  // For fellowship micro-courses that don't have a dedicated page yet,
+  // we route them to the generic course player.
+  // Note: we only do this for IDs that look like fellowship courses (e.g. contain hyphens or are in the catalog).
+  // For truly unknown IDs, we still want to return the fallback.
+  const isFellowshipCourse = courseId.includes("-") || 
+    ["asthma", "pneumonia", "septic-shock", "hypovolemic-shock", "cardiogenic-shock", "status-epilepticus", "dka", "anaphylaxis", "meningitis", "malaria", "burns", "trauma", "aki", "anaemia"].some(p => courseId.startsWith(p));
+
+  if (isFellowshipCourse) {
+    return enrollmentId ? `/course/${courseId}?enrollmentId=${enrollmentId}` : `/course/${courseId}`;
+  }
+
   return fallback;
 }
 
