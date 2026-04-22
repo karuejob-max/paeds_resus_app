@@ -253,6 +253,13 @@
       "when": 1776872061837,
       "tag": "0035_worthless_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1776872368057,
+      "tag": "0036_safe_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }
