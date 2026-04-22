@@ -820,4 +820,44 @@ export const mpesaRouter = router({
         Boolean(callback && !callback.includes("example.com")),
     };
   }),
+
+  // TEMPORARY DEBUG: returns raw Safaricom STK Push response — remove after diagnosis
+  debugStkPush: protectedProcedure
+    .input(z.object({ phoneNumber: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await initiateStkPush({
+          phoneNumber: input.phoneNumber,
+          amount: 1,
+          accountReference: "DEBUG_TEST",
+          transactionDesc: "Debug STK Push Test",
+          orderId: "debug_" + Date.now(),
+        });
+        return {
+          ok: true,
+          result,
+          config: {
+            env: process.env.MPESA_ENVIRONMENT,
+            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
+            passkeySet: !!process.env.MPESA_PASSKEY,
+            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
+            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
+          },
+        };
+      } catch (err: any) {
+        return {
+          ok: false,
+          error: err.message,
+          status: err?.response?.status,
+          daraja: err?.response?.data,
+          config: {
+            env: process.env.MPESA_ENVIRONMENT,
+            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
+            passkeySet: !!process.env.MPESA_PASSKEY,
+            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
+            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
+          },
+        };
+      }
+    }),
 });
