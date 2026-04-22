@@ -11,6 +11,8 @@ import {
   parentSafeTruthSubmissions,
   clinicalReferrals,
   adminAuditLog,
+  resusGPSSessions,
+  resusGPSCases,
 } from "../../drizzle/schema";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
@@ -56,6 +58,10 @@ export const adminStatsRouter = router({
           resusGpsAnalyticsLastDays: {
             totalEvents: 0,
             eventTypes: [] as { eventType: string; count: number }[],
+          },
+          fellowshipStatsLastDays: {
+            totalSessions: 0,
+            totalCases: 0,
           },
         };
       }
@@ -135,6 +141,22 @@ export const adminStatsRouter = router({
       const analyticsLastDaysRollup = rollupAnalyticsLastDays(analyticsInPeriod);
       const resusGpsAnalyticsLastDays = rollupResusGpsLastDays(analyticsInPeriod);
 
+      // Fellowship session stats
+      const fellowshipSessionsInPeriod = await db
+        .select({ id: resusGPSSessions.id })
+        .from(resusGPSSessions)
+        .where(gte(resusGPSSessions.createdAt, analyticsSince));
+      
+      const fellowshipCasesInPeriod = await db
+        .select({ id: resusGPSCases.id })
+        .from(resusGPSCases)
+        .where(gte(resusGPSCases.createdAt, analyticsSince));
+
+      const fellowshipStatsLastDays = {
+        totalSessions: fellowshipSessionsInPeriod.length,
+        totalCases: fellowshipCasesInPeriod.length,
+      };
+
       // Count unique active users in last N days
       const activeUsersResult = await db
         .selectDistinct({ userId: analyticsEvents.userId })
@@ -208,6 +230,7 @@ export const adminStatsRouter = router({
         referralsThisMonth,
         analyticsLastDays: analyticsLastDaysRollup,
         resusGpsAnalyticsLastDays,
+        fellowshipStatsLastDays,
         activeUsersLastDays,
         topProtocolsViewed,
       };

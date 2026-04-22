@@ -328,6 +328,7 @@ export const fellowshipRouter = router({
         reassessmentCount: z.number().optional(),
         durationSeconds: z.number().optional(),
         depthScore: z.number().min(0).max(100).optional(),
+        sessionId: z.string().optional(), // Client-side generated UUID for idempotency
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -336,11 +337,18 @@ export const fellowshipRouter = router({
         throw new Error("Database connection failed");
       }
 
-      // Generate UUID for sessionId
-      const sessionId = `session-${ctx.user.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Allow client to provide sessionId for idempotency (e.g. on retry)
+      // If not provided, generate a new one.
+      const sessionId = input.sessionId || `session-${ctx.user.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Check for existing session with this sessionId to ensure idempotency
+      const existingSession = await db.select().from(resusGPSSessions).where(eq(resusGPSSessions.sessionId, sessionId)).limit(1);
+      if (existingSession.length > 0) {
+        return { success: true, sessionId: sessionId, alreadyExists: true };
+      }
 
       // Create session with all required fields
-      const result = await db.insert(resusGPSSessions).values({
+      await db.insert(resusGPSSessions).values({
         userId: ctx.user.id,
         sessionId: sessionId,
         primaryDiagnosis: input.primaryDiagnosis,
@@ -380,6 +388,17 @@ export const fellowshipRouter = router({
       const db = await getDb();
       if (!db) {
         throw new Error("Database connection failed");
+      }
+
+      // Check for existing case with this sessionId and caseNumber to ensure idempotency
+      const existingCase = await db
+        .select()
+        .from(resusGPSCases)
+        .where(and(eq(resusGPSCases.sessionId, input.sessionId), eq(resusGPSCases.caseNumber, input.caseNumber)))
+        .limit(1);
+
+      if (existingCase.length > 0) {
+        return { success: true, caseId: existingCase[0].id, alreadyExists: true };
       }
 
       // Create case with all required fields

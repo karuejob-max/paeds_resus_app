@@ -1,5 +1,17 @@
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { z } from "zod";
+import { ENV } from "../_core/env";
+import { TRPCError } from "@trpc/server";
+
+const legacyWriteGate = protectedProcedure.use(async ({ next }) => {
+  if (!ENV.cprClockLegacyWriteEnabled) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Legacy CPR clock writes are disabled. Please use the canonical cprSession router.",
+    });
+  }
+  return next();
+});
 import { getDb } from "../db";
 import {
   cprSessions,
@@ -14,7 +26,7 @@ import { eq, and, desc, gte, lte } from "drizzle-orm";
 
 export const cprClockRouter = router({
   // Start a new CPR session
-  startSession: protectedProcedure
+  startSession: legacyWriteGate
     .input(
       z.object({
         patientId: z.number(),
@@ -43,7 +55,7 @@ export const cprClockRouter = router({
     }),
 
   // End a CPR session
-  endSession: protectedProcedure
+  endSession: legacyWriteGate
     .input(
       z.object({
         sessionId: z.number(),
@@ -92,7 +104,7 @@ export const cprClockRouter = router({
     }),
 
   // Log a CPR event (compression, medication, defibrillation, etc.)
-  logEvent: protectedProcedure
+  logEvent: legacyWriteGate
     .input(
       z.object({
         sessionId: z.number(),
@@ -174,7 +186,7 @@ export const cprClockRouter = router({
     }),
 
   // Log medication administration
-  logMedication: protectedProcedure
+  logMedication: legacyWriteGate
     .input(
       z.object({
         sessionId: z.number(),
@@ -236,7 +248,7 @@ export const cprClockRouter = router({
     }),
 
   // Log defibrillator event
-  logDefibrillation: protectedProcedure
+  logDefibrillation: legacyWriteGate
     .input(
       z.object({
         sessionId: z.number(),

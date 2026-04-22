@@ -314,62 +314,69 @@ export default function ResusGPS() {
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
-  const recordSessionMutation =
-    ((trpc as unknown as {
-      resusSessionAnalytics?: {
-        recordSession?: {
-          useMutation?: () => {
-            mutateAsync: (input: unknown) => Promise<any>;
-            mutate: (input: unknown, options?: unknown) => void;
-            isPending?: boolean;
-          };
-        };
-      };
-    }).resusSessionAnalytics?.recordSession?.useMutation?.() ?? {
-      mutateAsync: async () => null,
-      mutate: () => undefined,
-      isPending: false,
-    });
+  const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation();
+  const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation();
 
   const handleSaveSession = async () => {
     trackButtonClick('Save Session for Fellowship Credit');
-    const pathway = session.phase === 'CARDIAC_ARREST' 
+    const primaryDiagnosis = session.phase === 'CARDIAC_ARREST' 
       ? 'cardiac_arrest_protocol'
       : session.activeThreat?.id || 'general_resus';
     
     const interactionCount = session.events.filter(e => 
       e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
     ).length;
+
+    const reassessmentCount = session.events.filter(e => e.type === 'reassessment').length;
     
     try {
-      const result = await recordSessionMutation.mutateAsync({
-        pathway,
-        durationSeconds: timer.elapsed,
-        interactionsCount: Math.max(interactionCount, 1),
-        patientAge: session.patientAge,
-        patientWeight: session.patientWeight,
+      // Step 1: Record the session (idempotent via session.id)
+      const sessionResult = await recordSessionMutation.mutateAsync({
         sessionId: session.id,
-        notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
+        primaryDiagnosis,
+        patientAgeMonths: session.patientAge || 0,
+        patientWeightKg: session.patientWeight || 0,
+        isTrauma: session.isTrauma,
+        isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+        interventionCount: interactionCount,
+        reassessmentCount,
+        durationSeconds: timer.elapsed,
+        depthScore: session.depthScore || 0,
+      });
+
+      // Step 2: Record the case (idempotent via sessionId + caseNumber)
+      await recordCaseMutation.mutateAsync({
+        sessionId: session.id,
+        caseNumber: 1, // Currently ResusGPS v2 is single-case per session
+        diagnosis: primaryDiagnosis,
+        abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
+        interventions: session.events
+          .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+          .map(e => e.detail),
+        reassessments: session.events
+          .filter(e => e.type === 'reassessment')
+          .map(e => e.detail),
+        outcome: session.outcome || 'completed',
+        depthScore: session.depthScore || 0,
       });
       
-      if (result?.isValid) {
-        const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
-        const nextRec = result.nextRecommendedCondition ? ` Practice next: ${result.nextRecommendedCondition}` : '';
+      if (sessionResult.success) {
         toast.success(
-          `✅ Session Saved for Fellowship Credit: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}${nextRec}`,
-          { duration: 5000 }
+          sessionResult.alreadyExists 
+            ? '✅ Session already saved for fellowship credit' 
+            : '✅ Session saved for fellowship credit', 
+          { duration: 3000 }
         );
-      } else if (result?.depthScore && result.depthScore < 50) {
-        toast.warning(
-          `Session saved (depth: ${result.depthScore}%). ${Math.ceil((50 - result.depthScore) / 10)} more interactions needed for full fellowship credit.`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success('✅ Session saved for fellowship tracking', { duration: 3000 });
       }
     } catch (error) {
       console.error('Failed to save session:', error);
-      toast.error('Could not save session for fellowship credit', { duration: 3000 });
+      toast.error('Could not save session for fellowship credit. Please retry.', { 
+        duration: 5000,
+        action: {
+          label: 'Retry',
+          onClick: () => handleSaveSession()
+        }
+      });
     }
   };
 
@@ -389,34 +396,40 @@ export default function ResusGPS() {
     ).length;
     
     try {
-      const result = await recordSessionMutation.mutateAsync({
-        pathway,
-        durationSeconds: timer.elapsed,
-        interactionsCount: Math.max(interactionCount, 1),
-        patientAge: session.patientAge,
-        patientWeight: session.patientWeight,
+      // Step 1: Record the session (idempotent via session.id)
+      await recordSessionMutation.mutateAsync({
         sessionId: session.id,
-        notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
+        primaryDiagnosis: pathway,
+        patientAgeMonths: session.patientAge || 0,
+        patientWeightKg: session.patientWeight || 0,
+        isTrauma: session.isTrauma,
+        isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+        interventionCount: interactionCount,
+        reassessmentCount: session.events.filter(e => e.type === 'reassessment').length,
+        durationSeconds: timer.elapsed,
+        depthScore: session.depthScore || 0,
+      });
+
+      // Step 2: Record the case (idempotent via sessionId + caseNumber)
+      await recordCaseMutation.mutateAsync({
+        sessionId: session.id,
+        caseNumber: 1,
+        diagnosis: pathway,
+        abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
+        interventions: session.events
+          .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+          .map(e => e.detail),
+        reassessments: session.events
+          .filter(e => e.type === 'reassessment')
+          .map(e => e.detail),
+        outcome: session.outcome || 'completed',
+        depthScore: session.depthScore || 0,
       });
       
-      if (result?.isValid) {
-        const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
-        const nextRec = result.nextRecommendedCondition ? ` Practice next: ${result.nextRecommendedCondition}` : '';
-        toast.success(
-          `Session Valid: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}${nextRec}`,
-          { duration: 5000 }
-        );
-      } else if (result?.depthScore && result.depthScore < 50) {
-        toast.warning(
-          `Session recorded (depth: ${result.depthScore}%). ${Math.ceil((50 - result.depthScore) / 10)} more interactions needed for fellowship credit.`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success('Session recorded for fellowship tracking', { duration: 3000 });
-      }
+      toast.success('Session recorded for fellowship tracking', { duration: 3000 });
     } catch (error) {
-      console.error('Failed to record session:', error);
-      toast.error('Could not record session for analytics', { duration: 3000 });
+      console.error('Failed to record session during export:', error);
+      toast.error('Session data not recorded for fellowship credit, but export continued.');
     }
     
     const text = exportClinicalRecord(session);
