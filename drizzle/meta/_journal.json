@@ -246,6 +246,13 @@
       "when": 1776408757379,
       "tag": "0034_third_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1776872061837,
+      "tag": "0035_worthless_famine",
+      "breakpoints": true
     }
   ]
 }

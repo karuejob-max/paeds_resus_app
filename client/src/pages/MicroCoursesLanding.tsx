@@ -377,7 +377,7 @@ export default function MicroCoursesLanding() {
             setSelectedCourse(null);
           }}
           course={selectedCourse}
-          onSuccess={handleEnrollmentSuccess}
+          onEnrollmentSuccess={handleEnrollmentSuccess}
         />
       )}
     </div>

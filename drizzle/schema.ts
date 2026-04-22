@@ -840,6 +840,27 @@ export type QuizQuestion = typeof quizQuestions.$inferSelect;
 export type InsertQuizQuestion = typeof quizQuestions.$inferInsert;
 
 // User Progress table
+// ============================================
+// CAPSTONE SUBMISSIONS TABLE
+// ============================================
+export const capstoneSubmissions = mysqlTable("capstoneSubmissions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  courseId: varchar("courseId", { length: 255 }).notNull(),
+  caseResponse: text("caseResponse").notNull(),
+  status: mysqlEnum("status", ["pending", "under_review", "graded", "passed", "failed"]).default("pending").notNull(),
+  score: int("score"), // 0-100
+  instructorId: int("instructorId"),
+  instructorFeedback: text("instructorFeedback"),
+  gradedAt: timestamp("gradedAt"),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CapstoneSubmission = typeof capstoneSubmissions.$inferSelect;
+export type InsertCapstoneSubmission = typeof capstoneSubmissions.$inferInsert;
+
 export const userProgress = mysqlTable("userProgress", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),

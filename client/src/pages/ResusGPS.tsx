@@ -595,7 +595,7 @@ export default function ResusGPS() {
 
         {session.phase === 'CARDIAC_ARREST' && showCPRClock ? (
           <CPRClockTeam
-            patientWeight={weight || undefined}
+            patientWeight={weight ?? 10}
             patientAgeMonths={session.patientAge ? parseInt(session.patientAge.split(' ')[0]) * 12 : undefined}
             onClose={() => setShowCPRClock(false)}
           />

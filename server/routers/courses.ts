@@ -10,7 +10,7 @@ import { getDb } from '../db';
 import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 
@@ -346,7 +346,7 @@ export const coursesRouter = router({
 
         // Check if user is enrolled in this course
         const enrollment = await database.query.microCourseEnrollments.findFirst({
-          where: (e) => eq(e.id, input.enrollmentId),
+          where: eq(microCourseEnrollments.id, input.enrollmentId),
         });
 
         if (!enrollment || enrollment.userId !== ctx.user.id) {
@@ -358,12 +358,11 @@ export const coursesRouter = router({
 
         // Save or update user progress
         const existingProgress = await database.query.userProgress.findFirst({
-          where: (p) =>
-            and(
-              eq(p.userId, ctx.user.id),
-              eq(p.enrollmentId, input.enrollmentId),
-              eq(p.moduleId, input.moduleId)
-            ),
+          where: and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.moduleId, input.moduleId)
+          ),
         });
 
         if (existingProgress) {
@@ -408,6 +407,95 @@ export const coursesRouter = router({
         console.error('Error submitting quiz:', error);
         if (error instanceof TRPCError) throw error;
         return { success: false, message: 'Failed to submit quiz' };
+      }
+    }),
+
+  /** Submit capstone project for instructor grading */
+  submitCapstone: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.number(),
+      courseId: z.string(),
+      caseResponse: z.string().min(100, 'Response must be at least 100 characters'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) return { success: false, message: 'Database unavailable' };
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: and(eq(microCourseEnrollments.userId, ctx.user.id), eq(microCourseEnrollments.id, input.enrollmentId)),
+        });
+        if (!enrollment) throw new TRPCError({ code: 'FORBIDDEN', message: 'Not enrolled in this course' });
+        const existing = await database.query.capstoneSubmissions.findFirst({
+          where: and(eq(capstoneSubmissions.userId, ctx.user.id), eq(capstoneSubmissions.enrollmentId, input.enrollmentId)),
+        });
+        if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Capstone already submitted. Awaiting grading.' });
+        await database.insert(capstoneSubmissions).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          courseId: input.courseId,
+          caseResponse: input.caseResponse,
+          status: 'pending',
+        });
+        return { success: true, message: 'Capstone submitted. An instructor will review it within 48 hours.' };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error submitting capstone:', error);
+        return { success: false, message: 'Failed to submit capstone' };
+      }
+    }),
+
+  /** Get my capstone submission status for an enrollment */
+  getMyCapstoneStatus: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) return null;
+        return await database.query.capstoneSubmissions.findFirst({
+          where: and(eq(capstoneSubmissions.userId, ctx.user.id), eq(capstoneSubmissions.enrollmentId, input.enrollmentId)),
+        }) ?? null;
+      } catch { return null; }
+    }),
+
+  /** Admin: list all pending capstone submissions */
+  listPendingCapstones: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+      try {
+        const database = await getDb();
+        if (!database) return [];
+        return await database.query.capstoneSubmissions.findMany({
+          where: eq(capstoneSubmissions.status, 'pending'),
+          orderBy: [asc(capstoneSubmissions.submittedAt)],
+        });
+      } catch { return []; }
+    }),
+
+  /** Admin: grade a capstone submission */
+  gradeCapstone: protectedProcedure
+    .input(z.object({
+      submissionId: z.number(),
+      score: z.number().min(0).max(100),
+      feedback: z.string().min(20, 'Feedback must be at least 20 characters'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+      try {
+        const database = await getDb();
+        if (!database) return { success: false, message: 'Database unavailable' };
+        const passed = input.score >= 80;
+        await database.update(capstoneSubmissions).set({
+          score: input.score,
+          instructorId: ctx.user.id,
+          instructorFeedback: input.feedback,
+          status: passed ? 'passed' : 'failed',
+          gradedAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(capstoneSubmissions.id, input.submissionId));
+        return { success: true, passed, message: passed ? 'Capstone passed. Certificate will be issued.' : 'Capstone failed. Learner may resubmit.' };
+      } catch (error) {
+        console.error('Error grading capstone:', error);
+        return { success: false, message: 'Failed to grade capstone' };
       }
     }),
 });

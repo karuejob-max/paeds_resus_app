@@ -61,8 +61,9 @@ const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboardi
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
-const MicroCoursesLanding = lazy(() => import("./pages/MicroCoursesLanding"));
-const MicroCoursePlayer = lazy(() => import("./pages/MicroCoursePlayer"));
+const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
+const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayer'));
+const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const Home = lazy(() => import("./pages/Home"));
@@ -330,6 +331,11 @@ function Router() {
             <RoleGate allowed={["provider"]}>
               <ResusGated />
             </RoleGate>
+          )}</Route>
+          <Route path="/admin/capstone-grading">{() => (
+            <AdminGate>
+              <CapstoneGradingPanel />
+            </AdminGate>
           )}</Route>
           <Route path="/admin/courses">{() => (
             <Redirect to="/admin" />

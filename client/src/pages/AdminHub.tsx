@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet } from "lucide-react";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminHub() {
@@ -55,6 +55,24 @@ export default function AdminHub() {
               </div>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/capstone-grading")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5" />
+                  Capstone Grading
+                </CardTitle>
+                <CardDescription>
+                  Review and grade fellowship capstone submissions (48h turnaround, 80% pass threshold)
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/admin/reports")}
@@ -71,6 +89,7 @@ export default function AdminHub() {
               </div>
             </CardHeader>
           </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/hospital-admin-dashboard")}
