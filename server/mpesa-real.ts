@@ -124,8 +124,8 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
     }
 
     const shortCode =
-      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
-    const passKey = process.env.MPESA_PASSKEY?.trim();
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || process.env.DARAJA_SHORTCODE?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim() || process.env.DARAJA_PASSKEY?.trim();
     const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "https://www.paedsresus.com";
     const callbackUrl = resolveStkCallbackUrlFromEnv(appBase);
 
@@ -234,8 +234,8 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
 export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus> {
   try {
     const shortCode =
-      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim();
-    const passKey = process.env.MPESA_PASSKEY?.trim();
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || process.env.DARAJA_SHORTCODE?.trim();
+    const passKey = process.env.MPESA_PASSKEY?.trim() || process.env.DARAJA_PASSKEY?.trim();
 
     if (!shortCode || !passKey) {
       return {
