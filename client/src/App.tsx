@@ -62,6 +62,7 @@ const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
 const MicroCoursesLanding = lazy(() => import("./pages/MicroCoursesLanding"));
+const MicroCoursePlayer = lazy(() => import("./pages/MicroCoursePlayer"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const Home = lazy(() => import("./pages/Home"));
@@ -305,10 +306,15 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>
-          <Route path="/micro-courses">{() => (
-            <RoleGate allowed={["provider"]}>
+             <Route path="/micro-courses">{() => (
+            <ErrorBoundary>
               <MicroCoursesLanding />
-            </RoleGate>
+            </ErrorBoundary>
+          )}</Route>
+          <Route path="/micro-course/:courseId">{() => (
+            <ErrorBoundary>
+              <MicroCoursePlayer />
+            </ErrorBoundary>
           )}</Route>
           <Route path="/fellowship">{() => (
             <RoleGate allowed={["provider"]}>

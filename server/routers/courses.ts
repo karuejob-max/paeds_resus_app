@@ -10,7 +10,7 @@ import { getDb } from '../db';
 import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 
@@ -321,6 +321,93 @@ export const coursesRouter = router({
       } catch (error) {
         console.error('Error initiating M-Pesa payment:', error);
         return { success: false, message: 'Failed to initiate payment' };
+      }
+    }),
+
+  /**
+   * Submit module quiz and save score
+   */
+  submitModuleQuiz: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        moduleId: z.number(),
+        quizId: z.number().optional(),
+        score: z.number().min(0).max(100),
+        answers: z.record(z.string()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) {
+          return { success: false, message: 'Database unavailable' };
+        }
+
+        // Check if user is enrolled in this course
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: (e) => eq(e.id, input.enrollmentId),
+        });
+
+        if (!enrollment || enrollment.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Not enrolled in this course',
+          });
+        }
+
+        // Save or update user progress
+        const existingProgress = await database.query.userProgress.findFirst({
+          where: (p) =>
+            and(
+              eq(p.userId, ctx.user.id),
+              eq(p.enrollmentId, input.enrollmentId),
+              eq(p.moduleId, input.moduleId)
+            ),
+        });
+
+        if (existingProgress) {
+          // Update existing progress
+          await database
+            .update(userProgress)
+            .set({
+              score: input.score,
+              status: input.score >= 80 ? 'completed' : 'in_progress',
+              attempts: (existingProgress.attempts || 0) + 1,
+              completedAt: input.score >= 80 ? new Date() : null,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(userProgress.userId, ctx.user.id),
+                eq(userProgress.enrollmentId, input.enrollmentId),
+                eq(userProgress.moduleId, input.moduleId)
+              )
+            );
+        } else {
+          // Create new progress record
+          await database.insert(userProgress).values({
+            userId: ctx.user.id,
+            enrollmentId: input.enrollmentId,
+            moduleId: input.moduleId,
+            quizId: input.quizId,
+            score: input.score,
+            status: input.score >= 80 ? 'completed' : 'in_progress',
+            attempts: 1,
+            completedAt: input.score >= 80 ? new Date() : null,
+          });
+        }
+
+        return {
+          success: true,
+          message: input.score >= 80 ? 'Quiz passed!' : 'Quiz submitted. Score below 80%. Please try again.',
+          score: input.score,
+          passed: input.score >= 80,
+        };
+      } catch (error) {
+        console.error('Error submitting quiz:', error);
+        if (error instanceof TRPCError) throw error;
+        return { success: false, message: 'Failed to submit quiz' };
       }
     }),
 });
