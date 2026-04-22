@@ -114,8 +114,8 @@ function getEmergencyContext(emergencyType: EmergencyType): {
       displayName: 'Status Epilepticus',
       criticalParameters: ['Seizure Duration', 'Benzodiazepine Dose', 'Second-Line Agent', 'Airway Status', 'Intubation'],
       assessmentFocus: 'Seizure escalation level and response to pharmacotherapy',
-      assessmentFocus: 'Anaphylaxis severity and response to epinephrine',
-
+    },
+  };
   return contexts[emergencyType] || contexts.cpr;
 }
 

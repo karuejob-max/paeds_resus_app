@@ -234,7 +234,7 @@ export function NeonatalResuscitationFlow() {
               onChange={e => handleInputChange('heartRate', parseFloat(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded"
             />
-            <p className="text-xs text-gray-500 mt-1">Normal: 120-160 bpm. Bradycardia: <100 bpm</p>
+            <p className="text-xs text-gray-500 mt-1">Normal: 120-160 bpm. Bradycardia: &lt;100 bpm</p>
           </div>
 
           <div>
