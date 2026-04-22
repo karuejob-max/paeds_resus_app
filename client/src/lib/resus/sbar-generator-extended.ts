@@ -98,24 +98,23 @@ function getEmergencyContext(emergencyType: EmergencyType): {
     anaphylaxis: {
       displayName: 'Anaphylaxis',
       criticalParameters: ['Epinephrine Dose', 'Trigger Identified', 'Cardiovascular Status', 'Airway Patency'],
-      assessmentFocus: 'Anaphylaxis severity and response to epinephrine',
+      assessmentFocus: 'Anaphylactic reaction severity and response to epinephrine',
     },
     septic_shock: {
       displayName: 'Septic Shock',
-      criticalParameters: ['Blood Pressure', 'Lactate', 'Antibiotics', 'Fluid Resuscitation'],
-      assessmentFocus: 'Shock severity and perfusion response',
+      criticalParameters: ['Shock Type', 'Lactate', 'Fluid Resuscitation', 'Vasopressors', 'Antibiotics'],
+      assessmentFocus: 'Shock severity, perfusion status, and response to resuscitation',
     },
     dka: {
       displayName: 'Diabetic Ketoacidosis',
-      criticalParameters: ['pH', 'Bicarbonate', 'Glucose', 'Insulin Infusion'],
-      assessmentFocus: 'Metabolic acidosis severity and correction trajectory',
+      criticalParameters: ['pH', 'HCO3', 'Glucose', 'Insulin Infusion', 'Fluid Phase', 'Potassium'],
+      assessmentFocus: 'Metabolic acidosis severity, cerebral edema risk, and electrolyte management',
     },
     status_epilepticus: {
       displayName: 'Status Epilepticus',
-      criticalParameters: ['Seizure Duration', 'Medication Given', 'Consciousness Level', 'Airway Status'],
-      assessmentFocus: 'Seizure control and neurological status',
-    },
-  };
+      criticalParameters: ['Seizure Duration', 'Benzodiazepine Dose', 'Second-Line Agent', 'Airway Status', 'Intubation'],
+      assessmentFocus: 'Seizure escalation level and response to pharmacotherapy',
+      assessmentFocus: 'Anaphylaxis severity and response to epinephrine',
 
   return contexts[emergencyType] || contexts.cpr;
 }
