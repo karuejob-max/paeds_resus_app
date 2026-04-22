@@ -316,6 +316,7 @@ export default function FellowshipDashboard() {
                     const courseId = course.courseId || course.id;
                     const isEnrolled = enrolledCourseIds.has(courseId);
                     const isCompleted = completedCourseIds.has(courseId);
+                    const isPublished = course.isPublished;
                     
                     return (
                       <div
@@ -326,13 +327,14 @@ export default function FellowshipDashboard() {
                             : isEnrolled
                             ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"
                             : "bg-muted border-border hover:border-primary/50"
-                        }`}
+                        } ${!isPublished && !isEnrolled ? "opacity-75" : ""}`}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-medium text-sm line-clamp-2 flex-1">{course.title}</h4>
                           {isCompleted && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 ml-2" />}
                           {isEnrolled && !isCompleted && <Clock className="h-5 w-5 text-blue-600 flex-shrink-0 ml-2" />}
-                          {!isEnrolled && <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />}
+                          {!isEnrolled && isPublished && <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />}
+                          {!isPublished && <Badge variant="secondary" className="text-[10px] h-4 px-1 ml-2">Coming soon</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mb-3">{course.duration} mins • {course.level}</p>
                         <div className="flex gap-2 mb-3">
@@ -351,16 +353,17 @@ export default function FellowshipDashboard() {
                               setLocation(getProviderCourseDestination(courseId, enrollmentId));
                             }}
                           >
-                            Open course
+                            {isPublished ? "Open course" : "View status"}
                           </Button>
                         )}
                         {!isEnrolled && (
                           <Button 
                             size="sm" 
                             className="w-full"
+                            disabled={!isPublished}
                             onClick={() => handleEnrollClick(course)}
                           >
-                            Enroll
+                            {isPublished ? "Enroll" : "Coming soon"}
                           </Button>
                         )}
                       </div>

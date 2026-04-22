@@ -1,7 +1,8 @@
 /**
  * Email Service Integration
- * Supports SendGrid and Mailgun with template management
+ * Supports SendGrid, Mailgun, and AWS SES with template management
  */
+import { sendEmail as sendViaSES } from "./email";
 
 export interface EmailTemplate {
   id: string;
@@ -508,6 +509,7 @@ export async function sendEmailViaSendGrid(options: EmailOptions): Promise<{ suc
   try {
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
+      console.error("[Email Service] SENDGRID_API_KEY is missing from environment variables.");
       throw new Error("SENDGRID_API_KEY not configured");
     }
 
@@ -549,6 +551,7 @@ export async function sendEmailViaMailgun(options: EmailOptions): Promise<{ succ
     const domain = process.env.MAILGUN_DOMAIN;
 
     if (!apiKey || !domain) {
+      console.error("[Email Service] MAILGUN_API_KEY or MAILGUN_DOMAIN is missing from environment variables.");
       throw new Error("MAILGUN_API_KEY or MAILGUN_DOMAIN not configured");
     }
 
@@ -607,7 +610,7 @@ export async function sendEmail(
   to: string | string[],
   templateId: string,
   variables: Record<string, string>,
-  provider: "sendgrid" | "mailgun" = "sendgrid"
+  provider: "sendgrid" | "mailgun" | "ses" = "sendgrid"
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const template = emailTemplates[templateId];
   if (!template) {
@@ -628,7 +631,26 @@ export async function sendEmail(
 
   if (provider === "mailgun") {
     return sendEmailViaMailgun(options);
+  } else if (provider === "ses") {
+    const success = await sendViaSES({
+      to: Array.isArray(to) ? to[0] : to,
+      subject,
+      htmlBody: html,
+      textBody: text,
+    });
+    return { success, error: success ? undefined : "SES delivery failed" };
   } else {
+    // Default to SendGrid, but fallback to SES if SendGrid is not configured
+    if (!process.env.SENDGRID_API_KEY && (process.env.AWS_ACCESS_KEY_ID || process.env.AWS_REGION)) {
+      console.log("[Email Service] SendGrid not configured, falling back to AWS SES");
+      const success = await sendViaSES({
+        to: Array.isArray(to) ? to[0] : to,
+        subject,
+        htmlBody: html,
+        textBody: text,
+      });
+      return { success, error: success ? undefined : "SES fallback delivery failed" };
+    }
     return sendEmailViaSendGrid(options);
   }
 }

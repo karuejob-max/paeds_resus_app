@@ -41,6 +41,13 @@ import {
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import { 
+  evaluateRhythmTransition, 
+  evaluateMedicationEligibility, 
+  calculateShockEnergy,
+  calculateCprMedicationDose,
+  type CprEngineState 
+} from '@/lib/resus/cpr-engine';
 
 interface Props {
   patientWeight: number;
@@ -377,16 +384,35 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     speak('Pads attached. Assess rhythm now.');
   };
 
-  // Handle rhythm check
+  // Handle rhythm check using cpr-engine
   const handleRhythmCheck = (type: RhythmType) => {
     setRhythmType(type);
     setShowRhythmCheck(false);
     
-    if (type === 'vf_pvt') {
-      setPhase('charging');
+    // Use pure engine logic to determine next phase
+    const engineState: CprEngineState = {
+      shockCount,
+      epiDoses,
+      lastEpiTime,
+      antiarrhythmicDoses,
+      rhythmType: type,
+      phase: 'rhythm_check',
+    };
+    
+    const rhythmResult = evaluateRhythmTransition(type, engineState);
+    const isShockable = type === 'vf_pvt';
+    const medResult = evaluateMedicationEligibility(arrestDuration, engineState, isShockable);
+    
+    // Apply phase transition
+    setPhase(rhythmResult.nextPhase as ArrestPhase);
+    addEvent(`${type.toUpperCase()} detected`, rhythmResult.message);
+    speak(rhythmResult.message);
+    
+    if (rhythmResult.shockRequired) {
+      // Shockable rhythm: charge defib
       setDefibCharging(true);
-      addEvent('VF/pVT detected');
-      speak(`Shockable rhythm. Charging to ${shockEnergy} joules. Clear the patient.`);
+      const energy = calculateShockEnergy(patientWeight, shockCount);
+      speak(`Shockable rhythm. Charging to ${energy} joules. Clear the patient.`);
       
       // Simulate charging time (3 seconds)
       setTimeout(() => {
@@ -395,24 +421,27 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
         speak('Defibrillator ready. Clear and shock.');
       }, 3000);
     } else {
+      // Non-shockable: resume compressions
       setPhase('compressions');
-      addEvent(type === 'pea' ? 'PEA detected' : 'Asystole detected');
       speak('Non-shockable rhythm. Resume CPR immediately.');
       
-      // Immediate epi for PEA/asystole (per AHA guidelines)
-      if (epiDoses === 0) {
-        speak(`Give epinephrine ${epiDose} milligrams immediately.`);
+      // Check medication eligibility
+      if (medResult.epiEligible && medResult.recommendation) {
+        speak(medResult.recommendation);
       }
     }
   };
 
-  // Deliver shock
+  // Deliver shock using cpr-engine
   const deliverShock = () => {
     triggerHaptic('critical'); // Haptic feedback for shock
     const newShockCount = shockCount + 1;
     setShockCount(newShockCount);
     setPhase('post_shock');
-    addEvent(`Shock ${newShockCount} delivered`, `${shockEnergy} J`);
+    
+    // Use engine to calculate energy
+    const energy = calculateShockEnergy(patientWeight, newShockCount - 1);
+    addEvent(`Shock ${newShockCount} delivered`, `${energy} J`);
     speak(`Shock delivered. Resume CPR immediately.`);
     
     // Resume compressions
@@ -420,14 +449,23 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
       setPhase('compressions');
     }, 1000);
     
-    // Epinephrine after 2nd shock for VF/pVT (per AHA guidelines)
-    if (newShockCount === 2 && epiDoses === 0 && rhythmType === 'vf_pvt') {
-      speak(`Give epinephrine ${epiDose} milligrams now.`);
+    // Check medication eligibility using engine
+    const engineState: CprEngineState = {
+      shockCount: newShockCount,
+      epiDoses,
+      lastEpiTime,
+      antiarrhythmicDoses,
+      rhythmType: rhythmType || 'unknown',
+      phase: 'post_shock',
+    };
+    
+    const medResult = evaluateMedicationEligibility(arrestDuration, engineState, true);
+    
+    if (medResult.epiEligible && medResult.recommendation) {
+      speak(medResult.recommendation);
     }
     
-    // Antiarrhythmic after 3rd and 5th shock (per AHA guidelines)
-    // Allow dose after 3rd shock AND another after 5th shock
-    if ((newShockCount === 3 && antiarrhythmicDoses === 0) || (newShockCount === 5 && antiarrhythmicDoses === 1)) {
+    if (medResult.antiarrhythmicEligible && medResult.recommendation) {
       setShowAntiarrhythmicChoice(true);
       speak('Consider antiarrhythmic. Choose amiodarone or lidocaine.');
     }
@@ -441,14 +479,20 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     speak('Defibrillator disarmed. Resume CPR.');
   };
 
-  // Give epinephrine
+  // Give epinephrine using cpr-engine
   const giveEpinephrine = () => {
     triggerHaptic('critical'); // Haptic feedback for epinephrine
     const newEpiDoses = epiDoses + 1;
     setEpiDoses(newEpiDoses);
     setLastEpiTime(arrestDuration);
-    addEvent(`Epinephrine dose ${newEpiDoses}`, `${epiDose} mg (0.01 mg/kg)`);
-    speak(`Epinephrine given.`);
+    
+    // Use engine to calculate dose
+    const doseMeta = calculateCprMedicationDose('epinephrine', patientWeight);
+    addEvent(
+      `Epinephrine dose ${newEpiDoses}`, 
+      `${doseMeta.dose} ${doseMeta.unit}${doseMeta.preparation ? ` (${doseMeta.preparation})` : ''}`
+    );
+    speak(`Give epinephrine ${doseMeta.dose} milligrams.`);
   };
 
   // Give antiarrhythmic

@@ -68,32 +68,17 @@ export function getProviderCourseDestination(
       : "/course/intubation-essentials";
   }
 
-  // Generic micro-course player for all other courses
-  // Maps all 18+ micro-courses to the generic player
-  const microCourseIds = [
-    "asthma-ii",
-    "status-epilepticus-ii",
-    "anaphylaxis-i",
-    "anaphylaxis-ii",
-    "dka-i",
-    "dka-ii",
-    "severe-pneumonia-ards-i",
-    "severe-pneumonia-ards-ii",
-    "hypovolemic-shock-i",
-    "hypovolemic-shock-ii",
-    "cardiogenic-shock-i",
-    "cardiogenic-shock-ii",
-    "meningitis-i",
-    "meningitis-ii",
-    "severe-malaria-i",
-    "severe-malaria-ii",
-    "acute-kidney-injury-i",
-    "severe-anaemia-i",
-    "burns-i",
-    "burns-ii",
-  ];
+  // Generic micro-course player for all fellowship micro-courses
+  // Covers all 18+ courses by checking for fellowship course patterns
+  const isFellowshipCourse =
+    courseId.includes("-") ||
+    [
+      "asthma", "pneumonia", "septic-shock", "hypovolemic-shock", "cardiogenic-shock",
+      "status-epilepticus", "dka", "anaphylaxis", "meningitis", "malaria", "burns",
+      "trauma", "aki", "anaemia", "severe-", "acute-"
+    ].some(p => courseId.startsWith(p));
 
-  if (microCourseIds.includes(courseId)) {
+  if (isFellowshipCourse) {
     return enrollmentId
       ? `/micro-course/${courseId}?enrollmentId=${enrollmentId}`
       : `/micro-course/${courseId}`;

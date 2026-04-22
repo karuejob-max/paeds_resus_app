@@ -61,6 +61,7 @@ const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboardi
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
+const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
 const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
 const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayer'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
@@ -320,6 +321,11 @@ function Router() {
           <Route path="/fellowship">{() => (
             <RoleGate allowed={["provider"]}>
               <FellowshipDashboard />
+            </RoleGate>
+          )}</Route>
+          <Route path="/course/:courseId">{() => (
+            <RoleGate allowed={["provider"]}>
+              <CourseGenericMicro />
             </RoleGate>
           )}</Route>
           <Route path="/aha-courses">{() => (
