@@ -508,6 +508,7 @@ export async function sendEmailViaSendGrid(options: EmailOptions): Promise<{ suc
   try {
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
+      console.error("[Email Service] SENDGRID_API_KEY is missing from environment variables.");
       throw new Error("SENDGRID_API_KEY not configured");
     }
 
@@ -549,6 +550,7 @@ export async function sendEmailViaMailgun(options: EmailOptions): Promise<{ succ
     const domain = process.env.MAILGUN_DOMAIN;
 
     if (!apiKey || !domain) {
+      console.error("[Email Service] MAILGUN_API_KEY or MAILGUN_DOMAIN is missing from environment variables.");
       throw new Error("MAILGUN_API_KEY or MAILGUN_DOMAIN not configured");
     }
 

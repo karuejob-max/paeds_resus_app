@@ -201,10 +201,15 @@ export const appRouter = router({
         await db.createPasswordResetToken(user.id, token, expiresAt);
         const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
         const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
-        await sendEmail(input.email, "passwordReset", {
+        const result = await sendEmail(input.email, "passwordReset", {
           userName: user.name || "User",
           resetLink,
         });
+        if (!result.success) {
+          console.error(`[Auth] Failed to send password reset email to ${input.email}:`, result.error);
+          // We still return success: true to the client to avoid leaking user existence,
+          // but the log will help us diagnose provider issues.
+        }
         return { success: true };
       }),
     resetPassword: publicProcedure
