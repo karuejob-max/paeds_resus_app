@@ -663,3 +663,16 @@
 - [ ] Browser test: Verify Save button is visible and clickable
 - [ ] Browser test: Trigger cardiac arrest and verify CPR Clock appears
 - [ ] Browser test: Complete full resuscitation flow without blocking
+
+## GitHub Merge & Syntax Fix Session — COMPLETE
+- [x] Add CapstoneGradingPanel route to App.tsx (/admin/capstone-grading)
+- [x] Add CapstoneGradingPanel card to AdminHub navigation
+- [x] Merge GitHub main into local (resolved conflicts in App.tsx, provider-course-routes.ts)
+- [x] Fix unified-session-manager.ts (was stored as escaped single-line in GitHub)
+- [x] Fix AnaphylaxisEmergencyFlow.tsx (escaped single-line -> proper multi-line)
+- [x] Fix RespiratoryEmergencyFlow.tsx (escaped single-line -> proper multi-line)
+- [x] Fix EmergencyTypeSelector.tsx (escaped + duplicate brace + malformed className)
+- [x] Fix NeonatalResuscitationFlow.tsx (bare < in JSX text)
+- [x] Fix sbar-generator-extended.ts (missing closing braces in contexts object)
+- [x] Reduce TS errors from 497 (GitHub baseline) to 178 (pre-existing implicit-any)
+- [x] Push all fixes to GitHub (karuejob-max/paeds_resus_app)
