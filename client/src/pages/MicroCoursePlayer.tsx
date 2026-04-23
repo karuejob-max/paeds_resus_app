@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { getMicroCourseContent } from "@/lib/microCourseContent";
 
@@ -31,6 +31,8 @@ export default function MicroCoursePlayer() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
+  // Track whether we've already seeded completedModules from DB enrollment status
+  const [progressSeeded, setProgressSeeded] = useState(false);
 
   // ── Server queries ──────────────────────────────────────────────────────────
   const { data: allCourses, isLoading: coursesLoading } = trpc.courses.listAll.useQuery(undefined, {
@@ -50,6 +52,32 @@ export default function MicroCoursePlayer() {
     () => myEnrollments?.some((e) => e.course?.courseId === courseId),
     [myEnrollments, courseId]
   );
+
+  // Derive the current enrollment row so we can check DB completion status
+  const currentEnrollment = useMemo(
+    () => myEnrollments?.find((e) => e.course?.courseId === courseId),
+    [myEnrollments, courseId]
+  );
+
+  // Seed completedModules from DB on first load — if the course is already
+  // marked completed in the DB, mark all modules as done so the
+  // "Get Certificate" / "Course Completed" banner shows immediately.
+  // This runs as a side-effect after enrollments are loaded.
+  useEffect(() => {
+    if (progressSeeded) return;
+    if (!currentEnrollment) return;
+    const modules = courseId ? getMicroCourseContent(courseId)?.modules ?? [] : [];
+    if (modules.length === 0) return;
+    if (
+      currentEnrollment.enrollmentStatus === 'completed' ||
+      (currentEnrollment.progressPercentage != null && currentEnrollment.progressPercentage >= 100)
+    ) {
+      // Mark all modules as completed so the completion banner renders
+      setCompletedModules(new Set(modules.map((_, i) => i)));
+      setCurrentModuleIndex(modules.length - 1);
+    }
+    setProgressSeeded(true);
+  }, [currentEnrollment, progressSeeded, courseId]);
 
   // Static content layer — modules, quizzes, key points, references
   const staticContent = useMemo(
