@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { getDb } from "./db";
 import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   certificates,
   certificateDownloadFeedback,
@@ -772,6 +772,22 @@ export async function saveMicroCourseCertificate(
   try {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
+    // Lazy migration: ensure microCourseEnrollmentId column exists in certificates table
+    try {
+      const [colCheck] = await db.execute(sql`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'certificates'
+          AND COLUMN_NAME = 'microCourseEnrollmentId'
+      `);
+      if (Array.isArray(colCheck) && (colCheck as any[]).length === 0) {
+        console.log('[Certificates] Adding microCourseEnrollmentId column (lazy migration)...');
+        await db.execute(sql`ALTER TABLE \`certificates\` ADD COLUMN \`microCourseEnrollmentId\` int`);
+        console.log('[Certificates] microCourseEnrollmentId column added');
+      }
+    } catch (migErr) {
+      console.warn('[Certificates] Lazy migration check failed (non-fatal):', migErr instanceof Error ? migErr.message : migErr);
+    }
 
     // Dedupe: check microCourseEnrollments.certificateIssuedAt to avoid ID collision
     // with AHA enrollments table (both use auto-increment IDs starting at 1)

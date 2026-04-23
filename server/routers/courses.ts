@@ -278,7 +278,12 @@ export const coursesRouter = router({
             recipientName,
             course.title ?? input.courseId
           );
-          if (certResult.success) certificateNumber = certResult.certificateNumber;
+          if (certResult.success) {
+            certificateNumber = certResult.certificateNumber;
+          } else {
+            console.error('[courses.complete] Certificate issuance failed:', certResult.error);
+            return { success: true, message: 'Course marked as completed', certificateNumber: undefined, certError: certResult.error };
+          }
         }
 
         return { success: true, message: 'Course marked as completed', certificateNumber };
