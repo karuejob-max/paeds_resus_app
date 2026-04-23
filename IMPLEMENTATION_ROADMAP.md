@@ -57,19 +57,38 @@ These items ensure the platform functions flawlessly in LMIC environments with i
 
 ---
 
-## Remaining Backlog (Phase 4+)
+## Phase 4: Clinical Intelligence & Institutional Scale ✅ COMPLETE
 
-These items are not blockers for pilot launch but should be addressed before national rollout.
+These items complete the clinical documentation loop and surface data to institutional decision-makers.
 
-| ID | Task | Priority | Notes |
-|---|---|---|---|
-| 4.1 | SAMPLE history auto-populate from previous sessions | MEDIUM | Data model exists; needs UI wiring |
-| 4.2 | Referral letter pre-fill from active ResusGPS session | MEDIUM | Reduces handoff time at transfer |
-| 4.3 | Role-based persistent header toggle (Provider / Parent / Institution) | LOW | UX polish; data model already supports it |
-| 4.4 | Institutional dashboard: staff roster + completion rate on Provider Hub | LOW | Already in LearnerDashboard; surface in hub |
-| 4.5 | Care Signal: surface resource gap trends to hospital admin | LOW | Data is now being captured; needs reporting UI |
+| ID | Task | Component | Priority | Status |
+|---|---|---|---|---|
+| **4.1** | **SAMPLE History Auto-Populate** | `resusSessionStore.ts`, `ResusGPS.tsx` | MEDIUM | ✅ Done |
+| | *SAMPLE fields persisted to IndexedDB on every change. On new case start, last saved SAMPLE is pre-filled with a "From previous case — confirm or clear" banner. Saves documentation time at the start of a resuscitation.* | | | |
+| **4.2** | **Referral Letter + Progress Note** | `clinicalDocuments.ts`, `ExportDocumentsPanel.tsx` | MEDIUM | ✅ Done |
+| | *Two pure generator functions read directly from the active ResusGPS session. ExportDocumentsPanel (BookOpen button in TopBar) provides 3-tab sheet: Referral Letter (SBAR), Nursing Progress Note (SOAPIE + ISBAR), Medical Continuation Note. Copy to clipboard or download as .txt.* | | | |
+| **4.3** | **Mobile Role Pill** | `Header.tsx` | LOW | ✅ Done |
+| | *Compact role pill added to mobile header bar (always visible). Taps to open the role-selection menu. Eliminates invisible role state on mobile.* | | | |
+| **4.4** | **Institutional Staff Roster on Provider Hub** | `ProviderDashboard.tsx` | LOW | ✅ Done |
+| | *Institutional users see a staff roster widget on their Provider Hub: total/enrolled/completed counts, completion and enrollment rate progress bars, top-5 staff preview with status badges, and a "Manage full roster" CTA.* | | | |
+| **4.5** | **Care Signal Resource Gap Trends** | `care-signal-events.ts`, `ResourceGapWidget.tsx` | LOW | ✅ Done |
+| | *`getResourceGapTrends` endpoint aggregates `resus_resource_gap` analytics events from the DB. `ResourceGapWidget` renders a ranked bar chart of most-frequently unavailable interventions with timeframe selector. Surfaced on CareSignal page and HospitalAdminDashboard overview tab.* | | | |
+
+*Committed: `9016cc1` → `cbfe751` on April 23, 2026*
 
 ---
 
-*All Phase 1, 2, and 3 items shipped and live on `main` as of April 23, 2026.*  
-*Build: `vite ✓ 0 errors`. Commits: `52ba5d5` → `14e82c6` → `44d4e8c`.*
+## Remaining Backlog (Phase 5+)
+
+| ID | Task | Priority | Notes |
+|---|---|---|---|
+| 5.1 | Condition-specific protocols (DKA, Status Epilepticus, Septic Shock) in ABCDE engine | HIGH | Expands clinical coverage beyond cardiac arrest |
+| 5.2 | SAMPLE history server-side persistence (link to user account, not just device) | MEDIUM | Required for multi-device use |
+| 5.3 | Referral letter PDF export (print/fax-ready) | MEDIUM | Needed for facilities without EHR |
+| 5.4 | Care Signal: facility-level resource gap benchmarking (anonymised) | LOW | Requires multi-facility data volume |
+| 5.5 | Mobile offline PWA (Service Worker + background sync) | LOW | Phase after web stabilisation |
+
+---
+
+*All Phase 1–4 items shipped and live on `main` as of April 23, 2026.*  
+*Build: `vite ✓ 0 errors, 7.15s`. Final commit: `cbfe751`.*
