@@ -549,19 +549,28 @@ export async function saveMicroCourseCertificate(
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
 
-    // Dedupe: don't issue twice
-    const existing = await db
-      .select({ id: certificates.id, certificateNumber: certificates.certificateNumber })
-      .from(certificates)
-      .where(
-        and(
-          eq(certificates.enrollmentId, microCourseEnrollmentId),
-          eq(certificates.userId, userId)
-        )
-      )
+    // Dedupe: check microCourseEnrollments.certificateIssuedAt to avoid ID collision
+    // with AHA enrollments table (both use auto-increment IDs starting at 1)
+    const mceRows = await db
+      .select({ certificateIssuedAt: microCourseEnrollments.certificateIssuedAt })
+      .from(microCourseEnrollments)
+      .where(eq(microCourseEnrollments.id, microCourseEnrollmentId))
       .limit(1);
-    if (existing.length > 0) {
-      return { success: true, certificateNumber: existing[0].certificateNumber ?? undefined };
+    if (mceRows.length > 0 && mceRows[0].certificateIssuedAt != null) {
+      // Already issued — look up the cert number from the certificates table
+      // using a join through microCourseEnrollments to avoid ID collision
+      const certRows = await db
+        .select({ certificateNumber: certificates.certificateNumber })
+        .from(certificates)
+        .innerJoin(microCourseEnrollments, eq(microCourseEnrollments.id, certificates.enrollmentId))
+        .where(
+          and(
+            eq(microCourseEnrollments.id, microCourseEnrollmentId),
+            eq(certificates.userId, userId)
+          )
+        )
+        .limit(1);
+      return { success: true, certificateNumber: certRows[0]?.certificateNumber ?? undefined };
     }
 
     const certificateNumber = generateCertificateNumber();
