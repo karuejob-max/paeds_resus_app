@@ -1,8 +1,9 @@
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { and, desc, gte, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { careSignalEvents } from "../../drizzle/schema";
+import { analyticsEvents, careSignalEvents } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
 
 /**
@@ -306,6 +307,88 @@ export const careSignalEventsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate recommendations",
+        });
+      }
+    }),
+
+  /**
+   * Aggregate resource gap trends from ResusGPS 'resus_resource_gap' analytics events.
+   * Returns the top unavailable interventions ranked by frequency over the requested timeframe.
+   * Used by Care Signal and HospitalAdminDashboard to surface real-world resource gaps.
+   */
+  getResourceGapTrends: protectedProcedure
+    .input(
+      z.object({
+        timeframe: z.enum(["week", "month", "quarter", "year"]).default("month"),
+        limit: z.number().min(1).max(50).default(10),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      try {
+        if (!ctx.user.providerType && ctx.user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Care Signal is for healthcare providers.",
+          });
+        }
+
+        const db = await getDb();
+        if (!db) {
+          return { success: true, timeframe: input.timeframe, gaps: [], totalEvents: 0 };
+        }
+
+        const daysBack = input.timeframe === "week" ? 7
+          : input.timeframe === "month" ? 30
+          : input.timeframe === "quarter" ? 90
+          : 365;
+        const since = new Date(Date.now() - daysBack * 86_400_000);
+
+        // Fetch all resus_resource_gap events in the timeframe
+        const rows = await db
+          .select({
+            eventData: analyticsEvents.eventData,
+            createdAt: analyticsEvents.createdAt,
+          })
+          .from(analyticsEvents)
+          .where(
+            and(
+              gte(analyticsEvents.createdAt, since),
+              sql`${analyticsEvents.eventType} = 'resus_resource_gap'`
+            )
+          )
+          .orderBy(desc(analyticsEvents.createdAt))
+          .limit(1000);
+
+        // Aggregate by interventionName
+        const countMap: Record<string, number> = {};
+        for (const row of rows) {
+          try {
+            const data = typeof row.eventData === "string"
+              ? (JSON.parse(row.eventData) as Record<string, unknown>)
+              : (row.eventData as Record<string, unknown> | null) ?? {};
+            const name = (data.interventionName as string) || "Unknown";
+            countMap[name] = (countMap[name] ?? 0) + 1;
+          } catch {
+            // skip malformed rows
+          }
+        }
+
+        const gaps = Object.entries(countMap)
+          .map(([intervention, count]) => ({ intervention, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, input.limit);
+
+        return {
+          success: true,
+          timeframe: input.timeframe,
+          totalEvents: rows.length,
+          gaps,
+        };
+      } catch (error) {
+        console.error("[Care Signal Resource Gap Trends Error]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to retrieve resource gap trends.",
         });
       }
     }),

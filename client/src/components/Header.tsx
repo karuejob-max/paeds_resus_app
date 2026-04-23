@@ -146,7 +146,22 @@ export default function Header() {
             <ThemeToggle />
           </div>
 
-          {/* Role Selector - Persistent and Prominent */}
+          {/* Role Pill — mobile always-visible indicator (taps to open hamburger menu) */}
+          {isAuthenticated && effectiveRole && (
+            <button
+              type="button"
+              className="md:hidden flex items-center gap-1.5 px-2 py-1 rounded-full border border-border text-xs font-medium text-foreground bg-accent/50 hover:bg-accent transition flex-shrink-0"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label={`Current role: ${effectiveRole}. Tap to switch.`}
+            >
+              {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
+              {effectiveRole === 'parent' && <Heart className="w-3.5 h-3.5" />}
+              {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
+              <span className="capitalize">{effectiveRole === 'provider' ? 'Provider' : effectiveRole === 'institution' ? 'Institution' : 'Parent'}</span>
+            </button>
+          )}
+
+          {/* Role Selector - Persistent and Prominent (desktop) */}
           {isAuthenticated && effectiveRole && (
             <div className="relative hidden md:block flex-shrink-0" ref={roleDropdownRef}>
               <button

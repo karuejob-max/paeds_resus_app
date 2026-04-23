@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Progress } from "@/components/ui/progress";
+import { Users, Building2, CheckCircle2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
@@ -35,6 +38,8 @@ export default function ProviderDashboard() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/home/provider");
+  const { role } = useUserRole();
+  const isInstitution = role === "institution";
 
   // ── Summary (next-step engine) ──────────────────────────────────────────────
   const summaryQuery = trpc.dashboards.getSummary.useQuery(undefined, {
@@ -59,6 +64,31 @@ export default function ProviderDashboard() {
   const downloadCert = trpc.certificates.download.useMutation();
   const utils = trpc.useUtils();
   const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
+
+  // ── Institutional data (only fetched when role === 'institution') ──────────
+  const { data: myInstitution } = trpc.institution.getMyInstitution.useQuery(undefined, {
+    enabled: isAuthenticated && isInstitution,
+    staleTime: 60_000,
+  });
+  const institutionId = myInstitution?.institution?.id ?? null;
+  const { data: staffData, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId && isInstitution }
+  );
+  const { data: institutionStats } = trpc.institution.getStats.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId && isInstitution }
+  );
+  const staffList = staffData ?? [];
+  const totalStaff = staffList.length;
+  const enrolledStaff = staffList.filter((s: { enrollmentStatus?: string }) =>
+    s.enrollmentStatus === 'enrolled' || s.enrollmentStatus === 'completed'
+  ).length;
+  const completedStaff = staffList.filter((s: { enrollmentStatus?: string }) =>
+    s.enrollmentStatus === 'completed'
+  ).length;
+  const completionRate = totalStaff > 0 ? Math.round((completedStaff / totalStaff) * 100) : 0;
+  const enrollmentRate = totalStaff > 0 ? Math.round((enrolledStaff / totalStaff) * 100) : 0;
   const [feedbackDialog, setFeedbackDialog] = useState<{
     certificateId: number;
     certificateNumber: string | null;
@@ -381,10 +411,109 @@ export default function ProviderDashboard() {
             <BookOpen className="h-5 w-5 text-amber-600" />
             <span className="text-xs font-medium">AHA Courses</span>
           </Button>
-        </div>
+        </div>        {/* ── Institutional Staff Roster (institution role only) ─────────────── */}
+        {isInstitution && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="h-5 w-5 text-primary" />
+                {myInstitution?.institution?.institutionName ?? 'Your Institution'}
+              </CardTitle>
+              <CardDescription>Staff training completion at a glance</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Stat row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold text-foreground">{totalStaff}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Total Staff</p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold text-amber-600">{enrolledStaff}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Enrolled</p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold text-emerald-600">{completedStaff}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Completed</p>
+                </div>
+              </div>
 
-        {/* ── My Certificates ─────────────────────────────────────────────── */}
-        <Card>
+              {/* Completion rate bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Completion rate</span>
+                  <span className="font-medium text-foreground">{completionRate}%</span>
+                </div>
+                <Progress value={completionRate} className="h-2" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Enrollment rate</span>
+                  <span className="font-medium text-foreground">{enrollmentRate}%</span>
+                </div>
+                <Progress value={enrollmentRate} className="h-2" />
+              </div>
+
+              {/* Staff roster preview */}
+              {staffLoading ? (
+                <div className="h-16 rounded-lg bg-muted animate-pulse" />
+              ) : staffList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No staff added yet.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {staffList.slice(0, 5).map((s: {
+                    id: number;
+                    staffName: string;
+                    staffRole: string;
+                    department?: string | null;
+                    enrollmentStatus?: string;
+                  }) => (
+                    <li key={s.id} className="flex items-center justify-between py-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{s.staffName}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {s.staffRole.replace('_', ' ')}{s.department ? ` · ${s.department}` : ''}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={s.enrollmentStatus === 'completed' ? 'default' : s.enrollmentStatus === 'enrolled' ? 'secondary' : 'outline'}
+                        className="text-xs capitalize"
+                      >
+                        {s.enrollmentStatus === 'completed' ? (
+                          <><CheckCircle2 className="h-3 w-3 mr-1" />Done</>
+                        ) : s.enrollmentStatus === 'enrolled' ? (
+                          <><Clock className="h-3 w-3 mr-1" />In Progress</>
+                        ) : (
+                          'Pending'
+                        )}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* CTA to full dashboard */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setLocation('/hospital-admin-dashboard')}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Manage full roster
+              </Button>
+
+              {/* Institutional analytics summary from server */}
+              {institutionStats && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {(institutionStats as { totalEnrollments?: number }).totalEnrollments ?? 0} total enrollments recorded
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── My Certificates ─────────────────────────────────────────────────────── */}   <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Award className="h-5 w-5" />

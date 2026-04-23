@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "lucide-react";
 import CareSignalForm from "@/components/CareSignalForm";
+import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 
 export default function CareSignal() {
   const loggerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +89,15 @@ export default function CareSignal() {
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
           <CareSignalForm />
+        </div>
+
+        {/* Resource Gap Trends — auto-populated from ResusGPS sessions */}
+        <div className="mb-12">
+          <ResourceGapWidget
+            title="Resource Gap Trends (ResusGPS)"
+            description="Interventions most frequently marked as unavailable during live paediatric resuscitations at your facility"
+            limit={10}
+          />
         </div>
 
         {/* How It Works */}

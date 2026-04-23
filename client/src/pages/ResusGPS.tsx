@@ -75,6 +75,10 @@ import {
   persistResusSession,
   loadPersistedResusSession,
   clearPersistedResusSession,
+  saveSampleHistory,
+  loadLastSampleHistory,
+  clearSampleHistory,
+  type PersistedSampleHistory,
 } from '@/lib/resus/resusSessionStore';
 import {
   AlertTriangle,
@@ -199,10 +203,13 @@ export default function ResusGPS() {
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
   const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
 
-  // ── On mount: check for an unfinished persisted session ────────────────────
+  // ── On mount: check for an unfinished persisted session + last SAMPLE ───────
   useEffect(() => {
     loadPersistedResusSession().then((saved) => {
       if (saved && saved.phase !== 'IDLE') setResumeCandidate(saved);
+    });
+    loadLastSampleHistory().then((sample) => {
+      if (sample) setPreFillSample(sample);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -226,6 +233,8 @@ export default function ResusGPS() {
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
+  const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
   const timer = useTimer();
   const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
 
@@ -1838,6 +1847,51 @@ function PostPrimaryScreen({
             <CardTitle className="text-sm text-foreground">SAMPLE History</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Pre-fill banner — shown when a previous session had SAMPLE data */}
+            {preFillSample && !samplePreFillDismissed && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                <AlertCircle className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-blue-300">Pre-fill from previous case?</p>
+                  <p className="text-[11px] text-blue-400/80 mt-0.5">
+                    Allergies, medications, and history from your last case are available.
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
+                      onClick={() => {
+                        // Apply pre-fill to all non-empty fields
+                        let updated = session;
+                        const fields = ['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const;
+                        fields.forEach(f => {
+                          const val = preFillSample[f];
+                          if (val && !session.sampleHistory[f]) {
+                            updated = updateSAMPLE(updated, f, val);
+                          }
+                        });
+                        setSession(updated);
+                        setSamplePreFillDismissed(true);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => {
+                        setSamplePreFillDismissed(true);
+                        clearSampleHistory();
+                      }}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             {(['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const).map(field => {
               const labels: Record<string, string> = {
                 signs: 'S — Signs & Symptoms',
@@ -1851,9 +1905,14 @@ function PostPrimaryScreen({
                 <div key={field}>
                   <label className="text-xs font-medium text-muted-foreground">{labels[field]}</label>
                   <Input
-                    placeholder={`Enter ${field}...`}
+                    placeholder={preFillSample?.[field] ? `Previous: ${preFillSample[field]}` : `Enter ${field}...`}
                     value={session.sampleHistory[field] || ''}
-                    onChange={e => setSession(updateSAMPLE(session, field, e.target.value))}
+                    onChange={e => {
+                      const updated = updateSAMPLE(session, field, e.target.value);
+                      setSession(updated);
+                      // Persist SAMPLE to IndexedDB on every change
+                      saveSampleHistory(updated.sampleHistory as PersistedSampleHistory);
+                    }}
                     className="mt-1 bg-background text-foreground"
                   />
                 </div>

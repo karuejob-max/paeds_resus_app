@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
+import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import {
   BarChart3,
   Users,
@@ -716,6 +717,9 @@ export default function HospitalAdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          {/* Resource Gap Trends — auto-populated from ResusGPS sessions */}
+          <ResourceGapWidget compact limit={8} showTimeframeSelector />
+
           </TabsContent>
 
           {/* Staff Management Tab */}
