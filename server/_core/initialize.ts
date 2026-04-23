@@ -4,13 +4,9 @@
  */
 
 import { getDb } from "../db";
+import { sql } from "drizzle-orm";
 import { microCourses } from "../../drizzle/schema";
-import { migrate } from "drizzle-orm/mysql2/migrator";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /**
  * Run pending Drizzle migrations at server startup.
@@ -23,10 +19,20 @@ export async function runMigrations() {
       console.log('[Migrations] Database not available, skipping migrations');
       return;
     }
-    const migrationsFolder = path.resolve(__dirname, '../../drizzle');
-    console.log('[Migrations] Running pending migrations from', migrationsFolder);
-    await migrate(db, { migrationsFolder });
-    console.log('[Migrations] ✓ All migrations applied');
+    // 0039: add microCourseEnrollmentId to certificates (idempotent column-existence check)
+    const [cols] = await db.execute(sql`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'certificates'
+        AND COLUMN_NAME = 'microCourseEnrollmentId'
+    `);
+    if (Array.isArray(cols) && (cols as any[]).length === 0) {
+      console.log('[Migrations] Adding microCourseEnrollmentId to certificates...');
+      await db.execute(sql`ALTER TABLE \`certificates\` ADD COLUMN \`microCourseEnrollmentId\` int`);
+      console.log('[Migrations] ✓ microCourseEnrollmentId column added');
+    } else {
+      console.log('[Migrations] ✓ microCourseEnrollmentId already exists, skipping');
+    }
   } catch (error) {
     console.error('[Migrations] Migration error (non-fatal):', error instanceof Error ? error.message : error);
     // Don't throw — allow server to start even if a migration fails
