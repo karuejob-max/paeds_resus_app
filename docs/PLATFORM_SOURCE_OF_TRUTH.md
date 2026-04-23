@@ -362,3 +362,10 @@ This section defines how growth execution integrates with PSoT without diluting 
 ---
 
 **Last structural update:** 2026-04-13 — Added §18 conversion/recurring revenue execution model and linked 90-day provider plan.
+
+
+---
+
+## 19. Care Signal Strategy and Roadmap
+
+For a detailed analysis of Care Signal's strategic intent versus its current implementation state, and the roadmap to resolve these gaps, see [CARE_SIGNAL_STRATEGY_AND_ROADMAP.md](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md).
