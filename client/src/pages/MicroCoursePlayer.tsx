@@ -64,18 +64,20 @@ export default function MicroCoursePlayer() {
   // "Get Certificate" / "Course Completed" banner shows immediately.
   // This runs as a side-effect after enrollments are loaded.
   useEffect(() => {
+    // Wait until enrollment data is loaded AND we haven't seeded yet
     if (progressSeeded) return;
-    if (!currentEnrollment) return;
+    if (!currentEnrollment) return; // data not loaded yet — don't set progressSeeded
     const modules = courseId ? getMicroCourseContent(courseId)?.modules ?? [] : [];
-    if (modules.length === 0) return;
+    if (modules.length === 0) return; // content not loaded yet
     if (
       currentEnrollment.enrollmentStatus === 'completed' ||
       (currentEnrollment.progressPercentage != null && currentEnrollment.progressPercentage >= 100)
     ) {
-      // Mark all modules as completed so the completion banner renders
+      // Mark all modules as completed so the completion banner renders immediately
       setCompletedModules(new Set(modules.map((_, i) => i)));
       setCurrentModuleIndex(modules.length - 1);
     }
+    // Only set seeded=true once we have real data
     setProgressSeeded(true);
   }, [currentEnrollment, progressSeeded, courseId]);
 
