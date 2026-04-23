@@ -64,6 +64,13 @@ export const enrollments = mysqlTable("enrollments", {
   certificateVerified: boolean("certificateVerified").default(false),
   reminderSent: boolean("reminderSent").default(false),
   reminderSentAt: timestamp("reminderSentAt"),
+  /** AHA-CERT-1: Set by server when all cognitive (online) modules are completed */
+  cognitiveModulesComplete: boolean("cognitiveModulesComplete").default(false).notNull(),
+  /** AHA-CERT-1: Set by an approved instructor after the hands-on skills assessment */
+  practicalSkillsSignedOff: boolean("practicalSkillsSignedOff").default(false).notNull(),
+  practicalSignedOffAt: timestamp("practicalSignedOffAt"),
+  practicalSignedOffByUserId: int("practicalSignedOffByUserId"),
+  practicalSignedOffByName: varchar("practicalSignedOffByName", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

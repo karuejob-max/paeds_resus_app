@@ -26,6 +26,8 @@
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
     "seed:micro-courses": "tsx server/seed-micro-courses.ts",
+    "seed:bls-acls": "tsx server/seed-bls-acls-courses.ts",
+    "db:apply-0037": "node scripts/apply-0037-aha-completion-gates.mjs",
     "verify:analytics": "tsx scripts/verify-analytics-events.ts",
     "verify:ux-hardening": "pnpm vitest run server/routers/role-boundary-provider-api.test.ts server/routers/enrollment-payment-flows.test.ts client/src/components/EnrollmentModal.integration.test.tsx client/src/lib/providerCourseRoutes.test.ts && pnpm build"
   },

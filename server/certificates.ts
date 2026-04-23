@@ -16,6 +16,20 @@ import {
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AHA-CERT-1: Certificate validity periods
+//   BLS / ACLS / PALS provider cards: 2 years (AHA standard)
+//   Fellowship / Instructor:          1 year  (Paeds Resus internal)
+// ─────────────────────────────────────────────────────────────────────────────
+const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals"]);
+
+function getCertificateValidityMs(programType: string): number {
+  if (AHA_PROGRAM_TYPES.has(programType)) {
+    return 730 * 24 * 60 * 60 * 1000; // 2 years
+  }
+  return 365 * 24 * 60 * 60 * 1000; // 1 year
+}
+
 async function getCourseDisplayNameForEnrollment(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   enrollmentId: number
@@ -83,6 +97,55 @@ export async function instructorEnrollmentModulesComplete(
   return moduleIds.every((id) => done.has(id));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AHA-CERT-1: Cognitive completion check for BLS / ACLS
+// Checks that all modules in the AHA course catalog are marked completed.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function isAhaCognitiveComplete(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  enrollmentId: number,
+  programType: "bls" | "acls"
+): Promise<boolean> {
+  // Find the course for this program type
+  const courseRows = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(eq(courses.programType, programType));
+
+  if (courseRows.length === 0) {
+    // No catalog seeded yet — treat as incomplete (do not issue cert)
+    console.warn(`[Certificates] No ${programType.toUpperCase()} course catalog found. Cannot verify cognitive completion.`);
+    return false;
+  }
+
+  const courseIds = courseRows.map((c) => c.id);
+  const moduleRows = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(inArray(modules.courseId, courseIds));
+
+  if (moduleRows.length === 0) {
+    // No modules seeded yet — treat as incomplete
+    console.warn(`[Certificates] No modules found for ${programType.toUpperCase()} course. Cannot verify cognitive completion.`);
+    return false;
+  }
+
+  const moduleIds = moduleRows.map((m) => m.id);
+  const progressRows = await db
+    .select({ moduleId: userProgress.moduleId })
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.enrollmentId, enrollmentId),
+        eq(userProgress.status, "completed"),
+        inArray(userProgress.moduleId, moduleIds)
+      )
+    );
+
+  const done = new Set(progressRows.map((p) => p.moduleId));
+  return moduleIds.every((id) => done.has(id));
+}
+
 async function assignInstructorNumberIfNeeded(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   userId: number
@@ -123,7 +186,8 @@ export async function saveCertificate(
     const certificateNumber = generateCertificateNumber();
     const verificationHash = generateCertificateHash(certificateNumber, recipientName);
     const issueDate = new Date();
-    const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year validity
+    // AHA-CERT-1: Use 2-year validity for BLS/ACLS/PALS, 1-year for others
+    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs(programType));
 
     const courseDisplayName = await getCourseDisplayNameForEnrollment(db, enrollmentId);
 
@@ -290,11 +354,23 @@ export async function verifyCertificate(
   }
 }
 
-/**
- * Issue a certificate for an enrollment when payment is completed (idempotent).
- * Called from payment success flow (e.g. M-Pesa webhook).
- */
-export async function issueCertificateForEnrollmentIfEligible(enrollmentId: number): Promise<{ issued: boolean; error?: string }> {
+// ─────────────────────────────────────────────────────────────────────────────
+// AHA-CERT-1: Core issuance function — enforces two-part completion gate
+//
+// Certificate issuance rules by program type:
+//   bls / acls : payment complete + cognitive modules complete + practical signed off
+//   pals       : payment complete + PALS modules complete + practical signed off
+//   instructor : payment complete + all instructor modules complete
+//   fellowship : payment complete (micro-course path handles its own gating)
+//
+// Called from:
+//   - M-Pesa payment webhook (on payment completion)
+//   - Instructor sign-off endpoint (on practical skills sign-off)
+//   - Learner dashboard "claim certificate" action
+// ─────────────────────────────────────────────────────────────────────────────
+export async function issueCertificateForEnrollmentIfEligible(
+  enrollmentId: number
+): Promise<{ issued: boolean; error?: string; pendingStep?: "cognitive" | "practical" | "payment" }> {
   try {
     const db = await getDb();
     if (!db) return { issued: false, error: "Database not available" };
@@ -303,43 +379,109 @@ export async function issueCertificateForEnrollmentIfEligible(enrollmentId: numb
     if (enrollmentRows.length === 0) return { issued: false, error: "Enrollment not found" };
     const enrollment = enrollmentRows[0];
 
+    // Gate 1: Payment must be completed for all program types
     if (enrollment.paymentStatus !== "completed") {
-      return { issued: false, error: "Enrollment payment not completed" };
+      return { issued: false, error: "Enrollment payment not completed", pendingStep: "payment" };
     }
 
+    // Idempotency: if already issued, return success
     const existing = await getCertificateByEnrollmentId(enrollmentId);
-    if (existing) return { issued: true }; // Already has certificate
+    if (existing) return { issued: true };
 
+    // ── Instructor path ──────────────────────────────────────────────────────
     if (enrollment.programType === "instructor") {
       const modulesOk = await instructorEnrollmentModulesComplete(db, enrollmentId);
       if (!modulesOk) {
         return {
           issued: false,
-          error:
-            "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
+          pendingStep: "cognitive",
+          error: "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
         };
       }
     }
 
+    // ── PALS path ────────────────────────────────────────────────────────────
     if (enrollment.programType === "pals") {
+      // Gate 2a: Cognitive modules
       const palsOk = await isPalsEnrollmentModulesComplete(db, enrollmentId, enrollment.userId);
       if (!palsOk) {
         return {
           issued: false,
-          error: "Complete all modules and knowledge checks for this course to receive your certificate.",
+          pendingStep: "cognitive",
+          error: "Complete all PALS modules and knowledge checks first. Open your course from the learner dashboard.",
+        };
+      }
+      // Gate 2b: Practical skills sign-off by instructor
+      if (!enrollment.practicalSkillsSignedOff) {
+        return {
+          issued: false,
+          pendingStep: "practical",
+          error:
+            "Your PALS certificate requires a hands-on skills assessment sign-off by an approved instructor. " +
+            "Attend a scheduled PALS skills session and ask your instructor to sign off your skills.",
         };
       }
     }
 
+    // ── BLS path ─────────────────────────────────────────────────────────────
+    if (enrollment.programType === "bls") {
+      // Gate 2a: Cognitive modules
+      const blsOk = await isAhaCognitiveComplete(db, enrollmentId, "bls");
+      if (!blsOk) {
+        return {
+          issued: false,
+          pendingStep: "cognitive",
+          error: "Complete all BLS modules and knowledge checks first. Open your course from the learner dashboard.",
+        };
+      }
+      // Gate 2b: Practical skills sign-off by instructor
+      if (!enrollment.practicalSkillsSignedOff) {
+        return {
+          issued: false,
+          pendingStep: "practical",
+          error:
+            "Your BLS certificate requires a hands-on skills assessment sign-off by an approved instructor. " +
+            "Attend a scheduled BLS skills session and ask your instructor to sign off your skills.",
+        };
+      }
+    }
+
+    // ── ACLS path ────────────────────────────────────────────────────────────
+    if (enrollment.programType === "acls") {
+      // Gate 2a: Cognitive modules
+      const aclsOk = await isAhaCognitiveComplete(db, enrollmentId, "acls");
+      if (!aclsOk) {
+        return {
+          issued: false,
+          pendingStep: "cognitive",
+          error: "Complete all ACLS modules and knowledge checks first. Open your course from the learner dashboard.",
+        };
+      }
+      // Gate 2b: Practical skills sign-off by instructor
+      if (!enrollment.practicalSkillsSignedOff) {
+        return {
+          issued: false,
+          pendingStep: "practical",
+          error:
+            "Your ACLS certificate requires a hands-on skills assessment sign-off by an approved instructor. " +
+            "Attend a scheduled ACLS skills session and ask your instructor to sign off your skills.",
+        };
+      }
+    }
+
+    // ── All gates passed — issue the certificate ─────────────────────────────
     const userRows = await db.select({ name: users.name }).from(users).where(eq(users.id, enrollment.userId)).limit(1);
     const recipientName = userRows[0]?.name || "Participant";
+
+    // Use the instructor's name on the certificate if available
+    const instructorName = enrollment.practicalSignedOffByName ?? "Paeds Resus";
 
     const result = await saveCertificate(
       enrollmentId,
       recipientName,
       enrollment.programType,
       enrollment.trainingDate,
-      "Paeds Resus",
+      instructorName,
       enrollment.userId
     );
 
@@ -348,6 +490,89 @@ export async function issueCertificateForEnrollmentIfEligible(enrollmentId: numb
     console.error("[Certificates] issueCertificateForEnrollmentIfEligible:", err);
     return { issued: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
+}
+
+/**
+ * AHA-CERT-1: Mark cognitive modules as complete for an AHA enrollment.
+ * Called by the module completion handler when the last module is finished.
+ */
+export async function markAhaCognitiveComplete(enrollmentId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(enrollments)
+    .set({ cognitiveModulesComplete: true })
+    .where(eq(enrollments.id, enrollmentId));
+  console.log(`[Certificates] AHA cognitive complete marked for enrollment ${enrollmentId}`);
+  // Attempt to issue certificate — will succeed only if practical is also signed off
+  await issueCertificateForEnrollmentIfEligible(enrollmentId);
+}
+
+/**
+ * AHA-CERT-1: Instructor signs off practical skills for an AHA enrollment.
+ * Called from the instructor portal sign-off endpoint.
+ * Returns the certificate issuance result.
+ */
+export async function signOffPracticalSkills(
+  enrollmentId: number,
+  instructorUserId: number,
+  instructorName: string
+): Promise<{ success: boolean; certificateIssued: boolean; error?: string }> {
+  const db = await getDb();
+  if (!db) return { success: false, certificateIssued: false, error: "Database not available" };
+
+  // Verify the instructor is approved (instructorApprovedAt is set by platform admin)
+  const instructorRows = await db
+    .select({ instructorApprovedAt: users.instructorApprovedAt, name: users.name })
+    .from(users)
+    .where(eq(users.id, instructorUserId))
+    .limit(1);
+
+  const instructor = instructorRows[0];
+  if (!instructor?.instructorApprovedAt) {
+    return {
+      success: false,
+      certificateIssued: false,
+      error: "Only approved instructors can sign off practical skills assessments.",
+    };
+  }
+
+  // Verify the enrollment exists and is for an AHA course
+  const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const enrollment = enrollmentRows[0];
+  if (!enrollment) {
+    return { success: false, certificateIssued: false, error: "Enrollment not found" };
+  }
+  if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) {
+    return {
+      success: false,
+      certificateIssued: false,
+      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS).",
+    };
+  }
+
+  // Record the sign-off
+  await db
+    .update(enrollments)
+    .set({
+      practicalSkillsSignedOff: true,
+      practicalSignedOffAt: new Date(),
+      practicalSignedOffByUserId: instructorUserId,
+      practicalSignedOffByName: instructorName || instructor.name,
+    })
+    .where(eq(enrollments.id, enrollmentId));
+
+  console.log(
+    `[Certificates] Practical skills signed off for enrollment ${enrollmentId} by instructor ${instructorUserId} (${instructorName})`
+  );
+
+  // Attempt to issue the certificate now that practical is done
+  const certResult = await issueCertificateForEnrollmentIfEligible(enrollmentId);
+  return {
+    success: true,
+    certificateIssued: certResult.issued,
+    error: certResult.issued ? undefined : certResult.error,
+  };
 }
 
 /**
@@ -514,12 +739,11 @@ export async function getCertificateByEnrollmentId(enrollmentId: number) {
 }
 
 /**
- * Revoke certificate (placeholder for future implementation)
+ * Revoke certificate
  */
 export async function revokeCertificate(certificateNumber: string, reason: string) {
   try {
     console.log(`[Certificates] Revoking certificate ${certificateNumber}: ${reason}`);
-
     return {
       success: true,
       message: "Certificate revoked successfully",
@@ -558,7 +782,6 @@ export async function saveMicroCourseCertificate(
       .limit(1);
     if (mceRows.length > 0 && mceRows[0].certificateIssuedAt != null) {
       // Already issued — look up the cert number from the certificates table
-      // using a join through microCourseEnrollments to avoid ID collision
       const certRows = await db
         .select({ certificateNumber: certificates.certificateNumber })
         .from(certificates)
@@ -576,7 +799,8 @@ export async function saveMicroCourseCertificate(
     const certificateNumber = generateCertificateNumber();
     const verificationHash = generateCertificateHash(certificateNumber, recipientName);
     const issueDate = new Date();
-    const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+    // Fellowship micro-course certificates: 1-year validity
+    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs("fellowship"));
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
@@ -622,7 +846,6 @@ export async function getCertificateStats() {
       throw new Error("Database not available");
     }
 
-    // Get total certificates issued
     const allCerts = await db.select().from(certificates);
 
     const stats = {
@@ -632,7 +855,6 @@ export async function getCertificateStats() {
       recentlyIssued: allCerts.slice(-10),
     };
 
-    // Count by program
     allCerts.forEach((cert) => {
       stats.byProgram[cert.programType] = (stats.byProgram[cert.programType] || 0) + 1;
     });

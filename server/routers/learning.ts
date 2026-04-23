@@ -21,7 +21,7 @@ import {
   ensureIntubationSampleCourseCatalog,
   getIntubationSampleCourseId,
 } from "../lib/ensure-intubation-sample-course-catalog";
-import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 
 export const learningRouter = router({
   // Get all courses
@@ -324,7 +324,10 @@ export const learningRouter = router({
           )
         );
 
-      await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
+      // After marking a module complete, check if ALL modules for this enrollment are now done.
+      // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
+      // markAhaCognitiveComplete internally checks all modules before setting the flag.
+      await markAhaCognitiveComplete(input.enrollmentId);
 
       return { success: true };
     }),

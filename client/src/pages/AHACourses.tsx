@@ -4,7 +4,8 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, CheckCircle2, ArrowLeft, XCircle, Clock, ClipboardCheck, CalendarPlus } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute } from "@/lib/providerCourseRoutes";
 
@@ -22,6 +23,66 @@ const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals", { title: string; descrip
     description: "Pediatric emergency assessment and stabilization for critically ill children.",
   },
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Certification progress indicator
+// Shows the two gates a learner must pass before a certificate is issued.
+// ─────────────────────────────────────────────────────────────────────────────
+function CertProgressBar({
+  cognitiveComplete,
+  practicalSignedOff,
+  certificateIssued,
+}: {
+  cognitiveComplete: boolean;
+  practicalSignedOff: boolean;
+  certificateIssued: boolean;
+}) {
+  if (certificateIssued) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+        <CheckCircle2 className="h-4 w-4 shrink-0" />
+        Certificate issued — valid for 2 years
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground font-medium">Certificate requirements</p>
+      <div className="space-y-1.5">
+        {/* Gate 1: Cognitive */}
+        <div className="flex items-center gap-2 text-xs">
+          {cognitiveComplete ? (
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+          ) : (
+            <XCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          )}
+          <span className={cognitiveComplete ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
+            Cognitive modules complete
+          </span>
+        </div>
+        {/* Gate 2: Practical */}
+        <div className="flex items-center gap-2 text-xs">
+          {practicalSignedOff ? (
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+          ) : (
+            <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          )}
+          <span className={practicalSignedOff ? "text-emerald-700 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
+            {practicalSignedOff
+              ? "Practical skills signed off"
+              : "Practical skills — awaiting instructor sign-off"}
+          </span>
+        </div>
+      </div>
+      {!practicalSignedOff && (
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Attend your scheduled hands-on session. Your instructor will sign off your practical skills to release the certificate.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function AHACourses() {
   const { user, loading } = useAuth();
@@ -104,6 +165,26 @@ export default function AHACourses() {
           </div>
         </div>
 
+        {/* How certification works — shown when any course is enrolled and paid */}
+        {[...latestAhaByProgram.values()].some((e) => e.paymentStatus === "completed") && (
+          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                <ClipboardCheck className="h-4 w-4" />
+                How your AHA certificate is issued
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-foreground/80 space-y-1">
+              <p>Your certificate is released automatically when <strong>both</strong> requirements below are met:</p>
+              <ol className="list-decimal list-inside space-y-0.5 ml-2">
+                <li>All cognitive modules completed and passed (tracked in the course).</li>
+                <li>Practical skills signed off by your assigned instructor at your hands-on session.</li>
+              </ol>
+              <p className="text-muted-foreground pt-1">Certificates are valid for 2 years from the date of issuance.</p>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {(ahaCourses ?? []).map((course) => {
             const pt = course.programType;
@@ -112,12 +193,23 @@ export default function AHACourses() {
             const isEnrolled = !!enrol;
             const isPaid = enrol?.paymentStatus === "completed";
             const hours = Math.max(1, Math.round((course.duration ?? 360) / 60));
+
+            // AHA completion gates (new fields from migration 0037)
+            const cognitiveComplete = (enrol as any)?.cognitiveModulesComplete ?? false;
+            const practicalSignedOff = (enrol as any)?.practicalSkillsSignedOff ?? false;
+            const certIssued = isPaid && cognitiveComplete && practicalSignedOff;
+
             return (
-              <Card key={course.id} className="hover:border-primary/50 transition-colors flex flex-col">
+              <Card
+                key={course.id}
+                className={`hover:border-primary/50 transition-colors flex flex-col ${
+                  certIssued ? "border-emerald-300 dark:border-emerald-700" : ""
+                }`}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-lg leading-snug">{programCopy?.title ?? course.title}</CardTitle>
-                    {isPaid && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
+                    {certIssued && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
                   </div>
                   <CardDescription>{hours} hours (typical)</CardDescription>
                 </CardHeader>
@@ -125,11 +217,26 @@ export default function AHACourses() {
                   <p className="text-sm text-muted-foreground">
                     {programCopy?.description ?? (course.description || "Structured certification path with assessment.")}
                   </p>
+
+                  {/* Progress tracker — only shown when paid */}
                   {isPaid && (
-                    <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 text-center">
-                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Ready to learn</p>
+                    <div className="rounded-lg border border-border bg-muted/30 p-3">
+                      <CertProgressBar
+                        cognitiveComplete={cognitiveComplete}
+                        practicalSignedOff={practicalSignedOff}
+                        certificateIssued={certIssued}
+                      />
                     </div>
                   )}
+
+                  {/* Status badge */}
+                  {isEnrolled && !isPaid && (
+                    <Badge variant="secondary" className="w-fit text-xs">
+                      Payment pending
+                    </Badge>
+                  )}
+
+                  {/* CTA buttons */}
                   {isEnrolled && !isPaid && (
                     <Button
                       size="sm"
@@ -151,7 +258,7 @@ export default function AHACourses() {
                       Pay now
                     </Button>
                   )}
-                  {isEnrolled && isPaid && (
+                  {isEnrolled && isPaid && !certIssued && (
                     <Button
                       size="sm"
                       className="w-full"
@@ -172,6 +279,16 @@ export default function AHACourses() {
                       {enrol?.id
                         ? getAhaContinueRoute(pt as "bls" | "acls" | "pals", enrol.id).ctaLabel
                         : "Open learner dashboard"}
+                    </Button>
+                  )}
+                  {isEnrolled && certIssued && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                      onClick={() => setLocation("/certificates")}
+                    >
+                      View certificate
                     </Button>
                   )}
                   {!isEnrolled && (
@@ -204,6 +321,28 @@ export default function AHACourses() {
             <CardContent>
               <Button variant="cta" className="w-full" onClick={primaryAction.onClick}>
                 {primaryAction.label}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Book a hands-on session CTA */}
+        {[...latestAhaByProgram.values()].some((e) => e.paymentStatus === "completed") && (
+          <Card className="border-border">
+            <CardContent className="pt-5 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-semibold text-foreground">Ready to complete your practical skills?</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Find and register for an upcoming hands-on session near you. Your instructor will sign off your skills to release your certificate.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => setLocation("/aha-book-session")}
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Book a session
               </Button>
             </CardContent>
           </Card>

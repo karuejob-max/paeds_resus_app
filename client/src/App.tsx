@@ -66,6 +66,7 @@ const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
 const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayer'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
+const AHABookSession = lazy(() => import("./pages/AHABookSession"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
@@ -327,6 +328,11 @@ function Router() {
           <Route path="/aha-courses">{() => (
             <RoleGate allowed={["provider"]}>
               <AHACourses />
+            </RoleGate>
+          )}</Route>
+          <Route path="/aha-book-session">{() => (
+            <RoleGate allowed={["provider"]}>
+              <AHABookSession />
             </RoleGate>
           )}</Route>
           <Route path="/resus">{() => (
