@@ -114,8 +114,10 @@ import {
   AlertCircle,
   XCircle,
   BookOpen,
+  Layers,
 } from 'lucide-react';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
+import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -233,6 +235,7 @@ export default function ResusGPS() {
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showProtocols, setShowProtocols] = useState(false);
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
   const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
   const timer = useTimer();
@@ -399,6 +402,29 @@ export default function ResusGPS() {
 
   const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation();
   const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation();
+
+  // Phase 5.2 — Server-side SAMPLE history sync
+  const saveSampleHistoryMutation = trpc.sampleHistory.saveSampleHistory.useMutation();
+  const { data: serverSampleHistory } = trpc.sampleHistory.getLastSampleHistory.useQuery(
+    undefined,
+    {
+      enabled: session.phase === 'IDLE', // only fetch when idle (before case starts)
+      staleTime: 5 * 60 * 1000, // 5 min cache
+      onSuccess: (data) => {
+        // If no local pre-fill already loaded, use server data
+        if (data && !preFillSample) {
+          setPreFillSample({
+            signs: data.signs ?? '',
+            allergies: data.allergies ?? '',
+            medications: data.medications ?? '',
+            pastHistory: data.pastHistory ?? '',
+            lastMeal: data.lastMeal ?? '',
+            events: data.events ?? '',
+          });
+        }
+      },
+    }
+  );
 
   const handleSaveSession = async () => {
     trackButtonClick('Save Session for Fellowship Credit');
@@ -579,6 +605,22 @@ export default function ResusGPS() {
       }
     }
     
+    // Phase 5.2 — Save SAMPLE history to server before resetting
+    const sample = session.sampleHistory;
+    const hasSampleData = Object.values(sample).some(v => v && String(v).trim().length > 0);
+    if (hasSampleData) {
+      saveSampleHistoryMutation.mutate({
+        signs: sample.signs ?? '',
+        allergies: sample.allergies ?? '',
+        medications: sample.medications ?? '',
+        pastHistory: sample.pastHistory ?? '',
+        lastMeal: sample.lastMeal ?? '',
+        events: sample.events ?? '',
+        caseWeight: session.patientWeight ?? undefined,
+        caseAge: session.patientAge ?? undefined,
+      });
+    }
+
     setSession(createSession(getWeightInKg(), demographics.age || null));
     timer.reset();
     setNumberInput('');
@@ -665,6 +707,7 @@ export default function ResusGPS() {
         onNewCase={handleNewCase}
         onShowLog={() => setShowEventLog(true)}
         onOpenDocuments={() => setShowDocuments(true)}
+        onOpenProtocols={() => setShowProtocols(true)}
       />
 
       {/* Safety Alerts Banner */}
@@ -938,6 +981,13 @@ export default function ResusGPS() {
         session={session}
       />
 
+      {/* Condition Protocols Sheet */}
+      <ConditionProtocolSheet
+        open={showProtocols}
+        onOpenChange={setShowProtocols}
+        session={session}
+      />
+
       <BottomNav />
     </div>
   );
@@ -962,6 +1012,7 @@ function TopBar({
   onNewCase,
   onShowLog,
   onOpenDocuments,
+  onOpenProtocols,
 }: {
   session: ResusSession;
   timer: ReturnType<typeof useTimer>;
@@ -979,6 +1030,7 @@ function TopBar({
   onNewCase: () => void;
   onShowLog: () => void;
   onOpenDocuments: () => void;
+  onOpenProtocols: () => void;
 }) {
   if (session.phase === 'IDLE') return null;
 
@@ -1080,6 +1132,17 @@ function TopBar({
           <Undo2 className="h-4 w-4" />
         </Button>
 
+        {/* Condition Protocols */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenProtocols}
+          title="Condition protocols (Septic Shock, Status Epilepticus, DKA)"
+          aria-label="Condition protocols"
+        >
+          <Layers className="h-4 w-4" />
+        </Button>
         {/* Clinical Documents */}
         <Button
           size="sm"

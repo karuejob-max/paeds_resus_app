@@ -76,6 +76,45 @@ function downloadTxt(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Generate a print-ready PDF from plain text using the browser's print dialog.
+ * This is fully offline — no server call, no library required.
+ * The provider can print to PDF or to a physical printer/fax.
+ */
+function printAsPdf(content: string, title: string) {
+  const printWindow = window.open('', '_blank', 'width=794,height=1123');
+  if (!printWindow) {
+    toast.error('Pop-up blocked — allow pop-ups and try again');
+    return;
+  }
+  const lines = content.split('\n').map(line => {
+    if (line.startsWith('═')) return `<hr style="border:2px solid #000;margin:8px 0">`;
+    if (line.startsWith('──')) return `<h3 style="font-size:11pt;font-weight:bold;margin:12px 0 4px;border-bottom:1px solid #ccc;padding-bottom:2px">${line.replace(/^──\s*/, '').replace(/\s*──$/, '')}</h3>`;
+    if (line.trim() === '') return '<br>';
+    return `<p style="margin:2px 0;font-size:10pt">${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`;
+  }).join('');
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        @page { size: A4; margin: 20mm 15mm; }
+        body { font-family: 'Times New Roman', serif; font-size: 10pt; color: #000; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head>
+    <body>
+      ${lines}
+      <script>window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; }<\/script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
 function copyToClipboard(content: string, label: string) {
   navigator.clipboard.writeText(content).then(
     () => toast.success(`${label} copied to clipboard`),
@@ -211,6 +250,16 @@ function DocumentPreview({
         >
           <Download className="h-3.5 w-3.5" />
           Download .txt
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="flex-1 gap-1.5"
+          onClick={() => printAsPdf(content, label)}
+          title="Print or save as PDF"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Print / PDF
         </Button>
       </div>
       <Textarea

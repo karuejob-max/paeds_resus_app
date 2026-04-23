@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
+import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import {
   BarChart3,
   Users,
@@ -719,6 +720,9 @@ export default function HospitalAdminDashboard() {
             </Card>
           {/* Resource Gap Trends — auto-populated from ResusGPS sessions */}
           <ResourceGapWidget compact limit={8} showTimeframeSelector />
+
+          {/* Multi-Facility Benchmark — anonymised cross-facility comparison */}
+          <MultiFacilityBenchmarkWidget />
 
           </TabsContent>
 

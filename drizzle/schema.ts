@@ -2460,3 +2460,26 @@ export const fellowshipStreakResets = mysqlTable("fellowshipStreakResets", {
 
 export type FellowshipStreakReset = typeof fellowshipStreakResets.$inferSelect;
 export type InsertFellowshipStreakReset = typeof fellowshipStreakResets.$inferInsert;
+
+
+/**
+ * Provider SAMPLE History — stores the last SAMPLE history per provider.
+ * Used to pre-fill the SAMPLE fields in ResusGPS for returning patients.
+ * One row per user, upserted on every ResusGPS case completion.
+ */
+export const providerSampleHistory = mysqlTable("providerSampleHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  signs: text("signs"),
+  allergies: text("allergies"),
+  medications: text("medications"),
+  pastHistory: text("pastHistory"),
+  lastMeal: text("lastMeal"),
+  events: text("events"),
+  caseWeight: decimal("caseWeight", { precision: 5, scale: 1 }),
+  caseAge: varchar("caseAge", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProviderSampleHistory = typeof providerSampleHistory.$inferSelect;
+export type InsertProviderSampleHistory = typeof providerSampleHistory.$inferInsert;

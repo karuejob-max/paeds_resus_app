@@ -392,4 +392,125 @@ export const careSignalEventsRouter = router({
         });
       }
     }),
+
+  /**
+   * Anonymised multi-facility resource gap benchmarking.
+   * Returns:
+   *   - Platform-wide top resource gaps (all facilities, anonymised)
+   *   - This facility's top gaps
+   *   - Comparison: which gaps are unique to this facility vs. widespread
+   *
+   * Anonymisation: user IDs are never returned. Only aggregated counts.
+   * Minimum cohort size: 5 events before a gap appears in platform-wide data.
+   */
+  getMultiFacilityBenchmark: protectedProcedure
+    .input(
+      z.object({
+        timeframe: z.enum(["week", "month", "quarter", "year"]).default("month"),
+        limit: z.number().min(1).max(20).default(10),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      try {
+        if (!ctx.user.providerType && ctx.user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Care Signal is for healthcare providers.",
+          });
+        }
+
+        const db = await getDb();
+        if (!db) {
+          return {
+            success: true,
+            timeframe: input.timeframe,
+            platformWide: [],
+            myFacility: [],
+            uniqueToMe: [],
+            widespreadGaps: [],
+            totalPlatformEvents: 0,
+            totalMyEvents: 0,
+          };
+        }
+
+        const daysBack = input.timeframe === "week" ? 7
+          : input.timeframe === "month" ? 30
+          : input.timeframe === "quarter" ? 90
+          : 365;
+        const since = new Date(Date.now() - daysBack * 86_400_000);
+        const userId = ctx.user.id;
+
+        // Fetch ALL resource gap events (platform-wide)
+        const allRows = await db
+          .select({
+            userId: analyticsEvents.userId,
+            eventData: analyticsEvents.eventData,
+          })
+          .from(analyticsEvents)
+          .where(
+            and(
+              gte(analyticsEvents.createdAt, since),
+              sql`${analyticsEvents.eventType} = 'resus_resource_gap'`
+            )
+          )
+          .limit(5000);
+
+        // Aggregate platform-wide (all users, anonymised)
+        const platformMap: Record<string, number> = {};
+        // Aggregate this user's events
+        const myMap: Record<string, number> = {};
+
+        for (const row of allRows) {
+          try {
+            const data = typeof row.eventData === "string"
+              ? (JSON.parse(row.eventData) as Record<string, unknown>)
+              : (row.eventData as Record<string, unknown> | null) ?? {};
+            const name = (data.interventionName as string) || "Unknown";
+            platformMap[name] = (platformMap[name] ?? 0) + 1;
+            if (row.userId === userId) {
+              myMap[name] = (myMap[name] ?? 0) + 1;
+            }
+          } catch {
+            // skip malformed rows
+          }
+        }
+
+        // Platform-wide: only show gaps with >=5 events (anonymisation threshold)
+        const platformWide = Object.entries(platformMap)
+          .filter(([, count]) => count >= 5)
+          .map(([intervention, count]) => ({ intervention, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, input.limit);
+
+        const myFacility = Object.entries(myMap)
+          .map(([intervention, count]) => ({ intervention, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, input.limit);
+
+        const platformSet = new Set(platformWide.map(g => g.intervention));
+        const mySet = new Set(myFacility.map(g => g.intervention));
+
+        // Gaps unique to this provider (not widespread on platform)
+        const uniqueToMe = myFacility.filter(g => !platformSet.has(g.intervention));
+        // Widespread gaps this provider also reports
+        const widespreadGaps = myFacility.filter(g => platformSet.has(g.intervention));
+
+        return {
+          success: true,
+          timeframe: input.timeframe,
+          platformWide,
+          myFacility,
+          uniqueToMe,
+          widespreadGaps,
+          totalPlatformEvents: allRows.length,
+          totalMyEvents: Object.values(myMap).reduce((a, b) => a + b, 0),
+        };
+      } catch (error) {
+        console.error("[Multi-Facility Benchmark Error]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to retrieve multi-facility benchmark.",
+        });
+      }
+    }),
 });

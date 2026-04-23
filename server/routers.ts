@@ -38,6 +38,7 @@ import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
 import { careSignalEventsRouter } from "./routers/care-signal-events";
+import { sampleHistoryRouter } from "./routers/sample-history";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -285,6 +286,7 @@ export const appRouter = router({
   chatSupport: chatSupportRouter,
   aiAssistant: aiAssistantRouter,
   careSignalEvents: careSignalEventsRouter,
+  sampleHistory: sampleHistoryRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
