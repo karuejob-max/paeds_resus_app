@@ -555,7 +555,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                               </div>
                             ) : null}
                             <Button variant={nextPurchaseCourse ? "outline" : "cta"} size="lg" className="w-full rounded-xl" asChild>
-                              <Link href="/learner-dashboard#my-certificates">View my certificate</Link>
+                              <Link href="/home#my-certificates">View my certificate</Link>
                             </Button>
                           </div>
                         )}

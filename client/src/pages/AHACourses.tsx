@@ -166,7 +166,7 @@ export default function AHACourses() {
                           setLocation(config.destination);
                           return;
                         }
-                        setLocation("/learner-dashboard");
+                        setLocation("/home");
                       }}
                     >
                       {enrol?.id

@@ -84,7 +84,7 @@ export default function CourseACLS() {
                   Go to enroll
                 </Button>
               </Link>
-              <Link href="/learner-dashboard">
+              <Link href="/home">
                 <Button variant="outline" className="w-full gap-2">
                   <ArrowLeft className="w-4 h-4" />
                   Learner dashboard
@@ -100,7 +100,7 @@ export default function CourseACLS() {
   return (
     <div className="min-h-screen bg-brand-surface py-8 px-4">
       <div className="max-w-4xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/learner-dashboard">
+        <Link href="/home">
           <Button variant="outline" size="sm" className="gap-2 rounded-xl">
             <ArrowLeft className="w-4 h-4" />
             Dashboard

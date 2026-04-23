@@ -35,7 +35,7 @@ describe("getProviderCourseDestination", () => {
   });
 
   it("falls back for unknown course id", () => {
-    expect(getProviderCourseDestination("unknown_course", 200)).toBe("/learner-dashboard");
+    expect(getProviderCourseDestination("unknown_course", 200)).toBe("/home");
   });
 
   it("uses custom fallback when provided", () => {

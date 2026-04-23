@@ -28,7 +28,7 @@ export default function Enroll() {
         setLocation(`/payment?enrollmentId=${data.enrollmentId}&courseId=${selectedCourse}`);
       } else {
         setStep("success");
-        setTimeout(() => setLocation("/learner-dashboard"), 3000);
+        setTimeout(() => setLocation("/home"), 3000);
       }
     },
     onError: (error) => {

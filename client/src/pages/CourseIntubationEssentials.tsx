@@ -91,7 +91,7 @@ export default function CourseIntubationEssentials() {
                   Open Fellowship
                 </Button>
               </Link>
-              <Link href="/learner-dashboard">
+              <Link href="/home">
                 <Button variant="outline" className="w-full gap-2">
                   <ArrowLeft className="w-4 h-4" />
                   Learner dashboard

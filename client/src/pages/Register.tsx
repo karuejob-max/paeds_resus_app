@@ -4,14 +4,39 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Stethoscope, Heart, Building2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
 
 type UserType = "individual" | "parent" | "institutional";
+
+const ROLE_OPTIONS: {
+  value: UserType;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}[] = [
+  {
+    value: "individual",
+    icon: <Stethoscope className="h-5 w-5 text-primary shrink-0" />,
+    title: "Healthcare Provider",
+    description: "Access Fellowship, AHA certification, ResusGPS, and Care Signal",
+  },
+  {
+    value: "parent",
+    icon: <Heart className="h-5 w-5 text-rose-400 shrink-0" />,
+    title: "Parent / Caregiver",
+    description: "Learn pediatric emergency response and first aid for your family",
+  },
+  {
+    value: "institutional",
+    icon: <Building2 className="h-5 w-5 text-amber-400 shrink-0" />,
+    title: "Institution / Hospital",
+    description: "Manage staff training, track facility performance, and institutional subscriptions",
+  },
+];
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -68,37 +93,52 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create an account</CardTitle>
-          <CardDescription>Enter your details to get started</CardDescription>
+          <CardTitle>Create your account</CardTitle>
+          <CardDescription>Choose your role to get the right tools from day one</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
+
+            {/* Role selection — icon cards */}
             <div className="space-y-2">
-              <Label>I am a</Label>
-              <RadioGroup
-                value={userType}
-                onValueChange={(v) => setUserType(v as UserType)}
-                className="flex flex-col gap-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="individual" id="individual" />
-                  <Label htmlFor="individual" className="font-normal cursor-pointer">Healthcare provider</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="parent" id="parent" />
-                  <Label htmlFor="parent" className="font-normal cursor-pointer">Parent or guardian</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="institutional" id="institutional" />
-                  <Label htmlFor="institutional" className="font-normal cursor-pointer">Institution (e.g. hospital)</Label>
-                </div>
-              </RadioGroup>
+              <Label className="text-sm font-medium">I am a</Label>
+              <div className="grid gap-2">
+                {ROLE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setUserType(opt.value)}
+                    className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors w-full
+                      ${userType === opt.value
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/50"
+                      }`}
+                  >
+                    <span className="mt-0.5">{opt.icon}</span>
+                    <div>
+                      <p className={`text-sm font-medium ${userType === opt.value ? "text-primary" : "text-foreground"}`}>
+                        {opt.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
+                    </div>
+                    {/* Checkmark indicator */}
+                    <span className={`ml-auto mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0
+                      ${userType === opt.value ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+                      {userType === opt.value && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name (optional)</Label>
+              <Label htmlFor="name">Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
                 id="name"
                 type="text"
@@ -108,6 +148,8 @@ export default function Register() {
                 autoComplete="name"
               />
             </div>
+
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -120,6 +162,8 @@ export default function Register() {
                 autoComplete="email"
               />
             </div>
+
+            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -144,6 +188,8 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
+            {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <div className="relative">
@@ -167,6 +213,7 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
             <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
               {registerMutation.isPending ? "Creating account…" : "Create account"}
             </Button>

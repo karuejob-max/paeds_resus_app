@@ -52,7 +52,7 @@ export const roleBasedPages = {
     "/profile",
     "/settings",
     "/resources",
-    "/learner-dashboard",
+    "/home",
     "/payment-history",
     "/certificates",
   ],

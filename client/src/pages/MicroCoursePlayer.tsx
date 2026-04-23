@@ -49,7 +49,7 @@ export default function MicroCoursePlayer() {
   const completeCourse = trpc.courses.complete.useMutation({
     onSuccess: () => {
       toast.success("Course completed! Certificate generated.");
-      navigate("/learner-dashboard");
+      navigate("/home");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to mark course as complete");

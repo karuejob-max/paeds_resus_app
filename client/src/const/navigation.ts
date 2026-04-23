@@ -23,7 +23,7 @@ export const mainNavItems: NavItem[] = [
 
 // Authenticated user navigation - ONLY WORKING PAGES
 export const authenticatedNavItems: NavItem[] = [
-  { label: "Learner Dashboard", href: "/learner-dashboard", requiresAuth: true },
+  { label: "Learner Dashboard", href: "/home", requiresAuth: true },
   { label: "Payment", href: "/payment", requiresAuth: true },
 ];
 
@@ -84,7 +84,7 @@ export const footerSections = {
 
 // Dashboard sidebar navigation for authenticated users - ONLY WORKING PAGES
 export const dashboardNavItems: NavItem[] = [
-  { label: "Learner Dashboard", href: "/learner-dashboard", icon: "📊" },
+  { label: "Learner Dashboard", href: "/home", icon: "📊" },
   { label: "Payment", href: "/payment", icon: "💳" },
   { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
@@ -102,7 +102,7 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/institutional": ["Home", "Institutions"],
   "/institutional-portal": ["Home", "Institutions", "Portal (legacy redirect)"],
   "/institutional-onboarding": ["Home", "Institutions", "Onboarding"],
-  "/learner-dashboard": ["Home", "Dashboard"],
+  "/home": ["Home", "Dashboard"],
   "/payment": ["Home", "Payment"],
   "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
   "/advanced-analytics": ["Home", "Admin", "Analytics"],

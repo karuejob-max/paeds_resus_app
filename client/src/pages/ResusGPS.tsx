@@ -72,6 +72,11 @@ import {
 } from '@/lib/resus/abcdeEngine';
 import { pushToUndoStack, undo, redo } from '@/lib/resus/undo-manager';
 import {
+  persistResusSession,
+  loadPersistedResusSession,
+  clearPersistedResusSession,
+} from '@/lib/resus/resusSessionStore';
+import {
   AlertTriangle,
   Activity,
   Heart,
@@ -190,6 +195,22 @@ export default function ResusGPS() {
   const analytics = useResusAnalytics();
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+  const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
+
+  // ── On mount: check for an unfinished persisted session ────────────────────
+  useEffect(() => {
+    loadPersistedResusSession().then((saved) => {
+      if (saved && saved.phase !== 'IDLE') setResumeCandidate(saved);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-persist on every session change ──────────────────────────────────
+  useEffect(() => {
+    if (session.phase !== 'IDLE') {
+      persistResusSession(session);
+    }
+  }, [session]);
   const [recommendedPathway, setRecommendedPathway] = useState<{ pathway: string; condition: string; message: string } | null>(null);
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
@@ -505,6 +526,7 @@ export default function ResusGPS() {
   }, [session, trackButtonClick]);
 
   const handleNewCase = () => {
+    clearPersistedResusSession();
     // Optionally record the previous session before starting new one
     // (only if it had significant activity)
     if (session.events.length > 5) {
@@ -552,6 +574,48 @@ export default function ResusGPS() {
     setInterventionPanelOpen(false);
     setReassessmentMode(null);
   };
+
+  // ── Resume dialog ──────────────────────────────────────────────────────────
+  if (resumeCandidate) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-4">
+          <div className="rounded-xl border border-amber-400/60 bg-amber-50/80 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-amber-800 font-semibold text-base">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Unfinished case found
+            </div>
+            <p className="text-sm text-amber-900/90">
+              A ResusGPS case was interrupted — likely a browser refresh during an active resuscitation.
+              Do you want to resume it?
+            </p>
+            <div className="flex gap-3 pt-1">
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setSession(resumeCandidate);
+                  setResumeCandidate(null);
+                  if (resumeCandidate.phase !== 'IDLE') timer.start();
+                }}
+              >
+                Resume case
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  clearPersistedResusSession();
+                  setResumeCandidate(null);
+                }}
+              >
+                Start fresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Render ─────────────────────────────────────────────
 

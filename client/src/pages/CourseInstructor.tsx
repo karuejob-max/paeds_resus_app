@@ -70,7 +70,7 @@ export default function CourseInstructor() {
                   Go to enroll
                 </Button>
               </Link>
-              <Link href="/learner-dashboard">
+              <Link href="/home">
                 <Button variant="outline" className="w-full gap-2">
                   <ArrowLeft className="w-4 h-4" />
                   Learner dashboard
@@ -86,7 +86,7 @@ export default function CourseInstructor() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-8 px-4">
       <div className="max-w-6xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link href="/learner-dashboard">
+        <Link href="/home">
           <Button variant="outline" size="sm" className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Dashboard
