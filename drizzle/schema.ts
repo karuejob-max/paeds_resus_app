@@ -2004,6 +2004,30 @@ export const parentSafeTruthSubmissions = mysqlTable("parentSafeTruthSubmissions
   parentName: varchar("parentName", { length: 255 }),
   parentEmail: varchar("parentEmail", { length: 255 }),
   status: mysqlEnum("status", ["draft", "submitted", "reviewed", "archived"]).default("submitted"),
+
+  // ── Pre-hospital journey fields ────────────────────────────────────────────
+  // When did the parent/caregiver first notice the child was unwell?
+  symptomOnsetDate: varchar("symptomOnsetDate", { length: 20 }),   // YYYY-MM-DD
+  // How long after symptom onset did the family decide to seek care?
+  decisionDelayBand: varchar("decisionDelayBand", { length: 50 }), // "immediate"|"under-1h"|"1-6h"|"6-24h"|"over-24h"
+  // Why did they wait before seeking care?
+  decisionDelayReasons: text("decisionDelayReasons"),              // JSON: string[]
+  // How did the child reach this facility?
+  transportMode: varchar("transportMode", { length: 50 }),         // "personal-vehicle"|"matatu"|"boda-boda"|"ambulance"|"walked"|"other"
+  transportDurationBand: varchar("transportDurationBand", { length: 50 }), // "under-15m"|"15-30m"|"30-60m"|"over-1h"
+  // Was an ambulance called? How long did it take?
+  ambulanceCalled: boolean("ambulanceCalled").default(false),
+  ambulanceWaitBand: varchar("ambulanceWaitBand", { length: 50 }), // "under-15m"|"15-30m"|"30-60m"|"over-1h"|"never-came"
+  // Did the child visit another facility before this one?
+  priorFacilityVisit: boolean("priorFacilityVisit").default(false),
+  // JSON array of prior stops: [{name, type, reasonLeft, timeSpentBand}]
+  priorFacilityChain: text("priorFacilityChain"),
+  // Why did they leave the prior facility / get referred?
+  referralReason: varchar("referralReason", { length: 100 }),      // "no-equipment"|"no-specialist"|"no-blood"|"self-referred"|"advised-to-go"|"other"
+  // Computed: symptom onset → arrival at this facility (minutes)
+  preHospitalDelayMinutes: int("preHospitalDelayMinutes"),
+  // ──────────────────────────────────────────────────────────────────────────
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

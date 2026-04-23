@@ -57,11 +57,23 @@ export const parentSafeTruthRouter = router({
         isAnonymous: z.boolean().default(true),
         hospitalId: z.number().optional(),
         events: z.array(eventSchema).min(1),
-        // Structured gap data from the wizard form
+        // In-hospital gap data
         systemGaps: z.array(z.string()).optional(),
         whereDelayHappened: z.array(z.string()).optional(),
         registrationBeforeTriage: z.boolean().optional(),
         shift: z.string().optional(),
+        // ── Pre-hospital journey data ──────────────────────────────────────
+        symptomOnsetDate: z.string().optional(),          // YYYY-MM-DD
+        decisionDelayBand: z.string().optional(),         // "immediate"|"under-1h"|"1-6h"|"6-24h"|"over-24h"
+        decisionDelayReasons: z.array(z.string()).optional(), // ["cost","distance",...]
+        transportMode: z.string().optional(),             // "personal-vehicle"|"matatu"|...
+        transportDurationBand: z.string().optional(),     // "under-15m"|"15-30m"|...
+        ambulanceCalled: z.boolean().optional(),
+        ambulanceWaitBand: z.string().optional(),         // "under-15m"|...|"never-came"
+        priorFacilityVisit: z.boolean().optional(),
+        priorFacilityChain: z.string().optional(),        // JSON string of PriorFacilityStop[]
+        referralReason: z.string().optional(),            // "no-equipment"|...
+        preHospitalDelayMinutes: z.number().optional(),   // computed: symptom onset → arrival
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -106,6 +118,20 @@ export const parentSafeTruthRouter = router({
           parentName: input.parentName,
           parentEmail: input.parentEmail,
           status: "submitted",
+          // ── Pre-hospital journey fields ──────────────────────────────────────────
+          symptomOnsetDate: input.symptomOnsetDate ?? null,
+          decisionDelayBand: input.decisionDelayBand ?? null,
+          decisionDelayReasons: input.decisionDelayReasons?.length
+            ? JSON.stringify(input.decisionDelayReasons)
+            : null,
+          transportMode: input.transportMode ?? null,
+          transportDurationBand: input.transportDurationBand ?? null,
+          ambulanceCalled: input.ambulanceCalled ?? false,
+          ambulanceWaitBand: input.ambulanceWaitBand ?? null,
+          priorFacilityVisit: input.priorFacilityVisit ?? false,
+          priorFacilityChain: input.priorFacilityChain ?? null,
+          referralReason: input.referralReason ?? null,
+          preHospitalDelayMinutes: input.preHospitalDelayMinutes ?? null,
         });
 
       const submissionId = (result as any)[0].insertId || (result as any).insertId;
@@ -356,8 +382,80 @@ export const parentSafeTruthRouter = router({
         interventionDelays: s.interventionDelays,
         monitoringGaps: s.monitoringGaps,
         createdAt: s.createdAt,
+        transportMode: s.transportMode,
+        priorFacilityVisit: s.priorFacilityVisit,
+        preHospitalDelayMinutes: s.preHospitalDelayMinutes,
+        decisionDelayBand: s.decisionDelayBand,
+        referralReason: s.referralReason,
       }));
-      return { totalSubmissions: submissions.length, outcomes, topGaps, avgDelayMinutes, recentSubmissions };
+
+      // ── Pre-hospital aggregations ──────────────────────────────────────────────────────────────────────────
+      // Transport mode breakdown
+      const transportModeMap: Record<string, number> = {};
+      for (const s of submissions) {
+        if (s.transportMode) {
+          transportModeMap[s.transportMode] = (transportModeMap[s.transportMode] || 0) + 1;
+        }
+      }
+      const transportBreakdown = Object.entries(transportModeMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([mode, count]) => ({ mode, count }));
+
+      // Decision delay breakdown
+      const decisionDelayMap: Record<string, number> = {};
+      for (const s of submissions) {
+        if (s.decisionDelayBand) {
+          decisionDelayMap[s.decisionDelayBand] = (decisionDelayMap[s.decisionDelayBand] || 0) + 1;
+        }
+      }
+      const decisionDelayBreakdown = Object.entries(decisionDelayMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([band, count]) => ({ band, count }));
+
+      // Prior facility visit rate
+      const withPriorFacility = submissions.filter((s) => s.priorFacilityVisit === true).length;
+      const priorFacilityRate = submissions.length > 0
+        ? Math.round((withPriorFacility / submissions.length) * 100)
+        : 0;
+
+      // Referral reason breakdown
+      const referralReasonMap: Record<string, number> = {};
+      for (const s of submissions) {
+        if (s.referralReason) {
+          referralReasonMap[s.referralReason] = (referralReasonMap[s.referralReason] || 0) + 1;
+        }
+      }
+      const referralReasonBreakdown = Object.entries(referralReasonMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, count]) => ({ reason, count }));
+
+      // Ambulance response
+      const calledAmbulance = submissions.filter((s) => s.ambulanceCalled === true).length;
+      const ambulanceNeverCame = submissions.filter((s) => s.ambulanceWaitBand === "never-came").length;
+
+      // Average pre-hospital delay
+      const withPreHospitalDelay = submissions.filter((s) => s.preHospitalDelayMinutes != null);
+      const avgPreHospitalDelayMinutes = withPreHospitalDelay.length
+        ? Math.round(withPreHospitalDelay.reduce((sum, s) => sum + (s.preHospitalDelayMinutes || 0), 0) / withPreHospitalDelay.length)
+        : null;
+
+      return {
+        totalSubmissions: submissions.length,
+        outcomes,
+        topGaps,
+        avgDelayMinutes,
+        recentSubmissions,
+        // Pre-hospital intelligence
+        preHospital: {
+          avgPreHospitalDelayMinutes,
+          transportBreakdown,
+          decisionDelayBreakdown,
+          priorFacilityRate,
+          referralReasonBreakdown,
+          ambulanceCalledCount: calledAmbulance,
+          ambulanceNeverCameCount: ambulanceNeverCame,
+        },
+      };
     }),
 
   // Admin: mark submission as response ready and notify parent by email

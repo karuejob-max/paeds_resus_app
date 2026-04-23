@@ -1,11 +1,14 @@
 /**
- * SafeTruthPanel — Hospital Admin view of parent-submitted Safe Truth data
+ * SafeTruthPanel — Hospital Admin QI Dashboard
  *
- * Roadmap Phase 4 implementation:
- *   - Surfaces aggregated parent feedback to the hospital admin
- *   - Shows top system gaps, outcome breakdown, and average delay
- *   - Provides actionable QI signals, not raw individual stories
+ * Surfaces the full parent-reported journey:
+ *   1. Pre-hospital delays (decision, transport, ambulance, referral chain)
+ *   2. In-hospital system gaps (registration, equipment, communication, etc.)
+ *   3. Outcome breakdown and recent submissions table
+ *
+ * Data source: parentSafeTruth.getHospitalSafeTruthSummary
  */
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,6 +22,10 @@ import {
   ArrowRight,
   BarChart3,
   MessageSquare,
+  MapPin,
+  Ambulance,
+  Building2,
+  RefreshCw,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -28,14 +35,16 @@ interface SafeTruthPanelProps {
   hospitalId: number;
 }
 
-// ─── Gap Labels ──────────────────────────────────────────────────────────────
+// ─── Label Maps ──────────────────────────────────────────────────────────────
 
 const GAP_LABELS: Record<string, string> = {
   communication: "Communication gaps",
   equipment: "Missing equipment / supplies",
+  oxygen: "Oxygen unavailable",
   staffing: "Insufficient staffing",
   training: "Staff unsure of next steps",
   protocols: "Unclear protocols",
+  billing: "Billing / payment barrier",
   "family-support": "Inadequate family support",
   "follow-up": "Unclear discharge / follow-up",
   "registration-before-triage": "Registration before triage",
@@ -48,11 +57,33 @@ const GAP_LABELS: Record<string, string> = {
   gate: "Delay at gate / security",
 };
 
-function gapLabel(gap: string): string {
-  return GAP_LABELS[gap] ?? gap;
-}
+const TRANSPORT_LABELS: Record<string, string> = {
+  "personal-vehicle": "Personal Vehicle",
+  matatu: "Matatu / Minibus",
+  "motorcycle-boda": "Motorcycle (Boda)",
+  ambulance: "Ambulance",
+  walking: "Walked",
+  other: "Other",
+};
 
-// ─── Outcome Labels ───────────────────────────────────────────────────────────
+const DECISION_DELAY_LABELS: Record<string, string> = {
+  immediate: "Immediate (< 30 min)",
+  "under-1h": "Under 1 hour",
+  "1-6h": "1 – 6 hours",
+  "6-24h": "6 – 24 hours",
+  "over-24h": "Over 24 hours",
+};
+
+const REFERRAL_REASON_LABELS: Record<string, string> = {
+  "no-equipment": "No Equipment",
+  "no-specialist": "No Specialist",
+  "no-blood": "No Blood",
+  "no-icu": "No ICU / HDU",
+  "no-oxygen": "No Oxygen",
+  "no-drugs": "No Drugs",
+  "capacity-full": "Facility Full",
+  other: "Other",
+};
 
 const OUTCOME_COLORS: Record<string, string> = {
   discharged: "bg-green-100 text-green-800 border-green-200",
@@ -66,13 +97,83 @@ const OUTCOME_LABELS: Record<string, string> = {
   "passed-away": "Passed away",
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Mini horizontal bar ─────────────────────────────────────────────────────
+
+function MiniBar({
+  label,
+  count,
+  total,
+  color = "bg-red-500",
+  index,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color?: string;
+  index?: number;
+}) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const isHigh = pct >= 40;
+  const isMed = pct >= 20 && pct < 40;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          {index !== undefined && (
+            <span className="text-muted-foreground font-mono text-xs w-5">{index + 1}.</span>
+          )}
+          <span className="font-medium">{label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs">{count}</span>
+          <Badge
+            variant="outline"
+            className={
+              isHigh
+                ? "border-red-300 text-red-700 bg-red-50"
+                : isMed
+                ? "border-orange-300 text-orange-700 bg-orange-50"
+                : "border-muted text-muted-foreground"
+            }
+          >
+            {pct}%
+          </Badge>
+        </div>
+      </div>
+      <div className={`w-full bg-muted rounded-full h-1.5 ${index !== undefined ? "ml-7" : ""}`}>
+        <div
+          className={`h-1.5 rounded-full transition-all ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Section divider ─────────────────────────────────────────────────────────
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-2">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-1">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
-  const { data, isLoading, error } = trpc.parentSafeTruth.getHospitalSafeTruthSummary.useQuery(
-    { hospitalId, months: 3 },
-    { enabled: !!hospitalId }
-  );
+  const [months, setMonths] = useState(3);
+
+  const { data, isLoading, error, refetch } =
+    trpc.parentSafeTruth.getHospitalSafeTruthSummary.useQuery(
+      { hospitalId, months },
+      { enabled: !!hospitalId }
+    );
 
   if (isLoading) {
     return (
@@ -98,21 +199,42 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
   const topGaps = data?.topGaps ?? [];
   const avgDelayMinutes = data?.avgDelayMinutes ?? null;
   const recentSubmissions = data?.recentSubmissions ?? [];
-
-  const totalOutcomes = Object.values(outcomes).reduce((a, b) => a + b, 0);
+  const ph = (data as any)?.preHospital ?? null;
+  const totalOutcomes = Object.values(outcomes).reduce((a: number, b) => a + (b as number), 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-primary" />
-          Safe Truth — Parent Feedback
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Aggregated, anonymized feedback from parents about their child's care journey at your
-          facility. Last 3 months.
-        </p>
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" />
+            Safe Truth — Parent Journey Intelligence
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Full journey data from parents: symptom onset → home decision → transport → prior
+            facilities → your facility → outcome.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+            className="text-sm border border-border rounded px-2 py-1 bg-background"
+          >
+            <option value={1}>Last 1 month</option>
+            <option value={3}>Last 3 months</option>
+            <option value={6}>Last 6 months</option>
+            <option value={12}>Last 12 months</option>
+          </select>
+          <button
+            onClick={() => refetch()}
+            className="p-1.5 rounded border border-border hover:bg-muted"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {totalSubmissions === 0 ? (
@@ -121,15 +243,15 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
             <MessageSquare className="w-10 h-10 text-muted-foreground mx-auto" />
             <h3 className="font-medium text-muted-foreground">No submissions yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              When parents submit their Safe Truth stories and link them to your facility, the
+              When parents complete the Safe Truth journey form and link it to your facility, the
               aggregated patterns will appear here.
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* ── Top KPIs ── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center gap-3">
@@ -154,7 +276,7 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
                     <p className="text-2xl font-bold">
                       {avgDelayMinutes !== null ? `${avgDelayMinutes}m` : "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">Avg. arrival-to-treatment time</p>
+                    <p className="text-xs text-muted-foreground">Avg in-hospital time</p>
                   </div>
                 </div>
               </CardContent>
@@ -163,19 +285,58 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
             <Card>
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-100">
-                    <TrendingUp className="w-5 h-5 text-green-600" />
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <MapPin className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{topGaps.length}</p>
-                    <p className="text-xs text-muted-foreground">Distinct gap types reported</p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        ph?.avgPreHospitalDelayMinutes != null &&
+                        ph.avgPreHospitalDelayMinutes > 120
+                          ? "text-red-600"
+                          : ""
+                      }`}
+                    >
+                      {ph?.avgPreHospitalDelayMinutes != null
+                        ? `${ph.avgPreHospitalDelayMinutes}m`
+                        : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Avg pre-hospital delay</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      ph?.priorFacilityRate > 40 ? "bg-orange-100" : "bg-green-100"
+                    }`}
+                  >
+                    <Building2
+                      className={`w-5 h-5 ${
+                        ph?.priorFacilityRate > 40 ? "text-orange-600" : "text-green-600"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <p
+                      className={`text-2xl font-bold ${
+                        ph?.priorFacilityRate > 40 ? "text-orange-600" : ""
+                      }`}
+                    >
+                      {ph?.priorFacilityRate != null ? `${ph.priorFacilityRate}%` : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Came via referral</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Outcome Breakdown */}
+          {/* ── Outcome Breakdown ── */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -196,10 +357,10 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
                     }`}
                   >
                     <span>{OUTCOME_LABELS[outcome] ?? outcome}</span>
-                    <span className="font-bold">{count}</span>
+                    <span className="font-bold">{count as number}</span>
                     {totalOutcomes > 0 && (
                       <span className="text-xs opacity-70">
-                        ({Math.round((count / totalOutcomes) * 100)}%)
+                        ({Math.round(((count as number) / totalOutcomes) * 100)}%)
                       </span>
                     )}
                   </div>
@@ -208,7 +369,156 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
             </CardContent>
           </Card>
 
-          {/* Top System Gaps */}
+          {/* ════════════════════════════════════════════════════════════════
+              PRE-HOSPITAL JOURNEY
+          ════════════════════════════════════════════════════════════════ */}
+          <SectionDivider label="Pre-Hospital Journey" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Decision Delay */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-orange-500" />
+                  Time Before Seeking Care
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  How long after symptoms did the family decide to come?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!ph?.decisionDelayBreakdown?.length ? (
+                  <p className="text-xs text-muted-foreground">No data yet</p>
+                ) : (
+                  ph.decisionDelayBreakdown.map(
+                    ({ band, count }: { band: string; count: number }) => (
+                      <MiniBar
+                        key={band}
+                        label={DECISION_DELAY_LABELS[band] ?? band}
+                        count={count}
+                        total={totalSubmissions}
+                        color={
+                          band === "over-24h" || band === "6-24h"
+                            ? "bg-red-500"
+                            : band === "1-6h"
+                            ? "bg-orange-400"
+                            : "bg-green-500"
+                        }
+                      />
+                    )
+                  )
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Transport Mode */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <ArrowRight className="w-4 h-4 text-blue-500" />
+                  Transport Mode
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  How did the child get to this facility?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!ph?.transportBreakdown?.length ? (
+                  <p className="text-xs text-muted-foreground">No data yet</p>
+                ) : (
+                  ph.transportBreakdown.map(
+                    ({ mode, count }: { mode: string; count: number }) => (
+                      <MiniBar
+                        key={mode}
+                        label={TRANSPORT_LABELS[mode] ?? mode}
+                        count={count}
+                        total={totalSubmissions}
+                        color="bg-blue-500"
+                      />
+                    )
+                  )
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Ambulance Response */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Ambulance className="w-4 h-4 text-red-500" />
+                  Ambulance Response
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Of cases where an ambulance was called
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!ph?.ambulanceCalledCount ? (
+                  <p className="text-xs text-muted-foreground">No ambulance calls reported</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Ambulance called</span>
+                      <span className="font-semibold">{ph.ambulanceCalledCount}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-red-600 font-medium">Ambulance never arrived</span>
+                      <span className="font-bold text-red-600">{ph.ambulanceNeverCameCount}</span>
+                    </div>
+                    {ph.ambulanceCalledCount > 0 && (
+                      <div className="mt-2 p-2 rounded bg-red-50 border border-red-100">
+                        <p className="text-xs text-red-700">
+                          <strong>
+                            {Math.round(
+                              (ph.ambulanceNeverCameCount / ph.ambulanceCalledCount) * 100
+                            )}
+                            %
+                          </strong>{" "}
+                          of ambulance calls resulted in no response.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Referral Chain */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-purple-500" />
+                  Why Were They Referred Here?
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Reason given at the prior facility
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!ph?.referralReasonBreakdown?.length ? (
+                  <p className="text-xs text-muted-foreground">No referral data yet</p>
+                ) : (
+                  ph.referralReasonBreakdown.map(
+                    ({ reason, count }: { reason: string; count: number }) => (
+                      <MiniBar
+                        key={reason}
+                        label={REFERRAL_REASON_LABELS[reason] ?? reason}
+                        count={count}
+                        total={totalSubmissions}
+                        color="bg-purple-500"
+                      />
+                    )
+                  )
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════════
+              IN-HOSPITAL GAPS
+          ════════════════════════════════════════════════════════════════ */}
+          <SectionDivider label="In-Hospital System Gaps" />
+
           {topGaps.length > 0 && (
             <Card>
               <CardHeader>
@@ -223,52 +533,32 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {topGaps.map(({ gap, count }, index) => {
-                    const pct = totalSubmissions > 0 ? Math.round((count / totalSubmissions) * 100) : 0;
-                    const isHigh = pct >= 40;
-                    const isMed = pct >= 20 && pct < 40;
-                    return (
-                      <div key={gap} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground font-mono text-xs w-5">
-                              {index + 1}.
-                            </span>
-                            <span className="font-medium">{gapLabel(gap)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground text-xs">{count} reports</span>
-                            <Badge
-                              variant="outline"
-                              className={
-                                isHigh
-                                  ? "border-red-300 text-red-700 bg-red-50"
-                                  : isMed
-                                  ? "border-orange-300 text-orange-700 bg-orange-50"
-                                  : "border-muted text-muted-foreground"
-                              }
-                            >
-                              {pct}%
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-1.5 ml-7">
-                          <div
-                            className={`h-1.5 rounded-full transition-all ${
-                              isHigh ? "bg-red-500" : isMed ? "bg-orange-400" : "bg-primary/50"
-                            }`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {topGaps.map(({ gap, count }: { gap: string; count: number }, index: number) => (
+                    <MiniBar
+                      key={gap}
+                      label={GAP_LABELS[gap] ?? gap}
+                      count={count}
+                      total={totalSubmissions}
+                      color={
+                        (totalSubmissions > 0 ? count / totalSubmissions : 0) >= 0.4
+                          ? "bg-red-500"
+                          : (totalSubmissions > 0 ? count / totalSubmissions : 0) >= 0.2
+                          ? "bg-orange-400"
+                          : "bg-primary/50"
+                      }
+                      index={index}
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Recent Submissions Summary */}
+          {/* ════════════════════════════════════════════════════════════════
+              RECENT SUBMISSIONS TABLE
+          ════════════════════════════════════════════════════════════════ */}
+          <SectionDivider label="Recent Submissions" />
+
           {recentSubmissions.length > 0 && (
             <Card>
               <CardHeader>
@@ -280,72 +570,118 @@ export default function SafeTruthPanel({ hospitalId }: SafeTruthPanelProps) {
                   Anonymized summary of the 10 most recent stories. No individual is identifiable.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="divide-y">
-                  {recentSubmissions.map((s: any) => (
-                    <div key={s.id} className="py-3 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            s.childOutcome === "discharged"
-                              ? "bg-green-500"
-                              : s.childOutcome === "referred"
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                          }`}
-                        />
-                        <span className="text-sm text-muted-foreground truncate">
-                          {OUTCOME_LABELS[s.childOutcome] ?? s.childOutcome}
-                          {s.totalDurationMinutes
-                            ? ` · ${s.totalDurationMinutes}m total`
-                            : ""}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {s.communicationGaps > 0 && (
-                          <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
-                            Comm. gap
-                          </Badge>
-                        )}
-                        {s.interventionDelays > 0 && (
-                          <Badge variant="outline" className="text-xs border-red-200 text-red-700">
-                            Intervention delay
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {s.createdAt
-                            ? new Date(s.createdAt).toLocaleDateString("en-KE", {
-                                day: "numeric",
-                                month: "short",
-                              })
-                            : ""}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b border-border">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          Date
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          Outcome
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          Pre-Hospital Delay
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          Transport
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          Prior Facility
+                        </th>
+                        <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">
+                          In-Hospital
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {recentSubmissions.map((s: any) => (
+                        <tr key={s.id} className="hover:bg-muted/30">
+                          <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
+                            {s.createdAt
+                              ? new Date(s.createdAt).toLocaleDateString("en-KE", {
+                                  day: "2-digit",
+                                  month: "short",
+                                })
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${
+                                OUTCOME_COLORS[s.childOutcome] ??
+                                "bg-muted text-muted-foreground border-border"
+                              }`}
+                            >
+                              {OUTCOME_LABELS[s.childOutcome] ?? s.childOutcome}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {s.preHospitalDelayMinutes != null
+                              ? `${s.preHospitalDelayMinutes} min`
+                              : s.decisionDelayBand
+                              ? DECISION_DELAY_LABELS[s.decisionDelayBand] ?? s.decisionDelayBand
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {s.transportMode
+                              ? TRANSPORT_LABELS[s.transportMode] ?? s.transportMode
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-2">
+                            {s.priorFacilityVisit ? (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-orange-200 text-orange-700 bg-orange-50"
+                              >
+                                {s.referralReason
+                                  ? REFERRAL_REASON_LABELS[s.referralReason] ?? s.referralReason
+                                  : "Yes"}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Direct</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {s.totalDurationMinutes != null
+                              ? `${s.totalDurationMinutes} min`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* QI Prompt */}
+          {/* ── QI Suggested Action ── */}
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start gap-3">
-                <ArrowRight className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-semibold text-sm">Suggested next action</p>
                   {topGaps.length > 0 ? (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Your most reported gap is{" "}
-                      <strong>"{gapLabel(topGaps[0].gap)}"</strong> — reported in{" "}
+                      Your most reported in-hospital gap is{" "}
+                      <strong>"{GAP_LABELS[topGaps[0].gap] ?? topGaps[0].gap}"</strong> — reported
+                      in{" "}
                       {Math.round((topGaps[0].count / totalSubmissions) * 100)}% of stories.
-                      Convene a brief team huddle to identify the root cause and assign an owner.
+                      {ph?.priorFacilityRate > 40 && (
+                        <>
+                          {" "}
+                          Additionally, <strong>{ph.priorFacilityRate}%</strong> of children
+                          arrived via referral — review your referral network capacity.
+                        </>
+                      )}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Review the gap data above and identify the single highest-frequency issue to
-                      address in your next team meeting.
+                      Review the pre-hospital and gap data above. Identify the single
+                      highest-frequency issue and assign an owner in your next team meeting.
                     </p>
                   )}
                 </div>
