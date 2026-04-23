@@ -10,13 +10,13 @@ These items address direct patient safety risks and core functionality failures 
 
 | ID | Task | Component | Priority | Status |
 |---|---|---|---|---|
-| **1.1** | **Fix Defibrillation Energy Formula** | `CPRClockTeam.tsx` | CRITICAL | Pending |
+| **1.1** | **Fix Defibrillation Energy Formula** | `CPRClockTeam.tsx` | CRITICAL | ✅ Done |
 | | *Description:* Update shock calculation to AHA pediatric guidelines: 2 J/kg for shock 1, 4 J/kg for shock 2, ≥4 J/kg (max 10 J/kg) for subsequent shocks. Currently uses incorrect `2 + newShockCount` formula. | | | |
-| **1.2** | **Decouple SBAR Export from Sync** | `ResusGPS.tsx` | HIGH | Pending |
+| **1.2** | **Decouple SBAR Export from Sync** | `ResusGPS.tsx` | HIGH | ✅ Done |
 | | *Description:* Ensure `exportClinicalRecord` copies to clipboard immediately and does not fail if `recordSessionMutation` (backend sync) fails due to network drop. | | | |
-| **1.3** | **Bulletproof Reassessment Timers** | `Reassessment.tsx`, `CPRClockTeam.tsx` | HIGH | Pending |
+| **1.3** | **Bulletproof Reassessment Timers** | `Reassessment.tsx`, `CPRClockTeam.tsx` | HIGH | ✅ Done |
 | | *Description:* Replace `setInterval` with `requestAnimationFrame` or a Web Worker-based timer to prevent browser background throttling during long resuscitations. | | | |
-| **1.4** | **Implement Missing Resource Capture** | `abcdeEngine.ts`, `ResusGPS.tsx` | HIGH | Pending |
+| **1.4** | **Implement Missing Resource Capture** | `abcdeEngine.ts`, `ResusGPS.tsx` | HIGH | ✅ Done |
 | | *Description:* Add a "Not Available" toggle to interventions. If an item (e.g., IO needle) is unavailable, capture this for Care Signal and offer an alternative pathway if possible. | | | |
 
 ## Phase 2: Provider Onboarding & Journey Unification (Short-Term)
@@ -45,4 +45,6 @@ These items ensure the platform functions flawlessly in LMIC environments with i
 
 ---
 
-*Execution of Phase 1 begins immediately following the approval of this roadmap.*
+*Phase 1 completed and pushed to `main` on April 23, 2026. Commit: `52ba5d5`.*
+
+*Phase 2 is the next execution target.*
