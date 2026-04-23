@@ -53,11 +53,26 @@ export default function MicroCoursePlayer() {
     [myEnrollments, courseId]
   );
 
-  // Derive the current enrollment row so we can check DB completion status
-  const currentEnrollment = useMemo(
-    () => myEnrollments?.find((e) => e.course?.courseId === courseId),
-    [myEnrollments, courseId]
-  );
+  // Read enrollmentId from URL query string for precise lookup
+  const enrollmentIdFromUrl = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const v = p.get('enrollmentId');
+      return v ? parseInt(v, 10) : null;
+    }
+    return null;
+  }, []);
+
+  // Derive the current enrollment row — prefer URL enrollmentId for precision,
+  // fall back to courseId match (ordered by completedAt DESC from server).
+  const currentEnrollment = useMemo(() => {
+    if (!myEnrollments) return undefined;
+    if (enrollmentIdFromUrl) {
+      const byId = myEnrollments.find((e) => e.id === enrollmentIdFromUrl);
+      if (byId) return byId;
+    }
+    return myEnrollments.find((e) => e.course?.courseId === courseId);
+  }, [myEnrollments, courseId, enrollmentIdFromUrl]);
 
   // Seed completedModules from DB on first load — if the course is already
   // marked completed in the DB, mark all modules as done so the

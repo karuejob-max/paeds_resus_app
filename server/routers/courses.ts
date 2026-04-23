@@ -34,6 +34,11 @@ async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   await ensureMicroCoursesCatalog();
   const enrollments = await database.query.microCourseEnrollments.findMany({
     where: (enrollments) => eq(enrollments.userId, userId),
+    orderBy: (e, { desc }) => [
+      // Completed enrollments first so MicroCoursePlayer picks up the right row
+      desc(e.completedAt),
+      desc(e.createdAt),
+    ],
   });
   const enriched = await Promise.all(
     enrollments.map(async (enrollment) => {
