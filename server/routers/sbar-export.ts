@@ -5,7 +5,7 @@
  * Supports PDF generation and secure file storage
  */
 
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 
 // Input validation schema for SBAR export

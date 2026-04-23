@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure } from '../_core/trpc';
 import { getDb } from '../db';
 import { careSignalReviews, inAppNotifications, analyticsEvents } from '../../drizzle/schema';
 import { eq, and, desc, count } from 'drizzle-orm';
