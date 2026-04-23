@@ -1,10 +1,37 @@
 /**
  * Server Initialization Module
- * Runs on server startup to seed data (courses, etc.)
+ * Runs on server startup to apply DB migrations and seed data (courses, etc.)
  */
 
 import { getDb } from "../db";
 import { microCourses } from "../../drizzle/schema";
+import { migrate } from "drizzle-orm/mysql2/migrator";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Run pending Drizzle migrations at server startup.
+ * Safe to call on every deploy — Drizzle tracks applied migrations in __drizzle_migrations table.
+ */
+export async function runMigrations() {
+  try {
+    const db = await getDb();
+    if (!db) {
+      console.log('[Migrations] Database not available, skipping migrations');
+      return;
+    }
+    const migrationsFolder = path.resolve(__dirname, '../../drizzle');
+    console.log('[Migrations] Running pending migrations from', migrationsFolder);
+    await migrate(db, { migrationsFolder });
+    console.log('[Migrations] ✓ All migrations applied');
+  } catch (error) {
+    console.error('[Migrations] Migration error (non-fatal):', error instanceof Error ? error.message : error);
+    // Don't throw — allow server to start even if a migration fails
+  }
+}
 
 function normalizeEmergencyType(
   emergencyType: string

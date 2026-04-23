@@ -110,6 +110,8 @@ export const certificates = mysqlTable("certificates", {
   verificationCode: varchar("verificationCode", { length: 255 }).unique(),
   /** Set when user or scheduled job sends a renewal reminder (HI-CERT-1 dedupe). */
   renewalReminderSentAt: timestamp("renewalReminderSentAt"),
+  /** For micro-course certs: the microCourseEnrollments.id (avoids enrollmentId collision with AHA enrollments table) */
+  microCourseEnrollmentId: int("microCourseEnrollmentId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

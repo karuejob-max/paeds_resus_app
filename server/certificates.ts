@@ -597,14 +597,14 @@ export async function getCertificatesByUserId(userId: number) {
       .from(certificates)
       .leftJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
       .leftJoin(courses, eq(enrollments.courseId, courses.id))
-      .leftJoin(microCourseEnrollments, eq(certificates.enrollmentId, microCourseEnrollments.id))
+      .leftJoin(microCourseEnrollments, eq(certificates.microCourseEnrollmentId, microCourseEnrollments.id))
       .leftJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
       .where(eq(certificates.userId, userId))
       .orderBy(desc(certificates.issueDate));
-    // Resolve title: prefer AHA/fellowship courseTitle, fall back to micro-course title
+    // Resolve title: micro-course certs use microCourseTitle; AHA/fellowship certs use courseTitle
     return list.map((row) => ({
       ...row,
-      courseTitle: row.courseTitle ?? row.microCourseTitle ?? null,
+      courseTitle: row.microCourseTitle ?? row.courseTitle ?? null,
     }));
   } catch (err) {
     console.error("[Certificates] getCertificatesByUserId:", err);
@@ -781,14 +781,13 @@ export async function saveMicroCourseCertificate(
       .where(eq(microCourseEnrollments.id, microCourseEnrollmentId))
       .limit(1);
     if (mceRows.length > 0 && mceRows[0].certificateIssuedAt != null) {
-      // Already issued — look up the cert number from the certificates table
+      // Already issued — look up the cert number using microCourseEnrollmentId (no ID collision)
       const certRows = await db
         .select({ certificateNumber: certificates.certificateNumber })
         .from(certificates)
-        .innerJoin(microCourseEnrollments, eq(microCourseEnrollments.id, certificates.enrollmentId))
         .where(
           and(
-            eq(microCourseEnrollments.id, microCourseEnrollmentId),
+            eq(certificates.microCourseEnrollmentId, microCourseEnrollmentId),
             eq(certificates.userId, userId)
           )
         )
@@ -813,7 +812,8 @@ export async function saveMicroCourseCertificate(
     });
 
     await db.insert(certificates).values({
-      enrollmentId: microCourseEnrollmentId,
+      enrollmentId: 0, // sentinel: micro-course certs use microCourseEnrollmentId, not enrollmentId
+      microCourseEnrollmentId,
       userId,
       certificateNumber,
       programType: "fellowship",

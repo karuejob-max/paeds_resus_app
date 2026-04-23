@@ -260,6 +260,27 @@
       "when": 1776872368057,
       "tag": "0036_safe_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1776964795174,
+      "tag": "0037_aha_completion_gates",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "5",
+      "when": 1776964796174,
+      "tag": "0038_care_signal_facility_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1776964797174,
+      "tag": "0039_micro_course_cert_link",
+      "breakpoints": true
     }
   ]
 }
