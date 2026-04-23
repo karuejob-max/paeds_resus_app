@@ -1,31 +1,41 @@
 /**
  * M-Pesa Daraja Integration
  * Handles STK Push, payment callbacks, and enrollment activation
- * 
+ *
  * Environment Variables Required:
  * - DARAJA_CONSUMER_KEY: OAuth consumer key
  * - DARAJA_CONSUMER_SECRET: OAuth consumer secret
  * - MPESA_PAYBILL: Business/Paybill number
  * - MPESA_PASSKEY: Passkey for STK Push
  * - MPESA_ACCOUNT: Account reference (e.g., "PAEDS_RESUS")
- * - CALLBACK_URL: Webhook URL for payment confirmation
+ * - MPESA_CALLBACK_URL or CALLBACK_URL: Webhook URL for payment confirmation
+ * - MPESA_ENVIRONMENT: "production" or "sandbox" (default: sandbox)
  */
 
 import axios from 'axios';
 import { Buffer } from 'buffer';
+import { isMpesaProduction } from '../lib/mpesa-env';
+import { resolveStkCallbackUrlFromEnv } from '../lib/mpesa-callback-path';
 
-// Environment variables
-const DARAJA_CONSUMER_KEY = process.env.DARAJA_CONSUMER_KEY || '';
-const DARAJA_CONSUMER_SECRET = process.env.DARAJA_CONSUMER_SECRET || '';
-const MPESA_PAYBILL = process.env.MPESA_PAYBILL || '';
-const MPESA_PASSKEY = process.env.MPESA_PASSKEY || '';
-const MPESA_ACCOUNT = process.env.MPESA_ACCOUNT || 'PAEDS_RESUS';
-const CALLBACK_URL = process.env.CALLBACK_URL || '';
+// Environment variables — support both MPESA_* and DARAJA_* naming conventions
+const DARAJA_CONSUMER_KEY =
+  process.env.MPESA_CONSUMER_KEY?.trim() || process.env.DARAJA_CONSUMER_KEY?.trim() || '';
+const DARAJA_CONSUMER_SECRET =
+  process.env.MPESA_CONSUMER_SECRET?.trim() || process.env.DARAJA_CONSUMER_SECRET?.trim() || '';
+const MPESA_PAYBILL =
+  process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || process.env.DARAJA_SHORTCODE?.trim() || '';
+const MPESA_PASSKEY =
+  process.env.MPESA_PASSKEY?.trim() || process.env.DARAJA_PASSKEY?.trim() || '';
+const MPESA_ACCOUNT = process.env.MPESA_ACCOUNT?.trim() || 'PAEDS_RESUS';
 
-// Daraja API endpoints
-const AUTH_URL = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
-const STK_PUSH_URL = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
-const TRANSACTION_STATUS_URL = 'https://sandbox.safaricom.co.ke/mpesa/transactionstatus/v1/query';
+// Daraja API base URL — production vs sandbox
+const DARAJA_BASE_URL = isMpesaProduction()
+  ? 'https://api.safaricom.co.ke'
+  : 'https://sandbox.safaricom.co.ke';
+
+const AUTH_URL = `${DARAJA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`;
+const STK_PUSH_URL = `${DARAJA_BASE_URL}/mpesa/stkpush/v1/processrequest`;
+const TRANSACTION_STATUS_URL = `${DARAJA_BASE_URL}/mpesa/stkpushquery/v1/query`;
 
 // Cache for access token
 let accessToken: { token: string; expiresAt: number } | null = null;
@@ -34,7 +44,7 @@ let accessToken: { token: string; expiresAt: number } | null = null;
  * Get OAuth access token from Daraja API
  */
 async function getAccessToken(): Promise<string> {
-  // Return cached token if still valid
+  // Return cached token if still valid (5-minute buffer before expiry)
   if (accessToken && accessToken.expiresAt > Date.now()) {
     return accessToken.token;
   }
@@ -46,15 +56,16 @@ async function getAccessToken(): Promise<string> {
       headers: {
         Authorization: `Basic ${auth}`,
       },
+      timeout: 30_000,
     });
 
     const token = response.data.access_token;
-    const expiresIn = response.data.expires_in * 1000; // Convert to milliseconds
+    const expiresIn = response.data.expires_in || 3600;
 
-    // Cache token with 1 minute buffer before expiry
+    // Cache token with 5-minute buffer before expiry
     accessToken = {
       token,
-      expiresAt: Date.now() + expiresIn - 60000,
+      expiresAt: Date.now() + (expiresIn - 300) * 1000,
     };
 
     console.log('[M-Pesa] Access token obtained');
@@ -103,16 +114,21 @@ export function formatPhoneNumber(phone: string): string {
 }
 
 /**
- * Generate timestamp in format: YYYYMMDDHHmmss
+ * Generate timestamp in Nairobi time (EAT, UTC+3) — Daraja requires local Kenya time.
+ * Using UTC offset directly to avoid timezone library dependency.
  */
 function getTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
+  // EAT = UTC + 3 hours
+  const nowUtcMs = Date.now();
+  const eatOffsetMs = 3 * 60 * 60 * 1000;
+  const eat = new Date(nowUtcMs + eatOffsetMs);
+
+  const year = eat.getUTCFullYear();
+  const month = String(eat.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(eat.getUTCDate()).padStart(2, '0');
+  const hours = String(eat.getUTCHours()).padStart(2, '0');
+  const minutes = String(eat.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(eat.getUTCSeconds()).padStart(2, '0');
 
   return `${year}${month}${day}${hours}${minutes}${seconds}`;
 }
@@ -162,6 +178,10 @@ export async function initiateSTKPush(
     // Format phone number
     const formattedPhone = formatPhoneNumber(phoneNumber);
 
+    // Resolve callback URL — uses MPESA_CALLBACK_URL, falls back to APP_BASE_URL
+    const appBase = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || 'https://www.paedsresus.com';
+    const callbackUrl = resolveStkCallbackUrlFromEnv(appBase);
+
     // Get access token
     const token = await getAccessToken();
 
@@ -179,7 +199,7 @@ export async function initiateSTKPush(
       PartyA: formattedPhone,
       PartyB: MPESA_PAYBILL,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${CALLBACK_URL}/api/mpesa/callback`,
+      CallBackURL: callbackUrl,
       AccountReference: MPESA_ACCOUNT,
       TransactionDesc: `${courseTitle} (Enrollment #${enrollmentId})`,
     };
@@ -189,6 +209,8 @@ export async function initiateSTKPush(
       amount,
       courseId,
       enrollmentId,
+      env: isMpesaProduction() ? 'production' : 'sandbox',
+      callbackUrl,
     });
 
     // Call Daraja API
@@ -197,6 +219,7 @@ export async function initiateSTKPush(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      timeout: 45_000,
     });
 
     const { CheckoutRequestID, ResponseCode, ResponseDescription } = response.data;
@@ -216,8 +239,10 @@ export async function initiateSTKPush(
         error: ResponseCode,
       };
     }
-  } catch (error) {
-    console.error('[M-Pesa] STK Push error:', error);
+  } catch (error: any) {
+    const status = error?.response?.status;
+    const darajaBody = error?.response?.data;
+    console.error('[M-Pesa] STK Push error:', error.message, status ? `httpStatus=${status}` : '', darajaBody ? JSON.stringify(darajaBody).slice(0, 300) : '');
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
@@ -256,19 +281,10 @@ export async function queryTransactionStatus(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      timeout: 30_000,
     });
 
     const { ResultCode, ResultDesc } = response.data;
-
-    // Result codes:
-    // 0 = Success
-    // 1 = Insufficient Funds
-    // 2 = Less Amount
-    // 3 = More Amount
-    // 4 = Rejected
-    // 5 = On Queue
-    // 6 = Not Responded
-    // 7 = System Malfunction
 
     const status = ResultCode === '0' ? 'completed' : 'pending';
 
@@ -355,9 +371,6 @@ export function isMpesaConfigured(): boolean {
     DARAJA_CONSUMER_KEY &&
     DARAJA_CONSUMER_SECRET &&
     MPESA_PAYBILL &&
-    MPESA_PASSKEY &&
-    CALLBACK_URL
+    MPESA_PASSKEY
   );
 }
-
-
