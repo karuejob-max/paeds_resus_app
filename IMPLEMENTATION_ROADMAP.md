@@ -131,18 +131,38 @@ These items complete the clinical documentation loop and surface data to institu
 
 ---
 
-## Phase 8 Backlog (Next)
+## Phase 8 — Mobile Clinical Engine, Hardware & OTA ✅ COMPLETE
 
-| ID | Task | Priority |
-|---|---|---|
-| 8.1 | Full ABCDE engine port to mobile (shared `conditionProtocols.ts`) | HIGH |
-| 8.2 | CPR Clock with 2-minute cycle timer and haptic pulse on mobile | HIGH |
-| 8.3 | Offline-first drug calculator with weight-based doses on mobile | HIGH |
-| 8.4 | Voice command support ("Next step", "Shock delivered") | MEDIUM |
-| 8.5 | Bluetooth pulse oximeter integration | MEDIUM |
-| 8.6 | EAS OTA updates for instant clinical guideline patches | LOW |
+| ID | Task | Component | Status | Commit |
+|---|---|---|---|---|
+| **8.1** | **Full ABCDE engine adapter for React Native** | `mobile/lib/engine/` | ✅ Done | `ed0d45c` |
+| | *`useResusSession` hook wires ABCDE engine to React Native. `persistence.ts` handles AsyncStorage session save/load. Engine adapter exposes all session actions to mobile UI.* | | | |
+| **8.2** | **CPR Clock with haptic pulse** | `mobile/components/CPRClock.tsx` | ✅ Done | `ed0d45c` |
+| | *Wall-clock `Date.now()` timer (no drift). 2-minute cycle countdown with haptic pulse every 30s. AHA-correct shock energy (2→4→≥4 J/kg, max 10). Rhythm selector, shock counter, adrenaline dose display.* | | | |
+| **8.3** | **Offline drug calculator** | `mobile/app/(tabs)/drugs.tsx` | ✅ Done | `ed0d45c` |
+| | *Weight-based dose lookup for all drugs in shared `drugCalculations.ts`. Weight input with Broselow tape guide. Search + filter by category. Fully offline, no network required.* | | | |
+| **8.4** | **Voice command support** | `mobile/lib/useVoiceCommands.ts` | ✅ Done | `ed0d45c` |
+| | *`expo-speech` + `expo-av` voice recognition. Commands: "next step", "shock delivered", "start CPR", "adrenaline given", "weight [N] kg". Hands-free for glove-wearing providers. Visual hint overlay for discoverability.* | | | |
+| **8.5** | **Bluetooth pulse oximeter integration** | `mobile/lib/usePulseOximeter.ts` | ✅ Done | `ed0d45c` |
+| | *BLE scan + connect for Nonin, Contec CMS50D+, Berry BM1000B. Parses manufacturer data frames. Live SpO₂ + HR + PI display. Alerts on SpO₂ < 94% or age-inappropriate HR. `PulseOxWidget` drop-in component.* | | | |
+| **8.6** | **EAS OTA update manager** | `mobile/lib/useOTAUpdates.ts`, `eas.json`, `app.json` | ✅ Done | `ed0d45c` |
+| | *4 build channels: development, beta, clinical (fast-track), production. `useOTAUpdates` hook checks every 4h on app foreground. Critical updates auto-download; never interrupt active cases. `OTAUpdateBanner` with animated slide-in.* | | | |
+
+*Committed: `ed0d45c` on April 23, 2026*
 
 ---
 
-*All Phase 1–7 items shipped and live on `main` as of April 23, 2026.*  
-*Build: `vite ✓ 0 errors, 8.28s`. Final commit: `0924648`.*
+## Phase 9 Backlog
+
+| ID | Task | Priority |
+|---|---|---|
+| 9.1 | Trauma protocol (paediatric trauma resuscitation) | HIGH |
+| 9.2 | Drowning / near-drowning protocol | HIGH |
+| 9.3 | Poisoning / toxicology quick-reference | MEDIUM |
+| 9.4 | ResusGPS multi-provider role assignment (team leader, airway, drugs, scribe) | MEDIUM |
+| 9.5 | Automated post-case debrief report (timeline + gaps + learning points) | LOW |
+
+---
+
+*All Phase 1–8 items shipped and live on `main` as of April 23, 2026.*  
+*Build: `vite ✓ 0 errors, 7.50s`. Final commit: `ed0d45c`. Total: 33 items across 8 phases.*
