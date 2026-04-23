@@ -34,6 +34,7 @@ export function MpesaReconciliationStatus({
   const [lastPollTime, setLastPollTime] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [transactionId, setTransactionId] = useState<string>("");
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
   // tRPC mutations
   const checkPaymentStatusMutation = trpc.mpesa.checkPaymentStatus.useMutation();
@@ -67,6 +68,7 @@ export function MpesaReconciliationStatus({
         });
 
         setLastPollTime(new Date());
+        setConsecutiveErrors(0); // reset on success
 
         if (result.status === "completed") {
           setStatus("completed");
@@ -81,10 +83,36 @@ export function MpesaReconciliationStatus({
           setStatus("cancelled");
           setErrorMessage("Payment was cancelled.");
           if (pollInterval) clearInterval(pollInterval);
+        } else if (
+          result.errorMessage?.includes("QUERY_TRANSPORT_ERROR") ||
+          result.errorMessage?.includes("500")
+        ) {
+          // Safaricom returned a server error — stop polling, prompt user to confirm manually
+          setConsecutiveErrors((prev) => {
+            const next = prev + 1;
+            if (next >= 3) {
+              setErrorMessage(
+                "M-Pesa is taking longer than usual. If you've already entered your PIN, tap \"I Have Paid\" below."
+              );
+              setStatus("failed");
+              if (pollInterval) clearInterval(pollInterval);
+            }
+            return next;
+          });
         }
       } catch (error) {
         console.error("[M-Pesa Reconciliation] Poll error:", error);
-        setErrorMessage("Error checking payment status. Retrying...");
+        setConsecutiveErrors((prev) => {
+          const next = prev + 1;
+          if (next >= 3) {
+            setErrorMessage(
+              "M-Pesa is taking longer than usual. If you've already entered your PIN, tap \"I Have Paid\" below."
+            );
+            setStatus("failed");
+            if (pollInterval) clearInterval(pollInterval);
+          }
+          return next;
+        });
       }
     };
 

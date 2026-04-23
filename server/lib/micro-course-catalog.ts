@@ -61,9 +61,17 @@ export const MICRO_COURSE_CATALOG: MicroCourseCatalogRow[] = [
 ];
 
 /**
+ * In-memory flag: catalog is only seeded once per server process.
+ * Avoids 29 sequential DB queries on every page load.
+ */
+let _catalogSeeded = false;
+
+/**
  * Idempotent: upsert all catalog rows into microCourses so list + payment always resolve.
+ * Runs only once per server process after first call.
  */
 export async function ensureMicroCoursesCatalog(): Promise<void> {
+  if (_catalogSeeded) return;
   const db = await getDb();
   if (!db) return;
 
@@ -97,6 +105,7 @@ export async function ensureMicroCoursesCatalog(): Promise<void> {
       });
     }
   }
+  _catalogSeeded = true;
 }
 
 /** Ordered list from DB after ensure (for routers). */

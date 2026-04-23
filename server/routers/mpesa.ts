@@ -294,6 +294,11 @@ export const mpesaRouter = router({
         return { status: "cancelled" as const, errorMessage: stk.resultDesc || "Payment cancelled" };
       }
 
+      // Surface transport errors so the client can stop polling after 3 consecutive failures
+      if (resultCode === "QUERY_TRANSPORT_ERROR") {
+        return { status: "pending" as const, errorMessage: "QUERY_TRANSPORT_ERROR: " + (stk.resultDesc || "Safaricom query failed") };
+      }
+
       return { status: "pending" as const, errorMessage: stk.resultDesc || undefined };
     }),
 
