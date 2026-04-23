@@ -7,6 +7,7 @@ import {
   certificateDownloadFeedback,
   courses,
   enrollments,
+  microCourseEnrollments,
   modules,
   userProgress,
   users,
@@ -521,6 +522,76 @@ export async function revokeCertificate(certificateNumber: string, reason: strin
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+/**
+ * Issue a fellowship-type certificate for a completed micro-course enrollment.
+ * Stores in the certificates table (enrollmentId = microCourseEnrollment.id)
+ * and also updates certificateIssuedAt on the microCourseEnrollments row.
+ * Idempotent — safe to call multiple times.
+ */
+export async function saveMicroCourseCertificate(
+  microCourseEnrollmentId: number,
+  userId: number,
+  recipientName: string,
+  courseTitle: string
+): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
+  try {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+
+    // Dedupe: don't issue twice
+    const existing = await db
+      .select({ id: certificates.id, certificateNumber: certificates.certificateNumber })
+      .from(certificates)
+      .where(
+        and(
+          eq(certificates.enrollmentId, microCourseEnrollmentId),
+          eq(certificates.userId, userId)
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      return { success: true, certificateNumber: existing[0].certificateNumber ?? undefined };
+    }
+
+    const certificateNumber = generateCertificateNumber();
+    const verificationHash = generateCertificateHash(certificateNumber, recipientName);
+    const issueDate = new Date();
+    const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+    const pdfBuffer = await renderBrandedCertificatePdf({
+      recipientName,
+      programType: "fellowship",
+      trainingDate: issueDate,
+      instructorName: "Paeds Resus",
+      certificateNumber,
+      verificationCode: verificationHash,
+      courseDisplayName: courseTitle,
+    });
+
+    await db.insert(certificates).values({
+      enrollmentId: microCourseEnrollmentId,
+      userId,
+      certificateNumber,
+      programType: "fellowship",
+      issueDate,
+      expiryDate,
+      certificateUrl: "",
+      verificationCode: verificationHash,
+    });
+
+    // Mark the micro-course enrollment as certificate issued
+    await db
+      .update(microCourseEnrollments)
+      .set({ certificateIssuedAt: issueDate })
+      .where(eq(microCourseEnrollments.id, microCourseEnrollmentId));
+
+    return { success: true, certificateNumber, pdfBuffer };
+  } catch (err) {
+    console.error("[Certificates] saveMicroCourseCertificate:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
 

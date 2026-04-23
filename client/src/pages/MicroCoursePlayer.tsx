@@ -5,57 +5,146 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, BookOpen, Clock, Award, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
+import { getMicroCourseContent } from "@/lib/microCourseContent";
 
 /**
  * Generic Micro-Course Player
- * Renders any micro-course from the catalog without a dedicated page
- * Supports modules, quizzes, and progress tracking
+ * Renders any micro-course from the catalog without a dedicated page.
+ * Supports modules, quizzes, and progress tracking.
+ *
+ * All React hooks are declared unconditionally at the top of the component
+ * to comply with the Rules of Hooks (no hooks after early returns).
  */
 export default function MicroCoursePlayer() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+
+  // ── State (all hooks must be before any early return) ──────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [completedModules, setCompletedModules] = useState<Set<number>>(new Set());
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
 
-  // Fetch all micro-courses to find this one
+  // ── Server queries ──────────────────────────────────────────────────────────
   const { data: allCourses, isLoading: coursesLoading } = trpc.courses.listAll.useQuery(undefined, {
     enabled: isAuthenticated,
   });
-
-  // Fetch user's enrollments
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
   });
 
-  // Find the current course
-  const currentCourse = useMemo(() => {
-    return allCourses?.find((c) => c.courseId === courseId);
-  }, [allCourses, courseId]);
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const currentCourse = useMemo(
+    () => allCourses?.find((c) => c.courseId === courseId),
+    [allCourses, courseId]
+  );
 
-  // Check if user is enrolled
-  const isEnrolled = useMemo(() => {
-    return myEnrollments?.some((e) => e.course?.courseId === courseId);
-  }, [myEnrollments, courseId]);
+  const isEnrolled = useMemo(
+    () => myEnrollments?.some((e) => e.course?.courseId === courseId),
+    [myEnrollments, courseId]
+  );
 
-  // Mark course as complete
+  // Static content layer — modules, quizzes, key points, references
+  const staticContent = useMemo(
+    () => (courseId ? getMicroCourseContent(courseId) : undefined),
+    [courseId]
+  );
+
+  // ── Mutations (must be before early returns) ────────────────────────────────
   const completeCourse = trpc.courses.complete.useMutation({
-    onSuccess: () => {
-      toast.success("Course completed! Certificate generated.");
-      navigate("/home");
+    onSuccess: (data) => {
+      if (data.success) {
+        if (data.certificateNumber) {
+          setIssuedCertNumber(data.certificateNumber);
+          toast.success(`Certificate issued! #${data.certificateNumber}`);
+        } else {
+          toast.success("Course completed!");
+        }
+        setTimeout(() => navigate("/home"), 2500);
+      } else {
+        toast.error(data.message || "Failed to complete course");
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to mark course as complete");
     },
   });
 
+  const submitQuiz = trpc.courses.submitModuleQuiz.useMutation({
+    onSuccess: (result) => {
+      if (result.success && result.passed) {
+        toast.success(result.message);
+        setTimeout(() => handleModuleComplete(), 1500);
+      } else if (result.success) {
+        toast.error(result.message);
+      } else {
+        toast.error("Failed to save quiz submission");
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to submit quiz");
+    },
+  });
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const handleModuleComplete = () => {
+    const newCompleted = new Set(completedModules);
+    newCompleted.add(currentModuleIndex);
+    setCompletedModules(newCompleted);
+    setShowQuiz(false);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+    if (currentModuleIndex < (staticContent?.modules.length ?? 0) - 1) {
+      setCurrentModuleIndex(currentModuleIndex + 1);
+    }
+  };
+
+  const handleQuizSubmit = () => {
+    if (!currentModule?.quiz) return;
+    let correct = 0;
+    currentModule.quiz.forEach((q, idx) => {
+      if (quizAnswers[idx] === q.correctAnswer) correct++;
+    });
+    const score = Math.round((correct / currentModule.quiz.length) * 100);
+    setQuizScore(score);
+    setQuizSubmitted(true);
+
+    // enrollmentId comes from the URL query string: /micro-course/:courseId?enrollmentId=9
+    const enrollmentId = new URLSearchParams(window.location.search).get("enrollmentId");
+    if (enrollmentId && currentCourse?.id) {
+      // Convert number-keyed answers to string-keyed for the server schema
+      const stringAnswers: Record<string, string> = {};
+      Object.entries(quizAnswers).forEach(([k, v]) => { stringAnswers[k] = v; });
+      submitQuiz.mutate({
+        enrollmentId: parseInt(enrollmentId),
+        moduleId: currentModuleIndex,
+        score,
+        answers: stringAnswers,
+      });
+    } else {
+      if (score >= 80) {
+        toast.success("Quiz passed! Moving to next module.");
+        setTimeout(() => handleModuleComplete(), 1500);
+      } else {
+        toast.error("Quiz score below 80%. Please review and try again.");
+      }
+    }
+  };
+
+  const handleCompleteCourse = () => {
+    if (!currentCourse?.courseId) return;
+    completeCourse.mutate({ courseId: currentCourse.courseId });
+  };
+
+  // ── Early returns (after all hooks) ────────────────────────────────────────
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background p-4 flex items-center justify-center">
@@ -90,19 +179,13 @@ export default function MicroCoursePlayer() {
   if (!currentCourse) {
     return (
       <div className="min-h-screen bg-background p-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/micro-courses")}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => navigate("/fellowship")} className="mb-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Courses
         </Button>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Course not found. Please check the course ID and try again.
-          </AlertDescription>
+          <AlertDescription>Course not found. Please check the course ID and try again.</AlertDescription>
         </Alert>
       </div>
     );
@@ -111,11 +194,7 @@ export default function MicroCoursePlayer() {
   if (!isEnrolled) {
     return (
       <div className="min-h-screen bg-background p-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/micro-courses")}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => navigate("/fellowship")} className="mb-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Courses
         </Button>
@@ -129,98 +208,28 @@ export default function MicroCoursePlayer() {
     );
   }
 
-  const modules = currentCourse.modules || [];
+  // ── Content resolution ──────────────────────────────────────────────────────
+  const modules = staticContent?.modules ?? [];
   const currentModule = modules[currentModuleIndex];
   const isLastModule = currentModuleIndex === modules.length - 1;
-  const allModulesCompleted = completedModules.size === modules.length;
+  const allModulesCompleted = modules.length > 0 && completedModules.size === modules.length;
 
-  const handleModuleComplete = () => {
-    const newCompleted = new Set(completedModules);
-    newCompleted.add(currentModuleIndex);
-    setCompletedModules(newCompleted);
-    setShowQuiz(false);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
-    setQuizScore(null);
-
-    if (!isLastModule) {
-      setCurrentModuleIndex(currentModuleIndex + 1);
-    }
-  };
-
-  const submitQuiz = trpc.courses.submitModuleQuiz.useMutation({
-    onSuccess: (result) => {
-      if (result.success && result.passed) {
-        toast.success(result.message);
-        setTimeout(() => handleModuleComplete(), 1500);
-      } else if (result.success) {
-        toast.error(result.message);
-      } else {
-        toast.error("Failed to save quiz submission");
-      }
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to submit quiz");
-    },
-  });
-
-  const handleQuizSubmit = () => {
-    if (!currentModule.quiz) return;
-
-    // Calculate score
-    let correct = 0;
-    currentModule.quiz.forEach((q, idx) => {
-      if (quizAnswers[idx] === q.correctAnswer) {
-        correct++;
-      }
-    });
-
-    const score = Math.round((correct / currentModule.quiz.length) * 100);
-    setQuizScore(score);
-    setQuizSubmitted(true);
-
-    // Submit to backend
-    const enrollmentId = new URLSearchParams(window.location.search).get('enrollmentId');
-    if (enrollmentId && currentCourse.id) {
-      submitQuiz.mutate({
-        enrollmentId: parseInt(enrollmentId),
-        moduleId: currentModuleIndex,
-        score,
-        answers: quizAnswers,
-      });
-    } else {
-      // Fallback if no enrollment ID
-      if (score >= 80) {
-        toast.success("Quiz passed! Moving to next module.");
-        setTimeout(() => handleModuleComplete(), 1500);
-      } else {
-        toast.error("Quiz score below 80%. Please review and try again.");
-      }
-    }
-  };
-
-  const handleCompleteCourse = () => {
-    if (!currentCourse.id) return;
-    completeCourse.mutate({ microCourseId: currentCourse.id });
-  };
-
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/micro-courses")}
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate("/fellowship")}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
               <h1 className="font-semibold text-lg">{currentCourse.title}</h1>
               <p className="text-xs text-muted-foreground">
-                Module {currentModuleIndex + 1} of {modules.length}
+                {modules.length > 0
+                  ? `Module ${currentModuleIndex + 1} of ${modules.length}`
+                  : "Content loading..."}
               </p>
             </div>
           </div>
@@ -233,26 +242,39 @@ export default function MicroCoursePlayer() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+
+        {/* No content yet */}
+        {modules.length === 0 && (
+          <Card className="mb-8">
+            <CardContent className="py-12 text-center">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Course content is being prepared. Check back soon.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium">Course Progress</span>
-            <span className="text-sm text-muted-foreground">
-              {completedModules.size} of {modules.length} modules
-            </span>
+        {modules.length > 0 && (
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium">Course Progress</span>
+              <span className="text-sm text-muted-foreground">
+                {completedModules.size} of {modules.length} modules
+              </span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(completedModules.size / modules.length) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{
-                width: `${(completedModules.size / modules.length) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Module Content */}
-        {currentModule && !showQuiz ? (
+        {currentModule && !showQuiz && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -265,14 +287,14 @@ export default function MicroCoursePlayer() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Learning Objectives */}
-              {currentModule.learningObjectives && (
+              {currentModule.learningObjectives && currentModule.learningObjectives.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-3">Learning Objectives</h3>
                   <ul className="space-y-2">
                     {currentModule.learningObjectives.map((obj, idx) => (
                       <li key={idx} className="text-sm flex gap-2">
                         <span className="text-primary">•</span>
-                        <span>{obj}</span>
+                        <span>{typeof obj === "string" ? obj : obj.text}</span>
                       </li>
                     ))}
                   </ul>
@@ -282,16 +304,12 @@ export default function MicroCoursePlayer() {
               {/* Module Content */}
               {currentModule.content && (
                 <div className="prose prose-sm max-w-none">
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: currentModule.content,
-                    }}
-                  />
+                  <div dangerouslySetInnerHTML={{ __html: currentModule.content }} />
                 </div>
               )}
 
               {/* Key Points */}
-              {currentModule.keyPoints && (
+              {currentModule.keyPoints && currentModule.keyPoints.length > 0 && (
                 <div className="bg-muted p-4 rounded-lg">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Award className="w-4 h-4" />
@@ -315,7 +333,7 @@ export default function MicroCoursePlayer() {
                   <ul className="space-y-2">
                     {currentModule.references.map((ref, idx) => (
                       <li key={idx} className="text-sm text-muted-foreground">
-                        {ref}
+                        {typeof ref === "string" ? ref : `${ref.title} — ${ref.source} (${ref.year})`}
                       </li>
                     ))}
                   </ul>
@@ -331,34 +349,36 @@ export default function MicroCoursePlayer() {
                 >
                   Previous
                 </Button>
-                <Button
-                  onClick={() => setShowQuiz(true)}
-                  className="flex-1"
-                >
-                  Take Quiz
-                </Button>
+                {currentModule.quiz && currentModule.quiz.length > 0 ? (
+                  <Button onClick={() => setShowQuiz(true)} className="flex-1">
+                    Take Quiz
+                  </Button>
+                ) : (
+                  <Button onClick={handleModuleComplete} className="flex-1">
+                    {isLastModule ? "Complete Course" : "Next Module"}
+                  </Button>
+                )}
                 {!isLastModule && (
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentModuleIndex(Math.min(modules.length - 1, currentModuleIndex + 1))}
-                    disabled={isLastModule}
+                    onClick={() =>
+                      setCurrentModuleIndex(Math.min(modules.length - 1, currentModuleIndex + 1))
+                    }
                   >
-                    Next
+                    Skip
                   </Button>
                 )}
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
         {/* Quiz */}
-        {showQuiz && currentModule.quiz ? (
+        {showQuiz && currentModule?.quiz && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Module Quiz</CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">
-                Pass with 80% or higher to continue
-              </p>
+              <p className="text-sm text-muted-foreground mt-2">Pass with 80% or higher to continue</p>
             </CardHeader>
             <CardContent className="space-y-6">
               {currentModule.quiz.map((question, qIdx) => (
@@ -375,9 +395,7 @@ export default function MicroCoursePlayer() {
                           value={option}
                           checked={quizAnswers[qIdx] === option}
                           onChange={(e) => {
-                            const newAnswers = { ...quizAnswers };
-                            newAnswers[qIdx] = e.target.value;
-                            setQuizAnswers(newAnswers);
+                            setQuizAnswers({ ...quizAnswers, [qIdx]: e.target.value });
                           }}
                           disabled={quizSubmitted}
                           className="cursor-pointer"
@@ -424,7 +442,7 @@ export default function MicroCoursePlayer() {
                     setQuizSubmitted(false);
                     setQuizScore(null);
                   }}
-                  disabled={quizSubmitted}
+                  disabled={quizSubmitted && !quizScore}
                 >
                   Back
                 </Button>
@@ -432,7 +450,10 @@ export default function MicroCoursePlayer() {
                   <Button
                     onClick={handleQuizSubmit}
                     className="flex-1"
-                    disabled={Object.keys(quizAnswers).length !== currentModule.quiz.length || submitQuiz.isPending}
+                    disabled={
+                      Object.keys(quizAnswers).length !== currentModule.quiz.length ||
+                      submitQuiz.isPending
+                    }
                   >
                     {submitQuiz.isPending ? (
                       <>
@@ -444,18 +465,28 @@ export default function MicroCoursePlayer() {
                     )}
                   </Button>
                 )}
-                {quizSubmitted && quizScore! >= 80 && (
+                {quizSubmitted && quizScore !== null && quizScore >= 80 && (
+                  <Button onClick={handleModuleComplete} className="flex-1">
+                    {isLastModule ? "Finish Course" : "Continue to Next Module"}
+                  </Button>
+                )}
+                {quizSubmitted && quizScore !== null && quizScore < 80 && (
                   <Button
-                    onClick={handleModuleComplete}
+                    variant="outline"
+                    onClick={() => {
+                      setQuizAnswers({});
+                      setQuizSubmitted(false);
+                      setQuizScore(null);
+                    }}
                     className="flex-1"
                   >
-                    Continue to Next Module
+                    Retry Quiz
                   </Button>
                 )}
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
         {/* Course Completion */}
         {allModulesCompleted && (
@@ -467,23 +498,33 @@ export default function MicroCoursePlayer() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-green-800">
-                Congratulations! You've completed all modules. Your certificate is being generated.
-              </p>
-              <Button
-                onClick={handleCompleteCourse}
-                disabled={completeCourse.isPending}
-                className="w-full"
-              >
-                {completeCourse.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Finalizing...
-                  </>
-                ) : (
-                  "View Certificate"
-                )}
-              </Button>
+              {issuedCertNumber ? (
+                <div className="text-sm text-green-800 space-y-1">
+                  <p className="font-semibold">🎉 Certificate issued!</p>
+                  <p>Certificate number: <span className="font-mono font-bold">{issuedCertNumber}</span></p>
+                  <p className="text-xs text-green-700">Redirecting to your dashboard…</p>
+                </div>
+              ) : (
+                <p className="text-sm text-green-800">
+                  Congratulations! You've completed all modules. Click below to generate your certificate.
+                </p>
+              )}
+              {!issuedCertNumber && (
+                <Button
+                  onClick={handleCompleteCourse}
+                  disabled={completeCourse.isPending}
+                  className="w-full"
+                >
+                  {completeCourse.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating certificate…
+                    </>
+                  ) : (
+                    "Get Certificate"
+                  )}
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

@@ -126,7 +126,7 @@ export default function ProviderDashboard() {
     programType: string
   ) => {
     if (!certNumber) {
-      toast.error("Certificate is not yet issued. Check back after your payment is confirmed.");
+      toast.error("Certificate is not yet issued. Complete the course to receive your certificate.");
       return;
     }
     const label = courseTitle?.trim() || programType.toUpperCase();
@@ -511,7 +511,7 @@ export default function ProviderDashboard() {
             {myCertificates.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  No certificates yet. Complete a course and payment to receive your certificate.
+                  No certificates yet. Complete a course to receive your certificate.
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setLocation("/enroll")}>
                   Enroll in a course

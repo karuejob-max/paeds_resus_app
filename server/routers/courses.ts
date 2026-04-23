@@ -9,8 +9,9 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from '../db';
 import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
+import { saveMicroCourseCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 
@@ -251,7 +252,31 @@ export const coursesRouter = router({
 
         await extendResusGpsAccessAfterMicroCourseCompletion(ctx.user.id);
 
-        return { success: true, message: 'Course marked as completed' };
+        // Issue certificate for this micro-course completion (idempotent)
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: and(
+            eq(microCourseEnrollments.userId, ctx.user.id),
+            eq(microCourseEnrollments.microCourseId, course.id)
+          ),
+        });
+        let certificateNumber: string | undefined;
+        if (enrollment) {
+          const userRows = await database
+            .select({ name: users.name })
+            .from(users)
+            .where(eq(users.id, ctx.user.id))
+            .limit(1);
+          const recipientName = userRows[0]?.name ?? 'Participant';
+          const certResult = await saveMicroCourseCertificate(
+            enrollment.id,
+            ctx.user.id,
+            recipientName,
+            course.title ?? input.courseId
+          );
+          if (certResult.success) certificateNumber = certResult.certificateNumber;
+        }
+
+        return { success: true, message: 'Course marked as completed', certificateNumber };
       } catch (error) {
         console.error('Error completing course:', error);
         return { success: false, message: 'Failed to complete course' };
