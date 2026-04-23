@@ -118,6 +118,7 @@ import {
 } from 'lucide-react';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
+import PWAInstallBanner from '@/components/PWAInstallBanner';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -236,6 +237,8 @@ export default function ResusGPS() {
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showProtocols, setShowProtocols] = useState(false);
+  // Phase 6.3 — track which condition protocols were used + step counts for Fellowship Pillar B
+  const [protocolsUsed, setProtocolsUsed] = useState<Record<string, { completed: number; total: number }>>({});
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
   const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
   const timer = useTimer();
@@ -454,14 +457,21 @@ export default function ResusGPS() {
       });
 
       // Step 2: Record the case (idempotent via sessionId + caseNumber)
+      // Include condition protocols used for Fellowship Pillar B credit
+      const protocolInterventions = Object.entries(protocolsUsed).map(
+        ([condId, { completed, total }]) => `protocol:${condId}:${completed}/${total}`
+      );
       await recordCaseMutation.mutateAsync({
         sessionId: session.id,
         caseNumber: 1, // Currently ResusGPS v2 is single-case per session
         diagnosis: primaryDiagnosis,
         abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
-        interventions: session.events
-          .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
-          .map(e => e.detail),
+        interventions: [
+          ...session.events
+            .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+            .map(e => e.detail),
+          ...protocolInterventions,
+        ],
         reassessments: session.events
           .filter(e => e.type === 'reassessment')
           .map(e => e.detail),
@@ -986,7 +996,13 @@ export default function ResusGPS() {
         open={showProtocols}
         onOpenChange={setShowProtocols}
         session={session}
+        onProtocolProgress={(conditionId, completed, total) => {
+          setProtocolsUsed(prev => ({ ...prev, [conditionId]: { completed, total } }));
+        }}
       />
+
+      {/* PWA install prompt — only shown on idle screen, never during active case */}
+      {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
 
       <BottomNav />
     </div>

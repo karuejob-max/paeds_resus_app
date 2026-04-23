@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertTriangle, Globe, Building2, TrendingUp, Info } from 'lucide-react';
+import { AlertTriangle, Globe, Building2, TrendingUp, Info, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type Timeframe = 'week' | 'month' | 'quarter' | 'year';
@@ -56,14 +56,46 @@ function GapBar({ item, max, color }: { item: GapItem; max: number; color: strin
 
 export default function MultiFacilityBenchmarkWidget() {
   const [timeframe, setTimeframe] = useState<Timeframe>('month');
+  const [exportTimeframe, setExportTimeframe] = useState<Timeframe>('quarter');
 
   const { data, isLoading, error } = trpc.careSignalEvents.getMultiFacilityBenchmark.useQuery(
     { timeframe, limit: 10 },
     { staleTime: 5 * 60 * 1000 }
   );
 
+  const { data: mohData, isFetching: mohFetching, refetch: fetchMOH } =
+    trpc.careSignalEvents.getMOHExportData.useQuery(
+      { timeframe: exportTimeframe },
+      { enabled: false, staleTime: 0 }
+    );
+
   const platformMax = data?.platformWide?.[0]?.count ?? 1;
   const myMax = data?.myFacility?.[0]?.count ?? 1;
+
+  // Build and download CSV from MOH export data
+  function downloadMOHCSV(rows: typeof mohData extends { rows: infer R } | undefined ? R : never) {
+    if (!rows || rows.length === 0) {
+      alert('No data available for the selected timeframe (minimum 5 reports per gap required).');
+      return;
+    }
+    const header = 'Intervention,Reports,Severity,First Reported,Last Reported,Timeframe';
+    const lines = rows.map(r =>
+      `"${r.intervention}",${r.count},${r.severity},${r.firstSeen},${r.lastSeen},${r.timeframe}`
+    );
+    const csv = [header, ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PaedsResus_ResourceGaps_MOH_${exportTimeframe}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleMOHExport() {
+    const result = await fetchMOH();
+    if (result.data) downloadMOHCSV(result.data.rows);
+  }
 
   return (
     <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
@@ -212,8 +244,41 @@ export default function MultiFacilityBenchmarkWidget() {
                 </p>
               </div>
             )}
-          </>
+           </>
         )}
+
+        {/* MOH Export section — always visible */}
+        <div className="border-t pt-4 mt-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+            <Download className="h-3.5 w-3.5" />
+            MOH / County Export
+          </h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Download anonymised resource gap data as CSV for Ministry of Health or county procurement reporting.
+          </p>
+          <div className="flex items-center gap-2">
+            <Select value={exportTimeframe} onValueChange={(v) => setExportTimeframe(v as Timeframe)}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">Last month</SelectItem>
+                <SelectItem value="quarter">Last quarter</SelectItem>
+                <SelectItem value="year">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1.5"
+              onClick={handleMOHExport}
+              disabled={mohFetching}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {mohFetching ? 'Generating…' : 'Download CSV'}
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

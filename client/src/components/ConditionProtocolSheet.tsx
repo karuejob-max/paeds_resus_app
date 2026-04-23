@@ -59,6 +59,8 @@ interface ConditionProtocolSheetProps {
   onOpenChange: (open: boolean) => void;
   session: ResusSession;
   initialConditionId?: ConditionId;
+  /** Called whenever a step is marked done — provides condition + step counts for Fellowship Pillar B credit */
+  onProtocolProgress?: (conditionId: ConditionId, completedSteps: number, totalSteps: number) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -68,6 +70,7 @@ export function ConditionProtocolSheet({
   onOpenChange,
   session,
   initialConditionId,
+  onProtocolProgress,
 }: ConditionProtocolSheetProps) {
   const weight = session.patientWeight ?? 10;
   const ageCategory = getAgeCategory(session.patientAge);
@@ -91,10 +94,19 @@ export function ConditionProtocolSheet({
   const progress = getProtocolProgress(protocol, activeState);
 
   function setStepStatus(stepId: string, status: StepStatus) {
-    setConditionStates(prev => ({
-      ...prev,
-      [selectedCondition]: updateConditionStep(prev[selectedCondition], stepId, status),
-    }));
+    setConditionStates(prev => {
+      const next = {
+        ...prev,
+        [selectedCondition]: updateConditionStep(prev[selectedCondition], stepId, status),
+      };
+      // Fire fellowship credit callback when a step is completed
+      if (status === 'done' && onProtocolProgress) {
+        const updatedState = next[selectedCondition];
+        const completedCount = Object.values(updatedState.stepStatuses).filter(s => s === 'done').length;
+        onProtocolProgress(selectedCondition, completedCount, protocol.steps.length);
+      }
+      return next;
+    });
   }
 
   function toggleDoses(stepId: string) {

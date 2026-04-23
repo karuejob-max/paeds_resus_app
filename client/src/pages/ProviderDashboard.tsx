@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Progress } from "@/components/ui/progress";
 import { Users, Building2, CheckCircle2, Clock } from "lucide-react";
@@ -599,6 +600,9 @@ export default function ProviderDashboard() {
       </div>
 
       {/* ── Certificate download feedback dialog ─────────────────────────── */}
+      {/* PWA install card — shown once per 7 days if app is installable */}
+      <PWAInstallBanner variant="card" className="mb-2" />
+
       {feedbackDialog ? (
         <CertificateDownloadFeedbackDialog
           open

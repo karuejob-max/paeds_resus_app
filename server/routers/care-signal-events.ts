@@ -513,4 +513,85 @@ export const careSignalEventsRouter = router({
         });
       }
     }),
+
+  /**
+   * MOH Export — anonymised platform-wide resource gap data for
+   * county/national Ministry of Health reporting.
+   * Only gaps with >=5 events are included (anonymisation threshold).
+   * Returns structured rows ready for CSV download on the client.
+   */
+  getMOHExportData: protectedProcedure
+    .input(
+      z.object({
+        timeframe: z.enum(["week", "month", "quarter", "year"]).default("quarter"),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      try {
+        if (!ctx.user.providerType && ctx.user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Care Signal export is for healthcare providers.",
+          });
+        }
+        const db = await getDb();
+        if (!db) {
+          return { success: true, rows: [], generatedAt: new Date().toISOString(), timeframe: input.timeframe, totalEvents: 0 };
+        }
+        const daysBack = input.timeframe === "week" ? 7
+          : input.timeframe === "month" ? 30
+          : input.timeframe === "quarter" ? 90 : 365;
+        const since = new Date(Date.now() - daysBack * 86_400_000);
+        const allRows = await db
+          .select({ eventData: analyticsEvents.eventData, createdAt: analyticsEvents.createdAt })
+          .from(analyticsEvents)
+          .where(
+            and(
+              gte(analyticsEvents.createdAt, since),
+              sql`${analyticsEvents.eventType} = 'resus_resource_gap'`
+            )
+          )
+          .limit(10000);
+        // Aggregate by intervention name
+        const gapMap: Record<string, { count: number; firstSeen: string; lastSeen: string }> = {};
+        for (const row of allRows) {
+          try {
+            const data = typeof row.eventData === "string"
+              ? (JSON.parse(row.eventData) as Record<string, unknown>)
+              : (row.eventData as Record<string, unknown> | null) ?? {};
+            const name = (data.interventionName as string) || "Unknown";
+            const ts = row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString();
+            if (!gapMap[name]) gapMap[name] = { count: 0, firstSeen: ts, lastSeen: ts };
+            gapMap[name].count += 1;
+            if (ts < gapMap[name].firstSeen) gapMap[name].firstSeen = ts;
+            if (ts > gapMap[name].lastSeen) gapMap[name].lastSeen = ts;
+          } catch { /* skip malformed */ }
+        }
+        // Only include gaps with >=5 events (anonymisation threshold)
+        const rows = Object.entries(gapMap)
+          .filter(([, v]) => v.count >= 5)
+          .map(([intervention, v]) => ({
+            intervention,
+            count: v.count,
+            firstSeen: v.firstSeen.split("T")[0],
+            lastSeen: v.lastSeen.split("T")[0],
+            severity: v.count >= 50 ? "Critical" : v.count >= 20 ? "High" : v.count >= 10 ? "Medium" : "Low",
+            timeframe: input.timeframe,
+          }))
+          .sort((a, b) => b.count - a.count);
+        return {
+          success: true,
+          rows,
+          generatedAt: new Date().toISOString(),
+          timeframe: input.timeframe,
+          totalEvents: allRows.length,
+        };
+      } catch (error) {
+        console.error("[MOH Export Error]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate MOH export.",
+        });
+      }
+    }),
 });
