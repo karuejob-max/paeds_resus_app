@@ -3,6 +3,15 @@
     "name": "PaedsResus",
     "slug": "paeds-resus",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/paeds-resus",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "paeds-resus",
@@ -17,7 +26,9 @@
       "bundleIdentifier": "com.paedsresus.app",
       "infoPlist": {
         "UIBackgroundModes": ["fetch", "remote-notification"],
-        "NSMicrophoneUsageDescription": "Used for voice commands during resuscitation"
+        "NSMicrophoneUsageDescription": "Used for voice commands during resuscitation",
+        "NSBluetoothAlwaysUsageDescription": "Used to connect to pulse oximeters for real-time SpO₂ monitoring",
+        "NSBluetoothPeripheralUsageDescription": "Used to connect to pulse oximeters for real-time SpO₂ monitoring"
       }
     },
     "android": {
@@ -29,7 +40,13 @@
       "permissions": [
         "VIBRATE",
         "RECEIVE_BOOT_COMPLETED",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -40,6 +57,13 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-keep-awake",
+      [
+        "expo-updates",
+        {
+          "username": "karuejob-max"
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -51,6 +75,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "paeds-resus-app"
+      }
     }
   }
 }

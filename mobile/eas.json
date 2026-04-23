@@ -1,0 +1,58 @@
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development"
+      }
+    },
+    "beta": {
+      "distribution": "internal",
+      "channel": "beta",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "beta"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "production"
+      }
+    },
+    "clinical": {
+      "distribution": "internal",
+      "channel": "clinical",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "clinical"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      },
+      "ios": {
+        "appleId": "developer@paedsresus.com",
+        "ascAppId": "paeds-resus-app",
+        "appleTeamId": "PAEDS_RESUS_TEAM"
+      }
+    }
+  }
+}
