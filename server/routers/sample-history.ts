@@ -11,7 +11,7 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getDb } from '../_core/db';
+import { getDb } from '../db';
 import { providerSampleHistory } from '../../drizzle/schema';
 
 const sampleHistoryInput = z.object({
@@ -33,7 +33,8 @@ export const sampleHistoryRouter = router({
   saveSampleHistory: protectedProcedure
     .input(sampleHistoryInput)
     .mutation(async ({ ctx, input }) => {
-      const db = getDb();
+      const db = await getDb();
+      if (!db) return { success: false, error: 'Database unavailable' };
       const userId = ctx.user.id;
 
       // Check if a row already exists for this user
@@ -82,7 +83,8 @@ export const sampleHistoryRouter = router({
    */
   getLastSampleHistory: protectedProcedure
     .query(async ({ ctx }) => {
-      const db = getDb();
+      const db = await getDb();
+      if (!db) return null;
       const userId = ctx.user.id;
 
       const rows = await db
