@@ -78,17 +78,33 @@ These items complete the clinical documentation loop and surface data to institu
 
 ---
 
-## Remaining Backlog (Phase 5+)
+## Phase 5: Clinical Depth & Scale ✅ COMPLETE
 
-| ID | Task | Priority | Notes |
-|---|---|---|---|
-| 5.1 | Condition-specific protocols (DKA, Status Epilepticus, Septic Shock) in ABCDE engine | HIGH | Expands clinical coverage beyond cardiac arrest |
-| 5.2 | SAMPLE history server-side persistence (link to user account, not just device) | MEDIUM | Required for multi-device use |
-| 5.3 | Referral letter PDF export (print/fax-ready) | MEDIUM | Needed for facilities without EHR |
-| 5.4 | Care Signal: facility-level resource gap benchmarking (anonymised) | LOW | Requires multi-facility data volume |
-| 5.5 | Mobile offline PWA (Service Worker + background sync) | LOW | Phase after web stabilisation |
+| ID | Task | Component | Priority | Status |
+|---|---|---|---|---|
+| **5.1** | **Condition-Specific Protocols** | `conditionProtocols.ts`, `ConditionProtocolSheet.tsx` | HIGH | ✅ Done |
+| | *Full AHA/WHO-aligned step-by-step protocols for Septic Shock, Status Epilepticus, and DKA. Weight-based drug doses, titration steps, monitoring checkpoints, reassessment triggers. Accessible via Layers (🗂) button in ResusGPS top bar.* | | | |
+| **5.2** | **Server-Side SAMPLE Persistence** | `sample-history.ts`, `schema.ts`, `ResusGPS.tsx` | MEDIUM | ✅ Done |
+| | *New `providerSampleHistory` DB table. `sampleHistoryRouter` with `saveSampleHistory` + `getLastSampleHistory` endpoints. ResusGPS saves SAMPLE to server on case end; loads from server on idle start. Survives device/browser changes — account-linked.* | | | |
+| **5.3** | **Referral Letter PDF Export** | `ExportDocumentsPanel.tsx` | MEDIUM | ✅ Done |
+| | *`printAsPdf()` uses browser print dialog for A4 print/PDF output. Fully offline, no library, no server call. "Print / PDF" button added alongside Copy + Download .txt in ExportDocumentsPanel.* | | | |
+| **5.4** | **Multi-Facility Benchmark** | `care-signal-events.ts`, `MultiFacilityBenchmarkWidget.tsx` | LOW | ✅ Done |
+| | *`getMultiFacilityBenchmark` endpoint aggregates anonymised cross-facility resource gap data (≥5 events threshold). `MultiFacilityBenchmarkWidget` shows platform-wide vs my-facility comparison, unique-to-me gaps (local procurement), and widespread gaps (systemic issue). Surfaced on CareSignal and HospitalAdminDashboard.* | | | |
+
+*Committed: `fc170af` on April 23, 2026*
 
 ---
 
-*All Phase 1–4 items shipped and live on `main` as of April 23, 2026.*  
-*Build: `vite ✓ 0 errors, 7.15s`. Final commit: `cbfe751`.*
+## Remaining Backlog (Phase 6+)
+
+| ID | Task | Priority | Notes |
+|---|---|---|---|
+| 6.1 | Mobile offline PWA (Service Worker + background sync) | MEDIUM | Phase after web stabilisation |
+| 6.2 | Cross-device SAMPLE history sync on login | LOW | Requires server-side session lookup on mount |
+| 6.3 | Condition protocol completion tracking (fellowship pillar B credit) | LOW | Requires protocol step event logging |
+| 6.4 | Anonymised county/national resource gap reporting (export to CSV for MOH) | LOW | Requires data volume and admin export UI |
+
+---
+
+*All Phase 1–5 items shipped and live on `main` as of April 23, 2026.*  
+*Build: `vite ✓ 0 errors, 6.74s`. Final commit: `fc170af`.*
