@@ -273,8 +273,9 @@ export default function FellowshipProgress() {
                 <h4 className="font-medium">Pillar 3: Care Signal</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>✓ 24 consecutive months</li>
-                  <li>✓ ≥3 events per month</li>
-                  <li>✓ Grace periods available</li>
+                  <li>✓ ≥1 event per month (normal)</li>
+                  <li>✓ ≥3 events in catch-up month (after grace)</li>
+                  <li>✓ Up to 2 grace months per year</li>
                 </ul>
               </div>
             </div>

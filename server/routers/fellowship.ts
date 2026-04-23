@@ -187,16 +187,23 @@ async function calculateCareSignalPillar(userId: number) {
       where: (events) => eq(events.userId, userId),
     });
 
-    // Group events by month
+    // Group events by month using EAT (UTC+3) per PSOT §8.
+    // BUG FIX: Previously used getUTCFullYear/getUTCMonth which placed events
+    // in the wrong EAT month for submissions made between 21:00-23:59 UTC
+    // (i.e., 00:00-02:59 EAT next day). This caused incorrect streak calculations
+    // for Kenyan providers.
     const eventsByMonth: Record<string, number> = {};
     const currentDate = new Date();
-    const currentYear = currentDate.getUTCFullYear();
-    const currentMonth = currentDate.getUTCMonth() + 1;
+    const eatNow = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000);
+    const currentYear = eatNow.getUTCFullYear();
+    const currentMonth = eatNow.getUTCMonth() + 1;
 
     allEvents.forEach((event) => {
       const eventDate = new Date(event.createdAt);
-      const year = eventDate.getUTCFullYear();
-      const month = eventDate.getUTCMonth() + 1;
+      // Shift to EAT before extracting year/month
+      const eatEvent = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000);
+      const year = eatEvent.getUTCFullYear();
+      const month = eatEvent.getUTCMonth() + 1;
       const key = `${year}-${String(month).padStart(2, "0")}`;
       eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
     });

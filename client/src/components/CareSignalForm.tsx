@@ -57,19 +57,21 @@ export default function CareSignalForm() {
         neurologicalStatus: formData.neuroStatus || "unknown",
       };
 
-      await submitMutation.mutateAsync(submitData);
+      const result = await submitMutation.mutateAsync(submitData);
       setSubmittedData({
         ...submitData,
         algorithm: formData.algorithm,
         outcome: formData.outcome,
+        // Capture server-generated recommendations for the confirmation modal
+        recommendations: result.recommendations ?? [],
+        eventId: result.eventId,
+        timestamp: result.timestamp,
       });
       setShowConfirmation(true);
       setSuccess(true);
-      setTimeout(() => {
-        setStep(1);
-        setFormData({});
-        setSuccess(false);
-      }, 3000);
+      // Reset form after modal is closed (not on a timer) — modal handles navigation
+      setStep(1);
+      setFormData({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submission failed");
     }

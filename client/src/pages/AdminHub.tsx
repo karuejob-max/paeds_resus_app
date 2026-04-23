@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminHub() {
@@ -136,6 +136,23 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Insights from Care Signal event submissions and system gaps
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-amber-200 hover:border-amber-400"
+            onClick={() => setLocation("/admin/care-signal-review")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-600" />
+                  Care Signal review queue
+                </CardTitle>
+                <CardDescription>
+                  Review and close provider-submitted incident reports awaiting institutional action
                 </CardDescription>
               </div>
             </CardHeader>

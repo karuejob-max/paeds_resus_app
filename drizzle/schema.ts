@@ -133,6 +133,8 @@ export type InsertCertificateDownloadFeedback = typeof certificateDownloadFeedba
 export const careSignalEvents = mysqlTable("careSignalEvents", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
+  /** Facility ID from providerProfiles — enables institutional reporting (migration 0037) */
+  facilityId: int("facilityId"),
   eventDate: timestamp("eventDate").notNull(),
   childAge: int("childAge").notNull(),
   eventType: varchar("eventType", { length: 255 }).notNull(),
@@ -144,6 +146,12 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   outcome: varchar("outcome", { length: 512 }).notNull(),
   neurologicalStatus: varchar("neurologicalStatus", { length: 512 }).notNull(),
   status: varchar("status", { length: 32 }).default("submitted").notNull(),
+  /** Admin/coordinator who reviewed this event (migration 0037) */
+  reviewerId: int("reviewerId"),
+  /** Whether this event qualifies for Fellowship Pillar C (migration 0037) */
+  eligibleForFellowship: boolean("eligibleForFellowship").default(true).notNull(),
+  /** Form version used for submission — audit trail (migration 0037) */
+  submissionVersion: varchar("submissionVersion", { length: 16 }).default("v1").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

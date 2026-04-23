@@ -92,17 +92,29 @@ export default function CareSignal() {
           <CareSignalForm />
         </div>
 
-        {/* Resource Gap Trends — auto-populated from ResusGPS sessions */}
+        {/* Resource Gap Trends — sourced from ResusGPS sessions, NOT from Care Signal events */}
         <div className="mb-8">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ResusGPS Data
+            </span>
+            <span className="text-xs text-slate-400">— interventions marked unavailable during live resuscitations</span>
+          </div>
           <ResourceGapWidget
-            title="Resource Gap Trends (ResusGPS)"
-            description="Interventions most frequently marked as unavailable during live paediatric resuscitations at your facility"
+            title="Resource Gap Trends"
+            description="Equipment and medications most frequently unavailable during live paediatric resuscitations at your facility (sourced from ResusGPS sessions, not Care Signal reports)"
             limit={10}
           />
         </div>
 
-        {/* Multi-Facility Benchmark — anonymised cross-facility comparison */}
+        {/* Multi-Facility Benchmark — sourced from ResusGPS sessions, anonymised cross-facility comparison */}
         <div className="mb-12">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ResusGPS Data
+            </span>
+            <span className="text-xs text-slate-400">— anonymised cross-facility comparison from ResusGPS sessions</span>
+          </div>
           <MultiFacilityBenchmarkWidget />
         </div>
 

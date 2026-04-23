@@ -13,6 +13,7 @@ import {
   adminAuditLog,
   resusGPSSessions,
   resusGPSCases,
+  careSignalEvents,
 } from "../../drizzle/schema";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
@@ -156,6 +157,41 @@ export const adminStatsRouter = router({
         totalSessions: fellowshipSessionsInPeriod.length,
         totalCases: fellowshipCasesInPeriod.length,
       };
+      // Care Signal metrics this month
+      const careSignalThisMonth = await db
+        .select({
+          outcome: careSignalEvents.outcome,
+          systemGaps: careSignalEvents.systemGaps,
+          status: careSignalEvents.status,
+        })
+        .from(careSignalEvents)
+        .where(
+          and(
+            gte(careSignalEvents.createdAt, periodStart),
+            lte(careSignalEvents.createdAt, periodEnd)
+          )
+        );
+      const careSignalUnderReview = careSignalThisMonth.filter(
+        (e) => e.status === "under_review"
+      ).length;
+      const careSignalGapBreakdown: Record<string, number> = {};
+      for (const e of careSignalThisMonth) {
+        try {
+          const gaps = JSON.parse(e.systemGaps) as string[];
+          for (const g of gaps) {
+            careSignalGapBreakdown[g] = (careSignalGapBreakdown[g] ?? 0) + 1;
+          }
+        } catch { /* skip */ }
+      }
+      const topCareSignalGaps = Object.entries(careSignalGapBreakdown)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([gap, count]) => ({ gap, count }));
+      const careSignalStats = {
+        totalThisMonth: careSignalThisMonth.length,
+        underReview: careSignalUnderReview,
+        topGaps: topCareSignalGaps,
+      };
 
       // Count unique active users in last N days
       const activeUsersResult = await db
@@ -233,6 +269,7 @@ export const adminStatsRouter = router({
         fellowshipStatsLastDays,
         activeUsersLastDays,
         topProtocolsViewed,
+        careSignalStats,
       };
     }),
 
