@@ -11,7 +11,6 @@ import {
   ArrowRight,
   Award,
   BookOpen,
-  CreditCard,
   Download,
   FileText,
   GraduationCap,
@@ -192,9 +191,7 @@ export default function ProviderDashboard() {
   const { primaryAction, secondaryActions, stats, resusAccess } = summaryQuery.data;
 
   const recommendationReason =
-    primaryAction.key === "resume_payment"
-      ? "You already started an AHA enrollment — payment is the one blocker before learning continues."
-      : primaryAction.key === "start_course"
+    primaryAction.key === "start_course"
         ? "You have a paid course ready to begin. Fastest progress is to enter learning directly."
         : primaryAction.key === "continue_learning"
           ? "You already started a course. Continuing it is the clearest path to completion."
@@ -205,10 +202,7 @@ export default function ProviderDashboard() {
   const statusHighlights = [
     {
       key: "aha",
-      label:
-        stats.unpaidAhaCount > 0
-          ? `${stats.unpaidAhaCount} AHA payment${stats.unpaidAhaCount === 1 ? "" : "s"} pending`
-          : "AHA enrollments clear",
+      label: "AHA enrollments active",
     },
     {
       key: "ready",
@@ -233,9 +227,7 @@ export default function ProviderDashboard() {
   ];
 
   const primaryIcon =
-    primaryAction.key === "resume_payment" ? (
-      <CreditCard className="h-4 w-4" />
-    ) : primaryAction.key === "renew_resusgps" ? (
+    primaryAction.key === "renew_resusgps" ? (
       <AlertTriangle className="h-4 w-4" />
     ) : primaryAction.key === "open_resusgps" ? (
       <Siren className="h-4 w-4" />
@@ -244,13 +236,7 @@ export default function ProviderDashboard() {
     );
 
   const handlePrimaryAction = () => {
-    if (primaryAction.key === "resume_payment") {
-      track("provider_conversion", "provider_next_action_resume_payment_clicked", {
-        source: "provider_home_summary",
-        programType: primaryAction.programType,
-        enrollmentId: primaryAction.enrollmentId,
-      });
-    } else if (primaryAction.key === "start_course") {
+    if (primaryAction.key === "start_course") {
       track("provider_conversion", "provider_next_action_start_course_clicked", {
         source: "provider_home_summary",
         enrollmentId: primaryAction.enrollmentId,

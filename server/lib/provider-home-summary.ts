@@ -64,7 +64,8 @@ export type ProviderHomeSummary = {
 };
 
 function isPaidMicroEnrollment(enrollment: MicroEnrollmentRow) {
-  return enrollment.paymentStatus === "completed" || enrollment.paymentStatus === "free";
+  // Payment gate removed — all enrollments are active regardless of paymentStatus.
+  return true;
 }
 
 export function selectProviderHomePrimaryAction(args: {
@@ -72,18 +73,8 @@ export function selectProviderHomePrimaryAction(args: {
   microEnrollments: MicroEnrollmentRow[];
   resusAccess: ResusGpsClientAccess;
 }): ProviderHomeAction {
-  const unpaidAha = args.ahaEnrollments.find((enrollment) => enrollment.paymentStatus !== "completed");
-  if (unpaidAha) {
-    return {
-      key: "resume_payment",
-      title: "Resume payment",
-      description: `Complete payment for ${String(unpaidAha.programType || "").toUpperCase()} to unlock learning.`,
-      cta: "Pay now",
-      destination: `/payment?enrollmentId=${unpaidAha.id}&courseId=${unpaidAha.programType}`,
-      enrollmentId: unpaidAha.id,
-      programType: unpaidAha.programType,
-    };
-  }
+  // Payment gate removed — all AHA enrollments are immediately active.
+  // resume_payment action is intentionally disabled.
 
   const paidNotStarted = args.microEnrollments.find(
     (enrollment) =>
@@ -213,7 +204,7 @@ export async function buildProviderHomeSummary(userId: number): Promise<Provider
       },
     ],
     stats: {
-      unpaidAhaCount: ahaEnrollments.filter((enrollment) => enrollment.paymentStatus !== "completed").length,
+      unpaidAhaCount: 0, // Payment gate removed — all enrollments are immediately active.
       paidNotStartedCount: microEnrollments.filter(
         (enrollment) =>
           isPaidMicroEnrollment(enrollment) &&
