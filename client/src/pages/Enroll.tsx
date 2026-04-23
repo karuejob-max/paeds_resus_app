@@ -23,13 +23,9 @@ export default function Enroll() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const createEnrollment = trpc.enrollment.create.useMutation({
-    onSuccess: (data) => {
-      if (data.enrollmentId && selectedCourse) {
-        setLocation(`/payment?enrollmentId=${data.enrollmentId}&courseId=${selectedCourse}`);
-      } else {
-        setStep("success");
-        setTimeout(() => setLocation("/home"), 3000);
-      }
+    onSuccess: () => {
+      setStep("success");
+      setTimeout(() => setLocation("/home"), 3000);
     },
     onError: (error) => {
       alert(`Enrollment failed: ${error.message}`);
@@ -291,7 +287,7 @@ export default function Enroll() {
               ← Back
             </button>
             <div className="flex-1 text-right text-sm text-muted-foreground">
-              Step 2 of 2
+              Step 2 of 2 — Free enrollment
             </div>
           </div>
 
@@ -321,11 +317,11 @@ export default function Enroll() {
           {/* Checkout Form */}
           <Card>
             <CardHeader>
-              <CardTitle>Review and continue to payment</CardTitle>
+              <CardTitle>Confirm your enrollment</CardTitle>
               <CardDescription>
                 Confirm your{" "}
                 {selectedCourse === "instructor" ? "Paeds Resus instructor enrollment" : "AHA certification enrollment"}{" "}
-                and continue to secure payment.
+                and get instant access.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -352,16 +348,6 @@ export default function Enroll() {
                 }}
                 className="space-y-6"
               >
-                {/* Payment path */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-foreground">Payment path</h3>
-                  <div className="p-4 bg-muted/50 border border-border rounded-lg">
-                    <p className="text-sm text-foreground/90">
-                      <strong>M-Pesa:</strong> You will receive an STK prompt immediately after this step.
-                    </p>
-                  </div>
-                </div>
-
                 {/* Terms */}
                 <div className="space-y-4">
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -391,13 +377,12 @@ export default function Enroll() {
                   disabled={createEnrollment.isPending || !agreeToTerms}
                   className="w-full h-12 text-base"
                 >
-                  {createEnrollment.isPending ? "Preparing payment..." : "Continue to payment"}
+                  {createEnrollment.isPending ? "Enrolling..." : "Enroll Now — Free"}
                 </Button>
 
-                {/* Security Badge */}
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <Shield className="w-4 h-4" />
-                  Secure payment powered by M-Pesa
+                  <CheckCircle2 className="w-4 h-4" />
+                  Free enrollment — no payment required
                 </div>
               </form>
             </CardContent>
