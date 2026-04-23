@@ -95,16 +95,34 @@ These items complete the clinical documentation loop and surface data to institu
 
 ---
 
-## Remaining Backlog (Phase 6+)
+## Phase 6: PWA, Fellowship Credit & MOH Export ✅ COMPLETE
 
-| ID | Task | Priority | Notes |
-|---|---|---|---|
-| 6.1 | Mobile offline PWA (Service Worker + background sync) | MEDIUM | Phase after web stabilisation |
-| 6.2 | Cross-device SAMPLE history sync on login | LOW | Requires server-side session lookup on mount |
-| 6.3 | Condition protocol completion tracking (fellowship pillar B credit) | LOW | Requires protocol step event logging |
-| 6.4 | Anonymised county/national resource gap reporting (export to CSV for MOH) | LOW | Requires data volume and admin export UI |
+| ID | Task | Component | Status | Commit |
+|---|---|---|---|---|
+| **6.1** | **Mobile Offline PWA** | `sw.js`, `PWAInstallBanner.tsx` | ✅ Done | `d49ad04` |
+| | *SW rewritten with correct route cache, background sync for analytics + SAMPLE queues, push notification support. PWAInstallBanner (banner + card variants, 7-day snooze) wired into ResusGPS (idle only) and ProviderDashboard.* | | | |
+| **6.2** | **Cross-Device SAMPLE Sync** | `ResusGPS.tsx` | ✅ Done (Phase 5.2) | `fc170af` |
+| | *Already implemented via server-side `getLastSampleHistory` query in Phase 5.2. Verified complete — no additional work needed.* | | | |
+| **6.3** | **Condition Protocol → Fellowship Pillar B Credit** | `ConditionProtocolSheet.tsx`, `ResusGPS.tsx` | ✅ Done | `d49ad04` |
+| | *`onProtocolProgress` callback fires on every step marked done. ResusGPS tracks `protocolsUsed` state and includes `protocol:conditionId:N/M` strings in `recordResusGPSCase` call for Pillar B credit.* | | | |
+| **6.4** | **MOH CSV Export** | `care-signal-events.ts`, `MultiFacilityBenchmarkWidget.tsx` | ✅ Done | `d49ad04` |
+| | *`getMOHExportData` endpoint returns anonymised platform-wide resource gaps (≥5 event threshold, severity tiers). MOH Export section added to MultiFacilityBenchmarkWidget with timeframe selector and Download CSV button.* | | | |
+
+*Committed: `d49ad04` on April 23, 2026*
 
 ---
 
-*All Phase 1–5 items shipped and live on `main` as of April 23, 2026.*  
-*Build: `vite ✓ 0 errors, 6.74s`. Final commit: `fc170af`.*
+## Phase 7 Backlog (Next)
+
+| ID | Task | Priority | Notes |
+|---|---|---|---|
+| 7.1 | Neonatal resuscitation protocol (NRP) in condition protocols | HIGH | Extends ResusGPS to delivery room |
+| 7.2 | Anaphylaxis + severe asthma protocols | HIGH | Completes the top-5 paediatric emergencies |
+| 7.3 | ResusGPS multi-patient mode (mass casualty) | MEDIUM | County hospital pilot readiness |
+| 7.4 | Push notifications for Care Signal review responses | LOW | Requires FCM integration |
+| 7.5 | Offline-first mobile app (React Native / Expo) | LOW | Post-web stabilisation |
+
+---
+
+*All Phase 1–6 items shipped and live on `main` as of April 23, 2026.*  
+*Build: `vite ✓ 0 errors, 7.19s`. Final commit: `d49ad04`.*
