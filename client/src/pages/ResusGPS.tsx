@@ -115,9 +115,11 @@ import {
   XCircle,
   BookOpen,
   Layers,
+  Users,
 } from 'lucide-react';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
+import { MultiPatientBoard } from '@/components/MultiPatientBoard';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
 
 // ─── Constants ──────────────────────────────────────────────
@@ -237,6 +239,7 @@ export default function ResusGPS() {
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showProtocols, setShowProtocols] = useState(false);
+  const [showMCIBoard, setShowMCIBoard] = useState(false);
   // Phase 6.3 — track which condition protocols were used + step counts for Fellowship Pillar B
   const [protocolsUsed, setProtocolsUsed] = useState<Record<string, { completed: number; total: number }>>({});
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
@@ -718,6 +721,7 @@ export default function ResusGPS() {
         onShowLog={() => setShowEventLog(true)}
         onOpenDocuments={() => setShowDocuments(true)}
         onOpenProtocols={() => setShowProtocols(true)}
+        onOpenMCIBoard={() => setShowMCIBoard(true)}
       />
 
       {/* Safety Alerts Banner */}
@@ -1001,6 +1005,12 @@ export default function ResusGPS() {
         }}
       />
 
+      {/* Multi-Patient Board (MCI mode) */}
+      <MultiPatientBoard
+        open={showMCIBoard}
+        onOpenChange={setShowMCIBoard}
+      />
+
       {/* PWA install prompt — only shown on idle screen, never during active case */}
       {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
 
@@ -1029,6 +1039,7 @@ function TopBar({
   onShowLog,
   onOpenDocuments,
   onOpenProtocols,
+  onOpenMCIBoard,
 }: {
   session: ResusSession;
   timer: ReturnType<typeof useTimer>;
@@ -1047,6 +1058,7 @@ function TopBar({
   onShowLog: () => void;
   onOpenDocuments: () => void;
   onOpenProtocols: () => void;
+  onOpenMCIBoard: () => void;
 }) {
   if (session.phase === 'IDLE') return null;
 
@@ -1148,13 +1160,24 @@ function TopBar({
           <Undo2 className="h-4 w-4" />
         </Button>
 
+        {/* Multi-Patient Board */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenMCIBoard}
+          title="Multi-patient board (mass casualty)"
+          aria-label="Multi-patient board"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
         {/* Condition Protocols */}
         <Button
           size="sm"
           variant="ghost"
           className="text-xs h-8 w-8 p-0"
           onClick={onOpenProtocols}
-          title="Condition protocols (Septic Shock, Status Epilepticus, DKA)"
+          title="Condition protocols (Septic Shock, Status Epilepticus, DKA, NRP, Anaphylaxis, Severe Asthma)"
           aria-label="Condition protocols"
         >
           <Layers className="h-4 w-4" />

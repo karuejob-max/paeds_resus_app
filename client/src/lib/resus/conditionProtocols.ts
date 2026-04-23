@@ -889,3 +889,598 @@ export function getProtocolProgress(
   ).length;
   return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 7 PROTOCOLS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── 7.1  Neonatal Resuscitation Protocol (NRP 8th Ed / AHA 2020) ────────────
+
+function buildNRPProtocol(weight: number, _ageCategory: string): ConditionProtocol {
+  const w = weight > 0 ? weight : 3; // default 3 kg for neonate
+  const epiDose = roundDose(0.01 * w * 1000, 1000); // 0.01 mg/kg = 0.1 mL/kg of 1:10000 → mcg
+  const epiMl = round1(0.1 * w);                    // 0.1 mL/kg of 1:10000 epinephrine
+  const volumeBolusML = round1(10 * w);              // 10 mL/kg NS for volume
+
+  return {
+    id: 'nrp',
+    name: 'Neonatal Resuscitation (NRP)',
+    shortName: 'NRP',
+    icon: '👶',
+    color: 'text-pink-700',
+    bgColor: 'bg-pink-50',
+    triggerFindings: ['apnea', 'bradycardia', 'cyanosis', 'poor_tone'],
+    monitoringTargets: [
+      'SpO₂ target: 60–65% at 1 min → 80–85% at 5 min → ≥90% at 10 min',
+      'HR > 100 bpm within 60 seconds of effective PPV',
+      'Chest rise with each PPV breath',
+      'Temperature: 36.5–37.5 °C (avoid hypothermia)',
+      'Blood glucose ≥ 2.6 mmol/L after stabilisation',
+    ],
+    keyPitfalls: [
+      'Do NOT delay PPV — it is the single most effective NRP intervention',
+      'Avoid 100% O₂ at birth — start with 21% (room air) for term infants',
+      'Chest compressions only if HR < 60 after 30 s of effective PPV',
+      'Epinephrine is IV/IO preferred — ET route is less reliable',
+      'Hypothermia worsens outcomes — keep warm throughout',
+      'Meconium: do NOT routinely suction unless infant is non-vigorous',
+    ],
+    references: [
+      'AHA/AAP NRP 8th Edition 2021',
+      'ILCOR Neonatal Life Support 2020',
+    ],
+    steps: [
+      // ── Initial Assessment (0–30 s) ──────────────────────────────────────
+      {
+        id: 'nrp_initial_assessment',
+        phase: 'Initial Assessment (0–30 s)',
+        action: 'Assess: Term gestation? Good tone? Breathing or crying?',
+        rationale: 'If YES to all three → routine care (warm, dry, stimulate). If NO to any → proceed with NRP.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_warm_dry',
+        phase: 'Initial Assessment (0–30 s)',
+        action: 'Warm, dry, stimulate. Position airway (slight neck extension). Clear secretions if needed.',
+        rationale: 'Hypothermia is a major cause of neonatal mortality. Drying and stimulation often trigger spontaneous breathing.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_assess_hr_breathing',
+        phase: 'Initial Assessment (0–30 s)',
+        action: 'Reassess HR and breathing at 30 seconds.',
+        isReassessment: true,
+        rationale: 'HR < 100 bpm or absent/inadequate breathing → begin PPV immediately.',
+        status: 'pending',
+      },
+      // ── PPV (30 s – 60 s) ────────────────────────────────────────────────
+      {
+        id: 'nrp_ppv_start',
+        phase: 'Positive Pressure Ventilation (30–60 s)',
+        action: 'Begin PPV at 40–60 breaths/min. Start with 21% O₂ (term) or 21–30% O₂ (preterm < 35 wk).',
+        rationale: 'PPV is the cornerstone of NRP. Room air is as effective as 100% O₂ for term infants and avoids oxidative injury.',
+        safetyWarning: 'Use T-piece resuscitator or self-inflating bag. Confirm chest rise — if absent, reposition, suction, open mouth, increase pressure.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_ppv_mrsopa',
+        phase: 'Positive Pressure Ventilation (30–60 s)',
+        action: 'If no chest rise: apply MR SOPA — Mask adjustment → Reposition → Suction → Open mouth → Pressure increase → Airway alternative (LMA/ETT).',
+        rationale: 'MR SOPA is the NRP corrective steps sequence. Work through each step before escalating.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_reassess_60s',
+        phase: 'Positive Pressure Ventilation (30–60 s)',
+        action: 'Reassess HR after 30 s of effective PPV.',
+        isReassessment: true,
+        rationale: 'If HR ≥ 100 and breathing → wean PPV. If HR 60–100 → continue PPV, consider intubation. If HR < 60 → begin chest compressions.',
+        status: 'pending',
+      },
+      // ── Chest Compressions (60 s+) ───────────────────────────────────────
+      {
+        id: 'nrp_compressions',
+        phase: 'Chest Compressions (if HR < 60 after effective PPV)',
+        action: 'Begin chest compressions. Two-thumb encircling technique. Compress lower 1/3 sternum, depth 1/3 AP diameter. Ratio 3:1 (3 compressions : 1 breath) = 90 compressions + 30 breaths/min.',
+        rationale: 'Neonatal cardiac arrest is almost always respiratory in origin. Compressions are only needed if PPV has failed to restore HR.',
+        safetyWarning: 'Increase FiO₂ to 100% when starting compressions. Intubate if not already done.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_intubate',
+        phase: 'Chest Compressions (if HR < 60 after effective PPV)',
+        action: `Intubate for definitive airway. ETT size: ${w < 1 ? '2.5' : w < 2 ? '3.0' : '3.5'} mm. Depth: ${round1(w + 6)} cm at lip.`,
+        rationale: 'ETT provides reliable airway for sustained PPV during compressions. Confirm with CO₂ detector and bilateral breath sounds.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_reassess_compressions',
+        phase: 'Chest Compressions (if HR < 60 after effective PPV)',
+        action: 'Reassess HR every 60 seconds during compressions.',
+        isReassessment: true,
+        rationale: 'If HR ≥ 60 → stop compressions, continue PPV. If HR < 60 after 60 s of compressions → give epinephrine.',
+        status: 'pending',
+      },
+      // ── Medications ──────────────────────────────────────────────────────
+      {
+        id: 'nrp_epinephrine',
+        phase: 'Medications (if HR < 60 after 60 s of compressions)',
+        action: `Give Epinephrine IV/IO: 0.01–0.03 mg/kg (0.1–0.3 mL/kg of 1:10,000 solution).`,
+        doses: [
+          {
+            drug: 'Epinephrine 1:10,000 (0.1 mg/mL)',
+            dose: '0.01–0.03 mg/kg IV/IO',
+            calculated: `${epiMl}–${round1(epiMl * 3)} mL IV/IO (for ${w} kg)`,
+            route: 'IV/IO preferred; ET: 0.05–0.1 mg/kg if no IV/IO',
+            maxDose: '1 mg per dose',
+            notes: 'Repeat every 3–5 min if HR remains < 60. ET dose is 5–10× higher and less reliable.',
+          },
+        ],
+        safetyWarning: 'Do NOT give epinephrine via ET tube unless IV/IO access is impossible. ET absorption is unpredictable.',
+        status: 'pending',
+      },
+      {
+        id: 'nrp_volume',
+        phase: 'Medications (if HR < 60 after 60 s of compressions)',
+        action: `If hypovolaemia suspected (pale, weak pulses, history of blood loss): give Normal Saline ${volumeBolusML} mL IV/IO over 5–10 min.`,
+        doses: [
+          {
+            drug: 'Normal Saline 0.9%',
+            dose: '10 mL/kg IV/IO',
+            calculated: `${volumeBolusML} mL IV/IO over 5–10 min`,
+            route: 'IV/IO',
+            notes: 'O-negative blood if haemorrhagic shock. Avoid albumin as first-line.',
+          },
+        ],
+        status: 'pending',
+      },
+      {
+        id: 'nrp_post_resus',
+        phase: 'Post-Resuscitation',
+        action: 'Stabilise: maintain normothermia (36.5–37.5 °C), normoglycaemia (BSL ≥ 2.6 mmol/L), avoid hyperoxia (SpO₂ 91–95%). Consider therapeutic hypothermia if ≥ 36 wk GA with moderate-severe HIE.',
+        rationale: 'Post-resuscitation care is as critical as the resuscitation itself. Hyperoxia, hypoglycaemia, and hyperthermia all worsen neurological outcomes.',
+        status: 'pending',
+      },
+    ],
+  };
+}
+
+// ─── 7.2a  Anaphylaxis (WAO / RCUK / AHA PALS 2020) ─────────────────────────
+
+function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): ConditionProtocol {
+  const w = weight > 0 ? weight : 20;
+  const epiIMDose = roundDose(0.01 * w, 0.5);       // 0.01 mg/kg IM, max 0.5 mg
+  const epiIVDose = roundDose(0.001 * w * 1000, 500); // 1 mcg/kg IV, max 500 mcg
+  const epiIVMl = round1(0.001 * w);                 // mL of 1:1000 for IV (diluted)
+  const chlorphenamineDose = w < 6 ? 2.5 : w < 12 ? 5 : w < 18 ? 10 : 10;
+  const hydrocortisoneDose = w < 6 ? 25 : w < 12 ? 50 : w < 18 ? 100 : 200;
+  const salineBolus = round1(10 * w);
+  const salbutamolPuffs = w < 20 ? 4 : 8;
+
+  return {
+    id: 'anaphylaxis',
+    name: 'Anaphylaxis',
+    shortName: 'Anaphylaxis',
+    icon: '⚡',
+    color: 'text-red-700',
+    bgColor: 'bg-red-50',
+    triggerFindings: ['urticaria', 'angioedema', 'stridor', 'wheeze', 'hypotension', 'collapse'],
+    monitoringTargets: [
+      'HR, BP, SpO₂ every 5 min until stable',
+      'Observe minimum 4–6 hours after epinephrine (12 h if severe/biphasic risk)',
+      'SpO₂ ≥ 95% on supplemental O₂',
+      'Systolic BP > 70 + (2 × age in years) mmHg',
+      'Resolution of urticaria, angioedema, and bronchospasm',
+    ],
+    keyPitfalls: [
+      'Epinephrine IM is ALWAYS first-line — do not delay for antihistamines or steroids',
+      'Antihistamines and steroids do NOT treat airway compromise or cardiovascular collapse',
+      'Biphasic reaction occurs in 5–20% — observe for minimum 4–6 hours',
+      'Supine position with legs elevated improves venous return in shock',
+      'If patient is upright and has respiratory compromise, do NOT force to lie down',
+      'IV epinephrine is for refractory anaphylaxis only — use with extreme caution',
+    ],
+    references: [
+      'WAO Anaphylaxis Guidelines 2020',
+      'RCUK Emergency Treatment of Anaphylactic Reactions 2021',
+      'AHA PALS 2020',
+    ],
+    steps: [
+      // ── Immediate ────────────────────────────────────────────────────────
+      {
+        id: 'ana_remove_trigger',
+        phase: 'Immediate (0–2 min)',
+        action: 'Remove/stop the trigger (stop IV infusion, remove sting if visible). Call for help. Activate emergency response.',
+        status: 'pending',
+      },
+      {
+        id: 'ana_epi_im',
+        phase: 'Immediate (0–2 min)',
+        action: `Give Epinephrine IM (anterolateral mid-thigh): 0.01 mg/kg, max 0.5 mg. Repeat every 5–15 min if no improvement.`,
+        doses: [
+          {
+            drug: 'Epinephrine 1:1,000 (1 mg/mL)',
+            dose: '0.01 mg/kg IM',
+            calculated: `${epiIMDose} mg IM (${round1(epiIMDose)} mL of 1:1,000) for ${w} kg`,
+            route: 'IM anterolateral thigh',
+            maxDose: '0.5 mg',
+            notes: 'Auto-injector: < 15 kg → 0.15 mg; ≥ 15 kg → 0.3 mg. Repeat every 5–15 min PRN.',
+          },
+        ],
+        safetyWarning: 'IM thigh is preferred over deltoid — faster absorption. NEVER give undiluted epinephrine IV bolus.',
+        status: 'pending',
+      },
+      {
+        id: 'ana_position',
+        phase: 'Immediate (0–2 min)',
+        action: 'Position: supine with legs elevated (shock). Sitting up if respiratory distress. Recovery position if unconscious.',
+        rationale: 'Positional change can cause fatal cardiovascular collapse in anaphylaxis — do not allow patient to stand or sit up suddenly.',
+        status: 'pending',
+      },
+      {
+        id: 'ana_o2_airway',
+        phase: 'Immediate (0–2 min)',
+        action: 'Give high-flow O₂ (15 L/min via non-rebreather mask). Prepare for airway management — angioedema can progress rapidly.',
+        safetyWarning: 'Early intubation if stridor, hoarse voice, or progressive angioedema. Airway can close within minutes.',
+        status: 'pending',
+      },
+      // ── IV Access & Fluids ───────────────────────────────────────────────
+      {
+        id: 'ana_iv_fluids',
+        phase: 'IV Access & Fluids (2–5 min)',
+        action: `Establish IV/IO access. If hypotensive or shocked: give Normal Saline ${salineBolus} mL (10 mL/kg) IV over 5–10 min. Repeat PRN.`,
+        doses: [
+          {
+            drug: 'Normal Saline 0.9%',
+            dose: '10 mL/kg IV bolus',
+            calculated: `${salineBolus} mL IV over 5–10 min`,
+            route: 'IV/IO',
+            notes: 'Repeat bolus if still hypotensive. Large volumes may be needed in distributive shock.',
+          },
+        ],
+        status: 'pending',
+      },
+      // ── Adjuncts ─────────────────────────────────────────────────────────
+      {
+        id: 'ana_antihistamine',
+        phase: 'Adjunct Medications (after epinephrine)',
+        action: `Give Chlorphenamine (H1 blocker) IV/IM: ${chlorphenamineDose} mg. Adjunct only — does NOT treat airway or haemodynamic compromise.`,
+        doses: [
+          {
+            drug: 'Chlorphenamine (Chlorpheniramine)',
+            dose: w < 6 ? '2.5 mg' : w < 12 ? '5 mg' : '10 mg',
+            calculated: `${chlorphenamineDose} mg IV/IM`,
+            route: 'IV slow push or IM',
+            notes: 'H1 blocker for urticaria/pruritus. Not life-saving. Give after epinephrine.',
+          },
+        ],
+        status: 'pending',
+      },
+      {
+        id: 'ana_steroid',
+        phase: 'Adjunct Medications (after epinephrine)',
+        action: `Give Hydrocortisone IV: ${hydrocortisoneDose} mg. Prevents/reduces biphasic reaction. Not immediate-acting.`,
+        doses: [
+          {
+            drug: 'Hydrocortisone',
+            dose: w < 6 ? '25 mg' : w < 12 ? '50 mg' : w < 18 ? '100 mg' : '200 mg',
+            calculated: `${hydrocortisoneDose} mg IV`,
+            route: 'IV slow push',
+            notes: 'Takes 4–6 hours to work. Does NOT replace epinephrine. Reduces risk of biphasic reaction.',
+          },
+        ],
+        status: 'pending',
+      },
+      {
+        id: 'ana_bronchospasm',
+        phase: 'Adjunct Medications (after epinephrine)',
+        action: `If bronchospasm persists after epinephrine: give Salbutamol ${salbutamolPuffs} puffs via spacer (or 2.5 mg nebulised).`,
+        doses: [
+          {
+            drug: 'Salbutamol MDI + spacer',
+            dose: `${salbutamolPuffs} puffs (100 mcg/puff)`,
+            calculated: `${salbutamolPuffs} puffs via spacer OR 2.5 mg nebulised`,
+            route: 'Inhaled',
+            notes: 'Adjunct for bronchospasm only. Epinephrine is still primary treatment.',
+          },
+        ],
+        status: 'pending',
+      },
+      // ── Refractory ───────────────────────────────────────────────────────
+      {
+        id: 'ana_refractory_epi_iv',
+        phase: 'Refractory Anaphylaxis (no response to 2× IM epinephrine)',
+        action: `Refractory: give Epinephrine IV infusion 0.1–1 mcg/kg/min. Start at 0.1 mcg/kg/min and titrate.`,
+        doses: [
+          {
+            drug: 'Epinephrine IV infusion',
+            dose: '0.1–1 mcg/kg/min',
+            calculated: `Start: ${round1(0.1 * w)} mcg/min IV infusion`,
+            route: 'IV infusion (diluted)',
+            maxDose: '10 mcg/kg/min',
+            notes: 'Dilute: 0.3 mg/kg in 50 mL NS → 1 mL/hr = 0.1 mcg/kg/min. Requires cardiac monitoring.',
+          },
+        ],
+        safetyWarning: 'IV epinephrine infusion requires cardiac monitoring. Risk of arrhythmia and hypertensive crisis.',
+        status: 'pending',
+      },
+      {
+        id: 'ana_glucagon',
+        phase: 'Refractory Anaphylaxis (no response to 2× IM epinephrine)',
+        action: `If on beta-blockers (epinephrine-resistant): give Glucagon 20–30 mcg/kg IV over 5 min (max 1 mg).`,
+        doses: [
+          {
+            drug: 'Glucagon',
+            dose: '20–30 mcg/kg IV',
+            calculated: `${roundDose(0.025 * w, 1)} mg IV over 5 min`,
+            route: 'IV slow push',
+            maxDose: '1 mg',
+            notes: 'Bypasses beta-blockade. Causes vomiting — have suction ready.',
+          },
+        ],
+        status: 'pending',
+      },
+      // ── Reassessment & Discharge ─────────────────────────────────────────
+      {
+        id: 'ana_reassess',
+        phase: 'Reassessment',
+        action: 'Reassess HR, BP, SpO₂, skin, and airway every 5 min. Observe minimum 4–6 hours after last epinephrine dose.',
+        isReassessment: true,
+        rationale: 'Biphasic anaphylaxis occurs in 5–20% of cases, typically within 8 hours. High-risk patients (severe initial reaction, unknown trigger) observe 12–24 hours.',
+        status: 'pending',
+      },
+      {
+        id: 'ana_discharge_plan',
+        phase: 'Discharge Planning',
+        action: 'Prescribe epinephrine auto-injector × 2. Refer to allergy specialist. Provide written anaphylaxis action plan. Educate on trigger avoidance.',
+        status: 'pending',
+      },
+    ],
+  };
+}
+
+// ─── 7.2b  Severe Asthma / Status Asthmaticus (GINA 2023 / BTS / AHA PALS) ──
+
+function buildSevereAsthmaProtocol(weight: number, ageCategory: string): ConditionProtocol {
+  const w = weight > 0 ? weight : 20;
+  const isInfant = ageCategory === 'infant' || ageCategory === 'neonate';
+  const salbutamolNebDose = w < 20 ? 2.5 : 5;
+  const salbutamolPuffs = w < 20 ? 4 : 8;
+  const ipratropiumNebDose = w < 20 ? 0.25 : 0.5;
+  const prednisoloneDose = roundDose(1 * w, 40);
+  const hydrocortisoneDose = roundDose(4 * w, 200);
+  const mgSO4Dose = roundDose(40 * w, 2000);         // 40 mg/kg, max 2 g
+  const mgSO4Vol = round1(mgSO4Dose / 500);           // 500 mg/mL = 50% solution → dilute to 20 mg/mL
+  const aminophyllineDose = roundDose(5 * w, 500);    // 5 mg/kg loading
+  const salbutamolIVDose = round1(0.001 * w);         // 1 mcg/kg/min start → mL/hr calculation
+
+  return {
+    id: 'severe_asthma',
+    name: 'Severe Asthma / Status Asthmaticus',
+    shortName: 'Severe Asthma',
+    icon: '🫁',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-50',
+    triggerFindings: ['wheeze', 'increased_wob', 'tachypnoea', 'hypoxia', 'silent_chest'],
+    monitoringTargets: [
+      'SpO₂ ≥ 94% on supplemental O₂',
+      'RR trending down toward normal for age',
+      'Wheeze improving (note: silent chest = severe obstruction)',
+      'PEFR ≥ 50% predicted after treatment (if measurable)',
+      'HR normalising (salbutamol causes tachycardia — distinguish from deterioration)',
+      'Avoid hypercapnia — rising CO₂ in asthma = impending respiratory failure',
+    ],
+    keyPitfalls: [
+      'Silent chest = no air movement = life-threatening — do NOT be reassured',
+      'Salbutamol causes tachycardia — do not reduce dose for HR alone',
+      'Avoid sedation unless intubating — it causes respiratory depression',
+      'Heliox (70:30) reduces airway resistance — consider if available',
+      'MgSO₄ is safe and effective — do not delay in severe/life-threatening asthma',
+      'Intubation in asthma is high-risk — use ketamine for RSI, avoid succinylcholine if possible',
+      'Post-intubation: use long expiratory time (I:E 1:3–1:4) to avoid air-trapping',
+    ],
+    references: [
+      'GINA 2023 Severe Asthma Guidelines',
+      'BTS/SIGN British Guideline on the Management of Asthma 2022',
+      'AHA PALS 2020',
+    ],
+    steps: [
+      // ── Immediate ────────────────────────────────────────────────────────
+      {
+        id: 'asthma_o2',
+        phase: 'Immediate (0–5 min)',
+        action: 'Give supplemental O₂ to maintain SpO₂ ≥ 94%. High-flow via NRB mask if SpO₂ < 90%.',
+        status: 'pending',
+      },
+      {
+        id: 'asthma_salbutamol_neb',
+        phase: 'Immediate (0–5 min)',
+        action: `Give Salbutamol nebulised: ${salbutamolNebDose} mg (2.5 mg if < 20 kg). Drive with O₂ at 6–8 L/min. Repeat every 20 min × 3 in first hour if severe.`,
+        doses: [
+          {
+            drug: 'Salbutamol (Albuterol) nebulised',
+            dose: `${salbutamolNebDose} mg nebulised`,
+            calculated: `${salbutamolNebDose} mg in 3 mL NS via nebuliser (O₂-driven)`,
+            route: 'Nebulised',
+            notes: `Alternatively: ${salbutamolPuffs} puffs via MDI + spacer (equivalent efficacy in mild-moderate). Repeat every 20 min × 3 if severe.`,
+          },
+        ],
+        status: 'pending',
+      },
+      {
+        id: 'asthma_ipratropium',
+        phase: 'Immediate (0–5 min)',
+        action: `Add Ipratropium bromide nebulised: ${ipratropiumNebDose} mg. Give with first 3 salbutamol doses in severe/life-threatening asthma.`,
+        doses: [
+          {
+            drug: 'Ipratropium bromide',
+            dose: `${ipratropiumNebDose} mg nebulised`,
+            calculated: `${ipratropiumNebDose} mg (${ipratropiumNebDose === 0.25 ? '1 mL' : '2 mL'} of 0.25 mg/mL) in 3 mL NS`,
+            route: 'Nebulised with salbutamol',
+            notes: 'Add to first 3 salbutamol doses. Reduces hospitalisation in severe asthma. Not for maintenance.',
+          },
+        ],
+        status: 'pending',
+      },
+      // ── Steroids ─────────────────────────────────────────────────────────
+      {
+        id: 'asthma_steroid',
+        phase: 'Steroids (give within 1 hour)',
+        action: `Give systemic corticosteroid: Prednisolone oral ${prednisoloneDose} mg (1 mg/kg, max 40 mg) OR Hydrocortisone IV ${hydrocortisoneDose} mg (4 mg/kg, max 200 mg) if unable to swallow.`,
+        doses: [
+          {
+            drug: 'Prednisolone oral',
+            dose: '1–2 mg/kg/day',
+            calculated: `${prednisoloneDose} mg oral (1 mg/kg, max 40 mg)`,
+            route: 'Oral (preferred)',
+            notes: 'Continue for 3–5 days. No taper needed for short courses.',
+          },
+          {
+            drug: 'Hydrocortisone IV',
+            dose: '4 mg/kg IV',
+            calculated: `${hydrocortisoneDose} mg IV (if oral not possible)`,
+            route: 'IV slow push',
+            maxDose: '200 mg',
+          },
+        ],
+        status: 'pending',
+      },
+      // ── Reassessment ─────────────────────────────────────────────────────
+      {
+        id: 'asthma_reassess_20min',
+        phase: 'Reassessment (20 min)',
+        action: 'Reassess: SpO₂, RR, WOB, wheeze, HR. Classify response: Good (SpO₂ ≥ 94%, improving) → continue. Incomplete → escalate. Poor/Life-threatening → immediate escalation.',
+        isReassessment: true,
+        status: 'pending',
+      },
+      // ── Escalation ───────────────────────────────────────────────────────
+      {
+        id: 'asthma_mgso4',
+        phase: 'Escalation — Severe/Life-Threatening (no response to initial treatment)',
+        action: `Give IV Magnesium Sulphate: 40 mg/kg (max 2 g) over 20 min.`,
+        doses: [
+          {
+            drug: 'Magnesium Sulphate 50% (500 mg/mL)',
+            dose: '40 mg/kg IV over 20 min',
+            calculated: `${mgSO4Dose} mg (${round1(mgSO4Dose / 500)} mL of 50% solution) diluted to 20 mg/mL → give over 20 min`,
+            route: 'IV infusion',
+            maxDose: '2 g (2000 mg)',
+            notes: 'Dilute 50% MgSO₄ with NS before giving. Monitor for hypotension and loss of deep tendon reflexes.',
+          },
+        ],
+        safetyWarning: 'Monitor BP during infusion. Stop if hypotension or loss of patellar reflex (signs of toxicity). Calcium gluconate is antidote.',
+        status: 'pending',
+      },
+      {
+        id: 'asthma_salbutamol_iv',
+        phase: 'Escalation — Severe/Life-Threatening (no response to initial treatment)',
+        action: `If nebulised salbutamol failing: give IV Salbutamol infusion. Loading: 5 mcg/kg over 10 min, then 1–5 mcg/kg/min infusion.`,
+        doses: [
+          {
+            drug: 'Salbutamol IV infusion',
+            dose: 'Loading: 5 mcg/kg over 10 min; Maintenance: 1–5 mcg/kg/min',
+            calculated: `Loading: ${roundDose(5 * w, 250)} mcg over 10 min. Start infusion at ${round1(1 * w)} mcg/min (1 mcg/kg/min).`,
+            route: 'IV infusion',
+            notes: 'Dilute: 5 mg (5 mL of 1 mg/mL) in 45 mL NS = 100 mcg/mL. Requires cardiac monitoring — causes tachycardia and hypokalaemia.',
+          },
+        ],
+        safetyWarning: 'Monitor potassium — salbutamol causes hypokalaemia. Replace K⁺ if < 3.5 mmol/L.',
+        status: 'pending',
+      },
+      {
+        id: 'asthma_aminophylline',
+        phase: 'Escalation — Severe/Life-Threatening (no response to initial treatment)',
+        action: `Consider IV Aminophylline if not on theophylline: loading dose ${aminophyllineDose} mg over 20–30 min, then infusion.`,
+        doses: [
+          {
+            drug: 'Aminophylline IV',
+            dose: '5 mg/kg loading over 20–30 min',
+            calculated: `${aminophyllineDose} mg IV over 20–30 min (omit loading if on theophylline)`,
+            route: 'IV infusion',
+            maxDose: '500 mg loading',
+            notes: 'Maintenance: 0.5–1 mg/kg/hr. Monitor levels — narrow therapeutic index. Risk of arrhythmia.',
+          },
+        ],
+        safetyWarning: 'Do NOT give loading dose if patient is already on theophylline/aminophylline — risk of toxicity and fatal arrhythmia.',
+        status: 'pending',
+      },
+      // ── Intubation ───────────────────────────────────────────────────────
+      {
+        id: 'asthma_intubation',
+        phase: 'Intubation (life-threatening, impending respiratory failure)',
+        action: 'Indications: exhaustion, rising CO₂ (> 45 mmHg), SpO₂ < 90% despite max O₂, altered consciousness, respiratory arrest.',
+        safetyWarning: `RSI: Ketamine ${roundDose(1.5 * w, 200)} mg IV (1.5 mg/kg — bronchodilator) + Rocuronium ${roundDose(1.2 * w, 200)} mg IV (1.2 mg/kg). Avoid succinylcholine if possible. Post-intubation: long expiratory time (I:E 1:3), low RR (10–12/min), permissive hypercapnia (CO₂ 45–55 acceptable).`,
+        status: 'pending',
+      },
+      // ── Final Reassessment ───────────────────────────────────────────────
+      {
+        id: 'asthma_final_reassess',
+        phase: 'Reassessment',
+        action: 'Reassess every 30 min. Criteria for ICU admission: SpO₂ < 92% on O₂, rising CO₂, poor response to treatment, need for IV bronchodilators.',
+        isReassessment: true,
+        status: 'pending',
+      },
+    ],
+  };
+}
+
+// ─── Update ConditionId type and registry ────────────────────────────────────
+// NOTE: The ConditionId type is extended below by declaration merging is not
+// possible in TypeScript. Instead we re-export an extended union and updated
+// functions. The original type in the file header is kept for backward compat;
+// consumers should use ExtendedConditionId for Phase 7+ protocols.
+
+export type ExtendedConditionId =
+  | 'septic_shock'
+  | 'status_epilepticus'
+  | 'dka'
+  | 'nrp'
+  | 'anaphylaxis'
+  | 'severe_asthma';
+
+export function buildExtendedProtocol(
+  id: ExtendedConditionId,
+  weight: number,
+  ageCategory: string
+): ConditionProtocol {
+  switch (id) {
+    case 'septic_shock':      return buildSepticShockProtocol(weight, ageCategory);
+    case 'status_epilepticus': return buildStatusEpilepticusProtocol(weight, ageCategory);
+    case 'dka':               return buildDKAProtocol(weight, ageCategory);
+    case 'nrp':               return buildNRPProtocol(weight, ageCategory);
+    case 'anaphylaxis':       return buildAnaphylaxisProtocol(weight, ageCategory);
+    case 'severe_asthma':     return buildSevereAsthmaProtocol(weight, ageCategory);
+  }
+}
+
+export function buildAllExtendedProtocols(
+  weight: number,
+  ageCategory: string
+): Record<ExtendedConditionId, ConditionProtocol> {
+  return {
+    septic_shock:       buildSepticShockProtocol(weight, ageCategory),
+    status_epilepticus: buildStatusEpilepticusProtocol(weight, ageCategory),
+    dka:                buildDKAProtocol(weight, ageCategory),
+    nrp:                buildNRPProtocol(weight, ageCategory),
+    anaphylaxis:        buildAnaphylaxisProtocol(weight, ageCategory),
+    severe_asthma:      buildSevereAsthmaProtocol(weight, ageCategory),
+  };
+}
+
+export const EXTENDED_PROTOCOL_LIST: ExtendedConditionId[] = [
+  'septic_shock',
+  'status_epilepticus',
+  'dka',
+  'nrp',
+  'anaphylaxis',
+  'severe_asthma',
+];
+
+export const PROTOCOL_META: Record<ExtendedConditionId, { name: string; shortName: string; icon: string; color: string; bgColor: string }> = {
+  septic_shock:       { name: 'Septic Shock',                    shortName: 'Septic Shock',   icon: '🦠', color: 'text-orange-700', bgColor: 'bg-orange-50' },
+  status_epilepticus: { name: 'Status Epilepticus',              shortName: 'Status Epi',     icon: '⚡', color: 'text-purple-700', bgColor: 'bg-purple-50' },
+  dka:                { name: 'Diabetic Ketoacidosis (DKA)',      shortName: 'DKA',            icon: '🩸', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
+  nrp:                { name: 'Neonatal Resuscitation (NRP)',     shortName: 'NRP',            icon: '👶', color: 'text-pink-700',   bgColor: 'bg-pink-50'   },
+  anaphylaxis:        { name: 'Anaphylaxis',                     shortName: 'Anaphylaxis',    icon: '⚡', color: 'text-red-700',    bgColor: 'bg-red-50'    },
+  severe_asthma:      { name: 'Severe Asthma / Status Asthmaticus', shortName: 'Severe Asthma', icon: '🫁', color: 'text-blue-700',   bgColor: 'bg-blue-50'   },
+};

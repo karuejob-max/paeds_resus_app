@@ -4,6 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -267,13 +268,9 @@ export default function Header() {
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
             {isAuthenticated && (
-              <button
-                type="button"
-                className="p-2 hover:bg-accent rounded-lg transition hidden sm:block focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5 text-foreground" />
-              </button>
+              <div className="hidden sm:block">
+                <NotificationBell />
+              </div>
             )}
 
             {/* Auth Section */}

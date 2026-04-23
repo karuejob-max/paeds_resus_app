@@ -44,10 +44,12 @@ import {
   type ConditionProtocol,
   type ActiveConditionState,
   type StepStatus,
-  type ConditionId,
+  type ExtendedConditionId,
   updateConditionStep,
   getProtocolProgress,
-  buildProtocol,
+  buildExtendedProtocol,
+  EXTENDED_PROTOCOL_LIST,
+  PROTOCOL_META,
 } from '@/lib/resus/conditionProtocols';
 import { getAgeCategory } from '@/lib/resus/abcdeEngine';
 import type { ResusSession } from '@/lib/resus/abcdeEngine';
@@ -58,9 +60,9 @@ interface ConditionProtocolSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: ResusSession;
-  initialConditionId?: ConditionId;
+  initialConditionId?: ExtendedConditionId;
   /** Called whenever a step is marked done — provides condition + step counts for Fellowship Pillar B credit */
-  onProtocolProgress?: (conditionId: ConditionId, completedSteps: number, totalSteps: number) => void;
+  onProtocolProgress?: (conditionId: ExtendedConditionId, completedSteps: number, totalSteps: number) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -75,18 +77,18 @@ export function ConditionProtocolSheet({
   const weight = session.patientWeight ?? 10;
   const ageCategory = getAgeCategory(session.patientAge);
 
-  const [selectedCondition, setSelectedCondition] = useState<ConditionId>(
+  const [selectedCondition, setSelectedCondition] = useState<ExtendedConditionId>(
     initialConditionId ?? 'septic_shock'
   );
-  const [conditionStates, setConditionStates] = useState<Record<ConditionId, ActiveConditionState>>({
-    septic_shock: { conditionId: 'septic_shock', startedAt: Date.now(), stepStatuses: {} },
-    status_epilepticus: { conditionId: 'status_epilepticus', startedAt: Date.now(), stepStatuses: {} },
-    dka: { conditionId: 'dka', startedAt: Date.now(), stepStatuses: {} },
-  });
+  const [conditionStates, setConditionStates] = useState<Record<ExtendedConditionId, ActiveConditionState>>(
+    Object.fromEntries(
+      EXTENDED_PROTOCOL_LIST.map(id => [id, { conditionId: id, startedAt: Date.now(), stepStatuses: {} }])
+    ) as Record<ExtendedConditionId, ActiveConditionState>
+  );
   const [expandedDoses, setExpandedDoses] = useState<Record<string, boolean>>({});
 
   const protocol: ConditionProtocol = useMemo(
-    () => buildProtocol(selectedCondition, weight, ageCategory),
+    () => buildExtendedProtocol(selectedCondition, weight, ageCategory),
     [selectedCondition, weight, ageCategory]
   );
 
@@ -135,10 +137,13 @@ export function ConditionProtocolSheet({
     return phases;
   }, [protocol]);
 
-  const conditionOptions: { id: ConditionId; label: string; icon: string; color: string }[] = [
-    { id: 'septic_shock', label: 'Septic Shock', icon: '🦠', color: 'bg-red-100 text-red-700 border-red-300' },
-    { id: 'status_epilepticus', label: 'Status Epilepticus', icon: '⚡', color: 'bg-amber-100 text-amber-700 border-amber-300' },
-    { id: 'dka', label: 'DKA', icon: '🩸', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  const conditionOptions: { id: ExtendedConditionId; label: string; icon: string; color: string }[] = [
+    { id: 'septic_shock',       label: 'Septic Shock',       icon: '🦠', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+    { id: 'status_epilepticus', label: 'Status Epilepticus', icon: '⚡', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+    { id: 'dka',                label: 'DKA',                icon: '🩸', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+    { id: 'nrp',                label: 'NRP (Neonatal)',     icon: '👶', color: 'bg-pink-100 text-pink-700 border-pink-300' },
+    { id: 'anaphylaxis',        label: 'Anaphylaxis',        icon: '⚡', color: 'bg-red-100 text-red-700 border-red-300' },
+    { id: 'severe_asthma',      label: 'Severe Asthma',     icon: '🫁', color: 'bg-blue-100 text-blue-700 border-blue-300' },
   ];
 
   return (

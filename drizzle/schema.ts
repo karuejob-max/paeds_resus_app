@@ -2483,3 +2483,37 @@ export const providerSampleHistory = mysqlTable("providerSampleHistory", {
 });
 export type ProviderSampleHistory = typeof providerSampleHistory.$inferSelect;
 export type InsertProviderSampleHistory = typeof providerSampleHistory.$inferInsert;
+
+/**
+ * Care Signal Reviews — admin/MOH responses to resource gap reports.
+ */
+export const careSignalReviews = mysqlTable("careSignalReviews", {
+  id: int("id").autoincrement().primaryKey(),
+  analyticsEventId: int("analyticsEventId").notNull(),
+  reporterUserId: int("reporterUserId").notNull(),
+  reviewerUserId: int("reviewerUserId").notNull(),
+  interventionName: varchar("interventionName", { length: 128 }).notNull(),
+  responseText: text("responseText").notNull(),
+  actionTaken: varchar("actionTaken", { length: 64 }).notNull().default("acknowledged"),
+  expectedResolutionDate: varchar("expectedResolutionDate", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CareSignalReview = typeof careSignalReviews.$inferSelect;
+export type InsertCareSignalReview = typeof careSignalReviews.$inferInsert;
+
+/**
+ * In-App Notifications — lightweight notification inbox for providers.
+ */
+export const inAppNotifications = mysqlTable("inAppNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  type: varchar("type", { length: 64 }).notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body").notNull(),
+  actionUrl: varchar("actionUrl", { length: 512 }),
+  relatedId: int("relatedId"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InAppNotification = typeof inAppNotifications.$inferSelect;
+export type InsertInAppNotification = typeof inAppNotifications.$inferInsert;
