@@ -5,9 +5,11 @@ import {
   parentSafeTruthEvents, 
   parentSafeTruthSubmissions, 
   systemDelayAnalysis, 
-  hospitalImprovementMetrics 
+  hospitalImprovementMetrics,
+  institutionalAccounts,
+  accreditedFacilities,
 } from "../../drizzle/schema";
-import { eq, desc, and, gte, lte, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, count, like, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
 import { logStructured } from "../lib/structured-log";
@@ -55,11 +57,34 @@ export const parentSafeTruthRouter = router({
         isAnonymous: z.boolean().default(true),
         hospitalId: z.number().optional(),
         events: z.array(eventSchema).min(1),
+        // Structured gap data from the wizard form
+        systemGaps: z.array(z.string()).optional(),
+        whereDelayHappened: z.array(z.string()).optional(),
+        registrationBeforeTriage: z.boolean().optional(),
+        shift: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Build structured improvements array from all gap signals
+      const allGaps: string[] = [
+        ...(input.systemGaps ?? []),
+        ...(input.whereDelayHappened ?? []),
+        ...(input.registrationBeforeTriage ? ["registration-before-triage"] : []),
+      ];
+      const communicationGaps = allGaps.includes("communication") ? 1 : 0;
+      const interventionDelays = [
+        "billing-cashier", "registration-desk", "waiting-room", "casualty-queue",
+        "ward-handover", "gate", "registration-before-triage",
+      ].some((g) => allGaps.includes(g)) ? 1 : 0;
+      const monitoringGaps = allGaps.includes("training") || allGaps.includes("protocols") ? 1 : 0;
+
+      // Calculate total duration from events
+      const firstEventTime = new Date(input.events[0].time).getTime();
+      const lastEventTime = new Date(input.events[input.events.length - 1].time).getTime();
+      const totalDurationMinutes = Math.round((lastEventTime - firstEventTime) / 60000);
 
       // Create submission
       const result = await db
@@ -72,6 +97,11 @@ export const parentSafeTruthRouter = router({
           childOutcome: input.childOutcome,
           arrivalTime: new Date(input.events[0].time),
           dischargeOrReferralTime: new Date(input.events[input.events.length - 1].time),
+          totalDurationMinutes: totalDurationMinutes > 0 ? totalDurationMinutes : null,
+          communicationGaps,
+          interventionDelays,
+          monitoringGaps,
+          improvements: allGaps.length > 0 ? JSON.stringify(allGaps) : null,
           isAnonymous: input.isAnonymous,
           parentName: input.parentName,
           parentEmail: input.parentEmail,
@@ -251,6 +281,83 @@ export const parentSafeTruthRouter = router({
         .orderBy(desc(systemDelayAnalysis.createdAt));
 
       return analyses;
+    }),
+
+  // Search facilities for parent facility picker
+  searchFacilities: protectedProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { results: [] };
+      const q = `%${input.query}%`;
+      const institutions = await db
+        .select({ id: institutionalAccounts.id, name: institutionalAccounts.companyName })
+        .from(institutionalAccounts)
+        .where(like(institutionalAccounts.companyName, q))
+        .limit(8);
+      const accredited = await db
+        .select({ id: accreditedFacilities.id, name: accreditedFacilities.facilityName, county: accreditedFacilities.county })
+        .from(accreditedFacilities)
+        .where(like(accreditedFacilities.facilityName, q))
+        .limit(8);
+      const seen = new Set<string>();
+      const results: Array<{ id: number; name: string; badge: string; county: string }> = [];
+      for (const i of institutions) {
+        if (!seen.has(i.name)) { seen.add(i.name); results.push({ id: i.id, name: i.name, badge: 'Registered', county: '' }); }
+      }
+      for (const a of accredited) {
+        if (!seen.has(a.name)) { seen.add(a.name); results.push({ id: a.id, name: a.name, badge: 'Accredited', county: a.county || '' }); }
+      }
+      return { results };
+    }),
+
+  // Hospital Admin: get Safe-Truth summary for their facility
+  getHospitalSafeTruthSummary: protectedProcedure
+    .input(z.object({ hospitalId: z.number(), months: z.number().default(3) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { totalSubmissions: 0, outcomes: {}, topGaps: [], avgDelayMinutes: null, recentSubmissions: [] };
+      const since = new Date(Date.now() - input.months * 30 * 86_400_000);
+      const submissions = await db
+        .select()
+        .from(parentSafeTruthSubmissions)
+        .where(and(
+          eq(parentSafeTruthSubmissions.hospitalId, input.hospitalId),
+          gte(parentSafeTruthSubmissions.createdAt, since)
+        ))
+        .orderBy(desc(parentSafeTruthSubmissions.createdAt))
+        .limit(200);
+      const outcomes: Record<string, number> = {};
+      for (const s of submissions) {
+        outcomes[s.childOutcome] = (outcomes[s.childOutcome] || 0) + 1;
+      }
+      const gapMap: Record<string, number> = {};
+      for (const s of submissions) {
+        try {
+          const impr = s.improvements ? JSON.parse(s.improvements) : [];
+          if (Array.isArray(impr)) {
+            for (const g of impr) { gapMap[String(g)] = (gapMap[String(g)] || 0) + 1; }
+          }
+        } catch { /* skip */ }
+      }
+      const topGaps = Object.entries(gapMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([gap, count]) => ({ gap, count }));
+      const withDuration = submissions.filter((s) => s.totalDurationMinutes != null);
+      const avgDelayMinutes = withDuration.length
+        ? Math.round(withDuration.reduce((sum, s) => sum + (s.totalDurationMinutes || 0), 0) / withDuration.length)
+        : null;
+      const recentSubmissions = submissions.slice(0, 10).map((s) => ({
+        id: s.id,
+        childOutcome: s.childOutcome,
+        totalDurationMinutes: s.totalDurationMinutes,
+        communicationGaps: s.communicationGaps,
+        interventionDelays: s.interventionDelays,
+        monitoringGaps: s.monitoringGaps,
+        createdAt: s.createdAt,
+      }));
+      return { totalSubmissions: submissions.length, outcomes, topGaps, avgDelayMinutes, recentSubmissions };
     }),
 
   // Admin: mark submission as response ready and notify parent by email
