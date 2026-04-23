@@ -109,7 +109,9 @@ import {
   ChevronUp,
   AlertCircle,
   XCircle,
+  BookOpen,
 } from 'lucide-react';
+import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -223,6 +225,7 @@ export default function ResusGPS() {
   const [reassessmentMode, setReassessmentMode] = useState<{ interventionId: string; checkIndex: number } | null>(null);
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
   const timer = useTimer();
   const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
 
@@ -652,6 +655,7 @@ export default function ResusGPS() {
         onCopySummary={handleCopySummary}
         onNewCase={handleNewCase}
         onShowLog={() => setShowEventLog(true)}
+        onOpenDocuments={() => setShowDocuments(true)}
       />
 
       {/* Safety Alerts Banner */}
@@ -918,6 +922,13 @@ export default function ResusGPS() {
         </button>
       )}
 
+      {/* Clinical Documents Panel */}
+      <ExportDocumentsPanel
+        open={showDocuments}
+        onClose={() => setShowDocuments(false)}
+        session={session}
+      />
+
       <BottomNav />
     </div>
   );
@@ -941,6 +952,7 @@ function TopBar({
   onCopySummary,
   onNewCase,
   onShowLog,
+  onOpenDocuments,
 }: {
   session: ResusSession;
   timer: ReturnType<typeof useTimer>;
@@ -957,6 +969,7 @@ function TopBar({
   onCopySummary: () => void;
   onNewCase: () => void;
   onShowLog: () => void;
+  onOpenDocuments: () => void;
 }) {
   if (session.phase === 'IDLE') return null;
 
@@ -1058,6 +1071,17 @@ function TopBar({
           <Undo2 className="h-4 w-4" />
         </Button>
 
+        {/* Clinical Documents */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenDocuments}
+          title="Generate clinical documents (Referral / Progress Note)"
+          aria-label="Clinical documents"
+        >
+          <BookOpen className="h-4 w-4" />
+        </Button>
         {/* Log */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
           <FileText className="h-4 w-4" />
