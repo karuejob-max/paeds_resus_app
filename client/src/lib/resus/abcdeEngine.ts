@@ -104,6 +104,10 @@ export interface Intervention {
   completedAt?: number;
   startedAt?: number;
   repeatCount?: number;
+  /** Set when the provider marks this resource as unavailable at their facility */
+  unavailableAt?: number;
+  /** Free-text description of the alternative used when the primary resource was unavailable */
+  alternativeUsed?: string;
 }
 
 export interface SafetyAlert {
@@ -128,7 +132,8 @@ export interface ClinicalEvent {
   timestamp: number;
   type: 'phase_change' | 'finding' | 'threat_identified' | 'intervention_started'
     | 'intervention_completed' | 'safety_alert' | 'reassessment' | 'vital_sign'
-    | 'diagnosis' | 'note' | 'cardiac_arrest_start' | 'rosc' | 'patient_info_updated';
+    | 'diagnosis' | 'note' | 'cardiac_arrest_start' | 'rosc' | 'patient_info_updated'
+    | 'resource_unavailable';
   letter?: ABCDELetter;
   detail: string;
   data?: Record<string, unknown>;
@@ -1839,6 +1844,41 @@ export function startIntervention(session: ResusSession, interventionId: string)
       intervention.status = 'in_progress';
       intervention.startedAt = Date.now();
       log(next, 'intervention_started', `▶ Started: ${intervention.action}`, threat.letter);
+      break;
+    }
+  }
+  return next;
+}
+
+/**
+ * markInterventionUnavailable — called when a provider taps "Not Available"
+ * on an intervention card. Records the gap for Care Signal data collection
+ * and optionally captures what alternative was used instead.
+ *
+ * The intervention status is set to 'skipped' so the UI can show a clear
+ * visual indicator and the export record documents the resource gap.
+ */
+export function markInterventionUnavailable(
+  session: ResusSession,
+  interventionId: string,
+  alternativeUsed?: string
+): ResusSession {
+  const next = deepCopy(session);
+  for (const threat of next.threats) {
+    const intervention = threat.interventions.find(i => i.id === interventionId);
+    if (intervention) {
+      intervention.status = 'skipped';
+      intervention.unavailableAt = Date.now();
+      if (alternativeUsed) {
+        intervention.alternativeUsed = alternativeUsed;
+      }
+      const altNote = alternativeUsed ? ` → Alternative: ${alternativeUsed}` : '';
+      log(
+        next,
+        'resource_unavailable',
+        `⚠ RESOURCE UNAVAILABLE: ${intervention.action}${altNote}`,
+        threat.letter
+      );
       break;
     }
   }

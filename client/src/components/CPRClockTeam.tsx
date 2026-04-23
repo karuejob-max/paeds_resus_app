@@ -108,8 +108,12 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
   const [showReversibleCauses, setShowReversibleCauses] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   
-  // Refs
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs — using rAF + wall-clock anchor to prevent setInterval drift
+  // when the browser tab is backgrounded during a long resuscitation.
+  const rafRef = useRef<number | null>(null);
+  const wallStartRef = useRef<number>(0);       // wall-clock ms at last (re)start
+  const baseArrestRef = useRef<number>(0);       // accumulated seconds before last pause
+  const baseCycleRef = useRef<number>(0);        // cycle seconds before last pause
   
   // tRPC mutations and queries
   const createSession = trpc.cprSession.createSession.useMutation();
@@ -168,35 +172,56 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     }
   }, []);
 
-  // Timer logic
+  // Timer logic — wall-clock-anchored rAF (immune to browser background throttling)
   useEffect(() => {
-    if (isRunning && !roscAchieved) {
-      timerRef.current = setInterval(() => {
-        setArrestDuration(prev => prev + 1);
-        setCycleTime(prev => {
-          const newCycleTime = prev + 1;
-          
-          // Rhythm check at 2 minutes
-          if (newCycleTime === 120) {
-            setShowRhythmCheck(true);
-            speak('STOP. Rhythm check now.');
-            return 0;
-          }
-          
-          // Epinephrine reminder (every 3-5 min after first dose)
-          if (lastEpiTime !== null && (arrestDuration - lastEpiTime) >= 180) {
-            speak('Consider epinephrine.');
-          }
-          
-          return newCycleTime;
-        });
-      }, 1000);
+    if (!isRunning || roscAchieved) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      // Snapshot current values so resume is accurate
+      baseArrestRef.current = arrestDuration;
+      baseCycleRef.current = cycleTime;
+      return;
     }
-    
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+
+    wallStartRef.current = Date.now();
+
+    const tick = () => {
+      const wallSecs = Math.floor((Date.now() - wallStartRef.current) / 1000);
+      const newArrest = baseArrestRef.current + wallSecs;
+      const rawCycle = baseCycleRef.current + wallSecs;
+
+      setArrestDuration(newArrest);
+
+      // Rhythm check every 2-minute cycle
+      const newCycle = rawCycle % 120;
+      setCycleTime(newCycle);
+
+      // Trigger rhythm check prompt at cycle boundary
+      if (rawCycle > 0 && rawCycle % 120 === 0 && newCycle === 0) {
+        setShowRhythmCheck(true);
+        speak('STOP. Rhythm check now.');
+      }
+
+      // Epinephrine reminder (every 3-5 min after first dose)
+      if (lastEpiTime !== null && (newArrest - lastEpiTime) >= 180) {
+        speak('Consider epinephrine.');
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
     };
-  }, [isRunning, roscAchieved, lastEpiTime, arrestDuration]);
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, roscAchieved, lastEpiTime]);
 
   // Log event helper
   const addEvent = useCallback((action: string, details?: string) => {
@@ -244,16 +269,39 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     }
   };
 
+  /**
+   * AHA 2020 Pediatric Defibrillation Energy (PALS guidelines):
+   *   Shock 1:  2 J/kg
+   *   Shock 2:  4 J/kg
+   *   Shock 3+: ≥4 J/kg, max 10 J/kg (or adult maximum dose)
+   * Reference: AHA PALS 2020 — Pediatric Cardiac Arrest Algorithm
+   */
+  const getShockEnergyJPerKg = (shockNumber: number): number => {
+    if (shockNumber === 1) return 2;
+    if (shockNumber === 2) return 4;
+    return Math.min(4 + (shockNumber - 2), 10); // escalate up to 10 J/kg max
+  };
+
+  const getShockEnergyJoules = (shockNumber: number): number => {
+    const jPerKg = getShockEnergyJPerKg(shockNumber);
+    return Math.round(jPerKg * patientWeight);
+  };
+
   // Deliver shock
   const deliverShock = () => {
     const newShockCount = shockCount + 1;
     setShockCount(newShockCount);
-    addEvent(`Shock ${newShockCount} delivered`, `${2 + newShockCount} J/kg`);
-    speak(`Shock delivered. Resume CPR immediately.`);
-    
-    // Amiodarone after 3rd shock
+    const jPerKg = getShockEnergyJPerKg(newShockCount);
+    const totalJoules = getShockEnergyJoules(newShockCount);
+    addEvent(
+      `Shock ${newShockCount} delivered`,
+      `${jPerKg} J/kg = ${totalJoules} J (AHA PALS 2020)`
+    );
+    speak(`Shock ${newShockCount} delivered at ${jPerKg} joules per kilogram. Resume CPR immediately.`);
+
+    // Amiodarone after 3rd shock (AHA: give after 3rd shock for refractory VF/pVT)
     if (newShockCount === 3 && !amiodaroneGiven) {
-      speak(`Consider amiodarone ${amiodaroneDose} milligrams.`);
+      speak(`Consider amiodarone ${amiodaroneDose} milligrams after third shock.`);
     }
   };
 
@@ -611,8 +659,10 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
                 disabled={rhythmType !== 'shockable'}
               >
                 <Zap className="h-8 w-8 mb-2" />
-                <div className="text-sm">Shock</div>
-                <div className="text-xs opacity-80">Count: {shockCount}</div>
+                <div className="text-sm">Shock #{shockCount + 1}</div>
+                <div className="text-xs opacity-80">
+                  {getShockEnergyJPerKg(shockCount + 1)} J/kg = {getShockEnergyJoules(shockCount + 1)} J
+                </div>
               </Button>
               
               <Button

@@ -54,6 +54,7 @@ import {
   answerPrimarySurvey,
   completeIntervention,
   startIntervention,
+  markInterventionUnavailable,
   returnToPrimarySurvey,
   getActiveThreats,
   getPendingInterventions,
@@ -101,6 +102,8 @@ import {
   Timer,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
+  XCircle,
 } from 'lucide-react';
 
 // ─── Constants ──────────────────────────────────────────────
@@ -115,24 +118,61 @@ const LETTER_CONFIG: Record<ABCDELetter, { label: string; icon: React.ReactNode;
 };
 
 // ─── Timer Hook ─────────────────────────────────────────────
+//
+// Uses Date.now()-anchored requestAnimationFrame instead of setInterval.
+// Browsers throttle setInterval to ~1 Hz (or slower) when a tab is
+// backgrounded, which causes CPR cycle timers to drift during long codes.
+// rAF + wall-clock anchoring guarantees accuracy regardless of tab state.
 
 function useTimer() {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const startWallRef = useRef<number>(0); // wall-clock ms when timer was (re)started
+  const baseElapsedRef = useRef<number>(0); // elapsed seconds accumulated before last pause
 
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    if (!running) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+
+    // Anchor to wall clock so background throttling cannot cause drift
+    startWallRef.current = Date.now();
+
+    const tick = () => {
+      const wallSeconds = Math.floor((Date.now() - startWallRef.current) / 1000);
+      setElapsed(baseElapsedRef.current + wallSeconds);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
   }, [running]);
 
   const start = useCallback(() => setRunning(true), []);
-  const stop = useCallback(() => setRunning(false), []);
-  const reset = useCallback(() => { setElapsed(0); setRunning(false); }, []);
+
+  const stop = useCallback(() => {
+    setRunning(false);
+    // Snapshot current elapsed so resume continues from the right place
+    baseElapsedRef.current = elapsed;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed]);
+
+  const reset = useCallback(() => {
+    setElapsed(0);
+    baseElapsedRef.current = 0;
+    setRunning(false);
+  }, []);
 
   return { elapsed, running, start, stop, reset };
 }
@@ -259,6 +299,16 @@ export default function ResusGPS() {
     
   };
 
+  const handleMarkInterventionUnavailable = (id: string) => {
+    const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
+    if (!intervention) return;
+    setSession(prev => markInterventionUnavailable(prev, id));
+    toast.warning(
+      `⚠ Resource gap logged: "${intervention.action}" not available at this facility. Captured for Care Signal.`,
+      { duration: 5000 }
+    );
+  };
+
   const handleConfirmDuplicateOverride = () => {
     if (!duplicateWarning) return;
     setSession(prev => startIntervention(prev, duplicateWarning.intervention.id));
@@ -380,58 +430,13 @@ export default function ResusGPS() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
     trackButtonClick('Complete Assessment');
-    // Track assessment completed
     analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
-    
-    // Record session for fellowship analytics
-    // Determine pathway from session phase and threats
-    const pathway = session.phase === 'CARDIAC_ARREST' 
-      ? 'cardiac_arrest_protocol'
-      : session.activeThreat?.id || 'general_resus';
-    
-    const interactionCount = session.events.filter(e => 
-      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
-    ).length;
-    
-    try {
-      // Step 1: Record the session (idempotent via session.id)
-      await recordSessionMutation.mutateAsync({
-        sessionId: session.id,
-        primaryDiagnosis: pathway,
-        patientAgeMonths: session.patientAge || 0,
-        patientWeightKg: session.patientWeight || 0,
-        isTrauma: session.isTrauma,
-        isCardiacArrest: session.phase === 'CARDIAC_ARREST',
-        interventionCount: interactionCount,
-        reassessmentCount: session.events.filter(e => e.type === 'reassessment').length,
-        durationSeconds: timer.elapsed,
-        depthScore: session.depthScore || 0,
-      });
 
-      // Step 2: Record the case (idempotent via sessionId + caseNumber)
-      await recordCaseMutation.mutateAsync({
-        sessionId: session.id,
-        caseNumber: 1,
-        diagnosis: pathway,
-        abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
-        interventions: session.events
-          .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
-          .map(e => e.detail),
-        reassessments: session.events
-          .filter(e => e.type === 'reassessment')
-          .map(e => e.detail),
-        outcome: session.outcome || 'completed',
-        depthScore: session.depthScore || 0,
-      });
-      
-      toast.success('Session recorded for fellowship tracking', { duration: 3000 });
-    } catch (error) {
-      console.error('Failed to record session during export:', error);
-      toast.error('Session data not recorded for fellowship credit, but export continued.');
-    }
-    
+    // ── STEP 1: Generate and download the clinical record IMMEDIATELY.
+    // This must NEVER be blocked by a network call. Bedside handoff is
+    // time-critical; the provider cannot wait for a backend response.
     const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -440,6 +445,53 @@ export default function ResusGPS() {
     a.download = `resus-record-${new Date().toISOString().slice(0, 16)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success('Clinical record downloaded', { duration: 2000 });
+
+    // ── STEP 2: Fire-and-forget background sync for fellowship analytics.
+    // Failures here are logged silently and never surface to the provider
+    // during an active resuscitation.
+    const pathway = session.phase === 'CARDIAC_ARREST'
+      ? 'cardiac_arrest_protocol'
+      : session.activeThreat?.id || 'general_resus';
+    const interactionCount = session.events.filter(e =>
+      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
+    ).length;
+
+    void (async () => {
+      try {
+        await recordSessionMutation.mutateAsync({
+          sessionId: session.id,
+          primaryDiagnosis: pathway,
+          patientAgeMonths: session.patientAge || 0,
+          patientWeightKg: session.patientWeight || 0,
+          isTrauma: session.isTrauma,
+          isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+          interventionCount: interactionCount,
+          reassessmentCount: session.events.filter(e => e.type === 'reassessment').length,
+          durationSeconds: timer.elapsed,
+          depthScore: session.depthScore || 0,
+        });
+        await recordCaseMutation.mutateAsync({
+          sessionId: session.id,
+          caseNumber: 1,
+          diagnosis: pathway,
+          abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
+          interventions: session.events
+            .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+            .map(e => e.detail),
+          reassessments: session.events
+            .filter(e => e.type === 'reassessment')
+            .map(e => e.detail),
+          outcome: session.outcome || 'completed',
+          depthScore: session.depthScore || 0,
+        });
+        // Quiet success — provider already has their file
+        console.info('[ResusGPS] Session synced for fellowship credit:', session.id);
+      } catch (error) {
+        // Silent failure — never interrupt the clinical workflow
+        console.warn('[ResusGPS] Background sync failed (non-critical):', error);
+      }
+    })();
   };
 
   /** HI-CLIN-1: Same text as export — copy for handoff / EHR paste */
@@ -664,6 +716,7 @@ export default function ResusGPS() {
                 onToggle={() => setExpandedThreat(expandedThreat === threat.id ? null : threat.id)}
                 onComplete={handleCompleteIntervention}
                 onStart={handleStartIntervention}
+                onMarkUnavailable={handleMarkInterventionUnavailable}
                 reassessmentMode={reassessmentMode}
                 setReassessmentMode={setReassessmentMode}
                 session={session}
@@ -1766,6 +1819,7 @@ function ThreatCard({
   onToggle,
   onComplete,
   onStart,
+  onMarkUnavailable,
   reassessmentMode,
   setReassessmentMode,
   session,
@@ -1777,6 +1831,7 @@ function ThreatCard({
   onToggle: () => void;
   onComplete: (id: string) => void;
   onStart: (id: string) => void;
+  onMarkUnavailable: (id: string) => void;
   reassessmentMode: { interventionId: string; checkIndex: number } | null;
   setReassessmentMode: (v: { interventionId: string; checkIndex: number } | null) => void;
   session: ResusSession;
@@ -1828,6 +1883,8 @@ function ThreatCard({
                       <CheckCircle2 className="h-4 w-4 text-green-400" />
                     ) : intervention.status === 'in_progress' ? (
                       <Play className="h-4 w-4 text-amber-400" />
+                    ) : intervention.status === 'skipped' ? (
+                      <AlertCircle className="h-4 w-4 text-orange-400" />
                     ) : (
                       <Circle className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -1863,17 +1920,26 @@ function ThreatCard({
 
                     {/* Status actions */}
                     {intervention.status === 'pending' && (
-                      <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2 flex-wrap">
                         <Button size="sm" className="h-7 text-xs" onClick={() => onStart(intervention.id)}>
                           <Play className="h-3 w-3 mr-1" /> Start
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onComplete(intervention.id)}>
                           Done
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                          onClick={() => onMarkUnavailable(intervention.id)}
+                          title="Mark this resource as unavailable at your facility"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" /> Not Available
+                        </Button>
                       </div>
                     )}
                     {intervention.status === 'in_progress' && (
-                      <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2 flex-wrap">
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
                         </Button>
