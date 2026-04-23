@@ -112,17 +112,37 @@ These items complete the clinical documentation loop and surface data to institu
 
 ---
 
-## Phase 7 Backlog (Next)
+## Phase 7 — Clinical Breadth, MCI & Mobile ✅ COMPLETE
 
-| ID | Task | Priority | Notes |
+| ID | Task | Component | Status |
 |---|---|---|---|
-| 7.1 | Neonatal resuscitation protocol (NRP) in condition protocols | HIGH | Extends ResusGPS to delivery room |
-| 7.2 | Anaphylaxis + severe asthma protocols | HIGH | Completes the top-5 paediatric emergencies |
-| 7.3 | ResusGPS multi-patient mode (mass casualty) | MEDIUM | County hospital pilot readiness |
-| 7.4 | Push notifications for Care Signal review responses | LOW | Requires FCM integration |
-| 7.5 | Offline-first mobile app (React Native / Expo) | LOW | Post-web stabilisation |
+| **7.1** | **NRP Protocol** | `conditionProtocols.ts` | ✅ Done |
+| | *6-step NRP algorithm: warmth/stimulation, PPV (21% O₂), chest compressions (3:1 ratio), adrenaline 0.01–0.03 mg/kg UVC, reassessment at 30s intervals.* | | |
+| **7.2** | **Anaphylaxis + Severe Asthma Protocols** | `conditionProtocols.ts`, `ConditionProtocolSheet.tsx` | ✅ Done |
+| | *Anaphylaxis: Adrenaline 0.01 mg/kg IM (max 0.5 mg), antihistamines, steroids, fluid bolus. Severe Asthma: Salbutamol 2.5–5 mg neb, ipratropium, MgSO4 40 mg/kg IV, NIPPV, RSI. All 6 protocols now in ConditionProtocolSheet.* | | |
+| **7.3** | **Multi-Patient MCI Board** | `MultiPatientBoard.tsx`, `ResusGPS.tsx` | ✅ Done |
+| | *Triage tag system (Red/Yellow/Green/Black). Per-patient weight + active threat tracking. MCI button (👥 Users) in ResusGPS TopBar. Designed for mass casualty scenarios at county hospitals.* | | |
+| **7.4** | **Care Signal Push Notifications** | `care-signal-review.ts`, `NotificationBell.tsx`, `Header.tsx` | ✅ Done |
+| | *`careSignalReviews` + `inAppNotifications` DB tables. Router: `submitReview`, `getMyNotifications`, `markRead`, `markAllRead`, `getUnreadCount`. NotificationBell replaces static Bell in Header — live unread count badge, 60s polling, mark-all-read.* | | |
+| **7.5** | **React Native / Expo Mobile Scaffold** | `mobile/` | ✅ Done |
+| | *Full Expo Router scaffold: Home, ResusGPS, Protocols, Profile tabs. Active ResusGPS screen with wall-clock timer, ABCDE phases, CPR/shock controls (AHA-correct 2→4→≥4 J/kg), expo-keep-awake, expo-haptics, AsyncStorage persistence. All 6 protocols in Protocols tab. EAS build config for APK/IPA distribution.* | | |
+
+*Committed: `0924648` on April 23, 2026*
 
 ---
 
-*All Phase 1–6 items shipped and live on `main` as of April 23, 2026.*  
-*Build: `vite ✓ 0 errors, 7.19s`. Final commit: `d49ad04`.*
+## Phase 8 Backlog (Next)
+
+| ID | Task | Priority |
+|---|---|---|
+| 8.1 | Full ABCDE engine port to mobile (shared `conditionProtocols.ts`) | HIGH |
+| 8.2 | CPR Clock with 2-minute cycle timer and haptic pulse on mobile | HIGH |
+| 8.3 | Offline-first drug calculator with weight-based doses on mobile | HIGH |
+| 8.4 | Voice command support ("Next step", "Shock delivered") | MEDIUM |
+| 8.5 | Bluetooth pulse oximeter integration | MEDIUM |
+| 8.6 | EAS OTA updates for instant clinical guideline patches | LOW |
+
+---
+
+*All Phase 1–7 items shipped and live on `main` as of April 23, 2026.*  
+*Build: `vite ✓ 0 errors, 8.28s`. Final commit: `0924648`.*
