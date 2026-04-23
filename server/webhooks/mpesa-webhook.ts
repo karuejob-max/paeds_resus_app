@@ -426,10 +426,18 @@ export async function handleMpesaTimeoutWebhook(
     if (!Body) {
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
-
-    const { CheckoutRequestID } = Body;
+    // Safaricom sends CheckoutRequestID inside Body.stkCallback, not directly on Body
+    const stkCallback = Body.stkCallback;
+    const CheckoutRequestID = stkCallback?.CheckoutRequestID ?? Body.CheckoutRequestID;
+    const ResultCode = stkCallback?.ResultCode ?? Body.ResultCode;
+    const ResultDesc = stkCallback?.ResultDesc ?? Body.ResultDesc ?? "";
+    logStructured("mpesa_stk_timeout", {
+      checkoutRequestId: CheckoutRequestID,
+      resultCode: ResultCode,
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc.slice(0, 200) : String(ResultDesc ?? ""),
+    });
     console.log(
-      `[M-Pesa] User timeout for CheckoutRequestID: ${CheckoutRequestID}`
+      `[M-Pesa] User timeout for CheckoutRequestID: ${CheckoutRequestID} (ResultCode: ${ResultCode})`
     );
 
     // Update payment status to timeout
