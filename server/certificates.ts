@@ -8,6 +8,7 @@ import {
   courses,
   enrollments,
   microCourseEnrollments,
+  microCourses,
   modules,
   userProgress,
   users,
@@ -366,13 +367,20 @@ export async function getCertificatesByUserId(userId: number) {
         expiryDate: certificates.expiryDate,
         certificateUrl: certificates.certificateUrl,
         courseTitle: courses.title,
+        microCourseTitle: microCourses.title,
       })
       .from(certificates)
       .leftJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
       .leftJoin(courses, eq(enrollments.courseId, courses.id))
+      .leftJoin(microCourseEnrollments, eq(certificates.enrollmentId, microCourseEnrollments.id))
+      .leftJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
       .where(eq(certificates.userId, userId))
       .orderBy(desc(certificates.issueDate));
-    return list;
+    // Resolve title: prefer AHA/fellowship courseTitle, fall back to micro-course title
+    return list.map((row) => ({
+      ...row,
+      courseTitle: row.courseTitle ?? row.microCourseTitle ?? null,
+    }));
   } catch (err) {
     console.error("[Certificates] getCertificatesByUserId:", err);
     return [];
