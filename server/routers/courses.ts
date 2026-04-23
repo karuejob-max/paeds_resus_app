@@ -281,8 +281,8 @@ export const coursesRouter = router({
           if (certResult.success) {
             certificateNumber = certResult.certificateNumber;
           } else {
-            console.error('[courses.complete] Certificate issuance failed:', certResult.error);
-            return { success: true, message: 'Course marked as completed', certificateNumber: undefined, certError: certResult.error };
+            // Throw so tRPC returns a 500 with the exact error message visible in browser
+            throw new Error(`CERT_FAIL: ${certResult.error ?? 'unknown'}`);
           }
         }
 
