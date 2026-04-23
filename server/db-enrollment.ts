@@ -115,12 +115,17 @@ export async function isUserEnrolled(
 
 /**
  * Reuse latest pending M-Pesa enrollment for retry flows.
+ * Only returns records updated within the last 5 minutes — stale pending
+ * enrollments have expired Safaricom CheckoutRequestIDs (Safaricom rejects
+ * queries on IDs older than ~2 minutes with HTTP 500). Ignoring stale records
+ * forces a fresh STK Push to be created instead.
  */
 export async function getPendingMpesaEnrollment(
   userId: number,
   microCourseId: number
 ) {
   try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const enrollment = await db
       .select()
       .from(microCourseEnrollments)
@@ -129,7 +134,8 @@ export async function getPendingMpesaEnrollment(
           eq(microCourseEnrollments.userId, userId),
           eq(microCourseEnrollments.microCourseId, microCourseId),
           eq(microCourseEnrollments.paymentMethod, "m-pesa"),
-          eq(microCourseEnrollments.paymentStatus, "pending")
+          eq(microCourseEnrollments.paymentStatus, "pending"),
+          sql`${microCourseEnrollments.updatedAt} >= ${fiveMinutesAgo}`
         )
       )
       .orderBy(desc(microCourseEnrollments.id))
