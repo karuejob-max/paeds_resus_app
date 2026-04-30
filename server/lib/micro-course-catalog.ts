@@ -3,7 +3,7 @@
  * Prices are in KES cents; product default 200 KES per micro-course (PSoT / leadership).
  */
 
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { microCourses } from "../../drizzle/schema";
 
@@ -76,13 +76,15 @@ export async function ensureMicroCoursesCatalog(): Promise<void> {
   if (!db) return;
 
   const now = new Date();
+  const allCourseIds = MICRO_COURSE_CATALOG.map(r => r.courseId);
+  const existingRows = await db
+    .select({ courseId: microCourses.courseId })
+    .from(microCourses)
+    .where(inArray(microCourses.courseId, allCourseIds));
+  
+  const existingIds = new Set(existingRows.map(r => r.courseId));
+
   for (const row of MICRO_COURSE_CATALOG) {
-    // Use SQL builder only: app `drizzle(pool)` is created without `{ schema }`, so `db.query.*` is unavailable.
-    const existing = await db
-      .select({ id: microCourses.id })
-      .from(microCourses)
-      .where(eq(microCourses.courseId, row.courseId))
-      .limit(1);
     const payload = {
       title: row.title,
       description: row.description,
@@ -95,7 +97,8 @@ export async function ensureMicroCoursesCatalog(): Promise<void> {
       isPublished: row.isPublished,
       updatedAt: now,
     };
-    if (existing.length > 0) {
+    
+    if (existingIds.has(row.courseId)) {
       await db.update(microCourses).set(payload).where(eq(microCourses.courseId, row.courseId));
     } else {
       await db.insert(microCourses).values({

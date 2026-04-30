@@ -21,9 +21,10 @@ export function useAuth(options?: UseAuthOptions) {
     refetchOnWindowFocus: false,
     /** Hydrate from localStorage so first paint can skip the “loading” shell when we know last session state */
     ...(initialMe !== undefined ? { initialData: initialMe } : {}),
-    staleTime: 0,
+    /** Cache auth state for 5 minutes to avoid redundant backend calls on every layout mount */
+    staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
-    refetchOnMount: true,
+    refetchOnMount: false,
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({

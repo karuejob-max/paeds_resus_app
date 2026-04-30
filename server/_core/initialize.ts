@@ -98,20 +98,18 @@ export async function initializeDatabase() {
 
     console.log('[Initialize] Seeding 26 micro-courses...');
     
-    // Insert all courses
-    for (const course of COURSES) {
-      await db.insert(microCourses).values({
-        courseId: course.courseId,
-        title: course.title,
-        description: course.description,
-        level: course.level,
-        emergencyType: normalizeEmergencyType(course.emergencyType),
-        duration: course.duration,
-        price: course.price,
-        prerequisiteId: course.prerequisiteId,
-        order: course.order,
-      });
-    }
+    // Insert all courses in a single bulk operation
+    await db.insert(microCourses).values(COURSES.map(course => ({
+      courseId: course.courseId,
+      title: course.title,
+      description: course.description,
+      level: course.level,
+      emergencyType: normalizeEmergencyType(course.emergencyType),
+      duration: course.duration,
+      price: course.price,
+      prerequisiteId: course.prerequisiteId,
+      order: course.order,
+    })));
 
     console.log(`[Initialize] ✓ Successfully seeded ${COURSES.length} micro-courses`);
   } catch (error) {

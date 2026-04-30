@@ -298,8 +298,9 @@ class SDKServer {
       lastSignedIn: signedInAt,
     });
 
-    // Refetch so we get updated role (e.g. admin when openId === OWNER_OPEN_ID)
-    user = await db.getUserByOpenId(sessionUserId) ?? user;
+    // Avoid redundant refetch; update the local user object with the signed-in timestamp.
+    // The upsert already handles the DB update, and roles rarely change mid-session.
+    user.lastSignedIn = signedInAt;
     return user;
   }
 }
