@@ -20,6 +20,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
+import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
@@ -323,6 +324,8 @@ export default function ResusGPS() {
   };
 
   const [duplicateWarning, setDuplicateWarning] = useState<{ intervention: Intervention; duplicate: Intervention } | null>(null);
+  const [showCareSignalPrompt, setShowCareSignalPrompt] = useState(false);
+  const [careSignalPromptDiagnosis, setCareSignalPromptDiagnosis] = useState('');
 
   const handleStartIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
@@ -489,6 +492,11 @@ export default function ResusGPS() {
             : '✅ Session saved for fellowship credit', 
           { duration: 3000 }
         );
+        // Closed-loop accountability: invite Care Signal report after session save
+        if (!sessionResult.alreadyExists) {
+          setCareSignalPromptDiagnosis(primaryDiagnosis);
+          setTimeout(() => setShowCareSignalPrompt(true), 1500);
+        }
       }
     } catch (error) {
       console.error('Failed to save session:', error);
@@ -1013,6 +1021,14 @@ export default function ResusGPS() {
 
       {/* PWA install prompt — only shown on idle screen, never during active case */}
       {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
+
+      {/* Care Signal closed-loop prompt — shown after session save */}
+      <CareSignalPostEventPrompt
+        open={showCareSignalPrompt}
+        onClose={() => setShowCareSignalPrompt(false)}
+        diagnosis={careSignalPromptDiagnosis}
+        outcome={session.outcome || 'survived'}
+      />
 
       <BottomNav />
     </div>

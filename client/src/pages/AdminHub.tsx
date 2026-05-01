@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminHub() {
@@ -136,6 +136,23 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Insights from Care Signal event submissions and system gaps
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-blue-200 hover:border-blue-400"
+            onClick={() => setLocation("/admin/national-signal")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  National Paediatric Emergency Signal
+                </CardTitle>
+                <CardDescription>
+                  Anonymised national surveillance dashboard — outcomes, system gaps, facility breakdown. MOH/WHO-ready.
                 </CardDescription>
               </div>
             </CardHeader>

@@ -8,7 +8,55 @@
 
 ---
 
-## 1. Brand Architecture — The Most Common Agent Error
+**CRITICAL INSTRUCTION FOR ALL AI AGENTS (Manus, Cursor, Codex, etc.)**
+
+If you are an AI agent operating in this repository, you **MUST** read this file and follow its instructions before executing any task.
+
+---
+
+## 1. The Platform Source of Truth (PSOT)
+
+The file `docs/PLATFORM_SOURCE_OF_TRUTH.md` is the canonical reference for the entire Paeds Resus platform. It defines who we are, what we build, our data models, and our global strategic vision.
+
+**Before starting any work, you MUST:**
+1. Read `docs/PLATFORM_SOURCE_OF_TRUTH.md` (specifically §19–22 for the holistic product ecosystem and all-agents mandate).
+2. Identify which product(s) your task touches.
+3. Read the canonical strategy docs linked in PSOT §21 for those specific products.
+
+---
+
+## 2. The Global Ambition
+
+Paeds Resus is building toward recognition as the **global benchmark for paediatric resuscitation science in LMICs** — by WHO, Harvard, CDC, and Ministries of Health. Every technical decision you make must support this level of clinical rigour, data integrity, and institutional trust.
+
+---
+
+## 3. Mandatory PSOT Updates
+
+If your work involves any of the following, you **MUST update `docs/PLATFORM_SOURCE_OF_TRUTH.md`** before completing your task:
+- Adding a new product, feature, or integration point (update §19)
+- Modifying the database schema or shared data spine (update §19.2)
+- Changing KPI definitions or admin reports (update §8)
+- Creating a new strategic document (add it to the registry in §21)
+
+---
+
+## 4. Non-Negotiable Data Rules
+
+- **Never** combine Care Signal (provider QI) KPIs with Safe-Truth (parent/guardian) KPIs.
+- **Never** combine Fellowship pillar data across pillars in a single metric.
+- **Never** add patient identifiers to any Care Signal schema.
+- **Never** treat AHA courses (BLS/ACLS/PALS) as part of the Fellowship pathway.
+
+---
+
+## 5. Execution Updates
+
+Do not put execution updates, sprint plans, or weekly progress in the PSOT. Use `docs/WORK_STATUS.md` for all execution logging.
+
+---
+
+## 6. Brand Architecture — The Most Common Agent Error
 
 This is the single most frequent source of mistakes. Read it once. Apply it always.
 
@@ -22,9 +70,11 @@ This is the single most frequent source of mistakes. Read it once. Apply it alwa
 | **Institutional / Hospital Admin** | The hospital-facing management surface (staff, schedules, metrics, ERT). | `/hospital-admin-dashboard` and all institutional portal references. |
 
 ### The Non-Negotiable Rule (verbatim from PSOT §1):
+
 > **Do not treat "Paeds Resus" and "ResusGPS" as the same thing.** In code, docs, and UI: say **Paeds Resus** when you mean the organisation or the whole platform; say **ResusGPS** only when you mean that specific product.
 
 ### Correct vs. Incorrect Usage:
+
 - ✅ "Sign up for training delivered by **Paeds Resus Limited**."
 - ✅ "During a Code Blue, open **ResusGPS** on your phone for bedside guidance."
 - ✅ "The **Paeds Resus** Institutional Portal manages your hospital's ERT."
@@ -38,7 +88,7 @@ This is the single most frequent source of mistakes. Read it once. Apply it alwa
 
 ---
 
-## 2. Platform Products (All First-Class — None Are Add-Ons)
+## 7. Platform Products (All First-Class — None Are Add-Ons)
 
 ```
 Paeds Resus (Organisation & Platform)
@@ -54,69 +104,20 @@ Paeds Resus (Organisation & Platform)
 │   └── Emergency Protocols
 ├── Micro-Courses / ADF (Condition-focused learning modules)
 ├── Care Signal (Product — Provider Incident & Near-Miss Reporting)
+│   ├── Provider QI reporting (post-event, near-miss)
+│   ├── Fellowship Pillar C (24 qualifying months)
+│   ├── Institutional review workflow
+│   └── National Aggregate Signal (MOH/WHO surveillance dashboard)
 ├── Parent Safe-Truth (Product — Family Safety Information)
 └── Institutional Portal (Surface — Hospital Management & ERT)
+    ├── Hospital Admin Dashboard
+    ├── ERT (Emergency Response Team) management
+    └── Facility-level Care Signal review
 ```
 
 ---
 
-## 3. Mission & Strategic Priorities
-
-**Mission (from PSOT §2):** Contribute to a world where **no child dies from a preventable death**, by building a sustainable, scalable organisation that improves paediatric resuscitation and emergency care.
-
-**Priority order (from PSOT §12 — locked unless CEO updates):**
-1. Analytics instrumentation (ResusGPS and products emit events to `analyticsEvents`).
-2. Staging environment (`develop` → staging, `main` → production).
-3. Security baseline (password complexity, session max age, admin audit logging).
-4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers).
-
-**Financial goal:** Build toward a $1B+ platform valuation. Volume + accessibility advance the mission; unit economics must still be tracked.
-
----
-
-## 4. Technical Stack (from PSOT §6)
-
-- **Frontend:** React, Vite, tRPC client, wouter routing.
-- **Backend:** Node, Express, tRPC.
-- **Database:** MySQL (Aiven); schema and migrations via Drizzle.
-- **Deployment:** Render (app) + managed MySQL; env vars per `.env.example`.
-- **Auth:** Cookie-based session with JWT; **email/password only — no OAuth**.
-- **Brand colours:** Teal `#1B3D3D` (primary) + Orange `#F37021` (accent).
-- **Domain:** `paedsresus.com` (canonical).
-
----
-
-## 5. Auth & User Model (from PSOT §7)
-
-- **Auth:** Email + password only. No OAuth.
-- **User types (DB):** `individual` | `parent` | `institutional`. One `userType` per user row.
-- **UI switch:** Any logged-in user may switch context (Provider / Parent / Institution). This is UI/session behaviour — not a second `userType` in the DB.
-- **Admin:** `role === 'admin'` in DB. Granted when `openId === OWNER_OPEN_ID`. No ad-hoc DB edits.
-- **Post-login redirect:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/hospital-admin-dashboard`.
-
----
-
-## 6. Active Institutional Client: Consolata Hospital Mathari (CHM)
-
-CHM is the **first live Paeds Resus Institutional Pro customer** and the **Gold Standard Template** for all future hospital onboarding.
-
-| Detail | Value |
-| :--- | :--- |
-| **Hospital level** | Level 5, Nyeri, Kenya |
-| **Training provider** | Paeds Resus Limited (AHA-Aligned Training Site) |
-| **ERT Launch date** | April 27, 2026 |
-| **ERT Chair** | Job Karue |
-| **North Pole Lead** | Irene Gatwiri (Committee Secretary) |
-| **South Pole Lead** | Danson (Committee Vice Chair) |
-| **Training sign-up form** | https://docs.google.com/forms/d/1n3SfP9DuHH8RK9quSe8w1dWD1cjFKmZ8ZNufGoMrDNU/viewform |
-| **Tracking dashboard** | https://docs.google.com/spreadsheets/d/1NFbGB1HoORWCa3FS_0lfxkuV2YYcU-IEZPU87PfyW-0/edit |
-| **Training WhatsApp group** | https://chat.whatsapp.com/JU6G7K6mkUz5Cbc09jt09b?mode=gi_t |
-| **Template file** | `CHM_GOLD_STANDARD_TEMPLATE.md` (repo root) |
-| **Institutional OS Blueprint** | `INSTITUTIONAL_OS_BLUEPRINT.md` (repo root) |
-
----
-
-## 7. The Paeds Resus Fellowship — One Fellowship, Three Pillars
+## 8. The Paeds Resus Fellowship — One Fellowship, Three Pillars
 
 **There is exactly one fellowship: the Paeds Resus Fellowship.**
 A provider who completes all three pillars earns the title **Paeds Resus Fellow**.
@@ -128,6 +129,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 | **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` |
 
 **Critical rules (from PSOT §17 and FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md):**
+
 - **Fellow status is 100% automated** — no manual conferral in v1. If automation is incomplete, do not ship Fellow UI.
 - **No fellowship surcharge** — fellowship is earned through platform use, not a bundled purchase. Providers pay per course/micro-course SKU.
 - **BLS, ACLS, PALS are NOT required** for fellowship qualification. They are optional, standalone AHA-certified offerings on a separate track.
@@ -138,7 +140,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 
 ---
 
-## 8. Development Guardrails (from PSOT §13)
+## 9. Development Guardrails (from PSOT §13)
 
 - **Extend, don't replace.** New features plug into existing routes, tRPC procedures, admin reports, and event tracking unless there is a deliberate architectural decision.
 - **Preserve the user model.** No single-role lock; preserve multi-context switching in the UI.
@@ -152,13 +154,16 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 
 ---
 
-## 8. Key Files to Read Before Major Work
+## 10. Key Files to Read Before Major Work
 
 | File | Purpose |
 | :--- | :--- |
-| `docs/PLATFORM_SOURCE_OF_TRUTH.md` | **The canonical PSOT.** Read this for any architectural or product decision. |
+| `docs/PLATFORM_SOURCE_OF_TRUTH.md` | **The canonical PSOT.** Read this for any architectural or product decision. §19–22 for global vision. |
+| `docs/CARE_SIGNAL_STRATEGY_AND_ROADMAP.md` | Full Care Signal strategy, audit, and implementation roadmap. |
+| `docs/CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md` | Strategic analysis of Care Signal's global impact potential. |
 | `RESUSGPS_DNA.md` | Core platform DNA — 7 strands, mission, success metrics. |
 | `docs/STRATEGIC_FOUNDATION.md` | Theory of change, clinical origin narrative, honest success criteria. |
+| `docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md` | Fellowship qualification rules, Pillar C Care Signal policy. |
 | `docs/BRAND_UPDATE_PAEDS_RESUS.md` | Full brand update history (ResusGPS → Paeds Resus naming). |
 | `docs/INSTITUTIONAL_BACKLOG_BOARD.md` | Current institutional feature backlog (INST-0 to INST-15+). |
 | `docs/BACKLOG_BOARD.md` | Platform-wide scrum backlog. |
@@ -168,7 +173,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 
 ---
 
-## 9. Contact & Ownership
+## 11. Contact & Ownership
 
 - **CEO / Owner:** Job Karue — PICU Nurse, Entrepreneur, ERT Chair
 - **Email:** paedsresus254@gmail.com
@@ -179,3 +184,5 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 ---
 
 *This file must be updated whenever a major strategic, brand, or architectural decision is made. Any change to canonical decisions belongs in `docs/PLATFORM_SOURCE_OF_TRUTH.md` first — then reflected here.*
+
+*By reading this file, you acknowledge the all-agents mandate. Proceed with your task in full alignment with the PSOT.*

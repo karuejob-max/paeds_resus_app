@@ -362,11 +362,272 @@ This section defines how growth execution integrates with PSoT without diluting 
 
 ---
 
-**Last structural update:** 2026-04-13 — Added §18 conversion/recurring revenue execution model and linked 90-day provider plan.
+## 19. The Holistic Product Ecosystem — How Everything Connects
 
+This section is the **canonical integration map** for the entire platform. Every product, every data stream, and every audience must be understood in relation to every other. Agents, engineers, designers, and partners working on any single product must read this section first.
+
+### 19.1 The Platform Is One System, Not a Collection of Apps
+
+Paeds Resus is not a bundle of separate tools that happen to share a login. It is a **single, integrated system** designed to reduce preventable childhood mortality by operating simultaneously at five levels:
+
+| Level | What it addresses | Primary product |
+|-------|------------------|-----------------|
+| **Bedside cognition** | Wrong sequence, missed steps, dosing errors under stress | ResusGPS |
+| **Professional competence** | Knowledge gaps, certification, behaviour change | Fellowship + AHA Courses + Micro-courses |
+| **Continuous learning from real cases** | Gap between classroom mastery and ward behaviour | Care Signal → linked learning |
+| **Institutional systems** | Workflow, triage, procurement, accountability | Institutional OS |
+| **Community and guardian voice** | Late presentation, family experience, upstream failures | Safe-Truth |
+
+No level replaces the others. Engineering decisions must **prefer integration** — shared identity, shared analytics, linked data flows — over siloed tools.
+
+### 19.2 The Shared Data Spine
+
+All products write to and read from a **shared data spine** that enables the platform's intelligence layer:
+
+```
+Provider identity (users + providerProfiles)
+    │
+    ├── ResusGPS cases (resusGPSCases)
+    │       └── feeds Fellowship Pillar B + clinical analytics
+    │
+    ├── Care Signal events (careSignalEvents)
+    │       └── feeds Fellowship Pillar C + QI intelligence + MOH surveillance
+    │
+    ├── Course completions (enrollments + certificates)
+    │       └── feeds Fellowship Pillar A + institutional reporting
+    │
+    ├── Analytics events (analyticsEvents)
+    │       └── feeds admin reports + engagement metrics
+    │
+    └── Safe-Truth submissions (parentSafeTruthSubmissions)
+            └── feeds community voice layer + upstream gap detection
+```
+
+**Non-negotiable rule:** KPIs from different products must never be combined in the same metric. Care Signal streaks are not influenced by Safe-Truth submissions. ResusGPS case counts are not influenced by course completions. Each product's data is sovereign within the shared spine.
+
+### 19.3 The Fellowship as the Integration Layer
+
+The Fellowship is not merely a qualification pathway. It is the **mechanism that binds all products together** into a continuous professional development engine:
+
+| Fellowship Pillar | Source product | What it measures |
+|-------------------|---------------|------------------|
+| **Pillar A — Courses** | AHA + Micro-courses | Knowledge acquisition and certification |
+| **Pillar B — ResusGPS** | ResusGPS | Applied bedside guidance (≥3 cases per taught condition) |
+| **Pillar C — Care Signal** | Care Signal | Reflective practice and QI culture (monthly reporting discipline) |
+
+A provider who completes all three pillars over 24 months has demonstrated that they **use** the platform in real emergencies, **reflect** on what goes wrong, and **keep learning** from real cases. That is a fundamentally different credential from a one-day certification course.
+
+### 19.4 Product-by-Product Integration Requirements
+
+#### ResusGPS
+- **Feeds:** Fellowship Pillar B, clinical analytics, post-event learning triggers
+- **Receives from:** Micro-courses (condition-specific knowledge), Care Signal (gap patterns that should update guidance)
+- **Integration gap (current):** ResusGPS cases do not yet trigger Care Signal prompts post-event — Phase 2 priority
+- **Canonical doc:** [RESUS_GPS_V4_FEATURES.md](./RESUS_GPS_V4_FEATURES.md)
+
+#### Care Signal
+- **Feeds:** Fellowship Pillar C, QI intelligence, institutional admin, MOH surveillance layer
+- **Receives from:** ResusGPS (post-event prompt), Fellowship (streak feedback), Institutional OS (facility context)
+- **Integration gap (current):** Reports do not yet trigger linked micro-course recommendations; closed-loop accountability not yet built
+- **Canonical docs:** [CARE_SIGNAL_STRATEGY_AND_ROADMAP.md](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md), [CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md](./CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md)
+
+#### Fellowship + Micro-courses
+- **Feeds:** Provider credential, institutional reporting, platform revenue
+- **Receives from:** All three pillars (ResusGPS, Care Signal, course completions)
+- **Integration gap (current):** Micro-course recommendations are not yet dynamically triggered by Care Signal gap reports or ResusGPS case patterns
+- **Canonical docs:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md), [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md), [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)
+
+#### AHA Courses (BLS / ACLS / PALS)
+- **Feeds:** Provider certification (standalone), institutional compliance reporting
+- **Receives from:** None (standalone track — not part of Fellowship pathway)
+- **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
+- **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
+
+#### Safe-Truth (Parent / Guardian)
+- **Feeds:** Community voice layer, upstream gap detection, institutional accountability signal
+- **Receives from:** None (input-only product for parents/guardians)
+- **Integration note:** Safe-Truth data is **never** combined with provider-facing KPIs. Separate audience, separate data table, separate analytics stream. The only integration point is the admin report (§8), where Safe-Truth usage is reported separately from all provider metrics.
+- **Canonical doc:** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) §9
+
+#### Institutional OS
+- **Feeds:** Facility-level analytics, MOH reporting, procurement intelligence
+- **Receives from:** Care Signal (facility gap data), ResusGPS (case load by facility), Course completions (staff training status)
+- **Integration gap (current):** Facility-level Care Signal dashboard not yet built; institutional admin sees only enrollment/payment data
+- **Canonical doc:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md)
 
 ---
 
-## 19. Care Signal Strategy and Roadmap
+## 20. Global Surveillance Vision — The Public Health Infrastructure Layer
 
-For a detailed analysis of Care Signal's strategic intent versus its current implementation state, and the roadmap to resolve these gaps, see [CARE_SIGNAL_STRATEGY_AND_ROADMAP.md](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md).
+This section defines the **long-range strategic architecture** that transforms Paeds Resus from a provider tool into a global public health infrastructure asset. It is binding for all product decisions that affect data architecture, institutional partnerships, and external reporting.
+
+### 20.1 The Gap Nobody Else Is Filling
+
+No organisation — not WHO, not UNICEF, not CDC, not any academic institution — has a **real-time, provider-sourced epidemiological surveillance network for paediatric emergency system failures in LMICs**. Ministries of Health receive aggregate mortality statistics. Researchers publish retrospective audits from individual hospitals, years after the fact. The signal that tells a government *why* children are dying and *where in the system* the failure occurs does not exist.
+
+Care Signal, at scale, is that signal. The platform's architecture must be designed to support this from day one.
+
+### 20.2 The Three-Layer Intelligence Architecture
+
+| Layer | Product | Primary audience | Data source |
+|-------|---------|-----------------|-------------|
+| **Provider intelligence** | Personal analytics, Fellowship feedback | Individual providers | Own submissions |
+| **Facility intelligence** | Admin review queue, facility dashboard | Hospital/clinic admin | All submissions from facility |
+| **National surveillance** | Aggregate MOH dashboard | Ministry of Health | Anonymised, aggregated, country-level |
+
+Each layer is a distinct product with distinct governance requirements. Provider data is visible only to the provider and their institutional admin (with consent). Facility data is aggregated with no individual provider identification. National data is fully anonymised with no facility identification without explicit accreditation consent.
+
+### 20.3 Data Governance Non-Negotiables
+
+1. **No patient identifiers** in any Care Signal submission — enforced at form level and schema level
+2. **Provider anonymity option** — providers may submit anonymously; anonymous submissions are still eligible for Fellowship Pillar C
+3. **Facility data requires consent** — a facility's data is only visible in the national layer if the facility has explicitly opted into the accreditation programme
+4. **No employer-visible individual data** — an institutional admin cannot see which specific provider submitted a report; they see only aggregated facility data
+5. **Research access requires a signed data sharing agreement** — anonymised datasets are not freely available
+
+### 20.4 The MOH Partnership Pathway
+
+The path to WHO, Harvard, and CDC recognition runs through **Ministry of Health partnerships**, not through marketing:
+
+1. **Kenya pilot** — Make Care Signal the official reporting instrument for paediatric emergency events in a defined set of county hospitals (formal MOU with Ministry of Health)
+2. **Published findings** — Partner with KEMRI, Aga Khan University, or a UK/US global health programme to validate data quality and publish the first national-level findings
+3. **Regional expansion** — Uganda, Tanzania, Ethiopia, Rwanda (each requires a local MOU and clinical governance partner)
+4. **WHO recognition** — Present aggregate findings at WHO technical working groups; position Paeds Resus as the methodology for paediatric emergency surveillance in LMICs
+
+### 20.5 The Benchmarking Network
+
+The anonymised peer benchmarking network is the feature that makes Care Signal a **network product** — one whose value grows with every new provider who joins:
+
+- Providers see how their facility's outcomes compare to similar facilities (anonymised, case-mix adjusted)
+- High-performing facilities are identified as learning exemplars (with consent)
+- Gap patterns at the bottom quartile are surfaced as priority training targets
+- **Network effect threshold:** approximately 50 active providers per country for the aggregate signal to be statistically meaningful
+
+**Implementation prerequisite:** The `facilityId` column (migration 0038, applied to live database 2026-05-01) is the foundation for all facility-level and benchmarking analytics.
+
+### 20.6 Business Model Layers
+
+| Layer | Product | Customer | Nature |
+|-------|---------|----------|--------|
+| Collection | Provider Care Signal | Individual providers | Fellowship feature |
+| Facility intelligence | Admin review + dashboard | Hospital admin | Institutional subscription |
+| National surveillance | Aggregate MOH dashboard | Ministry of Health | Government contract |
+| Research access | Anonymised dataset | Academic institutions, WHO | Data licensing |
+| Benchmarking | Peer comparison network | Institutional networks | Premium tier |
+
+The government contract and data licensing layers are where the valuation step-change lives. A platform with 10,000 active providers across 15 countries generating real-time paediatric emergency surveillance data is valued as **public health infrastructure**, not as a SaaS subscription business.
+
+---
+
+## 21. Document Registry — All Strategic Docs Linked to PSOT
+
+Every strategic and operational document in this repository is listed here with its relationship to PSOT. All agents working on any product must check this registry before creating new documents to avoid duplication.
+
+### 21.1 Canonical Strategy Documents
+
+| Document | Status | Relationship to PSOT |
+|----------|--------|---------------------|
+| [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) | Active | Mission, theory of change, LMIC context — read before any product decision |
+| [CARE_SIGNAL_STRATEGY_AND_ROADMAP.md](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md) | Active | Canonical Care Signal implementation detail — expands §17 and §19 |
+| [CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md](./CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md) | Active | Strategic analysis of Care Signal's global potential — informs §20 |
+| [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) | Active | Canonical Fellowship rules — expands §17 |
+| [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) | Active | Course catalog and ADF strategy — expands §3 |
+| [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) | Active | 24-slot micro-course backlog — expands §3 |
+| [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
+
+### 21.2 Technical and Operational Documents
+
+| Document | Status | Relationship to PSOT |
+|----------|--------|---------------------|
+| [RESUS_GPS_V4_FEATURES.md](./RESUS_GPS_V4_FEATURES.md) | Active | ResusGPS feature spec — expands §5 |
+| [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) | Active | Security requirements — expands §6 |
+| [SECURITY_BASELINE_IMPLEMENTATION.md](./SECURITY_BASELINE_IMPLEMENTATION.md) | Active | Security implementation evidence |
+| [PLATFORM_RELIABILITY_PLAN.md](./PLATFORM_RELIABILITY_PLAN.md) | Active | Reliability and uptime requirements |
+| [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md) | Active | Deployment configuration — locked |
+| [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md) | Active | Staging environment setup |
+| [MPESA_CONFIG_REFERENCE.md](./MPESA_CONFIG_REFERENCE.md) | Active | M-Pesa configuration reference |
+| [MPESA_CREDENTIALS_REFERENCE.md](./MPESA_CREDENTIALS_REFERENCE.md) | Active | M-Pesa credentials (do not commit secrets) |
+| [PR-DC_V1.0_Drug_Compendium.md](./PR-DC_V1.0_Drug_Compendium.md) | Active | Paediatric drug compendium — clinical reference |
+
+### 21.3 Audit and Status Documents
+
+| Document | Status | Relationship to PSOT |
+|----------|--------|---------------------|
+| [WORK_STATUS.md](./WORK_STATUS.md) | Active | Weekly execution updates — do not put canonical decisions here |
+| [PLATFORM_AUDIT_WHAT_IS_MISSING.md](./PLATFORM_AUDIT_WHAT_IS_MISSING.md) | Active | Gap audit — informs roadmap priorities |
+| [UNIFIED_PLATFORM_AUDIT_MANUS_AND_CURSOR.md](./UNIFIED_PLATFORM_AUDIT_MANUS_AND_CURSOR.md) | Active | Cross-agent audit |
+| [PRODUCT_BACKLOG_PRIORITIZED.md](./PRODUCT_BACKLOG_PRIORITIZED.md) | Active | Prioritised backlog — expands §14 |
+| [PROBLEM_SOLVING_FRAMEWORK.md](./PROBLEM_SOLVING_FRAMEWORK.md) | Active | Decision framework for agents |
+| [TEAMWORK_TASK_FORMAT.md](./TEAMWORK_TASK_FORMAT.md) | Active | Task format for multi-agent work |
+| [AGENTS.md](../AGENTS.md) | Active | **All-agents mandate** — read before any work in this repo |
+
+### 21.4 Archive (Historical — Do Not Treat as Current)
+
+| Document | Note |
+|----------|------|
+| [archive/STRATEGIC_VISION_2031.md](./archive/STRATEGIC_VISION_2031.md) | Aspirational long-range material — direction only, not committed figures |
+| [archive/REPOSITORY_ALIGNMENT_AUDIT_STALE.md](./archive/REPOSITORY_ALIGNMENT_AUDIT_STALE.md) | Stale audit — superseded by UNIFIED_PLATFORM_AUDIT |
+
+---
+
+## 22. All-Agents Mandate — How Every Agent Must Treat PSOT
+
+This section is **binding for every AI agent, developer, designer, and contributor** working in this repository, regardless of which product or feature they are assigned to.
+
+### 22.1 PSOT Is the Single Source of Truth
+
+- **Before starting any task**, read the relevant sections of this document and the linked canonical docs for the product you are working on
+- **If you discover a conflict** between this document and any other document, this document wins — update the other document, not this one, unless you have explicit leadership approval to change a canonical decision
+- **If you make a decision** that affects platform architecture, data models, KPI definitions, auth, roles, or product boundaries, you must update this document before closing your task
+
+### 22.2 When You Must Update PSOT
+
+| Trigger | Required action |
+|---------|----------------|
+| New product or major feature added | Add a section or subsection to §19 (ecosystem map) |
+| New data table or significant schema change | Update §19.2 (shared data spine) and log in WORK_STATUS.md |
+| New strategic document created | Add it to §21 (document registry) |
+| KPI definition changed | Update §8 (admin reports) and log in WORK_STATUS.md |
+| New institutional or government partnership | Update §20.4 (MOH partnership pathway) |
+| New migration applied to live database | Log in WORK_STATUS.md with migration number, date, and what changed |
+
+### 22.3 What You Must Never Do
+
+- **Never combine** Care Signal KPIs with Safe-Truth KPIs in any metric or report
+- **Never combine** Fellowship pillar data across pillars in a single metric
+- **Never add** patient identifiers to any Care Signal submission schema
+- **Never grant** employer-visible individual Care Signal data without explicit provider consent
+- **Never treat** AHA courses (BLS/ACLS/PALS) as part of the Fellowship pathway
+- **Never create** a new canonical document without linking it in §21
+- **Never make** a canonical decision in WORK_STATUS.md — that file is for execution updates only
+
+### 22.4 The Global Ambition Mandate
+
+Every product decision must be evaluated against the platform's global ambition:
+
+> **Paeds Resus is building toward recognition as the global benchmark for paediatric resuscitation science in LMICs — by WHO, Harvard, CDC, and Ministries of Health across Sub-Saharan Africa and beyond.**
+
+This is not marketing language. It is an architectural constraint. Every data model decision, every analytics design, every institutional partnership, and every product feature must be evaluated against the question: **Does this make us more or less credible as a global public health infrastructure asset?**
+
+The path to that recognition runs through:
+1. **Data quality and integrity** — every metric must be honest, every KPI definition must be locked, every report must be reproducible
+2. **Provider trust** — providers must believe their reports are confidential, useful, and acted upon
+3. **Institutional partnerships** — MOH relationships, academic validation, published findings
+4. **Clinical rigour** — all guidance must be evidence-based, guideline-aligned, and auditable
+
+### 22.5 For Agents Working on Other Products
+
+If you are an agent assigned to ResusGPS, Fellowship, Safe-Truth, AHA Courses, Institutional OS, or any other product:
+
+1. **Read §19** (ecosystem map) to understand how your product connects to all others
+2. **Read §20** (global surveillance vision) to understand the long-range architecture your product must support
+3. **Read §21** (document registry) to find the canonical docs for your product
+4. **Update §21** when you create a new strategic document
+5. **Update §19** when you add a new integration point between products
+6. **Update WORK_STATUS.md** when you apply a migration or make a significant change
+
+The PSOT is a living document. It is only as useful as the discipline of the agents who maintain it.
+
+---
+
+**Last structural update:** 2026-05-01 — Added §19 (holistic ecosystem map), §20 (global surveillance vision), §21 (document registry), §22 (all-agents mandate). DB migrations 0037 (AHA completion gates) and 0038 (Care Signal facility/review) applied to live database.

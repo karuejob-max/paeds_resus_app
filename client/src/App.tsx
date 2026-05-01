@@ -60,6 +60,7 @@ const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const AdminCareSignalReview = lazy(() => import("./pages/AdminCareSignalReview"));
+const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSignal"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
 const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
@@ -167,6 +168,11 @@ function Router() {
           <Route path="/admin/care-signal-review">{() => (
             <AdminGate>
               <AdminCareSignalReview />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/national-signal">{() => (
+            <AdminGate>
+              <NationalAggregateSignal />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />
