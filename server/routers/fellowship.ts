@@ -425,4 +425,57 @@ export const fellowshipRouter = router({
 
       return { success: true, caseId: result[0].insertId };
     }),
+
+  /**
+   * Final Graduation Orchestration
+   * Checks if user is qualified and issues the Fellowship Diploma
+   */
+  claimGraduation: protectedProcedure.mutation(async ({ ctx }) => {
+    const status = await calculateFellowshipStatus(ctx.user.id);
+    
+    if (!status.isQualified) {
+      throw new Error("You have not yet met all the requirements for Fellowship graduation.");
+    }
+
+    const db = await getDb();
+    if (!db) throw new Error("Database connection failed");
+
+    // Check if certificate already exists
+    const [existingCert] = await db
+      .select()
+      .from(certificates)
+      .where(and(
+        eq(certificates.userId, ctx.user.id),
+        eq(certificates.programType, 'fellowship_diploma')
+      ))
+      .limit(1);
+
+    if (existingCert) {
+      return { success: true, certificateId: existingCert.id, alreadyIssued: true };
+    }
+
+    // Issue Fellowship Diploma
+    const [user] = await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    
+    const certCode = `FELLOW-${ctx.user.id}-${Date.now().toString(36).toUpperCase()}`;
+    
+    await db.insert(certificates).values({
+      userId: ctx.user.id,
+      recipientName: user.name || 'Fellow Candidate',
+      programType: 'fellowship_diploma',
+      certificateCode: certCode,
+      trainingDate: new Date(),
+      expiryDate: null, // Fellowship is for life
+      instructorName: 'PaedsResus Global Board',
+      issueDate: new Date(),
+    });
+
+    const [newCert] = await db
+      .select({ id: certificates.id })
+      .from(certificates)
+      .where(eq(certificates.certificateCode, certCode))
+      .limit(1);
+
+    return { success: true, certificateId: newCert.id, code: certCode };
+  }),
 });

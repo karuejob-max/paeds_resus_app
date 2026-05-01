@@ -1,4 +1,3 @@
-
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like } from "drizzle-orm";
@@ -8,6 +7,7 @@ import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
 import { microCoursesBatch3To5 } from "../server/data/micro-courses-batch-3-5";
 import { microCoursesFinalBatch } from "../server/data/micro-courses-final-batch";
 import { microCoursesBurns } from "../server/data/micro-courses-burns";
+import { microCoursesMissingFellowship } from "../server/data/micro-courses-missing-fellowship";
 import { SEPTIC_SHOCK_I_COURSE, SEPTIC_SHOCK_I_MODULES, SEPTIC_SHOCK_I_QUIZ_QUESTIONS } from "../server/lib/micro-course-schema";
 
 async function seed() {
@@ -48,6 +48,7 @@ async function seed() {
     ...microCoursesBatch3To5,
     ...microCoursesFinalBatch,
     ...microCoursesBurns,
+    ...microCoursesMissingFellowship,
     septicShockI
   ];
 
@@ -64,7 +65,10 @@ async function seed() {
     'septic-shock-i': 'septic-shock-i',
     'septic-shock-ii': 'septic-shock-ii',
     'trauma-i': 'trauma-i',
-    'trauma-ii': 'trauma-ii'
+    'trauma-ii': 'trauma-ii',
+    'paediatric-trauma-i': 'trauma-i',
+    'paediatric-trauma-ii': 'trauma-ii',
+    'paediatric-septic-shock-i': 'septic-shock-i'
   };
 
   console.log(`Starting seeding for ${allContent.length} potential courses...`);
