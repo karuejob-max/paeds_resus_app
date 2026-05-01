@@ -42,9 +42,9 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
 | **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
-| **Elite fellowship** | **Narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall for “fellowship” in the digital-first path—learners pay per course/SKU. Programme type `fellowship` in data remains where used; naming in UI may evolve with leadership. |
-| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for fellowship — see **Care Signal**. |
-| **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives **automated** fellowship **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
+| **Paeds Resus Fellowship** | The canonical name for the **narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall—learners pay per course/SKU. Completion of the three pillars (Courses, ResusGPS, Care Signal) earns the title **Paeds Resus Fellow**. |
+| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. |
+| **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives the **automated** **Paeds Resus Fellowship** **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |},{find:
 | **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
 | **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Care Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
 
@@ -283,22 +283,22 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ---
 
-## 17. Fellowship qualification, provider profile, and internal operational intelligence (non-public)
+### 17. The Paeds Resus Fellowship — automated qualification, discipline, and QI culture (non-public)
 
-**PSoT short title:** *Fellowship rules, Care Signal, cumulative progress, and governance.*  
+**PSoT short title:** *Paeds Resus Fellowship rules, Care Signal, cumulative progress, and governance.*  
 **Canonical detail (automation-only, grace rules, launch checklist, accredited facilities policy):** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
 ### 17.1 Principles
 
-- **Fellow** is **100% automated** from platform data — **no** manual conferral in v1. If automation is incomplete, **do not** ship Fellow UI.
-- **No fellowship surcharge** — pay **per course/micro-course**; fellowship is **earned** through courses, **ResusGPS**, **Care Signal**, and **course feedback** (instrumented).
+- **Paeds Resus Fellow** status is **100% automated** from platform data — **no** manual conferral in v1. If automation is incomplete, **do not** ship Fellow UI.
+- **No fellowship surcharge** — pay **per course/micro-course**; the **Paeds Resus Fellowship** is **earned** through courses, **ResusGPS**, **Care Signal**, and **course feedback** (instrumented).
 - **Parent Safe-Truth** and **Care Signal** are **different products** — never use “Safe-Truth” for **staff** flows in user-facing copy ([§3](#3-what-we-do-offerings)).
 
 ### 17.2 Three pillars (all required)
 
 1. **Courses:** **Every** active ADF micro-course — completion from **DB** (`certificates` / completion rules). **Note:** BLS, ACLS, PALS are **optional, standalone** offerings (see [§3](#3-what-we-do-offerings)); they are **not** required for Fellowship qualification.
 2. **ResusGPS:** **≥3** attributable cases **per taught condition**, with **server-side** depth rules (anti-gaming).
-3. **Care Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions.
+3. **Care Signal:** **24 consecutive qualifying months** of monthly reporting (EAT), with **grace / catch-up / reset** per linked doc §7 — **not** parent Safe-Truth submissions. Completion of all three pillars earns the title **Paeds Resus Fellow**.
 
 ### 17.3 Grace (automated)
 
@@ -308,11 +308,11 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 17.4 Cumulative UX
 
-- **One** learner-facing view of **distance to Fellow** (courses %, ResusGPS checklist, staff streak).
+- **One** learner-facing view of **distance to Paeds Resus Fellow** (courses %, ResusGPS checklist, staff streak).
 
 ### 17.5 Profile and contact
 
-- **Required** for fellowship-path enroll: cadre, facility, department, country, region, town.
+- **Required** for Paeds Resus Fellowship enrollment: cadre, facility, department, country, region, town.
 - **Email / mobile** for **optional** future programmes (e.g. small groups) — **separate consent** per purpose.
 
 ### 17.6 Public facilities
@@ -322,7 +322,7 @@ For each enrolment, the learner should experience a **clear linear path**:
 
 ### 17.7 Launch gate
 
-- Ship **Fellow** / fellowship progress **only** after [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) **§11** checklist passes (automation, UX, legal, security).
+- Ship **Paeds Resus Fellow** title and fellowship progress **only** after [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) **§11** checklist passes (automation, UX, legal, security).
 
 ### 17.8 Builders
 

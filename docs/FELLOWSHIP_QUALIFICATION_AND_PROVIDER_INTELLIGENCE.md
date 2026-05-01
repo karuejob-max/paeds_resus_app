@@ -1,4 +1,4 @@
-# Fellowship qualification, provider profile, and internal operational intelligence
+# Paeds Resus Fellowship qualification, provider profile, and internal operational intelligence
 
 **Status:** Canonical strategy — complements [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md), [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md), and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md).  
 **Version:** 2.0 · **Date:** 2026-03-31  
@@ -10,13 +10,13 @@
 
 This document locks:
 
-1. **What “ADF Fellow” (or equivalent fellow title in UI)** means — **fully automatable** criteria only (no manual conferral).
+1. **What “Paeds Resus Fellow”** means — **fully automatable** criteria only (no manual conferral).
 2. **Profile and contact data** required for fellowship-path participation and **optional** future programmes (e.g. small-group learning).
 3. **Staff** vs **parent** reporting — **separate names and products** (see §3).
 4. **How** courses, ResusGPS use, **Care Signal** reporting, and **course feedback** combine into **one cumulative “distance to Fellow”** experience.
 5. **Grace rules** for monthly staff reporting — strict, automated, with **streak reset** when discipline fails.
 6. **Public** vs **internal** use of facility data — including **future** “Paeds Resus accredited facilities” (not rankings).
-7. **Pre-launch gates** — nothing ships as “Fellowship” until §11 is satisfied.
+7. **Pre-launch gates** — nothing ships as “Paeds Resus Fellowship” until §11 is satisfied.
 
 ---
 
@@ -38,13 +38,13 @@ This document locks:
 
 ---
 
-## 4. Fellowship qualification (all automated)
+## 4. Paeds Resus Fellowship qualification (all automated)
 
-**Fellow status may only be awarded when the system can prove every criterion from data.** No manual overrides in v1; if automation is incomplete, **do not** show “Fellow” or equivalent.
+**Paeds Resus Fellow status may only be awarded when the system can prove every criterion from data.** No manual overrides in v1; if automation is incomplete, **do not** show “Fellow” or equivalent.
 
 | Pillar | Rule | Automation requirement |
 |--------|------|------------------------|
-| **A — Courses** | Complete **every ADF micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). **BLS, ACLS, PALS are optional, standalone** offerings and are **not** required for Fellowship. | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
+| **A — Courses** | Complete **every Paeds Resus Fellowship micro-course** in the active MECE catalog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). **BLS, ACLS, PALS are optional, standalone** offerings and are **not** required for Fellowship. | `certificates` / `enrollments` / completion flags **per course row**; single source of truth in DB. |
 | **B — ResusGPS** | For **each taught condition** in the portfolio, **≥3 attributable cases** where the learner **used ResusGPS** to guide care. | Pathway/session IDs, user ID, **minimum depth** thresholds (anti-gaming), timestamps; map **condition ↔ pathway** in config. |
 | **C — Care Signal** | **24 consecutive qualifying months** of monthly reporting (see §6–7). | Dedicated **staff** submission table(s), EAT calendar month bucketing, immutable audit trail. |
 
@@ -54,7 +54,7 @@ This document locks:
 
 ## 5. Provider profile and optional contact (enrollment gate + future community)
 
-### 5.1 Required for fellowship-path enrollment
+### 5.1 Required for Paeds Resus Fellowship enrollment
 
 **Cadre; facility; department; country; region; town** — as in v1.0; block enroll until valid.
 
@@ -65,13 +65,12 @@ This document locks:
 
 ---
 
-## 6. Single cumulative “distance to Fellow” experience
+## 6. Single cumulative “distance to Paeds Resus Fellow” experience
 
-**Product requirement:** One surfaced progress model (dashboard / hub) that **aggregates**:
-
+**Product requirement:** **One** surfaced progress model (dashboard / hub) that **aggregates** the three pillars of the **Paeds Resus Fellowship**:
 - Course completion (% of required catalog).
 - ResusGPS condition checklist (% conditions meeting **3 cases**).
-- Care Signal **current streak** / **months completed** toward **24**, and **grace** state.
+- Care Signal **current streak** / **months completed** toward **24**, and **grace** state. Completion of all three pillars earns the title **Paeds Resus Fellow**.
 
 **Copy:** Discipline in logging is **leadership behaviour** training — aligned with safe fluid and escalation decisions (e.g. DCM/SAM vs sepsis). **Do not** shame; **do** show clear **automated** consequences of missed months (see §7).
 
@@ -140,21 +139,21 @@ This document locks:
 
 ---
 
-## 11. Fellowship launch readiness checklist (block launch until complete)
+## 11. Paeds Resus Fellowship launch readiness checklist (block launch until complete)
 
-**Do not** launch **Fellow** title, **fellowship progress UI**, or **public accredited directory** until **all** relevant rows pass.
+**Do not** launch **Paeds Resus Fellow** title, **fellowship progress UI**, or **public accredited directory** until **all** relevant rows pass.
 
 ### 11.1 Data & automation
 
 - [ ] **Care Signal** product live: create/list with **server validation**, **EAT month** bucketing, **immutable** timestamps.
-- [ ] **No** dependency on manual admin toggles for Fellow.
+- [ ] **No** dependency on manual admin toggles for the **Paeds Resus Fellow** title.
 - [ ] **ResusGPS** → user → pathway → **condition map**; **≥3** sessions per condition with **depth** rules.
 - [ ] **Course completion** pipeline complete for **all** catalog courses in scope.
 - [ ] **Grace / catch-up / annual grace count / streak reset** implemented and **integration-tested**.
 
 ### 11.2 UX & fairness
 
-- [ ] **Single dashboard**: distance to Fellow (A/B/C pillars).
+- [ ] **Single dashboard**: distance to Paeds Resus Fellow (A/B/C pillars).
 - [ ] **Clear** messaging: grace **remaining**, catch-up **3 in next month**, **reset** when triggered.
 - [ ] **Staff** flows **never** titled Safe-Truth; parent Safe-Truth **unchanged**.
 

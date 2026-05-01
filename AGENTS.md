@@ -29,9 +29,11 @@ This is the single most frequent source of mistakes. Read it once. Apply it alwa
 - ✅ "During a Code Blue, open **ResusGPS** on your phone for bedside guidance."
 - ✅ "The **Paeds Resus** Institutional Portal manages your hospital's ERT."
 - ✅ "**Paeds Resus** sponsors your BLS for free."
+- ✅ "Earn the title of **Paeds Resus Fellow** by completing the **Paeds Resus Fellowship**."
 - ❌ "Sign up for training on **ResusGPS**." ← ResusGPS is the bedside tool, not the training system.
 - ❌ "The **ResusGPS** Institutional Portal..." ← The portal belongs to Paeds Resus, not ResusGPS.
 - ❌ "**ResusGPS** will sponsor your BLS..." ← Paeds Resus Limited sponsors training.
+- ❌ "ADF Fellow" or "ResusGPS Fellowship" ← Use **Paeds Resus Fellow/Fellowship**.
 - ❌ Using "Paeds Resus" and "ResusGPS" interchangeably in any context.
 
 ---

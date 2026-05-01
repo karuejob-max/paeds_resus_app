@@ -11,10 +11,10 @@
 **Paeds Resus** is the organisation and the platform. We are not “Paeds Resus / ResusGPS” as if they were the same thing — that’s confusing. **ResusGPS** is one of our key offerings; it stands **side by side** with other unique products that are not inferior to it, including:
 
 - **Safe-Truth** — Parent and guardian resources and truth-sharing.
-- **Our elite fellowship** — Among our flagship programmes.
+- **Paeds Resus Fellowship** — Our flagship fellowship programme.
 - **Other products** — Yet to be launched.
 
-ResusGPS is a core part of our identity, but not on its own. When you read “platform” or “we,” think **Paeds Resus**; when we refer to a specific product, we’ll name it (ResusGPS, Safe-Truth, fellowship, etc.).
+ResusGPS is a core part of our identity, but not on its own. When you read “platform” or “we,” think **Paeds Resus**; when we refer to a specific product, we’ll name it (ResusGPS, Safe-Truth, Paeds Resus Fellowship, etc.).
 
 ---
 
@@ -28,7 +28,7 @@ Here’s a concise snapshot of where the platform is today and how it’s struct
 
 ## 1. What we’re building
 
-**Paeds Resus** is our paediatric resuscitation and emergency-care organisation and platform. We offer multiple products under one brand: ResusGPS (real-time clinical guidance), Safe-Truth (parent and guardian), our elite fellowship, BLS/ACLS/PALS, and more to come. We’re on **our own infrastructure and identity** so we control the experience end-to-end and can grow without being tied to a single provider. Your role is to help us ship fast, keep quality high, and use this structure as the single source of truth.
+**Paeds Resus** is our paediatric resuscitation and emergency-care organisation and platform. We offer multiple products under one brand: ResusGPS (real-time clinical guidance), Safe-Truth (parent and guardian), the Paeds Resus Fellowship, BLS/ACLS/PALS, and more to come. We’re on **our own infrastructure and identity** so we control the experience end-to-end and can grow without being tied to a single provider. Your role is to help us ship fast, keep quality high, and use this structure as the single source of truth.
 
 ---
 
@@ -76,7 +76,7 @@ When you suggest changes or debug, assume this stack and this deployment model u
 
 ## 4. How I need you to work with this
 
-- **Use this as the source of truth** for “what exists” and “how it’s structured.” When you propose features or refactors, align with: one account / multi-role, provider hub, **all our offerings** (ResusGPS, Safe-Truth, fellowship, etc.) as first-class, and admin reports as the main visibility layer.
+- **Use this as the source of truth** for “what exists” and “how it’s structured.” When you propose features or refactors, align with: one account / multi-role, provider hub, **all our offerings** (ResusGPS, Safe-Truth, Paeds Resus Fellowship, etc.) as first-class, and admin reports as the main visibility layer.
 - **Preserve our user model:** Don’t reintroduce a single-role lock or remove the ability to switch between provider, institution, and parent.
 - **Respect the new auth and infra:** We’re off external OAuth and on our own DB and deployment. Suggestions should assume email/password, our MySQL schema, and Render + Aiven unless we explicitly change direction.
 - **Extend, don’t replace:** New features (e.g. more report filters, more analytics events, new courses) should plug into the existing routes, tRPC procedures, and admin reports where it makes sense.
@@ -106,7 +106,7 @@ Thank you both. Your summaries and questions are exactly the kind of clarity we 
 We have a live **Reports & insights** surface at `/admin/reports` (reachable from the Admin hub) that includes:
 
 - **Registered users** — Counts by type (provider, parent, institution) and an optional list (name, email, type, joined).
-- **Enrollments this month** — BLS, ACLS, PALS, Fellowship (from `enrollments.createdAt`).
+- **Enrollments this month** — BLS, ACLS, PALS, Paeds Resus Fellowship (from `enrollments.createdAt`).
 - **Certificates issued this month** — Same four programmes (from `certificates.issueDate`).
 - **Parent Safe-Truth usage this month** — Count of `parentSafeTruthSubmissions` with `createdAt` in that month.
 - **App / product activity (last 7 days)** — Count and top event types from `analyticsEvents`.

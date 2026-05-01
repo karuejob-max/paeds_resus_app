@@ -1,4 +1,4 @@
-# ADF micro-course catalog backlog (24-slot cycle)
+# Paeds Resus Fellowship micro-course catalog backlog (24-slot cycle)
 
 **Status:** Planning backlog — implements the **~one micro-course per month × ~24 months** renewal rhythm described in [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md).  
 **Version:** 1.0 · **Date:** 2026-03-31  
@@ -9,7 +9,7 @@
 ## Purpose
 
 - Provide **24 named placeholders** for **SKU / catalog / certificate** work so engineering and content teams share one list.
-- Preserve **MECE intent** at the **course-title** level: each row has a **single primary outcome**; together they approximate **collective exhaustiveness** for the ADF slice of paediatric peri-arrest care (with BLS/ACLS/PALS as parallel credential layers — see portfolio doc).
+- Preserve **MECE intent** at the **course-title** level: each row has a **single primary outcome**; together they approximate **collective exhaustiveness** for the Paeds Resus Fellowship slice of paediatric peri-arrest care (with BLS/ACLS/PALS as parallel credential layers — see portfolio doc).
 - **Order is a suggested rollout**, not a learner lock: learners may start anywhere; slot numbers support **“month 1–24”** messaging and ops planning.
 
 **Indicative price:** KSh **200** per micro-course (per portfolio table). **Governance:** rename, split, or merge rows only with clinical sign-off and an update to this file.
@@ -51,7 +51,7 @@
 
 ## MECE and overlap
 
-- **BLS / ACLS / PALS** remain separate **credential courses** (hours, blended) — they are **not** duplicated as ADF micro-courses; ADF modules **deepen** condition-specific care and **point to ResusGPS** (see portfolio doc §13).
+- **BLS / ACLS / PALS** remain separate **credential courses** (hours, blended) — they are **not** duplicated as fellowship micro-courses; Fellowship modules **deepen** condition-specific care and **point to ResusGPS** (see portfolio doc §13).
 - If two rows feel overlapping after content design, **merge** into one SKU and add a new row elsewhere (e.g. split a trauma topic) — update this table and the changelog below.
 
 ---
