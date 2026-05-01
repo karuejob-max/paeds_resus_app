@@ -1,6 +1,6 @@
 /**
  * Certificate PDF Generation Service
- * Generates world-class branded PDF certificates (ResusGPS branding)
+ * Generates branded PDF certificates (Paeds Resus branding)
  */
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -33,7 +33,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive";
   trainingDate: Date;
   instructorName: string;
   certificateNumber: string;
@@ -55,21 +55,21 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     title: "Basic Life Support",
     subtitle: "BLS Certification",
     description:
-      "has successfully completed the Basic Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
+      "has successfully completed the Basic Life Support training programme and meets the international standards of Paeds Resus for emergency care.",
     hours: 6,
   },
   acls: {
     title: "Advanced Cardiovascular Life Support",
     subtitle: "ACLS Certification",
     description:
-      "has successfully completed the Advanced Cardiovascular Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
+      "has successfully completed the Advanced Cardiovascular Life Support training programme and meets the international standards of Paeds Resus for emergency care.",
     hours: 16,
   },
   pals: {
     title: "Pediatric Advanced Life Support",
     subtitle: "PALS Certification",
     description:
-      "has successfully completed the Pediatric Advanced Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
+      "has successfully completed the Pediatric Advanced Life Support training programme and meets the international standards of Paeds Resus for pediatric emergency care.",
     hours: 16,
   },
   fellowship: {
@@ -87,11 +87,46 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     hours: 120,
   },
   instructor: {
-    title: "ResusGPS Instructor Course",
+    title: "Paeds Resus Instructor Course",
     subtitle: "Instructor Certification",
     description:
-      "has successfully completed the ResusGPS Instructor Course and is authorized to facilitate clinical training under the ResusGPS framework.",
+      "has successfully completed the Paeds Resus Instructor Course and is authorized to facilitate clinical training under the Paeds Resus framework.",
     hours: 6,
+  },
+  heartsaver: {
+    title: "Heartsaver CPR AED",
+    subtitle: "Heartsaver Certification",
+    description:
+      "has successfully completed the Heartsaver CPR AED programme and is certified to perform CPR and use an AED in emergency situations.",
+    hours: 4,
+  },
+  bls_cognitive: {
+    title: "Basic Life Support — Cognitive Completion",
+    subtitle: "BLS Cognitive Gatepass Certificate",
+    description:
+      "has successfully completed all cognitive modules of the Basic Life Support programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full BLS certification will be issued.",
+    hours: 3,
+  },
+  acls_cognitive: {
+    title: "Advanced Cardiovascular Life Support — Cognitive Completion",
+    subtitle: "ACLS Cognitive Gatepass Certificate",
+    description:
+      "has successfully completed all cognitive modules of the Advanced Cardiovascular Life Support programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full ACLS certification will be issued.",
+    hours: 8,
+  },
+  pals_cognitive: {
+    title: "Pediatric Advanced Life Support — Cognitive Completion",
+    subtitle: "PALS Cognitive Gatepass Certificate",
+    description:
+      "has successfully completed all cognitive modules of the Pediatric Advanced Life Support programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full PALS certification will be issued.",
+    hours: 8,
+  },
+  heartsaver_cognitive: {
+    title: "Heartsaver CPR AED — Cognitive Completion",
+    subtitle: "Heartsaver Cognitive Gatepass Certificate",
+    description:
+      "has successfully completed all cognitive modules of the Heartsaver CPR AED programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full Heartsaver certification will be issued.",
+    hours: 3,
   },
 };
 

@@ -3,6 +3,7 @@ export type ProviderCourseProgram =
   | "acls"
   | "pals"
   | "pals_septic"
+  | "heartsaver"
   | "instructor"
   | "intubation-essentials"
   | "asthma-ii"
@@ -24,8 +25,7 @@ export type ProviderCourseProgram =
   | "acute-kidney-injury-i"
   | "severe-anaemia-i"
   | "burns-i"
-  | "burns-ii"
-  | "heartsaver";
+  | "burns-ii";
 
 export type ContinueRouteConfig = {
   destination: string;
@@ -33,8 +33,21 @@ export type ContinueRouteConfig = {
 };
 
 /**
- * Maps course IDs to their learning destinations
- * Dedicated pages for established courses, generic player for micro-courses
+ * AHA courses are stored in the `courses` table with these numeric IDs.
+ * All AHA courses are routed through the unified DB-backed micro-course player.
+ */
+const AHA_COURSE_DB_IDS: Record<string, number> = {
+  bls: 1,
+  acls: 2,
+  pals: 3,
+  pals_septic: 3,
+  heartsaver: 30,
+};
+
+/**
+ * Maps course IDs to their learning destinations.
+ * AHA courses use the numeric DB ID with the unified player.
+ * Fellowship micro-courses use the string courseId with the same player.
  */
 export function getProviderCourseDestination(
   courseId: string | null | undefined,
@@ -43,55 +56,36 @@ export function getProviderCourseDestination(
 ): string {
   if (!courseId) return fallback;
 
-  // Dedicated course pages (AHA + established courses)
-  if (courseId === "bls") {
-    return enrollmentId ? `/course/bls?enrollmentId=${enrollmentId}` : "/course/bls";
-  }
-  if (courseId === "acls") {
-    return enrollmentId ? `/course/acls?enrollmentId=${enrollmentId}` : "/course/acls";
-  }
-  if (courseId === "heartsaver") {
-    return enrollmentId ? `/course/heartsaver?enrollmentId=${enrollmentId}` : "/course/heartsaver";
-  }
-  if (courseId === "pals") {
+  // AHA courses — route to the unified DB-backed player using numeric course IDs
+  if (AHA_COURSE_DB_IDS[courseId] !== undefined) {
+    const numId = AHA_COURSE_DB_IDS[courseId];
     return enrollmentId
-      ? `/course/seriously-ill-child?enrollmentId=${enrollmentId}`
-      : "/course/seriously-ill-child";
+      ? `/micro-course/${numId}?enrollmentId=${enrollmentId}&programType=${courseId}`
+      : `/micro-course/${numId}?programType=${courseId}`;
   }
-  if (courseId === "pals_septic") {
-    return enrollmentId
-      ? `/course/paediatric-septic-shock?enrollmentId=${enrollmentId}`
-      : "/course/paediatric-septic-shock";
-  }
+
+  // Instructor course — dedicated page
   if (courseId === "instructor") {
     return enrollmentId ? `/course/instructor?enrollmentId=${enrollmentId}` : "/course/instructor";
   }
+
+  // Intubation Essentials — dedicated page
   if (courseId === "intubation-essentials") {
     return enrollmentId
       ? `/course/intubation-essentials?enrollmentId=${enrollmentId}`
       : "/course/intubation-essentials";
   }
 
-  // Generic micro-course player for all fellowship micro-courses
-  // Covers all 18+ courses by checking for fellowship course patterns
-  const isFellowshipCourse =
-    courseId.includes("-") ||
-    [
-      "asthma", "pneumonia", "septic-shock", "hypovolemic-shock", "cardiogenic-shock",
-      "status-epilepticus", "dka", "anaphylaxis", "meningitis", "malaria", "burns",
-      "trauma", "aki", "anaemia", "severe-", "acute-"
-    ].some(p => courseId.startsWith(p));
-
-  if (isFellowshipCourse) {
-    return enrollmentId
-      ? `/micro-course/${courseId}?enrollmentId=${enrollmentId}`
-      : `/micro-course/${courseId}`;
-  }
-
-  return fallback;
+  // Fellowship micro-courses — use the string courseId with the unified player
+  return enrollmentId
+    ? `/micro-course/${courseId}?enrollmentId=${enrollmentId}`
+    : `/micro-course/${courseId}`;
 }
 
-export function getAhaContinueRoute(programType: "bls" | "acls" | "pals" | "heartsaver", enrollmentId: number): ContinueRouteConfig {
+export function getAhaContinueRoute(
+  programType: "bls" | "acls" | "pals" | "heartsaver",
+  enrollmentId: number
+): ContinueRouteConfig {
   return {
     destination: getProviderCourseDestination(programType, enrollmentId),
     ctaLabel: "Start course",

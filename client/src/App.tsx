@@ -276,29 +276,40 @@ function Router() {
               <CirculationAssessment />
             </RoleGate>
           )}</Route>
+          {/* AHA courses — all routed through the unified DB-backed player */}
           <Route path="/course/bls">{() => (
             <RoleGate allowed={["provider"]}>
-              <CourseBLS />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/course/acls">{() => (
             <RoleGate allowed={["provider"]}>
-              <CourseACLS />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
+            </RoleGate>
+          )}</Route>
+          <Route path="/course/pals">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
+            </RoleGate>
+          )}</Route>
+          <Route path="/course/heartsaver">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/course/seriously-ill-child">{() => (
             <RoleGate allowed={["provider"]}>
-              <CourseSeriouslyIllChild />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/course/paediatric-septic-shock">{() => (
             <RoleGate allowed={["provider"]}>
-              <CoursePaediatricSepticShock />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/course/intubation-essentials">{() => (
             <RoleGate allowed={["provider"]}>
-              <CourseIntubationEssentials />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/course/instructor">{() => (

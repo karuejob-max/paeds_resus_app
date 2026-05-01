@@ -886,3 +886,77 @@ export async function getCertificateStats() {
     };
   }
 }
+
+/**
+ * Issue an AHA cognitive gatepass certificate when a learner completes all cognitive
+ * modules for a BLS / ACLS / PALS / Heartsaver course.
+ *
+ * This certificate is stored in the `certificates` table with the AHA `enrollmentId`
+ * and a programType of `{programType}_cognitive` (e.g. "bls_cognitive").
+ * It is idempotent — calling it twice for the same enrollment returns the existing cert.
+ */
+export async function saveAhaCognitiveCertificate(
+  enrollmentId: number,
+  userId: number,
+  recipientName: string,
+  programType: "bls" | "acls" | "pals" | "heartsaver"
+): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
+  try {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+
+    const cognitiveProgramType = `${programType}_cognitive` as
+      | "bls_cognitive"
+      | "acls_cognitive"
+      | "pals_cognitive"
+      | "heartsaver_cognitive";
+
+    // Idempotency: return existing cert if already issued for this enrollment
+    const existing = await db
+      .select({ certificateNumber: certificates.certificateNumber })
+      .from(certificates)
+      .where(
+        and(
+          eq(certificates.enrollmentId, enrollmentId),
+          eq(certificates.userId, userId),
+          eq(certificates.programType, cognitiveProgramType)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0 && existing[0].certificateNumber) {
+      return { success: true, certificateNumber: existing[0].certificateNumber };
+    }
+
+    const certificateNumber = generateCertificateNumber();
+    const verificationHash = generateCertificateHash(certificateNumber, recipientName);
+    const issueDate = new Date();
+    // Cognitive gatepass certificates are valid for 1 year
+    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs("fellowship"));
+
+    const pdfBuffer = await renderBrandedCertificatePdf({
+      recipientName,
+      programType: cognitiveProgramType,
+      trainingDate: issueDate,
+      instructorName: "Paeds Resus",
+      certificateNumber,
+      verificationCode: verificationHash,
+    });
+
+    await db.insert(certificates).values({
+      enrollmentId,
+      userId,
+      certificateNumber,
+      programType: cognitiveProgramType,
+      issueDate,
+      expiryDate,
+      certificateUrl: "",
+      verificationCode: verificationHash,
+    });
+
+    return { success: true, certificateNumber, pdfBuffer };
+  } catch (err) {
+    console.error("[Certificates] saveAhaCognitiveCertificate:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}

@@ -20,6 +20,19 @@ export default function MicroCoursePlayerDB() {
   const { isAuthenticated } = useAuth();
   const [location, navigate] = useLocation();
 
+  // Detect if this is an AHA course (numeric slug like "1", "2", "3", "30")
+  const numericCourseId = useMemo(() => {
+    const n = parseInt(slug, 10);
+    return !isNaN(n) && String(n) === slug ? n : null;
+  }, [slug]);
+  const isAhaCourse = numericCourseId !== null;
+
+  // Extract programType from URL query params (set by AHACourses navigation)
+  const programType = useMemo(() => {
+    const params = new URLSearchParams(location.split('?')[1] ?? '');
+    return params.get('programType') ?? null;
+  }, [location]);
+
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -39,29 +52,52 @@ export default function MicroCoursePlayerDB() {
   const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
 
   // ── Queries ────────────────────────────────────────────────────────────────
+
+  // Path A: Fellowship courses — look up via catalog + title match
   const { data: allMicroCourses, isLoading: catalogLoading } = trpc.courses.listAll.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !isAhaCourse,
   });
-
   const microCourseRow = useMemo(
-    () => allMicroCourses?.find((c) => c.courseId === slug),
-    [allMicroCourses, slug]
+    () => (!isAhaCourse ? allMicroCourses?.find((c) => c.courseId === slug) : undefined),
+    [allMicroCourses, slug, isAhaCourse]
   );
-
   const { data: fellowshipCourses, isLoading: coursesLoading } = trpc.learning.getCourses.useQuery(
     { programType: "fellowship" },
     { enabled: !!microCourseRow }
   );
-
-  const dbCourse = useMemo(
+  const fellowshipDbCourse = useMemo(
     () => fellowshipCourses?.find((c) => c.title === microCourseRow?.title),
     [fellowshipCourses, microCourseRow]
   );
 
-  const { data: courseDetails, isLoading: detailsLoading } = trpc.learning.getCourseDetails.useQuery(
-    { courseId: dbCourse?.id ?? 0 },
-    { enabled: !!dbCourse }
+  // Path B: AHA courses — query getCourseDetails directly by numeric ID
+  const { data: ahaCourseDetails, isLoading: ahaDetailsLoading } = trpc.learning.getCourseDetails.useQuery(
+    { courseId: numericCourseId ?? 0 },
+    { enabled: isAhaCourse && !!numericCourseId }
   );
+
+  // Unified dbCourse: either fellowship or AHA
+  const dbCourse = useMemo(() => {
+    if (isAhaCourse && ahaCourseDetails) {
+      // Wrap AHA course in the same shape as fellowship course
+      return {
+        id: ahaCourseDetails.id,
+        courseId: String(ahaCourseDetails.id),
+        title: ahaCourseDetails.title,
+        level: (ahaCourseDetails as any).level ?? 'Intermediate',
+        duration: (ahaCourseDetails as any).duration ?? 60,
+        programType: (ahaCourseDetails as any).programType ?? programType ?? 'bls',
+      };
+    }
+    return fellowshipDbCourse ?? null;
+  }, [isAhaCourse, ahaCourseDetails, fellowshipDbCourse, programType]);
+
+  // Unified courseDetails: for AHA use ahaCourseDetails, for fellowship use the separate query
+  const { data: fellowshipCourseDetails, isLoading: detailsLoading } = trpc.learning.getCourseDetails.useQuery(
+    { courseId: fellowshipDbCourse?.id ?? 0 },
+    { enabled: !!fellowshipDbCourse && !isAhaCourse }
+  );
+  const courseDetails = isAhaCourse ? ahaCourseDetails : fellowshipCourseDetails;
 
   const currentModuleId = useMemo(() => {
     return courseDetails?.modules?.[currentModuleIndex]?.id;
@@ -75,13 +111,29 @@ export default function MicroCoursePlayerDB() {
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: myAhaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
+    enabled: isAuthenticated && isAhaCourse,
+  });
 
-  const enrollment = useMemo(
-    () => myEnrollments?.find((e) => e.course?.courseId === slug),
-    [myEnrollments, slug]
-  );
+  const enrollment = useMemo(() => {
+    if (isAhaCourse) {
+      // For AHA courses, find enrollment by programType
+      const pt = programType ?? (numericCourseId === 1 ? 'bls' : numericCourseId === 2 ? 'acls' : numericCourseId === 3 ? 'pals' : 'heartsaver');
+      return myAhaEnrollments?.find((e: any) => e.programType === pt) as any;
+    }
+    return myEnrollments?.find((e) => e.course?.courseId === slug);
+  }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, programType, numericCourseId]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
+  const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.certificateNumber) {
+        setIssuedCertNumber(data.certificateNumber);
+        toast.success(`Cognitive certificate issued! #${data.certificateNumber}`);
+      }
+    },
+  });
+
   const completeCourse = trpc.courses.complete.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -225,13 +277,23 @@ export default function MicroCoursePlayerDB() {
   };
 
   const handleFinalSubmit = () => {
-    if (dbCourse) {
+    if (!dbCourse) return;
+    if (isAhaCourse) {
+      // AHA: issue cognitive gatepass certificate
+      const pt = (dbCourse as any).programType ?? programType ?? 'bls';
+      const enrollmentId = (enrollment as any)?.id ?? 0;
+      markAhaCognitive.mutate({ enrollmentId, programType: pt });
+    } else {
       completeCourse.mutate({ courseId: dbCourse.courseId });
     }
   };
 
   // ── Loading States ─────────────────────────────────────────────────────────
-  if (catalogLoading || coursesLoading || detailsLoading) {
+  const isLoading = isAhaCourse
+    ? ahaDetailsLoading
+    : (catalogLoading || coursesLoading || detailsLoading);
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -242,21 +304,21 @@ export default function MicroCoursePlayerDB() {
     );
   }
 
-  if (!microCourseRow || !dbCourse) {
+  if (!dbCourse || (!isAhaCourse && !microCourseRow)) {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
         <h2 className="text-xl font-bold mb-2">Content Not Found</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          This course is in the catalog but not yet converted to the interactive format.
+          This course is not yet available in the interactive format.
         </p>
-        <Button onClick={() => navigate("/fellowship")}>Back to Fellowship</Button>
+        <Button onClick={() => navigate(isAhaCourse ? "/aha-courses" : "/fellowship")}>Go Back</Button>
       </div>
     );
   }
 
   // ── Completion View ────────────────────────────────────────────────────────
-  if (completeCourse.isSuccess) {
+  if (completeCourse.isSuccess || markAhaCognitive.isSuccess) {
     const submitFeedbackAndDownload = () => {
       if (!feedbackGate) return;
       if (feedbackRating === 0) { toast.error('Please select a star rating.'); return; }

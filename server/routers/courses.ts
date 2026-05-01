@@ -9,7 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from '../db';
 import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
-import { saveMicroCourseCertificate } from '../certificates';
+import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
@@ -531,6 +531,97 @@ export const coursesRouter = router({
       } catch (error) {
         console.error('Error grading capstone:', error);
         return { success: false, message: 'Failed to grade capstone' };
+      }
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-CERT-2: Mark AHA cognitive modules complete and issue gatepass certificate.
+  // Called from the AHA course player when the learner passes the final knowledge check.
+  // ─────────────────────────────────────────────────────────────────────────
+  markAhaCognitiveComplete: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']),
+        courseId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertProviderOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) throw new Error('Database unavailable');
+
+        // Find or auto-create enrollment
+        let enrolRow: { id: number; cognitiveModulesComplete: boolean | null } | null = null;
+
+        // Try by enrollmentId first
+        if (input.enrollmentId > 0) {
+          const rows = await database
+            .select({ id: enrollments.id, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+            .from(enrollments)
+            .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+            .limit(1);
+          if (rows.length > 0) enrolRow = rows[0];
+        }
+
+        // Fall back: find by userId + programType
+        if (!enrolRow) {
+          const existing = await database
+            .select({ id: enrollments.id, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+            .from(enrollments)
+            .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+            .limit(1);
+          if (existing.length > 0) enrolRow = existing[0];
+        }
+
+        // Auto-create enrollment if still not found
+        if (!enrolRow) {
+          const inserted = await database
+            .insert(enrollments)
+            .values({
+              userId: ctx.user.id,
+              programType: input.programType,
+              enrollmentStatus: 'active',
+              paymentStatus: 'completed',
+              cognitiveModulesComplete: false,
+            })
+            .$returningId();
+          const newId = (inserted as any)[0]?.id ?? 0;
+          enrolRow = { id: newId, cognitiveModulesComplete: false };
+        }
+
+        // Mark cognitive modules complete (idempotent)
+        if (!enrolRow.cognitiveModulesComplete) {
+          await database
+            .update(enrollments)
+            .set({ cognitiveModulesComplete: true })
+            .where(eq(enrollments.id, enrolRow.id));
+        }
+
+        // Issue cognitive gatepass certificate (idempotent)
+        const userRows = await database
+          .select({ name: users.name })
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1);
+        const recipientName = userRows[0]?.name ?? 'Participant';
+
+        const certResult = await saveAhaCognitiveCertificate(
+          enrolRow.id,
+          ctx.user.id,
+          recipientName,
+          input.programType
+        );
+
+        return {
+          success: true,
+          cognitiveComplete: true,
+          certificateNumber: certResult.certificateNumber,
+        };
+      } catch (err) {
+        console.error('[courses.markAhaCognitiveComplete]', err);
+        return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
       }
     }),
 
