@@ -1,6 +1,6 @@
 /**
  * Certificate PDF Generation Service
- * Generates branded PDF certificates (Paeds Resus teal + orange) with optional logo
+ * Generates world-class branded PDF certificates (ResusGPS branding)
  */
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -19,21 +19,21 @@ function certificatePdfDir(): string {
 export const CERTIFICATE_VERIFY_SITE = "https://www.paedsresus.com";
 
 /** Shown under “PAEDS RESUS” on all certificates — neutral; not fellowship-specific. */
-const CERTIFICATE_HEADER_TAGLINE = "Clinical training · Paediatric emergency care";
+const CERTIFICATE_HEADER_TAGLINE = "Global Benchmark for Paediatric Resuscitation Science";
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
   teal: rgb(27 / 255, 61 / 255, 61 / 255),
   tealLight: rgb(42 / 255, 90 / 255, 90 / 255),
   orange: rgb(243 / 255, 112 / 255, 33 / 255),
-  paper: rgb(0.99, 0.99, 0.98),
+  paper: rgb(1, 1, 1),
   ink: rgb(0.12, 0.14, 0.16),
   inkMuted: rgb(0.38, 0.4, 0.42),
 };
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma";
   trainingDate: Date;
   instructorName: string;
   certificateNumber: string;
@@ -55,105 +55,68 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     title: "Basic Life Support",
     subtitle: "BLS Certification",
     description:
-      "has successfully completed the Basic Life Support training programme and meets the completion requirements of Paeds Resus.",
+      "has successfully completed the Basic Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
     hours: 6,
   },
   acls: {
     title: "Advanced Cardiovascular Life Support",
     subtitle: "ACLS Certification",
     description:
-      "has successfully completed the Advanced Cardiovascular Life Support training programme and meets the completion requirements of Paeds Resus.",
+      "has successfully completed the Advanced Cardiovascular Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
     hours: 16,
   },
   pals: {
     title: "Pediatric Advanced Life Support",
     subtitle: "PALS Certification",
     description:
-      "has successfully completed the Pediatric Advanced Life Support training programme and meets the completion requirements of Paeds Resus.",
+      "has successfully completed the Pediatric Advanced Life Support training programme and meets the international standards of ResusGPS for pediatric emergency care.",
     hours: 16,
   },
   fellowship: {
-    title: "Paeds Resus Elite Fellowship",
-    subtitle: "Fellowship Certification",
+    title: "Micro-Course Excellence",
+    subtitle: "Fellowship Module Certification",
     description:
-      "has successfully completed the Paeds Resus Elite Fellowship programme and meets the completion requirements of Paeds Resus.",
+      "has successfully completed this specialized module as part of the ResusGPS Elite Fellowship, demonstrating clinical competence in pediatric resuscitation.",
+    hours: 4,
+  },
+  fellowship_diploma: {
+    title: "Elite Fellowship Diploma",
+    subtitle: "Fellow of the ResusGPS Academy",
+    description:
+      "has completed the full ResusGPS Elite Fellowship curriculum, demonstrating exceptional mastery in pediatric resuscitation science and emergency management.",
     hours: 120,
   },
   instructor: {
-    title: "Paeds Resus Instructor Course",
+    title: "ResusGPS Instructor Course",
     subtitle: "Instructor Certification",
     description:
-      "has successfully completed the Paeds Resus Instructor Course and meets the completion requirements of Paeds Resus.",
+      "has successfully completed the ResusGPS Instructor Course and is authorized to facilitate clinical training under the ResusGPS framework.",
     hours: 6,
   },
 };
 
-function isPngBuffer(buf: Buffer): boolean {
-  return buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+function isJpgBuffer(buf: Buffer): boolean {
+  return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
 }
 
-function resolveLogoPngBytes(): Buffer | null {
+function resolveLogoJpgBytes(): Buffer | null {
   const cwd = process.cwd();
   const here = certificatePdfDir();
-  /** Certificate-specific mark first; then shared brand assets. Production: `dist/public` beside bundled `dist/index.js`. */
-  const logoNames = [
-    "paeds-resus-certificate-logo.png",
-    "paeds-resus-logo-brand.png",
-    "paeds-resus-logo.png",
+  
+  const logoPaths = [
+    path.join(cwd, "server", "assets", "logos", "logo-landscape.jpg"),
+    path.join(cwd, "client", "public", "assets", "logos", "logo-landscape.jpg"),
+    path.join(here, "assets", "logos", "logo-landscape.jpg"),
   ];
-  const publicRoots = [
-    path.join(here, "public"),
-    path.join(cwd, "dist", "public"),
-    path.join(cwd, "client", "public"),
-    path.join(here, "..", "client", "public"),
-    path.join(here, "..", "..", "client", "public"),
-  ];
-  const candidates: string[] = [];
-  for (const root of publicRoots) {
-    for (const name of logoNames) {
-      candidates.push(path.join(root, name));
-    }
-  }
-  for (const p of candidates) {
+
+  for (const p of logoPaths) {
     try {
-      if (!fs.existsSync(p)) continue;
-      const buf = fs.readFileSync(p);
-      if (isPngBuffer(buf)) return buf;
-    } catch {
-      /* continue */
-    }
+      if (fs.existsSync(p)) {
+        return fs.readFileSync(p);
+      }
+    } catch { /* continue */ }
   }
   return null;
-}
-
-/** Makes solid black / near-black backgrounds transparent. Skips processing if the PNG already has alpha (e.g. exported brand mark). */
-export async function prepareLogoForCertificatePng(raw: Buffer): Promise<Buffer> {
-  if (!isPngBuffer(raw)) return raw;
-  try {
-    const { data, info } = await sharp(raw).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    if (info.channels !== 4) return raw;
-    const px = new Uint8ClampedArray(data);
-    for (let i = 0; i < px.length; i += 4) {
-      if (px[i + 3] === 0) continue;
-      const r = px[i];
-      const g = px[i + 1];
-      const b = px[i + 2];
-      // Knock out near-black (export artefacts) and near-white mattes so the mark blends with certificate paper.
-      if (r < 36 && g < 36 && b < 36) {
-        px[i + 3] = 0;
-      } else if (r > 245 && g > 245 && b > 245) {
-        px[i + 3] = 0;
-      }
-    }
-    return await sharp(Buffer.from(px), {
-      raw: { width: info.width, height: info.height, channels: 4 },
-    })
-      .png()
-      .toBuffer();
-  } catch (e) {
-    console.warn("[certificate-pdf] Logo alpha processing failed, using raw PNG:", e);
-    return raw;
-  }
 }
 
 /**
@@ -169,7 +132,17 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const template = CERTIFICATE_TEMPLATES[data.programType] ?? CERTIFICATE_TEMPLATES.bls;
 
-  const topBarH = 56;
+  // Background Design - Elegant Border
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width,
+    height,
+    color: BRAND.paper,
+  });
+
+  // Top Accent Bar
+  const topBarH = 12;
   page.drawRectangle({
     x: 0,
     y: height - topBarH,
@@ -178,107 +151,65 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: BRAND.teal,
   });
 
-  const orgTitle = "PAEDS RESUS";
-  const orgW = fontBold.widthOfTextAtSize(orgTitle, 13);
-  page.drawText(orgTitle, {
-    x: width / 2 - orgW / 2,
-    y: height - 36,
-    size: 13,
-    font: fontBold,
-    color: rgb(1, 1, 1),
-  });
-
-  const tag = CERTIFICATE_HEADER_TAGLINE;
-  const tagW = font.widthOfTextAtSize(tag, 8);
-  page.drawText(tag, {
-    x: width / 2 - tagW / 2,
-    y: height - 50,
-    size: 8,
-    font,
-    color: rgb(0.92, 0.95, 0.95),
-  });
-
-  const rawLogo = resolveLogoPngBytes();
-  const logoBytes = rawLogo ? await prepareLogoForCertificatePng(rawLogo) : null;
-  let logoBottomY = height - topBarH - 12;
-  if (logoBytes) {
+  // Logo Integration
+  const logoJpg = resolveLogoJpgBytes();
+  if (logoJpg) {
     try {
-      const img = await pdfDoc.embedPng(logoBytes);
-      const maxW = 152;
+      const img = await pdfDoc.embedJpg(logoJpg);
+      const maxW = 220;
       const scale = maxW / img.width;
       const lw = img.width * scale;
       const lh = img.height * scale;
-      const logoY = height - topBarH - 18 - lh;
       page.drawImage(img, {
         x: width / 2 - lw / 2,
-        y: logoY,
+        y: height - topBarH - 30 - lh,
         width: lw,
         height: lh,
       });
-      logoBottomY = logoY;
     } catch (e) {
       console.warn("[certificate-pdf] Could not embed logo:", e);
     }
   }
 
-  const panelTop = logoBottomY - 20;
-  const panelBottom = 40;
+  let y = height - 200;
 
-  page.drawRectangle({
-    x: 36,
-    y: panelBottom,
-    width: width - 72,
-    height: panelTop - panelBottom,
-    borderColor: BRAND.teal,
-    borderWidth: 2,
-    color: BRAND.paper,
-  });
-
-  page.drawRectangle({
-    x: 44,
-    y: panelBottom + 8,
-    width: width - 88,
-    height: panelTop - panelBottom - 16,
-    borderColor: BRAND.orange,
-    borderWidth: 1,
-  });
-
-  let y = panelTop - 56;
-
-  const certLabel = "Certificate of Completion";
-  const certW = fontBold.widthOfTextAtSize(certLabel, 26);
-  page.drawText(certLabel, {
-    x: width / 2 - certW / 2,
+  // Tagline
+  const tag = CERTIFICATE_HEADER_TAGLINE;
+  const tagW = font.widthOfTextAtSize(tag, 9);
+  page.drawText(tag, {
+    x: width / 2 - tagW / 2,
     y,
-    size: 26,
-    font: fontBold,
-    color: BRAND.teal,
-  });
-  y -= 36;
-
-  const subtitleText = (data.courseDisplayName?.trim() || template.subtitle).slice(0, 120);
-  const subW = font.widthOfTextAtSize(subtitleText, 12);
-  page.drawText(subtitleText, {
-    x: width / 2 - subW / 2,
-    y,
-    size: 12,
-    font,
-    color: BRAND.tealLight,
-  });
-  y -= 40;
-
-  const hereby = "This is to certify that";
-  const herebyW = font.widthOfTextAtSize(hereby, 11);
-  page.drawText(hereby, {
-    x: width / 2 - herebyW / 2,
-    y,
-    size: 11,
+    size: 9,
     font,
     color: BRAND.inkMuted,
   });
-  y -= 44;
+  y -= 45;
 
-  const nameSize = Math.min(34, 18 + Math.max(0, 14 - data.recipientName.length * 0.25));
+  // Certificate Label
+  const certLabel = "CERTIFICATE OF COMPLETION";
+  const certW = fontBold.widthOfTextAtSize(certLabel, 16);
+  page.drawText(certLabel, {
+    x: width / 2 - certW / 2,
+    y,
+    size: 16,
+    font: fontBold,
+    color: BRAND.orange,
+  });
+  y -= 40;
+
+  // Recipient Name
+  const hereby = "This is to certify that";
+  const herebyW = font.widthOfTextAtSize(hereby, 12);
+  page.drawText(hereby, {
+    x: width / 2 - herebyW / 2,
+    y,
+    size: 12,
+    font,
+    color: BRAND.inkMuted,
+  });
+  y -= 45;
+
+  const nameSize = 36;
   const nameW = fontBold.widthOfTextAtSize(data.recipientName, nameSize);
   page.drawText(data.recipientName, {
     x: width / 2 - nameW / 2,
@@ -287,141 +218,115 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     font: fontBold,
     color: BRAND.teal,
   });
-  y -= nameSize + 28;
+  y -= 40;
 
-  const courseName = data.courseDisplayName?.trim();
-  const bodyDescription = courseName
-    ? `has successfully completed ${courseName} and meets the completion requirements of Paeds Resus.`
-    : template.description;
-  const descLines = wrapText(bodyDescription, 88);
+  // Horizontal Divider
+  page.drawLine({
+    start: { x: width / 2 - 150, y },
+    end: { x: width / 2 + 150, y },
+    color: BRAND.orange,
+    thickness: 1,
+  });
+  y -= 35;
+
+  // Course Description
+  const courseName = data.courseDisplayName?.trim() || template.title;
+  const bodyDescription = template.description;
+  const descLines = wrapText(bodyDescription, 80);
   for (const line of descLines) {
-    const lw = font.widthOfTextAtSize(line, 11);
+    const lw = font.widthOfTextAtSize(line, 13);
     page.drawText(line, {
       x: width / 2 - lw / 2,
       y,
-      size: 11,
+      size: 13,
       font,
       color: BRAND.ink,
     });
-    y -= 16;
+    y -= 18;
   }
+  y -= 25;
 
-  y -= 24;
-  const hours = data.completionHours ?? template.hours;
-  const programmeLabel = data.courseDisplayName?.trim() || template.title;
-  const details: [string, string][] = [
-    ["Programme", programmeLabel.slice(0, 80)],
-    ["Completion date", formatDate(data.trainingDate)],
-    ["Credit hours recorded", String(hours)],
-    ["Faculty / signatory", data.instructorName || "Paeds Resus"],
-  ];
-
-  const boxLeft = width / 2 - 220;
-  const boxW = 440;
-  const boxH = details.length * 22 + 24;
-  page.drawRectangle({
-    x: boxLeft,
-    y: y - boxH + 18,
-    width: boxW,
-    height: boxH,
-    color: rgb(0.96, 0.98, 0.98),
-    borderColor: rgb(0.85, 0.9, 0.9),
-    borderWidth: 1,
+  // Specific Course Title (Bold)
+  const courseTitleSize = 18;
+  const courseTitleW = fontBold.widthOfTextAtSize(courseName, courseTitleSize);
+  page.drawText(courseName, {
+    x: width / 2 - courseTitleW / 2,
+    y,
+    size: courseTitleSize,
+    font: fontBold,
+    color: BRAND.teal,
   });
+  y -= 60;
 
-  let dy = y - 14;
-  for (const [k, v] of details) {
-    page.drawText(k, {
-      x: boxLeft + 16,
-      y: dy,
-      size: 9,
-      font,
-      color: BRAND.inkMuted,
-    });
-    page.drawText(v, {
-      x: boxLeft + 140,
-      y: dy,
-      size: 10,
-      font: fontBold,
-      color: BRAND.ink,
-    });
-    dy -= 22;
-  }
-
-  const footY = 52;
-  page.drawLine({
-    start: { x: width / 2 - 90, y: footY + 42 },
-    end: { x: width / 2 + 90, y: footY + 42 },
-    color: BRAND.orange,
-    thickness: 2,
-  });
-  page.drawText("Authorised representative", {
-    x: width / 2 - font.widthOfTextAtSize("Authorised representative", 9) / 2,
-    y: footY + 28,
-    size: 9,
+  // Footer Details (Date, ID, QR)
+  const footY = 80;
+  
+  // Date
+  page.drawText(`Date of Issue: ${formatDate(data.trainingDate)}`, {
+    x: 80,
+    y: footY,
+    size: 10,
     font,
-    color: BRAND.inkMuted,
+    color: BRAND.ink,
   });
 
-  page.drawText(`Certificate No. ${data.certificateNumber}`, {
-    x: 56,
-    y: footY + 18,
-    size: 9,
+  // Certificate ID
+  page.drawText(`Certificate ID: ${data.certificateNumber}`, {
+    x: 80,
+    y: footY - 15,
+    size: 10,
     font,
-    color: BRAND.inkMuted,
+    color: BRAND.ink,
   });
 
+  // Verification QR Code
   const verifyUrl = `${CERTIFICATE_VERIFY_SITE}/verify?code=${encodeURIComponent(data.verificationCode)}`;
-  let qrEmbedded = false;
   try {
     const qrPng = await QRCode.toBuffer(verifyUrl, {
       type: "png",
-      width: 240,
+      width: 200,
       margin: 1,
-      errorCorrectionLevel: "M",
       color: { dark: "#1b3d3dff", light: "#ffffffff" },
     });
     const qrImg = await pdfDoc.embedPng(qrPng);
-    const qrSize = 78;
-    const qrX = width - 56 - qrSize;
-    const qrY = footY + 6;
-    page.drawRectangle({
-      x: qrX - 4,
-      y: qrY - 4,
-      width: qrSize + 8,
-      height: qrSize + 8,
-      color: rgb(1, 1, 1),
-      borderColor: BRAND.teal,
-      borderWidth: 1,
+    const qrSize = 70;
+    page.drawImage(qrImg, { 
+      x: width - 80 - qrSize, 
+      y: footY - 20, 
+      width: qrSize, 
+      height: qrSize 
     });
-    page.drawImage(qrImg, { x: qrX, y: qrY, width: qrSize, height: qrSize });
-    const scanLabel = "Scan to verify authenticity";
-    const scanW = font.widthOfTextAtSize(scanLabel, 7);
-    page.drawText(scanLabel, {
-      x: qrX + (qrSize - scanW) / 2,
-      y: footY - 2,
+    
+    const verifyText = "Verify at paedsresus.com/verify";
+    const vtW = font.widthOfTextAtSize(verifyText, 7);
+    page.drawText(verifyText, {
+      x: width - 80 - qrSize + (qrSize - vtW) / 2,
+      y: footY - 30,
       size: 7,
       font,
       color: BRAND.inkMuted,
     });
-    qrEmbedded = true;
   } catch (e) {
-    console.warn("[certificate-pdf] QR code embed failed:", e);
+    console.warn("[certificate-pdf] QR code failed:", e);
   }
 
-  const shortCode =
-    data.verificationCode.length > 20
-      ? `${data.verificationCode.slice(0, 10)}…${data.verificationCode.slice(-6)}`
-      : data.verificationCode;
-  const verifyHint = qrEmbedded
-    ? `Verification: ${CERTIFICATE_VERIFY_SITE.replace("https://", "")}/verify`
-    : `Verify: ${CERTIFICATE_VERIFY_SITE.replace("https://", "")}/verify · ${shortCode}`;
-  page.drawText(verifyHint, {
-    x: 56,
-    y: footY,
-    size: 8,
-    font: fontBold,
-    color: BRAND.teal,
+  // Authorized Signature (Placeholder for future digital signature)
+  const sigW = 180;
+  const sigX = width / 2 - sigW / 2;
+  page.drawLine({
+    start: { x: sigX, y: footY + 10 },
+    end: { x: sigX + sigW, y: footY + 10 },
+    color: BRAND.ink,
+    thickness: 0.5,
+  });
+  const repText = "Authorised Representative";
+  const repW = font.widthOfTextAtSize(repText, 10);
+  page.drawText(repText, {
+    x: width / 2 - repW / 2,
+    y: footY - 5,
+    size: 10,
+    font,
+    color: BRAND.inkMuted,
   });
 
   const pdfBytes = await pdfDoc.save();
@@ -447,47 +352,17 @@ function wrapText(text: string, maxLength: number): string[] {
 }
 
 function formatDate(date: Date): string {
-  const options: Intl.DateTimeFormatOptions = {
+  return date.toLocaleDateString("en-GB", {
     year: "numeric",
     month: "long",
     day: "numeric",
-  };
-  return date.toLocaleDateString("en-GB", options);
+  });
 }
 
-/**
- * Save certificate PDF to file
- */
-export async function saveCertificateFile(
-  pdfBuffer: Buffer,
-  certificateNumber: string
-): Promise<string> {
-  try {
-    const certificatesDir = path.join(process.cwd(), "certificates");
-
-    if (!fs.existsSync(certificatesDir)) {
-      fs.mkdirSync(certificatesDir, { recursive: true });
-    }
-
-    const filePath = path.join(certificatesDir, `${certificateNumber}.pdf`);
-    fs.writeFileSync(filePath, pdfBuffer);
-
-    return filePath;
-  } catch (error) {
-    console.error("Error saving certificate file:", error);
-    throw error;
-  }
-}
-
-/**
- * Generate certificate filename
- */
-export function generateCertificateFilename(
-  recipientName: string,
-  programType: string,
-  date: Date
-): string {
-  const sanitizedName = recipientName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-  const dateStr = date.toISOString().split("T")[0];
-  return `${sanitizedName}_${programType}_${dateStr}`;
+export async function saveCertificateFile(pdfBuffer: Buffer, certificateNumber: string): Promise<string> {
+  const dir = path.join(process.cwd(), "certificates");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${certificateNumber}.pdf`);
+  fs.writeFileSync(filePath, pdfBuffer);
+  return filePath;
 }

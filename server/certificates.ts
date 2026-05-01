@@ -193,7 +193,7 @@ export async function saveCertificate(
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
-      programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
+      programType: programType as any,
       trainingDate,
       instructorName: instructorName || "Paeds Resus",
       certificateNumber,
@@ -206,7 +206,7 @@ export async function saveCertificate(
       enrollmentId,
       userId,
       certificateNumber,
-      programType: programType as "bls" | "acls" | "pals" | "fellowship" | "instructor",
+      programType: programType as any,
       issueDate,
       expiryDate,
       certificateUrl: "", // Would be S3 URL in production
@@ -826,7 +826,6 @@ export async function saveMicroCourseCertificate(
       verificationCode: verificationHash,
       courseDisplayName: courseTitle,
     });
-
     await db.insert(certificates).values({
       enrollmentId: 0, // sentinel: micro-course certs use microCourseEnrollmentId, not enrollmentId
       microCourseEnrollmentId,
@@ -837,7 +836,7 @@ export async function saveMicroCourseCertificate(
       expiryDate,
       certificateUrl: "",
       verificationCode: verificationHash,
-    });
+    });;
 
     // Mark the micro-course enrollment as certificate issued
     await db
