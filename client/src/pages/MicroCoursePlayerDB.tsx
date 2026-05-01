@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 export default function MicroCoursePlayerDB() {
   const { courseId: slug } = useParams<{ courseId: string }>();
   const { isAuthenticated } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
@@ -152,7 +152,7 @@ export default function MicroCoursePlayerDB() {
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
-  const isReviewMode = enrollment?.enrollmentStatus === 'completed';
+  const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
 
   const handleNextSection = () => {
     if (currentSectionIndex < sections.length - 1) {
@@ -219,8 +219,8 @@ export default function MicroCoursePlayerDB() {
   };
 
   const handleFinalSubmit = () => {
-    if (enrollment) {
-      completeCourse.mutate({ enrollmentId: enrollment.id });
+    if (dbCourse) {
+      completeCourse.mutate({ courseId: dbCourse.courseId });
     }
   };
 
