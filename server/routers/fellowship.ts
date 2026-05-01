@@ -2,7 +2,7 @@
  * Fellowship Qualification Router
  * 
  * Implements 3-pillar fellowship qualification system:
- * 1. Courses: Completion of all 26 ADF micro-courses (BLS, ACLS, PALS are optional, standalone)
+ * 1. Courses: Completion of all 27 ADF micro-courses (BLS, ACLS, PALS are optional, standalone)
  * 2. ResusGPS: ≥3 attributable cases per taught condition
  * 3. Care Signal: 24 consecutive qualifying months of monthly reporting (EAT)
  * 
@@ -39,7 +39,7 @@ async function calculateCoursesPillar(userId: number) {
   if (!db) {
     return {
       completed: 0,
-      required: 26,
+      required: 27,
       percentage: 0,
       legacyCourses: 0,
     };
@@ -65,11 +65,11 @@ async function calculateCoursesPillar(userId: number) {
       ["bls", "acls", "pals", "instructor"].includes(c.programType)
     ).length;
 
-    // Count micro-courses (should be 26 for fellowship)
+    // Count micro-courses (should be 27 for fellowship)
     const microCourses = completedMicroCourses.length;
 
-    // Total required: 26 micro-courses (legacy courses are bonus)
-    const totalRequired = 26;
+    // Total required: 27 micro-courses (legacy courses are bonus)
+    const totalRequired = 27;
     const completed = microCourses;
     const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
 
@@ -83,7 +83,7 @@ async function calculateCoursesPillar(userId: number) {
     console.error("[Fellowship] Error calculating courses pillar:", error);
     return {
       completed: 0,
-      required: 26,
+      required: 27,
       percentage: 0,
       legacyCourses: 0,
     };
@@ -305,7 +305,7 @@ export const fellowshipRouter = router({
       console.error("[Fellowship] Error in getProgress:", error);
       // Return default 0% progress on error
       return {
-        coursesPillar: { completed: 0, required: 26, percentage: 0, legacyCourses: 0 },
+        coursesPillar: { completed: 0, required: 27, percentage: 0, legacyCourses: 0 },
         resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0 },
         careSignalPillar: { streak: 0, eventsSubmitted: 0, percentage: 0 },
         isQualified: false,
