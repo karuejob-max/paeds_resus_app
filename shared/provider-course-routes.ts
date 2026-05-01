@@ -24,7 +24,8 @@ export type ProviderCourseProgram =
   | "acute-kidney-injury-i"
   | "severe-anaemia-i"
   | "burns-i"
-  | "burns-ii";
+  | "burns-ii"
+  | "heartsaver";
 
 export type ContinueRouteConfig = {
   destination: string;
@@ -48,6 +49,9 @@ export function getProviderCourseDestination(
   }
   if (courseId === "acls") {
     return enrollmentId ? `/course/acls?enrollmentId=${enrollmentId}` : "/course/acls";
+  }
+  if (courseId === "heartsaver") {
+    return enrollmentId ? `/course/heartsaver?enrollmentId=${enrollmentId}` : "/course/heartsaver";
   }
   if (courseId === "pals") {
     return enrollmentId
@@ -87,7 +91,7 @@ export function getProviderCourseDestination(
   return fallback;
 }
 
-export function getAhaContinueRoute(programType: "bls" | "acls" | "pals", enrollmentId: number): ContinueRouteConfig {
+export function getAhaContinueRoute(programType: "bls" | "acls" | "pals" | "heartsaver", enrollmentId: number): ContinueRouteConfig {
   return {
     destination: getProviderCourseDestination(programType, enrollmentId),
     ctaLabel: "Start course",

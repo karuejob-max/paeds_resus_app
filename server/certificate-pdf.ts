@@ -33,7 +33,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver";
   trainingDate: Date;
   instructorName: string;
   certificateNumber: string;

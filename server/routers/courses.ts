@@ -77,7 +77,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals']))
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
         .orderBy(asc(courses.programType), asc(courses.order));
     } catch (error) {
       console.error('[courses.listAhaPrograms]', error);
@@ -98,7 +98,7 @@ export const coursesRouter = router({
       const rows = await database
         .select()
         .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals']))
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
         .orderBy(asc(courses.programType), asc(courses.id));
       const seen = new Set<string>();
       const distinct: (typeof rows)[number][] = [];
@@ -107,7 +107,7 @@ export const coursesRouter = router({
         seen.add(r.programType);
         distinct.push(r);
       }
-      const order = ['bls', 'acls', 'pals'] as const;
+      const order = ['bls', 'acls', 'pals', 'heartsaver'] as const;
       return order.map((pt) => distinct.find((r) => r.programType === pt)).filter(Boolean) as (typeof rows)[number][];
     } catch (error) {
       console.error('[courses.listAhaHubPrograms]', error);
@@ -124,7 +124,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals'])))
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver'])))
         .orderBy(desc(enrollments.createdAt));
     } catch (error) {
       console.error('[courses.getMyAhaEnrollments]', error);
@@ -538,7 +538,7 @@ export const coursesRouter = router({
   // AHA-SCHED-1: List upcoming public hands-on sessions available for booking.
   // ─────────────────────────────────────────────────────────────────────────
   listUpcomingHandsOnSessions: protectedProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals"]).optional() }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];

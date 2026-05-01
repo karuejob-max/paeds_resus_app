@@ -9,7 +9,7 @@ import { BookOpen, CheckCircle2, ArrowLeft, XCircle, Clock, ClipboardCheck, Cale
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute } from "@/lib/providerCourseRoutes";
 
-const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals", { title: string; description: string }> = {
+const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver", { title: string; description: string }> = {
   bls: {
     title: "BLS (Basic Life Support)",
     description: "Core life support skills for rapid recognition, CPR, and team response.",
@@ -21,6 +21,10 @@ const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals", { title: string; descrip
   pals: {
     title: "PALS (Pediatric Advanced Life Support)",
     description: "Pediatric emergency assessment and stabilization for critically ill children.",
+  },
+  heartsaver: {
+    title: "Heartsaver CPR AED",
+    description: "CPR and AED skills for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR.",
   },
 };
 
@@ -161,7 +165,7 @@ export default function AHACourses() {
               <BookOpen className="h-8 w-8" />
               AHA certification
             </h1>
-            <p className="text-muted-foreground mt-2">BLS, ACLS, and PALS only. Fellowship micro-courses are managed in Fellowship.</p>
+            <p className="text-muted-foreground mt-2">BLS, ACLS, PALS, and Heartsaver. Fellowship micro-courses are managed in the Fellowship section.</p>
           </div>
         </div>
 
@@ -188,7 +192,7 @@ export default function AHACourses() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {(ahaCourses ?? []).map((course) => {
             const pt = course.programType;
-            const programCopy = AHA_PROGRAM_COPY[pt as "bls" | "acls" | "pals"];
+            const programCopy = AHA_PROGRAM_COPY[pt as "bls" | "acls" | "pals" | "heartsaver"];
             const enrol = latestAhaByProgram.get(pt);
             const isEnrolled = !!enrol;
             const isPaid = enrol?.paymentStatus === "completed";
@@ -269,7 +273,7 @@ export default function AHACourses() {
                           source: "aha_courses_page",
                         });
                         if (enrol?.id) {
-                          const config = getAhaContinueRoute(pt as "bls" | "acls" | "pals", enrol.id);
+                          const config = getAhaContinueRoute(pt as "bls" | "acls" | "pals" | "heartsaver", enrol.id);
                           setLocation(config.destination);
                           return;
                         }
@@ -277,7 +281,7 @@ export default function AHACourses() {
                       }}
                     >
                       {enrol?.id
-                        ? getAhaContinueRoute(pt as "bls" | "acls" | "pals", enrol.id).ctaLabel
+                        ? getAhaContinueRoute(pt as "bls" | "acls" | "pals" | "heartsaver", enrol.id).ctaLabel
                         : "Open learner dashboard"}
                     </Button>
                   )}

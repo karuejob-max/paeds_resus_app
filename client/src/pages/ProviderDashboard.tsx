@@ -130,42 +130,51 @@ export default function ProviderDashboard() {
   }
 
   // ── Certificate download ──────────────────────────────────────────────────────
+  const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
+    try {
+      const byteCharacters = atob(pdfBase64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteArray[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Certificate downloaded successfully.");
+    } catch (err) {
+      console.error("PDF download processing error:", err);
+      toast.error("Failed to process certificate file.");
+    }
+  };
+
   const runCertificateDownload = (certNumber: string, certId: number) => {
     downloadCert.mutate(
       { certificateNumber: certNumber },
       {
         onSuccess: (res) => {
           setDownloadingCertificateId(null);
-          if (res.success && res.pdfBase64) {
-            try {
-              const byteCharacters = atob(res.pdfBase64);
-              const byteNumbers = new Array(byteCharacters.length);
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              const blob = new Blob([byteArray], { type: "application/pdf" });
-              const blobUrl = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = blobUrl;
-              a.download = res.filename || `certificate-${certNumber}.pdf`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(blobUrl);
-              toast.success("Certificate downloaded successfully.");
-            } catch (err) {
-              console.error("PDF download processing error:", err);
-              toast.error("Failed to process certificate file.");
-            }
+          if (res.success && (res as any).pdfBase64) {
+            triggerBrowserDownload((res as any).pdfBase64, (res as any).filename || `certificate-${certNumber}.pdf`);
+          } else if ((res as any).error === "feedback_required") {
+            // Backend requires feedback before download — open feedback dialog
+            const cert = myCertificates.find(c => c.certificateNumber === certNumber);
+            const label = cert?.courseTitle?.trim() || "Course Certificate";
+            const fbCertId = (res as any).certificateId ?? certId;
+            setFeedbackDialog({ certificateId: fbCertId, certificateNumber: certNumber, courseLabel: label });
           } else {
-            toast.error((res as any).error ?? "Download failed.");
+            toast.error((res as any).error ?? "Download failed. Please try again.");
           }
           void utils.certificates.getMyCertificates.invalidate();
         },
         onError: (e) => {
           setDownloadingCertificateId(null);
-          toast.error(e.message || "Download failed.");
+          toast.error(e.message || "Download failed. Please try again.");
         },
       }
     );
@@ -174,16 +183,16 @@ export default function ProviderDashboard() {
   const handleDownloadCertificate = (
     certId: number,
     certNumber: string | null | undefined,
-    courseTitle: string | null | undefined,
-    programType: string
+    _courseTitle: string | null | undefined,
+    _programType: string
   ) => {
     if (!certNumber) {
       toast.error("Certificate is not yet issued. Complete the course to receive your certificate.");
       return;
     }
-    const label = courseTitle?.trim() || programType.toUpperCase();
     setDownloadingCertificateId(certId);
-    setFeedbackDialog({ certificateId: certId, certificateNumber: certNumber, courseLabel: label });
+    // Try direct download — backend handles feedback gate
+    runCertificateDownload(certNumber, certId);
   };
 
   useEffect(() => {
