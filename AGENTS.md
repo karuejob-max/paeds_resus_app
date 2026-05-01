@@ -114,7 +114,29 @@ CHM is the **first live Paeds Resus Institutional Pro customer** and the **Gold 
 
 ---
 
-## 7. Development Guardrails (from PSOT §13)
+## 7. The Paeds Resus Fellowship — One Fellowship, Three Pillars
+
+**There is exactly one fellowship: the Paeds Resus Fellowship.**
+A provider who completes all three pillars earns the title **Paeds Resus Fellow**.
+
+| Pillar | Requirement | Source of Truth |
+| :--- | :--- | :--- |
+| **A — Micro-Courses** | Complete **every** active ADF micro-course in the MECE catalog. | `certificates` / `enrollments` DB rows per course. |
+| **B — ResusGPS** | ≥3 attributable cases **per taught condition** (server-side, anti-gaming). | `analyticsEvents` |
+| **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` |
+
+**Critical rules (from PSOT §17 and FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md):**
+- **Fellow status is 100% automated** — no manual conferral in v1. If automation is incomplete, do not ship Fellow UI.
+- **No fellowship surcharge** — fellowship is earned through platform use, not a bundled purchase. Providers pay per course/micro-course SKU.
+- **BLS, ACLS, PALS are NOT required** for fellowship qualification. They are optional, standalone AHA-certified offerings on a separate track.
+- **Care Signal ≠ Safe-Truth.** Care Signal is the staff incident/near-miss reporting product (fellowship pillar C). Safe-Truth is the parent/guardian product. Never mix them.
+- **Do not** show "Fellow" title or fellowship progress UI until the §11 launch checklist in FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md fully passes.
+
+**Canonical detail:** `docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md` and PSOT §17.
+
+---
+
+## 8. Development Guardrails (from PSOT §13)
 
 - **Extend, don't replace.** New features plug into existing routes, tRPC procedures, admin reports, and event tracking unless there is a deliberate architectural decision.
 - **Preserve the user model.** No single-role lock; preserve multi-context switching in the UI.
