@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -81,12 +81,52 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
-        setTimeout(() => navigate("/fellowship"), 2500);
+        // Stay on page to show completion success UI
+        // setIssuedCertNumber already set above
       } else {
         toast.error(data.message || "Failed to complete course");
       }
     },
   });
+
+  const downloadCert = trpc.certificates.download.useMutation();
+
+  const handleDownload = (certNumber: string) => {
+    downloadCert.mutate(
+      { certificateNumber: certNumber },
+      {
+        onSuccess: (res) => {
+          if (res.success && res.pdfBase64) {
+            try {
+              const byteCharacters = atob(res.pdfBase64);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              const blob = new Blob([byteArray], { type: 'application/pdf' });
+              const blobUrl = URL.createObjectURL(blob);
+              
+              const a = document.createElement("a");
+              a.href = blobUrl;
+              a.download = res.filename || `certificate-${certNumber}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(blobUrl);
+              toast.success("Certificate downloaded!");
+            } catch (err) {
+              console.error("PDF download error:", err);
+              toast.error("Failed to process certificate file.");
+            }
+          } else {
+            toast.error(res.error || "Download failed.");
+          }
+        },
+        onError: (e) => toast.error(e.message || "Download failed."),
+      }
+    );
+  };
 
   const submitQuiz = trpc.learning.recordQuizAttempt.useMutation({
     onSuccess: (result) => {
@@ -167,6 +207,55 @@ export default function MicroCoursePlayerDB() {
   const currentModule = moduleContent;
   const isLastModule = currentModuleIndex === modules.length - 1;
   const quiz = currentModule?.quizzes?.[0];
+
+  // ── Completion View ────────────────────────────────────────────────────────
+  if (completeCourse.isSuccess) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full shadow-xl border-none">
+          <CardContent className="pt-10 pb-8 px-8 text-center">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Award className="w-10 h-10 text-emerald-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Course Completed!</h2>
+            <p className="text-slate-600 mb-8">
+              Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.
+            </p>
+
+            {issuedCertNumber && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Certificate Number</p>
+                <p className="text-lg font-mono font-bold text-primary">{issuedCertNumber}</p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {issuedCertNumber && (
+                <Button 
+                  className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
+                  onClick={() => handleDownload(issuedCertNumber)}
+                  disabled={downloadCert.isPending}
+                >
+                  {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                  Download My Certificate
+                </Button>
+              )}
+              <Button 
+                variant="outline"
+                className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
+                onClick={() => navigate("/fellowship")}
+              >
+                Return to Fellowship Dashboard
+              </Button>
+              <p className="text-xs text-slate-400">
+                You can also download your certificate anytime from your profile or the dashboard.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

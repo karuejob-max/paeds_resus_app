@@ -456,26 +456,23 @@ export const fellowshipRouter = router({
 
     // Issue Fellowship Diploma
     const [user] = await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const recipientName = user?.name || 'Fellow Candidate';
     
-    const certCode = `FELLOW-${ctx.user.id}-${Date.now().toString(36).toUpperCase()}`;
-    
-    await db.insert(certificates).values({
-      userId: ctx.user.id,
-      recipientName: user.name || 'Fellow Candidate',
-      programType: 'fellowship_diploma',
-      certificateCode: certCode,
-      trainingDate: new Date(),
-      expiryDate: null, // Fellowship is for life
-      instructorName: 'PaedsResus Global Board',
-      issueDate: new Date(),
-    });
+    // Use the central certificate issuance logic
+    const { saveCertificate } = await import("../certificates");
+    const result = await saveCertificate(
+      0, // enrollmentId 0 for graduation
+      recipientName,
+      'fellowship_diploma',
+      new Date(),
+      'PaedsResus Global Board',
+      ctx.user.id
+    );
 
-    const [newCert] = await db
-      .select({ id: certificates.id })
-      .from(certificates)
-      .where(eq(certificates.certificateCode, certCode))
-      .limit(1);
+    if (!result.success) {
+      throw new Error(`Graduation failed: ${result.error}`);
+    }
 
-    return { success: true, certificateId: newCert.id, code: certCode };
+    return { success: true, certificateNumber: result.certificateNumber };
   }),
 });

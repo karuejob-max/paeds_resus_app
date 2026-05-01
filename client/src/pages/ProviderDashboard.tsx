@@ -101,11 +101,29 @@ export default function ProviderDashboard() {
       {
         onSuccess: (res) => {
           setDownloadingCertificateId(null);
-          if (res.success && res.url) {
-            const a = document.createElement("a");
-            a.href = res.url;
-            a.download = `certificate-${certNumber}.pdf`;
-            a.click();
+          if (res.success && res.pdfBase64) {
+            try {
+              const byteCharacters = atob(res.pdfBase64);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              const blob = new Blob([byteArray], { type: 'application/pdf' });
+              const blobUrl = URL.createObjectURL(blob);
+              
+              const a = document.createElement("a");
+              a.href = blobUrl;
+              a.download = res.filename || `certificate-${certNumber}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(blobUrl);
+              toast.success("Certificate downloaded successfully.");
+            } catch (err) {
+              console.error("PDF download processing error:", err);
+              toast.error("Failed to process certificate file.");
+            }
           } else {
             toast.error(res.error ?? "Download failed.");
           }

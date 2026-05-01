@@ -123,6 +123,7 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 - **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `fellowship` \| `instructor`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
 - **Certified:** A row in **`certificates`** = one certificate. Authoritative fields include `issueDate`, `programType`.
+- **Certification Strategy (Incentives):** To maintain high learner motivation and clinical rigor, certificates are issued for **every** successfully completed micro-course, every AHA course (BLS, ACLS, PALS), and finally the **Fellowship Diploma** upon graduation. Certificates must be verifiable and downloadable on-demand from the provider dashboard.
 - **Instructor journey:** Completing the **Instructor Course** (`programType` = `instructor`) issues a certificate and sets **`users.instructorNumber`** + **`users.instructorCertifiedAt`**. **B2B teaching** on institutional schedules still requires **`users.instructorApprovedAt`** (platform admin under Admin → Reports) so hospitals only assign certified, approved instructors.
 
 ---
