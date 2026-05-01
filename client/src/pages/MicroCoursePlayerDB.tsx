@@ -98,6 +98,7 @@ export default function MicroCoursePlayerDB() {
   });
 
   const downloadCert = trpc.certificates.download.useMutation();
+  const submitFeedbackMutation = trpc.certificates.submitDownloadFeedback.useMutation();
 
   const handleDownload = (certNumber: string) => {
     downloadCert.mutate(
@@ -256,21 +257,29 @@ export default function MicroCoursePlayerDB() {
 
   // ── Completion View ────────────────────────────────────────────────────────
   if (completeCourse.isSuccess) {
-    const submitFeedbackAndDownload = async () => {
+    const submitFeedbackAndDownload = () => {
       if (!feedbackGate) return;
       if (feedbackRating === 0) { toast.error('Please select a star rating.'); return; }
       if (feedbackText.trim().length < 10) { toast.error('Please write at least 10 characters of feedback.'); return; }
-      try {
-        const result = await (trpc.certificates.submitDownloadFeedback as any).mutate({
+      submitFeedbackMutation.mutate(
+        {
           certificateId: feedbackGate.certificateId,
           rating: feedbackRating,
           improvements: feedbackText,
-        });
-        setFeedbackGate(null);
-        handleDownload(feedbackGate.certNumber);
-      } catch (e: any) {
-        toast.error(e.message || 'Failed to submit feedback.');
-      }
+        },
+        {
+          onSuccess: (result) => {
+            if (result.success) {
+              const certNum = feedbackGate.certNumber;
+              setFeedbackGate(null);
+              handleDownload(certNum);
+            } else {
+              toast.error((result as any).error || 'Failed to submit feedback. Please try again.');
+            }
+          },
+          onError: (e) => toast.error(e.message || 'Failed to submit feedback.'),
+        }
+      );
     };
 
     return (
@@ -301,8 +310,8 @@ export default function MicroCoursePlayerDB() {
                   onChange={e => setFeedbackText(e.target.value)}
                 />
               </div>
-              <Button className="w-full py-4 font-bold" onClick={submitFeedbackAndDownload} disabled={downloadCert.isPending}>
-                {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Download className="w-5 h-5 mr-2" />}
+              <Button className="w-full py-4 font-bold" onClick={submitFeedbackAndDownload} disabled={submitFeedbackMutation.isPending || downloadCert.isPending}>
+                {(submitFeedbackMutation.isPending || downloadCert.isPending) ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Download className="w-5 h-5 mr-2" />}
                 Submit & Download Certificate
               </Button>
             </CardContent>
@@ -337,6 +346,13 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="outline"
                   className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
+                  onClick={() => navigate("/fellowship?tab=certificates")}
+                >
+                  View My Certificates
+                </Button>
+                <Button 
+                  variant="ghost"
+                  className="w-full py-4 text-slate-500 font-medium"
                   onClick={() => navigate("/fellowship")}
                 >
                   Return to Fellowship Dashboard
@@ -485,21 +501,15 @@ export default function MicroCoursePlayerDB() {
                   </div>
                 ) : (
                   <div 
-                    className="prose prose-slate max-w-none 
-                      prose-h2:text-xl prose-h2:font-bold prose-h2:text-primary prose-h2:mt-8 prose-h2:mb-4
-                      prose-p:text-slate-700 prose-p:leading-relaxed prose-p:text-lg
-                      prose-li:text-slate-700 prose-li:text-lg
-                      prose-strong:text-slate-900 prose-strong:font-bold
-                      [&_.clinical-note]:bg-primary/5 [&_.clinical-note]:border-l-4 [&_.clinical-note]:border-primary [&_.clinical-note]:p-6 [&_.clinical-note]:my-8 [&_.clinical-note]:rounded-r-xl
-                      [&_.clinical-note_h4]:text-primary [&_.clinical-note_h4]:font-bold [&_.clinical-note_h4]:mb-3 [&_.clinical-note_h4]:mt-0 [&_.clinical-note_h4]:uppercase [&_.clinical-note_h4]:tracking-wider [&_.clinical-note_h4]:text-xs"
+                    className="module-content max-w-none"
                     dangerouslySetInnerHTML={{ __html: currentSection?.content || currentModule?.content || "" }} 
                   />
                 )}
               </CardContent>
-              <CardFooter className="bg-slate-50 border-t border-slate-100 p-6 flex justify-between items-center">
+              <CardFooter className="bg-muted/30 border-t border-border p-6 flex justify-between items-center">
                 <Button 
                   variant="ghost" 
-                  className="text-slate-500 font-semibold"
+                  className="text-muted-foreground font-semibold"
                   onClick={() => setCurrentSectionIndex(Math.max(0, currentSectionIndex - 1))}
                   disabled={currentSectionIndex === 0}
                 >
@@ -523,13 +533,13 @@ export default function MicroCoursePlayerDB() {
             </Card>
 
             {/* Context Helper */}
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex gap-4">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-2xl p-6 flex gap-4">
               <div className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-blue-900 mb-1">Learning Tip</h4>
-                <p className="text-sm text-blue-800/80 leading-relaxed">
+                <h4 className="font-bold text-blue-900 dark:text-blue-200 mb-1">Learning Tip</h4>
+                <p className="text-sm text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
                   Focus on the "Clinical Notes" in this section. These contain the high-yield resuscitation parameters 
                   required for the fellowship examination and real-world bedside performance.
                 </p>
@@ -552,13 +562,13 @@ function FormativeQuizView({
 
   return (
     <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <CardHeader className="bg-slate-900 text-white p-8">
+      <CardHeader className="bg-primary text-primary-foreground p-8">
         <div className="flex items-center gap-2 text-primary-400 mb-2">
           <ListChecks className="w-5 h-5" />
-          <span className="text-xs font-bold uppercase tracking-widest">Knowledge Check</span>
+          <span className="text-xs font-bold uppercase tracking-widest opacity-80">Knowledge Check</span>
         </div>
         <CardTitle className="text-2xl font-bold">Review: {moduleTitle}</CardTitle>
-        <p className="text-slate-400 text-sm mt-2">
+        <p className="text-primary-foreground/70 text-sm mt-2">
           Test your understanding of the concepts covered in this module. 
           Passing score: <span className="text-white font-bold">{quiz.passingScore}%</span>
         </p>
@@ -567,10 +577,10 @@ function FormativeQuizView({
         {quiz.questions.map((q: any, idx: number) => (
           <div key={q.id} className="space-y-4">
             <div className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-sm">
+              <span className="flex-shrink-0 w-8 h-8 bg-muted rounded-lg flex items-center justify-center font-bold text-muted-foreground text-sm">
                 {idx + 1}
               </span>
-              <h3 className="text-lg font-semibold text-slate-800 leading-snug">{q.question}</h3>
+              <h3 className="text-lg font-semibold text-foreground leading-snug">{q.question}</h3>
             </div>
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
@@ -585,7 +595,7 @@ function FormativeQuizView({
                     onClick={() => setAnswers({ ...answers, [idx]: option })}
                     className={cn(
                       "text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group",
-                      isSelected && !submitted ? "border-primary bg-primary/5 text-primary" : "border-slate-100 hover:border-slate-200",
+                      isSelected && !submitted ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-muted-foreground/30",
                       isCorrect ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "",
                       isWrong ? "border-red-500 bg-red-50 text-red-700" : ""
                     )}
@@ -598,14 +608,14 @@ function FormativeQuizView({
               })}
             </div>
             {submitted && q.explanation && (
-              <div className="ml-12 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 italic border-l-4 border-slate-200">
+              <div className="ml-12 p-4 bg-muted rounded-xl text-sm text-muted-foreground italic border-l-4 border-border">
                 <strong>Rationale:</strong> {q.explanation}
               </div>
             )}
           </div>
         ))}
       </CardContent>
-      <CardFooter className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col gap-6">
+      <CardFooter className="p-8 bg-muted/30 border-t border-border flex flex-col gap-6">
         {!submitted ? (
           <Button 
             className="w-full py-8 rounded-2xl font-bold text-xl shadow-xl shadow-primary/20"
@@ -638,7 +648,7 @@ function FormativeQuizView({
             ) : (
               <Button 
                 variant="outline"
-                className="w-full py-8 rounded-2xl font-bold text-xl border-slate-200"
+                className="w-full py-8 rounded-2xl font-bold text-xl border-border"
                 onClick={() => {
                   setAnswers({});
                   onNext(); // Or allow retry
@@ -665,25 +675,25 @@ function SummativeQuizView({ course, quiz, onComplete, isPending }: any) {
         <h2 className="text-3xl font-black mb-2">Final Verification</h2>
         <p className="text-primary-100 max-w-md mx-auto">
           You have completed all learning modules for <strong>{course.title}</strong>. 
-          Submit your final assessment to receive your world-class certificate.
+          Submit your final assessment to receive your Paeds Resus Fellowship certificate.
         </p>
       </div>
       <CardContent className="p-12 text-center space-y-8">
         <div className="flex justify-center gap-12">
           <div className="text-center">
-            <p className="text-4xl font-black text-slate-900">100%</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Content Read</p>
+            <p className="text-4xl font-black text-foreground">100%</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Content Read</p>
           </div>
           <div className="text-center">
-            <p className="text-4xl font-black text-slate-900">{course.duration}m</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Time Invested</p>
+            <p className="text-4xl font-black text-foreground">{course.duration}m</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Time Invested</p>
           </div>
         </div>
         
-        <div className="p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+        <div className="p-8 bg-muted/30 rounded-3xl border-2 border-dashed border-border">
           <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-          <h4 className="font-bold text-slate-800 text-lg mb-2">Ready for Certification</h4>
-          <p className="text-sm text-slate-500 leading-relaxed">
+          <h4 className="font-bold text-foreground text-lg mb-2">Ready for Certification</h4>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             By clicking below, you confirm that you have reviewed all clinical protocols and are ready 
             to be recognized as a Paeds Resus verified provider for this specialty.
           </p>

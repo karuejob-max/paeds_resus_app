@@ -261,6 +261,251 @@
     }
   }
 
+  /* ═══════════════════════════════════════════════════════════════════
+   * DARK MODE COLOUR OVERRIDES
+   * Many pages use hardcoded Tailwind grey/slate classes that look
+   * bright in dark mode or invisible in light mode. These overrides
+   * remap the most common offenders to semantic CSS variables so
+   * both themes are balanced without touching every component.
+   * ═══════════════════════════════════════════════════════════════════ */
+  .dark .bg-gray-50,
+  .dark .bg-gray-100 {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-gray-200 {
+    background-color: var(--secondary) !important;
+  }
+  .dark .bg-gray-700,
+  .dark .bg-gray-800 {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-gray-900 {
+    background-color: var(--background) !important;
+  }
+  .dark .bg-slate-50,
+  .dark .bg-slate-100 {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-slate-200 {
+    background-color: var(--secondary) !important;
+  }
+  .dark .bg-slate-600,
+  .dark .bg-slate-700,
+  .dark .bg-slate-800 {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-slate-900 {
+    background-color: var(--background) !important;
+  }
+  .dark .bg-white {
+    background-color: var(--card) !important;
+  }
+  /* Text overrides */
+  .dark .text-gray-900,
+  .dark .text-slate-900 {
+    color: var(--foreground) !important;
+  }
+  .dark .text-gray-800,
+  .dark .text-slate-800 {
+    color: var(--foreground) !important;
+  }
+  .dark .text-gray-700,
+  .dark .text-slate-700 {
+    color: var(--foreground) !important;
+  }
+  .dark .text-gray-600,
+  .dark .text-slate-600 {
+    color: var(--muted-foreground) !important;
+  }
+  .dark .text-gray-500,
+  .dark .text-slate-500 {
+    color: var(--muted-foreground) !important;
+  }
+  .dark .text-gray-400,
+  .dark .text-slate-400 {
+    color: var(--muted-foreground) !important;
+  }
+  .dark .text-gray-300,
+  .dark .text-slate-300 {
+    color: var(--foreground) !important;
+  }
+  /* Border overrides */
+  .dark .border-gray-200,
+  .dark .border-slate-200,
+  .dark .border-gray-100,
+  .dark .border-slate-100 {
+    border-color: var(--border) !important;
+  }
+  .dark .border-gray-700,
+  .dark .border-slate-700,
+  .dark .border-gray-800,
+  .dark .border-slate-800 {
+    border-color: var(--border) !important;
+  }
+  /* Divide overrides */
+  .dark .divide-gray-200 > * + *,
+  .dark .divide-slate-200 > * + * {
+    border-color: var(--border) !important;
+  }
+  /* Ring/shadow overrides for focus states */
+  .dark .ring-gray-200,
+  .dark .ring-slate-200 {
+    --tw-ring-color: var(--border) !important;
+  }
+  /* Hover state overrides */
+  .dark .hover\:bg-gray-50:hover,
+  .dark .hover\:bg-gray-100:hover {
+    background-color: var(--accent) !important;
+  }
+  .dark .hover\:bg-gray-700:hover,
+  .dark .hover\:bg-gray-800:hover,
+  .dark .hover\:bg-slate-700:hover,
+  .dark .hover\:bg-slate-800:hover {
+    background-color: var(--accent) !important;
+  }
+  /* Light mode: ensure slate-800/900 used for dark text is readable */
+  :root:not(.dark) .text-slate-300,
+  :root:not(.dark) .text-gray-300,
+  :root:not(.dark) .text-slate-400,
+  :root:not(.dark) .text-gray-400 {
+    color: var(--muted-foreground) !important;
+  }
+  /* Prose content in dark mode */
+  .dark .prose {
+    color: var(--foreground);
+  }
+  .dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .prose h4 {
+    color: var(--foreground);
+  }
+  .dark .prose p, .dark .prose li {
+    color: var(--muted-foreground);
+  }
+  .dark .prose strong {
+    color: var(--foreground);
+  }
+  .dark .prose a {
+    color: var(--brand-orange);
+  }
+  .dark .prose code {
+    background-color: var(--secondary);
+    color: var(--foreground);
+  }
+  /* Module content HTML rendered via dangerouslySetInnerHTML */
+  .dark .module-content h1, .dark .module-content h2, .dark .module-content h3,
+  .dark .module-content h4, .dark .module-content h5 {
+    color: var(--foreground);
+  }
+  .dark .module-content p, .dark .module-content li {
+    color: var(--muted-foreground);
+  }
+  .dark .module-content strong, .dark .module-content b {
+    color: var(--foreground);
+  }
+  .dark .module-content table {
+    border-color: var(--border);
+  }
+  .dark .module-content th {
+    background-color: var(--secondary);
+    color: var(--foreground);
+  }
+  .dark .module-content td {
+    border-color: var(--border);
+    color: var(--muted-foreground);
+  }
+  .dark .module-content code, .dark .module-content pre {
+    background-color: var(--secondary);
+    color: var(--foreground);
+  }
+  /* Light mode module content */
+  .module-content h1, .module-content h2, .module-content h3 {
+    color: var(--brand-teal);
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .module-content h4, .module-content h5 {
+    color: var(--foreground);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .module-content p {
+    margin-bottom: 0.875rem;
+    line-height: 1.7;
+  }
+  .module-content ul, .module-content ol {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .module-content li {
+    margin-bottom: 0.375rem;
+    line-height: 1.65;
+  }
+  .module-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+  }
+  .module-content th {
+    background-color: var(--brand-teal);
+    color: #ffffff;
+    padding: 0.6rem 0.875rem;
+    text-align: left;
+    font-weight: 600;
+  }
+  .module-content td {
+    padding: 0.5rem 0.875rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .module-content tr:nth-child(even) td {
+    background-color: var(--muted);
+  }
+  .module-content blockquote {
+    border-left: 4px solid var(--brand-orange);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  .module-content code {
+    background-color: var(--muted);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    color: var(--brand-teal);
+  }
+  .module-content .clinical-box {
+    background-color: var(--accent);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--brand-teal);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  .module-content .warning-box {
+    background-color: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-left: 4px solid var(--brand-orange);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  .dark .module-content .warning-box {
+    background-color: #2a1a0a;
+    border-color: #7c3a0a;
+  }
+  .module-content .danger-box {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  .dark .module-content .danger-box {
+    background-color: #1f0a0a;
+    border-color: #7c1a1a;
+  }
+
   /* Mobile emergency protocol optimizations */
   @media (max-width: 640px) {
     /* Larger text for critical information */
