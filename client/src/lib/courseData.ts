@@ -89,14 +89,14 @@ export const COURSES: Record<string, Course> = {
 
   bronze: {
     id: "bronze",
-    name: "Bronze Elite Fellowship",
+    name: "Bronze Paeds Resus Fellowship",
     shortName: "Bronze Fellowship",
     category: "fellowship",
     basePrice: 70000,
     duration: "3 months",
     description: "Foundational pediatric resuscitation certification program",
     longDescription:
-      "Comprehensive 3-month Bronze Elite Fellowship covering pediatric physiology, trauma management, neonatal resuscitation, and foundational leadership skills for healthcare professionals.",
+      "Comprehensive 3-month Bronze Paeds Resus Fellowship covering pediatric physiology, trauma management, neonatal resuscitation, and foundational leadership skills for healthcare professionals.",
     topics: [
       "Pediatric physiology",
       "Trauma management",
@@ -107,19 +107,19 @@ export const COURSES: Record<string, Course> = {
     ],
     targetAudience: "Healthcare professionals seeking certification",
     prerequisites: "BLS and PALS certification",
-    certification: "Bronze Elite Fellowship Certificate",
+    certification: "Bronze Paeds Resus Fellowship Certificate",
   },
 
   silver: {
     id: "silver",
-    name: "Silver Elite Fellowship",
+    name: "Silver Paeds Resus Fellowship",
     shortName: "Silver Fellowship",
     category: "fellowship",
     basePrice: 100000,
     duration: "6 months",
     description: "Advanced pediatric resuscitation with clinical mentorship",
     longDescription:
-      "Comprehensive 6-month Silver Elite Fellowship including advanced pediatric resuscitation, clinical mentorship, research projects, and advanced leadership development for healthcare leaders.",
+      "Comprehensive 6-month Silver Paeds Resus Fellowship including advanced pediatric resuscitation, clinical mentorship, research projects, and advanced leadership development for healthcare leaders.",
     topics: [
       "Advanced pediatric resuscitation",
       "Clinical mentorship",
@@ -130,19 +130,19 @@ export const COURSES: Record<string, Course> = {
     ],
     targetAudience: "Senior healthcare professionals and leaders",
     prerequisites: "BLS, PALS, and Bronze Fellowship",
-    certification: "Silver Elite Fellowship Certificate",
+    certification: "Silver Paeds Resus Fellowship Certificate",
   },
 
   gold: {
     id: "gold",
-    name: "Gold Elite Fellowship",
+    name: "Gold Paeds Resus Fellowship",
     shortName: "Gold Fellowship",
     category: "fellowship",
     basePrice: 150000,
     duration: "12 months",
     description: "Comprehensive mastery program with institutional leadership focus",
     longDescription:
-      "Comprehensive 12-month Gold Elite Fellowship providing mastery-level training in pediatric resuscitation, institutional leadership, program development, and strategic implementation for healthcare executives.",
+      "Comprehensive 12-month Gold Paeds Resus Fellowship providing mastery-level training in pediatric resuscitation, institutional leadership, program development, and strategic implementation for healthcare executives.",
     topics: [
       "Mastery-level resuscitation",
       "Institutional leadership",
@@ -153,7 +153,7 @@ export const COURSES: Record<string, Course> = {
     ],
     targetAudience: "Healthcare executives and institutional leaders",
     prerequisites: "BLS, PALS, Bronze, and Silver Fellowship",
-    certification: "Gold Elite Fellowship Certificate & Leadership Credential",
+    certification: "Gold Paeds Resus Fellowship Certificate & Leadership Credential",
   },
 };
 

@@ -35,7 +35,7 @@ export const emailTemplates: Record<string, EmailTemplate> = {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
           <h1 style="margin: 0;">Welcome to Paeds Resus</h1>
-          <p style="margin: 10px 0 0 0; font-size: 14px;">Elite Fellowship and Safe-Truth Platform</p>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Paeds Resus Fellowship and Safe-Truth Platform</p>
         </div>
         <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
           <p>Hello {{providerName}},</p>

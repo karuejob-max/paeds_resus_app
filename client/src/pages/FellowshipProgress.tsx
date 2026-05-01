@@ -80,7 +80,7 @@ export default function FellowshipProgress() {
         <div>
           <h1 className="text-3xl font-bold">Fellowship Qualification Progress</h1>
           <p className="text-muted-foreground mt-2">
-            Track your progress across the 3 pillars of the Paeds Resus Elite Fellowship.
+            Track your progress across the 3 pillars of the Paeds Resus Paeds Resus Fellowship.
           </p>
         </div>
 
@@ -104,7 +104,7 @@ export default function FellowshipProgress() {
                 </CardTitle>
                 <CardDescription>
                   {isQualified
-                    ? "Congratulations! You have completed all requirements for the Paeds Resus Elite Fellowship."
+                    ? "Congratulations! You have completed all requirements for the Paeds Resus Paeds Resus Fellowship."
                     : `Overall progress: ${overallPercentage}% complete`}
                 </CardDescription>
               </div>

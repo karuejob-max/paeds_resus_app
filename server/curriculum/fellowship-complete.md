@@ -1,6 +1,6 @@
-# Fellowship Program - Elite Clinical Training
+# Fellowship Program - Advanced Paeds Resus Training
 
-**Duration:** 200 hours | **Modules:** 15 | **Lessons:** 150 | **Assessments:** 150 | **Certification:** Advanced Fellowship Diploma
+**Duration:** 200 hours | **Modules:** 15 | **Lessons:** 150 | **Assessments:** 150 | **Certification:** Paeds Resus Fellowship Diploma
 
 ---
 
@@ -1180,7 +1180,7 @@ Capstone project demonstrates mastery of Fellowship content.
 - Demonstrate expertise
 
 **Certification:**
-- Advanced Fellowship Diploma
+- Paeds Resus Fellowship Diploma
 - Valid for 3 years
 - Requires renewal with continuing education
 
@@ -1188,8 +1188,8 @@ Capstone project demonstrates mastery of Fellowship content.
 
 ## Fellowship Program Summary
 
-This comprehensive Fellowship Program provides 200 hours of advanced instruction covering advanced pediatric physiology, hemodynamic monitoring, airway management, pharmacology, resuscitation techniques, pediatric emergencies, quality improvement, and leadership. Upon completion and passing both written examination and capstone project defense, fellows receive an Advanced Fellowship Diploma valid for 3 years.
+This comprehensive Fellowship Program provides 200 hours of advanced instruction covering advanced pediatric physiology, hemodynamic monitoring, airway management, pharmacology, resuscitation techniques, pediatric emergencies, quality improvement, and leadership. Upon completion and passing both written examination and capstone project defense, fellows receive an Paeds Resus Fellowship Diploma valid for 3 years.
 
 ---
 
-**Total Fellowship Program: 200 hours | 15 modules | 150 lessons | 150 assessments | Advanced Fellowship Diploma**
+**Total Fellowship Program: 200 hours | 15 modules | 150 lessons | 150 assessments | Paeds Resus Fellowship Diploma**

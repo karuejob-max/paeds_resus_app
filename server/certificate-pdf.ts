@@ -76,14 +76,14 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     title: "Micro-Course Excellence",
     subtitle: "Fellowship Module Certification",
     description:
-      "has successfully completed this specialized module as part of the ResusGPS Elite Fellowship, demonstrating clinical competence in pediatric resuscitation.",
+      "has successfully completed this specialized module as part of the Paeds Resus Fellowship, demonstrating clinical competence in pediatric resuscitation.",
     hours: 4,
   },
   fellowship_diploma: {
-    title: "Elite Fellowship Diploma",
-    subtitle: "Fellow of the ResusGPS Academy",
+    title: "Paeds Resus Fellowship Diploma",
+    subtitle: "Fellow of the Paeds Resus Academy",
     description:
-      "has completed the full ResusGPS Elite Fellowship curriculum, demonstrating exceptional mastery in pediatric resuscitation science and emergency management.",
+      "has completed the full Paeds Resus Fellowship curriculum, demonstrating exceptional mastery in pediatric resuscitation science and emergency management.",
     hours: 120,
   },
   instructor: {

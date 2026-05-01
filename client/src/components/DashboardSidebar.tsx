@@ -74,7 +74,7 @@ export default function DashboardSidebar() {
           <div className="space-y-2">
             <Link href="/enroll">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
-                Elite Fellowship
+                Paeds Resus Fellowship
               </div>
             </Link>
             <Link href="/care-signal">

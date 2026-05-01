@@ -109,7 +109,7 @@ describe("email service", () => {
         "BLS (Basic Life Support)",
         "ACLS (Advanced Cardiac Life Support)",
         "PALS (Pediatric Advanced Life Support)",
-        "Elite Fellowship",
+        "Paeds Resus Fellowship",
       ];
 
       for (const program of programs) {
@@ -196,7 +196,7 @@ describe("email service", () => {
       const result = await sendTrainingConfirmation(
         "user@example.com",
         "Test User",
-        "Elite Fellowship",
+        "Paeds Resus Fellowship",
         trainingDate,
         "Training Center",
         "Dr. Test"
