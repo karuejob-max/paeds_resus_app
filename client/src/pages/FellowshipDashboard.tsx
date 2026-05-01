@@ -341,7 +341,16 @@ export default function FellowshipDashboard() {
                           <Badge variant="outline" className="text-xs">{course.emergencyType}</Badge>
                         </div>
                         {isCompleted && (
-                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Completed</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                            onClick={() => {
+                              setLocation(`/micro-course-player/${courseId}`);
+                            }}
+                          >
+                            Review Course
+                          </Button>
                         )}
                         {isEnrolled && !isCompleted && (
                           <Button

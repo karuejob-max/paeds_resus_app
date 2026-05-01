@@ -825,6 +825,20 @@ export const modules = mysqlTable("modules", {
 export type Module = typeof modules.$inferSelect;
 export type InsertModule = typeof modules.$inferInsert;
 
+// Module Sections table (Breakdown each module into interactive sections)
+export const moduleSections = mysqlTable("moduleSections", {
+  id: int("id").autoincrement().primaryKey(),
+  moduleId: int("moduleId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content"), // HTML content for this section
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ModuleSection = typeof moduleSections.$inferSelect;
+export type InsertModuleSection = typeof moduleSections.$inferInsert;
+
 // Quizzes table
 export const quizzes = mysqlTable("quizzes", {
   id: int("id").autoincrement().primaryKey(),

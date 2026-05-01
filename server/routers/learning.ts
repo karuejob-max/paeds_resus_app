@@ -6,6 +6,7 @@ import { invokeLLM } from "../_core/llm";
 import {
   courses,
   modules,
+  moduleSections,
   quizzes,
   quizQuestions,
   userProgress,
@@ -130,7 +131,7 @@ export const learningRouter = router({
       };
     }),
 
-  // Get module content with quizzes
+  // Get module content with sections and quizzes
   getModuleContent: publicProcedure
     .input(z.object({ moduleId: z.number() }))
     .query(async ({ input }) => {
@@ -144,6 +145,13 @@ export const learningRouter = router({
       if (!module.length) {
         throw new Error("Module not found");
       }
+
+      // Fetch sections for this module
+      const sections = await (db as any)
+        .select()
+        .from(moduleSections)
+        .where(eq(moduleSections.moduleId, input.moduleId))
+        .orderBy(moduleSections.order);
 
       const moduleQuizzes = await (db as any)
         .select()
@@ -176,6 +184,7 @@ export const learningRouter = router({
 
       return {
         ...module[0],
+        sections,
         quizzes: quizzesWithQuestions,
       };
     }),

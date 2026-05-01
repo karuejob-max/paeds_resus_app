@@ -260,9 +260,9 @@ export default function CourseGenericMicro() {
                     variant="secondary" 
                     size="lg" 
                     className="font-bold shadow-md"
-                    onClick={() => setLocation(`/micro-course/${courseId}`)}
+                    onClick={() => setLocation(`/micro-course-player/${courseId}`)}
                   >
-                    {progress === 100 ? "Review Course" : "Continue Learning"}
+                    {progress === 100 || enrollment?.enrollmentStatus === 'completed' ? "Review Course" : "Continue Learning"}
                   </Button>
                 </div>
               </div>

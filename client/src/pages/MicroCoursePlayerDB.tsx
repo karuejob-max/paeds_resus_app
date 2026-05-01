@@ -1,14 +1,19 @@
-
 import { useParams, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle, CheckCircle2, Download } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Loader2, ArrowLeft, BookOpen, Award, AlertCircle, 
+  CheckCircle2, Download, ChevronRight, ChevronLeft,
+  GraduationCap, ListChecks
+} from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function MicroCoursePlayerDB() {
   const { courseId: slug } = useParams<{ courseId: string }>();
@@ -17,14 +22,20 @@ export default function MicroCoursePlayerDB() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
-  const [showQuiz, setShowQuiz] = useState(false);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [showFormativeQuiz, setShowFormativeQuiz] = useState(false);
+  const [showSummativeQuiz, setShowSummativeQuiz] = useState(false);
+  
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
+  
+  // Track progress locally for the session
+  const [maxReachedModuleIndex, setMaxReachedModuleIndex] = useState(0);
+  const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
 
   // ── Queries ────────────────────────────────────────────────────────────────
-  // 1. Get the micro-course catalog row to find the title
   const { data: allMicroCourses, isLoading: catalogLoading } = trpc.courses.listAll.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -34,7 +45,6 @@ export default function MicroCoursePlayerDB() {
     [allMicroCourses, slug]
   );
 
-  // 2. Get the DB-backed course using the title from the catalog
   const { data: fellowshipCourses, isLoading: coursesLoading } = trpc.learning.getCourses.useQuery(
     { programType: "fellowship" },
     { enabled: !!microCourseRow }
@@ -45,13 +55,11 @@ export default function MicroCoursePlayerDB() {
     [fellowshipCourses, microCourseRow]
   );
 
-  // 3. Get full course details (modules)
   const { data: courseDetails, isLoading: detailsLoading } = trpc.learning.getCourseDetails.useQuery(
     { courseId: dbCourse?.id ?? 0 },
     { enabled: !!dbCourse }
   );
 
-  // 4. Get current module content (HTML + Quizzes)
   const currentModuleId = useMemo(() => {
     return courseDetails?.modules?.[currentModuleIndex]?.id;
   }, [courseDetails, currentModuleIndex]);
@@ -61,7 +69,6 @@ export default function MicroCoursePlayerDB() {
     { enabled: !!currentModuleId }
   );
 
-  // 5. Get enrollment (needed for certificate and progress)
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -81,8 +88,6 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
-        // Stay on page to show completion success UI
-        // setIssuedCertNumber already set above
       } else {
         toast.error(data.message || "Failed to complete course");
       }
@@ -128,10 +133,10 @@ export default function MicroCoursePlayerDB() {
     );
   };
 
-  const submitQuiz = trpc.learning.recordQuizAttempt.useMutation({
+  const submitQuizMutation = trpc.learning.recordQuizAttempt.useMutation({
     onSuccess: (result) => {
       if (result.success && result.passed) {
-        toast.success("Quiz passed!");
+        toast.success(showSummativeQuiz ? "Final exam passed!" : "Module quiz passed!");
         setQuizScore(result.score);
         setQuizSubmitted(true);
       } else if (result.success) {
@@ -143,21 +148,56 @@ export default function MicroCoursePlayerDB() {
   });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleModuleComplete = () => {
-    setShowQuiz(false);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
-    setQuizScore(null);
-    if (currentModuleIndex < (courseDetails?.modules.length ?? 0) - 1) {
-      setCurrentModuleIndex(currentModuleIndex + 1);
-    } else if (enrollment?.enrollmentStatus === 'completed') {
-      // If already completed, just go back
-      navigate("/fellowship");
+  const modules = courseDetails?.modules ?? [];
+  const sections = moduleContent?.sections ?? [];
+  const quizzes = moduleContent?.quizzes ?? [];
+  const isLastModule = currentModuleIndex === modules.length - 1;
+  const isReviewMode = enrollment?.enrollmentStatus === 'completed';
+
+  const handleNextSection = () => {
+    if (currentSectionIndex < sections.length - 1) {
+      const nextIdx = currentSectionIndex + 1;
+      setCurrentSectionIndex(nextIdx);
+      if (nextIdx > maxReachedSectionIndex) {
+        setMaxReachedSectionIndex(nextIdx);
+      }
+      window.scrollTo(0, 0);
+    } else if (quizzes.length > 0) {
+      // Show formative quiz after last section
+      setShowFormativeQuiz(true);
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore(null);
+      window.scrollTo(0, 0);
+    } else {
+      // No quiz, move to next module
+      handleModuleTransition();
+    }
+  };
+
+  const handleModuleTransition = () => {
+    if (currentModuleIndex < modules.length - 1) {
+      const nextIdx = currentModuleIndex + 1;
+      setCurrentModuleIndex(nextIdx);
+      setCurrentSectionIndex(0);
+      setMaxReachedSectionIndex(0);
+      setShowFormativeQuiz(false);
+      if (nextIdx > maxReachedModuleIndex) {
+        setMaxReachedModuleIndex(nextIdx);
+      }
+      window.scrollTo(0, 0);
+    } else {
+      // Final module complete, show final summative quiz
+      setShowSummativeQuiz(true);
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore(null);
+      window.scrollTo(0, 0);
     }
   };
 
   const handleQuizSubmit = () => {
-    const quiz = moduleContent?.quizzes?.[0];
+    const quiz = quizzes[0]; // Currently support one quiz per module
     if (!quiz || !enrollment) return;
 
     let correct = 0;
@@ -169,7 +209,7 @@ export default function MicroCoursePlayerDB() {
 
     const score = Math.round((correct / quiz.questions.length) * 100);
     
-    submitQuiz.mutate({
+    submitQuizMutation.mutate({
       enrollmentId: enrollment.id,
       moduleId: currentModuleId!,
       quizId: quiz.id,
@@ -178,13 +218,19 @@ export default function MicroCoursePlayerDB() {
     });
   };
 
+  const handleFinalSubmit = () => {
+    if (enrollment) {
+      completeCourse.mutate({ enrollmentId: enrollment.id });
+    }
+  };
+
   // ── Loading States ─────────────────────────────────────────────────────────
   if (catalogLoading || coursesLoading || detailsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-          <p className="text-sm text-muted-foreground">Loading authored content...</p>
+          <p className="text-sm text-muted-foreground">Loading interactive experience...</p>
         </div>
       </div>
     );
@@ -196,17 +242,12 @@ export default function MicroCoursePlayerDB() {
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
         <h2 className="text-xl font-bold mb-2">Content Not Found</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          We found the course in the catalog, but the authored modules haven't been linked to this player yet.
+          This course is in the catalog but not yet converted to the interactive format.
         </p>
         <Button onClick={() => navigate("/fellowship")}>Back to Fellowship</Button>
       </div>
     );
   }
-
-  const modules = courseDetails?.modules ?? [];
-  const currentModule = moduleContent;
-  const isLastModule = currentModuleIndex === modules.length - 1;
-  const quiz = currentModule?.quizzes?.[0];
 
   // ── Completion View ────────────────────────────────────────────────────────
   if (completeCourse.isSuccess) {
@@ -247,9 +288,6 @@ export default function MicroCoursePlayerDB() {
               >
                 Return to Fellowship Dashboard
               </Button>
-              <p className="text-xs text-slate-400">
-                You can also download your certificate anytime from your profile or the dashboard.
-              </p>
             </div>
           </CardContent>
         </Card>
@@ -257,178 +295,355 @@ export default function MicroCoursePlayerDB() {
     );
   }
 
+  const currentModule = modules[currentModuleIndex];
+  const currentSection = sections[currentSectionIndex];
+  const currentQuiz = quizzes[0]; // Formative quiz for the module
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/fellowship")}>
-              <ArrowLeft className="w-4 h-4" />
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/fellowship")}>
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-semibold text-lg">{dbCourse.title}</h1>
-              <p className="text-xs text-muted-foreground">
-                Module {currentModuleIndex + 1} of {modules.length}
-              </p>
+              <h1 className="font-bold text-slate-900 line-clamp-1">{dbCourse.title}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider">
+                  {dbCourse.level}
+                </Badge>
+                {isReviewMode && (
+                  <Badge className="text-[10px] h-4 px-1.5 bg-emerald-500 text-white border-none">Review Mode</Badge>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {enrollment?.enrollmentStatus === 'completed' && (
-              <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-none">Review Mode</Badge>
-            )}
-            <Badge variant="outline" className="capitalize">{dbCourse.level}</Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Progress */}
-        <div className="mb-8">
-          <div className="flex justify-between text-xs mb-2">
-            <span>Course Progress</span>
-            <span>{Math.round(((currentModuleIndex) / modules.length) * 100)}%</span>
-          </div>
-          <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-primary h-full transition-all duration-500" 
-              style={{ width: `${((currentModuleIndex) / modules.length) * 100}%` }}
+          <div className="hidden md:block">
+            <Progress 
+              value={((currentModuleIndex) / modules.length) * 100} 
+              className="w-32 h-2" 
             />
           </div>
         </div>
+      </div>
 
-        {!showQuiz ? (
-          <Card className="shadow-sm border-muted">
-            <CardHeader className="border-b bg-muted/30">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-primary" />
-                {currentModule?.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {contentLoading ? (
-                <div className="py-12 flex justify-center"><Loader2 className="animate-spin" /></div>
-              ) : (
-                <>
-                  <div 
-                    className="prose prose-slate max-w-none dark:prose-invert 
-                      prose-h2:text-xl prose-h2:font-bold prose-h2:text-primary prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b
-                      prose-h3:text-lg prose-h3:font-semibold prose-h3:text-slate-800 prose-h3:mt-6 prose-h3:mb-3
-                      prose-p:text-base prose-p:leading-relaxed prose-p:text-slate-700
-                      prose-ul:my-4 prose-li:text-slate-700 prose-li:my-1
-                      prose-strong:text-primary-700 prose-strong:font-bold
-                      prose-img:rounded-xl prose-img:shadow-md
-                      [&_.clinical-note]:bg-primary/5 [&_.clinical-note]:border-l-4 [&_.clinical-note]:border-primary [&_.clinical-note]:p-4 [&_.clinical-note]:my-6 [&_.clinical-note]:rounded-r-lg
-                      [&_.clinical-note_h4]:text-primary [&_.clinical-note_h4]:font-bold [&_.clinical-note_h4]:mb-2 [&_.clinical-note_h4]:mt-0"
-                    dangerouslySetInnerHTML={{ __html: currentModule?.content ?? "" }} 
-                  />
-                  
-                  <div className="mt-10 pt-6 border-t flex justify-between">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentModuleIndex(Math.max(0, currentModuleIndex - 1))}
-                      disabled={currentModuleIndex === 0}
-                    >
-                      Previous
-                    </Button>
-                    
-                    {quiz && enrollment?.enrollmentStatus !== 'completed' ? (
-                      <Button onClick={() => setShowQuiz(true)} className="px-8 bg-primary hover:bg-primary/90 shadow-sm">
-                        Take Module Quiz
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={handleModuleComplete} 
-                        className={`px-8 shadow-sm ${isLastModule ? 'bg-slate-900 hover:bg-slate-800' : 'bg-primary hover:bg-primary/90'}`}
-                      >
-                        {isLastModule ? (enrollment?.enrollmentStatus === 'completed' ? "Exit Review" : "Finish & Review") : "Next Module"}
-                      </Button>
-                    )}
-                  </div>
-                </>
+      <div className="max-w-4xl mx-auto px-4 mt-8">
+        {/* Step-by-Step Navigation */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
+          {modules.map((m, idx) => (
+            <div key={m.id} className="flex items-center">
+              <button
+                onClick={() => {
+                  if (idx <= maxReachedModuleIndex || isReviewMode) {
+                    setCurrentModuleIndex(idx);
+                    setCurrentSectionIndex(0);
+                    setShowFormativeQuiz(false);
+                    setShowSummativeQuiz(false);
+                  }
+                }}
+                className={cn(
+                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+                  idx === currentModuleIndex 
+                    ? "bg-primary text-white ring-4 ring-primary/20" 
+                    : idx < currentModuleIndex || idx <= maxReachedModuleIndex
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                )}
+              >
+                {idx < currentModuleIndex ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+              </button>
+              {idx < modules.length - 1 && (
+                <div className={cn(
+                  "w-4 h-0.5 mx-1",
+                  idx < currentModuleIndex ? "bg-emerald-200" : "bg-slate-200"
+                )} />
               )}
-            </CardContent>
-          </Card>
+            </div>
+          ))}
+          <div className="mx-2 text-slate-300">|</div>
+          <div 
+            className={cn(
+              "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+              showSummativeQuiz 
+                ? "bg-primary text-white ring-4 ring-primary/20" 
+                : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)
+                  ? "bg-slate-100 text-slate-600"
+                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            )}
+          >
+            <GraduationCap className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Content Area */}
+        {showSummativeQuiz ? (
+          <SummativeQuizView 
+            course={dbCourse}
+            quiz={currentQuiz} // For now use module quiz as summative proxy if needed
+            onComplete={handleFinalSubmit}
+            isPending={completeCourse.isPending}
+          />
+        ) : showFormativeQuiz ? (
+          <FormativeQuizView 
+            moduleTitle={currentModule?.title ?? ""}
+            quiz={currentQuiz}
+            answers={quizAnswers}
+            setAnswers={setQuizAnswers}
+            onSubmit={handleQuizSubmit}
+            submitted={quizSubmitted}
+            score={quizScore}
+            onNext={handleModuleTransition}
+            isPending={submitQuizMutation.isPending}
+          />
         ) : (
-          <Card className="shadow-md">
-            <CardHeader className="bg-primary/5 border-b">
-              <CardTitle>Module Quiz: {quiz?.title}</CardTitle>
-              <p className="text-sm text-muted-foreground">Pass with {quiz?.passingScore}% or higher</p>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-8">
-              {quiz?.questions.map((q: any, qIdx: number) => (
-                <div key={qIdx} className="space-y-4">
-                  <p className="font-medium text-base">{qIdx + 1}. {q.question}</p>
-                  <div className="grid gap-2 ml-2">
-                    {q.options.map((opt: string, oIdx: number) => {
-                      const isCorrect = JSON.parse(q.correctAnswer) === opt;
-                      const isSelected = quizAnswers[qIdx] === opt;
-                      
-                      return (
-                        <label 
-                          key={oIdx} 
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
-                            ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}
-                            ${quizSubmitted && isCorrect ? 'border-green-500 bg-green-50' : ''}
-                            ${quizSubmitted && isSelected && !isCorrect ? 'border-destructive bg-destructive/5' : ''}
-                          `}
-                        >
-                          <input
-                            type="radio"
-                            name={`q-${qIdx}`}
-                            className="w-4 h-4 text-primary"
-                            checked={isSelected}
-                            onChange={() => !quizSubmitted && setQuizAnswers({...quizAnswers, [qIdx]: opt})}
-                            disabled={quizSubmitted}
-                          />
-                          <span className="text-sm">{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {quizSubmitted && (
-                    <div className={`text-sm p-3 rounded-md flex gap-2 ${JSON.parse(q.correctAnswer) === quizAnswers[qIdx] ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                      {JSON.parse(q.correctAnswer) === quizAnswers[qIdx] ? <CheckCircle2 className="w-4 h-4 mt-0.5" /> : <AlertCircle className="w-4 h-4 mt-0.5" />}
-                      <p><strong>Explanation:</strong> {q.explanation}</p>
+          <div className="space-y-6">
+            <Card className="border-none shadow-sm overflow-hidden">
+              <CardHeader className="bg-white border-b border-slate-100 py-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                    Module {currentModuleIndex + 1} • Section {currentSectionIndex + 1} of {sections.length || 1}
+                  </span>
+                  {sections.length > 1 && (
+                    <div className="flex gap-1">
+                      {sections.map((_, i) => (
+                        <div 
+                          key={i} 
+                          className={cn(
+                            "h-1 w-4 rounded-full transition-all",
+                            i === currentSectionIndex ? "bg-primary w-8" : i < currentSectionIndex ? "bg-emerald-400" : "bg-slate-200"
+                          )} 
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
-              ))}
-
-              <div className="pt-6 border-t flex flex-col gap-4">
-                {quizSubmitted ? (
-                  <div className="flex flex-col items-center gap-4">
-                    <div className={`text-center p-6 rounded-xl w-full ${quizScore! >= (quiz?.passingScore ?? 80) ? 'bg-green-100' : 'bg-destructive/10'}`}>
-                      <p className="text-sm font-medium mb-1">Your Score</p>
-                      <p className="text-4xl font-bold">{quizScore}%</p>
-                      <p className="text-sm mt-2">
-                        {quizScore! >= (quiz?.passingScore ?? 80) ? "🎉 You passed!" : "Keep studying and try again."}
-                      </p>
-                    </div>
-                    
-                    <div className="flex gap-3 w-full">
-                      <Button variant="outline" className="flex-1" onClick={() => { setQuizSubmitted(false); setQuizAnswers({}); }}>Retry Quiz</Button>
-                      {quizScore! >= (quiz?.passingScore ?? 80) && (
-                        <Button className="flex-1" onClick={isLastModule ? () => completeCourse.mutate({ courseId: slug! }) : handleModuleComplete}>
-                          {isLastModule ? "Complete Course & Get Certificate" : "Continue to Next Module"}
-                        </Button>
-                      )}
-                    </div>
+                <CardTitle className="text-2xl font-bold text-slate-900">
+                  {currentSection?.title || currentModule?.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-8 pb-10 px-6 md:px-10">
+                {contentLoading ? (
+                  <div className="py-20 flex flex-col items-center justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary/30 mb-4" />
+                    <p className="text-slate-400 text-sm italic">Loading clinical guidance...</p>
                   </div>
                 ) : (
-                  <Button 
-                    className="w-full py-6 text-lg" 
-                    onClick={handleQuizSubmit}
-                    disabled={Object.keys(quizAnswers).length < (quiz?.questions.length ?? 0) || submitQuiz.isPending}
-                  >
-                    {submitQuiz.isPending ? <Loader2 className="animate-spin mr-2" /> : "Submit Answers"}
-                  </Button>
+                  <div 
+                    className="prose prose-slate max-w-none 
+                      prose-h2:text-xl prose-h2:font-bold prose-h2:text-primary prose-h2:mt-8 prose-h2:mb-4
+                      prose-p:text-slate-700 prose-p:leading-relaxed prose-p:text-lg
+                      prose-li:text-slate-700 prose-li:text-lg
+                      prose-strong:text-slate-900 prose-strong:font-bold
+                      [&_.clinical-note]:bg-primary/5 [&_.clinical-note]:border-l-4 [&_.clinical-note]:border-primary [&_.clinical-note]:p-6 [&_.clinical-note]:my-8 [&_.clinical-note]:rounded-r-xl
+                      [&_.clinical-note_h4]:text-primary [&_.clinical-note_h4]:font-bold [&_.clinical-note_h4]:mb-3 [&_.clinical-note_h4]:mt-0 [&_.clinical-note_h4]:uppercase [&_.clinical-note_h4]:tracking-wider [&_.clinical-note_h4]:text-xs"
+                    dangerouslySetInnerHTML={{ __html: currentSection?.content || currentModule?.content || "" }} 
+                  />
                 )}
+              </CardContent>
+              <CardFooter className="bg-slate-50 border-t border-slate-100 p-6 flex justify-between items-center">
+                <Button 
+                  variant="ghost" 
+                  className="text-slate-500 font-semibold"
+                  onClick={() => setCurrentSectionIndex(Math.max(0, currentSectionIndex - 1))}
+                  disabled={currentSectionIndex === 0}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                
+                <Button 
+                  className="px-8 py-6 rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
+                  onClick={handleNextSection}
+                >
+                  {currentSectionIndex < sections.length - 1 ? (
+                    <>Next Section <ChevronRight className="w-5 h-5 ml-2" /></>
+                  ) : quizzes.length > 0 ? (
+                    <>Knowledge Check <ListChecks className="w-5 h-5 ml-2" /></>
+                  ) : (
+                    <>Next Module <ChevronRight className="w-5 h-5 ml-2" /></>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* Context Helper */}
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex gap-4">
+              <div className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="w-5 h-5" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <h4 className="font-bold text-blue-900 mb-1">Learning Tip</h4>
+                <p className="text-sm text-blue-800/80 leading-relaxed">
+                  Focus on the "Clinical Notes" in this section. These contain the high-yield resuscitation parameters 
+                  required for the fellowship examination and real-world bedside performance.
+                </p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
+  );
+}
+
+// ── Sub-Components ───────────────────────────────────────────────────────────
+
+function FormativeQuizView({ 
+  moduleTitle, quiz, answers, setAnswers, onSubmit, 
+  submitted, score, onNext, isPending 
+}: any) {
+  if (!quiz) return null;
+
+  return (
+    <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <CardHeader className="bg-slate-900 text-white p-8">
+        <div className="flex items-center gap-2 text-primary-400 mb-2">
+          <ListChecks className="w-5 h-5" />
+          <span className="text-xs font-bold uppercase tracking-widest">Knowledge Check</span>
+        </div>
+        <CardTitle className="text-2xl font-bold">Review: {moduleTitle}</CardTitle>
+        <p className="text-slate-400 text-sm mt-2">
+          Test your understanding of the concepts covered in this module. 
+          Passing score: <span className="text-white font-bold">{quiz.passingScore}%</span>
+        </p>
+      </CardHeader>
+      <CardContent className="p-8 space-y-10">
+        {quiz.questions.map((q: any, idx: number) => (
+          <div key={q.id} className="space-y-4">
+            <div className="flex gap-4">
+              <span className="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-500 text-sm">
+                {idx + 1}
+              </span>
+              <h3 className="text-lg font-semibold text-slate-800 leading-snug">{q.question}</h3>
+            </div>
+            <div className="grid gap-3 ml-12">
+              {q.options.map((option: string) => {
+                const isSelected = answers[idx] === option;
+                const isCorrect = submitted && option === (typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer);
+                const isWrong = submitted && isSelected && !isCorrect;
+
+                return (
+                  <button
+                    key={option}
+                    disabled={submitted}
+                    onClick={() => setAnswers({ ...answers, [idx]: option })}
+                    className={cn(
+                      "text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group",
+                      isSelected && !submitted ? "border-primary bg-primary/5 text-primary" : "border-slate-100 hover:border-slate-200",
+                      isCorrect ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "",
+                      isWrong ? "border-red-500 bg-red-50 text-red-700" : ""
+                    )}
+                  >
+                    <span className="font-medium">{option}</span>
+                    {isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                    {isWrong && <AlertCircle className="w-5 h-5 text-red-600" />}
+                  </button>
+                );
+              })}
+            </div>
+            {submitted && q.explanation && (
+              <div className="ml-12 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 italic border-l-4 border-slate-200">
+                <strong>Rationale:</strong> {q.explanation}
+              </div>
+            )}
+          </div>
+        ))}
+      </CardContent>
+      <CardFooter className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col gap-6">
+        {!submitted ? (
+          <Button 
+            className="w-full py-8 rounded-2xl font-bold text-xl shadow-xl shadow-primary/20"
+            disabled={Object.keys(answers).length < quiz.questions.length || isPending}
+            onClick={onSubmit}
+          >
+            {isPending ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
+            Submit Answers
+          </Button>
+        ) : (
+          <div className="w-full text-center space-y-6">
+            <div className={cn(
+              "inline-flex flex-col items-center p-6 rounded-2xl border-2",
+              score >= quiz.passingScore ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
+            )}>
+              <span className="text-sm font-bold uppercase tracking-widest mb-1">Your Score</span>
+              <span className="text-5xl font-black">{score}%</span>
+              <span className="text-sm font-medium mt-2">
+                {score >= quiz.passingScore ? "Great job! You've mastered this module." : "Keep studying and try again."}
+              </span>
+            </div>
+            
+            {score >= quiz.passingScore ? (
+              <Button 
+                className="w-full py-8 rounded-2xl font-bold text-xl bg-emerald-600 hover:bg-emerald-700"
+                onClick={onNext}
+              >
+                Continue to Next Module
+              </Button>
+            ) : (
+              <Button 
+                variant="outline"
+                className="w-full py-8 rounded-2xl font-bold text-xl border-slate-200"
+                onClick={() => {
+                  setAnswers({});
+                  onNext(); // Or allow retry
+                }}
+              >
+                Retry Knowledge Check
+              </Button>
+            )}
+          </div>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+function SummativeQuizView({ course, quiz, onComplete, isPending }: any) {
+  return (
+    <Card className="border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
+      <div className="bg-primary p-12 text-center text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Award className="w-48 h-48 rotate-12" />
+        </div>
+        <GraduationCap className="w-16 h-16 mx-auto mb-6 text-primary-200" />
+        <h2 className="text-3xl font-black mb-2">Final Verification</h2>
+        <p className="text-primary-100 max-w-md mx-auto">
+          You have completed all learning modules for <strong>{course.title}</strong>. 
+          Submit your final assessment to receive your world-class certificate.
+        </p>
+      </div>
+      <CardContent className="p-12 text-center space-y-8">
+        <div className="flex justify-center gap-12">
+          <div className="text-center">
+            <p className="text-4xl font-black text-slate-900">100%</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Content Read</p>
+          </div>
+          <div className="text-center">
+            <p className="text-4xl font-black text-slate-900">{course.duration}m</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Time Invested</p>
+          </div>
+        </div>
+        
+        <div className="p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+          <h4 className="font-bold text-slate-800 text-lg mb-2">Ready for Certification</h4>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            By clicking below, you confirm that you have reviewed all clinical protocols and are ready 
+            to be recognized as a ResusGPS verified provider for this specialty.
+          </p>
+        </div>
+
+        <Button 
+          className="w-full py-10 rounded-3xl font-black text-2xl shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95"
+          onClick={onComplete}
+          disabled={isPending}
+        >
+          {isPending ? <Loader2 className="w-8 h-8 animate-spin mr-3" /> : <Award className="w-8 h-8 mr-3" />}
+          Issue My Certificate
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
