@@ -110,6 +110,9 @@ export default function MicroCoursePlayerDB() {
     setQuizScore(null);
     if (currentModuleIndex < (courseDetails?.modules.length ?? 0) - 1) {
       setCurrentModuleIndex(currentModuleIndex + 1);
+    } else if (enrollment?.enrollmentStatus === 'completed') {
+      // If already completed, just go back
+      navigate("/fellowship");
     }
   };
 
@@ -181,7 +184,12 @@ export default function MicroCoursePlayerDB() {
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="capitalize">{dbCourse.level}</Badge>
+          <div className="flex items-center gap-2">
+            {enrollment?.enrollmentStatus === 'completed' && (
+              <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-none">Review Mode</Badge>
+            )}
+            <Badge variant="outline" className="capitalize">{dbCourse.level}</Badge>
+          </div>
         </div>
       </div>
 
@@ -215,8 +223,14 @@ export default function MicroCoursePlayerDB() {
                 <>
                   <div 
                     className="prose prose-slate max-w-none dark:prose-invert 
-                    prose-h2:text-lg prose-h2:font-bold prose-h2:mt-6 prose-h2:mb-3
-                    prose-p:text-base prose-p:leading-relaxed prose-li:text-base"
+                      prose-h2:text-xl prose-h2:font-bold prose-h2:text-primary prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b
+                      prose-h3:text-lg prose-h3:font-semibold prose-h3:text-slate-800 prose-h3:mt-6 prose-h3:mb-3
+                      prose-p:text-base prose-p:leading-relaxed prose-p:text-slate-700
+                      prose-ul:my-4 prose-li:text-slate-700 prose-li:my-1
+                      prose-strong:text-primary-700 prose-strong:font-bold
+                      prose-img:rounded-xl prose-img:shadow-md
+                      [&_.clinical-note]:bg-primary/5 [&_.clinical-note]:border-l-4 [&_.clinical-note]:border-primary [&_.clinical-note]:p-4 [&_.clinical-note]:my-6 [&_.clinical-note]:rounded-r-lg
+                      [&_.clinical-note_h4]:text-primary [&_.clinical-note_h4]:font-bold [&_.clinical-note_h4]:mb-2 [&_.clinical-note_h4]:mt-0"
                     dangerouslySetInnerHTML={{ __html: currentModule?.content ?? "" }} 
                   />
                   
@@ -229,13 +243,16 @@ export default function MicroCoursePlayerDB() {
                       Previous
                     </Button>
                     
-                    {quiz ? (
-                      <Button onClick={() => setShowQuiz(true)} className="px-8">
+                    {quiz && enrollment?.enrollmentStatus !== 'completed' ? (
+                      <Button onClick={() => setShowQuiz(true)} className="px-8 bg-primary hover:bg-primary/90 shadow-sm">
                         Take Module Quiz
                       </Button>
                     ) : (
-                      <Button onClick={handleModuleComplete} className="px-8">
-                        {isLastModule ? "Finish Course" : "Next Module"}
+                      <Button 
+                        onClick={handleModuleComplete} 
+                        className={`px-8 shadow-sm ${isLastModule ? 'bg-slate-900 hover:bg-slate-800' : 'bg-primary hover:bg-primary/90'}`}
+                      >
+                        {isLastModule ? (enrollment?.enrollmentStatus === 'completed' ? "Exit Review" : "Finish & Review") : "Next Module"}
                       </Button>
                     )}
                   </div>

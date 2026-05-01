@@ -28,16 +28,16 @@ export const microCoursesBatch1To5 = [
         duration: 20,
         content: `
           <h2>Life-Threatening Asthma Recognition</h2>
-          <h3>Red Flags (Immediate Escalation):</h3>
-          <ul>
-            <li>Silent chest (no air movement despite respiratory effort)</li>
-            <li>Altered mental status, drowsiness, confusion</li>
-            <li>Inability to speak full sentences (exhaustion)</li>
-            <li>Severe accessory muscle use with paradoxical breathing</li>
-            <li>Cyanosis despite oxygen</li>
-            <li>Hypotension or shock</li>
-            <li>Peak flow <25% predicted or unmeasurable</li>
-          </ul>
+<div className="clinical-note"><h4>Red Flags (Immediate Escalation)</h4>
+	          <ul>
+	            <li>Silent chest (no air movement despite respiratory effort)</li>
+	            <li>Altered mental status, drowsiness, confusion</li>
+	            <li>Inability to speak full sentences (exhaustion)</li>
+	            <li>Severe accessory muscle use with paradoxical breathing</li>
+	            <li>Cyanosis despite oxygen</li>
+	            <li>Hypotension or shock</li>
+	            <li>Peak flow <25% predicted or unmeasurable</li>
+	          </ul></div>
           <h3>Status Asthmaticus Definition:</h3>
           <p>Severe asthma exacerbation unresponsive to standard therapy for ≥1 hour, requiring ICU-level care.</p>
           <h3>Differential Diagnosis in Severe Asthma:</h3>
@@ -65,7 +65,7 @@ export const microCoursesBatch1To5 = [
           <ul>
             <li><strong>Salbutamol:</strong> 15 mg nebulized continuously (not intermittent)</li>
             <li><strong>Ipratropium:</strong> 0.5 mg nebulized (synergistic with salbutamol)</li>
-            <li><strong>Hydrocortisone:</strong> 50 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg</li>
+            <li><strong>Hydrocortisone:</strong> 4-5 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg</li>
             <li><strong>Magnesium sulfate:</strong> 40 mg/kg IV over 20 min (max 2g) if severe</li>
             <li><strong>Avoid:</strong> Anticholinergics (atropine) unless intubated</li>
           </ul>
@@ -83,14 +83,14 @@ export const microCoursesBatch1To5 = [
         duration: 15,
         content: `
           <h2>When to Escalate: ICU Criteria</h2>
-          <h3>Indications for ICU Transfer:</h3>
-          <ul>
-            <li>Inadequate response after 1-2 hours of aggressive therapy</li>
-            <li>Altered mental status (CO2 retention, exhaustion)</li>
-            <li>Hypoxemia despite high-flow oxygen</li>
-            <li>Hypercapnia (PaCO2 >45 mmHg)</li>
-            <li>Respiratory failure requiring intubation</li>
-          </ul>
+<div className="clinical-note"><h4>Indications for ICU Transfer</h4>
+	          <ul>
+	            <li>Inadequate response after 1-2 hours of aggressive therapy</li>
+	            <li>Altered mental status (CO2 retention, exhaustion)</li>
+	            <li>Hypoxemia despite high-flow oxygen</li>
+	            <li>Hypercapnia (PaCO2 >45 mmHg)</li>
+	            <li>Respiratory failure requiring intubation</li>
+	          </ul></div>
           <h3>Intubation Considerations:</h3>
           <ul>
             <li>Use ketamine 1-2 mg/kg IV (preserves airway tone)</li>
@@ -102,7 +102,7 @@ export const microCoursesBatch1To5 = [
           <h3>Ongoing ICU Management:</h3>
           <ul>
             <li>Continue aggressive bronchodilators (salbutamol + ipratropium)</li>
-            <li>High-dose corticosteroids (hydrocortisone 50 mg/kg Q6H)</li>
+            <li>High-dose corticosteroids (hydrocortisone 4-5 mg/kg Q6H)</li>
             <li>Sedation: propofol (bronchodilation) preferred over benzodiazepines</li>
             <li>Avoid barotrauma: low tidal volumes (6-8 ml/kg), permissive hypercapnia</li>
           </ul>
@@ -145,9 +145,9 @@ export const microCoursesBatch1To5 = [
         },
         {
           question: 'First-hour corticosteroid dose for severe asthma:',
-          options: ['10 mg/kg', '25 mg/kg', '50 mg/kg', '100 mg/kg'],
+          options: ['10 mg/kg', '25 mg/kg', '4-5 mg/kg', '100 mg/kg'],
           correct: 2,
-          explanation: 'Hydrocortisone 50 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg. High-dose for rapid anti-inflammatory effect.'
+          explanation: 'Hydrocortisone 4-5 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg. High-dose for rapid anti-inflammatory effect.'
         },
         {
           question: 'What is a red flag for pneumothorax during asthma exacerbation?',
@@ -197,14 +197,14 @@ export const microCoursesBatch1To5 = [
             <li><strong>Refractory SE (RSE):</strong> SE unresponsive to ≥2 first-line agents (benzodiazepines + phenytoin/levetiracetam)</li>
             <li><strong>Super-Refractory SE (SRSE):</strong> RSE persisting ≥24 hours despite ICU-level therapy (anesthetics)</li>
           </ul>
-          <h3>Clinical Recognition of RSE:</h3>
-          <ul>
-            <li>Seizures continue despite benzodiazepine + second-line agent</li>
-            <li>Altered mental status between seizures (post-ictal confusion)</li>
-            <li>Autonomic instability (hypertension, tachycardia, hyperthermia)</li>
-            <li>Metabolic derangement (acidosis, hypoglycemia, rhabdomyolysis)</li>
-            <li>Risk of sudden unexpected nocturnal death in epilepsy (SUDEP)</li>
-          </ul>
+<div className="clinical-note"><h4>Clinical Recognition of RSE</h4>
+	          <ul>
+	            <li>Seizures continue despite benzodiazepine + second-line agent</li>
+	            <li>Altered mental status between seizures (post-ictal confusion)</li>
+	            <li>Autonomic instability (hypertension, tachycardia, hyperthermia)</li>
+	            <li>Metabolic derangement (acidosis, hypoglycemia, rhabdomyolysis)</li>
+	            <li>Risk of sudden unexpected nocturnal death in epilepsy (SUDEP)</li>
+	          </ul></div>
           <h3>Mortality & Morbidity:</h3>
           <ul>
             <li>RSE mortality: 15-40% (higher in SRSE)</li>
@@ -428,7 +428,7 @@ export const microCoursesBatch1To5 = [
           <h3>Adjunctive Medications:</h3>
           <ul>
             <li><strong>Antihistamines:</strong> Diphenhydramine 1 mg/kg IV/IM (max 50 mg) - NOT first-line, use after epinephrine</li>
-            <li><strong>Corticosteroids:</strong> Hydrocortisone 50 mg/kg IV (max 1g) - prevents biphasic reaction</li>
+            <li><strong>Corticosteroids:</strong> Hydrocortisone 4-5 mg/kg IV (max 1g) - prevents biphasic reaction</li>
             <li><strong>Bronchodilators:</strong> Salbutamol if wheeze persists</li>
             <li><strong>Fluids:</strong> 20 mL/kg bolus for hypotension (repeat if needed)</li>
           </ul>
@@ -511,7 +511,7 @@ export const microCoursesBatch1To5 = [
           question: 'Corticosteroids in anaphylaxis prevent:',
           options: ['Initial reaction', 'Biphasic reaction', 'Urticaria', 'Fever'],
           correct: 1,
-          explanation: 'Hydrocortisone 50 mg/kg IV prevents biphasic anaphylaxis (recurrence after symptom-free interval).'
+          explanation: 'Hydrocortisone 4-5 mg/kg IV prevents biphasic anaphylaxis (recurrence after symptom-free interval).'
         }
       ]
     }
@@ -752,21 +752,21 @@ export const microCoursesBatch1To5 = [
             <li>Assess mental status and neurological signs</li>
           </ul>
           <h3>Fluid Resuscitation (First Hour):</h3>
+          <div className="clinical-note"><h4>The "Slow and Steady" Rule</h4>
           <ul>
-            <li><strong>Initial bolus:</strong> 10-20 mL/kg 0.9% NaCl over 15-30 min</li>
-            <li><strong>Reassess:</strong> If hypotensive, repeat bolus</li>
-            <li><strong>Maintenance:</strong> After bolus, continue 0.9% NaCl at 1.5× maintenance rate</li>
-            <li><strong>Total deficit replacement:</strong> Over 48 hours (not first hour)</li>
-            <li><strong>Caution:</strong> Avoid rapid fluid shifts (cerebral edema risk)</li>
-          </ul>
+            <li><strong>Initial bolus:</strong> 10-20 mL/kg 0.9% NaCl over 1 hour (not 15 min, unless in shock).</li>
+            <li><strong>Goal:</strong> Restore perfusion, not to correct the entire deficit.</li>
+            <li><strong>Maintenance:</strong> 0.9% NaCl at 1.5× maintenance rate.</li>
+            <li><strong>Cerebral Edema Risk:</strong> Rapid fluid administration is the #1 risk factor. Monitor GCS every hour.</li>
+          </ul></div>
           <h3>Insulin Therapy (CRITICAL):</h3>
+          <div className="clinical-note"><h4>Safe Insulin Initiation</h4>
           <ul>
-            <li><strong>DO NOT start insulin until:</strong> K+ >3.5 mEq/L (risk of hypokalemia)</li>
-            <li><strong>Insulin bolus:</strong> 0.1 unit/kg IV (after K+ checked)</li>
-            <li><strong>Insulin infusion:</strong> 0.05-0.1 unit/kg/hr IV</li>
-            <li><strong>Titrate:</strong> Decrease glucose by 50-100 mg/dL/hr</li>
-            <li><strong>Switch to SC:</strong> When glucose <250 mg/dL and pH >7.3</li>
-          </ul>
+            <li><strong>DO NOT start insulin until:</strong> 1 hour after fluid resuscitation begins.</li>
+            <li><strong>Potassium Check:</strong> Ensure K+ >3.5 mEq/L before starting insulin.</li>
+            <li><strong>Bolus vs Infusion:</strong> Avoid insulin boluses in children (increases cerebral edema risk).</li>
+            <li><strong>Infusion Rate:</strong> 0.05-0.1 unit/kg/hr IV. In low-resource settings without infusion pumps, SC insulin 0.1 unit/kg every 2-4 hours is a safer alternative.</li>
+          </ul></div>
           <h3>Electrolyte Monitoring:</h3>
           <ul>
             <li><strong>Potassium:</strong> Total body deficit 3-5 mEq/kg; recheck every 2-4 hours</li>

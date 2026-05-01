@@ -229,25 +229,42 @@ export default function CourseGenericMicro() {
           ))}
         </div>
 
-        {isEnrolled && isPublished && progress < 100 && (
-          <Card className="bg-primary text-primary-foreground border-none shadow-lg overflow-hidden relative">
+        {isEnrolled && isPublished && (
+          <Card className={`${progress === 100 ? 'bg-slate-900' : 'bg-primary'} text-primary-foreground border-none shadow-lg overflow-hidden relative`}>
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <Award className="h-24 w-24" />
             </div>
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="space-y-1 text-center md:text-left">
-                  <h3 className="text-xl font-bold">Ready to continue?</h3>
-                  <p className="text-primary-foreground/80">You're {progress}% through this course. Complete it to earn credit.</p>
+                  <h3 className="text-xl font-bold">
+                    {progress === 100 ? "Course Completed!" : "Ready to continue?"}
+                  </h3>
+                  <p className="text-primary-foreground/80">
+                    {progress === 100 
+                      ? "You've mastered this content. You can review the material anytime." 
+                      : `You're ${progress}% through this course. Complete it to earn credit.`}
+                  </p>
                 </div>
-                <Button 
-                  variant="secondary" 
-                  size="lg" 
-                  className="font-bold shadow-md"
-                  onClick={() => setLocation(`/micro-course/${courseId}`)}
-                >
-                  Continue Learning
-                </Button>
+                <div className="flex gap-3">
+                  {progress === 100 && enrollment?.certificateUrl && (
+                    <Button 
+                      variant="outline" 
+                      className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                      onClick={() => window.open(enrollment.certificateUrl!, '_blank')}
+                    >
+                      View Certificate
+                    </Button>
+                  )}
+                  <Button 
+                    variant="secondary" 
+                    size="lg" 
+                    className="font-bold shadow-md"
+                    onClick={() => setLocation(`/micro-course/${courseId}`)}
+                  >
+                    {progress === 100 ? "Review Course" : "Continue Learning"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
