@@ -64,7 +64,7 @@ const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
 const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
 const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
-const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayer'));
+const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const AHABookSession = lazy(() => import("./pages/AHABookSession"));

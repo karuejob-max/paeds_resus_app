@@ -240,7 +240,12 @@ export default function CourseGenericMicro() {
                   <h3 className="text-xl font-bold">Ready to continue?</h3>
                   <p className="text-primary-foreground/80">You're {progress}% through this course. Complete it to earn credit.</p>
                 </div>
-                <Button variant="secondary" size="lg" className="font-bold shadow-md">
+                <Button 
+                  variant="secondary" 
+                  size="lg" 
+                  className="font-bold shadow-md"
+                  onClick={() => setLocation(`/micro-course/${courseId}`)}
+                >
                   Continue Learning
                 </Button>
               </div>
