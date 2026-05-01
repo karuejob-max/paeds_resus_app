@@ -30,6 +30,9 @@ export default function MicroCoursePlayerDB() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
+  const [feedbackGate, setFeedbackGate] = useState<{ certificateId: number; certNumber: string } | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number>(0);
+  const [feedbackText, setFeedbackText] = useState<string>('');
   
   // Track progress locally for the session
   const [maxReachedModuleIndex, setMaxReachedModuleIndex] = useState(0);
@@ -124,8 +127,10 @@ export default function MicroCoursePlayerDB() {
               console.error("PDF download error:", err);
               toast.error("Failed to process certificate file.");
             }
+          } else if ((res as any).error === 'feedback_required' && (res as any).certificateId) {
+            setFeedbackGate({ certificateId: (res as any).certificateId, certNumber: certNumber });
           } else {
-            toast.error(res.error || "Download failed.");
+            toast.error((res as any).error || "Download failed.");
           }
         },
         onError: (e) => toast.error(e.message || "Download failed."),
@@ -251,46 +256,95 @@ export default function MicroCoursePlayerDB() {
 
   // ── Completion View ────────────────────────────────────────────────────────
   if (completeCourse.isSuccess) {
+    const submitFeedbackAndDownload = async () => {
+      if (!feedbackGate) return;
+      if (feedbackRating === 0) { toast.error('Please select a star rating.'); return; }
+      if (feedbackText.trim().length < 10) { toast.error('Please write at least 10 characters of feedback.'); return; }
+      try {
+        const result = await (trpc.certificates.submitDownloadFeedback as any).mutate({
+          certificateId: feedbackGate.certificateId,
+          rating: feedbackRating,
+          improvements: feedbackText,
+        });
+        setFeedbackGate(null);
+        handleDownload(feedbackGate.certNumber);
+      } catch (e: any) {
+        toast.error(e.message || 'Failed to submit feedback.');
+      }
+    };
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full shadow-xl border-none">
-          <CardContent className="pt-10 pb-8 px-8 text-center">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Award className="w-10 h-10 text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Course Completed!</h2>
-            <p className="text-slate-600 mb-8">
-              Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.
-            </p>
-
-            {issuedCertNumber && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Certificate Number</p>
-                <p className="text-lg font-mono font-bold text-primary">{issuedCertNumber}</p>
+        {feedbackGate ? (
+          <Card className="max-w-md w-full shadow-xl border-none">
+            <CardContent className="pt-10 pb-8 px-8">
+              <h2 className="text-xl font-bold text-slate-900 mb-2 text-center">One quick step before your certificate</h2>
+              <p className="text-slate-500 text-sm mb-6 text-center">Your feedback helps us improve clinical education for providers across Africa.</p>
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-slate-700 mb-2">How would you rate this course?</p>
+                <div className="flex gap-2 justify-center">
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={() => setFeedbackRating(n)}
+                      className={`w-10 h-10 rounded-full border-2 font-bold text-sm transition-all ${
+                        feedbackRating >= n ? 'bg-yellow-400 border-yellow-400 text-white' : 'border-slate-200 text-slate-400 hover:border-yellow-300'
+                      }`}>{n}★</button>
+                  ))}
+                </div>
               </div>
-            )}
-
-            <div className="flex flex-col gap-3">
-              {issuedCertNumber && (
-                <Button 
-                  className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
-                  onClick={() => handleDownload(issuedCertNumber)}
-                  disabled={downloadCert.isPending}
-                >
-                  {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                  Download My Certificate
-                </Button>
-              )}
-              <Button 
-                variant="outline"
-                className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
-                onClick={() => navigate("/fellowship")}
-              >
-                Return to Fellowship Dashboard
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-slate-700 mb-2">What could be improved?</p>
+                <textarea
+                  className="w-full border border-slate-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={4}
+                  placeholder="Share your thoughts on the content, clarity, or clinical relevance..."
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
+                />
+              </div>
+              <Button className="w-full py-4 font-bold" onClick={submitFeedbackAndDownload} disabled={downloadCert.isPending}>
+                {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Download className="w-5 h-5 mr-2" />}
+                Submit & Download Certificate
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="max-w-md w-full shadow-xl border-none">
+            <CardContent className="pt-10 pb-8 px-8 text-center">
+              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Award className="w-10 h-10 text-emerald-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Course Completed!</h2>
+              <p className="text-slate-600 mb-8">
+                Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.
+              </p>
+              {issuedCertNumber && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Certificate Number</p>
+                  <p className="text-lg font-mono font-bold text-primary">{issuedCertNumber}</p>
+                </div>
+              )}
+              <div className="flex flex-col gap-3">
+                {issuedCertNumber && (
+                  <Button 
+                    className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
+                    onClick={() => handleDownload(issuedCertNumber)}
+                    disabled={downloadCert.isPending}
+                  >
+                    {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                    Download My Certificate
+                  </Button>
+                )}
+                <Button 
+                  variant="outline"
+                  className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
+                  onClick={() => navigate("/fellowship")}
+                >
+                  Return to Fellowship Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
@@ -631,7 +685,7 @@ function SummativeQuizView({ course, quiz, onComplete, isPending }: any) {
           <h4 className="font-bold text-slate-800 text-lg mb-2">Ready for Certification</h4>
           <p className="text-sm text-slate-500 leading-relaxed">
             By clicking below, you confirm that you have reviewed all clinical protocols and are ready 
-            to be recognized as a ResusGPS verified provider for this specialty.
+            to be recognized as a Paeds Resus verified provider for this specialty.
           </p>
         </div>
 
