@@ -650,7 +650,19 @@ export async function getCertificateForDownload(
       .limit(1);
     const recipientName = userRows[0]?.name ?? "Participant";
 
-    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, cert.enrollmentId);
+    // For micro-course certs (enrollmentId=0), look up the course title via microCourseEnrollments
+    let courseDisplayName: string | undefined;
+    if (cert.enrollmentId === 0 && cert.microCourseEnrollmentId != null) {
+      const mceRows = await db
+        .select({ title: microCourses.title })
+        .from(microCourseEnrollments)
+        .leftJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
+        .where(eq(microCourseEnrollments.id, cert.microCourseEnrollmentId))
+        .limit(1);
+      courseDisplayName = mceRows[0]?.title?.trim() || undefined;
+    } else {
+      courseDisplayName = await getCourseDisplayNameForEnrollment(db, cert.enrollmentId);
+    }
 
     return { cert, trainingDate, recipientName, courseDisplayName };
   } catch (err) {
