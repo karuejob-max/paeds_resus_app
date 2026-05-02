@@ -379,10 +379,8 @@ export async function issueCertificateForEnrollmentIfEligible(
     if (enrollmentRows.length === 0) return { issued: false, error: "Enrollment not found" };
     const enrollment = enrollmentRows[0];
 
-    // Gate 1: Payment must be completed for all program types
-    if (enrollment.paymentStatus !== "completed") {
-      return { issued: false, error: "Enrollment payment not completed", pendingStep: "payment" };
-    }
+    // Gate 1: Payment gate removed — all enrolled users can receive certificates
+    // (payment tracking is retained in DB for admin reporting but does not block issuance)
 
     // Idempotency: if already issued, return success
     const existing = await getCertificateByEnrollmentId(enrollmentId);

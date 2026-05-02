@@ -80,13 +80,9 @@ export default function LearnerDashboard() {
     });
     return ranked[0];
   }, [microCatalog, myMicroEnrollments]);
+  // Payment gate removed: count all enrollments regardless of payment status
   const completedOrPaidCount = useMemo(
-    () =>
-      (myMicroEnrollments ?? []).filter((row) =>
-        row.paymentStatus === "completed" ||
-        row.paymentStatus === "free" ||
-        row.enrollmentStatus === "completed"
-      ).length,
+    () => (myMicroEnrollments ?? []).length,
     [myMicroEnrollments]
   );
   const getContinuePathForEnrollment = (courseId: string | null | undefined, enrollmentId: number) => {
@@ -94,9 +90,9 @@ export default function LearnerDashboard() {
   };
   const lifecycleResumeNudge = useMemo(() => {
     const rows = [...(myMicroEnrollments ?? [])].sort((a, b) => b.id - a.id);
+    // Payment gate removed: show resume nudge for all enrolled users
     const startedNotCompleted = rows.find(
       (row) =>
-        (row.paymentStatus === "completed" || row.paymentStatus === "free") &&
         row.enrollmentStatus !== "completed" &&
         Number(row.progressPercentage ?? 0) > 0 &&
         Number(row.progressPercentage ?? 0) < 100
@@ -110,9 +106,9 @@ export default function LearnerDashboard() {
         cta: "Resume course now",
       };
     }
+    // Payment gate removed: show start nudge for all enrolled users
     const paidNotStarted = rows.find(
       (row) =>
-        (row.paymentStatus === "completed" || row.paymentStatus === "free") &&
         row.enrollmentStatus !== "completed" &&
         Number(row.progressPercentage ?? 0) <= 0
     );

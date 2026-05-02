@@ -3,7 +3,7 @@ import { z } from "zod";
 import { notificationService } from "../notifications";
 import { getDb } from "../db";
 import { analyticsEvents, microCourseEnrollments, microCourses, users } from "../../drizzle/schema";
-import { and, desc, eq, gte, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
 import { trackEvent } from "../services/analytics.service";
 import { sendRecommendationNotification } from "../services/notification.service";
 import { sendSMS } from "../sms";
@@ -115,7 +115,8 @@ async function computeLifecycleNudgesForUser(userId: number): Promise<LifecycleN
     .where(
       and(
         eq(microCourseEnrollments.userId, userId),
-        inArray(microCourseEnrollments.paymentStatus, ["completed", "free"])
+        // Payment gate removed: show nudges for all enrolled users regardless of payment status
+        isNotNull(microCourseEnrollments.id)
       )
     )
     .orderBy(desc(microCourseEnrollments.updatedAt));
@@ -436,7 +437,8 @@ export const notificationsRouter = router({
         .from(microCourseEnrollments)
         .where(
           and(
-            inArray(microCourseEnrollments.paymentStatus, ["completed", "free"]),
+            // Payment gate removed: show nudges for all enrolled users regardless of payment status
+        isNotNull(microCourseEnrollments.id),
             ne(microCourseEnrollments.enrollmentStatus, "completed")
           )
         )
