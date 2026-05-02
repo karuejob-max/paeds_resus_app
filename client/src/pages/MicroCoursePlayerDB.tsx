@@ -132,7 +132,37 @@ export default function MicroCoursePlayerDB() {
     return myEnrollments?.find((e) => e.course?.courseId === slug);
   }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, programType, numericCourseId]);
 
+  // ── Resume Progress Query ──────────────────────────────────────────────────
+  // Only fire once we have both courseDetails (to know the courseId) and
+  // enrollment (to scope progress rows to this enrollment).
+  const resumeQuery = trpc.learning.getResumeModule.useQuery(
+    {
+      courseId: courseDetails?.id ?? 0,
+      enrollmentId: (enrollment as any)?.id ?? 0,
+    },
+    {
+      enabled: !!courseDetails?.id && !!(enrollment as any)?.id,
+      // Only fetch once on mount — we don't want to jump the user mid-session
+      staleTime: Infinity,
+    }
+  );
+
+  // On first load, jump to the first incomplete module
+  const [hasResumed, setHasResumed] = useState(false);
+  useEffect(() => {
+    if (hasResumed) return;
+    if (resumeQuery.data == null) return;
+    const { resumeIndex } = resumeQuery.data;
+    if (resumeIndex > 0) {
+      setCurrentModuleIndex(resumeIndex);
+      setMaxReachedModuleIndex(resumeIndex);
+    }
+    setHasResumed(true);
+  }, [resumeQuery.data, hasResumed]);
+
   // ── Mutations ──────────────────────────────────────────────────────────────
+  const completeModuleMutation = trpc.learning.completeModule.useMutation();
+
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
     onSuccess: (data) => {
       if (data.success && data.certificateNumber) {
@@ -247,6 +277,14 @@ export default function MicroCoursePlayerDB() {
   };
 
   const handleModuleTransition = () => {
+    // Persist module completion to the DB before advancing
+    if (currentModuleId && (enrollment as any)?.id) {
+      completeModuleMutation.mutate({
+        moduleId: currentModuleId,
+        enrollmentId: (enrollment as any).id,
+      });
+    }
+
     if (currentModuleIndex < modules.length - 1) {
       const nextIdx = currentModuleIndex + 1;
       setCurrentModuleIndex(nextIdx);

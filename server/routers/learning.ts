@@ -679,4 +679,58 @@ export const learningRouter = router({
       }
       return { success: true };
     }),
+
+  /**
+   * getResumeModule — returns the 0-based index of the first module the user
+   * has NOT yet completed for a given enrollment.  Returns 0 if no progress
+   * exists (fresh start) and the total module count if every module is done
+   * (course complete / review mode).
+   */
+  getResumeModule: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.number(),       // DB course id (modules.courseId)
+        enrollmentId: z.number(),   // enrollment id scoping the progress rows
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+
+      // Fetch ordered module list for this course
+      const courseModules = await (db as any)
+        .select({ id: modules.id })
+        .from(modules)
+        .where(eq(modules.courseId, input.courseId))
+        .orderBy(modules.order);
+
+      if (!courseModules.length) return { resumeIndex: 0, totalModules: 0 };
+
+      // Fetch all completed progress rows for this user + enrollment
+      const completedRows = await (db as any)
+        .select({ moduleId: userProgress.moduleId })
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.status, "completed")
+          )
+        );
+
+      const completedModuleIds = new Set(
+        completedRows.map((r: { moduleId: number }) => r.moduleId)
+      );
+
+      // First module whose id is NOT in the completed set
+      const resumeIndex = courseModules.findIndex(
+        (m: { id: number }) => !completedModuleIds.has(m.id)
+      );
+
+      // -1 means all modules completed → clamp to last index (review mode)
+      return {
+        resumeIndex: resumeIndex === -1 ? courseModules.length - 1 : resumeIndex,
+        totalModules: courseModules.length,
+      };
+    }),
 });
