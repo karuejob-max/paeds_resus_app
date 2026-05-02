@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Clock, DollarSign, Lock, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, BookOpen, Clock, DollarSign, Lock, CheckCircle2 } from 'lucide-react';
 import MpesaEnrollmentModal from '@/components/MpesaEnrollmentModal';
 
 type EmergencyType = 'respiratory' | 'shock' | 'seizure' | 'toxicology' | 'metabolic' | 'infectious' | 'burns' | 'trauma';
@@ -274,6 +275,7 @@ function EnrollmentButton({
   userId?: number;
 }) {
   const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
+  const [, setLocation] = useLocation();
   const adminAccessMutation = trpc.courses.grantAdminAccess.useMutation();
 
   const handleEnroll = async () => {
@@ -292,8 +294,13 @@ function EnrollmentButton({
 
   if (isCompleted) {
     return (
-      <Button disabled className="w-full bg-green-600 hover:bg-green-700">
-        ✓ Completed
+      <Button
+        className="w-full border-primary/40 text-primary hover:bg-primary/5"
+        variant="outline"
+        onClick={() => setLocation(`/micro-course/${course.courseId}?review=true`)}
+      >
+        <BookOpen className="h-4 w-4 mr-2" />
+        Review Course
       </Button>
     );
   }

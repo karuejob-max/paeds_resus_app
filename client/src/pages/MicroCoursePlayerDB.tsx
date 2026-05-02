@@ -147,15 +147,23 @@ export default function MicroCoursePlayerDB() {
     }
   );
 
-  // On first load, jump to the first incomplete module
+  // On first load, jump to the first incomplete module.
+  // In review mode (course already completed) we always start from module 1
+  // so the user can browse freely instead of landing on the final exam.
   const [hasResumed, setHasResumed] = useState(false);
   useEffect(() => {
     if (hasResumed) return;
     if (resumeQuery.data == null) return;
-    const { resumeIndex } = resumeQuery.data;
-    if (resumeIndex > 0) {
+    const { resumeIndex, allCompleted } = resumeQuery.data as { resumeIndex: number; totalModules: number; allCompleted?: boolean };
+    // Skip the resume jump when the course is fully completed — review mode
+    // always begins at module 1 (index 0) so the user can read from the start.
+    if (!allCompleted && resumeIndex > 0) {
       setCurrentModuleIndex(resumeIndex);
       setMaxReachedModuleIndex(resumeIndex);
+    }
+    // In review mode, unlock all modules so the step-nav is fully clickable.
+    if (allCompleted) {
+      setMaxReachedModuleIndex(Infinity);
     }
     setHasResumed(true);
   }, [resumeQuery.data, hasResumed]);
@@ -486,6 +494,24 @@ export default function MicroCoursePlayerDB() {
                     Download My Certificate
                   </Button>
                 )}
+                {/* Review Course — re-enters the player from module 1 in review mode */}
+                <Button
+                  variant="outline"
+                  className="w-full py-6 border-primary/40 text-primary font-semibold hover:bg-primary/5"
+                  onClick={() => {
+                    // Reset local state so the player starts fresh from module 1
+                    setCurrentModuleIndex(0);
+                    setCurrentSectionIndex(0);
+                    setShowFormativeQuiz(false);
+                    setShowSummativeQuiz(false);
+                    setHasResumed(false);
+                    // Navigate to the same course with review=true so isReviewMode is set
+                    navigate(`/micro-course/${slug}?review=true`);
+                  }}
+                >
+                  <BookOpen className="w-5 h-5 mr-2" />
+                  Review Course Content
+                </Button>
                 <Button 
                   variant="outline"
                   className="w-full py-6 border-slate-200 text-slate-700 font-semibold"

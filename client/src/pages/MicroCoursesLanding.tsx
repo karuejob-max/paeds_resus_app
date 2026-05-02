@@ -343,9 +343,13 @@ export default function MicroCoursesLanding() {
 
                     {/* Action Button */}
                     {isCompleted ? (
-                      <Button disabled className="w-full" variant="outline">
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Completed
+                      <Button
+                        className="w-full border-primary/40 text-primary hover:bg-primary/5"
+                        variant="outline"
+                        onClick={() => setLocation(`/micro-course/${course.courseId}?review=true`)}
+                      >
+                        <BookOpen className="h-4 w-4 mr-2" />
+                        Review Course
                       </Button>
                     ) : isEnrolled ? (
                       <Button className="w-full" variant="outline">

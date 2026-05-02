@@ -683,8 +683,11 @@ export const learningRouter = router({
   /**
    * getResumeModule — returns the 0-based index of the first module the user
    * has NOT yet completed for a given enrollment.  Returns 0 if no progress
-   * exists (fresh start) and the total module count if every module is done
-   * (course complete / review mode).
+   * exists (fresh start).
+   *
+   * When all modules are complete (allCompleted=true), returns resumeIndex=0
+   * so that review mode always starts from the first module rather than
+   * dropping the user onto the final exam.
    */
   getResumeModule: protectedProcedure
     .input(
@@ -727,10 +730,12 @@ export const learningRouter = router({
         (m: { id: number }) => !completedModuleIds.has(m.id)
       );
 
-      // -1 means all modules completed → clamp to last index (review mode)
+      // -1 means every module is completed → review mode: start from module 1
+      const allCompleted = resumeIndex === -1;
       return {
-        resumeIndex: resumeIndex === -1 ? courseModules.length - 1 : resumeIndex,
+        resumeIndex: allCompleted ? 0 : resumeIndex,
         totalModules: courseModules.length,
+        allCompleted,
       };
     }),
 });
