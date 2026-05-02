@@ -47,9 +47,17 @@ export default function MicroCoursePlayerDB() {
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
   const [feedbackText, setFeedbackText] = useState<string>('');
   
-  // Track progress locally for the session
-  const [maxReachedModuleIndex, setMaxReachedModuleIndex] = useState(0);
+  // Track progress — persisted to localStorage so resume works on page refresh
+  const progressKey = `course-progress-${slug}`;
+  const [maxReachedModuleIndex, setMaxReachedModuleIndex] = useState(() => {
+    try { return parseInt(localStorage.getItem(progressKey + '-module') ?? '0', 10) || 0; } catch { return 0; }
+  });
   const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
+
+  // Persist maxReachedModuleIndex whenever it advances
+  useEffect(() => {
+    try { localStorage.setItem(progressKey + '-module', String(maxReachedModuleIndex)); } catch {}
+  }, [maxReachedModuleIndex, progressKey]);
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -548,12 +556,13 @@ export default function MicroCoursePlayerDB() {
         {showSummativeQuiz ? (
           <SummativeQuizView 
             course={dbCourse}
-            quiz={currentQuiz} // For now use module quiz as summative proxy if needed
+            quiz={currentQuiz}
             onComplete={handleFinalSubmit}
-            isPending={completeCourse.isPending}
+            isPending={completeCourse.isPending || markAhaCognitive.isPending}
+            isAhaCourse={isAhaCourse}
           />
         ) : showFormativeQuiz ? (
-          <FormativeQuizView 
+            <FormativeQuizView 
             moduleTitle={currentModule?.title ?? ""}
             quiz={currentQuiz}
             answers={quizAnswers}
@@ -562,6 +571,11 @@ export default function MicroCoursePlayerDB() {
             submitted={quizSubmitted}
             score={quizScore}
             onNext={handleModuleTransition}
+            onRetry={() => {
+              setQuizAnswers({});
+              setQuizSubmitted(false);
+              setQuizScore(null);
+            }}
             isPending={submitQuizMutation.isPending}
             isEnsuring={ensureAhaEnrollmentMutation.isPending}
           />
@@ -654,7 +668,7 @@ export default function MicroCoursePlayerDB() {
 
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
-  submitted, score, onNext, isPending, isEnsuring 
+  submitted, score, onNext, onRetry, isPending, isEnsuring 
 }: any) {
   if (!quiz) return null;
 
@@ -749,10 +763,7 @@ function FormativeQuizView({
               <Button 
                 variant="outline"
                 className="w-full py-8 rounded-2xl font-bold text-xl border-border"
-                onClick={() => {
-                  setAnswers({});
-                  onNext(); // Or allow retry
-                }}
+                onClick={onRetry}
               >
                 Retry Knowledge Check
               </Button>
@@ -764,7 +775,7 @@ function FormativeQuizView({
   );
 }
 
-function SummativeQuizView({ course, quiz, onComplete, isPending }: any) {
+function SummativeQuizView({ course, quiz, onComplete, isPending, isAhaCourse }: any) {
   return (
     <Card className="border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
       <div className="bg-primary p-12 text-center text-white relative overflow-hidden">
@@ -775,7 +786,9 @@ function SummativeQuizView({ course, quiz, onComplete, isPending }: any) {
         <h2 className="text-3xl font-black mb-2">Final Verification</h2>
         <p className="text-primary-100 max-w-md mx-auto">
           You have completed all learning modules for <strong>{course.title}</strong>. 
-          Submit your final assessment to receive your Paeds Resus Fellowship certificate.
+          {isAhaCourse
+            ? ' Issue your AHA Cognitive Certificate to confirm completion.'
+            : ' Submit your final assessment to receive your Paeds Resus Fellowship certificate.'}
         </p>
       </div>
       <CardContent className="p-12 text-center space-y-8">
