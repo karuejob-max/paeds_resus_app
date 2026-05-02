@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,6 +19,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const nextPath = useMemo(() => {
     return readSafeNextPathFromSearch(search, "/home");
   }, [search]);
@@ -35,14 +37,30 @@ export default function Login() {
         setError("Could not reach the server. Refresh and try again.");
         return;
       }
-      setError(e.message);
+      // Surface Zod / server validation errors clearly instead of silently failing
+      if (/Invalid email|invalid_format|BAD_REQUEST/i.test(e.message)) {
+        setError("Please enter a valid email address and password.");
+        return;
+      }
+      setError(e.message || "Sign-in failed. Please check your credentials and try again.");
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate({ email, password });
+
+    // Read directly from DOM refs to capture browser-autofilled values that
+    // may not have triggered React onChange events (a known browser behaviour).
+    const resolvedEmail = emailRef.current?.value ?? email;
+    const resolvedPassword = passwordRef.current?.value ?? password;
+
+    if (!resolvedEmail || !resolvedPassword) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
+    loginMutation.mutate({ email: resolvedEmail, password: resolvedPassword });
   };
 
   useEffect(() => {
@@ -70,6 +88,7 @@ export default function Login() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                ref={emailRef}
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -83,6 +102,7 @@ export default function Login() {
               <div className="relative">
                 <Input
                   id="password"
+                  ref={passwordRef}
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
