@@ -251,8 +251,6 @@ export default function MicroCoursePlayerDB() {
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
-  // Detect if the current module is the "Final Knowledge Check" (last module, title contains 'Final')
-  const isFinalExamModule = isLastModule && (currentModule?.title?.toLowerCase().includes('final') ?? false);
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
 
   const handleNextSection = () => {
@@ -513,6 +511,9 @@ export default function MicroCoursePlayerDB() {
   const currentModule = modules[currentModuleIndex];
   const currentSection = sections[currentSectionIndex];
   const currentQuiz = quizzes[0]; // Formative quiz for the module
+  // Detect if the current module is the "Final Knowledge Check" (last module, title contains 'Final')
+  // Must be declared AFTER currentModule to avoid temporal dead zone (ReferenceError)
+  const isFinalExamModule = isLastModule && (currentModule?.title?.toLowerCase().includes('final') ?? false);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
