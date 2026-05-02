@@ -15,6 +15,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { isAuthenticated, loading } = useAuth();
+  const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,10 +27,14 @@ export default function Login() {
   }, [search]);
 
   const loginMutation = trpc.auth.loginWithPassword.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       // Reset role context on fresh sign-in so landing follows server-side userType.
       localStorage.removeItem("userRole");
       window.dispatchEvent(new CustomEvent("userRoleChanged", { detail: null }));
+      // Invalidate the auth.me cache so useAuth reflects the new session cookie
+      // before navigating. Without this, the stale null cache triggers an
+      // immediate redirect back to /login.
+      await utils.auth.me.invalidate();
       setLocation(nextPath);
     },
     onError: (e) => {
