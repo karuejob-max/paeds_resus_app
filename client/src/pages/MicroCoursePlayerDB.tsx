@@ -221,6 +221,8 @@ export default function MicroCoursePlayerDB() {
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
+  // Detect if the current module is the "Final Knowledge Check" (last module, title contains 'Final')
+  const isFinalExamModule = isLastModule && (currentModule?.title?.toLowerCase().includes('final') ?? false);
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
 
   const handleNextSection = () => {
@@ -578,6 +580,7 @@ export default function MicroCoursePlayerDB() {
             }}
             isPending={submitQuizMutation.isPending}
             isEnsuring={ensureAhaEnrollmentMutation.isPending}
+            isFinalExam={isFinalExamModule}
           />
         ) : (
           <div className="space-y-6">
@@ -668,22 +671,41 @@ export default function MicroCoursePlayerDB() {
 
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
-  submitted, score, onNext, onRetry, isPending, isEnsuring 
+  submitted, score, onNext, onRetry, isPending, isEnsuring, isFinalExam 
 }: any) {
   if (!quiz) return null;
 
   return (
     <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <CardHeader className="bg-primary text-primary-foreground p-8">
-        <div className="flex items-center gap-2 text-primary-400 mb-2">
-          <ListChecks className="w-5 h-5" />
-          <span className="text-xs font-bold uppercase tracking-widest opacity-80">Knowledge Check</span>
+      <CardHeader className={isFinalExam ? "bg-gradient-to-br from-slate-800 to-slate-900 text-white p-8" : "bg-primary text-primary-foreground p-8"}>
+        <div className="flex items-center gap-2 mb-2 opacity-80">
+          {isFinalExam ? <Award className="w-5 h-5" /> : <ListChecks className="w-5 h-5" />}
+          <span className="text-xs font-bold uppercase tracking-widest">
+            {isFinalExam ? 'Final Examination' : 'Knowledge Check'}
+          </span>
         </div>
-        <CardTitle className="text-2xl font-bold">Review: {moduleTitle}</CardTitle>
-        <p className="text-primary-foreground/70 text-sm mt-2">
-          Test your understanding of the concepts covered in this module. 
-          Passing score: <span className="text-white font-bold">{quiz.passingScore}%</span>
+        <CardTitle className="text-2xl font-bold">
+          {isFinalExam ? 'Final Knowledge Check' : `Review: ${moduleTitle}`}
+        </CardTitle>
+        <p className="text-white/70 text-sm mt-2">
+          {isFinalExam
+            ? `This is the final examination. You must score ≥${quiz.passingScore}% to receive your certificate.`
+            : `Test your understanding of the concepts covered in this module. Passing score: `
+          }
+          {!isFinalExam && <span className="text-white font-bold">{quiz.passingScore}%</span>}
         </p>
+        {isFinalExam && (
+          <div className="flex items-center gap-4 mt-4">
+            <div className="bg-white/10 rounded-xl px-4 py-2 text-center">
+              <p className="text-2xl font-black">{quiz.questions.length}</p>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-70">Questions</p>
+            </div>
+            <div className="bg-white/10 rounded-xl px-4 py-2 text-center">
+              <p className="text-2xl font-black">{quiz.passingScore}%</p>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-70">To Pass</p>
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-8 space-y-10">
         {quiz.questions.map((q: any, idx: number) => (
@@ -745,10 +767,15 @@ function FormativeQuizView({
               "inline-flex flex-col items-center p-6 rounded-2xl border-2",
               score >= quiz.passingScore ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
             )}>
-              <span className="text-sm font-bold uppercase tracking-widest mb-1">Your Score</span>
+              <span className="text-sm font-bold uppercase tracking-widest mb-1">
+                {isFinalExam ? 'Final Exam Score' : 'Your Score'}
+              </span>
               <span className="text-5xl font-black">{score}%</span>
               <span className="text-sm font-medium mt-2">
-                {score >= quiz.passingScore ? "Great job! You've mastered this module." : "Keep studying and try again."}
+                {score >= quiz.passingScore
+                  ? isFinalExam ? `Excellent! You've passed the final exam.` : `Great job! You've mastered this module.`
+                  : isFinalExam ? `You need ${quiz.passingScore}% to pass. Review the material and try again.` : `Keep studying and try again.`
+                }
               </span>
             </div>
             
@@ -757,7 +784,7 @@ function FormativeQuizView({
                 className="w-full py-8 rounded-2xl font-bold text-xl bg-emerald-600 hover:bg-emerald-700"
                 onClick={onNext}
               >
-                Continue to Next Module
+                {isFinalExam ? <><Award className="w-6 h-6 mr-2" />Claim My Certificate</> : <>Continue to Next Module</>}
               </Button>
             ) : (
               <Button 
@@ -765,7 +792,7 @@ function FormativeQuizView({
                 className="w-full py-8 rounded-2xl font-bold text-xl border-border"
                 onClick={onRetry}
               >
-                Retry Knowledge Check
+                {isFinalExam ? 'Retry Final Exam' : 'Retry Knowledge Check'}
               </Button>
             )}
           </div>
@@ -778,47 +805,54 @@ function FormativeQuizView({
 function SummativeQuizView({ course, quiz, onComplete, isPending, isAhaCourse }: any) {
   return (
     <Card className="border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
-      <div className="bg-primary p-12 text-center text-white relative overflow-hidden">
+      <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-12 text-center text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Award className="w-48 h-48 rotate-12" />
         </div>
-        <GraduationCap className="w-16 h-16 mx-auto mb-6 text-primary-200" />
-        <h2 className="text-3xl font-black mb-2">Final Verification</h2>
-        <p className="text-primary-100 max-w-md mx-auto">
-          You have completed all learning modules for <strong>{course.title}</strong>. 
-          {isAhaCourse
-            ? ' Issue your AHA Cognitive Certificate to confirm completion.'
-            : ' Submit your final assessment to receive your Paeds Resus Fellowship certificate.'}
+        <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-3xl font-black mb-2">Final Exam Passed!</h2>
+        <p className="text-white/80 max-w-md mx-auto text-base">
+          You have successfully completed all modules and passed the final examination for{' '}
+          <strong className="text-white">{course.title}</strong>.
         </p>
       </div>
-      <CardContent className="p-12 text-center space-y-8">
-        <div className="flex justify-center gap-12">
-          <div className="text-center">
-            <p className="text-4xl font-black text-foreground">100%</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Content Read</p>
+      <CardContent className="p-10 text-center space-y-8">
+        <div className="flex justify-center gap-8">
+          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+            <p className="text-4xl font-black text-emerald-600">✓</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">All Modules</p>
           </div>
-          <div className="text-center">
+          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+            <p className="text-4xl font-black text-emerald-600">✓</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Final Exam</p>
+          </div>
+          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-foreground">{course.duration}m</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Time Invested</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</p>
           </div>
         </div>
         
-        <div className="p-8 bg-muted/30 rounded-3xl border-2 border-dashed border-border">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-          <h4 className="font-bold text-foreground text-lg mb-2">Ready for Certification</h4>
+        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+          <GraduationCap className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+          <h4 className="font-bold text-foreground text-lg mb-2">
+            {isAhaCourse ? 'AHA Cognitive Certificate Ready' : 'Paeds Resus Fellowship Certificate Ready'}
+          </h4>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            By clicking below, you confirm that you have reviewed all clinical protocols and are ready 
-            to be recognized as a Paeds Resus verified provider for this specialty.
+            {isAhaCourse
+              ? 'Your AHA Cognitive Gatepass Certificate will be issued and available for download immediately.'
+              : 'Your Paeds Resus Fellowship certificate will be issued and available for download immediately.'}
           </p>
         </div>
 
         <Button 
-          className="w-full py-10 rounded-3xl font-black text-2xl shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95"
+          className="w-full py-10 rounded-3xl font-black text-2xl shadow-2xl shadow-emerald-500/30 bg-emerald-600 hover:bg-emerald-700 transition-all hover:scale-[1.02] active:scale-95"
           onClick={onComplete}
           disabled={isPending}
         >
           {isPending ? <Loader2 className="w-8 h-8 animate-spin mr-3" /> : <Award className="w-8 h-8 mr-3" />}
-          Issue My Certificate
+          {isAhaCourse ? 'Issue AHA Certificate' : 'Issue My Certificate'}
         </Button>
       </CardContent>
     </Card>
