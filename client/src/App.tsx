@@ -38,6 +38,7 @@ const PerformanceDashboard = lazy(() =>
   import("./pages/PerformanceDashboard").then((m) => ({ default: m.PerformanceDashboard }))
 );
 const ProviderProfile = lazy(() => import("./pages/ProviderProfile"));
+const ProviderDashboard = lazy(() => import("./pages/ProviderDashboard"));
 const CPRMonitoring = lazy(() => import("./pages/CPRMonitoring"));
 const VerifyCertificate = lazy(() => import("./pages/VerifyCertificate"));
 const Referral = lazy(() => import("./pages/Referral"));
@@ -375,6 +376,12 @@ function Router() {
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
           {/* case-analysis has no page; redirect to targeted-solutions */}
           <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
+          {/* /certificates → provider dashboard with certificates section pre-expanded */}
+          <Route path="/certificates">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderDashboard defaultShowCertificates={true} />
+            </RoleGate>
+          )}</Route>
           {/* dashboard → home (provider hub) */}
           <Route path="/dashboard">{() => <Redirect to="/home" />}</Route>
           {/* institutional-dashboard → hospital admin */}

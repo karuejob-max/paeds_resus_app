@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -35,11 +35,21 @@ function daysUntilExpiry(expiryDate: string | Date | null | undefined): number |
   return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
 
-export default function ProviderDashboard() {
+export default function ProviderDashboard({ defaultShowCertificates = false }: { defaultShowCertificates?: boolean }) {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/home/provider");
-  const [showCertificates, setShowCertificates] = useState(false);
+  const [showCertificates, setShowCertificates] = useState(defaultShowCertificates);
+  const certCardRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to certificates section when opened via /certificates route
+  useEffect(() => {
+    if (defaultShowCertificates && certCardRef.current) {
+      setTimeout(() => {
+        certCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 400);
+    }
+  }, [defaultShowCertificates]);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const summaryQuery = trpc.dashboards.getSummary.useQuery(undefined, {
@@ -383,7 +393,7 @@ export default function ProviderDashboard() {
         </Card>
 
         {/* ── Certificates section ───────────────────────────────────────────── */}
-        <Card>
+        <Card ref={certCardRef} id="my-certificates" className="scroll-mt-20">
           <CardHeader className="pb-2 pt-4 px-5">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">

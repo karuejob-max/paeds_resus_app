@@ -294,7 +294,9 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   y -= 60;
 
   // Footer Details (Date, ID, QR)
-  const footY = 80;
+  // footY raised to 100 to give the QR code (height=70) a top edge at ~165,
+  // safely below the course title which can reach as low as ~140 on long titles.
+  const footY = 100;
   
   // Date
   page.drawText(`Date of Issue: ${formatDate(data.trainingDate)}`, {
@@ -327,16 +329,17 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     const qrSize = 70;
     page.drawImage(qrImg, { 
       x: width - 80 - qrSize, 
-      y: footY - 20, 
+      y: footY - 5,   // QR top edge = footY - 5 + qrSize = footY + 65 — clear of course title
       width: qrSize, 
       height: qrSize 
     });
     
+    // Verify text sits below the QR code with 4px gap
     const verifyText = "Verify at paedsresus.com/verify";
     const vtW = font.widthOfTextAtSize(verifyText, 7);
     page.drawText(verifyText, {
       x: width - 80 - qrSize + (qrSize - vtW) / 2,
-      y: footY - 30,
+      y: footY - 14,  // 9px below the QR bottom edge
       size: 7,
       font,
       color: BRAND.inkMuted,
