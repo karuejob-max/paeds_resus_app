@@ -122,6 +122,7 @@ import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
+import { MedicationTimerStrip } from '@/components/MedicationTimerStrip';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -306,7 +307,10 @@ export default function ResusGPS() {
   };
 
   const handleAnswer = (question: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => {
-    setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Answer: ${question.id} = ${answer}`);
+      return answerPrimarySurvey(withUndo, question.id, answer, question, numVal, numVal2);
+    });
     setNumberInput('');
     setNumberInput2('');
     // Track question answered
@@ -315,7 +319,10 @@ export default function ResusGPS() {
 
   const handleCompleteIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
-    setSession(prev => completeIntervention(prev, id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Complete: ${intervention?.action ?? id}`);
+      return completeIntervention(withUndo, id);
+    });
     // Track intervention completed
     if (intervention) {
       trackButtonClick('Log Intervention', { interventionName: intervention.action });
@@ -339,7 +346,10 @@ export default function ResusGPS() {
     }
 
     // No duplicate, proceed with intervention
-    setSession(prev => startIntervention(prev, id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Start: ${intervention.action}`);
+      return startIntervention(withUndo, id);
+    });
     analytics.trackInterventionStarted(intervention.action);
     
   };
@@ -347,7 +357,10 @@ export default function ResusGPS() {
   const handleMarkInterventionUnavailable = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (!intervention) return;
-    setSession(prev => markInterventionUnavailable(prev, id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Unavailable: ${intervention.action}`);
+      return markInterventionUnavailable(withUndo, id);
+    });
     toast.warning(
       `⚠ Resource gap logged: "${intervention.action}" not available at this facility. Captured for Care Signal.`,
       { duration: 5000 }
@@ -356,7 +369,10 @@ export default function ResusGPS() {
 
   const handleConfirmDuplicateOverride = () => {
     if (!duplicateWarning) return;
-    setSession(prev => startIntervention(prev, duplicateWarning.intervention.id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Override duplicate: ${duplicateWarning.intervention.action}`);
+      return startIntervention(withUndo, duplicateWarning.intervention.id);
+    });
     analytics.trackInterventionStarted(duplicateWarning.intervention.action);
     toast.warning('Duplicate intervention started - verify clinical decision');
     setDuplicateWarning(null);
@@ -379,7 +395,10 @@ export default function ResusGPS() {
   };
 
   const handleCardiacArrest = () => {
-    setSession(prev => triggerCardiacArrest(prev));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, 'Cardiac arrest triggered');
+      return triggerCardiacArrest(withUndo);
+    });
     timer.reset();
     timer.start();
     // Show CPR Clock for ACLS-aligned guidance
@@ -389,7 +408,10 @@ export default function ResusGPS() {
   };
 
   const handleROSC = () => {
-    setSession(prev => achieveROSC(prev));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, 'ROSC achieved');
+      return achieveROSC(withUndo);
+    });
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
@@ -847,6 +869,9 @@ export default function ResusGPS() {
               )}
             </SheetDescription>
           </SheetHeader>
+
+          {/* Medication countdown timers for in-progress interventions */}
+          <MedicationTimerStrip threats={session.threats} />
 
           <div className="space-y-4 mt-4">
             {activeThreats.map(threat => (
