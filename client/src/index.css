@@ -506,6 +506,50 @@
     border-color: #7c1a1a;
   }
 
+  /* Images inside course content */
+  .module-content img,
+  .module-content .algorithm-image img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 16px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: block;
+  }
+  .module-content .algorithm-image {
+    margin: 16px 0;
+  }
+  .module-content .image-caption {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .dark .module-content .image-caption {
+    color: #9ca3af;
+  }
+  /* Resource download links */
+  .module-content .resource-download {
+    margin: 16px 0;
+    padding: 12px 16px;
+    background: #f0f7ff;
+    border-left: 4px solid #2563eb;
+    border-radius: 4px;
+  }
+  .dark .module-content .resource-download {
+    background: #1a2a3a;
+    border-left-color: #3b82f6;
+  }
+  .module-content .resource-download a {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .dark .module-content .resource-download a {
+    color: #60a5fa;
+  }
+
   /* Mobile emergency protocol optimizations */
   @media (max-width: 640px) {
     /* Larger text for critical information */

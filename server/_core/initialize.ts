@@ -33,6 +33,56 @@ export async function runMigrations() {
     } else {
       console.log('[Migrations] ✓ microCourseEnrollmentId already exists, skipping');
     }
+    // ── Course image CDN → self-hosted migration ──────────────────────────────
+    // Replaces files.manuscdn.com URLs with local /assets/course-images/ paths
+    // to fix CORS-blocked images in the course player.
+    const CDN_BASE = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663302160278/';
+    const URL_MAP: Record<string, string> = {
+      'uPVOEVMtdNNCAFxJ.jpg':  '/assets/course-images/AdultBLSAlgorithmHCP.jpg',
+      'JRhqhPQjUavvvnTi.jpg':  '/assets/course-images/AdultBLSCircular.jpg',
+      'dlVFAvOxSQtIQAhD.jpg':  '/assets/course-images/HeadTiltChinLift.jpg',
+      'bFYHIRnhYRSgoLLr.jpg':  '/assets/course-images/SingleRescuer.jpg',
+      'OiYeNjGHMerXxnuo.jpg':  '/assets/course-images/TwoRescuer.jpg',
+      'zQTJdmBosnHpHqBa.jpg':  '/assets/course-images/PadPlacement.jpg',
+      'EbUetJWLdlcFLPmd.jpg':  '/assets/course-images/AdultFBAO.jpg',
+      'OppQyzCIqrmgrqWy.jpg':  '/assets/course-images/BLSTermination.jpg',
+      'WMAFDEebhxuLTSvW.jpg':  '/assets/course-images/AdultCAAlgorithm.jpg',
+      'iqTAFIaeCgYxlqIE.jpg':  '/assets/course-images/AdultCACircular.jpg',
+      'RxhFLJoAuwgNJyEN.jpg':  '/assets/course-images/AdultBradycardia.jpg',
+      'siCbDpWmTQthWUzd.jpg':  '/assets/course-images/AdultTachycardia.jpg',
+      'UchZBrALpalLmnEq.webp': '/assets/course-images/ElectricalCardioversion.webp',
+      'unzmuRCvlBKLAZbp.jpg':  '/assets/course-images/AdvancedAirway.jpg',
+      'qbHRuEaQatfuaYHh.jpg':  '/assets/course-images/ALSTermination.jpg',
+    };
+    try {
+      const [cdnRows] = await db.execute(sql`
+        SELECT id, content FROM moduleSections WHERE content LIKE ${'%files.manuscdn.com%'}
+      `) as any;
+      if (Array.isArray(cdnRows) && cdnRows.length > 0) {
+        console.log(`[Migrations] Migrating ${cdnRows.length} sections from CDN to self-hosted images...`);
+        let imgUpdated = 0;
+        for (const row of cdnRows as any[]) {
+          let newContent: string = row.content;
+          let changed = false;
+          for (const [filename, localPath] of Object.entries(URL_MAP)) {
+            const cdnUrl = CDN_BASE + filename;
+            if (newContent.includes(cdnUrl)) {
+              newContent = newContent.split(cdnUrl).join(localPath);
+              changed = true;
+            }
+          }
+          if (changed) {
+            await db.execute(sql`UPDATE moduleSections SET content = ${newContent} WHERE id = ${row.id}`);
+            imgUpdated++;
+          }
+        }
+        console.log(`[Migrations] ✓ Image URLs migrated: ${imgUpdated} sections updated`);
+      } else {
+        console.log('[Migrations] ✓ Image URLs already migrated, skipping');
+      }
+    } catch (imgErr) {
+      console.error('[Migrations] Image URL migration error (non-fatal):', imgErr instanceof Error ? imgErr.message : imgErr);
+    }
   } catch (error) {
     console.error('[Migrations] Migration error (non-fatal):', error instanceof Error ? error.message : error);
     // Don't throw — allow server to start even if a migration fails

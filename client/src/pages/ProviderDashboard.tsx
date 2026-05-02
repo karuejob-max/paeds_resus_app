@@ -265,51 +265,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Paeds Resus Provider Workspace</p>
           </div>
-          {notifications.length > 0 && (
-            <div className="relative">
-              <Bell className="h-6 w-6 text-slate-500" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
-                {notifications.length}
-              </span>
-            </div>
-          )}
         </div>
-
-        {/* ── Notifications panel ────────────────────────────────────────────── */}
-        {notifications.length > 0 && (
-          <Card className="border-amber-200 bg-amber-50/60">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
-                <Bell className="h-4 w-4" />
-                Notifications ({notifications.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                    n.type === "warning"
-                      ? "bg-amber-100 text-amber-900 border border-amber-200"
-                      : "bg-white text-slate-700 border border-slate-100"
-                  }`}
-                >
-                  <span className="flex-1 mr-2">{n.message}</span>
-                  {n.action && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2 text-xs font-semibold shrink-0"
-                      onClick={n.action}
-                    >
-                      {n.actionLabel} <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
         {/* ── Paeds Resus Fellowship ─────────────────────────────────────────── */}
         <Card className="border-violet-200 overflow-hidden">
