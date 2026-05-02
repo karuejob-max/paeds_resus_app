@@ -582,7 +582,7 @@ export const coursesRouter = router({
             .values({
               userId: ctx.user.id,
               programType: input.programType,
-              enrollmentStatus: 'active',
+              trainingDate: new Date(), // required NOT NULL
               paymentStatus: 'completed',
               cognitiveModulesComplete: false,
             })
@@ -739,4 +739,44 @@ export const coursesRouter = router({
       .where(eq(trainingAttendance.staffMemberId, ctx.user.id))
       .orderBy(asc(trainingSchedules.scheduledDate));
   }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-ENROLL-1: Upsert an AHA enrollment row and return its id.
+  // Called by the course player on first quiz submit so recordQuizAttempt
+  // always has a valid enrollmentId even on a first visit.
+  // ─────────────────────────────────────────────────────────────────────────
+  ensureAhaEnrollment: protectedProcedure
+    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']) }))
+    .mutation(async ({ ctx, input }) => {
+      assertProviderOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) throw new Error('Database unavailable');
+        // Return existing enrollment id if present
+        const existing = await database
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+          .limit(1);
+        if (existing.length > 0) {
+          return { success: true, enrollmentId: existing[0].id };
+        }
+        // Create new enrollment row (trainingDate required NOT NULL — default to now)
+        const inserted = await database
+          .insert(enrollments)
+          .values({
+            userId: ctx.user.id,
+            programType: input.programType,
+            trainingDate: new Date(),
+            paymentStatus: 'completed',
+            cognitiveModulesComplete: false,
+          })
+          .$returningId();
+        const newId = (inserted as any)[0]?.id ?? 0;
+        return { success: true, enrollmentId: newId };
+      } catch (err) {
+        console.error('[courses.ensureAhaEnrollment]', err);
+        return { success: false, enrollmentId: 0, error: err instanceof Error ? err.message : 'Unknown error' };
+      }
+    }),
 });

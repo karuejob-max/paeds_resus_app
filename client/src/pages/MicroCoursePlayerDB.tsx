@@ -191,6 +191,9 @@ export default function MicroCoursePlayerDB() {
     );
   };
 
+  // AHA-ENROLL-1: Upsert enrollment row before first quiz submit
+  const ensureAhaEnrollmentMutation = trpc.courses.ensureAhaEnrollment.useMutation();
+
   const submitQuizMutation = trpc.learning.recordQuizAttempt.useMutation({
     onSuccess: (result) => {
       if (result.success && result.passed) {
@@ -254,26 +257,58 @@ export default function MicroCoursePlayerDB() {
     }
   };
 
-  const handleQuizSubmit = () => {
-    const quiz = quizzes[0]; // Currently support one quiz per module
-    if (!quiz || !enrollment) return;
-
+  const doSubmitQuiz = (enrollmentId: number) => {
+    const quiz = quizzes[0];
+    if (!quiz) return;
     let correct = 0;
     quiz.questions.forEach((q: any, idx: number) => {
       const userAnswer = quizAnswers[idx];
-      const correctAnswer = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer;
+      // Safe correctAnswer resolution — stored as plain string or JSON string
+      let correctAnswer: string;
+      try {
+        const parsed = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer;
+        correctAnswer = typeof parsed === 'string' ? parsed : String(parsed);
+      } catch {
+        correctAnswer = typeof q.correctAnswer === 'string' ? q.correctAnswer : String(q.correctAnswer);
+      }
       if (userAnswer === correctAnswer) correct++;
     });
-
     const score = Math.round((correct / quiz.questions.length) * 100);
-    
     submitQuizMutation.mutate({
-      enrollmentId: enrollment.id,
+      enrollmentId,
       moduleId: currentModuleId!,
       quizId: quiz.id,
       score,
       answers: quizAnswers,
     });
+  };
+
+  const handleQuizSubmit = () => {
+    const quiz = quizzes[0]; // Currently support one quiz per module
+    if (!quiz) return;
+
+    if (enrollment?.id) {
+      // Enrollment already exists — submit directly
+      doSubmitQuiz(enrollment.id);
+    } else if (isAhaCourse) {
+      // First visit: auto-create enrollment then submit
+      const pt = (dbCourse as any)?.programType ?? programType ?? 'bls';
+      ensureAhaEnrollmentMutation.mutate(
+        { programType: pt as any },
+        {
+          onSuccess: (result) => {
+            if (result.success && result.enrollmentId) {
+              doSubmitQuiz(result.enrollmentId);
+            } else {
+              toast.error('Could not create enrollment. Please try again.');
+            }
+          },
+          onError: () => toast.error('Enrollment setup failed. Please try again.'),
+        }
+      );
+    } else {
+      toast.error('Enrollment not found. Please refresh and try again.');
+    }
   };
 
   const handleFinalSubmit = () => {
@@ -528,6 +563,7 @@ export default function MicroCoursePlayerDB() {
             score={quizScore}
             onNext={handleModuleTransition}
             isPending={submitQuizMutation.isPending}
+            isEnsuring={ensureAhaEnrollmentMutation.isPending}
           />
         ) : (
           <div className="space-y-6">
@@ -618,7 +654,7 @@ export default function MicroCoursePlayerDB() {
 
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
-  submitted, score, onNext, isPending 
+  submitted, score, onNext, isPending, isEnsuring 
 }: any) {
   if (!quiz) return null;
 
@@ -647,7 +683,9 @@ function FormativeQuizView({
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
                 const isSelected = answers[idx] === option;
-                const isCorrect = submitted && option === (typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer);
+                // Safe correctAnswer resolution — handles plain string or JSON-encoded string
+                const resolvedCorrect = (() => { try { const p = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; return typeof p === 'string' ? p : String(p); } catch { return typeof q.correctAnswer === 'string' ? q.correctAnswer : String(q.correctAnswer); } })();
+                const isCorrect = submitted && option === resolvedCorrect;
                 const isWrong = submitted && isSelected && !isCorrect;
 
                 return (
@@ -681,11 +719,11 @@ function FormativeQuizView({
         {!submitted ? (
           <Button 
             className="w-full py-8 rounded-2xl font-bold text-xl shadow-xl shadow-primary/20"
-            disabled={Object.keys(answers).length < quiz.questions.length || isPending}
+            disabled={Object.keys(answers).length < quiz.questions.length || isPending || isEnsuring}
             onClick={onSubmit}
           >
-            {isPending ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
-            Submit Answers
+            {(isPending || isEnsuring) ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
+            {isEnsuring ? 'Setting up...' : 'Submit Answers'}
           </Button>
         ) : (
           <div className="w-full text-center space-y-6">
