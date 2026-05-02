@@ -1,8 +1,11 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe } from "lucide-react";
-import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminHub() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -175,7 +178,62 @@ export default function AdminHub() {
             </CardHeader>
           </Card>
         </div>
+
+        {/* ── Maintenance Tools ─────────────────────────────────────────────── */}
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Maintenance</h2>
+          <ImageMigrationCard />
+        </div>
       </div>
     </div>
+  );
+}
+
+function ImageMigrationCard() {
+  const { toast } = useToast();
+  const [done, setDone] = useState(false);
+  const migrate = trpc.adminStats.runImageMigration.useMutation({
+    onSuccess: (data) => {
+      setDone(true);
+      toast({
+        title: data.updated > 0 ? `✅ Migration complete` : '✅ Already migrated',
+        description: data.message,
+      });
+    },
+    onError: (err) => {
+      toast({ title: 'Migration failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  return (
+    <Card className="border-slate-200">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-start gap-3">
+          <ImageIcon className="h-5 w-5 text-slate-500 mt-0.5" />
+          <div>
+            <CardTitle className="text-sm">Course Image URL Migration</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Replaces CDN (files.manuscdn.com) image URLs with self-hosted paths.
+              Safe to run multiple times.
+            </CardDescription>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={done ? 'outline' : 'default'}
+          disabled={migrate.isPending || done}
+          onClick={() => migrate.mutate()}
+          className="shrink-0"
+        >
+          {migrate.isPending ? (
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Running…</>
+          ) : done ? (
+            <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Done</>
+          ) : (
+            'Run Migration'
+          )}
+        </Button>
+      </CardHeader>
+    </Card>
   );
 }

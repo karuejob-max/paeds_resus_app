@@ -390,4 +390,59 @@ export const adminStatsRouter = router({
         .where(eq(users.id, input.userId));
       return { success: true as const };
     }),
+
+  /**
+   * One-time migration: replace files.manuscdn.com CDN URLs with self-hosted
+   * /assets/course-images/ paths in all moduleSections content.
+   * Safe to run multiple times (idempotent).
+   */
+  runImageMigration: adminProcedure.mutation(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
+
+    const CDN_BASE = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663302160278/';
+    const URL_MAP: Record<string, string> = {
+      'uPVOEVMtdNNCAFxJ.jpg':  '/assets/course-images/AdultBLSAlgorithmHCP.jpg',
+      'JRhqhPQjUavvvnTi.jpg':  '/assets/course-images/AdultBLSCircular.jpg',
+      'dlVFAvOxSQtIQAhD.jpg':  '/assets/course-images/HeadTiltChinLift.jpg',
+      'bFYHIRnhYRSgoLLr.jpg':  '/assets/course-images/SingleRescuer.jpg',
+      'OiYeNjGHMerXxnuo.jpg':  '/assets/course-images/TwoRescuer.jpg',
+      'zQTJdmBosnHpHqBa.jpg':  '/assets/course-images/PadPlacement.jpg',
+      'EbUetJWLdlcFLPmd.jpg':  '/assets/course-images/AdultFBAO.jpg',
+      'OppQyzCIqrmgrqWy.jpg':  '/assets/course-images/BLSTermination.jpg',
+      'WMAFDEebhxuLTSvW.jpg':  '/assets/course-images/AdultCAAlgorithm.jpg',
+      'iqTAFIaeCgYxlqIE.jpg':  '/assets/course-images/AdultCACircular.jpg',
+      'RxhFLJoAuwgNJyEN.jpg':  '/assets/course-images/AdultBradycardia.jpg',
+      'siCbDpWmTQthWUzd.jpg':  '/assets/course-images/AdultTachycardia.jpg',
+      'UchZBrALpalLmnEq.webp': '/assets/course-images/ElectricalCardioversion.webp',
+      'unzmuRCvlBKLAZbp.jpg':  '/assets/course-images/AdvancedAirway.jpg',
+      'qbHRuEaQatfuaYHh.jpg':  '/assets/course-images/ALSTermination.jpg',
+    };
+
+    const [cdnRows] = await db.execute(
+      sql`SELECT id, content FROM moduleSections WHERE content LIKE ${'%files.manuscdn.com%'}`
+    ) as any;
+
+    if (!Array.isArray(cdnRows) || cdnRows.length === 0) {
+      return { success: true, updated: 0, message: 'Already migrated — no CDN URLs found' };
+    }
+
+    let updated = 0;
+    for (const row of cdnRows as any[]) {
+      let newContent: string = row.content;
+      let changed = false;
+      for (const [filename, localPath] of Object.entries(URL_MAP)) {
+        const cdnUrl = CDN_BASE + filename;
+        if (newContent.includes(cdnUrl)) {
+          newContent = newContent.split(cdnUrl).join(localPath);
+          changed = true;
+        }
+      }
+      if (changed) {
+        await db.execute(sql`UPDATE moduleSections SET content = ${newContent} WHERE id = ${row.id}`);
+        updated++;
+      }
+    }
+    return { success: true, updated, message: `Migrated ${updated} sections to self-hosted images` };
+  }),
 });
