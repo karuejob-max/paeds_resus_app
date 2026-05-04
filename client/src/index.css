@@ -550,8 +550,73 @@
     color: #60a5fa;
   }
 
+  /* Module content images */
+  .module-content img,
+  .module-content .algorithm-image img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .module-content .algorithm-image {
+    text-align: center;
+    margin: 1.5rem 0;
+  }
+
+  /* Responsive tables — prevent column overflow on mobile */
+  .module-content table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .module-content table thead {
+    display: table-header-group;
+  }
+  .module-content table tbody {
+    display: table-row-group;
+  }
+  .module-content table tr {
+    display: table-row;
+  }
+  .module-content table th,
+  .module-content table td {
+    display: table-cell;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+    min-width: 80px;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .dark .module-content table th,
+  .dark .module-content table td {
+    border-color: #334155;
+  }
+  .module-content table th {
+    background: #f1f5f9;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .dark .module-content table th {
+    background: #1e293b;
+  }
+
   /* Mobile emergency protocol optimizations */
   @media (max-width: 640px) {
+    /* Ensure tables scroll horizontally on mobile */
+    .module-content table {
+      font-size: 0.8125rem;
+    }
+    .module-content table th,
+    .module-content table td {
+      padding: 0.375rem 0.5rem;
+      min-width: 70px;
+    }
     /* Larger text for critical information */
     .clinical-phase-title {
       font-size: 1.5rem; /* 24px */

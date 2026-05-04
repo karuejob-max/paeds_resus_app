@@ -265,7 +265,10 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   y -= 35;
 
   // Course Description
-  const courseName = data.courseDisplayName?.trim() || template.title;
+  // For BLS/ACLS/PALS/Heartsaver certifications, always use the canonical programme title.
+  // courseDisplayName is only used for fellowship micro-course modules.
+  const isCertificationProgramme = ["bls", "acls", "pals", "heartsaver", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive"].includes(data.programType);
+  const courseName = isCertificationProgramme ? template.title : (data.courseDisplayName?.trim() || template.title);
   const bodyDescription = template.description;
   const descLines = wrapText(bodyDescription, 80);
   for (const line of descLines) {
@@ -293,11 +296,27 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   });
   y -= 60;
 
-  // Footer Details (Date, ID, QR)
+  // Footer Details (Date, Expiry, ID, AHA Attribution, QR)
   // footY raised to 100 to give the QR code (height=70) a top edge at ~165,
   // safely below the course title which can reach as low as ~140 on long titles.
   const footY = 100;
-  
+
+  // Compute 2-year expiry for BLS/ACLS/PALS/Heartsaver certifications
+  const expiryDate = new Date(data.trainingDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + 2);
+  const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
+
+  // AHA Guidelines attribution line (above footer)
+  const ahaText = "Aligned with 2025 American Heart Association Guidelines";
+  const ahaW = font.widthOfTextAtSize(ahaText, 8);
+  page.drawText(ahaText, {
+    x: width / 2 - ahaW / 2,
+    y: footY + 30,
+    size: 8,
+    font,
+    color: BRAND.inkMuted,
+  });
+
   // Date
   page.drawText(`Date of Issue: ${formatDate(data.trainingDate)}`, {
     x: 80,
@@ -307,10 +326,21 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: BRAND.ink,
   });
 
+  // Expiry date (2 years from issue)
+  if (showExpiry) {
+    page.drawText(`Expiry Date: ${formatDate(expiryDate)}`, {
+      x: 80,
+      y: footY - 15,
+      size: 10,
+      font,
+      color: BRAND.ink,
+    });
+  }
+
   // Certificate ID
   page.drawText(`Certificate ID: ${data.certificateNumber}`, {
     x: 80,
-    y: footY - 15,
+    y: showExpiry ? footY - 30 : footY - 15,
     size: 10,
     font,
     color: BRAND.ink,

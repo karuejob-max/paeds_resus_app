@@ -310,8 +310,8 @@ const modules = [
           order: 2,
           questionText: "What is the correct ETT size for a 4-year-old child using a cuffed tube?",
           options: JSON.stringify(["4.0 mm", "4.5 mm", "5.0 mm", "5.5 mm"]),
-          correctAnswer: "5.0 mm",
-          explanation: "Cuffed ETT size formula: (Age/4) + 3.5. For a 4-year-old: (4/4) + 3.5 = 1 + 3.5 = 4.5 mm. Wait — recalculating: (4/4) + 3.5 = 4.5 mm. The correct answer is 4.5 mm. However, the closest standard size is 5.0 mm. Always have one size up and one size down available."
+          correctAnswer: "4.5 mm",
+          explanation: "Cuffed ETT size formula: (Age/4) + 3.5. For a 4-year-old: (4/4) + 3.5 = 1 + 3.5 = 4.5 mm. 4.5 mm IS a standard cuffed ETT size and is the correct answer. Always prepare one size up (5.0 mm) and one size down (4.0 mm) at the bedside. Cuff pressure must be maintained at <20 cmH₂O to prevent tracheal injury."
         },
         {
           order: 3,
@@ -518,7 +518,27 @@ const modules = [
   </li>
 </ol>
 <div class="warning-note">
-  <strong>Most common reversible causes in paediatric PEA:</strong> Hypoxia (most common — secure airway and give 100% O₂), Hypovolaemia (fluid bolus), Tension pneumothorax (needle decompression), Toxins (specific antidotes).
+  <strong>Reversible Causes of Paediatric Cardiac Arrest — The H's and T's</strong>
+  <p>Identifying and treating reversible causes is the most critical step in managing PEA and refractory VF/pVT. All 8 H's and 5 T's must be systematically considered.</p>
+  <table>
+    <thead><tr><th>Cause</th><th>Clinical Clues</th><th>Treatment</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Hypoxia</strong></td><td>Most common cause in children; cyanosis; low SpO₂; inadequate ventilation</td><td>Secure airway; 100% O₂; confirm ETT position; BVM if needed</td></tr>
+      <tr><td><strong>Hypovolaemia</strong></td><td>Haemorrhage; dehydration; burns; flat neck veins; history of fluid loss</td><td>IV/IO fluid bolus 20 mL/kg; blood products if haemorrhage</td></tr>
+      <tr><td><strong>Hydrogen ion (Acidosis)</strong></td><td>DKA; sepsis; prolonged arrest; pH &lt;7.1 on ABG</td><td>Sodium bicarbonate 1 mEq/kg IV/IO; treat underlying cause</td></tr>
+      <tr><td><strong>Hypo/Hyperkalaemia</strong></td><td>Renal failure; ECG changes (peaked T waves, wide QRS); history of K⁺ disorder</td><td>Hypokalaemia: KCl IV; Hyperkalaemia: calcium gluconate + insulin/dextrose + sodium bicarbonate</td></tr>
+      <tr><td><strong>Hypoglycaemia</strong></td><td>Neonates; diabetics; prolonged illness; BGL &lt;2.6 mmol/L</td><td>Dextrose 0.5–1 g/kg IV/IO (2–4 mL/kg of 25% dextrose)</td></tr>
+      <tr><td><strong>Hypothermia</strong></td><td>Cold exposure; submersion; core temp &lt;30°C; J-waves on ECG</td><td>Active rewarming; do not declare death until warm; continue CPR until core temp &gt;32°C</td></tr>
+      <tr><td><strong>Hypomagnesaemia</strong></td><td>Torsades de pointes; prolonged QT; malnutrition; diuretic use</td><td>Magnesium sulphate 25–50 mg/kg IV/IO over 10–20 min (max 2 g)</td></tr>
+      <tr><td><strong>Hypoxaemia (Respiratory)</strong></td><td>Severe pneumonia; ARDS; pulmonary haemorrhage</td><td>Optimise ventilation; PEEP; consider HFOV</td></tr>
+      <tr><td><strong>Tension Pneumothorax</strong></td><td>Absent breath sounds; tracheal deviation away; distended neck veins; recent intubation or trauma</td><td>Immediate needle decompression: 2nd ICS, MCL; then chest drain</td></tr>
+      <tr><td><strong>Tamponade (Cardiac)</strong></td><td>Beck’s triad: hypotension + distended neck veins + muffled heart sounds; recent cardiac surgery or trauma</td><td>Pericardiocentesis; emergency thoracotomy if traumatic</td></tr>
+      <tr><td><strong>Toxins/Poisons</strong></td><td>History of ingestion; specific toxidrome; prolonged QT; bradycardia</td><td>Specific antidotes (naloxone for opioids; atropine for organophosphates; sodium bicarbonate for TCA); activated charcoal if early</td></tr>
+      <tr><td><strong>Thrombosis (Pulmonary)</strong></td><td>Sudden arrest in context of immobility, malignancy, central line; right heart strain on echo</td><td>Thrombolytics (alteplase 0.5 mg/kg IV); consider ECMO; continue CPR for 60–90 min post-thrombolysis</td></tr>
+      <tr><td><strong>Thrombosis (Coronary)</strong></td><td>Rare in children; Kawasaki disease; anomalous coronary artery; ST changes</td><td>Aspirin; urgent cardiology review; PCI if available</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Memory aid:</strong> 8 H’s — Hypoxia, Hypovolaemia, Hydrogen ion, Hypo/Hyperkalaemia, Hypoglycaemia, Hypothermia, Hypomagnesaemia, Hypoxaemia | 5 T’s — Tension pneumothorax, Tamponade, Toxins, Thrombosis (PE), Thrombosis (coronary)</p>
 </div>`
       },
       {
@@ -532,13 +552,13 @@ const modules = [
   <tbody>
     <tr><td>Airway</td><td>Secure airway</td><td>Confirm ETT position; waveform capnography</td></tr>
     <tr><td>Breathing</td><td>SpO₂ 94–99%; PaCO₂ 35–45 mmHg</td><td>Avoid hyperoxia and hypocapnia</td></tr>
-    <tr><td>Circulation</td><td>Age-appropriate BP; MAP ≥5th percentile for age</td><td>Fluid boluses; vasopressors if needed; 12-lead ECG</td></tr>
+    <tr><td>Circulation</td><td>Age-appropriate BP; MAP ≥50th percentile for age</td><td>Fluid boluses; vasopressors if needed; 12-lead ECG; avoid hypotension</td></tr>
     <tr><td>Disability</td><td>Normoglycaemia (4–10 mmol/L)</td><td>Check glucose; treat hypo- and hyperglycaemia</td></tr>
-    <tr><td>Temperature</td><td>Normothermia (36–37.5°C) or TTM (32–34°C)</td><td>Prevent fever; consider TTM for comatose patients</td></tr>
+    <tr><td>Temperature</td><td>TTM 32–37.5°C for ≥24h; prevent fever &gt;37.5°C for 72h</td><td>Active cooling if febrile; TTM for comatose survivors; continuous temp monitoring</td></tr>
   </tbody>
 </table>
 <div class="clinical-note">
-  <strong>Paediatric TTM:</strong> AHA 2020 guidelines recommend TTM (32–34°C) or strict normothermia (36–37.5°C) for comatose survivors of paediatric cardiac arrest. The THAPCA trial showed no difference between 33°C and 36.8°C — but both groups had strict fever prevention. The key message: prevent fever (>38°C) in all comatose post-arrest children.
+  <strong>Paediatric TTM (2025 AHA Update):</strong> Target temperature 32–37.5°C for ≥24 hours in comatose survivors of paediatric cardiac arrest. Fever prevention (&gt;37.5°C) is mandatory for 72 hours post-ROSC. The THAPCA trial showed no difference between 33°C and 36.8°C — but both groups had strict fever prevention. The critical message: preventing fever is the non-negotiable minimum; active cooling to 32–34°C is an option for selected patients. MAP target: ≥50th percentile for age (2025 AHA — updated from 5th percentile).
 </div>`
       }
     ],

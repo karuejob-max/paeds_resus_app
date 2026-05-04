@@ -14,6 +14,7 @@ import {
   resusGPSSessions,
   resusGPSCases,
   careSignalEvents,
+  moduleSections,
 } from "../../drizzle/schema";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
@@ -419,9 +420,11 @@ export const adminStatsRouter = router({
       'qbHRuEaQatfuaYHh.jpg':  '/assets/course-images/ALSTermination.jpg',
     };
 
-    const [cdnRows] = await db.execute(
-      sql`SELECT id, content FROM moduleSections WHERE content LIKE ${'%files.manuscdn.com%'}`
-    ) as any;
+    // Use Drizzle ORM like() — avoids MySQL parameterized LIKE escaping bug
+    const cdnRows = await db
+      .select({ id: moduleSections.id, content: moduleSections.content })
+      .from(moduleSections)
+      .where(like(moduleSections.content, '%files.manuscdn.com%'));
 
     if (!Array.isArray(cdnRows) || cdnRows.length === 0) {
       return { success: true, updated: 0, message: 'Already migrated — no CDN URLs found' };
@@ -439,7 +442,9 @@ export const adminStatsRouter = router({
         }
       }
       if (changed) {
-        await db.execute(sql`UPDATE moduleSections SET content = ${newContent} WHERE id = ${row.id}`);
+        await db.update(moduleSections)
+          .set({ content: newContent })
+          .where(eq(moduleSections.id, row.id));
         updated++;
       }
     }

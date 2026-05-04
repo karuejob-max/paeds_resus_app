@@ -21,7 +21,7 @@ import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certifi
 //   BLS / ACLS / PALS provider cards: 2 years (AHA standard)
 //   Fellowship / Instructor:          1 year  (Paeds Resus internal)
 // ─────────────────────────────────────────────────────────────────────────────
-const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals"]);
+const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver"]);
 
 function getCertificateValidityMs(programType: string): number {
   if (AHA_PROGRAM_TYPES.has(programType)) {
