@@ -14,4 +14,10 @@ export const ENV = {
   authMode: process.env.AUTH_MODE ?? "email",
   /** Session max age in ms. Set SESSION_MAX_AGE_MS (e.g. 1800000 for 30 min). If unset, 1 year for backward compatibility. */
   sessionMaxAgeMs: process.env.SESSION_MAX_AGE_MS ? Number(process.env.SESSION_MAX_AGE_MS) : ONE_YEAR_MS,
+  /**
+   * Mock/planning tRPC routers (demo dashboards, not clinical truth).
+   * Exposed in development/test by default; in production only if ENABLE_ASPIRATIONAL_APIS=true.
+   */
+  exposeAspirationalApis:
+    process.env.NODE_ENV !== "production" || process.env.ENABLE_ASPIRATIONAL_APIS === "true",
 };
