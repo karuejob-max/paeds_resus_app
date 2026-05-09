@@ -124,7 +124,7 @@ export class ClinicalDataStore {
       const store = transaction.objectStore('clinicalData');
       const index = store.index('synced');
 
-      const request = index.getAll(false);
+      const request = index.getAll(IDBKeyRange.only(false));
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {

@@ -118,7 +118,11 @@ export const generateAssessment = (session: SessionData): string => {
     case 'cpr':
       assessment += generateCprAssessment(session);
       break;
-    case 'respiratory':
+    case 'status_asthmaticus':
+    case 'bronchiolitis':
+    case 'pneumonia':
+    case 'ards':
+    case 'upper_airway':
       assessment += generateRespiratoryAssessment(session);
       break;
     case 'anaphylaxis':

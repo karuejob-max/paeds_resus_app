@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { getMicroCourseContent } from "@/lib/microCourseContent";
+import { getMicroCourseContent, type MicroCourseModule } from "@/lib/microCourseContent";
 
 /**
  * Generic Micro-Course Player
@@ -254,7 +254,7 @@ export default function MicroCoursePlayer() {
   }
 
   // ── Content resolution ──────────────────────────────────────────────────────
-  const modules = staticContent?.modules ?? [];
+  const modules: MicroCourseModule[] = staticContent?.modules ?? [];
   const currentModule = modules[currentModuleIndex];
   const isLastModule = currentModuleIndex === modules.length - 1;
   const allModulesCompleted = modules.length > 0 && completedModules.size === modules.length;
@@ -339,7 +339,7 @@ export default function MicroCoursePlayer() {
                     {currentModule.learningObjectives.map((obj, idx) => (
                       <li key={idx} className="text-sm flex gap-2">
                         <span className="text-primary">•</span>
-                        <span>{typeof obj === "string" ? obj : obj.text}</span>
+                        <span>{obj}</span>
                       </li>
                     ))}
                   </ul>
@@ -378,7 +378,7 @@ export default function MicroCoursePlayer() {
                   <ul className="space-y-2">
                     {currentModule.references.map((ref, idx) => (
                       <li key={idx} className="text-sm text-muted-foreground">
-                        {typeof ref === "string" ? ref : `${ref.title} — ${ref.source} (${ref.year})`}
+                        {ref}
                       </li>
                     ))}
                   </ul>

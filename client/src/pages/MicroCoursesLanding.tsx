@@ -24,19 +24,27 @@ import { useLocation } from 'wouter';
 import { useEffect, useState, useMemo } from 'react';
 import { EnrollmentModal } from '@/components/EnrollmentModal';
 
-type EmergencyType = 'respiratory' | 'shock' | 'seizure' | 'metabolic' | 'infectious' | 'burns' | 'trauma';
+type EmergencyType =
+  | 'respiratory'
+  | 'shock'
+  | 'seizure'
+  | 'metabolic'
+  | 'infectious'
+  | 'burns'
+  | 'trauma'
+  | 'toxicology';
 type Level = 'foundational' | 'advanced';
 
 interface CourseCard {
   id: number;
   courseId: string;
   title: string;
-  description: string;
+  description: string | null;
   level: Level;
   emergencyType: EmergencyType;
   duration: number;
   price: number;
-  prerequisiteId?: string;
+  prerequisiteId?: string | null;
   completed?: boolean;
   enrolled?: boolean;
 }
@@ -49,6 +57,7 @@ const EMERGENCY_CATEGORIES: Record<EmergencyType, { label: string; icon: React.R
   infectious: { label: '🦠 Infectious', icon: <AlertCircle className="h-5 w-5" />, color: 'bg-green-100' },
   burns: { label: '🔥 Burns', icon: <Flame className="h-5 w-5" />, color: 'bg-amber-100' },
   trauma: { label: '🚑 Trauma', icon: <AlertCircle className="h-5 w-5" />, color: 'bg-gray-100' },
+  toxicology: { label: '☠ Toxicology', icon: <AlertCircle className="h-5 w-5" />, color: 'bg-violet-100' },
 };
 
 export default function MicroCoursesLanding() {
@@ -74,10 +83,11 @@ export default function MicroCoursesLanding() {
   });
 
   // Query user enrollments
-  const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(
-    { userId: user?.id || 0 },
-    { enabled: !!user, refetchOnWindowFocus: false, staleTime: 30_000 }
-  );
+  const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  });
 
   // Query fellowship progress
   const { data: progress } = trpc.fellowship.getProgress.useQuery(undefined, {
@@ -92,9 +102,9 @@ export default function MicroCoursesLanding() {
     return enrollmentsData.reduce(
       (acc, enrollment) => {
         acc[enrollment.microCourseId] = {
-          status: enrollment.enrollmentStatus,
+          status: enrollment.enrollmentStatus ?? 'pending',
           completed: enrollment.enrollmentStatus === 'completed',
-          quizScore: enrollment.quizScore,
+          quizScore: enrollment.quizScore ?? undefined,
         };
         return acc;
       },
@@ -106,7 +116,7 @@ export default function MicroCoursesLanding() {
   const filteredCourses = useMemo(() => {
     if (!coursesData) return [];
 
-    return coursesData.filter((course: CourseCard) => {
+    return coursesData.filter((course) => {
       const categoryMatch = selectedCategory === 'all' || course.emergencyType === selectedCategory;
       const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
       const enrollmentMatch = !showEnrolledOnly || enrollmentMap[course.id]?.completed;
@@ -125,9 +135,10 @@ export default function MicroCoursesLanding() {
       infectious: [],
       burns: [],
       trauma: [],
+      toxicology: [],
     };
 
-    filteredCourses.forEach((course: CourseCard) => {
+    filteredCourses.forEach((course) => {
       grouped[course.emergencyType].push(course);
     });
 
@@ -287,7 +298,7 @@ export default function MicroCoursesLanding() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course: CourseCard) => {
+            {filteredCourses.map((course) => {
               const enrollment = enrollmentMap[course.id];
               const isCompleted = enrollment?.completed;
               const isEnrolled = enrollment?.status === 'active' || isCompleted;

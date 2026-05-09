@@ -253,7 +253,7 @@ export default function CapstoneGradingPanel() {
             {submissions.map((submission) => (
               <GradeForm
                 key={submission.id}
-                submission={submission as CapstoneSubmission}
+                submission={submission as unknown as CapstoneSubmission}
                 onGraded={() => utils.courses.listPendingCapstones.invalidate()}
               />
             ))}

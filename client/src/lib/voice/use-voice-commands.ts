@@ -207,11 +207,10 @@ export function useVoiceCommandShortcut({
   shortcuts,
   enabled = true,
 }: UseVoiceCommandShortcutOptions): void {
-  const { onCommand } = useVoiceCommands({
+  useVoiceCommands({
     emergencyType,
     enabled,
     onCommand: (command) => {
-      // Match command action to shortcut
       const shortcutFn = shortcuts[command.action];
       if (shortcutFn) {
         shortcutFn();

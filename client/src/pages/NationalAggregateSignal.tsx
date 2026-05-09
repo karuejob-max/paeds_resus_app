@@ -56,11 +56,18 @@ const GAP_LABELS: Record<string, string> = {
 
 type Timeframe = "7d" | "30d" | "90d" | "365d";
 
+function timeframeToApi(tf: Timeframe): "week" | "month" | "quarter" | "year" {
+  if (tf === "7d") return "week";
+  if (tf === "30d") return "month";
+  if (tf === "90d") return "quarter";
+  return "year";
+}
+
 export default function NationalAggregateSignal() {
   const [timeframe, setTimeframe] = useState<Timeframe>("30d");
 
   const { data: metrics, isLoading } = trpc.careSignalEvents.getAdminMetrics.useQuery(
-    { timeframe },
+    { timeframe: timeframeToApi(timeframe) },
     { staleTime: 5 * 60 * 1000 }
   );
 

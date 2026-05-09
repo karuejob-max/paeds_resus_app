@@ -22,7 +22,7 @@ import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { AgeInput } from '@/components/AgeInput';
-import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
+import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
@@ -199,6 +199,19 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function approximateAgeMonths(age: string | null): number {
+  if (!age) return 0;
+  const structured = parseAgeString(age);
+  if (structured) return Math.max(0, Math.round(ageToMonths(structured)));
+  const lower = age.toLowerCase();
+  const n = parseInt(lower.match(/\d+/)?.[0] ?? '0', 10);
+  if (lower.includes('month')) return n;
+  if (lower.includes('week')) return Math.max(0, Math.round(n / 4.33));
+  if (lower.includes('day') || lower.includes('neonat')) return 0;
+  if (lower.includes('year') || lower.includes('y ')) return n * 12;
+  return n * 12;
 }
 
 // ─── Main Component ─────────────────────────────────────────
@@ -436,26 +449,22 @@ export default function ResusGPS() {
 
   // Phase 5.2 — Server-side SAMPLE history sync
   const saveSampleHistoryMutation = trpc.sampleHistory.saveSampleHistory.useMutation();
-  const { data: serverSampleHistory } = trpc.sampleHistory.getLastSampleHistory.useQuery(
-    undefined,
-    {
-      enabled: session.phase === 'IDLE', // only fetch when idle (before case starts)
-      staleTime: 5 * 60 * 1000, // 5 min cache
-      onSuccess: (data) => {
-        // If no local pre-fill already loaded, use server data
-        if (data && !preFillSample) {
-          setPreFillSample({
-            signs: data.signs ?? '',
-            allergies: data.allergies ?? '',
-            medications: data.medications ?? '',
-            pastHistory: data.pastHistory ?? '',
-            lastMeal: data.lastMeal ?? '',
-            events: data.events ?? '',
-          });
-        }
-      },
-    }
-  );
+  const { data: serverSampleHistory } = trpc.sampleHistory.getLastSampleHistory.useQuery(undefined, {
+    enabled: session.phase === 'IDLE',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!serverSampleHistory || preFillSample) return;
+    setPreFillSample({
+      signs: serverSampleHistory.signs ?? '',
+      allergies: serverSampleHistory.allergies ?? '',
+      medications: serverSampleHistory.medications ?? '',
+      pastHistory: serverSampleHistory.pastHistory ?? '',
+      lastMeal: serverSampleHistory.lastMeal ?? '',
+      events: serverSampleHistory.events ?? '',
+    });
+  }, [serverSampleHistory, preFillSample]);
 
   const handleSaveSession = async () => {
     trackButtonClick('Save Session for Fellowship Credit');
@@ -474,14 +483,14 @@ export default function ResusGPS() {
       const sessionResult = await recordSessionMutation.mutateAsync({
         sessionId: session.id,
         primaryDiagnosis,
-        patientAgeMonths: session.patientAge || 0,
+        patientAgeMonths: approximateAgeMonths(session.patientAge),
         patientWeightKg: session.patientWeight || 0,
         isTrauma: session.isTrauma,
         isCardiacArrest: session.phase === 'CARDIAC_ARREST',
         interventionCount: interactionCount,
         reassessmentCount,
         durationSeconds: timer.elapsed,
-        depthScore: session.depthScore || 0,
+        depthScore: session.depthScore ?? 0,
       });
 
       // Step 2: Record the case (idempotent via sessionId + caseNumber)
@@ -503,8 +512,8 @@ export default function ResusGPS() {
         reassessments: session.events
           .filter(e => e.type === 'reassessment')
           .map(e => e.detail),
-        outcome: session.outcome || 'completed',
-        depthScore: session.depthScore || 0,
+        outcome: session.outcome ?? 'completed',
+        depthScore: session.depthScore ?? 0,
       });
       
       if (sessionResult.success) {
@@ -564,14 +573,14 @@ export default function ResusGPS() {
         await recordSessionMutation.mutateAsync({
           sessionId: session.id,
           primaryDiagnosis: pathway,
-          patientAgeMonths: session.patientAge || 0,
+          patientAgeMonths: approximateAgeMonths(session.patientAge),
           patientWeightKg: session.patientWeight || 0,
           isTrauma: session.isTrauma,
           isCardiacArrest: session.phase === 'CARDIAC_ARREST',
           interventionCount: interactionCount,
           reassessmentCount: session.events.filter(e => e.type === 'reassessment').length,
           durationSeconds: timer.elapsed,
-          depthScore: session.depthScore || 0,
+          depthScore: session.depthScore ?? 0,
         });
         await recordCaseMutation.mutateAsync({
           sessionId: session.id,
@@ -584,8 +593,8 @@ export default function ResusGPS() {
           reassessments: session.events
             .filter(e => e.type === 'reassessment')
             .map(e => e.detail),
-          outcome: session.outcome || 'completed',
-          depthScore: session.depthScore || 0,
+          outcome: session.outcome ?? 'completed',
+          depthScore: session.depthScore ?? 0,
         });
         // Quiet success — provider already has their file
         console.info('[ResusGPS] Session synced for fellowship credit:', session.id);
@@ -620,31 +629,25 @@ export default function ResusGPS() {
       ).length;
       
       if (timer.elapsed > 60 && interactionCount >= 3) {
-        recordSessionMutation.mutate(
-          {
-            pathway,
-            durationSeconds: timer.elapsed,
-            interactionsCount: interactionCount,
-            patientAge: session.patientAge,
-            patientWeight: session.patientWeight,
+        void recordSessionMutation
+          .mutateAsync({
             sessionId: session.id,
-            notes: 'Auto-recorded on new case',
-          },
-          {
-            onSuccess: (result: { isValid?: boolean; attributedConditions?: string[] } | null) => {
-              if (result?.isValid) {
-                const conditionList = result.attributedConditions?.slice(0, 2).join(', ') || 'General resuscitation';
-                toast.success(
-                  `Session recorded: ${conditionList}`,
-                  { duration: 2000 }
-                );
-              }
-            },
-            onError: () => {
-              console.error('Auto-record failed');
-            },
-          }
-        );
+            primaryDiagnosis: pathway,
+            patientAgeMonths: approximateAgeMonths(session.patientAge),
+            patientWeightKg: session.patientWeight || 0,
+            isTrauma: session.isTrauma,
+            isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+            interventionCount: interactionCount,
+            reassessmentCount: session.events.filter((e) => e.type === 'reassessment').length,
+            durationSeconds: timer.elapsed,
+            depthScore: session.depthScore ?? 0,
+          })
+          .then(() => {
+            toast.success('Previous session recorded for fellowship', { duration: 2000 });
+          })
+          .catch(() => {
+            console.error('Auto-record failed');
+          });
       }
     }
     
@@ -845,6 +848,9 @@ export default function ResusGPS() {
             diagnoses={diagnoses}
             onExport={handleExport}
             onCopySummary={handleCopySummary}
+            preFillSample={preFillSample}
+            samplePreFillDismissed={samplePreFillDismissed}
+            setSamplePreFillDismissed={setSamplePreFillDismissed}
           />
         )}
       </main>
@@ -1905,12 +1911,18 @@ function PostPrimaryScreen({
   diagnoses,
   onExport,
   onCopySummary,
+  preFillSample,
+  samplePreFillDismissed,
+  setSamplePreFillDismissed,
 }: {
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   diagnoses: DiagnosisSuggestion[];
   onExport: () => void;
   onCopySummary: () => void;
+  preFillSample: PersistedSampleHistory | null;
+  samplePreFillDismissed: boolean;
+  setSamplePreFillDismissed: (v: boolean) => void;
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
 

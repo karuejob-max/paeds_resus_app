@@ -22,7 +22,13 @@
 
 // ─── Types ──────────────────────────────────────────────────
 
-export type ConditionId = 'septic_shock' | 'status_epilepticus' | 'dka';
+export type ConditionId =
+  | 'septic_shock'
+  | 'status_epilepticus'
+  | 'dka'
+  | 'nrp'
+  | 'anaphylaxis'
+  | 'severe_asthma';
 
 export type StepStatus = 'pending' | 'done' | 'skipped' | 'reassess';
 
@@ -846,19 +852,11 @@ export function buildDKAProtocol(weight: number, ageCategory: string): Condition
 // ─── Protocol Registry ───────────────────────────────────────
 
 export function buildAllProtocols(weight: number, ageCategory: string): Record<ConditionId, ConditionProtocol> {
-  return {
-    septic_shock: buildSepticShockProtocol(weight, ageCategory),
-    status_epilepticus: buildStatusEpilepticusProtocol(weight, ageCategory),
-    dka: buildDKAProtocol(weight, ageCategory),
-  };
+  return buildAllExtendedProtocols(weight, ageCategory);
 }
 
 export function buildProtocol(id: ConditionId, weight: number, ageCategory: string): ConditionProtocol {
-  switch (id) {
-    case 'septic_shock': return buildSepticShockProtocol(weight, ageCategory);
-    case 'status_epilepticus': return buildStatusEpilepticusProtocol(weight, ageCategory);
-    case 'dka': return buildDKAProtocol(weight, ageCategory);
-  }
+  return buildExtendedProtocol(id, weight, ageCategory);
 }
 
 /**

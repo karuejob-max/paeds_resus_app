@@ -371,7 +371,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .dka-flow {
           padding: 20px;
           max-width: 900px;

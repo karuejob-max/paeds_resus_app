@@ -7,7 +7,14 @@ import { getResusGpsAccessForClient, type ResusGpsClientAccess } from "./resusgp
 
 type AhaEnrollmentRow = {
   id: number;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor";
+  programType:
+    | "bls"
+    | "acls"
+    | "pals"
+    | "fellowship"
+    | "instructor"
+    | "fellowship_diploma"
+    | "heartsaver";
   paymentStatus: "pending" | "partial" | "completed" | null;
   createdAt: Date;
 };

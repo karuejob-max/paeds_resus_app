@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure } from '../_core/trpc';
 import { getDb } from '../db';
 import { careSignalReviews, inAppNotifications, analyticsEvents } from '../../drizzle/schema';
@@ -35,6 +36,9 @@ export const careSignalReviewRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+      }
       const reviewerId = ctx.user.id;
 
       // Insert the review
@@ -86,6 +90,7 @@ export const careSignalReviewRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) return [];
       const userId = ctx.user.id;
 
       const rows = await db
@@ -107,6 +112,7 @@ export const careSignalReviewRouter = router({
    */
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
+    if (!db) return { count: 0 };
     const userId = ctx.user.id;
 
     const [result] = await db
@@ -124,6 +130,9 @@ export const careSignalReviewRouter = router({
     .input(z.object({ notificationId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+      }
       await db
         .update(inAppNotifications)
         .set({ read: true })
@@ -141,6 +150,9 @@ export const careSignalReviewRouter = router({
    */
   markAllRead: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await getDb();
+    if (!db) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+    }
     await db
       .update(inAppNotifications)
       .set({ read: true })

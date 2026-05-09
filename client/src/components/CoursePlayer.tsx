@@ -193,10 +193,13 @@ export function CoursePlayer({
                     Learning Objectives
                   </h3>
                   <ul className="space-y-2">
-                    {currentModule.learningObjectives.map((obj) => (
-                      <li key={obj.id} className="flex gap-2 text-sm">
+                    {currentModule.learningObjectives.map((obj, idx) => (
+                      <li
+                        key={typeof obj === "string" ? `lo-${idx}` : obj.id}
+                        className="flex gap-2 text-sm"
+                      >
                         <span className="text-blue-600 font-bold">•</span>
-                        <span>{obj.text}</span>
+                        <span>{typeof obj === "string" ? obj : obj.text}</span>
                       </li>
                     ))}
                   </ul>
@@ -232,19 +235,25 @@ export function CoursePlayer({
                     <ul className="space-y-2">
                       {currentModule.references.map((ref, idx) => (
                         <li key={idx} className="text-sm">
-                          <p className="font-medium">{ref.title}</p>
-                          <p className="text-slate-600">
-                            {ref.source} ({ref.year})
-                          </p>
-                          {ref.url && (
-                            <a
-                              href={ref.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline text-xs"
-                            >
-                              View Source
-                            </a>
+                          {typeof ref === "string" ? (
+                            <p className="text-slate-700">{ref}</p>
+                          ) : (
+                            <>
+                              <p className="font-medium">{ref.title}</p>
+                              <p className="text-slate-600">
+                                {ref.source} ({ref.year})
+                              </p>
+                              {ref.url && (
+                                <a
+                                  href={ref.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline text-xs"
+                                >
+                                  View Source
+                                </a>
+                              )}
+                            </>
                           )}
                         </li>
                       ))}

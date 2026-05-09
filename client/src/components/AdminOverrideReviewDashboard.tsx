@@ -135,7 +135,7 @@ export const AdminOverrideReviewDashboard: React.FC = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.uniqueProvidersCount}</div>
+              <div className="text-2xl font-bold">{stats.uniqueProviders}</div>
               <p className="text-xs text-muted-foreground">with overrides</p>
             </CardContent>
           </Card>
@@ -252,7 +252,8 @@ export const AdminOverrideReviewDashboard: React.FC = () => {
         {/* By Type Tab */}
         <TabsContent value="by-type">
           <div className="grid gap-4 md:grid-cols-2">
-            {stats && Object.entries(stats.byType).map(([type, count]) => (
+            {stats &&
+              (Object.entries(stats.byType) as [string, number][]).map(([type, count]) => (
               <Card key={type}>
                 <CardHeader>
                   <CardTitle className="text-sm">{getOverrideTypeLabel(type)}</CardTitle>
@@ -260,7 +261,10 @@ export const AdminOverrideReviewDashboard: React.FC = () => {
                 <CardContent>
                   <div className="text-3xl font-bold">{count}</div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {((count / stats.totalOverrides) * 100).toFixed(1)}% of total
+                    {stats.totalOverrides > 0
+                      ? ((count / stats.totalOverrides) * 100).toFixed(1)
+                      : '0.0'}
+                    % of total
                   </p>
                 </CardContent>
               </Card>

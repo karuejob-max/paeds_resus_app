@@ -188,6 +188,9 @@ export interface ResusSession {
   undoStack: ResusSession[]; // Previous states (max 50)
   redoStack: ResusSession[]; // States after undo (max 50)
   lastActionId?: string; // Track what was undone for UI feedback
+  /** Fellowship / analytics (optional; not required for core ABCDE engine) */
+  depthScore?: number;
+  outcome?: string;
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────

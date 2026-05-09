@@ -73,7 +73,7 @@ function unavailableInterventions(session: ResusSession): string[] {
 }
 
 function threatsLine(session: ResusSession): string {
-  const active = session.threats.filter((t) => t.status === 'active' || t.status === 'in_progress');
+  const active = session.threats.filter((t) => !t.resolved);
   if (!active.length) return 'No active threats identified.';
   return active.map((t) => `[${t.letter}] ${t.name} (${t.severity})`).join('; ');
 }
@@ -81,7 +81,7 @@ function threatsLine(session: ResusSession): string {
 function diagnosisLine(session: ResusSession): string {
   if (session.phase === 'CARDIAC_ARREST') return 'Cardiac Arrest — PALS protocol active';
   if (session.definitiveDiagnosis) return session.definitiveDiagnosis;
-  const threats = session.threats.filter((t) => t.status === 'active' || t.status === 'in_progress');
+  const threats = session.threats.filter((t) => !t.resolved);
   if (threats.length) return threats.map((t) => t.name).join(', ');
   return 'Under assessment — see findings below';
 }

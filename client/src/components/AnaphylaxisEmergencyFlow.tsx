@@ -24,6 +24,7 @@ import {
   identifyTrigger,
   generateRecommendation,
   type AnaphylaxisEngineState,
+  type AnaphylaxisSystemInvolved,
 } from '@/lib/resus/anaphylaxis-engine';
 
 interface AnaphylaxisEmergencyFlowProps {
@@ -51,7 +52,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
 }) => {
   const [phase, setPhase] = useState<'recognition' | 'treatment' | 'monitoring'>('recognition');
   const [findings, setFindings] = useState({
-    systemsInvolved: [] as string[],
+    systemsInvolved: [] as AnaphylaxisSystemInvolved[],
     respiratoryRate: 0,
     heartRate: 0,
     bloodPressureSystolic: 100,
@@ -111,7 +112,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
     setFindings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleToggleSystem = (system: string) => {
+  const handleToggleSystem = (system: AnaphylaxisSystemInvolved) => {
     setFindings((prev) => {
       const systems = prev.systemsInvolved || [];
       if (systems.includes(system)) {
@@ -215,7 +216,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
               <div>
                 <p className="mb-2 text-sm font-semibold text-gray-700">Systems Involved</p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {['respiratory', 'cardiovascular', 'cutaneous', 'gastrointestinal', 'neurological'].map(
+                  {(['respiratory', 'cardiovascular', 'cutaneous', 'gastrointestinal', 'neurological'] as const).map(
                     (system) => (
                       <label key={system} className="flex items-center space-x-2">
                         <input

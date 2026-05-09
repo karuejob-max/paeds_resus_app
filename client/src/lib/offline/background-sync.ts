@@ -38,7 +38,10 @@ export class BackgroundSyncEngine {
     // Register for background sync if available
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
       navigator.serviceWorker.ready.then((registration) => {
-        registration.sync.register('sync-clinical-data').catch((err) => {
+        const reg = registration as ServiceWorkerRegistration & {
+          sync?: { register: (tag: string) => Promise<void> };
+        };
+        reg.sync?.register('sync-clinical-data').catch((err: unknown) => {
           console.warn('Background sync registration failed:', err);
         });
       });

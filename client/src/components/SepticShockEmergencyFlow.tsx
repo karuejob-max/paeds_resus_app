@@ -295,7 +295,7 @@ export const SepticShockEmergencyFlow: React.FC<SepticShockFlowProps> = ({
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .septic-shock-flow {
           padding: 20px;
           max-width: 900px;

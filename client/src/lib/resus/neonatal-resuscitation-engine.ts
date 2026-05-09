@@ -134,7 +134,7 @@ export function assessNeonatalSeverity(assessment: NeonatalAssessment): Neonatal
     requiresIntubation: level === 'severely_depressed' || assessment.meconiumAspiration,
     requiresEpinephrine,
     requiresVolume,
-    requiresICU: level === 'severely_depressed' || assessment.complications?.length || false,
+    requiresICU: level === 'severely_depressed' || Boolean(assessment.complications?.length),
   };
 }
 

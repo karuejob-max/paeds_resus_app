@@ -46,7 +46,8 @@ import {
   evaluateMedicationEligibility, 
   calculateShockEnergy,
   calculateCprMedicationDose,
-  type CprEngineState 
+  type CprEngineState,
+  type RhythmType,
 } from '@/lib/resus/cpr-engine';
 
 interface Props {
@@ -56,7 +57,6 @@ interface Props {
 }
 
 type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
-type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | null;
 type TeamRole = 'team_leader' | 'compressions' | 'airway' | 'iv_access' | 'medications' | 'recorder' | 'observer';
 type AntiarrhythmicChoice = 'amiodarone' | 'lidocaine' | null;
 
@@ -112,7 +112,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [phase, setPhase] = useState<ArrestPhase>('initial_assessment');
   
   // Clinical state
-  const [rhythmType, setRhythmType] = useState<RhythmType>(null);
+  const [rhythmType, setRhythmType] = useState<RhythmType | null>(null);
   const [shockCount, setShockCount] = useState(0);
   const [epiDoses, setEpiDoses] = useState(0);
   const [lastEpiTime, setLastEpiTime] = useState<number | null>(null);

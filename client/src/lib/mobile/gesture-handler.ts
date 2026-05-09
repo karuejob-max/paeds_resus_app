@@ -4,6 +4,8 @@
  * Implements swipe gestures for navigation and panel management
  */
 
+import React from "react";
+
 export interface GestureConfig {
   threshold: number; // Minimum swipe distance
   timeThreshold: number; // Maximum time for swipe

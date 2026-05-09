@@ -67,6 +67,7 @@ import { emrIntegrationRouter } from "./routers/emr-integration";
 import { telemedicineRouter } from "./routers/telemedicine";
 import { vitalsRouter } from "./routers/vitals";
 import { cprClockRouter } from "./routers/cprClock";
+import { cprOverrideRouter } from "./routers/cpr-override";
 import { emergencyProtocolsRouter } from "./routers/emergencyProtocols";
 import { alertsRouter } from "./routers/alerts";
 import { diagnosisRouter } from "./routers/diagnosis";
@@ -317,6 +318,7 @@ export const appRouter = router({
   vitals: vitalsRouter,
   cprClock: cprClockRouter,
   cprSession: cprSessionRouter,
+  cprOverride: cprOverrideRouter,
   guidelines: guidelinesRouter,
   fellowshipPathways: fellowshipPathwaysRouter,
   recommendationEngine: recommendationEngineRouter,

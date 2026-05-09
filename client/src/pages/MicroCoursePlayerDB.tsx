@@ -14,6 +14,14 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
+
+type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
+type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
+type CourseModuleRow = NonNullable<
+  NonNullable<inferRouterOutputs<AppRouter>["learning"]["getCourseDetails"]>["modules"]
+>[number];
 
 export default function MicroCoursePlayerDB() {
   const { courseId: slug } = useParams<{ courseId: string }>();
@@ -66,7 +74,8 @@ export default function MicroCoursePlayerDB() {
     enabled: isAuthenticated && !isAhaCourse,
   });
   const microCourseRow = useMemo(
-    () => (!isAhaCourse ? allMicroCourses?.find((c) => c.courseId === slug) : undefined),
+    () =>
+      !isAhaCourse ? allMicroCourses?.find((c: MicroCourseCatalogRow) => c.courseId === slug) : undefined,
     [allMicroCourses, slug, isAhaCourse]
   );
   const { data: fellowshipCourses, isLoading: coursesLoading } = trpc.learning.getCourses.useQuery(
@@ -74,7 +83,8 @@ export default function MicroCoursePlayerDB() {
     { enabled: !!microCourseRow }
   );
   const fellowshipDbCourse = useMemo(
-    () => fellowshipCourses?.find((c) => c.title === microCourseRow?.title),
+    () =>
+      fellowshipCourses?.find((c: FellowshipCatalogRow) => c.title === microCourseRow?.title),
     [fellowshipCourses, microCourseRow]
   );
 
@@ -255,7 +265,7 @@ export default function MicroCoursePlayerDB() {
   });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const modules = courseDetails?.modules ?? [];
+  const modules = (courseDetails?.modules ?? []) as CourseModuleRow[];
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
@@ -574,7 +584,7 @@ export default function MicroCoursePlayerDB() {
       <div className="max-w-4xl mx-auto px-4 mt-8">
         {/* Step-by-Step Navigation */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
-          {modules.map((m, idx) => (
+          {modules.map((m: CourseModuleRow, idx: number) => (
             <div key={m.id} className="flex items-center">
               <button
                 onClick={() => {
@@ -657,7 +667,7 @@ export default function MicroCoursePlayerDB() {
                   </span>
                   {sections.length > 1 && (
                     <div className="flex gap-1">
-                      {sections.map((_, i) => (
+                      {sections.map((_: unknown, i: number) => (
                         <div 
                           key={i} 
                           className={cn(

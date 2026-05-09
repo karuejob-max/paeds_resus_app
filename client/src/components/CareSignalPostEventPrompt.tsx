@@ -64,8 +64,7 @@ export function CareSignalPostEventPrompt({
 }: CareSignalPostEventPromptProps) {
   const [, navigate] = useLocation();
 
-  // Fetch the provider's current Care Signal streak for motivation display
-  const { data: streakData } = trpc.careSignalEvents.getStreak.useQuery(undefined, {
+  const { data: eventStats } = trpc.careSignalEvents.getEventStats.useQuery(undefined, {
     enabled: open,
     staleTime: 60_000,
   });
@@ -84,9 +83,8 @@ export function CareSignalPostEventPrompt({
     onClose();
   };
 
-  const streakMonths = streakData?.currentStreak ?? 0;
-  const streakStatus = streakData?.currentMonthStatus ?? "not_submitted";
-  const thisMonthDone = streakStatus === "qualifying";
+  const streakMonths = eventStats?.streakMonths ?? 0;
+  const thisMonthDone = (eventStats?.thisMonthCount ?? 0) > 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>

@@ -369,7 +369,7 @@ export const coursesRouter = router({
         moduleId: z.number(),
         quizId: z.number().optional(),
         score: z.number().min(0).max(100),
-        answers: z.record(z.string()),
+        answers: z.record(z.string(), z.string()),
       })
     )
     .mutation(async ({ ctx, input }) => {

@@ -5,12 +5,28 @@
  * Provides accountability for deviations from standard protocols.
  */
 
-import { z } from 'zod';
-import { router, protectedProcedure } from '@/server/trpc';
-import { db } from '@/server/db';
-import { cprOverrideLogs, overrideStatistics, overrideJustificationTemplates } from '@/drizzle/schema-override';
-import { cprSessions } from '@/drizzle/schema';
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
+import { z } from "zod";
+import { router, protectedProcedure } from "../_core/trpc";
+import { db } from "../db";
+import { cprOverrideLogs, overrideJustificationTemplates } from "../../drizzle/schema-override";
+import { cprSessions } from "../../drizzle/schema";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
+
+function getTopOverridingProviders(
+  overrides: { overriddenBy: number | null }[],
+  limit: number
+): { providerId: number; count: number }[] {
+  const providerCounts = new Map<number, number>();
+  for (const override of overrides) {
+    const id = override.overriddenBy;
+    if (id == null) continue;
+    providerCounts.set(id, (providerCounts.get(id) ?? 0) + 1);
+  }
+  return Array.from(providerCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([providerId, count]) => ({ providerId, count }));
+}
 
 /**
  * Override type enum matching schema
@@ -104,10 +120,11 @@ export const cprOverrideRouter = router({
         isHighRisk,
         ...rest,
       });
+      const insertId = Number((result as unknown as { insertId?: number }).insertId ?? 0);
 
       return {
         success: true,
-        overrideLogId: result.insertId,
+        overrideLogId: insertId,
         isHighRisk,
       };
     }),
@@ -236,7 +253,7 @@ export const cprOverrideRouter = router({
         },
         highRiskCount: overrides.filter(o => o.isHighRisk).length,
         uniqueProviders: new Set(overrides.map(o => o.overriddenBy)).size,
-        topOverridingProviders: this.getTopOverridingProviders(overrides, 5),
+        topOverridingProviders: getTopOverridingProviders(overrides, 5),
       };
 
       return stats;
@@ -286,24 +303,8 @@ export const cprOverrideRouter = router({
         ...input,
         createdBy: ctx.user.id,
       });
+      const templateId = Number((result as unknown as { insertId?: number }).insertId ?? 0);
 
-      return { success: true, templateId: result.insertId };
+      return { success: true, templateId };
     }),
-
-  /**
-   * Helper: Get top overriding providers
-   */
-  getTopOverridingProviders: (overrides: any[], limit: number) => {
-    const providerCounts = new Map();
-    
-    overrides.forEach(override => {
-      const count = providerCounts.get(override.overriddenBy) || 0;
-      providerCounts.set(override.overriddenBy, count + 1);
-    });
-
-    return Array.from(providerCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit)
-      .map(([providerId, count]) => ({ providerId, count }));
-  },
 });

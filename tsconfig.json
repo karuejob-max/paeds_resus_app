@@ -24,13 +24,15 @@
     "client/src/components/RoleManagement.tsx",
     "client/src/components/StaffProgressTable.tsx",
     "client/src/components/ConditionHeatmap.tsx",
+    "client/src/components/CPRClockStreamlined.refactored.ts",
     "client/src/pages/AdminCoursesPanel.tsx",
     "client/src/pages/CourseCatalog.tsx",
     "client/src/pages/KaizenDashboard.tsx",
     "server/lib/facility-report-pdf.ts",
     "server/routers/community-insights.ts",
     "server/routers/condition-recommendation-ai.ts",
-    "server/routers/provider-intelligence.ts"
+    "server/routers/provider-intelligence.ts",
+    "client/src/lib/pwa/service-worker.ts"
   ],
   "compilerOptions": {
     "incremental": false,

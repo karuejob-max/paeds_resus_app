@@ -21,10 +21,11 @@ export interface Module {
   title: string;
   duration: number; // in minutes
   description: string;
-  learningObjectives: LearningObjective[];
+  /** Legacy seed content may use plain strings; structured objectives are preferred for new modules */
+  learningObjectives: (LearningObjective | string)[];
   content: string; // Markdown content
   keyPoints: string[];
-  references: Reference[];
+  references: (Reference | string)[];
 }
 
 export interface Reference {
@@ -542,7 +543,7 @@ export function getModuleContent(courseId: string, moduleNumber: number) {
 // PNEUMONIA (SEVERE PNEUMONIA / ARDS)
 // ============================================
 
-export const pneumoniaCourse: Course = {
+export const pneumoniaCourse = {
   id: 'severe-pneumonia-ards-i',
   title: 'Severe Pneumonia & ARDS in Children',
   description: 'Recognition, assessment, and management of severe pneumonia and acute respiratory distress syndrome in pediatric patients',
@@ -841,7 +842,7 @@ Questions:
 // ASTHMA (STATUS ASTHMATICUS)
 // ============================================
 
-export const asthmaCourse: Course = {
+export const asthmaCourse= {
   id: 'asthma-ii',
   title: 'Status Asthmaticus: Recognition and Management',
   description: 'Emergency management of severe asthma exacerbation (status asthmaticus) in children',
@@ -1123,7 +1124,7 @@ Outline your management plan:
 // SEIZURE (STATUS EPILEPTICUS)
 // ============================================
 
-export const seizureCourse: Course = {
+export const seizureCourse= {
   id: 'status-epilepticus-ii',
   title: 'Status Epilepticus: Recognition and Management',
   description: 'Emergency management of prolonged seizures and status epilepticus in children',
@@ -1427,7 +1428,7 @@ Your management plan should include:
 // DKA I: RECOGNITION AND INITIAL MANAGEMENT
 // ============================================
 
-export const dkaICourse: Course = {
+export const dkaICourse= {
   id: 'dka-i',
   title: 'Diabetic Ketoacidosis I: Recognition and Initial Management',
   description: 'Recognition of DKA, initial stabilization, and safe fluid resuscitation to prevent cerebral oedema in children',
@@ -1705,7 +1706,7 @@ Your management plan should address:
 // DKA II: COMPLICATIONS AND SPECIAL SITUATIONS
 // ============================================
 
-export const dkaIICourse: Course = {
+export const dkaIICourse= {
   id: 'dka-ii',
   title: 'Diabetic Ketoacidosis II: Complications and Special Situations',
   description: 'Advanced management of DKA complications including cerebral oedema, hypokalaemia, and DKA in infants',
@@ -1912,7 +1913,7 @@ Your management plan should include:
 // ANAPHYLAXIS I: RECOGNITION AND EMERGENCY MANAGEMENT
 // ============================================
 
-export const anaphylaxisICourse: Course = {
+export const anaphylaxisICourse= {
   id: 'anaphylaxis-i',
   title: 'Anaphylaxis I: Recognition and Emergency Management',
   description: 'Rapid recognition of anaphylaxis and immediate life-saving treatment with adrenaline in children',
@@ -2205,7 +2206,7 @@ Your management plan should include:
 // ANAPHYLAXIS II: REFRACTORY AND SPECIAL SITUATIONS
 // ============================================
 
-export const anaphylaxisIICourse: Course = {
+export const anaphylaxisIICourse= {
   id: 'anaphylaxis-ii',
   title: 'Anaphylaxis II: Refractory Cases and Special Situations',
   description: 'Management of refractory anaphylaxis, anaphylaxis in infants, and anaphylaxis during anaesthesia',
@@ -2405,7 +2406,7 @@ Your management plan should include:
 
 // ─── Burns I ─────────────────────────────────────────────────
 
-export const burnsICourse: Course = {
+export const burnsICourse= {
   id: 'burns-i',
   courseId: 'burns-i',
   title: 'Paediatric Burns — Initial Assessment & Resuscitation',
@@ -2672,7 +2673,7 @@ Your management plan should include:
 
 // ─── Burns II ─────────────────────────────────────────────────
 
-export const burnsIICourse: Course = {
+export const burnsIICourse= {
   id: 'burns-ii',
   courseId: 'burns-ii',
   title: 'Paediatric Burns — Advanced Management & Complications',
@@ -2935,7 +2936,7 @@ Your management plan should include:
 
 // ─── Cardiogenic Shock I ─────────────────────────────────────
 
-export const cardiogenicShockICourse: Course = {
+export const cardiogenicShockICourse= {
   id: 'cardiogenic-shock-i',
   courseId: 'cardiogenic-shock-i',
   title: 'Cardiogenic Shock — Recognition & Initial Management',
@@ -3219,7 +3220,7 @@ Your management plan should include:
 
 // ─── Cardiogenic Shock II ─────────────────────────────────────
 
-export const cardiogenicShockIICourse: Course = {
+export const cardiogenicShockIICourse= {
   id: 'cardiogenic-shock-ii',
   courseId: 'cardiogenic-shock-ii',
   title: 'Cardiogenic Shock — Advanced Management & ECMO',
@@ -3498,7 +3499,7 @@ Your management plan should include:
 
 // ─── Hypovolaemic Shock I ─────────────────────────────────────
 
-export const hypovolaemicShockICourse: Course = {
+export const hypovolaemicShockICourse= {
   id: 'hypovolemic-shock-i',
   courseId: 'hypovolemic-shock-i',
   title: 'Hypovolaemic Shock — Recognition & Fluid Resuscitation',
@@ -3766,7 +3767,7 @@ Your management plan should include:
 
 // ─── Hypovolaemic Shock II ─────────────────────────────────────
 
-export const hypovolaemicShockIICourse: Course = {
+export const hypovolaemicShockIICourse= {
   id: 'hypovolemic-shock-ii',
   courseId: 'hypovolemic-shock-ii',
   title: 'Hypovolaemic Shock — Electrolyte Disorders & Special Situations',
@@ -4030,7 +4031,7 @@ Your management plan should include:
 
 // ─── Severe Anaemia I ─────────────────────────────────────────
 
-export const severeAnaemiaICourse: Course = {
+export const severeAnaemiaICourse= {
   id: 'severe-anaemia-i',
   courseId: 'severe-anaemia-i',
   title: 'Severe Anaemia — Recognition & Transfusion Management',
@@ -4299,7 +4300,7 @@ Your management plan should include:
 
 // ─── Severe Malaria I ─────────────────────────────────────────
 
-export const severeMalariaICourse: Course = {
+export const severeMalariaICourse= {
   id: 'severe-malaria-i',
   courseId: 'severe-malaria-i',
   title: 'Severe Malaria — Recognition & Antimalarial Therapy',
@@ -4567,7 +4568,7 @@ Your management plan should include:
 
 // ─── Severe Malaria II ─────────────────────────────────────────
 
-export const severeMalariaIICourse: Course = {
+export const severeMalariaIICourse= {
   id: 'severe-malaria-ii',
   courseId: 'severe-malaria-ii',
   title: 'Severe Malaria — Complications & Neurological Sequelae',
@@ -4829,7 +4830,7 @@ Your management plan should include:
 
 // ─── Acute Kidney Injury I ─────────────────────────────────────
 
-export const acuteKidneyInjuryICourse: Course = {
+export const acuteKidneyInjuryICourse= {
   id: 'acute-kidney-injury-i',
   courseId: 'acute-kidney-injury-i',
   title: 'Acute Kidney Injury — Recognition & Management',
@@ -5098,7 +5099,7 @@ Your management plan should include:
 
 // ─── Severe Pneumonia ARDS II ─────────────────────────────────
 
-export const severePneumoniaArdsIICourse: Course = {
+export const severePneumoniaArdsIICourse= {
   id: 'severe-pneumonia-ards-ii',
   courseId: 'severe-pneumonia-ards-ii',
   title: 'Severe Pneumonia & ARDS — Advanced Ventilation & Complications',

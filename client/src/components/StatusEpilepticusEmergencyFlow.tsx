@@ -390,7 +390,7 @@ export const StatusEpilepticusEmergencyFlow: React.FC<StatusEpilepticusFlowProps
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .status-epilepticus-flow {
           padding: 20px;
           max-width: 900px;
