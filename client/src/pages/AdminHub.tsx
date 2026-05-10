@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2 } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +88,23 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Registered users, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/kaizen-dashboard")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Kaizen KPI (internal)
+                </CardTitle>
+                <CardDescription>
+                  Daily targets vs registrations, enrollments, revenue, certificates — platform ops view
                 </CardDescription>
               </div>
             </CardHeader>

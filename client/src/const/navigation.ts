@@ -31,6 +31,7 @@ export const authenticatedNavItems: NavItem[] = [
 export const adminNavItems: NavItem[] = [
   { label: "Hospital Admin", href: "/hospital-admin-dashboard", requiresAdmin: true },
   { label: "Advanced Analytics", href: "/advanced-analytics", requiresAdmin: true },
+  { label: "Kaizen KPI", href: "/kaizen-dashboard", requiresAdmin: true },
 ];
 
 // Learning & Development - ONLY WORKING PAGES
@@ -78,7 +79,6 @@ export const footerSections = {
   mlDashboards: [
     { label: "Predictive Alerts", href: "/predictive-intervention" },
     { label: "Learning Path", href: "/personalized-learning" },
-    { label: "Kaizen Dashboard", href: "/kaizen-dashboard" },
   ],
 };
 
@@ -90,7 +90,6 @@ export const dashboardNavItems: NavItem[] = [
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
   { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
   { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
-  { label: "Kaizen Dashboard", href: "/kaizen-dashboard", icon: "📈" },
 ];
 
 // Breadcrumb navigation helper - ONLY WORKING PAGES
@@ -106,7 +105,7 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/payment": ["Home", "Payment"],
   "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
   "/advanced-analytics": ["Home", "Admin", "Analytics"],
-  "/kaizen-dashboard": ["Home", "Kaizen"],
+  "/kaizen-dashboard": ["Home", "Admin", "Kaizen KPI"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],
   "/enroll": ["Home", "Enroll"],

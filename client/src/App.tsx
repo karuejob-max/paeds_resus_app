@@ -70,6 +70,7 @@ const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 const AHABookSession = lazy(() => import("./pages/AHABookSession"));
+const KaizenDashboard = lazy(() => import("./pages/KaizenDashboard"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
@@ -245,7 +246,9 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/kaizen-dashboard">{() => (
-            <Redirect to="/home" />
+            <AdminGate>
+              <KaizenDashboard />
+            </AdminGate>
           )}</Route>
           <Route path="/personalized-learning">{() => (
             <RoleGate allowed={["provider"]}>
