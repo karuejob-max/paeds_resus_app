@@ -27,6 +27,7 @@ This document is an **operational checklist**. It does not change PSOT.
 
 1. Feature branches merge → **`develop`** → verify on **staging URL**.
 2. When ready for production: PR **`develop` → `main`**, verify `ci:gate` + smoke on staging, then merge and deploy production.
+3. Use the repository **pull request template** (`.github/pull_request_template.md`) so risky areas (auth, payments, migrations) are explicitly checked.
 
 ---
 

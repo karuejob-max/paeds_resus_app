@@ -7,6 +7,7 @@ import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import ResusGPS from "./ResusGPS";
 import { AlertCircle, ArrowLeft, RefreshCcw, Siren } from "lucide-react";
 
@@ -21,16 +22,6 @@ function getRoleHomePath(role: UserRole): string {
   if (role === "parent") return "/parent-safe-truth";
   if (role === "institution") return "/hospital-admin-dashboard";
   return "/home";
-}
-
-/** Same session id as useAnalytics — keeps admin “last 7 days” counts consistent. */
-function getAnalyticsSessionId(): string {
-  if (typeof window === "undefined") return "server";
-  const stored = sessionStorage.getItem("analytics_session_id");
-  if (stored) return stored;
-  const newId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-  sessionStorage.setItem("analytics_session_id", newId);
-  return newId;
 }
 
 function getResusGateCopy(role: UserRole) {

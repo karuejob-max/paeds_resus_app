@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
+import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { cn } from "@/lib/utils";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
@@ -180,12 +181,26 @@ export default function MicroCoursePlayerDB() {
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const completeModuleMutation = trpc.learning.completeModule.useMutation();
+  const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
     onSuccess: (data) => {
       if (data.success && data.certificateNumber) {
         setIssuedCertNumber(data.certificateNumber);
         toast.success(`Cognitive certificate issued! #${data.certificateNumber}`);
+      }
+      if (data.success) {
+        trackProductActivity.mutate({
+          eventType: "micro_course",
+          eventName: "AHA cognitive pathway completed",
+          pageUrl: typeof window !== "undefined" ? window.location.pathname : "/micro-course",
+          sessionId: getAnalyticsSessionId(),
+          eventData: {
+            courseSlug: slug,
+            programType,
+            certificateIssued: !!data.certificateNumber,
+          },
+        });
       }
     },
   });
@@ -199,6 +214,16 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
+        trackProductActivity.mutate({
+          eventType: "micro_course",
+          eventName: "Micro-course completed",
+          pageUrl: typeof window !== "undefined" ? window.location.pathname : "/micro-course",
+          sessionId: getAnalyticsSessionId(),
+          eventData: {
+            courseSlug: slug,
+            certificateIssued: !!data.certificateNumber,
+          },
+        });
       } else {
         toast.error(data.message || "Failed to complete course");
       }

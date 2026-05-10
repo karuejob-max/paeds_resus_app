@@ -2,7 +2,7 @@ import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, sql, count } from "drizzle-orm";
-import { getDb } from "../db";
+import { getDb, insertAdminAuditLog } from "../db";
 import {
   analyticsEvents,
   careSignalEvents,
@@ -1257,6 +1257,16 @@ export const careSignalEventsRouter = router({
             careSignalEventId: input.eventId,
             reviewOutcome: input.reviewOutcome,
           },
+        });
+
+        await insertAdminAuditLog({
+          adminUserId: ctx.user.id,
+          procedurePath: "careSignalEvents.markReviewed",
+          inputSummary: JSON.stringify({
+            eventId: input.eventId,
+            reviewOutcome: input.reviewOutcome,
+          }),
+          createdAt: new Date(),
         });
 
         return {

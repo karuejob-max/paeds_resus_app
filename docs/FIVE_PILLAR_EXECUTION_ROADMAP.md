@@ -80,3 +80,11 @@ If anything in this roadmap conflicts with **PSOT**, **PSOT wins**—update this
 ## Execution status
 
 Updates belong in [WORK_STATUS.md](./WORK_STATUS.md) (date, who, commit). This file tracks **how** we execute the five pillars; PSOT remains **what** we decided.
+
+| Pillar | Latest execution (high level) |
+|--------|-------------------------------|
+| **1 — Analytics** | ResusGPS gate `resus_session`; Care Signal submit `care_signal`; micro-course completion `micro_course`; Kaizen KPI admin-only; verify script `pnpm run verify:analytics`. |
+| **2 — Staging** | Checklist: [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md); PR template: `.github/pull_request_template.md`; session/staging notes: [DEPLOYMENT_SESSION_AND_STAGING.md](./DEPLOYMENT_SESSION_AND_STAGING.md). Infra still provisioned outside repo. |
+| **3 — Security** | `SESSION_MAX_AGE_MS` documented for production intent; Care Signal `markReviewed` writes **`adminAuditLog`** + analytics event. |
+| **4 — ResusGPS v4** | Undo/dedup/structured age/timers/rationale: next vertical slices — track in WORK_STATUS per PR. |
+| **5 — Governance** | [ENGINEERING_GOVERNANCE_CHECKLIST.md](./ENGINEERING_GOVERNANCE_CHECKLIST.md); PSOT §5 subsection **Admin (platform owner)**. |

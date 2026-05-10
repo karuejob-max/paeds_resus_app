@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { trpc } from "@/lib/trpc";
 import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
@@ -60,6 +61,7 @@ export default function CareSignalForm() {
   }, []);
 
   const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
+  const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const handleSubmit = async () => {
     try {
@@ -90,6 +92,16 @@ export default function CareSignalForm() {
       };
 
       const result = await submitMutation.mutateAsync(submitData);
+      trackProductActivity.mutate({
+        eventType: "care_signal",
+        eventName: "Care Signal event submitted",
+        pageUrl: "/care-signal",
+        sessionId: getAnalyticsSessionId(),
+        eventData: {
+          eventId: result.eventId,
+          anonymous: isAnonymous,
+        },
+      });
       setSubmittedData({
         ...submitData,
         algorithm: formData.algorithm,

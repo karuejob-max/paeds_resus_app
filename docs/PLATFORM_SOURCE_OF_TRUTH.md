@@ -80,6 +80,18 @@ High-level map (routes may evolve; check the codebase if in doubt):
 | **Institution** | Hospital admin institutional dashboards (canonical route: `/hospital-admin-dashboard`; legacy `/institutional-portal` may redirect) — institutional metrics and management. |
 | **Admin** | `/admin` — reports, insights, advanced tools; **admin** access is governed by [§7](#7-auth-and-roles). |
 
+### Admin (platform owner)
+
+**Who:** Users with **`role === 'admin'`** in the database — typically granted when **`openId`** matches **`OWNER_OPEN_ID`** at auth/upsert ([§7](#7-auth-and-roles)). This is **Paeds Resus platform** administration, **not** the same persona as **institutional / hospital** staff (who use **`/hospital-admin-dashboard`** for their facility).
+
+**Primary entry:** **`/admin`** (Admin hub). Typical destinations include **`/admin/reports`** (canonical definitions [§8](#8-admin-reports-definitions)), M-Pesa reconciliation, Care Signal review queue, national signal, capstone grading, course administration, and advanced analytics surfaces linked from the hub.
+
+**Internal KPI (optional ops view):** **`/kaizen-dashboard`** — DB-backed daily/weekly registration, enrollment, revenue, and certificate metrics vs internal targets (**admin-only** route). It supports **founder/ops** visibility; it is **not** a clinical product and must remain **gated** to platform admins.
+
+**Instrumentation:** Admin “last 7 days” / product activity counts rely on **`analyticsEvents`** ([§8](#8-admin-reports-definitions)). Product teams must emit events through the **standard** **`events.trackEvent`** path—no duplicate KPI tables for the same metric.
+
+**Audit & accountability:** As the **security baseline** matures ([§11](#11-security-current-and-target)), sensitive admin actions should be **traceable** (e.g. **`adminAuditLog`** + structured procedure identifiers). Scope expands as leadership locks requirements.
+
 ---
 
 ## 6. Technical stack and deployment (facts)
@@ -166,7 +178,7 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 - **Preserve the user model:** No **single-role lock**; preserve **multi-context switching** in the UI.
 - **Preserve report definitions:** **This month** = EAT calendar month; **last 7 days** = rolling; **Safe-Truth** and **analyticsEvents** meanings as in [§8](#8-admin-reports-definitions).
 - **Secrets:** No hardcoded credentials; use env vars and document in `.env.example` when adding new ones.
-- **Execution sequencing:** Ship work in the order of [§12](#12-priority-order-locked). Phased tasks, exit criteria, and any **staged trade-offs** (e.g. session length vs default cookie behaviour) are expanded in [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md). Operational staging checklist (while [§10](#10-deployment-and-infrastructure) still reflects single production): [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md). Engineering discipline until fully locked in [§11](#11-security-current-and-target): [ENGINEERING_GOVERNANCE_CHECKLIST.md](./ENGINEERING_GOVERNANCE_CHECKLIST.md).
+- **Execution sequencing:** Ship work in the order of [§12](#12-priority-order-locked). Phased tasks, exit criteria, and any **staged trade-offs** (e.g. session length vs default cookie behaviour) are expanded in [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md). Operational staging checklist (while [§10](#10-deployment-and-infrastructure) still reflects single production): [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md). Session max age and staging/release notes for operators: [DEPLOYMENT_SESSION_AND_STAGING.md](./DEPLOYMENT_SESSION_AND_STAGING.md). Engineering discipline until fully locked in [§11](#11-security-current-and-target): [ENGINEERING_GOVERNANCE_CHECKLIST.md](./ENGINEERING_GOVERNANCE_CHECKLIST.md).
 
 ---
 
