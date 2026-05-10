@@ -72,6 +72,7 @@ import {
   removeConcurrentDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
+  getAgeCategory,
 } from '@/lib/resus/abcdeEngine';
 import { pushToUndoStack, undo, redo } from '@/lib/resus/undo-manager';
 import {
@@ -349,6 +350,7 @@ export default function ResusGPS() {
   const [showCareSignalPrompt, setShowCareSignalPrompt] = useState(false);
   const [careSignalPromptDiagnosis, setCareSignalPromptDiagnosis] = useState('');
 
+  /** Single entry point for starting an intervention — keeps duplicate-medication checks consistent (Intervention screen, side panel, etc.). */
   const handleStartIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (!intervention) return;
@@ -820,6 +822,7 @@ export default function ResusGPS() {
           <InterventionScreen
             session={session}
             weight={weight}
+            patientAge={session.patientAge}
             onComplete={handleCompleteIntervention}
             onStart={handleStartIntervention}
             onReturnToPrimary={handleReturnToPrimarySurvey}
@@ -1708,11 +1711,36 @@ function NumberPairInput({
   );
 }
 
+/** Shared dose rationale for intervention rows (age-aware, weight required). */
+function InterventionDoseRationale({
+  action,
+  dose,
+  weight,
+  patientAge,
+  className = 'mt-2 pt-2 border-t border-border/50',
+}: {
+  action: string;
+  dose: NonNullable<Intervention['dose']>;
+  weight: number | null;
+  patientAge: string | null;
+  className?: string;
+}) {
+  if (weight == null) return null;
+  const rationale = getDoseRationale(action, weight, getAgeCategory(patientAge), dose.route);
+  if (!rationale) return null;
+  return (
+    <div className={className}>
+      <DoseRationaleCard rationale={rationale} />
+    </div>
+  );
+}
+
 // ─── Intervention Screen ────────────────────────────────────
 
 function InterventionScreen({
   session,
   weight,
+  patientAge,
   onComplete,
   onStart,
   onReturnToPrimary,
@@ -1720,6 +1748,7 @@ function InterventionScreen({
 }: {
   session: ResusSession;
   weight: number | null;
+  patientAge: string | null;
   onComplete: (id: string) => void;
   onStart: (id: string) => void;
   onReturnToPrimary: () => void;
@@ -1764,6 +1793,13 @@ function InterventionScreen({
                       {intervention.dose.preparation && (
                         <p className="text-xs text-muted-foreground mt-1">{intervention.dose.preparation}</p>
                       )}
+                      <InterventionDoseRationale
+                        action={intervention.action}
+                        dose={intervention.dose}
+                        weight={weight}
+                        patientAge={patientAge}
+                        className="mt-2 pt-2 border-t border-primary/20"
+                      />
                     </div>
                   )}
                 </div>
@@ -1876,7 +1912,16 @@ function CardiacArrestScreen({
                   <div className="flex-1">
                     <p className="font-semibold text-foreground text-sm">{intervention.action}</p>
                     {intervention.dose && (
-                      <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
+                      <>
+                        <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
+                        <InterventionDoseRationale
+                          action={intervention.action}
+                          dose={intervention.dose}
+                          weight={weight}
+                          patientAge={session.patientAge}
+                          className="mt-2 pt-2 border-t border-border/50"
+                        />
+                      </>
                     )}
                     {intervention.detail && (
                       <p className="text-xs text-muted-foreground mt-1">{intervention.detail}</p>
@@ -2261,20 +2306,12 @@ function ThreatCard({
                     )}
                     {/* Dose Rationale */}
                     {intervention.dose && (
-                      <div className="mt-2 pt-2 border-t border-border/50">
-                        {(() => {
-                          const rationale =
-                            weight != null
-                              ? getDoseRationale(
-                                  intervention.action,
-                                  weight,
-                                  "child",
-                                  intervention.dose.route
-                                )
-                              : null;
-                          return rationale ? <DoseRationaleCard rationale={rationale} /> : null;
-                        })()}
-                      </div>
+                      <InterventionDoseRationale
+                        action={intervention.action}
+                        dose={intervention.dose}
+                        weight={weight}
+                        patientAge={session.patientAge}
+                      />
                     )}
 
                     {/* Status actions */}
@@ -2333,6 +2370,8 @@ function ThreatCard({
                     checks={intervention.reassessmentChecks}
                     currentIndex={reassessmentMode.checkIndex}
                     weight={weight}
+                    patientAge={session.patientAge}
+                    doseRationaleDrug={intervention.action}
                     session={session}
                     setSession={setSession}
                     onAdvance={(idx) => setReassessmentMode({ interventionId: intervention.id, checkIndex: idx })}
@@ -2354,6 +2393,8 @@ function ReassessmentFlow({
   checks,
   currentIndex,
   weight,
+  patientAge,
+  doseRationaleDrug,
   session,
   setSession,
   onAdvance,
@@ -2362,6 +2403,9 @@ function ReassessmentFlow({
   checks: ReassessmentCheck[];
   currentIndex: number;
   weight: number | null;
+  patientAge: string | null;
+  /** Parent intervention action — used to match dose rationale when reassessment options include a dose */
+  doseRationaleDrug: string;
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   onAdvance: (idx: number) => void;
@@ -2428,7 +2472,16 @@ function ReassessmentFlow({
               <p className="text-muted-foreground/70 mt-0.5 italic">{option.rationale}</p>
             )}
             {option.dose && (
-              <p className="text-primary mt-1 font-medium">{calcDose(option.dose, weight)}</p>
+              <>
+                <p className="text-primary mt-1 font-medium">{calcDose(option.dose, weight)}</p>
+                <InterventionDoseRationale
+                  action={doseRationaleDrug}
+                  dose={option.dose}
+                  weight={weight}
+                  patientAge={patientAge}
+                  className="mt-2 pt-2 border-t border-border/40"
+                />
+              </>
             )}
           </button>
         ))}
