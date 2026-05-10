@@ -14,6 +14,16 @@ interface BulkStaffImportProps {
   onSuccess?: () => void;
 }
 
+type StaffRoleEnum =
+  | "doctor"
+  | "nurse"
+  | "paramedic"
+  | "midwife"
+  | "lab_tech"
+  | "respiratory_therapist"
+  | "support_staff"
+  | "other";
+
 interface StaffRecord {
   staffName: string;
   staffEmail: string;
@@ -21,6 +31,31 @@ interface StaffRecord {
   staffRole: string;
   department?: string;
   yearsOfExperience?: number;
+}
+
+function normalizeStaffRole(raw: string): StaffRoleEnum {
+  const key = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, StaffRoleEnum> = {
+    doctor: "doctor",
+    physician: "doctor",
+    md: "doctor",
+    nurse: "nurse",
+    rn: "nurse",
+    nursing: "nurse",
+    paramedic: "paramedic",
+    emt: "paramedic",
+    midwife: "midwife",
+    lab_tech: "lab_tech",
+    labtech: "lab_tech",
+    laboratory_technician: "lab_tech",
+    respiratory_therapist: "respiratory_therapist",
+    rt: "respiratory_therapist",
+    support_staff: "support_staff",
+    support: "support_staff",
+    admin: "support_staff",
+    other: "other",
+  };
+  return aliases[key] ?? "other";
 }
 
 interface ImportResult {
@@ -89,7 +124,10 @@ export function BulkStaffImport({ institutionId, open, onOpenChange, onSuccess }
     try {
       const result = await bulkImportMutation.mutateAsync({
         institutionId,
-        staff: parsedData,
+        staff: parsedData.map((row) => ({
+          ...row,
+          staffRole: normalizeStaffRole(row.staffRole),
+        })),
       });
 
       setImportResult(result.data);

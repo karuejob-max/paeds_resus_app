@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface CourseStats {
   total: number;
@@ -18,8 +18,6 @@ export default function AdminCoursesPanel() {
   const [stats, setStats] = useState<CourseStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // tRPC mutations
-  const seedMutation = trpc.courses.seedCourses.useMutation();
   const listCoursesQuery = trpc.courses.listAll.useQuery();
 
   // Verify admin access
@@ -61,28 +59,6 @@ export default function AdminCoursesPanel() {
     }
   }, [listCoursesQuery.data]);
 
-  // Handle seed courses
-  const handleSeedCourses = async () => {
-    setIsLoading(true);
-    try {
-      const result = await seedMutation.mutateAsync();
-      toast.success('✅ Courses seeded successfully!', {
-        description: result.message,
-        duration: 5000,
-      });
-
-      // Refresh course list
-      await listCoursesQuery.refetch();
-    } catch (error) {
-      toast.error('❌ Failed to seed courses', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-        duration: 5000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Handle refresh
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -104,50 +80,27 @@ export default function AdminCoursesPanel() {
         <p className="text-slate-600">Manage micro-courses, seed database, and monitor enrollment</p>
       </div>
 
-      {/* Seed Courses Section */}
+      {/* Catalog seeding (CLI) — no tRPC seed procedure in production router */}
       <Card className="border-2 border-blue-200 bg-blue-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
-            Seed Courses to Database
+            Seed micro-course catalog
           </CardTitle>
           <CardDescription>
-            Populate microCourses table with all 26 courses (foundational + advanced tiers)
+            Populate the micro-course tables from the repo seed scripts (run in a terminal on the server or dev machine).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-white p-4 rounded-lg border border-blue-100">
-            <h3 className="font-semibold text-slate-900 mb-2">What will be seeded:</h3>
-            <ul className="text-sm text-slate-700 space-y-1">
-              <li>✓ 26 micro-courses across 8 emergency categories</li>
-              <li>✓ Foundational tier: 45 min, 800 KES each</li>
-              <li>✓ Advanced tier: 60 min, 1200 KES each</li>
-              <li>✓ Prerequisites enforced (advanced requires foundational)</li>
-              <li>✓ 260 total quiz questions (10 per course)</li>
-            </ul>
+          <div className="bg-white p-4 rounded-lg border border-blue-100 font-mono text-sm text-slate-800">
+            <p className="mb-2 text-slate-600 font-sans text-sm">
+              From the project root run{' '}
+              <code className="rounded bg-slate-100 px-1">pnpm run seed:micro-courses</code>.
+            </p>
+            <p className="text-xs text-slate-500 font-sans">
+              Safe to re-run where the seed is idempotent; duplicates are skipped at the DB layer where applicable.
+            </p>
           </div>
-
-          <Button
-            onClick={handleSeedCourses}
-            disabled={seedMutation.isPending || isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base font-semibold"
-          >
-            {seedMutation.isPending || isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Seeding courses...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                Seed All 26 Courses
-              </>
-            )}
-          </Button>
-
-          <p className="text-xs text-slate-500 text-center">
-            Duplicates will be skipped. Safe to run multiple times.
-          </p>
         </CardContent>
       </Card>
 
@@ -224,7 +177,7 @@ export default function AdminCoursesPanel() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-slate-600 mb-4">
-            After seeding, verify all courses appear in the catalog:
+            After running the seed script, verify courses in the catalog:
           </p>
           <Button
             variant="outline"
@@ -246,7 +199,7 @@ export default function AdminCoursesPanel() {
         <CardContent className="text-xs text-gray-600 space-y-1 font-mono">
           <p>Admin: {user?.email}</p>
           <p>Courses Loaded: {stats?.total || 0}</p>
-          <p>Seed Status: {seedMutation.isPending ? 'In Progress' : 'Ready'}</p>
+          <p>List status: {listCoursesQuery.isFetching ? 'Refreshing' : 'Idle'}</p>
         </CardContent>
       </Card>
     </div>

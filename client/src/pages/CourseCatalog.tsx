@@ -6,24 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, BookOpen, Clock, DollarSign, Lock, CheckCircle2 } from 'lucide-react';
-import MpesaEnrollmentModal from '@/components/MpesaEnrollmentModal';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '../../../server/routers';
+import { toast } from 'sonner';
 
 type EmergencyType = 'respiratory' | 'shock' | 'seizure' | 'toxicology' | 'metabolic' | 'infectious' | 'burns' | 'trauma';
 type Level = 'foundational' | 'advanced';
 
-interface CourseCard {
-  id: number;
-  courseId: string;
-  title: string;
-  description: string;
-  level: Level;
-  emergencyType: EmergencyType;
-  duration: number;
-  price: number;
-  prerequisiteId?: string;
-  completed?: boolean;
-  enrolled?: boolean;
-}
+type MicroCourseRow = inferRouterOutputs<AppRouter>['courses']['listAll'][number];
 
 const EMERGENCY_CATEGORIES: Record<EmergencyType, { label: string; color: string }> = {
   respiratory: { label: '🫁 Respiratory', color: 'bg-blue-100' },
@@ -41,12 +31,12 @@ export default function CourseCatalog() {
   const [selectedCategory, setSelectedCategory] = useState<EmergencyType | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<Level | 'all'>('all');
   const [showEnrolledOnly, setShowEnrolledOnly] = useState(false);
-  const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<CourseCard | null>(null);
 
   // Query all courses
   const { data: coursesData, isLoading } = trpc.courses.listAll.useQuery();
-  const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery({ userId: user?.id || 0 }, { enabled: !!user });
+  const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
+    enabled: !!user,
+  });
 
   // Get enrollment status for each course
   const enrollmentMap = useMemo(() => {
@@ -54,9 +44,9 @@ export default function CourseCatalog() {
     return enrollmentsData.reduce(
       (acc, enrollment) => {
         acc[enrollment.microCourseId] = {
-          status: enrollment.enrollmentStatus,
+          status: enrollment.enrollmentStatus ?? 'pending',
           completed: enrollment.enrollmentStatus === 'completed',
-          quizScore: enrollment.quizScore,
+          quizScore: enrollment.quizScore ?? undefined,
         };
         return acc;
       },
@@ -68,7 +58,7 @@ export default function CourseCatalog() {
   const filteredCourses = useMemo(() => {
     if (!coursesData) return [];
 
-    return coursesData.filter((course: CourseCard) => {
+    return coursesData.filter((course) => {
       const categoryMatch = selectedCategory === 'all' || course.emergencyType === selectedCategory;
       const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
       const enrollmentMatch = !showEnrolledOnly || enrollmentMap[course.id]?.completed;
@@ -79,7 +69,7 @@ export default function CourseCatalog() {
 
   // Group by emergency type
   const groupedCourses = useMemo(() => {
-    const grouped: Record<EmergencyType, CourseCard[]> = {
+    const grouped: Record<EmergencyType, MicroCourseRow[]> = {
       respiratory: [],
       shock: [],
       seizure: [],
@@ -90,8 +80,8 @@ export default function CourseCatalog() {
       trauma: [],
     };
 
-    filteredCourses.forEach((course: CourseCard) => {
-      grouped[course.emergencyType].push(course);
+    filteredCourses.forEach((course) => {
+      grouped[course.emergencyType as EmergencyType].push(course);
     });
 
     return grouped;
@@ -192,10 +182,13 @@ export default function CourseCatalog() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course: CourseCard) => {
+            {filteredCourses.map((course) => {
               const enrollment = enrollmentMap[course.id];
               const isCompleted = enrollment?.completed;
-              const isEnrolled = enrollment?.status === 'active' || isCompleted;
+              const isEnrolled =
+                enrollment?.status === 'active' ||
+                enrollment?.status === 'completed' ||
+                isCompleted;
               const isAdmin = user?.email === 'karuejob@gmail.com';
 
               return (
@@ -211,7 +204,7 @@ export default function CourseCatalog() {
                       {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                     </div>
                     <CardTitle className="text-lg">{course.title}</CardTitle>
-                    <CardDescription className="text-sm">{course.description}</CardDescription>
+                    <CardDescription className="text-sm">{course.description ?? ''}</CardDescription>
                   </CardHeader>
 
                   <CardContent className="flex-1">
@@ -268,28 +261,29 @@ function EnrollmentButton({
   isAdmin,
   userId,
 }: {
-  course: CourseCard;
+  course: MicroCourseRow;
   isEnrolled: boolean;
   isCompleted: boolean;
   isAdmin: boolean;
   userId?: number;
 }) {
-  const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
   const [, setLocation] = useLocation();
-  const adminAccessMutation = trpc.courses.grantAdminAccess.useMutation();
+  const utils = trpc.useUtils();
+  const enrollMutation = trpc.enrollment.enrollWithPayment.useMutation({
+    onSuccess: async (res) => {
+      if (res.success) {
+        toast.success(isAdmin ? 'Access granted' : 'Enrolled', { description: res.message });
+        await utils.courses.getUserEnrollments.invalidate();
+      } else {
+        toast.error('Enrollment failed', { description: res.error ?? 'Unknown error' });
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const handleEnroll = async () => {
     if (!userId) return;
-
-    if (isAdmin) {
-      // Admin gets free access
-      await adminAccessMutation.mutateAsync({
-        courseId: course.courseId,
-      });
-    } else {
-      // Regular user: open M-Pesa enrollment modal
-      setMpesaModalOpen(true);
-    }
+    await enrollMutation.mutateAsync({ courseId: course.courseId });
   };
 
   if (isCompleted) {
@@ -314,24 +308,12 @@ function EnrollmentButton({
   }
 
   return (
-    <>
-      <Button
-        onClick={handleEnroll}
-        disabled={adminAccessMutation.isPending}
-        className="w-full bg-blue-600 hover:bg-blue-700"
-      >
-        {isAdmin ? '✓ Get Free Access' : '💳 Enroll Now'}
-      </Button>
-      {!isAdmin && (
-        <MpesaEnrollmentModal
-          open={mpesaModalOpen}
-          onOpenChange={setMpesaModalOpen}
-          courseId={course.courseId}
-          courseTitle={course.title}
-          price={course.price}
-          duration={course.duration}
-        />
-      )}
-    </>
+    <Button
+      onClick={handleEnroll}
+      disabled={enrollMutation.isPending}
+      className="w-full bg-blue-600 hover:bg-blue-700"
+    >
+      {enrollMutation.isPending ? '…' : isAdmin ? '✓ Get Free Access' : 'Enroll now'}
+    </Button>
   );
 }
