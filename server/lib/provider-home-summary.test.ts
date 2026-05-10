@@ -21,7 +21,7 @@ const expiredAccess = {
 };
 
 describe("selectProviderHomePrimaryAction", () => {
-  it("prioritizes unpaid AHA payment before all other actions", () => {
+  it("starts a not-yet-started micro-course even when an AHA enrollment is still pending payment", () => {
     const action = selectProviderHomePrimaryAction({
       ahaEnrollments: [
         {
@@ -44,8 +44,10 @@ describe("selectProviderHomePrimaryAction", () => {
       resusAccess: expiredAccess,
     });
 
-    expect(action.key).toBe("resume_payment");
-    expect(action.destination).toBe("/payment?enrollmentId=11&courseId=bls");
+    expect(action.key).toBe("start_course");
+    expect(action.destination).toBe(
+      "/micro-course/3?enrollmentId=22&programType=pals_septic",
+    );
   });
 
   it("starts a paid course before continuing another area", () => {
@@ -65,7 +67,9 @@ describe("selectProviderHomePrimaryAction", () => {
     });
 
     expect(action.key).toBe("start_course");
-    expect(action.destination).toBe("/course/paediatric-septic-shock?enrollmentId=22");
+    expect(action.destination).toBe(
+      "/micro-course/3?enrollmentId=22&programType=pals_septic",
+    );
   });
 
   it("continues an in-progress course when no payment recovery is needed", () => {
@@ -85,7 +89,9 @@ describe("selectProviderHomePrimaryAction", () => {
     });
 
     expect(action.key).toBe("continue_learning");
-    expect(action.destination).toBe("/course/bls?enrollmentId=33");
+    expect(action.destination).toBe(
+      "/micro-course/1?enrollmentId=33&programType=bls",
+    );
   });
 
   it("nudges access renewal when learning is clear but ResusGPS is paused", () => {
