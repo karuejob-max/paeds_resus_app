@@ -14,6 +14,15 @@
 
 import type { ResusSession } from "./abcdeEngine";
 
+/** Ensure sessions persisted before v4 fields exist remain valid at runtime */
+export function normalizeResusSession(session: ResusSession): ResusSession {
+  return {
+    ...session,
+    concurrentDiagnoses: session.concurrentDiagnoses ?? [],
+    undoActionLabels: session.undoActionLabels ?? [],
+  };
+}
+
 const DB_NAME = "PaedsResusDB";
 const DB_VERSION = 3; // v3: add sampleHistory store
 const STORE_NAME = "resusSession";
@@ -98,7 +107,7 @@ export async function loadPersistedResusSession(): Promise<ResusSession | null> 
         if (Date.now() - row.savedAt > STALE_THRESHOLD_MS) return resolve(null);
         // Only offer to resume if the session has at least one event (not a blank new session)
         if (!row.session.events || row.session.events.length === 0) return resolve(null);
-        resolve(row.session);
+        resolve(normalizeResusSession(row.session));
       };
       req.onerror = () => resolve(null);
     });

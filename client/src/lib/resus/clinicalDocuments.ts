@@ -80,7 +80,11 @@ function threatsLine(session: ResusSession): string {
 
 function diagnosisLine(session: ResusSession): string {
   if (session.phase === 'CARDIAC_ARREST') return 'Cardiac Arrest — PALS protocol active';
-  if (session.definitiveDiagnosis) return session.definitiveDiagnosis;
+  const parts: string[] = [];
+  if (session.definitiveDiagnosis) parts.push(`Primary: ${session.definitiveDiagnosis}`);
+  const co = session.concurrentDiagnoses ?? [];
+  if (co.length) parts.push(`Co-diagnoses: ${co.join(', ')}`);
+  if (parts.length) return parts.join('. ');
   const threats = session.threats.filter((t) => !t.resolved);
   if (threats.length) return threats.map((t) => t.name).join(', ');
   return 'Under assessment — see findings below';

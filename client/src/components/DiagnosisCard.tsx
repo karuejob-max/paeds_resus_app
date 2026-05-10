@@ -20,6 +20,10 @@ interface DiagnosisCardProps {
   onResolve: (id: string) => void;
   onRemove: (id: string) => void;
   showDetails?: boolean;
+  /** Post-primary suggested diagnoses: choose primary vs co-diagnosis instead of resolve/remove */
+  pickMode?: boolean;
+  onSetPrimary?: () => void;
+  onAddCoDiagnosis?: () => void;
 }
 
 export function DiagnosisCard({
@@ -27,6 +31,9 @@ export function DiagnosisCard({
   onResolve,
   onRemove,
   showDetails = true,
+  pickMode,
+  onSetPrimary,
+  onAddCoDiagnosis,
 }: DiagnosisCardProps) {
   const colorClass = getConfidenceColorClass(diagnosis.confidence);
 
@@ -90,26 +97,37 @@ export function DiagnosisCard({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-1 shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => onResolve(diagnosis.id)}
-              title="Mark as resolved"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => onRemove(diagnosis.id)}
-              title="Remove diagnosis"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {pickMode && onSetPrimary && onAddCoDiagnosis ? (
+            <div className="flex flex-col gap-1 shrink-0 min-w-[8rem]">
+              <Button size="sm" className="h-8 text-xs" onClick={onSetPrimary}>
+                Set primary
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onAddCoDiagnosis}>
+                Add co-diagnosis
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-1 shrink-0">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => onResolve(diagnosis.id)}
+                title="Mark as resolved"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => onRemove(diagnosis.id)}
+                title="Remove diagnosis"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

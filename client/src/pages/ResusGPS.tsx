@@ -68,6 +68,8 @@ import {
   acknowledgeSafetyAlert,
   calcDose,
   setDefinitiveDiagnosis,
+  addConcurrentDiagnosis,
+  removeConcurrentDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
 } from '@/lib/resus/abcdeEngine';
@@ -828,7 +830,9 @@ export default function ResusGPS() {
         {session.phase === 'CARDIAC_ARREST' && showCPRClock ? (
           <CPRClockTeam
             patientWeight={weight ?? 10}
-            patientAgeMonths={session.patientAge ? parseInt(session.patientAge.split(' ')[0]) * 12 : undefined}
+            patientAgeMonths={
+              session.patientAge ? approximateAgeMonths(session.patientAge) || undefined : undefined
+            }
             onClose={() => setShowCPRClock(false)}
           />
         ) : session.phase === 'CARDIAC_ARREST' ? (
@@ -1957,6 +1961,50 @@ function PostPrimaryScreen({
         </CardContent>
       </Card>
 
+      {/* Documented diagnoses (primary + co-diagnoses) */}
+      {(session.definitiveDiagnosis || (session.concurrentDiagnoses?.length ?? 0) > 0) && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground flex items-center gap-2">
+              <Stethoscope className="h-4 w-4" />
+              Working diagnoses
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {session.definitiveDiagnosis && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide">Primary</span>
+                <Badge variant="default" className="text-xs">
+                  {session.definitiveDiagnosis}
+                </Badge>
+              </div>
+            )}
+            {(session.concurrentDiagnoses?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap items-start gap-2">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide shrink-0 mt-1">
+                  Co-diagnoses
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {session.concurrentDiagnoses!.map((dx) => (
+                    <Badge key={dx} variant="secondary" className="text-xs gap-1 pr-1">
+                      {dx}
+                      <button
+                        type="button"
+                        className="rounded-full p-0.5 hover:bg-background/80"
+                        aria-label={`Remove ${dx}`}
+                        onClick={() => setSession(removeConcurrentDiagnosis(session, dx))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Suggested Diagnoses */}
       {diagnoses.length > 0 && (
         <Card className="bg-card border-border">
@@ -1983,6 +2031,15 @@ function PostPrimaryScreen({
                   interventions: [dx.protocol],
                   timestamp: Date.now(),
                   resolved: false,
+                }}
+                pickMode
+                onSetPrimary={() => {
+                  trackButtonClick('Set primary diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                }}
+                onAddCoDiagnosis={() => {
+                  trackButtonClick('Add co-diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  setSession(addConcurrentDiagnosis(session, dx.diagnosis));
                 }}
                 onResolve={() => {
                   trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });

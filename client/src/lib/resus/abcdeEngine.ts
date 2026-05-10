@@ -172,6 +172,8 @@ export interface ResusSession {
   safetyAlerts: SafetyAlert[];
   sampleHistory: Partial<SAMPLEHistory>;
   definitiveDiagnosis: string | null;
+  /** Working differential / documented co-existing diagnoses (primary remains `definitiveDiagnosis`) */
+  concurrentDiagnoses: string[];
   patientWeight: number | null;
   patientAge: string | null;
   isTrauma: boolean;
@@ -187,6 +189,8 @@ export interface ResusSession {
   derivedPerfusion: string | null; // engine-derived perfusion state
   undoStack: ResusSession[]; // Previous states (max 50)
   redoStack: ResusSession[]; // States after undo (max 50)
+  /** Parallel to undoStack (same length): human-readable label for the next undo */
+  undoActionLabels: string[];
   lastActionId?: string; // Track what was undone for UI feedback
   /** Fellowship / analytics (optional; not required for core ABCDE engine) */
   depthScore?: number;
@@ -1580,6 +1584,7 @@ export function createSession(weight?: number | null, age?: string | null, isTra
     safetyAlerts: [],
     sampleHistory: {},
     definitiveDiagnosis: null,
+    concurrentDiagnoses: [],
     patientWeight: weight ?? null,
     patientAge: age ?? null,
     isTrauma: isTrauma ?? false,
@@ -1602,6 +1607,7 @@ export function createSession(weight?: number | null, age?: string | null, isTra
     derivedPerfusion: null,
     undoStack: [],
     redoStack: [],
+    undoActionLabels: [],
   };
 }
 
@@ -1923,9 +1929,27 @@ export function updateSAMPLE(session: ResusSession, field: keyof SAMPLEHistory, 
 export function setDefinitiveDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
   const next = deepCopy(session);
   next.definitiveDiagnosis = diagnosis;
+  next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(d => d !== diagnosis);
   next.phase = 'DEFINITIVE_CARE';
   log(next, 'diagnosis', `DEFINITIVE DIAGNOSIS: ${diagnosis}`);
   log(next, 'phase_change', `→ DEFINITIVE CARE: ${diagnosis}`);
+  return next;
+}
+
+export function addConcurrentDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
+  const next = deepCopy(session);
+  const d = diagnosis.trim();
+  if (!d || next.definitiveDiagnosis === d) return next;
+  const list = next.concurrentDiagnoses ?? [];
+  if (list.includes(d)) return next;
+  next.concurrentDiagnoses = [...list, d];
+  log(next, 'diagnosis', `Co-diagnosis added: ${d}`);
+  return next;
+}
+
+export function removeConcurrentDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
+  const next = deepCopy(session);
+  next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(x => x !== diagnosis);
   return next;
 }
 
@@ -2158,7 +2182,10 @@ export function exportClinicalRecord(session: ResusSession): string {
   if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
   if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
   lines.push(`Quick Assessment: ${session.quickAssessment || 'N/A'}`);
-  if (session.definitiveDiagnosis) lines.push(`Diagnosis: ${session.definitiveDiagnosis}`);
+  if (session.definitiveDiagnosis) lines.push(`Primary diagnosis: ${session.definitiveDiagnosis}`);
+  if (session.concurrentDiagnoses?.length) {
+    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+  }
   lines.push('');
 
   // Vital Signs
