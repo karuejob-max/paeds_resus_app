@@ -110,6 +110,7 @@ import { adminNotifications } from "./routers/admin-notifications";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
 import { coursesRouter } from "./routers/courses";
 import { fellowshipRouter } from "./routers/fellowship";
+import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 
 export const appRouter = router({
   system: systemRouter,
@@ -354,6 +355,8 @@ export const appRouter = router({
   smsWhatsapp: smsWhatsappRouter,
   aiAdaptiveLearning: aiAdaptiveLearningRouter,
   automatedGrading: automatedGradingRouter,
+  /** Operational KPI dashboard (/kaizen-dashboard); DB-backed metrics — not the aspirational Kaizen *continuous improvement* mock router. */
+  kaizenMetrics: kaizenMetricsRouter,
   // TODO: Re-add these routers after implementation
   // aiContentGeneration,
   // globalInfrastructure,
@@ -371,7 +374,6 @@ export const appRouter = router({
   // viralReferral,
   // coreExponential,
   // TODO: Re-add these routers after implementation
-  // kaizenMetrics: kaizenMetricsRouter,
   // kaizenAutomation: kaizenAutomationRouter,
   // kaizenIntegration: kaizenIntegrationRouter,
   // kaizenRealMetrics: kaizenRealMetricsRouter,

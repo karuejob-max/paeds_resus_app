@@ -22,6 +22,8 @@
 3. Security baseline (password, session, audit logging)
 4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale)
 
+**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12).
+
 ---
 
 ## Done

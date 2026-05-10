@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -21,6 +21,16 @@ function getRoleHomePath(role: UserRole): string {
   if (role === "parent") return "/parent-safe-truth";
   if (role === "institution") return "/hospital-admin-dashboard";
   return "/home";
+}
+
+/** Same session id as useAnalytics — keeps admin “last 7 days” counts consistent. */
+function getAnalyticsSessionId(): string {
+  if (typeof window === "undefined") return "server";
+  const stored = sessionStorage.getItem("analytics_session_id");
+  if (stored) return stored;
+  const newId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  sessionStorage.setItem("analytics_session_id", newId);
+  return newId;
 }
 
 function getResusGateCopy(role: UserRole) {
@@ -81,6 +91,22 @@ export default function ResusGated() {
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+  const trackProductActivity = trpc.events.trackEvent.useMutation();
+  const resusEnteredRef = useRef(false);
+
+  /** PSOT §8 / §12: standard analyticsEvents path — ResusGPS rollup uses resus_* event types. */
+  useEffect(() => {
+    if (!access?.canUse || !user || resusEnteredRef.current) return;
+    resusEnteredRef.current = true;
+    trackProductActivity.mutate({
+      eventType: "resus_session",
+      eventName: "ResusGPS workspace entered",
+      pageUrl: "/resus",
+      sessionId: getAnalyticsSessionId(),
+      eventData: { product: "ResusGPS", surface: "ResusGated" },
+    });
+  }, [access?.canUse, user?.id]);
 
   useEffect(() => {
     if (!loading && !user) setLocation(getLoginUrl("/resus"));
