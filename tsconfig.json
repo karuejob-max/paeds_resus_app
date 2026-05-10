@@ -24,7 +24,6 @@
     "client/src/components/RoleManagement.tsx",
     "client/src/components/StaffProgressTable.tsx",
     "client/src/components/ConditionHeatmap.tsx",
-    "client/src/components/CPRClockStreamlined.refactored.ts",
     "client/src/pages/AdminCoursesPanel.tsx",
     "client/src/pages/CourseCatalog.tsx",
     "client/src/pages/KaizenDashboard.tsx",

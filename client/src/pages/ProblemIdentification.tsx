@@ -21,14 +21,28 @@ interface ClinicalProblem {
   interventions: string[];
 }
 
+/** Detect hypoxaemia from free-text findings (e.g. "SpO2 88%" or "SpO2 < 90"). */
+function findingIndicatesHypoxemia(text: string): boolean {
+  const t = text.toLowerCase();
+  if (t.includes('spo2') && t.includes('<') && /\d/.test(t)) {
+    const lt = t.match(/spo2\s*[<≤]\s*(\d+(?:\.\d+)?)/);
+    if (lt && parseFloat(lt[1]!) <= 90) return true;
+  }
+  const pct = t.match(/spo2\s*(\d+(?:\.\d+)?)\s*%/);
+  if (pct) {
+    const v = parseFloat(pct[1]!);
+    if (!Number.isNaN(v) && v < 90) return true;
+  }
+  return false;
+}
+
 export default function ProblemIdentification() {
   const [, navigate] = useLocation();
   const [findings, setFindings] = useState<ClinicalFinding[]>([]);
   const [problems, setProblems] = useState<ClinicalProblem[]>([]);
   const [primaryProblem, setPrimaryProblem] = useState<ClinicalProblem | null>(null);
 
-  // Simulated data from previous assessments
-  // In real app, this would come from context/state management
+  // Training / demo only — not wired to live assessment data (see banner).
   const mockFindings: ClinicalFinding[] = [
     { category: "Airway", finding: "Stridor present", severity: "critical" },
     { category: "Breathing", finding: "RR 45 (tachypnea)", severity: "warning" },
@@ -50,7 +64,7 @@ export default function ProblemIdentification() {
 
     // Check for respiratory failure
     const respiratoryFindings = allFindings.filter(f => f.category === "Breathing");
-    if (respiratoryFindings.some(f => f.finding.includes("SpO2 < 90"))) {
+    if (respiratoryFindings.some(f => findingIndicatesHypoxemia(f.finding))) {
       generatedProblems.push({
         id: "respiratory-failure",
         problem: "Respiratory Failure - Hypoxemia",
@@ -169,6 +183,14 @@ export default function ProblemIdentification() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          <Alert className="mb-4 border-amber-400 bg-amber-50 text-amber-950">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Training / simulation.</strong> Findings on this page are demo data for teaching
+              workflows only — not real-time clinical guidance. For live resuscitation use{' '}
+              <strong>ResusGPS</strong> or your local protocol.
+            </AlertDescription>
+          </Alert>
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Problem Identification</h1>
           <p className="text-slate-600">
             Based on your ABCDE assessment, here are the identified clinical problems

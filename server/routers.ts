@@ -302,6 +302,7 @@ export const appRouter = router({
   performance: performanceRouter,
   support: supportRouter,
   dashboards: dashboardsRouter,
+  // Mock / planning routers: off in production unless ENABLE_ASPIRATIONAL_APIS=true (see server/_core/env.ts).
   ...(ENV.exposeAspirationalApis
     ? {
         predictions: predictionsRouter,

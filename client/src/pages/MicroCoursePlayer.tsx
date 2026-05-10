@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, BookOpen, Award, AlertCircle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { getMicroCourseContent, type MicroCourseModule } from "@/lib/microCourseContent";
+import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 
 /**
  * Generic Micro-Course Player
@@ -349,7 +350,11 @@ export default function MicroCoursePlayer() {
               {/* Module Content */}
               {currentModule.content && (
                 <div className="prose prose-sm max-w-none">
-                  <div dangerouslySetInnerHTML={{ __html: currentModule.content }} />
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeCourseHtml(currentModule.content),
+                    }}
+                  />
                 </div>
               )}
 

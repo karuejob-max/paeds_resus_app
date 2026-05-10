@@ -1,8 +1,14 @@
 import crypto from "crypto";
 
 /**
- * Security and Compliance Service
- * Handles data protection, audit logging, and compliance requirements
+ * Auxiliary helpers for validation, demo encryption, and **in-memory** audit samples.
+ *
+ * **Not** production authentication or the authoritative compliance audit trail:
+ * - User passwords and sessions: **bcrypt** + **JWT** in `server/_core`.
+ * - Operator/admin audit history: **database** (e.g. `adminAuditLog`), not `this.auditLogs`.
+ *
+ * `encryptData` / `decryptData`: in production require `SECURITY_SERVICE_SECRET` (≥24 chars).
+ * See `.env.example`.
  */
 
 export interface AuditLog {
@@ -39,14 +45,31 @@ export interface ComplianceCheckResult {
   timestamp: Date;
 }
 
+function deriveEncryptionKey(): { key: Buffer; operational: boolean } {
+  const secret = process.env.SECURITY_SERVICE_SECRET?.trim();
+  const salt = (process.env.SECURITY_SERVICE_SALT || "security-service-salt-v1").trim();
+
+  if (process.env.NODE_ENV === "production") {
+    if (!secret || secret.length < 24) {
+      return { key: Buffer.alloc(0), operational: false };
+    }
+    return { key: crypto.scryptSync(secret, salt, 32), operational: true };
+  }
+
+  const material = secret || "development-only-not-for-production";
+  return { key: crypto.scryptSync(material, salt, 32), operational: true };
+}
+
 class SecurityService {
   private auditLogs: AuditLog[] = [];
   private dataAccessLogs: DataAccessLog[] = [];
   private encryptionKey: Buffer;
+  private encryptionOperational: boolean;
 
   constructor() {
-    // Use a fixed key for demo - in production, use environment variables
-    this.encryptionKey = crypto.scryptSync("paeds-resus-key", "salt", 32);
+    const d = deriveEncryptionKey();
+    this.encryptionKey = d.key;
+    this.encryptionOperational = d.operational;
   }
 
   /**
@@ -183,6 +206,11 @@ class SecurityService {
    * Encrypt sensitive data
    */
   encryptData(data: string): string {
+    if (!this.encryptionOperational || this.encryptionKey.length !== 32) {
+      throw new Error(
+        "SECURITY_SERVICE_SECRET (min 24 chars) is required for encryptData when NODE_ENV=production"
+      );
+    }
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv("aes-256-cbc", this.encryptionKey, iv);
     let encrypted = cipher.update(data, "utf8", "hex");
@@ -194,6 +222,11 @@ class SecurityService {
    * Decrypt sensitive data
    */
   decryptData(encryptedData: string): string {
+    if (!this.encryptionOperational || this.encryptionKey.length !== 32) {
+      throw new Error(
+        "SECURITY_SERVICE_SECRET (min 24 chars) is required for decryptData when NODE_ENV=production"
+      );
+    }
     const [ivHex, encrypted] = encryptedData.split(":");
     const iv = Buffer.from(ivHex, "hex");
     const decipher = crypto.createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
@@ -203,17 +236,17 @@ class SecurityService {
   }
 
   /**
-   * Hash password securely
+   * @deprecated Never use for real accounts — application auth uses **bcrypt**.
    */
-  hashPassword(password: string): string {
-    return crypto.createHash("sha256").update(password).digest("hex");
+  hashPassword(_password: string): never {
+    throw new Error("Use bcrypt via the auth layer; securityService does not hash passwords.");
   }
 
   /**
-   * Verify password
+   * @deprecated Never use for real accounts — application auth uses **bcrypt**.
    */
-  verifyPassword(password: string, hash: string): boolean {
-    return this.hashPassword(password) === hash;
+  verifyPassword(_password: string, _hash: string): never {
+    throw new Error("Use bcrypt via the auth layer; securityService does not verify passwords.");
   }
 
   /**
@@ -282,7 +315,7 @@ class SecurityService {
       {
         name: "Password Security",
         status: "pass" as const,
-        message: "Password hashing is implemented",
+        message: "Application uses bcrypt for credentials; not this service",
       },
       {
         name: "Input Validation",

@@ -15,6 +15,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { cn } from "@/lib/utils";
+import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 
@@ -717,7 +718,11 @@ export default function MicroCoursePlayerDB() {
                 ) : (
                   <div 
                     className="module-content max-w-none"
-                    dangerouslySetInnerHTML={{ __html: currentSection?.content || currentModule?.content || "" }} 
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeCourseHtml(
+                        currentSection?.content || currentModule?.content || ""
+                      ),
+                    }}
                   />
                 )}
               </CardContent>

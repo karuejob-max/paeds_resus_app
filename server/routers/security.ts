@@ -1,3 +1,7 @@
+/**
+ * tRPC surface for **demo** security helpers + in-memory sample logs.
+ * Authoritative admin audit trail is DB-backed (`adminAuditLog`), not `securityService` RAM stores.
+ */
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { securityService } from "../security";

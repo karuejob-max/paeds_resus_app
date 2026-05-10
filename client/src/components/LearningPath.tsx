@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { buildPssModuleSteps } from "@/lib/pss-module-formative";
 import { PssModulePagedReader } from "@/components/PssModulePagedReader";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
+import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 
 function ModuleHtmlSections({ html }: { html: string }) {
   const sections = useMemo(() => {
@@ -39,7 +40,12 @@ function ModuleHtmlSections({ html }: { html: string }) {
   );
 
   if (sections.length <= 1) {
-    return <div className={cn(prose, "mb-8")} dangerouslySetInnerHTML={{ __html: sections[0] ?? "" }} />;
+    return (
+      <div
+        className={cn(prose, "mb-8")}
+        dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(sections[0] ?? "") }}
+      />
+    );
   }
 
   return (
@@ -49,7 +55,10 @@ function ModuleHtmlSections({ html }: { html: string }) {
           key={i}
           className="overflow-hidden rounded-2xl border-border/90 bg-gradient-to-br from-card to-brand-surface/25 shadow-sm"
         >
-          <div className={cn(prose, "p-5 md:p-6")} dangerouslySetInnerHTML={{ __html: chunk }} />
+          <div
+            className={cn(prose, "p-5 md:p-6")}
+            dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(chunk) }}
+          />
         </Card>
       ))}
     </div>

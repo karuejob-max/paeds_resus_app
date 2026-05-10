@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock, ChevronRight, Loader2 } from "lucide-react";
+import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 
 interface Module {
   id: number;
@@ -122,7 +123,7 @@ export default function CourseViewer({
               {/* Module Content */}
               <div
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: currentModule.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(currentModule.content) }}
               />
 
               {/* Navigation */}

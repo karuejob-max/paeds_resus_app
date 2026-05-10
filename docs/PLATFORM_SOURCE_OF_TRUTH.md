@@ -144,8 +144,8 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 | Topic | Decision |
 |-------|----------|
-| **Current** | **Single production** environment (e.g. Render + Aiven). **No staging** yet. |
-| **When staging exists** | **Branch-based:** changes land on `develop` → **staging**; `main` → **production**. PRs should be verified on **staging** before production. |
+| **Current** | **Single production** environment (e.g. Render + Aiven). **Target:** branch-based staging before production — see [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md), [STAGING_VERIFICATION_CHECKLIST.md](./STAGING_VERIFICATION_CHECKLIST.md), [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md). Until a dedicated staging URL is live, use the checklist discipline on pre-production verification. |
+| **When staging is live** | **Branch-based:** changes land on `develop` → **staging**; `main` → **production**. PRs verified on **staging** before production. |
 | **Domain** | **`paedsresus.com`** → **301 redirect** to **`www.paedsresus.com`** (canonical). |
 
 ---
@@ -178,6 +178,7 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 - **Preserve the user model:** No **single-role lock**; preserve **multi-context switching** in the UI.
 - **Preserve report definitions:** **This month** = EAT calendar month; **last 7 days** = rolling; **Safe-Truth** and **analyticsEvents** meanings as in [§8](#8-admin-reports-definitions).
 - **Secrets:** No hardcoded credentials; use env vars and document in `.env.example` when adding new ones.
+- **Clinical pathways:** Track bedside-critical logic in [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) (owners, sources, test pointers).
 - **Execution sequencing:** Ship work in the order of [§12](#12-priority-order-locked). Phased tasks, exit criteria, and any **staged trade-offs** (e.g. session length vs default cookie behaviour) are expanded in [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md). Operational staging checklist (while [§10](#10-deployment-and-infrastructure) still reflects single production): [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md). Session max age and staging/release notes for operators: [DEPLOYMENT_SESSION_AND_STAGING.md](./DEPLOYMENT_SESSION_AND_STAGING.md). Engineering discipline until fully locked in [§11](#11-security-current-and-target): [ENGINEERING_GOVERNANCE_CHECKLIST.md](./ENGINEERING_GOVERNANCE_CHECKLIST.md).
 
 ---

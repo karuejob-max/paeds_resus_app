@@ -1,3 +1,7 @@
+/**
+ * Planning / narrative mock revenue surfaces — **not** authoritative financial data.
+ * Mounted only when `ENABLE_ASPIRATIONAL_APIS` is set (see `server/routers.ts`).
+ */
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 

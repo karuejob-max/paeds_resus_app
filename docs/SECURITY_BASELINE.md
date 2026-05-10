@@ -37,4 +37,21 @@
 
 ---
 
+## 5. Browser “clinical context” (age / weight for dosing)
+
+- **ResusGPS / protocol helpers** store **age and weight** in **`sessionStorage`** (per browser tab), not long-lived `localStorage`, so data clears when the tab closes.
+- **Legacy:** a one-time migration reads the old `localStorage` key and moves it to session storage, then removes the legacy key.
+- **Classification:** treat as **sensitive workflow context** (not a medical record). No patient names are stored in this context.
+- **Care Signal / Safe-Truth:** governed by their own submission flows and DB retention (see PSOT).
+
+---
+
+## 6. `server/security.ts` (demo module)
+
+- **Not** the application’s password or session security (those use **bcrypt** + **JWT** in `server/_core`).
+- **In-memory** `auditLogs` / `dataAccessLogs` are **samples only**; real admin audit history is **`adminAuditLog`** in the database.
+- **`encryptData`:** in production requires **`SECURITY_SERVICE_SECRET`** (≥24 characters); see `.env.example`.
+
+---
+
 *When you change behaviour (e.g. session duration, password rules), update this file and code together.*
