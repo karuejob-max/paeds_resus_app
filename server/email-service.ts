@@ -629,28 +629,39 @@ export async function sendEmail(
     text,
   };
 
-  if (provider === "mailgun") {
-    return sendEmailViaMailgun(options);
-  } else if (provider === "ses") {
+  /** Render / cron / auth use `sendEmail(..., "sendgrid")` by default; set `EMAIL_PROVIDER=ses` on the host to force AWS SES. */
+  const envOverride = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  const dispatch: "sendgrid" | "mailgun" | "ses" =
+    envOverride === "ses" || envOverride === "sendgrid" || envOverride === "mailgun"
+      ? envOverride
+      : provider;
+
+  const sendSes = async () => {
     const success = await sendViaSES({
       to: Array.isArray(to) ? to[0] : to,
       subject,
       htmlBody: html,
       textBody: text,
     });
-    return { success, error: success ? undefined : "SES delivery failed" };
-  } else {
-    // Default to SendGrid, but fallback to SES if SendGrid is not configured
-    if (!process.env.SENDGRID_API_KEY && (process.env.AWS_ACCESS_KEY_ID || process.env.AWS_REGION)) {
-      console.log("[Email Service] SendGrid not configured, falling back to AWS SES");
-      const success = await sendViaSES({
-        to: Array.isArray(to) ? to[0] : to,
-        subject,
-        htmlBody: html,
-        textBody: text,
-      });
-      return { success, error: success ? undefined : "SES fallback delivery failed" };
-    }
-    return sendEmailViaSendGrid(options);
+    return { success, error: success ? undefined : "SES delivery failed" } as const;
+  };
+
+  if (dispatch === "mailgun") {
+    return sendEmailViaMailgun(options);
   }
+  if (dispatch === "ses") {
+    return sendSes();
+  }
+
+  // Default path: SendGrid when key present; otherwise SES if IAM user credentials exist
+  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
+  const hasAwsCreds =
+    Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
+
+  if (!sendgridKey && hasAwsCreds) {
+    console.log("[Email Service] SendGrid not configured, falling back to AWS SES");
+    return sendSes();
+  }
+
+  return sendEmailViaSendGrid(options);
 }
