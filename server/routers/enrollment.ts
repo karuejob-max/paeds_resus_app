@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import {
   createEnrollment,
   getEnrollmentsByUserId,
@@ -69,23 +70,12 @@ const paymentSchema = z.object({
   transactionId: z.string().optional(),
 });
 
-function assertProviderOrAdmin(user: { role?: string | null; userType?: string | null }) {
-  const isAdmin = user.role === "admin";
-  const isProvider = user.userType === "individual";
-  if (!isAdmin && !isProvider) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "This action is available to provider accounts only.",
-    });
-  }
-}
-
 export const enrollmentRouter = router({
   // Create a new enrollment
   create: protectedProcedure
     .input(enrollmentSchema)
     .mutation(async ({ input, ctx }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       const db = await getDb();
       let courseId: number | null = null;
 
@@ -198,7 +188,7 @@ export const enrollmentRouter = router({
   recordPayment: protectedProcedure
     .input(paymentSchema)
     .mutation(async ({ input, ctx }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       const result = await createPayment({
         enrollmentId: input.enrollmentId,
         userId: ctx.user.id,
@@ -235,7 +225,7 @@ export const enrollmentRouter = router({
   getPaymentsByEnrollmentId: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
     .query(async ({ input, ctx }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       const db = await getDb();
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -281,7 +271,7 @@ export const enrollmentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const { ensureMicroCoursesCatalog } = await import("../lib/micro-course-catalog");
         await ensureMicroCoursesCatalog();
@@ -404,7 +394,7 @@ export const enrollmentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       const db = await getDb();
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -463,7 +453,7 @@ export const enrollmentRouter = router({
   validatePromo: protectedProcedure
     .input(z.object({ code: z.string(), coursePrice: z.number() }))
     .query(async ({ input, ctx }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const { validatePromoCode, calculateFinalPrice } = await import("../db-enrollment");
         const validation = await validatePromoCode(input.code);

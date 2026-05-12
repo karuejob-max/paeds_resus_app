@@ -260,6 +260,7 @@ export async function createUserWithPassword(data: {
   name: string | null;
   passwordHash: string;
   userType?: "individual" | "institutional" | "parent";
+  phone?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -267,10 +268,23 @@ export async function createUserWithPassword(data: {
     openId: data.openId,
     email: data.email,
     name: data.name,
+    phone: data.phone ?? null,
     loginMethod: "email",
     passwordHash: data.passwordHash,
     userType: data.userType ?? "individual",
   });
+}
+
+export async function updateUserContactInfo(
+  userId: number,
+  data: { name: string; phone: string | null }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(users)
+    .set({ name: data.name, phone: data.phone, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {

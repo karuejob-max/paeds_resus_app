@@ -4,39 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Eye, EyeOff, Stethoscope, Heart, Building2 } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
+import type { PhoneCountryMode } from "@shared/user-phone";
+import { normalizeUserPhone } from "@shared/user-phone";
 
 type UserType = "individual" | "parent" | "institutional";
-
-const ROLE_OPTIONS: {
-  value: UserType;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}[] = [
-  {
-    value: "individual",
-    icon: <Stethoscope className="h-5 w-5 text-primary shrink-0" />,
-    title: "Healthcare Provider",
-    description: "Access Fellowship, AHA certification, ResusGPS, and Care Signal",
-  },
-  {
-    value: "parent",
-    icon: <Heart className="h-5 w-5 text-rose-400 shrink-0" />,
-    title: "Parent / Caregiver",
-    description: "Learn pediatric emergency response and first aid for your family",
-  },
-  {
-    value: "institutional",
-    icon: <Building2 className="h-5 w-5 text-amber-400 shrink-0" />,
-    title: "Institution / Hospital",
-    description: "Manage staff training, track facility performance, and institutional subscriptions",
-  },
-];
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -47,12 +30,12 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [userType, setUserType] = useState<UserType>("individual");
+  const [phoneMode, setPhoneMode] = useState<PhoneCountryMode>("ke");
+  const [phoneValue, setPhoneValue] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const nextPath = useMemo(() => {
-    return readSafeNextPathFromSearch(search, "/home");
-  }, [search]);
+  const nextPath = useMemo(() => readSafeNextPathFromSearch(search, "/home"), [search]);
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: () => {
@@ -72,6 +55,11 @@ export default function Register() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Please enter your full name as it should appear on your certificate.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -80,7 +68,25 @@ export default function Register() {
       setError("Passwords do not match.");
       return;
     }
-    registerMutation.mutate({ email, password, name: name || undefined, userType });
+    if (phoneValue.trim()) {
+      const n = normalizeUserPhone({ mode: phoneMode, value: phoneValue });
+      if (!n) {
+        setError(
+          phoneMode === "ke"
+            ? "Kenya mobile: enter 9 digits (e.g. 712345678 or 0712345678)."
+            : "International: enter your full number with country code (e.g. +447700900123)."
+        );
+        return;
+      }
+    }
+    registerMutation.mutate({
+      email,
+      password,
+      name: trimmedName,
+      userType,
+      phoneMode,
+      phoneValue: phoneValue.trim() === "" ? undefined : phoneValue,
+    });
   };
 
   useEffect(() => {
@@ -93,69 +99,70 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>Choose your role to get the right tools from day one</CardDescription>
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>
+            One minute to get started. You can switch between provider, parent, and hospital tools later from the menu.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
-            {/* Role selection — icon cards */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">I am a</Label>
-              <div className="grid gap-2">
-                {ROLE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setUserType(opt.value)}
-                    className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors w-full
-                      ${userType === opt.value
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                      }`}
-                  >
-                    <span className="mt-0.5">{opt.icon}</span>
-                    <div>
-                      <p className={`text-sm font-medium ${userType === opt.value ? "text-primary" : "text-foreground"}`}>
-                        {opt.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
-                    </div>
-                    {/* Checkmark indicator */}
-                    <span className={`ml-auto mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0
-                      ${userType === opt.value ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
-                      {userType === opt.value && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <Label htmlFor="reg-role">I am signing up as</Label>
+              <Select value={userType} onValueChange={(v) => setUserType(v as UserType)}>
+                <SelectTrigger id="reg-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Healthcare provider (clinical staff)</SelectItem>
+                  <SelectItem value="parent">Parent or caregiver</SelectItem>
+                  <SelectItem value="institutional">Hospital or institution</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="name">Full name</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Your name"
+                placeholder="e.g. Jane Wanjiru Muthoni"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Use the spelling you want on your AHA and Paeds Resus certificates.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mobile (optional)</Label>
+              <Select value={phoneMode} onValueChange={(v) => setPhoneMode(v as PhoneCountryMode)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ke">Kenya (+254)</SelectItem>
+                  <SelectItem value="intl">Outside Kenya</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder={phoneMode === "ke" ? "712345678 or 0712345678" : "e.g. +447700900123"}
+                value={phoneValue}
+                onChange={(e) => setPhoneValue(e.target.value)}
+                autoComplete="tel"
               />
             </div>
 
-            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="you@hospital.or.ke"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -163,14 +170,13 @@ export default function Register() {
               />
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 8 characters, letters and numbers"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -189,14 +195,13 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Re-enter your password"
+                  placeholder="Re-enter password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

@@ -5,7 +5,8 @@ import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
-import { getUserByEmail, createUserWithPassword, insertAdminAuditLog } from "./db";
+import { getUserByEmail, createUserWithPassword, insertAdminAuditLog, updateUserContactInfo } from "./db";
+import { normalizeUserPhone } from "@shared/user-phone";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
@@ -138,20 +139,36 @@ export const appRouter = router({
           (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
           "Password must contain at least one letter and one number"
         ),
-        name: z.string().optional(),
+        name: z.string().min(1, "Enter your full name as it should appear on your certificate").max(200),
         userType: z.enum(["individual", "parent", "institutional"]),
+        phoneMode: z.enum(["ke", "intl"]).optional(),
+        phoneValue: z.string().max(64).optional(),
       }))
       .mutation(async ({ input }) => {
         const existing = await getUserByEmail(input.email);
         if (existing) throw new Error("Email already registered");
+        let phone: string | null = null;
+        if (input.phoneValue != null && String(input.phoneValue).trim() !== "") {
+          const mode = input.phoneMode ?? "intl";
+          const normalized = normalizeUserPhone({ mode, value: input.phoneValue });
+          if (!normalized) {
+            throw new Error(
+              mode === "ke"
+                ? "Enter a valid Kenya mobile number (9 digits after 0 or +254)."
+                : "Enter a valid international number with country code (e.g. +447700900123)."
+            );
+          }
+          phone = normalized;
+        }
         const openId = `email:${input.email}`;
         const passwordHash = await bcrypt.hash(input.password, 10);
         await createUserWithPassword({
           openId,
           email: input.email,
-          name: input.name ?? null,
+          name: input.name.trim(),
           passwordHash,
           userType: input.userType,
+          phone,
         });
         return { success: true };
       }),
@@ -261,6 +278,44 @@ export const appRouter = router({
           userId: ctx.user.id,
           action: 'PASSWORD_CHANGED',
           details: { method: 'user_initiated' },
+          timestamp: new Date(),
+        }).catch(() => {});
+        return { success: true };
+      }),
+    updateMyProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1, "Name is required").max(200),
+          phoneMode: z.enum(["ke", "intl"]).optional(),
+          phoneValue: z.string().max(64).optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        let phone: string | null = ctx.user.phone ?? null;
+        if (input.phoneValue !== undefined) {
+          if (input.phoneValue == null || String(input.phoneValue).trim() === "") {
+            phone = null;
+          } else {
+            const mode = input.phoneMode ?? "intl";
+            const normalized = normalizeUserPhone({ mode, value: input.phoneValue });
+            if (!normalized) {
+              throw new Error(
+                mode === "ke"
+                  ? "Enter a valid Kenya mobile number (9 digits after 0 or +254)."
+                  : "Enter a valid international number with country code (e.g. +447700900123)."
+              );
+            }
+            phone = normalized;
+          }
+        }
+        await updateUserContactInfo(ctx.user.id, {
+          name: input.name.trim(),
+          phone,
+        });
+        await db.createAuditLog({
+          userId: ctx.user.id,
+          action: "PROFILE_UPDATED",
+          details: { fields: ["name", "phone"] },
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };

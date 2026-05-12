@@ -137,8 +137,8 @@ export default function Home() {
     );
   }
 
-  // Provider home (individual) — Fellowship vs AHA hub
-  if (userType === "individual") {
+  // Provider home — Fellowship vs AHA hub (include hospital admins who switched to Healthcare Provider in the menu)
+  if (userType === "individual" || role === "provider") {
     return <ProviderDashboard />;
   }
 

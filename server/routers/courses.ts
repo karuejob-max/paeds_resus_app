@@ -14,17 +14,7 @@ import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for
 import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
-
-function assertProviderOrAdmin(user: { role?: string | null; userType?: string | null }) {
-  const isAdmin = user.role === "admin";
-  const isProvider = user.userType === "individual";
-  if (!isAdmin && !isProvider) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "This action is available to provider accounts only.",
-    });
-  }
-}
+import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   const database = await getDb();
@@ -117,7 +107,7 @@ export const coursesRouter = router({
 
   /** User rows in `enrollments` for BLS / ACLS / PALS (AHA path — not micro-courses). */
   getMyAhaEnrollments: protectedProcedure.query(async ({ ctx }) => {
-    assertProviderOrAdmin(ctx.user);
+    assertTrainingWorkspaceOrAdmin(ctx.user);
     try {
       const database = await getDb();
       if (!database) return [];
@@ -136,7 +126,7 @@ export const coursesRouter = router({
    * Get user's micro-course enrollments with course details
    */
   getEnrollments: protectedProcedure.query(async ({ ctx }) => {
-    assertProviderOrAdmin(ctx.user);
+    assertTrainingWorkspaceOrAdmin(ctx.user);
     try {
       return await fetchMicroCourseEnrollmentsWithCourses(ctx.user.id);
     } catch (error) {
@@ -147,7 +137,7 @@ export const coursesRouter = router({
 
   /** Alias for clients that invalidate `courses.getUserEnrollments` (same payload as getEnrollments). */
   getUserEnrollments: protectedProcedure.query(async ({ ctx }) => {
-    assertProviderOrAdmin(ctx.user);
+    assertTrainingWorkspaceOrAdmin(ctx.user);
     try {
       return await fetchMicroCourseEnrollmentsWithCourses(ctx.user.id);
     } catch (error) {
@@ -166,7 +156,7 @@ export const coursesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const database = await getDb();
         if (!database) {
@@ -223,7 +213,7 @@ export const coursesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const database = await getDb();
         if (!database) {
@@ -304,7 +294,7 @@ export const coursesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         if (!isMpesaConfigured()) {
           return { success: false, message: 'M-Pesa not configured' };
@@ -547,7 +537,7 @@ export const coursesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const database = await getDb();
         if (!database) throw new Error('Database unavailable');
@@ -748,7 +738,7 @@ export const coursesRouter = router({
   ensureAhaEnrollment: protectedProcedure
     .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']) }))
     .mutation(async ({ ctx, input }) => {
-      assertProviderOrAdmin(ctx.user);
+      assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const database = await getDb();
         if (!database) throw new Error('Database unavailable');

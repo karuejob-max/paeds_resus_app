@@ -42,7 +42,7 @@ describe("provider API role boundaries", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  it("denies institutional users on courses provider enrollment API", async () => {
+  it("allows institutional users on courses provider enrollment API", async () => {
     const caller = appRouter.createCaller(
       createAuthContext({
         userType: "institutional",
@@ -51,9 +51,8 @@ describe("provider API role boundaries", () => {
       })
     );
 
-    await expect(caller.courses.getUserEnrollments()).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    });
+    const rows = await caller.courses.getUserEnrollments();
+    expect(Array.isArray(rows)).toBe(true);
   });
 
   it("denies parent users on instructor provider API", async () => {

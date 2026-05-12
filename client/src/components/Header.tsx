@@ -305,6 +305,14 @@ export default function Header() {
 
                       {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
+                        <Link href="/account">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            Account settings
+                          </div>
+                        </Link>
                         <Link href={effectiveRole === "parent" ? "/parent-safe-truth" : effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
