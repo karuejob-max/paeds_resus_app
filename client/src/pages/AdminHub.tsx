@@ -87,7 +87,7 @@ export default function AdminHub() {
                   Reports & insights
                 </CardTitle>
                 <CardDescription>
-                  Registered users, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
+                  Registered users, enrollment ledger (training + micro-courses), fellowship pillar progress, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
                 </CardDescription>
               </div>
             </CardHeader>

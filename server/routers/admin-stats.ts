@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -15,6 +15,10 @@ import {
   resusGPSCases,
   careSignalEvents,
   moduleSections,
+  courses,
+  microCourses,
+  microCourseEnrollments,
+  fellowshipProgress,
 } from "../../drizzle/schema";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
@@ -390,6 +394,280 @@ export const adminStatsRouter = router({
         })
         .where(eq(users.id, input.userId));
       return { success: true as const };
+    }),
+
+  /**
+   * Platform-admin ledger: training (`enrollments`) or ADF micro-course rows with user + course labels.
+   * Supports CSV-style export via higher limit (capped).
+   */
+  getEnrollmentLedger: adminProcedure
+    .input(
+      z.object({
+        variant: z.enum(["training", "micro"]).default("training"),
+        userId: z.number().int().positive().optional(),
+        search: z.string().max(200).optional(),
+        programType: z
+          .enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"])
+          .optional(),
+        limit: z.number().int().min(1).max(5000).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        return input.variant === "micro"
+          ? { variant: "micro" as const, rows: [], total: 0 }
+          : { variant: "training" as const, rows: [], total: 0 };
+      }
+
+      const rawSearch = input.search?.trim().replace(/[%_\\]/g, "") ?? "";
+      const searchPattern = rawSearch.length > 0 ? `%${rawSearch}%` : null;
+
+      if (input.variant === "training") {
+        const parts: SQL[] = [];
+        if (input.userId !== undefined) parts.push(eq(enrollments.userId, input.userId));
+        if (searchPattern) {
+          const searchOr = or(like(users.email, searchPattern), like(users.name, searchPattern));
+          if (searchOr) parts.push(searchOr);
+        }
+        if (input.programType) parts.push(eq(enrollments.programType, input.programType));
+        const whereCombined =
+          parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
+
+        const countBase = db
+          .select({ count: sql<number>`count(*)` })
+          .from(enrollments)
+          .innerJoin(users, eq(enrollments.userId, users.id));
+        const countRow = await (whereCombined ? countBase.where(whereCombined) : countBase);
+        const total = Number(countRow[0]?.count ?? 0);
+
+        const listBase = db
+          .select({
+            enrollmentId: enrollments.id,
+            userId: enrollments.userId,
+            userEmail: users.email,
+            userName: users.name,
+            courseId: enrollments.courseId,
+            courseTitle: courses.title,
+            programType: enrollments.programType,
+            paymentStatus: enrollments.paymentStatus,
+            amountPaid: enrollments.amountPaid,
+            cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+            practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+            trainingDate: enrollments.trainingDate,
+            createdAt: enrollments.createdAt,
+            updatedAt: enrollments.updatedAt,
+          })
+          .from(enrollments)
+          .innerJoin(users, eq(enrollments.userId, users.id))
+          .leftJoin(courses, eq(enrollments.courseId, courses.id));
+
+        const pageRows = await (whereCombined ? listBase.where(whereCombined) : listBase)
+          .orderBy(desc(enrollments.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+
+        const ids = pageRows.map((r) => r.enrollmentId);
+        let certMap = new Map<
+          number,
+          { issueDate: Date | null; certificateNumber: string | null }
+        >();
+        if (ids.length > 0) {
+          const certRows = await db
+            .select({
+              enrollmentId: certificates.enrollmentId,
+              issueDate: certificates.issueDate,
+              certificateNumber: certificates.certificateNumber,
+            })
+            .from(certificates)
+            .where(inArray(certificates.enrollmentId, ids));
+          for (const c of certRows) {
+            const prev = certMap.get(c.enrollmentId);
+            const curTs = c.issueDate ? new Date(c.issueDate).getTime() : 0;
+            const prevTs = prev?.issueDate ? new Date(prev.issueDate).getTime() : -1;
+            if (!prev || curTs >= prevTs) {
+              certMap.set(c.enrollmentId, {
+                issueDate: c.issueDate,
+                certificateNumber: c.certificateNumber,
+              });
+            }
+          }
+        }
+
+        const rows = pageRows.map((r) => {
+          const cert = certMap.get(r.enrollmentId);
+          let completionSummary = "In progress";
+          if (cert?.issueDate) completionSummary = "Certificate issued";
+          else if (r.practicalSkillsSignedOff && r.cognitiveModulesComplete)
+            completionSummary = "Skills track complete (no cert row)";
+          else if (r.cognitiveModulesComplete) completionSummary = "Cognitive complete";
+          else if (r.paymentStatus === "pending") completionSummary = "Pending payment";
+
+          return {
+            kind: "training" as const,
+            enrollmentId: r.enrollmentId,
+            userId: r.userId,
+            userEmail: r.userEmail,
+            userName: r.userName,
+            courseId: r.courseId,
+            courseTitle: r.courseTitle,
+            programType: r.programType,
+            paymentStatus: r.paymentStatus,
+            amountPaidCents: r.amountPaid,
+            cognitiveModulesComplete: r.cognitiveModulesComplete,
+            practicalSkillsSignedOff: r.practicalSkillsSignedOff,
+            trainingDate: r.trainingDate,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            certificateIssuedAt: cert?.issueDate ?? null,
+            certificateNumber: cert?.certificateNumber ?? null,
+            completionSummary,
+          };
+        });
+
+        return { variant: "training" as const, rows, total };
+      }
+
+      // micro variant
+      const parts: SQL[] = [];
+      if (input.userId !== undefined) parts.push(eq(microCourseEnrollments.userId, input.userId));
+      if (searchPattern) {
+        const searchOr = or(like(users.email, searchPattern), like(users.name, searchPattern));
+        if (searchOr) parts.push(searchOr);
+      }
+      const whereCombined =
+        parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
+
+      const countBase = db
+        .select({ count: sql<number>`count(*)` })
+        .from(microCourseEnrollments)
+        .innerJoin(users, eq(microCourseEnrollments.userId, users.id))
+        .innerJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id));
+      const countRow = await (whereCombined ? countBase.where(whereCombined) : countBase);
+      const total = Number(countRow[0]?.count ?? 0);
+
+      const listBase = db
+        .select({
+          microEnrollmentId: microCourseEnrollments.id,
+          userId: microCourseEnrollments.userId,
+          userEmail: users.email,
+          userName: users.name,
+          microCourseSku: microCourses.courseId,
+          microCourseTitle: microCourses.title,
+          enrollmentStatus: microCourseEnrollments.enrollmentStatus,
+          paymentStatus: microCourseEnrollments.paymentStatus,
+          progressPercentage: microCourseEnrollments.progressPercentage,
+          quizScore: microCourseEnrollments.quizScore,
+          completedAt: microCourseEnrollments.completedAt,
+          certificateIssuedAt: microCourseEnrollments.certificateIssuedAt,
+          createdAt: microCourseEnrollments.createdAt,
+          updatedAt: microCourseEnrollments.updatedAt,
+        })
+        .from(microCourseEnrollments)
+        .innerJoin(users, eq(microCourseEnrollments.userId, users.id))
+        .innerJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id));
+
+      const rows = await (whereCombined ? listBase.where(whereCombined) : listBase)
+        .orderBy(desc(microCourseEnrollments.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return {
+        variant: "micro" as const,
+        rows: rows.map((r) => ({
+          kind: "micro" as const,
+          microEnrollmentId: r.microEnrollmentId,
+          userId: r.userId,
+          userEmail: r.userEmail,
+          userName: r.userName,
+          microCourseSku: r.microCourseSku,
+          microCourseTitle: r.microCourseTitle,
+          enrollmentStatus: r.enrollmentStatus,
+          paymentStatus: r.paymentStatus,
+          progressPercentage: r.progressPercentage,
+          quizScore: r.quizScore,
+          completedAt: r.completedAt,
+          certificateIssuedAt: r.certificateIssuedAt,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        })),
+        total,
+      };
+    }),
+
+  /**
+   * Platform-admin view of denormalized fellowship pillar progress (`fellowshipProgress` + user identity).
+   * Only users with a `fellowshipProgress` row appear (row is created when tracking starts).
+   */
+  getFellowshipProgressLedger: adminProcedure
+    .input(
+      z.object({
+        userId: z.number().int().positive().optional(),
+        search: z.string().max(200).optional(),
+        qualifiedOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(5000).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        return { rows: [], total: 0 };
+      }
+
+      const rawSearch = input.search?.trim().replace(/[%_\\]/g, "") ?? "";
+      const searchPattern = rawSearch.length > 0 ? `%${rawSearch}%` : null;
+
+      const parts: SQL[] = [];
+      if (input.userId !== undefined) parts.push(eq(fellowshipProgress.userId, input.userId));
+      if (searchPattern) {
+        const searchOr = or(like(users.email, searchPattern), like(users.name, searchPattern));
+        if (searchOr) parts.push(searchOr);
+      }
+      if (input.qualifiedOnly) parts.push(eq(fellowshipProgress.isQualified, true));
+      const whereCombined =
+        parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : and(...parts);
+
+      const countBase = db
+        .select({ count: sql<number>`count(*)` })
+        .from(fellowshipProgress)
+        .innerJoin(users, eq(fellowshipProgress.userId, users.id));
+      const countRow = await (whereCombined ? countBase.where(whereCombined) : countBase);
+      const total = Number(countRow[0]?.count ?? 0);
+
+      const listBase = db
+        .select({
+          fellowshipRowId: fellowshipProgress.id,
+          userId: fellowshipProgress.userId,
+          userEmail: users.email,
+          userName: users.name,
+          userType: users.userType,
+          totalCoursesRequired: fellowshipProgress.totalCoursesRequired,
+          coursesCompleted: fellowshipProgress.coursesCompleted,
+          coursesPercentage: fellowshipProgress.coursesPercentage,
+          resusGPSCasesCompleted: fellowshipProgress.resusGPSCasesCompleted,
+          conditionsWithThreshold: fellowshipProgress.conditionsWithThreshold,
+          totalConditionsTaught: fellowshipProgress.totalConditionsTaught,
+          resusGPSPercentage: fellowshipProgress.resusGPSPercentage,
+          careSignalStreak: fellowshipProgress.careSignalStreak,
+          careSignalEventsSubmitted: fellowshipProgress.careSignalEventsSubmitted,
+          careSignalPercentage: fellowshipProgress.careSignalPercentage,
+          isQualified: fellowshipProgress.isQualified,
+          qualifiedAt: fellowshipProgress.qualifiedAt,
+          overallPercentage: fellowshipProgress.overallPercentage,
+          createdAt: fellowshipProgress.createdAt,
+          updatedAt: fellowshipProgress.updatedAt,
+        })
+        .from(fellowshipProgress)
+        .innerJoin(users, eq(fellowshipProgress.userId, users.id));
+
+      const rows = await (whereCombined ? listBase.where(whereCombined) : listBase)
+        .orderBy(desc(fellowshipProgress.updatedAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return { rows, total };
     }),
 
   /**

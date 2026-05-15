@@ -16,12 +16,21 @@ import {
   MapPin,
   ClipboardList,
   Loader2,
+  GraduationCap,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type LifecycleBatchResult = {
   dryRun: boolean;
@@ -79,12 +88,41 @@ const LIFECYCLE_CANARY_VERIFIED_KEY = "admin_lifecycle_canary_verified_v1";
 const LIFECYCLE_CANARY_EVIDENCE_KEY = "admin_lifecycle_canary_evidence_v1";
 const LIFECYCLE_CANARY_EVIDENCE_MAX_AGE_MINUTES = 30;
 
+const LEDGER_PAGE_SIZE = 100;
+const FELLOWSHIP_PAGE_SIZE = 100;
+
+type LedgerProgramFilter =
+  | ""
+  | "bls"
+  | "acls"
+  | "pals"
+  | "fellowship"
+  | "instructor"
+  | "fellowship_diploma"
+  | "heartsaver";
+
+function csvEscapeCell(value: unknown): string {
+  if (value === null || value === undefined) return '""';
+  const s = value instanceof Date ? value.toISOString() : String(value);
+  return JSON.stringify(s);
+}
+
 export default function AdminReports() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [showUsers, setShowUsers] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [userSearch, setUserSearch] = useState("");
+  const [reportTab, setReportTab] = useState("overview");
+  const [ledgerVariant, setLedgerVariant] = useState<"training" | "micro">("training");
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerProgramType, setLedgerProgramType] = useState<LedgerProgramFilter>("");
+  const [ledgerUserIdFilter, setLedgerUserIdFilter] = useState<number | null>(null);
+  const [ledgerOffset, setLedgerOffset] = useState(0);
+  const [fellowshipSearch, setFellowshipSearch] = useState("");
+  const [fellowshipUserIdFilter, setFellowshipUserIdFilter] = useState<number | null>(null);
+  const [fellowshipQualifiedOnly, setFellowshipQualifiedOnly] = useState(false);
+  const [fellowshipOffset, setFellowshipOffset] = useState(0);
   const [lifecycleLimitUsers, setLifecycleLimitUsers] = useState(100);
   const [lifecycleLimitPerUser, setLifecycleLimitPerUser] = useState(5);
   const [liveDispatchConfirmText, setLiveDispatchConfirmText] = useState("");
@@ -115,6 +153,42 @@ export default function AdminReports() {
   const institutionId = (userData as { institutionId?: string })?.institutionId;
 
   const utils = trpc.useUtils();
+  const adminRoleOk = Boolean(isAuthenticated && (user as { role?: string })?.role === "admin");
+
+  const ledgerQueryInput = useMemo(() => {
+    const programType: LedgerProgramFilter | undefined =
+      ledgerVariant === "training" && ledgerProgramType !== "" ? ledgerProgramType : undefined;
+    return {
+      variant: ledgerVariant,
+      userId: ledgerUserIdFilter ?? undefined,
+      search: ledgerSearch.trim() || undefined,
+      ...(programType ? { programType } : {}),
+      limit: LEDGER_PAGE_SIZE,
+      offset: ledgerOffset,
+    };
+  }, [ledgerVariant, ledgerUserIdFilter, ledgerSearch, ledgerProgramType, ledgerOffset]);
+
+  const { data: ledgerData, isLoading: ledgerLoading } = trpc.adminStats.getEnrollmentLedger.useQuery(
+    ledgerQueryInput,
+    { enabled: adminRoleOk && reportTab === "enrollment-ledger" }
+  );
+
+  const fellowshipQueryInput = useMemo(
+    () => ({
+      userId: fellowshipUserIdFilter ?? undefined,
+      search: fellowshipSearch.trim() || undefined,
+      qualifiedOnly: fellowshipQualifiedOnly || undefined,
+      limit: FELLOWSHIP_PAGE_SIZE,
+      offset: fellowshipOffset,
+    }),
+    [fellowshipUserIdFilter, fellowshipSearch, fellowshipQualifiedOnly, fellowshipOffset]
+  );
+
+  const { data: fellowshipLedgerData, isLoading: fellowshipLedgerLoading } =
+    trpc.adminStats.getFellowshipProgressLedger.useQuery(fellowshipQueryInput, {
+      enabled: adminRoleOk && reportTab === "fellowship-progress",
+    });
+
   const setInstructorApprovalMutation = trpc.adminStats.setInstructorApproval.useMutation({
     onSuccess: (_data, vars) => {
       void utils.adminStats.getUsers.invalidate();
@@ -249,6 +323,132 @@ export default function AdminReports() {
     URL.revokeObjectURL(url);
   };
 
+  const exportEnrollmentLedgerCsv = async () => {
+    try {
+      const programType: LedgerProgramFilter | undefined =
+        ledgerVariant === "training" && ledgerProgramType !== "" ? ledgerProgramType : undefined;
+      const data = await utils.adminStats.getEnrollmentLedger.fetch({
+        variant: ledgerVariant,
+        userId: ledgerUserIdFilter ?? undefined,
+        search: ledgerSearch.trim() || undefined,
+        ...(programType ? { programType } : {}),
+        limit: 5000,
+        offset: 0,
+      });
+      let csv = "";
+      if (data.variant === "training") {
+        const headers = [
+          "enrollmentId",
+          "userId",
+          "userName",
+          "userEmail",
+          "courseId",
+          "courseTitle",
+          "programType",
+          "paymentStatus",
+          "amountPaidCents",
+          "cognitiveModulesComplete",
+          "practicalSkillsSignedOff",
+          "completionSummary",
+          "certificateNumber",
+          "certificateIssuedAt",
+          "trainingDate",
+          "createdAt",
+          "updatedAt",
+        ];
+        csv = [
+          headers.join(","),
+          ...data.rows.map((row) =>
+            headers.map((h) => csvEscapeCell((row as Record<string, unknown>)[h])).join(",")
+          ),
+        ].join("\n");
+      } else {
+        const headers = [
+          "microEnrollmentId",
+          "userId",
+          "userName",
+          "userEmail",
+          "microCourseSku",
+          "microCourseTitle",
+          "enrollmentStatus",
+          "paymentStatus",
+          "progressPercentage",
+          "quizScore",
+          "completedAt",
+          "certificateIssuedAt",
+          "createdAt",
+          "updatedAt",
+        ];
+        csv = [
+          headers.join(","),
+          ...data.rows.map((row) =>
+            headers.map((h) => csvEscapeCell((row as Record<string, unknown>)[h])).join(",")
+          ),
+        ].join("\n");
+      }
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `enrollment-ledger-${data.variant}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data.rows.length} row(s) (max 5000).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not export ledger.");
+    }
+  };
+
+  const exportFellowshipLedgerCsv = async () => {
+    try {
+      const data = await utils.adminStats.getFellowshipProgressLedger.fetch({
+        userId: fellowshipUserIdFilter ?? undefined,
+        search: fellowshipSearch.trim() || undefined,
+        qualifiedOnly: fellowshipQualifiedOnly || undefined,
+        limit: 5000,
+        offset: 0,
+      });
+      const headers = [
+        "fellowshipRowId",
+        "userId",
+        "userName",
+        "userEmail",
+        "userType",
+        "totalCoursesRequired",
+        "coursesCompleted",
+        "coursesPercentage",
+        "resusGPSCasesCompleted",
+        "conditionsWithThreshold",
+        "totalConditionsTaught",
+        "resusGPSPercentage",
+        "careSignalStreak",
+        "careSignalEventsSubmitted",
+        "careSignalPercentage",
+        "isQualified",
+        "qualifiedAt",
+        "overallPercentage",
+        "createdAt",
+        "updatedAt",
+      ];
+      const csv = [
+        headers.join(","),
+        ...data.rows.map((row) =>
+          headers.map((h) => csvEscapeCell((row as Record<string, unknown>)[h])).join(",")
+        ),
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fellowship-progress-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data.rows.length} fellowship row(s) (max 5000).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not export fellowship ledger.");
+    }
+  };
+
   useEffect(() => {
     if (loading) return;
     if (!isAuthenticated) {
@@ -259,6 +459,14 @@ export default function AdminReports() {
       setLocation("/");
     }
   }, [user, isAuthenticated, loading, setLocation]);
+
+  useEffect(() => {
+    setLedgerOffset(0);
+  }, [ledgerVariant, ledgerSearch, ledgerProgramType, ledgerUserIdFilter]);
+
+  useEffect(() => {
+    setFellowshipOffset(0);
+  }, [fellowshipSearch, fellowshipUserIdFilter, fellowshipQualifiedOnly]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -530,10 +738,20 @@ export default function AdminReports() {
         </div>
 
         {/* Tabs for different report sections */}
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="resus-analytics">ResusGPS Analytics</TabsTrigger>
+        <Tabs value={reportTab} onValueChange={setReportTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto min-h-10">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="enrollment-ledger" className="text-xs sm:text-sm">
+              Enrollment ledger
+            </TabsTrigger>
+            <TabsTrigger value="fellowship-progress" className="text-xs sm:text-sm">
+              Fellowship
+            </TabsTrigger>
+            <TabsTrigger value="resus-analytics" className="text-xs sm:text-sm">
+              ResusGPS
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
@@ -609,6 +827,8 @@ export default function AdminReports() {
                           <th className="text-left py-2">Instructor #</th>
                           <th className="text-left py-2">B2B instructor</th>
                           <th className="text-left py-2">Joined</th>
+                          <th className="text-left py-2">Courses</th>
+                          <th className="text-left py-2">Fellowship</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -669,6 +889,34 @@ export default function AdminReports() {
                               {u.createdAt
                                 ? new Date(u.createdAt).toLocaleDateString()
                                 : "—"}
+                            </td>
+                            <td className="py-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => {
+                                  setLedgerUserIdFilter(u.id);
+                                  setReportTab("enrollment-ledger");
+                                }}
+                              >
+                                Enrollments
+                              </Button>
+                            </td>
+                            <td className="py-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => {
+                                  setFellowshipUserIdFilter(u.id);
+                                  setReportTab("fellowship-progress");
+                                }}
+                              >
+                                Progress
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -1555,6 +1803,469 @@ export default function AdminReports() {
             </Card>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="enrollment-ledger" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Enrollment ledger
+                </CardTitle>
+                <CardDescription>
+                  Training enrollments (BLS/ACLS/PALS/Fellowship/Instructor/… catalog rows) and ADF micro-course enrollments.
+                  Filter by user ID or search name/email. Export includes up to 5000 matching rows.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div className="min-w-[160px]">
+                    <label htmlFor="ledger-variant" className="text-xs text-muted-foreground block mb-1">
+                      Source
+                    </label>
+                    <Select
+                      value={ledgerVariant}
+                      onValueChange={(v) => setLedgerVariant(v as "training" | "micro")}
+                    >
+                      <SelectTrigger id="ledger-variant">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="training">Training / AHA enrollments</SelectItem>
+                        <SelectItem value="micro">ADF micro-courses</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {ledgerVariant === "training" && (
+                    <div className="min-w-[160px]">
+                      <label htmlFor="ledger-program" className="text-xs text-muted-foreground block mb-1">
+                        Program type
+                      </label>
+                      <Select
+                        value={ledgerProgramType === "" ? "all" : ledgerProgramType}
+                        onValueChange={(v) =>
+                          setLedgerProgramType(v === "all" ? "" : (v as LedgerProgramFilter))
+                        }
+                      >
+                        <SelectTrigger id="ledger-program">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All programs</SelectItem>
+                          <SelectItem value="bls">BLS</SelectItem>
+                          <SelectItem value="acls">ACLS</SelectItem>
+                          <SelectItem value="pals">PALS</SelectItem>
+                          <SelectItem value="fellowship">Fellowship</SelectItem>
+                          <SelectItem value="instructor">Instructor</SelectItem>
+                          <SelectItem value="fellowship_diploma">Fellowship diploma</SelectItem>
+                          <SelectItem value="heartsaver">Heartsaver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-[180px]">
+                    <label htmlFor="ledger-search" className="text-xs text-muted-foreground block mb-1">
+                      Search user name or email
+                    </label>
+                    <Input
+                      id="ledger-search"
+                      value={ledgerSearch}
+                      onChange={(e) => setLedgerSearch(e.target.value)}
+                      placeholder="Filter…"
+                    />
+                  </div>
+                  <div className="w-[120px]">
+                    <label htmlFor="ledger-user-id" className="text-xs text-muted-foreground block mb-1">
+                      User ID
+                    </label>
+                    <Input
+                      id="ledger-user-id"
+                      inputMode="numeric"
+                      value={ledgerUserIdFilter === null ? "" : String(ledgerUserIdFilter)}
+                      onChange={(e) => {
+                        const t = e.target.value.trim();
+                        if (t === "") setLedgerUserIdFilter(null);
+                        else if (/^\d+$/.test(t)) setLedgerUserIdFilter(Number(t));
+                      }}
+                      placeholder="Any"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-0.5"
+                    onClick={() => setLedgerUserIdFilter(null)}
+                    disabled={ledgerUserIdFilter === null}
+                  >
+                    Clear user filter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-0.5 gap-1"
+                    onClick={() => void exportEnrollmentLedgerCsv()}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV (max 5000)
+                  </Button>
+                </div>
+
+                {ledgerLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading ledger…
+                  </div>
+                ) : !ledgerData ? (
+                  <p className="text-sm text-muted-foreground">No data.</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Showing {ledgerData.rows.length} of {ledgerData.total} match(es)
+                      {ledgerUserIdFilter !== null ? ` · filtered to user #${ledgerUserIdFilter}` : ""}
+                    </p>
+                    <div className="overflow-x-auto border rounded-md">
+                      {ledgerData.variant === "training" ? (
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead className="bg-muted/50">
+                            <tr className="border-b">
+                              <th className="text-left p-2 font-medium">Enrollment</th>
+                              <th className="text-left p-2 font-medium">User</th>
+                              <th className="text-left p-2 font-medium">Course</th>
+                              <th className="text-left p-2 font-medium">Program</th>
+                              <th className="text-left p-2 font-medium">Payment</th>
+                              <th className="text-left p-2 font-medium">Progress</th>
+                              <th className="text-left p-2 font-medium">Cert</th>
+                              <th className="text-left p-2 font-medium">Created</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ledgerData.rows.map((row) => (
+                              <tr key={row.enrollmentId} className="border-b">
+                                <td className="p-2 font-mono">{row.enrollmentId}</td>
+                                <td className="p-2">
+                                  <div className="font-medium">{row.userName ?? "—"}</div>
+                                  <div className="text-muted-foreground text-xs">{row.userEmail}</div>
+                                  <div className="text-muted-foreground text-xs">id {row.userId}</div>
+                                </td>
+                                <td className="p-2">
+                                  {row.courseTitle ?? "—"}
+                                  {row.courseId != null ? (
+                                    <span className="text-muted-foreground text-xs block">
+                                      catalog #{row.courseId}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="p-2">{row.programType}</td>
+                                <td className="p-2">
+                                  {row.paymentStatus}
+                                  {row.amountPaidCents != null ? (
+                                    <span className="text-muted-foreground text-xs block">
+                                      {row.amountPaidCents} cents
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="p-2">
+                                  <span className="block">{row.completionSummary}</span>
+                                  <span className="text-muted-foreground text-xs">
+                                    cog {row.cognitiveModulesComplete ? "Y" : "N"} · skills{" "}
+                                    {row.practicalSkillsSignedOff ? "Y" : "N"}
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  {row.certificateIssuedAt
+                                    ? new Date(row.certificateIssuedAt).toLocaleDateString()
+                                    : "—"}
+                                  {row.certificateNumber ? (
+                                    <span className="text-xs text-muted-foreground block font-mono">
+                                      {row.certificateNumber}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="p-2 whitespace-nowrap">
+                                  {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead className="bg-muted/50">
+                            <tr className="border-b">
+                              <th className="text-left p-2 font-medium">µ-enrollment</th>
+                              <th className="text-left p-2 font-medium">User</th>
+                              <th className="text-left p-2 font-medium">Course</th>
+                              <th className="text-left p-2 font-medium">Status</th>
+                              <th className="text-left p-2 font-medium">Payment</th>
+                              <th className="text-left p-2 font-medium">Progress</th>
+                              <th className="text-left p-2 font-medium">Completed</th>
+                              <th className="text-left p-2 font-medium">Created</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ledgerData.rows.map((row) => (
+                              <tr key={row.microEnrollmentId} className="border-b">
+                                <td className="p-2 font-mono">{row.microEnrollmentId}</td>
+                                <td className="p-2">
+                                  <div className="font-medium">{row.userName ?? "—"}</div>
+                                  <div className="text-muted-foreground text-xs">{row.userEmail}</div>
+                                  <div className="text-muted-foreground text-xs">id {row.userId}</div>
+                                </td>
+                                <td className="p-2">
+                                  <div>{row.microCourseTitle}</div>
+                                  <div className="text-muted-foreground text-xs font-mono">{row.microCourseSku}</div>
+                                </td>
+                                <td className="p-2">{row.enrollmentStatus}</td>
+                                <td className="p-2">{row.paymentStatus}</td>
+                                <td className="p-2">
+                                  {row.progressPercentage ?? 0}%
+                                  {row.quizScore != null ? (
+                                    <span className="text-muted-foreground text-xs block">
+                                      quiz {row.quizScore}%
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="p-2 whitespace-nowrap">
+                                  {row.completedAt ? new Date(row.completedAt).toLocaleString() : "—"}
+                                </td>
+                                <td className="p-2 whitespace-nowrap">
+                                  {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={ledgerOffset <= 0}
+                        onClick={() => setLedgerOffset((o) => Math.max(0, o - LEDGER_PAGE_SIZE))}
+                      >
+                        Previous page
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Page {ledgerOffset / LEDGER_PAGE_SIZE + 1} · {LEDGER_PAGE_SIZE} per page
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          !ledgerData ||
+                          ledgerOffset + ledgerData.rows.length >= ledgerData.total
+                        }
+                        onClick={() => setLedgerOffset((o) => o + LEDGER_PAGE_SIZE)}
+                      >
+                        Next page
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fellowship-progress" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5" />
+                  Fellowship progress (three pillars)
+                </CardTitle>
+                <CardDescription>
+                  Rows from <code className="text-xs bg-muted px-1 rounded">fellowshipProgress</code> joined to users —
+                  pillar A (micro-courses), B (ResusGPS conditions), C (Care Signal streak). Only users who have a
+                  progress row appear (typically after fellowship tracking starts). Compare with{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline underline-offset-2"
+                    onClick={() => setReportTab("enrollment-ledger")}
+                  >
+                    Enrollment ledger
+                  </button>{" "}
+                  for raw enrollments.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div className="flex-1 min-w-[180px]">
+                    <label htmlFor="fellowship-search" className="text-xs text-muted-foreground block mb-1">
+                      Search user name or email
+                    </label>
+                    <Input
+                      id="fellowship-search"
+                      value={fellowshipSearch}
+                      onChange={(e) => setFellowshipSearch(e.target.value)}
+                      placeholder="Filter…"
+                    />
+                  </div>
+                  <div className="w-[120px]">
+                    <label htmlFor="fellowship-user-id" className="text-xs text-muted-foreground block mb-1">
+                      User ID
+                    </label>
+                    <Input
+                      id="fellowship-user-id"
+                      inputMode="numeric"
+                      value={fellowshipUserIdFilter === null ? "" : String(fellowshipUserIdFilter)}
+                      onChange={(e) => {
+                        const t = e.target.value.trim();
+                        if (t === "") setFellowshipUserIdFilter(null);
+                        else if (/^\d+$/.test(t)) setFellowshipUserIdFilter(Number(t));
+                      }}
+                      placeholder="Any"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <Checkbox
+                      id="fellowship-qualified-only"
+                      checked={fellowshipQualifiedOnly}
+                      onCheckedChange={(v) => setFellowshipQualifiedOnly(v === true)}
+                    />
+                    <label htmlFor="fellowship-qualified-only" className="text-sm cursor-pointer">
+                      Qualified only
+                    </label>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-0.5"
+                    onClick={() => {
+                      setFellowshipUserIdFilter(null);
+                      setFellowshipSearch("");
+                      setFellowshipQualifiedOnly(false);
+                    }}
+                  >
+                    Reset filters
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-0.5 gap-1"
+                    onClick={() => void exportFellowshipLedgerCsv()}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV (max 5000)
+                  </Button>
+                </div>
+
+                {fellowshipLedgerLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading fellowship progress…
+                  </div>
+                ) : !fellowshipLedgerData ? (
+                  <p className="text-sm text-muted-foreground">No data.</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Showing {fellowshipLedgerData.rows.length} of {fellowshipLedgerData.total} row(s)
+                      {fellowshipUserIdFilter !== null ? ` · user #${fellowshipUserIdFilter}` : ""}
+                    </p>
+                    <div className="overflow-x-auto border rounded-md">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left p-2 font-medium">User</th>
+                            <th className="text-left p-2 font-medium">Overall</th>
+                            <th className="text-left p-2 font-medium">Pillar A — courses</th>
+                            <th className="text-left p-2 font-medium">Pillar B — ResusGPS</th>
+                            <th className="text-left p-2 font-medium">Pillar C — Care Signal</th>
+                            <th className="text-left p-2 font-medium">Qualified</th>
+                            <th className="text-left p-2 font-medium">Updated</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fellowshipLedgerData.rows.map((row) => (
+                            <tr key={row.fellowshipRowId} className="border-b">
+                              <td className="p-2 align-top">
+                                <div className="font-medium">{row.userName ?? "—"}</div>
+                                <div className="text-muted-foreground">{row.userEmail}</div>
+                                <div className="text-muted-foreground">
+                                  id {row.userId} · {row.userType ?? "—"}
+                                </div>
+                              </td>
+                              <td className="p-2 align-top font-semibold">{row.overallPercentage ?? 0}%</td>
+                              <td className="p-2 align-top">
+                                <div>
+                                  {row.coursesCompleted ?? 0}/{row.totalCoursesRequired ?? 26} done
+                                </div>
+                                <div className="text-muted-foreground">{row.coursesPercentage ?? 0}%</div>
+                              </td>
+                              <td className="p-2 align-top">
+                                <div>{row.resusGPSCasesCompleted ?? 0} cases</div>
+                                <div className="text-muted-foreground">
+                                  {row.conditionsWithThreshold ?? 0}/{row.totalConditionsTaught ?? 0} conditions ≥3
+                                </div>
+                                <div className="text-muted-foreground">{row.resusGPSPercentage ?? 0}%</div>
+                              </td>
+                              <td className="p-2 align-top">
+                                <div>{row.careSignalStreak ?? 0} mo streak</div>
+                                <div className="text-muted-foreground">
+                                  {row.careSignalEventsSubmitted ?? 0} events
+                                </div>
+                                <div className="text-muted-foreground">{row.careSignalPercentage ?? 0}%</div>
+                              </td>
+                              <td className="p-2 align-top">
+                                {row.isQualified ? (
+                                  <span className="text-green-700 dark:text-green-400 font-medium">Yes</span>
+                                ) : (
+                                  <span className="text-muted-foreground">No</span>
+                                )}
+                                {row.qualifiedAt ? (
+                                  <div className="text-xs text-muted-foreground whitespace-nowrap">
+                                    {new Date(row.qualifiedAt).toLocaleDateString()}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td className="p-2 align-top whitespace-nowrap">
+                                {row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={fellowshipOffset <= 0}
+                        onClick={() =>
+                          setFellowshipOffset((o) => Math.max(0, o - FELLOWSHIP_PAGE_SIZE))
+                        }
+                      >
+                        Previous page
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Page {fellowshipOffset / FELLOWSHIP_PAGE_SIZE + 1} · {FELLOWSHIP_PAGE_SIZE}{" "}
+                        per page
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          !fellowshipLedgerData ||
+                          fellowshipOffset + fellowshipLedgerData.rows.length >= fellowshipLedgerData.total
+                        }
+                        onClick={() => setFellowshipOffset((o) => o + FELLOWSHIP_PAGE_SIZE)}
+                      >
+                        Next page
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="resus-analytics" className="space-y-8">
