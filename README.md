@@ -1,4 +1,4 @@
-# Paeds Resus - Professional Training & Patient Safety Platform
+# Paeds Resus — Paediatric emergency care platform
 
 ## Mission
 

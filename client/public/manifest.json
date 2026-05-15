@@ -1,7 +1,7 @@
 {
-  "name": "Paeds Resus - Clinical Decision Support for Emergencies",
+  "name": "Paeds Resus — Paediatric emergency care platform",
   "short_name": "Paeds Resus",
-  "description": "AI-powered clinical decision support for pediatric, obstetric, and adult emergencies. Works offline.",
+  "description": "Integrated paediatric emergency care platform: Fellowship training, ResusGPS bedside guidance, institutional tools, Care Signal, and Safe-Truth. Offline-capable where supported.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
