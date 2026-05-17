@@ -2,6 +2,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
 import { Suspense, lazy, useEffect, type ReactNode } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { TrainingSimulationGate } from "./components/TrainingSimulationGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -287,7 +288,9 @@ function Router() {
           )}</Route>
           <Route path="/problem-identification">{() => (
             <RoleGate allowed={["provider"]}>
-              <ProblemIdentification />
+              <TrainingSimulationGate title="Problem identification demo">
+                <ProblemIdentification />
+              </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
           <Route path="/reassessment">{() => (

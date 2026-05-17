@@ -23,7 +23,9 @@ import { AlertCircle, ChevronLeft, ChevronRight, Heart, Loader2, Shield } from "
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { trpc } from "@/lib/trpc";
 import { FacilityPicker, type FacilitySelection } from "@/components/FacilityPicker";
-import SubmissionConfirmationModal from "@/components/SubmissionConfirmationModal";
+import SubmissionConfirmationModal, {
+  type SubmissionData,
+} from "@/components/SubmissionConfirmationModal";
 import {
   initialCareSignalV2State,
   buildCareSignalV2SubmitPayload,
@@ -51,7 +53,7 @@ export default function CareSignalFormV2() {
   const [facility, setFacility] = useState<FacilitySelection | null>(null);
   const [error, setError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [submittedData, setSubmittedData] = useState<Record<string, unknown> | null>(null);
+  const [submittedData, setSubmittedData] = useState<SubmissionData | null>(null);
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
 
   const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
@@ -151,7 +153,11 @@ export default function CareSignalFormV2() {
         eventData: { eventId: result.eventId, formVersion: "v2" },
       });
       setSubmittedData({
-        ...payload,
+        eventDate: payload.eventDate,
+        childAge: payload.childAge,
+        isAnonymous: payload.isAnonymous,
+        eventType: payload.eventType,
+        systemGaps: payload.systemGaps,
         recommendations: result.recommendations ?? [],
         eventId: result.eventId,
         timestamp: result.timestamp,

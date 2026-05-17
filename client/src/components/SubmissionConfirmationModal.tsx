@@ -27,7 +27,7 @@ interface GapRecommendation {
   action: string;
 }
 
-interface SubmissionData {
+export interface SubmissionData {
   eventDate: string;
   childAge: number;
   hospital?: string;

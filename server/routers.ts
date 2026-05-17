@@ -83,7 +83,6 @@ import { hospitalLeaderboardsRouter } from "./routers/hospital-leaderboards";
 import { realTimeAnalyticsRouter } from "./routers/real-time-analytics";
 import { smsWhatsappRouter } from "./routers/sms-whatsapp";
 import { aiAdaptiveLearningRouter } from "./routers/ai-adaptive-learning";
-import { automatedGradingRouter } from "./routers/automated-grading";
 import { autonomousOperationsRouter } from "./routers/autonomous-operations";
 import { executionTrackingRouter } from "./routers/execution-tracking";
 import { revenueGenerationRouter } from "./routers/revenue-generation";
@@ -97,6 +96,7 @@ import { researchSynthesisRouter } from "./routers/research-synthesis";
 import { capacityBuildingRouter } from "./routers/capacity-building";
 import { qualityImprovementRouter } from "./routers/quality-improvement";
 import { continentalScalingRouter } from "./routers/continental-scaling";
+import { automatedGradingRouter } from "./routers/automated-grading";
 // Removed non-existent router imports to fix TypeScript errors
 // These will be added back when the routers are implemented
 import { patientRouter } from "./routers/patients";
@@ -377,6 +377,7 @@ export const appRouter = router({
         capacityBuilding: capacityBuildingRouter,
         qualityImprovement: qualityImprovementRouter,
         continentalScaling: continentalScalingRouter,
+        automatedGrading: automatedGradingRouter,
       }
     : {}),
   email: emailRouter,
@@ -412,7 +413,6 @@ export const appRouter = router({
   hospitalLeaderboards: hospitalLeaderboardsRouter,
   smsWhatsapp: smsWhatsappRouter,
   aiAdaptiveLearning: aiAdaptiveLearningRouter,
-  automatedGrading: automatedGradingRouter,
   /** Operational KPI dashboard (/kaizen-dashboard); DB-backed metrics — not the aspirational Kaizen *continuous improvement* mock router. */
   kaizenMetrics: kaizenMetricsRouter,
   // TODO: Re-add these routers after implementation
