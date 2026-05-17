@@ -14,18 +14,7 @@
     "server/routers/community-insights.ts",
     "server/routers/condition-recommendation-ai.ts",
     "server/routers/provider-intelligence.ts",
-    "client/src/lib/pwa/service-worker.ts",
-    // Legacy UI: references routers/procedures not on appRouter; exclude until rewired or removed.
-    "client/src/components/CertificateManagement.tsx",
-    "client/src/components/CommunityInsights.tsx",
-    "client/src/components/ConditionHeatmap.tsx",
-    "client/src/components/ConditionRecommendation.tsx",
-    "client/src/components/CourseAssignmentModal.tsx",
-    "client/src/components/FellowshipProgressCard.tsx",
-    "client/src/components/MpesaEnrollmentModal.tsx",
-    "client/src/components/NotificationPreferences.tsx",
-    "client/src/components/ProviderIntelligenceDashboard.tsx",
-    "client/src/components/StaffProgressTable.tsx"
+    "client/src/lib/pwa/service-worker.ts"
   ],
   "compilerOptions": {
     "incremental": false,
