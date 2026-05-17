@@ -1,6 +1,6 @@
 /**
  * Service Worker for PaedsResusGPS
- * 
+ *
  * Handles offline asset caching, background sync, and push notifications
  */
 

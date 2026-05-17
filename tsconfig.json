@@ -10,10 +10,7 @@
     "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "server/lib/facility-report-pdf.ts",
-    "server/routers/community-insights.ts",
-    "server/routers/condition-recommendation-ai.ts",
-    "server/routers/provider-intelligence.ts",
+    // Bundled separately; uses ServiceWorkerGlobalScope (not DOM lib).
     "client/src/lib/pwa/service-worker.ts"
   ],
   "compilerOptions": {

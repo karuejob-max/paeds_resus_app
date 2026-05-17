@@ -19,6 +19,7 @@ import {
   calculateFellowshipStatus,
   syncFellowshipProgressForUser,
 } from "../services/fellowship-progress.service";
+import { trackEvent } from "../services/analytics.service";
 
 export const fellowshipRouter = router({
   /**
@@ -117,6 +118,18 @@ export const fellowshipRouter = router({
         updatedAt: new Date(),
       });
 
+      void trackEvent({
+        userId: ctx.user.id,
+        eventType: "resus_session",
+        eventName: "ResusGPS session recorded",
+        sessionId,
+        eventData: {
+          primaryDiagnosis: input.primaryDiagnosis,
+          source: "fellowship_api",
+          durationSeconds: input.durationSeconds,
+        },
+      });
+
       return { success: true, sessionId: sessionId };
     }),
 
@@ -171,6 +184,18 @@ export const fellowshipRouter = router({
       void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
         console.warn("[Fellowship] sync after case record failed:", e)
       );
+
+      void trackEvent({
+        userId: ctx.user.id,
+        eventType: "resus_assessment",
+        eventName: "ResusGPS case recorded",
+        sessionId: input.sessionId,
+        eventData: {
+          diagnosis: input.diagnosis,
+          caseNumber: input.caseNumber,
+          source: "fellowship_api",
+        },
+      });
 
       return { success: true, caseId: result[0].insertId };
     }),

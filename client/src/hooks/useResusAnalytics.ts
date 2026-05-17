@@ -247,6 +247,12 @@ export function useResusAnalytics() {
     trackQuestionAnswered: (letter: string, questionId: string, answer: string) =>
       trackEvent('resus_question', 'Question Answered', { letter, questionId, answer }),
 
+    trackClinicalRecordExported: (phase: string, durationSeconds: number) =>
+      trackEvent('resus_session', 'Clinical record exported', {
+        phase,
+        durationSeconds,
+      }),
+
     // Session info
     getSessionId: () => sessionIdRef.current,
   };

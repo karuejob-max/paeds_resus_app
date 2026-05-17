@@ -35,7 +35,7 @@
 
 | eventType (or pattern) | Meaning | Owning surface / file | Example eventData keys | Notes |
 |------------------------|---------|------------------------|---------------------------|-------|
-| `resus_*` | ResusGPS lifecycle | `client/src/hooks/useResusAnalytics.ts` | letter, threatType, … | Many subtypes; see hook. |
+| `resus_*` | ResusGPS lifecycle | `client/src/hooks/useResusAnalytics.ts`, `client/src/pages/ResusGPS.tsx`, `server/routers/fellowship.ts` (`recordResusGPSSession` / `recordResusGPSCase`) | letter, threatType, diagnosis, `source: fellowship_api`, … | Client hook + server backup when fellowship DB rows are written. |
 | `page_view` | Page viewed | `client/src/hooks/useAnalytics.ts` | timestamp, userAgent | |
 | `enrollment_started` | User started enrollment flow (client) | `useAnalytics.ts` | courseId, courseName | Verify wired on enroll UI. |
 | `payment_initiated` | Client marked payment start | `useAnalytics.ts` | amount, courseId | Distinct from server `payment_initiation`. |
@@ -59,6 +59,7 @@ Additional fellowship/QI events may use the same prefix (e.g. streak milestones)
 
 | Date | Change |
 |------|--------|
+| 2026-05-17 | ResusGPS analytics wired: letter/threat/diagnosis/resource-gap/export in `ResusGPS.tsx`; server `resus_session` / `resus_assessment` on fellowship session/case record. Removed orphan aspirational routers from repo. |
 | 2026-04-13 | Added degraded-channel fallback policy for lifecycle sends (`channelReliability.fallbackPolicy` + fallback error markers) and `channelFallbackActivations` rollup in lifecycle dispatch summary for operator monitoring. |
 | 2026-04-13 | Added channel health alert rollup (`channelHealthAlerts`) in `notifications.getLifecycleDispatchSummary` using delivery-rate thresholds from channel sent/failed outcomes, and surfaced alert banners in `AdminReports`. |
 | 2026-04-13 | Added channel failure diagnostics rollup (`channelFailureTop`) in `notifications.getLifecycleDispatchSummary` by parsing `channelReliability.lastError` when channel status is failed, and surfaced top reasons in `AdminReports`. |

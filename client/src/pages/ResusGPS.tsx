@@ -222,6 +222,8 @@ function approximateAgeMonths(age: string | null): number {
 export default function ResusGPS() {
   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
+  const analyticsRef = useRef(analytics);
+  analyticsRef.current = analytics;
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
   const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
@@ -303,6 +305,41 @@ export default function ResusGPS() {
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
 
+  const prevLetterRef = useRef<ABCDELetter | null>(null);
+  const prevThreatCountRef = useRef(0);
+
+  useEffect(() => {
+    if (session.phase !== 'PRIMARY_SURVEY') {
+      prevLetterRef.current = null;
+      return;
+    }
+    const letter = session.currentLetter;
+    if (prevLetterRef.current && prevLetterRef.current !== letter) {
+      const threatsOnLetter = session.threats.filter(
+        (t) => t.letter === prevLetterRef.current && !t.resolved
+      ).length;
+      void analyticsRef.current.trackLetterCompleted(prevLetterRef.current, threatsOnLetter);
+      void analyticsRef.current.trackLetterStart(letter);
+    } else if (!prevLetterRef.current) {
+      void analyticsRef.current.trackLetterStart(letter);
+    }
+    prevLetterRef.current = letter;
+  }, [session.currentLetter, session.phase, session.threats]);
+
+  useEffect(() => {
+    if (session.threats.length <= prevThreatCountRef.current) {
+      prevThreatCountRef.current = session.threats.length;
+      return;
+    }
+    const added = session.threats.slice(prevThreatCountRef.current);
+    prevThreatCountRef.current = session.threats.length;
+    for (const threat of added) {
+      if (!threat.resolved) {
+        void analyticsRef.current.trackThreatDetected(threat.name, threat.severity);
+      }
+    }
+  }, [session.threats]);
+
   // ─── Handlers ───────────────────────────────────────────
 
   const handleStart = (isTrauma: boolean) => {
@@ -378,6 +415,7 @@ export default function ResusGPS() {
       const withUndo = pushToUndoStack(prev, `Unavailable: ${intervention.action}`);
       return markInterventionUnavailable(withUndo, id);
     });
+    void analytics.trackResourceUnavailable(intervention.action);
     toast.warning(
       `⚠ Resource gap logged: "${intervention.action}" not available at this facility. Captured for Care Signal.`,
       { duration: 5000 }
@@ -548,6 +586,7 @@ export default function ResusGPS() {
   const handleExport = () => {
     trackButtonClick('Complete Assessment');
     analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
+    void analytics.trackClinicalRecordExported(session.phase, timer.elapsed);
 
     // ── STEP 1: Generate and download the clinical record IMMEDIATELY.
     // This must NEVER be blocked by a network call. Bedside handoff is
@@ -1974,6 +2013,7 @@ function PostPrimaryScreen({
   setSamplePreFillDismissed: (v: boolean) => void;
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
+  const resusAnalytics = useResusAnalytics();
 
   return (
     <div className="py-6 space-y-6">
@@ -2080,14 +2120,17 @@ function PostPrimaryScreen({
                 pickMode
                 onSetPrimary={() => {
                   trackButtonClick('Set primary diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
                   setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
                 }}
                 onAddCoDiagnosis={() => {
                   trackButtonClick('Add co-diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
                   setSession(addConcurrentDiagnosis(session, dx.diagnosis));
                 }}
                 onResolve={() => {
                   trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
                   setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
                 }}
                 onRemove={() => {}}
