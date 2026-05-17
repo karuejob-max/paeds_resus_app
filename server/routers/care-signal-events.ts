@@ -9,6 +9,11 @@ import {
   providerProfiles,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
+import {
+  getFacilityById,
+  resolveCanonicalFacilityId,
+  syncProviderProfileFacility,
+} from "../services/facility-registry.service";
 
 /**
  * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
@@ -189,6 +194,8 @@ export const careSignalEventsRouter = router({
         gapDetails: z.record(z.string(), z.any()),
         outcome: z.string(),
         neurologicalStatus: z.string(),
+        /** Canonical facility (required for providers; parents exempt). */
+        facilityId: z.number().int().positive().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -211,26 +218,48 @@ export const careSignalEventsRouter = router({
           });
         }
 
-        // Resolve facility metadata from providerProfiles (non-blocking)
+        let resolvedFacilityId: number | null = null;
         let facilityName: string | null = null;
-        let facilityRegion: string | null = null;
-        try {
-          const [profile] = await db
-            .select({
-              facilityName: providerProfiles.facilityName,
-              facilityRegion: providerProfiles.facilityRegion,
-            })
-            .from(providerProfiles)
-            .where(eq(providerProfiles.userId, ctx.user.id))
-            .limit(1);
-          facilityName = profile?.facilityName ?? null;
-          facilityRegion = profile?.facilityRegion ?? null;
-        } catch {
-          // Non-critical — proceed without facility metadata
+        let facilityCounty: string | null = null;
+        let facilityCountry: string | null = null;
+
+        if (!isParentStory) {
+          let facilityId = input.facilityId ?? null;
+          if (!facilityId) {
+            const [profile] = await db
+              .select({ facilityId: providerProfiles.facilityId })
+              .from(providerProfiles)
+              .where(eq(providerProfiles.userId, ctx.user.id))
+              .limit(1);
+            facilityId = profile?.facilityId ?? null;
+          }
+
+          if (!facilityId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Please select the facility where this care was delivered. Update your provider profile or choose a facility on this form.",
+            });
+          }
+
+          resolvedFacilityId = await resolveCanonicalFacilityId(facilityId);
+          const facility = await getFacilityById(resolvedFacilityId);
+          if (!facility) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Selected facility is not valid." });
+          }
+
+          facilityName = facility.name;
+          facilityCounty = facility.county;
+          facilityCountry = facility.country;
+
+          if (!input.isAnonymous) {
+            await syncProviderProfileFacility(ctx.user.id, resolvedFacilityId);
+          }
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
           userId: input.isAnonymous ? null : ctx.user.id,
+          facilityId: resolvedFacilityId,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
           eventType: input.eventType,
@@ -241,7 +270,9 @@ export const careSignalEventsRouter = router({
           gapDetails: JSON.stringify({
             ...input.gapDetails,
             facilityName,
-            facilityRegion,
+            facilityCounty,
+            facilityCountry,
+            facilityRegion: facilityCounty,
           }),
           outcome: input.outcome,
           neurologicalStatus: input.neurologicalStatus,
@@ -260,8 +291,10 @@ export const careSignalEventsRouter = router({
             isAnonymous: input.isAnonymous,
             outcome: input.outcome,
             systemGaps: input.systemGaps,
+            facilityId: resolvedFacilityId,
             facilityName,
-            facilityRegion,
+            facilityCounty,
+            facilityCountry,
           },
         });
 
@@ -277,7 +310,9 @@ export const careSignalEventsRouter = router({
           eventType: input.eventType,
           childAge: input.childAge,
           outcome: input.outcome,
+          facilityId: resolvedFacilityId,
           facilityName,
+          facilityCounty,
           timestamp: new Date().toISOString(),
         });
 

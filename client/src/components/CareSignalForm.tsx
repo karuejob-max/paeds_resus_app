@@ -18,6 +18,7 @@ import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { trpc } from "@/lib/trpc";
 import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
+import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
 
 export default function CareSignalForm() {
   const [step, setStep] = useState(1);
@@ -28,6 +29,7 @@ export default function CareSignalForm() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
+  const [facility, setFacility] = useState<FacilitySelection | null>(null);
 
   // Read ResusGPS pre-fill params from URL query string
   useEffect(() => {
@@ -66,6 +68,10 @@ export default function CareSignalForm() {
   const handleSubmit = async () => {
     try {
       setError("");
+      if (!facility?.facilityId) {
+        setError("Please select the facility where this care was delivered.");
+        return;
+      }
       const submitData = {
         eventDate: formData.eventDate || new Date().toISOString(),
         childAge: childAgeMonthsForSafeTruth({
@@ -89,6 +95,7 @@ export default function CareSignalForm() {
         gapDetails: {},
         outcome: formData.outcome || "unknown",
         neurologicalStatus: formData.neuroStatus || "unknown",
+        facilityId: facility.facilityId,
       };
 
       const result = await submitMutation.mutateAsync(submitData);
@@ -153,6 +160,7 @@ export default function CareSignalForm() {
                 <AlertDescription className="text-blue-700 text-sm">{prefillBanner}</AlertDescription>
               </Alert>
             )}
+            <FacilityPicker value={facility} onChange={setFacility} required />
             <div>
               <Label>Event Date & Time</Label>
               <input

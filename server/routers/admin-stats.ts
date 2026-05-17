@@ -893,16 +893,21 @@ export const adminStatsRouter = router({
   getFacilityCareSignalDashboard: adminProcedure
     .input(
       z.object({
-        facilityName: z.string().min(1).max(255),
+        facilityId: z.number().int().positive().optional(),
+        facilityName: z.string().min(1).max(255).optional(),
         lastDays: z.number().int().min(7).max(365).default(90),
       })
     )
-    .query(async ({ input }) =>
-      getFacilityCareSignalDashboard({
+    .query(async ({ input }) => {
+      if (!input.facilityId && !input.facilityName?.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "facilityId or facilityName required" });
+      }
+      return getFacilityCareSignalDashboard({
+        facilityId: input.facilityId,
         facilityName: input.facilityName,
         lastDays: input.lastDays,
-      })
-    ),
+      });
+    }),
 
   /** Recent automated platform alert dispatches (dedupe audit). */
   getAdminAlertDispatches: adminProcedure

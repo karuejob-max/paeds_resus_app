@@ -288,6 +288,13 @@
       "when": 1776964798174,
       "tag": "0040_mpesa_webhook_and_admin_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1776964799174,
+      "tag": "0041_care_facilities_registry",
+      "breakpoints": true
     }
   ]
 }

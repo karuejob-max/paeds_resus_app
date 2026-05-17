@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
 
 interface ProviderProfileFormProps {
   onComplete?: () => void;
@@ -46,6 +47,14 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
   useEffect(() => {
     if (getProfileMutation.data) {
       const profile = getProfileMutation.data;
+      if (profile.facilityId && profile.facilityName) {
+        setFacility({
+          facilityId: profile.facilityId,
+          facilityName: profile.facilityName,
+          county: profile.facilityRegion ?? null,
+          country: profile.facilityCountry ?? "Kenya",
+        });
+      }
       setFormData({
         licenseNumber: profile.licenseNumber || "",
         specialization: profile.specialization || "",
@@ -116,7 +125,10 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const result = await updateProfileMutation.mutateAsync(formData);
+      const result = await updateProfileMutation.mutateAsync({
+        ...formData,
+        facilityId: facility?.facilityId,
+      });
       setCompletionPercentage(result.completionPercentage);
       if (result.completionPercentage >= 80 && onComplete) {
         onComplete();
@@ -261,16 +273,12 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
               <h3 className="font-semibold text-lg">Facility Information</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="facilityName">Facility Name</Label>
-                  <Input
-                    id="facilityName"
-                    name="facilityName"
-                    value={formData.facilityName}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Nairobi Central Hospital"
-                  />
-                </div>
+              <FacilityPicker
+                value={facility}
+                onChange={setFacility}
+                required
+                showProfileHint={false}
+              />
 
                 <div className="space-y-2">
                   <Label htmlFor="facilityType">Facility Type</Label>

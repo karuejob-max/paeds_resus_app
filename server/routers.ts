@@ -56,6 +56,7 @@ import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
 import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { adminStatsRouter } from "./routers/admin-stats";
+import { facilitiesRouter } from "./routers/facilities";
 import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
@@ -381,6 +382,7 @@ export const appRouter = router({
   email: emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   adminStats: adminStatsRouter,
+  facilities: facilitiesRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
   institutionalNotifications: institutionalNotificationsRouter,

@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Building2, Users, AlertTriangle } from "lucide-react";
 
 type Props = {
+  facilityId?: number;
   facilityName?: string;
   lastDays?: number;
   /** When true, uses institution router (hospital admin) — facility name from linked account. */
@@ -12,13 +13,17 @@ type Props = {
 };
 
 export function FacilityCareSignalDashboard({
+  facilityId,
   facilityName = "",
   lastDays = 90,
   institutionMode = false,
 }: Props) {
   const adminQuery = trpc.adminStats.getFacilityCareSignalDashboard.useQuery(
-    { facilityName, lastDays },
-    { enabled: !institutionMode && facilityName.trim().length > 0 }
+    { facilityId, facilityName: facilityName || undefined, lastDays },
+    {
+      enabled:
+        !institutionMode && Boolean(facilityId || facilityName.trim().length > 0),
+    }
   );
   const institutionQuery = trpc.institution.getCareSignalFacilityDashboard.useQuery(
     { lastDays },
@@ -42,6 +47,11 @@ export function FacilityCareSignalDashboard({
 
   return (
     <div className="space-y-4">
+      {data.facilityCounty || data.facilityCountry ? (
+        <p className="text-sm text-muted-foreground">
+          Location: {[data.facilityCounty, data.facilityCountry].filter(Boolean).join(", ")}
+        </p>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

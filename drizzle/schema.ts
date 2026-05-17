@@ -1215,9 +1215,11 @@ export const providerProfiles = mysqlTable("providerProfiles", {
   licenseExpiry: timestamp("licenseExpiry"),
   specialization: varchar("specialization", { length: 255 }), // e.g., "Pediatrics", "Emergency Medicine"
   yearsOfExperience: int("yearsOfExperience"),
+  /** Canonical facility — preferred over free-text facilityName */
+  facilityId: int("facilityId"),
   facilityName: varchar("facilityName", { length: 255 }),
   facilityType: mysqlEnum("facilityType", ["primary_health_center", "health_post", "district_hospital", "private_clinic", "ngo_clinic", "other"]),
-  facilityRegion: varchar("facilityRegion", { length: 255 }), // e.g., "Nairobi", "Kisumu"
+  facilityRegion: varchar("facilityRegion", { length: 255 }), // legacy; prefer county on careFacilities
   facilityCountry: varchar("facilityCountry", { length: 255 }).default("Kenya"),
   facilityPhone: varchar("facilityPhone", { length: 20 }),
   facilityEmail: varchar("facilityEmail", { length: 320 }),
@@ -2626,3 +2628,34 @@ export const adminAlertDispatches = mysqlTable("adminAlertDispatches", {
 
 export type AdminAlertDispatch = typeof adminAlertDispatches.$inferSelect;
 export type InsertAdminAlertDispatch = typeof adminAlertDispatches.$inferInsert;
+
+/**
+ * Canonical facility registry for providers, Care Signal, and geographic QI rollups.
+ * Use `mergedIntoId` when admin merges duplicate names; always resolve via registry helper.
+ */
+export const careFacilities = mysqlTable("careFacilities", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  county: varchar("county", { length: 128 }),
+  country: varchar("country", { length: 128 }).notNull().default("Kenya"),
+  subCounty: varchar("subCounty", { length: 128 }),
+  facilityType: mysqlEnum("facilityType", [
+    "primary_health_center",
+    "health_post",
+    "district_hospital",
+    "private_clinic",
+    "ngo_clinic",
+    "other",
+  ]),
+  /** Points to canonical row after admin merge */
+  mergedIntoId: int("mergedIntoId"),
+  institutionalAccountId: int("institutionalAccountId"),
+  isSystem: boolean("isSystem").default(false).notNull(),
+  /** Stable key for seeded system rows (e.g. outreach-mobile) */
+  systemSlug: varchar("systemSlug", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type CareFacility = typeof careFacilities.$inferSelect;
+export type InsertCareFacility = typeof careFacilities.$inferInsert;

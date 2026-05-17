@@ -6,12 +6,14 @@ import { CheckCircle2, AlertCircle, Heart, Activity, Lock } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
 
 export default function CareSignalLogger() {
   const { user, loading } = useAuth();
   const { role: selectedRole, isLoading: roleLoading } = useUserRole();
   const [step, setStep] = useState<"event" | "chain" | "gaps" | "review">("event");
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [facility, setFacility] = useState<FacilitySelection | null>(null);
 
   // Event details
   const [eventDate, setEventDate] = useState("");
@@ -76,8 +78,12 @@ export default function CareSignalLogger() {
 
   const handleSubmit = async () => {
     try {
+      if (!facility?.facilityId) {
+        alert("Please select the facility where this care was delivered.");
+        return;
+      }
       console.log("Submitting Care Signal event with provider:", user?.id);
-      
+
       const result = await submitEventMutation.mutateAsync({
         eventDate,
         childAge: parseInt(childAge),
@@ -89,6 +95,7 @@ export default function CareSignalLogger() {
         gapDetails,
         outcome,
         neurologicalStatus,
+        facilityId: facility.facilityId,
       });
       
       if (result.success) {
@@ -220,6 +227,8 @@ export default function CareSignalLogger() {
                   Report anonymously (your name won't be attached to this report)
                 </label>
               </div>
+
+              <FacilityPicker value={facility} onChange={setFacility} required />
 
               {/* Event Date */}
               <div>

@@ -16,9 +16,10 @@ import {
   users,
   payments,
   enrollments,
+  careFacilities,
 } from "../../drizzle/schema";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess } from "../lib/institution-access";
@@ -178,7 +179,10 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       }
       const rows = await db
-        .select({ companyName: institutionalAccounts.companyName })
+        .select({
+          id: institutionalAccounts.id,
+          companyName: institutionalAccounts.companyName,
+        })
         .from(institutionalAccounts)
         .where(eq(institutionalAccounts.userId, ctx.user.id))
         .orderBy(desc(institutionalAccounts.id))
@@ -187,7 +191,20 @@ export const institutionRouter = router({
       if (!inst?.companyName?.trim()) {
         throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
       }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(
+          and(
+            eq(careFacilities.institutionalAccountId, inst.id),
+            isNull(careFacilities.mergedIntoId)
+          )
+        )
+        .limit(1);
+
       return getFacilityCareSignalDashboard({
+        facilityId: linkedFacility?.id,
         facilityName: inst.companyName.trim(),
         lastDays: input?.lastDays ?? 90,
       });

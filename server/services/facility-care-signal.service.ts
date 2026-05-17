@@ -1,38 +1,80 @@
 /**
- * Facility-level Care Signal intelligence (QI workspace per hospital/clinic).
+ * Facility-, county-, and country-level Care Signal intelligence.
  */
-import { desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { getDb } from "../db";
-import { careSignalEvents, providerProfiles, users } from "../../drizzle/schema";
+import {
+  careSignalEvents,
+  providerProfiles,
+  users,
+  careFacilities,
+} from "../../drizzle/schema";
+import { getFacilityById, resolveCanonicalFacilityId } from "./facility-registry.service";
 
-/** Distinct facility names seen in Care Signal submissions. */
+/** Facilities with Care Signal volume (canonical registry). */
 export async function listCareSignalFacilities(options: { limit?: number } = {}) {
   const db = await getDb();
-  if (!db) return { facilities: [] as Array<{ facilityName: string; eventCount: number }> };
+  if (!db) return { facilities: [] as Array<{ facilityId: number; facilityName: string; county: string | null; country: string; eventCount: number }> };
 
   const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-  const rows = await db
+  const allEvents = await db
     .select({
+      facilityId: careSignalEvents.facilityId,
       gapDetails: careSignalEvents.gapDetails,
-      createdAt: careSignalEvents.createdAt,
     })
     .from(careSignalEvents)
     .where(gte(careSignalEvents.createdAt, since));
 
-  const counts: Record<string, number> = {};
-  for (const row of rows) {
+  const countsByFacilityId: Record<number, number> = {};
+  const legacyNameCounts: Record<string, number> = {};
+
+  for (const row of allEvents) {
+    if (row.facilityId) {
+      countsByFacilityId[row.facilityId] = (countsByFacilityId[row.facilityId] ?? 0) + 1;
+      continue;
+    }
     try {
       const details = JSON.parse(row.gapDetails) as { facilityName?: string };
       const name = (details.facilityName ?? "").trim();
       if (!name || name === "Unknown") continue;
-      counts[name] = (counts[name] ?? 0) + 1;
+      legacyNameCounts[name] = (legacyNameCounts[name] ?? 0) + 1;
     } catch {
       /* skip */
     }
   }
 
-  const facilities = Object.entries(counts)
-    .map(([facilityName, eventCount]) => ({ facilityName, eventCount }))
+
+  const facilityIds = Object.keys(countsByFacilityId).map(Number);
+  const registryRows =
+    facilityIds.length > 0
+      ? await db
+          .select({
+            id: careFacilities.id,
+            name: careFacilities.name,
+            county: careFacilities.county,
+            country: careFacilities.country,
+          })
+          .from(careFacilities)
+          .where(inArray(careFacilities.id, facilityIds))
+      : [];
+
+  const facilities = registryRows
+    .map((f) => ({
+      facilityId: f.id,
+      facilityName: f.name,
+      county: f.county,
+      country: f.country,
+      eventCount: countsByFacilityId[f.id] ?? 0,
+    }))
+    .concat(
+      Object.entries(legacyNameCounts).map(([facilityName, eventCount]) => ({
+        facilityId: 0,
+        facilityName,
+        county: null as string | null,
+        country: "Kenya",
+        eventCount,
+      }))
+    )
     .sort((a, b) => b.eventCount - a.eventCount)
     .slice(0, options.limit ?? 100);
 
@@ -40,22 +82,39 @@ export async function listCareSignalFacilities(options: { limit?: number } = {})
 }
 
 export async function getFacilityCareSignalDashboard(input: {
-  facilityName: string;
+  facilityId?: number;
+  facilityName?: string;
   lastDays?: number;
 }) {
   const db = await getDb();
-  const facilityName = input.facilityName.trim();
   const lastDays = input.lastDays ?? 90;
   const since = new Date(Date.now() - lastDays * 24 * 60 * 60 * 1000);
 
-  if (!db || !facilityName) {
-    return emptyDashboard(facilityName, lastDays);
+  let facilityId = input.facilityId ?? null;
+  let facilityName = input.facilityName?.trim() ?? "";
+  let facilityCounty: string | null = null;
+  let facilityCountry = "Kenya";
+
+  if (facilityId) {
+    const canonicalId = await resolveCanonicalFacilityId(facilityId);
+    const facility = await getFacilityById(canonicalId);
+    if (facility) {
+      facilityId = facility.id;
+      facilityName = facility.name;
+      facilityCounty = facility.county;
+      facilityCountry = facility.country;
+    }
+  }
+
+  if (!db || (!facilityId && !facilityName)) {
+    return emptyDashboard(facilityName, lastDays, facilityCounty, facilityCountry);
   }
 
   const allRecent = await db
     .select({
       id: careSignalEvents.id,
       userId: careSignalEvents.userId,
+      facilityId: careSignalEvents.facilityId,
       eventDate: careSignalEvents.eventDate,
       eventType: careSignalEvents.eventType,
       outcome: careSignalEvents.outcome,
@@ -69,6 +128,8 @@ export async function getFacilityCareSignalDashboard(input: {
     .orderBy(desc(careSignalEvents.createdAt));
 
   const events = allRecent.filter((e) => {
+    if (facilityId && e.facilityId === facilityId) return true;
+    if (!facilityName) return false;
     try {
       const details = JSON.parse(e.gapDetails) as { facilityName?: string };
       return (details.facilityName ?? "").trim() === facilityName;
@@ -94,18 +155,30 @@ export async function getFacilityCareSignalDashboard(input: {
     }
   }
 
-  const providersAtFacility = await db
-    .select({
-      userId: providerProfiles.userId,
-      userName: users.name,
-      userEmail: users.email,
-    })
-    .from(providerProfiles)
-    .innerJoin(users, eq(providerProfiles.userId, users.id))
-    .where(eq(providerProfiles.facilityName, facilityName))
-    .limit(200);
+  const providersAtFacility = facilityId
+    ? await db
+        .select({
+          userId: providerProfiles.userId,
+          userName: users.name,
+          userEmail: users.email,
+        })
+        .from(providerProfiles)
+        .innerJoin(users, eq(providerProfiles.userId, users.id))
+        .where(eq(providerProfiles.facilityId, facilityId))
+        .limit(200)
+    : facilityName
+      ? await db
+          .select({
+            userId: providerProfiles.userId,
+            userName: users.name,
+            userEmail: users.email,
+          })
+          .from(providerProfiles)
+          .innerJoin(users, eq(providerProfiles.userId, users.id))
+          .where(eq(providerProfiles.facilityName, facilityName))
+          .limit(200)
+      : [];
 
-  const reportersWithEvents = [...reporterIds];
   const providersWithoutSubmission = providersAtFacility.filter(
     (p) => !reporterIds.has(p.userId)
   );
@@ -118,7 +191,10 @@ export async function getFacilityCareSignalDashboard(input: {
   const underReview = events.filter((e) => e.status === "under_review").length;
 
   return {
+    facilityId,
     facilityName,
+    facilityCounty,
+    facilityCountry,
     lastDays,
     totalSubmissions: events.length,
     submissionsThisMonth: events.filter((e) => {
@@ -146,9 +222,17 @@ export async function getFacilityCareSignalDashboard(input: {
   };
 }
 
-function emptyDashboard(facilityName: string, lastDays: number) {
+function emptyDashboard(
+  facilityName: string,
+  lastDays: number,
+  facilityCounty: string | null,
+  facilityCountry: string
+) {
   return {
+    facilityId: null as number | null,
     facilityName,
+    facilityCounty,
+    facilityCountry,
     lastDays,
     totalSubmissions: 0,
     submissionsThisMonth: 0,
