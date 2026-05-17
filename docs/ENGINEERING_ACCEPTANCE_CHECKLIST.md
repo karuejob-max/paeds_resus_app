@@ -6,7 +6,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 ## Every PR / sprint slice
 
-- [ ] **`pnpm run check`** (`tsc --noEmit`) passes. Prefer **`pnpm run ci:gate`** (check + `test:unit` + build) before merge to `main` where practicable.
+- [ ] **`pnpm run check`** (`tsc --noEmit`) passes. Prefer **`pnpm run ci:gate`** (check + `test:unit` + `verify:sprint1` + build) before merge to `main`. Run **`pnpm run test:clinical`** when touching Resus/clinical engines.
 - [ ] Aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) (auth, roles, reports definitions, priority order).
 - [ ] If the change affects **positioning**, **multi-product scope**, or **institutional / community** flows, aligns with [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
 - [ ] No new single-role lock; multi-role UI switch and default `userType` behaviour preserved.

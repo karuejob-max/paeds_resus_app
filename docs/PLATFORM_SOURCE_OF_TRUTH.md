@@ -155,7 +155,7 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 | Topic | Status |
 |-------|--------|
 | **Password** | Minimum **8 characters** (enforced). Further complexity rules **TBD**. |
-| **Session** | Long-lived cookie (~**1 year**); sliding expiry / refresh **TBD**. |
+| **Session** | Configurable via **`SESSION_MAX_AGE_MS`** (`.env.example` recommends **30 minutes** for new production). If unset, legacy default ~**1 year**; sliding expiry / refresh **TBD**. |
 | **Audit** | Admin audit logging is part of the **security baseline** direction; scope **TBD** beyond current implementation. |
 | **Compliance** | Data retention, PHI handling, and full compliance posture **not** fully defined; ship **minimal** baseline as agreed and document here when locked. |
 

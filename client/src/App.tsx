@@ -3,6 +3,7 @@ import { Route, Switch, useLocation } from "wouter";
 import { Suspense, lazy, useEffect, type ReactNode } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { TrainingSimulationGate } from "./components/TrainingSimulationGate";
+import { AspirationalSurfaceGate } from "./components/AspirationalSurfaceGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -273,17 +274,23 @@ function Router() {
           )}</Route>
           <Route path="/personalized-learning">{() => (
             <RoleGate allowed={["provider"]}>
-              <PersonalizedLearningDashboard />
+              <AspirationalSurfaceGate title="Personalized learning (simulated)">
+                <PersonalizedLearningDashboard />
+              </AspirationalSurfaceGate>
             </RoleGate>
           )}</Route>
           <Route path="/predictive-intervention">{() => (
             <RoleGate allowed={["provider"]}>
-              <PredictiveInterventionDashboard />
+              <AspirationalSurfaceGate title="Predictive intervention (simulated)">
+                <PredictiveInterventionDashboard />
+              </AspirationalSurfaceGate>
             </RoleGate>
           )}</Route>
           <Route path="/targeted-solutions">{() => (
             <RoleGate allowed={["provider"]}>
-              <TargetedSolutions />
+              <TrainingSimulationGate title="Targeted solutions (training demo)">
+                <TargetedSolutions />
+              </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
           <Route path="/problem-identification">{() => (
@@ -295,12 +302,16 @@ function Router() {
           )}</Route>
           <Route path="/reassessment">{() => (
             <RoleGate allowed={["provider"]}>
-              <Reassessment />
+              <TrainingSimulationGate title="Reassessment (training demo)">
+                <Reassessment />
+              </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
           <Route path="/circulation-assessment">{() => (
             <RoleGate allowed={["provider"]}>
-              <CirculationAssessment />
+              <TrainingSimulationGate title="Circulation assessment (training demo)">
+                <CirculationAssessment />
+              </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
           {/* AHA courses — all routed through the unified DB-backed player */}

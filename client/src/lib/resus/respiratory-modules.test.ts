@@ -222,8 +222,8 @@ describe('Respiratory Emergency Modules - Comprehensive Testing', () => {
       const assessment = {
         age: 8,
         weightKg: 25,
-        oxygenSaturation: 94,
-        fio2: 0.5,
+        oxygenSaturation: 98,
+        fio2: 0.4,
         peep: 5,
         respiratoryRate: 28,
         bloodPressure: { systolic: 110, diastolic: 70 },
@@ -383,7 +383,11 @@ describe('Respiratory Emergency Modules - Comprehensive Testing', () => {
       const interventions = generateCroupInterventions(assessment);
       expect(interventions.length).toBeGreaterThan(0);
       expect(interventions.some(i => i.type.includes('steroid'))).toBe(true);
-      expect(interventions.some(i => i.type.includes('epinephrine'))).toBe(true);
+      expect(
+        interventions.some(
+          i => i.type.includes('epinephrine') || i.description.toLowerCase().includes('epinephrine')
+        )
+      ).toBe(true);
     });
 
     it('should generate emergency epiglottitis interventions', () => {

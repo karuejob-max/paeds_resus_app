@@ -30,10 +30,14 @@
 
 ---
 
-## 4. Compliance (future)
+## 4. Compliance and retention (baseline)
 
-- **HIPAA / PHI:** Not yet fully defined; treat user and health-related data as sensitive; no logging of PHI in audit log.
-- **Data retention:** To be defined; document in this file when agreed.
+- **HIPAA / PHI:** Not a certified HIPAA deployment; treat user and health-related data as sensitive; no logging of PHI in audit log.
+- **Care Signal / Safe-Truth submissions:** Retained in application DB per institutional policy; export/deletion requests handled operationally (TBD legal owner).
+- **`adminAuditLog`:** Target **90 days** online retention; archive/export before purge when compliance requires longer history.
+- **`analyticsEvents`:** Target **13 months** for product analytics rollups; raw events may be aggregated earlier.
+- **Browser session context (§5):** Clears when the tab closes (`sessionStorage`); no server sync of age/weight from that context.
+- **Account deletion:** Operational workflow TBD; until automated, document manual steps in PSOT §11 when locked.
 
 ---
 

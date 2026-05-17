@@ -21,6 +21,7 @@ import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
+import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
@@ -775,6 +776,7 @@ export default function ResusGPS() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <ClinicalUseDisclaimer />
       {/* Recording indicator */}
       {recordSessionMutation.isPending && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2 animate-pulse">

@@ -26,7 +26,10 @@ jobs:
       - name: Typecheck (app + service worker)
         run: pnpm run check
 
-      - name: Unit tests + Sprint 1 rollup verify
+      - name: Unit + clinical engine tests
+        run: pnpm run test:unit && pnpm run test:clinical
+
+      - name: Sprint 1 rollup verify
         run: pnpm run verify:sprint1
 
       - name: Production build

@@ -12,7 +12,18 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heart, Wind, AlertTriangle, Zap, Brain, Droplet } from 'lucide-react';
 
-export type EmergencyType = 'cpr' | 'status_asthmaticus' | 'bronchiolitis' | 'pneumonia' | 'ards' | 'upper_airway' | 'anaphylaxis' | 'septic_shock' | 'dka' | 'status_epilepticus';
+export type EmergencyType =
+  | 'cpr'
+  | 'respiratory'
+  | 'status_asthmaticus'
+  | 'bronchiolitis'
+  | 'pneumonia'
+  | 'ards'
+  | 'upper_airway'
+  | 'anaphylaxis'
+  | 'septic_shock'
+  | 'dka'
+  | 'status_epilepticus';
 
 interface EmergencyTypeSelectorProps {
   patientWeight: number;

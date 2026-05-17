@@ -76,10 +76,8 @@ export const footerSections = {
     { label: "Institutional Dashboard", href: "/hospital-admin-dashboard" },
     { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
-  mlDashboards: [
-    { label: "Predictive Alerts", href: "/predictive-intervention" },
-    { label: "Learning Path", href: "/personalized-learning" },
-  ],
+  // Simulated ML previews — not linked in production nav (see AspirationalSurfaceGate).
+  mlDashboards: [] as { label: string; href: string }[],
 };
 
 // Dashboard sidebar navigation for authenticated users - ONLY WORKING PAGES
@@ -88,8 +86,6 @@ export const dashboardNavItems: NavItem[] = [
   { label: "Payment", href: "/payment", icon: "💳" },
   { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
-  { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
-  { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
 ];
 
 // Breadcrumb navigation helper - ONLY WORKING PAGES

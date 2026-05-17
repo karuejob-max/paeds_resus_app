@@ -1,8 +1,29 @@
 # Verification: Codex & Manus Deliverables vs Repo
 
-**Date:** Feb 2025  
+**Date:** Feb 2025 (historical snapshot below); **updated 2026-05-17** for Codex audit closure status.  
 **Purpose:** Confirm what was agreed, what exists in the repo, and what is still pending.  
 **Checked by:** Cursor (per CEO brief §13 — repo review and alignment).
+
+---
+
+## 0. Current status (2026-05-17 — Codex external audit)
+
+| Codex finding | Status |
+|---------------|--------|
+| `pnpm run check` green | **Done** — `ci:gate` = check + `test:unit` + `verify:sprint1` + build |
+| Quarantine aspirational / random impact APIs | **Done** — `exposeAspirationalApis`; `realTimeImpact` not mounted |
+| Demo UI (predictive ML, simulated learning) | **Done** — `AspirationalSurfaceGate` + nav links removed |
+| Training demos (problem ID, targeted solutions, etc.) | **Done** — `TrainingSimulationGate` |
+| ProblemIdentification hypoxaemia mismatch | **Done** |
+| `server/security.ts` demo key / SHA-256 | **Done** — env secret in prod; bcrypt auth elsewhere |
+| Patient age/weight in `localStorage` | **Done** — `sessionStorage` + migration |
+| HTML sanitization | **Done** — `sanitizeCourseHtml` on course surfaces |
+| Auditable tests | **Done** — `test:unit`, `test:clinical` (engines), `test:api`/`test:db`/`test:e2e` scripts |
+| Clinical safety register | **Started** — [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) with engine rows |
+| Staging branch discipline | **Docs + CI** — [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md); live staging URL TBD |
+| Full `pnpm test` green | **Not a gate** — use `ci:gate` + `test:clinical` |
+
+Deliverables in §2 marked “not present” were **added later** — see README collaboration section and `docs/PLATFORM_SOURCE_OF_TRUTH.md`.
 
 ---
 

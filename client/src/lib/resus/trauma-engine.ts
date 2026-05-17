@@ -56,6 +56,8 @@ export interface TraumaSeverity {
   requiresICU: boolean;
   requiresOperatingRoom: boolean;
   requiresAirwayManagement: boolean;
+  requiresAirwayIntervention?: boolean;
+  requiresChestIntervention?: boolean;
   requiresFluidResuscitation: boolean;
   requiresBloodProducts: boolean;
   requiresSpinalPrecautions: boolean;
@@ -136,6 +138,10 @@ export function assessTraumaSeverity(assessment: TraumaAssessment): TraumaSeveri
     level = 'minor';
   }
 
+  const requiresAirwayIntervention =
+    hasAirwayCompromise || assessment.consciousness === 'unresponsive';
+  const requiresChestIntervention = assessment.chestWallIntegrity !== 'intact';
+
   return {
     level,
     classification: `${level.toUpperCase()} TRAUMA`,
@@ -144,7 +150,9 @@ export function assessTraumaSeverity(assessment: TraumaAssessment): TraumaSeveri
     }`,
     requiresICU: level === 'severe' || level === 'critical',
     requiresOperatingRoom,
-    requiresAirwayManagement: hasAirwayCompromise || assessment.consciousness === 'unresponsive',
+    requiresAirwayManagement: requiresAirwayIntervention,
+    requiresAirwayIntervention,
+    requiresChestIntervention,
     requiresFluidResuscitation: isInShock,
     requiresBloodProducts,
     requiresSpinalPrecautions: assessment.suspectedSpinalInjury,

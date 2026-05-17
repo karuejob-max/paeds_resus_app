@@ -29,6 +29,20 @@ export interface SafetyGateCheckResult {
  * Safety gate configurations by emergency type
  */
 const SAFETY_GATE_CONFIGS: Record<EmergencyType, SafetyGateConfig> = {
+  respiratory: {
+    emergencyType: 'respiratory',
+    requiresJustification: true,
+    requiresSecondVerification: false,
+    requiresPhysicianReview: false,
+    auditLevel: 'enhanced',
+    allowedJustificationCategories: [
+      'resource_unavailable',
+      'clinical_judgment',
+      'patient_allergy',
+      'contraindication',
+      'other',
+    ],
+  },
   cpr: {
     emergencyType: 'cpr',
     requiresJustification: true,

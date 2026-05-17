@@ -12,11 +12,11 @@
 
 | ID | Scope | Code / tests | Owner / source (fill) | Last reviewed |
 |----|--------|----------------|------------------------|---------------|
-| RESUS-ABCDE | Primary survey, threats, interventions | `abcdeEngine.ts`, `abcde-engine.test.ts` | TBD / local protocol + PALS-style refs | TBD |
-| RESUS-DOSE | Weight-based dosing display | `abcdeEngine.ts` `calcDose`, `dose-rationale.ts` | TBD | TBD |
-| RESUS-UNDO | Session undo/redo | `undo-manager.ts`, `undo-manager.test.ts` | TBD | TBD |
-| RESUS-DEDUP | Duplicate medication warning | `medication-deduplication.ts` | TBD | TBD |
-| CPR-CLOCK | CPR timing / team UI | `CPRClockTeam.tsx`, `cpr-engine.ts` | TBD / AHA PALS | TBD |
+| RESUS-ABCDE | Primary survey, threats, interventions | `abcdeEngine.ts`, `abcde-engine.test.ts` | Engineering + clinical lead / PALS-style paediatric emergency refs | 2026-05-17 |
+| RESUS-DOSE | Weight-based dosing display | `abcdeEngine.ts` `calcDose`, `dose-rationale.ts`, `InterventionDoseRationale` | Engineering + clinical lead / weight-band tables in repo | 2026-05-17 |
+| RESUS-UNDO | Session undo/redo | `undo-manager.ts`, `undo-manager.test.ts` | Engineering | 2026-05-17 |
+| RESUS-DEDUP | Duplicate medication warning | `medication-deduplication.ts`, `medication-deduplication.test.ts` | Engineering | 2026-05-17 |
+| CPR-CLOCK | CPR timing / team UI | `CPRClockTeam.tsx`, `cpr-engine.ts`, `cpr-engine.test.ts` | Engineering + clinical lead / AHA PALS timing norms | 2026-05-17 |
 
 ## Non–bedside training surfaces
 

@@ -88,7 +88,7 @@ export function assessDKASeverity(assessment: DKAAssessment): DKASeverity {
   let classification: string;
   let riskOfCerebralEdema: boolean;
 
-  if (score >= 8 || assessment.pH < 7.1 || assessment.mentalStatus !== 'alert') {
+  if (score >= 8 || assessment.pH < 7.1 || assessment.mentalStatus === 'unresponsive') {
     level = 'severe';
     classification = 'Severe DKA';
     riskOfCerebralEdema = true;
@@ -122,7 +122,8 @@ export function calculateDKAFluidResuscitation(
   const interventions: DKAIntervention[] = [];
 
   // Calculate total fluid deficit
-  const totalDeficitMl = assessment.weightKg * 10 * (assessment.fluidDeficit / 100);
+  // fluidDeficit is percent (e.g. 5 = 5% of body weight → mL)
+  const totalDeficitMl = assessment.weightKg * (assessment.fluidDeficit / 100) * 1000;
 
   // Phase 1: Initial resuscitation (first 30 minutes)
   const phase1Fluid = Math.min(totalDeficitMl * 0.5, assessment.weightKg * 20);
