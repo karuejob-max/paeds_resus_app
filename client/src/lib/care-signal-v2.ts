@@ -7,6 +7,45 @@ import type { FacilitySelection } from "@/components/FacilityPicker";
 
 export const CARE_SIGNAL_FORM_VERSION = "v2" as const;
 
+/** Shared step titles + copy for the v2 form and the Care Signal landing page. */
+export const CARE_SIGNAL_V2_STEP_GUIDE: Array<{ title: string; description: string }> = [
+  {
+    title: "Facility & context",
+    description:
+      "Select your hospital or clinic (county and country for roll-ups), when the event occurred, and whether to submit anonymously.",
+  },
+  {
+    title: "Event type",
+    description:
+      "Choose resuscitation or arrest, serious deterioration, near miss, or a recurring systems concern affecting children.",
+  },
+  {
+    title: "Child & presentation",
+    description:
+      "Record age band, primary emergency type, and a brief clinical summary so reviewers understand what happened.",
+  },
+  {
+    title: "Timeline & delays",
+    description:
+      "Estimate delays to recognition, first assessment, code-team activation, definitive care, and transfer — data counties and MOH use for QI.",
+  },
+  {
+    title: "Response & resources",
+    description:
+      "Document chain-of-survival steps, CPR quality, equipment that was unavailable, staffing, and whether protocols were followed.",
+  },
+  {
+    title: "Outcome",
+    description:
+      "Record survival, neurological status, ROSC when relevant, and whether the harm was likely preventable.",
+  },
+  {
+    title: "Systems & action",
+    description:
+      "Tag contributing factors and system gaps, then describe one concrete change that could save the next child.",
+  },
+];
+
 export type CareSignalReportType =
   | "resuscitation_event"
   | "clinical_deterioration"

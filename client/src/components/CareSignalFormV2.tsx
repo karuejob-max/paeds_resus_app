@@ -39,18 +39,11 @@ import {
   OUTCOME_OPTIONS,
   NEURO_OPTIONS,
   type CareSignalV2FormState,
+  CARE_SIGNAL_V2_STEP_GUIDE,
 } from "@/lib/care-signal-v2";
 import type { SafeTruthAgeBand } from "@/lib/safetruth-age";
 
-const STEPS = [
-  { id: 0, title: "Facility & context" },
-  { id: 1, title: "Event type" },
-  { id: 2, title: "Child & presentation" },
-  { id: 3, title: "Timeline & delays" },
-  { id: 4, title: "Response & resources" },
-  { id: 5, title: "Outcome" },
-  { id: 6, title: "Systems & action" },
-];
+const STEPS = CARE_SIGNAL_V2_STEP_GUIDE.map((step, id) => ({ id, title: step.title }));
 
 export default function CareSignalFormV2() {
   const [step, setStep] = useState(0);
