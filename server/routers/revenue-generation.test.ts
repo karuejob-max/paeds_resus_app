@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { appRouter } from '../routers';
 
 const createMockContext = () => ({
-  user: { id: 'user-1', role: 'user' as const },
+  user: { id: 1, role: 'admin' as const },
   req: {},
   res: {},
 });
@@ -169,10 +169,9 @@ describe('Revenue Generation Router', () => {
     
     const result = await caller.revenueGeneration.getImpactToRevenueCorrelation();
 
-    expect(result.correlation).toContain('Direct correlation');
-    expect(result).toHaveProperty('projectedImpactAndRevenue');
-    expect(result.projectedImpactAndRevenue.year_2026.livesSaved).toBe(5000);
-    expect(result.projectedImpactAndRevenue.year_2026.revenue).toBe(1750000);
+    expect(result.disclaimer).toContain('Planning');
+    expect(result).toHaveProperty('projectedPlanningScenarios');
+    expect(result.projectedPlanningScenarios.year_2026.subscriptionRevenue).toBe(1750000);
   });
 
   it('should verify impact and revenue correlation', async () => {
@@ -180,10 +179,8 @@ describe('Revenue Generation Router', () => {
     
     const result = await caller.revenueGeneration.getImpactToRevenueCorrelation();
 
-    expect(result.projectedImpactAndRevenue.year_2027.livesSaved).toBe(20000);
-    expect(result.projectedImpactAndRevenue.year_2027.revenue).toBe(8000000);
-    expect(result.projectedImpactAndRevenue.year_2028.livesSaved).toBe(50000);
-    expect(result.projectedImpactAndRevenue.year_2028.revenue).toBe(15000000);
+    expect(result.projectedPlanningScenarios.year_2027.subscriptionRevenue).toBe(8000000);
+    expect(result.model).not.toHaveProperty('livesSaved');
   });
 
   it('should get owner financial dashboard', async () => {
@@ -237,12 +234,11 @@ describe('Revenue Generation Router', () => {
     expect(result.annualProfitProjection).toBe(1220000);
   });
 
-  it('should verify win-win model: more impact = more revenue', async () => {
+  it('should not expose lives-saved projections in planning correlation', async () => {
     const caller = appRouter.createCaller(createMockContext());
     
     const result = await caller.revenueGeneration.getImpactToRevenueCorrelation();
 
-    expect(result.winWinModel).toContain('More lives saved = More revenue');
-    expect(result.winWinModel).toContain('More revenue = More resources to save more lives');
+    expect(JSON.stringify(result)).not.toMatch(/livesSaved|lives saved/i);
   });
 });

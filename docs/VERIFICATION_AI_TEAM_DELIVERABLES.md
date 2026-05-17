@@ -21,7 +21,9 @@
 | Auditable tests | **Done** — `test:unit`, `test:clinical` (engines), `test:api`/`test:db`/`test:e2e` scripts |
 | Clinical safety register | **Started** — [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) with engine rows |
 | Staging branch discipline | **Docs + CI** — [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md); live staging URL TBD |
-| Full `pnpm test` green | **Not a gate** — use `ci:gate` + `test:clinical` |
+| Full `pnpm test` green | **Not a gate** — `pnpm test` = unit + clinical + api; full suite: `pnpm run test:all` |
+| `revenueGeneration` / `automatedGrading` public + lives saved | **Done (2026-05-17)** — admin-only / protected; impact correlation stripped of lives-saved projections; routers only mount when `exposeAspirationalApis` (off in production by default) |
+| `pnpm test` = full Vitest green | **No** — use `pnpm test` (gate) or `ci:gate`; exploratory: `pnpm run test:all`; enrollment flows: `pnpm run test:api:enrollment` (needs DB mocks — 10 known reds locally) |
 
 Deliverables in §2 marked “not present” were **added later** — see README collaboration section and `docs/PLATFORM_SOURCE_OF_TRUTH.md`.
 

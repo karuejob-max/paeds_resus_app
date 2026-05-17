@@ -60,6 +60,10 @@ function deriveEncryptionKey(): { key: Buffer; operational: boolean } {
   return { key: crypto.scryptSync(material, salt, 32), operational: true };
 }
 
+/**
+ * In-memory `auditLogs` / `dataAccessLogs` are **demonstration samples only**.
+ * Authoritative admin history is `adminAuditLog` in the database (`server/_core/trpc` adminProcedure).
+ */
 class SecurityService {
   private auditLogs: AuditLog[] = [];
   private dataAccessLogs: DataAccessLog[] = [];

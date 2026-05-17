@@ -293,6 +293,7 @@ function Router() {
               </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
+          {/* Training-only ABCDE demo — not clinical decision support (see CLINICAL_SAFETY_REGISTER PROBLEM-ID). */}
           <Route path="/problem-identification">{() => (
             <RoleGate allowed={["provider"]}>
               <TrainingSimulationGate title="Problem identification demo">

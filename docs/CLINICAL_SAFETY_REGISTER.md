@@ -22,7 +22,7 @@
 
 | ID | Notes |
 |----|--------|
-| PROBLEM-ID | `ProblemIdentification.tsx` — **demo / training only**; banner in UI; not wired to live vitals. |
+| PROBLEM-ID | `/problem-identification` — **demo / training only**; `TrainingSimulationGate` + in-page banner; mock findings only; **not** live clinical decision support. Linked training chain: targeted solutions, reassessment, circulation (same gate). |
 
 ## Change control
 
