@@ -45,7 +45,7 @@
 | `institutional_inquiry` | B2B inquiry | `useAnalytics.ts` | inquiryType | |
 | `safetruth_submission` | Parent Safe-Truth timeline submitted (server) | `server/routers/parent-safetruth.ts` | submissionId, childOutcome, eventCount | Distinct from monthly `parentSafeTruthSubmissions` KPI; feeds **last 7 days** product activity. |
 | `institution_training_schedule_created` | Hospital training session scheduled | `server/routers/institution.ts` | institutionId, scheduleId, programType, trainingType | |
-| `care_signal_submission_created` | Care Signal row persisted (server) | `server/routers/care-signal-events.ts` → `trackEvent` | careSignalEventId, eventType, isAnonymous | Distinct from `safetruth_submission` (parent). Feeds **last 7 days** when emitted. |
+| `care_signal_submission_created` | Care Signal row persisted (server) | `server/routers/care-signal-events.ts` → `trackEvent` | careSignalEventId, eventType, isAnonymous, outcome, systemGaps, facilityId, facilityName, facilityCounty, facilityCountry | Distinct from `safetruth_submission` (parent). Feeds **last 7 days** when emitted. DB row **`submissionVersion`**: `v1` (legacy form) or **`v2`** (QI form; `gapDetails.formVersion === "v2"`). Client may also emit `care_signal_submission_created` with `eventData.formVersion: "v2"` after submit. |
 | `provider_conversion` | Provider funnel and progression steps | `client/src/hooks/useProviderConversionAnalytics.ts`, `client/src/pages/Home.tsx`, `client/src/pages/ProviderDashboard.tsx`, `client/src/components/EnrollmentModal.tsx`, `client/src/components/LearningPath.tsx`, `server/routers.ts` (`auth.updateUserType`) | role, source, courseId, moduleId, amountCents, reason | Added for conversion roadmap execution; complements (does not replace) `enrollment_started`, `payment_initiation`, `course_enrollment`. |
 | `admin_ops` | Admin/operator execution telemetry | `server/routers/notifications.ts` (lifecycle batch dispatch) | dryRun, limitUsers, processedUsers, sent, skipped | Used to monitor operational batch execution and dispatch outcomes from admin tools. |
 
@@ -53,12 +53,15 @@
 
 Additional fellowship/QI events may use the same prefix (e.g. streak milestones). **Do not** reuse `safetruth_submission` for staff flows. See [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §17.
 
+**Form v2 (2026-05-17):** Structured QI payload in `careSignalEvents.gapDetails` (`formVersion: "v2"`) — report type, care location, timeline delays, equipment gaps, preventability, contributing factors, `proposedSystemFix`. Maps to legacy `eventType` / `outcome` / `systemGaps` / `chainOfSurvival` for fellowship and rollups. Facility dashboards parse v2 for preventable counts and top equipment gaps (`facility-care-signal.service`).
+
 ---
 
 **Changelog**
 
 | Date | Change |
 |------|--------|
+| 2026-05-17 | **Care Signal form v2:** `submissionVersion` v1/v2 on insert; `gapDetails.formVersion === "v2"`; analytics + facility QI rollups documented above. |
 | 2026-05-17 | ResusGPS analytics wired: letter/threat/diagnosis/resource-gap/export in `ResusGPS.tsx`; server `resus_session` / `resus_assessment` on fellowship session/case record. Removed orphan aspirational routers from repo. |
 | 2026-04-13 | Added degraded-channel fallback policy for lifecycle sends (`channelReliability.fallbackPolicy` + fallback error markers) and `channelFallbackActivations` rollup in lifecycle dispatch summary for operator monitoring. |
 | 2026-04-13 | Added channel health alert rollup (`channelHealthAlerts`) in `notifications.getLifecycleDispatchSummary` using delivery-rate thresholds from channel sent/failed outcomes, and surfaced alert banners in `AdminReports`. |

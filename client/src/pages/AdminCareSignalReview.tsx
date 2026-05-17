@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { careSignalV2ReviewRows } from "@/lib/care-signal-v2";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -286,6 +287,11 @@ export default function AdminCareSignalReview() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {event.gapDetails?.formVersion === "v2" && (
+                          <Badge variant="secondary" className="text-xs">
+                            v2 QI
+                          </Badge>
+                        )}
                         <Badge
                           className={
                             OUTCOME_STYLE[event.outcome] ?? "bg-slate-100 text-slate-600"
@@ -372,7 +378,7 @@ export default function AdminCareSignalReview() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Review Care Signal Event #{selectedEvent?.id}</DialogTitle>
             <DialogDescription>
@@ -416,6 +422,19 @@ export default function AdminCareSignalReview() {
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                )}
+                {selectedEvent.gapDetails?.formVersion === "v2" && (
+                  <div className="border-t border-slate-200 pt-2 mt-2 space-y-2">
+                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      QI detail (form v2)
+                    </p>
+                    {careSignalV2ReviewRows(selectedEvent.gapDetails).map((row) => (
+                      <div key={row.label}>
+                        <span className="text-slate-500 block">{row.label}</span>
+                        <span className="font-medium text-slate-800">{row.value}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

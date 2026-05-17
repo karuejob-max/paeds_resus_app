@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "lucide-react";
-import CareSignalForm from "@/components/CareSignalForm";
+import CareSignalFormV2 from "@/components/CareSignalFormV2";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 
@@ -24,7 +24,7 @@ export default function CareSignal() {
             <h1 className="text-4xl font-bold">Care Signal</h1>
           </div>
           <p className="text-lg text-blue-100 max-w-2xl mb-6">
-            A confidential space for healthcare providers to report paediatric emergency events, identify system gaps, and drive improvement. Parent and guardian stories live under Safe-Truth (parents), not here.
+            Structured reporting so no child dies from preventable causes — timelines, delays, resources, and system fixes your facility, county, and partners can act on. Parent stories remain under Safe-Truth.
           </p>
           <div className="flex flex-wrap gap-3">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
@@ -89,7 +89,7 @@ export default function CareSignal() {
 
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
-          <CareSignalForm />
+          <CareSignalFormV2 />
         </div>
 
         {/* Resource Gap Trends — sourced from ResusGPS sessions, NOT from Care Signal events */}
@@ -123,7 +123,7 @@ export default function CareSignal() {
           <CardHeader>
             <CardTitle>How Care Signal works</CardTitle>
             <CardDescription>
-              A 4-step process to capture, analyze, and improve pediatric emergency care
+              Seven focused steps: facility context, delays, resources, preventability, and actions for systems change
             </CardDescription>
           </CardHeader>
           <CardContent>

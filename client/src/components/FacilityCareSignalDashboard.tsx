@@ -90,6 +90,46 @@ export function FacilityCareSignalDashboard({
         </Card>
       </div>
 
+      {data.qiMetrics && data.qiMetrics.v2SubmissionCount > 0 ? (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="text-base">Preventability & contributing factors (v2 reports)</CardTitle>
+            <CardDescription>
+              {data.qiMetrics.v2SubmissionCount} structured reports · {data.qiMetrics.deathsCount} deaths ·{" "}
+              {data.qiMetrics.likelyPreventableCount} flagged likely/possibly preventable
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {data.qiMetrics.topContributingFactors.length > 0 ? (
+              <div>
+                <p className="font-medium mb-1">Top contributing factors</p>
+                <ul className="space-y-1">
+                  {data.qiMetrics.topContributingFactors.map((f) => (
+                    <li key={f.factor} className="flex justify-between gap-2">
+                      <span>{f.factor}</span>
+                      <Badge variant="secondary">{f.count}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {data.qiMetrics.topEquipmentGaps.length > 0 ? (
+              <div>
+                <p className="font-medium mb-1">Equipment / resources unavailable</p>
+                <ul className="space-y-1">
+                  {data.qiMetrics.topEquipmentGaps.map((f) => (
+                    <li key={f.item} className="flex justify-between gap-2">
+                      <span className="text-xs">{f.item}</span>
+                      <Badge variant="outline">{f.count}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {data.topGaps.length > 0 ? (
         <Card>
           <CardHeader>

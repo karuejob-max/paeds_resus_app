@@ -142,18 +142,55 @@ export async function getFacilityCareSignalDashboard(input: {
   const gapBreakdown: Record<string, number> = {};
   const statusBreakdown: Record<string, number> = {};
   const reporterIds = new Set<number>();
+  const preventableCounts: Record<string, number> = {};
+  const contributingFactorCounts: Record<string, number> = {};
+  const equipmentGapCounts: Record<string, number> = {};
+  let v2SubmissionCount = 0;
+  let deathsCount = 0;
 
   for (const e of events) {
     outcomeBreakdown[e.outcome] = (outcomeBreakdown[e.outcome] ?? 0) + 1;
     statusBreakdown[e.status] = (statusBreakdown[e.status] ?? 0) + 1;
     if (e.userId) reporterIds.add(e.userId);
+    if (e.outcome === "died") deathsCount++;
     try {
       const gaps = JSON.parse(e.systemGaps) as string[];
       for (const g of gaps) gapBreakdown[g] = (gapBreakdown[g] ?? 0) + 1;
     } catch {
       /* skip */
     }
+    try {
+      const details = JSON.parse(e.gapDetails) as {
+        formVersion?: string;
+        preventableAssessment?: string;
+        contributingFactors?: string[];
+        response?: { equipmentUnavailable?: string[] };
+      };
+      if (details.formVersion === "v2") {
+        v2SubmissionCount++;
+        const pa = details.preventableAssessment ?? "unknown";
+        preventableCounts[pa] = (preventableCounts[pa] ?? 0) + 1;
+        for (const f of details.contributingFactors ?? []) {
+          contributingFactorCounts[f] = (contributingFactorCounts[f] ?? 0) + 1;
+        }
+        for (const eq of details.response?.equipmentUnavailable ?? []) {
+          equipmentGapCounts[eq] = (equipmentGapCounts[eq] ?? 0) + 1;
+        }
+      }
+    } catch {
+      /* skip */
+    }
   }
+
+  const topContributingFactors = Object.entries(contributingFactorCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+    .map(([factor, count]) => ({ factor, count }));
+
+  const topEquipmentGaps = Object.entries(equipmentGapCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+    .map(([item, count]) => ({ item, count }));
 
   const providersAtFacility = facilityId
     ? await db
@@ -219,6 +256,15 @@ export async function getFacilityCareSignalDashboard(input: {
     })),
     providersAtFacility,
     providersWithoutSubmissionList: providersWithoutSubmission.slice(0, 20),
+    qiMetrics: {
+      v2SubmissionCount,
+      deathsCount,
+      likelyPreventableCount:
+        (preventableCounts.likely_preventable ?? 0) + (preventableCounts.possibly_preventable ?? 0),
+      preventableBreakdown: preventableCounts,
+      topContributingFactors,
+      topEquipmentGaps,
+    },
   };
 }
 
@@ -261,5 +307,13 @@ function emptyDashboard(
       userName: string | null;
       userEmail: string | null;
     }>,
+    qiMetrics: {
+      v2SubmissionCount: 0,
+      deathsCount: 0,
+      likelyPreventableCount: 0,
+      preventableBreakdown: {} as Record<string, number>,
+      topContributingFactors: [] as Array<{ factor: string; count: number }>,
+      topEquipmentGaps: [] as Array<{ item: string; count: number }>,
+    },
   };
 }

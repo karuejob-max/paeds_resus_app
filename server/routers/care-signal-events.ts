@@ -277,6 +277,8 @@ export const careSignalEventsRouter = router({
           outcome: input.outcome,
           neurologicalStatus: input.neurologicalStatus,
           status: "submitted",
+          submissionVersion:
+            (input.gapDetails as { formVersion?: string })?.formVersion === "v2" ? "v2" : "v1",
         });
 
         const insertId = (insertResult as unknown as { insertId: number }).insertId;
@@ -295,6 +297,8 @@ export const careSignalEventsRouter = router({
             facilityName,
             facilityCounty,
             facilityCountry,
+            submissionVersion:
+              (input.gapDetails as { formVersion?: string })?.formVersion === "v2" ? "v2" : "v1",
           },
         });
 
