@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { router, adminProcedure } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, getRecentErrors } from "../db";
+import { ENV } from "../_core/env";
+import { getMpesaDeploymentMode } from "../lib/mpesa-env";
 import {
   users,
   enrollments,
@@ -19,7 +21,15 @@ import {
   microCourses,
   microCourseEnrollments,
   fellowshipProgress,
+  payments,
+  errorTracking,
+  supportTickets,
 } from "../../drizzle/schema";
+import {
+  syncFellowshipProgressForUser,
+  syncFellowshipProgressBatch,
+  listProvidersWithoutFellowshipProgress,
+} from "../services/fellowship-progress.service";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
 
@@ -669,6 +679,161 @@ export const adminStatsRouter = router({
 
       return { rows, total };
     }),
+
+  /** Providers (individual) with no `fellowshipProgress` row — admin radar. */
+  getFellowshipTrackingGaps: adminProcedure
+    .input(
+      z.object({
+        search: z.string().max(200).optional(),
+        withActivityOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      return listProvidersWithoutFellowshipProgress({
+        search: input.search,
+        withActivityOnly: input.withActivityOnly,
+        limit: input.limit,
+        offset: input.offset,
+      });
+    }),
+
+  /** Recompute and upsert `fellowshipProgress` for one user or a batch. */
+  recomputeFellowshipProgress: adminProcedure
+    .input(
+      z.object({
+        userId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+        onlyWithActivity: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (input.userId !== undefined) {
+        const result = await syncFellowshipProgressForUser(input.userId);
+        return {
+          processed: 1,
+          succeeded: 1,
+          errors: [] as Array<{ userId: number; message: string }>,
+          created: result.created,
+        };
+      }
+      return syncFellowshipProgressBatch({
+        limit: input.limit,
+        offset: input.offset,
+        onlyWithActivity: input.onlyWithActivity,
+      });
+    }),
+
+  /** Platform ops snapshot: errors, payments, stuck enrollments, deployment hints. */
+  getOpsHealthSnapshot: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) {
+      return {
+        ok: false,
+        deployment: {
+          nodeEnv: ENV.isProduction ? "production" : "development",
+          appBaseUrl: ENV.appBaseUrl || null,
+          mpesaMode: getMpesaDeploymentMode(),
+        },
+        errors: { recent: [], newCount: 0, criticalCount: 0 },
+        payments: { failedRecent: [], staleMpesaPendingCount: 0 },
+        enrollments: { stuckPendingPayment: [] },
+        support: { openTicketCount: 0 },
+      };
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [recentErrors, criticalErrors, failedPayments, staleMpesa, stuckEnrollments, openTickets] =
+      await Promise.all([
+        getRecentErrors(25),
+        db
+          .select({ id: errorTracking.id })
+          .from(errorTracking)
+          .where(
+            and(
+              eq(errorTracking.severity, "critical"),
+              eq(errorTracking.status, "new")
+            )
+          ),
+        db
+          .select({
+            id: payments.id,
+            enrollmentId: payments.enrollmentId,
+            userId: payments.userId,
+            amount: payments.amount,
+            status: payments.status,
+            paymentMethod: payments.paymentMethod,
+            transactionId: payments.transactionId,
+            createdAt: payments.createdAt,
+          })
+          .from(payments)
+          .where(and(eq(payments.status, "failed"), gte(payments.createdAt, sevenDaysAgo)))
+          .orderBy(desc(payments.createdAt))
+          .limit(50),
+        db
+          .select({ id: payments.id })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.status, "pending"),
+              eq(payments.paymentMethod, "mpesa"),
+              lt(payments.createdAt, twentyFourHoursAgo)
+            )
+          ),
+        db
+          .select({
+            id: enrollments.id,
+            userId: enrollments.userId,
+            programType: enrollments.programType,
+            paymentStatus: enrollments.paymentStatus,
+            createdAt: enrollments.createdAt,
+          })
+          .from(enrollments)
+          .where(
+            and(
+              eq(enrollments.paymentStatus, "pending"),
+              lt(enrollments.createdAt, fortyEightHoursAgo)
+            )
+          )
+          .orderBy(desc(enrollments.createdAt))
+          .limit(50),
+        db
+          .select({ id: supportTickets.id })
+          .from(supportTickets)
+          .where(eq(supportTickets.status, "open")),
+      ]);
+
+    return {
+      ok: true,
+      deployment: {
+        nodeEnv: process.env.NODE_ENV ?? "development",
+        appBaseUrl: ENV.appBaseUrl || process.env.APP_BASE_URL || null,
+        mpesaMode: getMpesaDeploymentMode(),
+        renderGitCommit: process.env.RENDER_GIT_COMMIT?.slice(0, 12) ?? null,
+        stagingDocsPath: "docs/STAGING_BRANCH_SETUP.md",
+      },
+      errors: {
+        recent: recentErrors.slice(0, 25),
+        newCount: recentErrors.length,
+        criticalCount: criticalErrors.length,
+      },
+      payments: {
+        failedRecent: failedPayments,
+        staleMpesaPendingCount: staleMpesa.length,
+      },
+      enrollments: {
+        stuckPendingPayment: stuckEnrollments,
+      },
+      support: {
+        openTicketCount: openTickets.length,
+      },
+    };
+  }),
 
   /**
    * One-time migration: replace files.manuscdn.com CDN URLs with self-hosted

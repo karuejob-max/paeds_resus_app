@@ -5,6 +5,7 @@ import { eq, and, lt } from "drizzle-orm";
 import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
+import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -51,7 +52,23 @@ export function initializeScheduler() {
   // HI-CERT-1: Daily renewal reminder emails (deduped per certificate row)
   scheduleCertificateRenewalReminders();
 
+  // Fellowship: refresh denormalized pillar rows for active learners
+  scheduleFellowshipProgressSync();
+
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleFellowshipProgressSync() {
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      const result = await runScheduledFellowshipProgressSync();
+      console.log(
+        `[Scheduler] fellowshipProgress sync: processed=${result.totalProcessed} succeeded=${result.totalSucceeded}`
+      );
+    } catch (error) {
+      console.error("[Scheduler] fellowshipProgress sync failed:", error);
+    }
+  });
 }
 
 function scheduleCertificateRenewalReminders() {

@@ -15,6 +15,7 @@ import { microCourses, microCourseEnrollments, payments, courses, enrollments, u
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
+import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   const database = await getDb();
@@ -275,6 +276,10 @@ export const coursesRouter = router({
             throw new Error(`CERT_FAIL: ${certResult.error ?? 'unknown'}`);
           }
         }
+
+        void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+          console.warn("[Fellowship] sync after micro-course complete failed:", e)
+        );
 
         return { success: true, message: 'Course marked as completed', certificateNumber };
       } catch (error) {

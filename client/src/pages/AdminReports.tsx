@@ -123,6 +123,7 @@ export default function AdminReports() {
   const [fellowshipUserIdFilter, setFellowshipUserIdFilter] = useState<number | null>(null);
   const [fellowshipQualifiedOnly, setFellowshipQualifiedOnly] = useState(false);
   const [fellowshipOffset, setFellowshipOffset] = useState(0);
+  const [fellowshipGapsOnlyActivity, setFellowshipGapsOnlyActivity] = useState(true);
   const [lifecycleLimitUsers, setLifecycleLimitUsers] = useState(100);
   const [lifecycleLimitPerUser, setLifecycleLimitPerUser] = useState(5);
   const [liveDispatchConfirmText, setLiveDispatchConfirmText] = useState("");
@@ -188,6 +189,27 @@ export default function AdminReports() {
     trpc.adminStats.getFellowshipProgressLedger.useQuery(fellowshipQueryInput, {
       enabled: adminRoleOk && reportTab === "fellowship-progress",
     });
+
+  const { data: fellowshipGapsData } = trpc.adminStats.getFellowshipTrackingGaps.useQuery(
+    {
+      withActivityOnly: fellowshipGapsOnlyActivity,
+      limit: 50,
+      offset: 0,
+    },
+    { enabled: adminRoleOk && reportTab === "fellowship-progress" }
+  );
+
+  const recomputeFellowshipMutation = trpc.adminStats.recomputeFellowshipProgress.useMutation({
+    onSuccess: (result) => {
+      void utils.adminStats.getFellowshipProgressLedger.invalidate();
+      void utils.adminStats.getFellowshipTrackingGaps.invalidate();
+      toast.success(
+        `Fellowship sync: ${result.succeeded}/${result.processed} succeeded` +
+          (result.errors.length ? ` (${result.errors.length} errors)` : "")
+      );
+    },
+    onError: (e) => toast.error(e.message || "Fellowship recompute failed"),
+  });
 
   const setInstructorApprovalMutation = trpc.adminStats.setInstructorApproval.useMutation({
     onSuccess: (_data, vars) => {
@@ -2072,6 +2094,100 @@ export default function AdminReports() {
           </TabsContent>
 
           <TabsContent value="fellowship-progress" className="space-y-6">
+            <Card className="border-amber-200/80">
+              <CardHeader>
+                <CardTitle className="text-base">Sync & tracking gaps</CardTitle>
+                <CardDescription>
+                  Live pillar math is written to <code className="text-xs bg-muted px-1 rounded">fellowshipProgress</code> on
+                  each provider <code className="text-xs">getProgress</code> and nightly (04:30 server). Recompute to refresh
+                  the admin ledger.{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline underline-offset-2"
+                    onClick={() => setLocation("/admin/ops")}
+                  >
+                    Platform ops
+                  </button>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    disabled={recomputeFellowshipMutation.isPending}
+                    onClick={() =>
+                      recomputeFellowshipMutation.mutate({
+                        onlyWithActivity: true,
+                        limit: 200,
+                        offset: 0,
+                      })
+                    }
+                  >
+                    {recomputeFellowshipMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : null}
+                    Recompute active learners (200)
+                  </Button>
+                  {fellowshipUserIdFilter !== null ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={recomputeFellowshipMutation.isPending}
+                      onClick={() =>
+                        recomputeFellowshipMutation.mutate({ userId: fellowshipUserIdFilter })
+                      }
+                    >
+                      Recompute user #{fellowshipUserIdFilter}
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="fellowship-gaps-activity"
+                    checked={fellowshipGapsOnlyActivity}
+                    onCheckedChange={(v) => setFellowshipGapsOnlyActivity(v === true)}
+                  />
+                  <label htmlFor="fellowship-gaps-activity" className="text-sm cursor-pointer">
+                    Gaps: only providers with course / Care Signal / ResusGPS activity
+                  </label>
+                </div>
+                {fellowshipGapsData && fellowshipGapsData.total > 0 ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {fellowshipGapsData.total} provider(s) have activity but no fellowship row yet (showing{" "}
+                      {fellowshipGapsData.rows.length})
+                    </p>
+                    <ul className="text-xs space-y-1 max-h-32 overflow-y-auto border rounded-md p-2">
+                      {fellowshipGapsData.rows.map((u) => (
+                        <li key={u.userId} className="flex flex-wrap items-center gap-2">
+                          <span>
+                            {u.userName ?? "—"} · {u.userEmail} · id {u.userId}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7"
+                            onClick={() => {
+                              setFellowshipUserIdFilter(u.userId);
+                              recomputeFellowshipMutation.mutate({ userId: u.userId });
+                            }}
+                          >
+                            Create row
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No tracking gaps in this filter.</p>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
