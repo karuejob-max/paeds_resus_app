@@ -28,6 +28,7 @@ import {
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
 import { trackEvent } from "../services/analytics.service";
+import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -167,6 +168,30 @@ export const institutionRouter = router({
       institutions: rows,
     };
   }),
+
+  /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
+  getCareSignalFacilityDashboard: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const rows = await db
+        .select({ companyName: institutionalAccounts.companyName })
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.userId, ctx.user.id))
+        .orderBy(desc(institutionalAccounts.id))
+        .limit(1);
+      const inst = rows[0];
+      if (!inst?.companyName?.trim()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+      return getFacilityCareSignalDashboard({
+        facilityName: inst.companyName.trim(),
+        lastDays: input?.lastDays ?? 90,
+      });
+    }),
 
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
   submitLeadInquiry: publicProcedure

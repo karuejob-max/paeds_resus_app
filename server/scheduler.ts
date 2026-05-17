@@ -55,7 +55,26 @@ export function initializeScheduler() {
   // Fellowship: refresh denormalized pillar rows for active learners
   scheduleFellowshipProgressSync();
 
+  // Platform ops: email alerts for stale payments, critical errors, backlogs
+  scheduleAdminOpsAlerts();
+
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleAdminOpsAlerts() {
+  cron.schedule("15 * * * *", async () => {
+    try {
+      const { runAdminOpsAlerts } = await import("./lib/admin-ops-alerts");
+      const result = await runAdminOpsAlerts();
+      if (result.alertsSent > 0) {
+        console.log(
+          `[Scheduler] admin ops alerts: evaluated=${result.rulesEvaluated} sent=${result.alertsSent}`
+        );
+      }
+    } catch (error) {
+      console.error("[Scheduler] admin ops alerts failed:", error);
+    }
+  });
 }
 
 function scheduleFellowshipProgressSync() {

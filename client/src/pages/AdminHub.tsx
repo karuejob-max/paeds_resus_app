@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity } from "lucide-react";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +71,40 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Review and grade fellowship capstone submissions (48h turnaround, 80% pass threshold)
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/mpesa-webhooks")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Webhook className="h-5 w-5" />
+                  M-Pesa webhook log
+                </CardTitle>
+                <CardDescription>
+                  Audit trail for Daraja callbacks — signature rejects, payment outcomes, forensics
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/facility-care-signal")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Facility Care Signal
+                </CardTitle>
+                <CardDescription>
+                  Per-facility QI dashboard — gaps, reporter coverage, roster without submissions
                 </CardDescription>
               </div>
             </CardHeader>
@@ -271,3 +305,5 @@ function ImageMigrationCard() {
     </Card>
   );
 }
+
+

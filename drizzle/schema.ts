@@ -2572,3 +2572,57 @@ export const inAppNotifications = mysqlTable("inAppNotifications", {
 });
 export type InAppNotification = typeof inAppNotifications.$inferSelect;
 export type InsertInAppNotification = typeof inAppNotifications.$inferInsert;
+
+/** Audit log for every inbound M-Pesa / Daraja callback (forensics beyond payments.status). */
+export const mpesaWebhookLog = mysqlTable("mpesaWebhookLog", {
+  id: int("id").autoincrement().primaryKey(),
+  callbackType: mysqlEnum("callbackType", [
+    "stk",
+    "stk_timeout",
+    "stk_query",
+    "c2b_validation",
+    "c2b_confirmation",
+  ]).notNull(),
+  checkoutRequestId: varchar("checkoutRequestId", { length: 255 }),
+  resultCode: int("resultCode"),
+  resultDesc: varchar("resultDesc", { length: 512 }),
+  httpStatus: int("httpStatus").notNull(),
+  outcome: mysqlEnum("outcome", [
+    "received",
+    "signature_rejected",
+    "invalid_payload",
+    "duplicate_idempotency",
+    "payment_not_found",
+    "payment_completed",
+    "payment_failed",
+    "already_finalized",
+    "persist_error",
+    "acknowledged",
+    "error",
+  ]).notNull(),
+  paymentId: int("paymentId"),
+  enrollmentId: int("enrollmentId"),
+  amountCents: int("amountCents"),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 64 }),
+  errorMessage: text("errorMessage"),
+  payloadSnippet: text("payloadSnippet"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MpesaWebhookLog = typeof mpesaWebhookLog.$inferSelect;
+export type InsertMpesaWebhookLog = typeof mpesaWebhookLog.$inferInsert;
+
+/** Dedupes platform admin alert emails/SMS (one per rule per cooldown window). */
+export const adminAlertDispatches = mysqlTable("adminAlertDispatches", {
+  id: int("id").autoincrement().primaryKey(),
+  ruleKey: varchar("ruleKey", { length: 64 }).notNull(),
+  channel: mysqlEnum("channel", ["email", "sms"]).default("email").notNull(),
+  recipient: varchar("recipient", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 255 }),
+  bodySnippet: text("bodySnippet"),
+  metricValue: int("metricValue"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminAlertDispatch = typeof adminAlertDispatches.$inferSelect;
+export type InsertAdminAlertDispatch = typeof adminAlertDispatches.$inferInsert;

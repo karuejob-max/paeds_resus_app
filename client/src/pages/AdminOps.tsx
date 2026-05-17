@@ -17,7 +17,10 @@ import {
   ExternalLink,
   RefreshCw,
   LineChart,
+  Webhook,
+  Bell,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminOps() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -33,6 +36,17 @@ export default function AdminOps() {
     { timeframe: "month" },
     { enabled: adminOk }
   );
+
+  const { data: alertDispatches, refetch: refetchAlerts } =
+    trpc.adminStats.getAdminAlertDispatches.useQuery({ limit: 10 }, { enabled: adminOk });
+
+  const runAlerts = trpc.adminStats.runAdminOpsAlertsNow.useMutation({
+    onSuccess: (r) => {
+      toast.success(`Alerts: ${r.alertsSent} sent (${r.rulesEvaluated} rules matched)`);
+      void refetchAlerts();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -269,6 +283,14 @@ export default function AdminOps() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        onClick={() => setLocation("/admin/facility-care-signal")}
+                      >
+                        Facility dashboards
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setLocation("/admin/care-signal-review")}
                       >
                         Review queue
@@ -289,6 +311,69 @@ export default function AdminOps() {
                 )}
               </CardContent>
             </Card>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Webhook className="h-5 w-5" />
+                    M-Pesa webhooks
+                  </CardTitle>
+                  <CardDescription>Callback audit log (signature, outcomes)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation("/admin/mpesa-webhooks")}
+                  >
+                    Open webhook log
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Bell className="h-5 w-5" />
+                    Automated alerts
+                  </CardTitle>
+                  <CardDescription>
+                    Email to ADMIN_ALERT_EMAIL when thresholds breach (6h cooldown per rule)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={runAlerts.isPending}
+                    onClick={() => runAlerts.mutate()}
+                  >
+                    {runAlerts.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Run rules now"
+                    )}
+                  </Button>
+                  {alertDispatches?.rows?.length ? (
+                    <ul className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                      {alertDispatches.rows.map((a) => (
+                        <li key={a.id}>
+                          <Badge variant="outline" className="mr-1">
+                            {a.ruleKey}
+                          </Badge>
+                          {new Date(a.createdAt).toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">No recent alert dispatches.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             <Card>
               <CardHeader>

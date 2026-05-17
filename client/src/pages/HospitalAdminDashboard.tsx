@@ -24,6 +24,7 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
+import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
 import {
   BarChart3,
   Users,
@@ -578,6 +579,7 @@ export default function HospitalAdminDashboard() {
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="safe-truth">Safe Truth</TabsTrigger>
+            <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -2018,6 +2020,28 @@ export default function HospitalAdminDashboard() {
                 Institution data not available. Please refresh.
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="care-signal" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Care Signal — facility QI</CardTitle>
+                <CardDescription>
+                  Submissions and system gaps for{" "}
+                  <strong>{myInstitution?.institution?.companyName ?? "your facility"}</strong> (matched
+                  to provider profiles and event metadata)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {myInstitution?.institution?.companyName ? (
+                  <FacilityCareSignalDashboard institutionMode lastDays={90} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Link your hospital account to see facility-level Care Signal metrics.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

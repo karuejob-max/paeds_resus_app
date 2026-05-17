@@ -24,7 +24,14 @@ import {
   payments,
   errorTracking,
   supportTickets,
+  mpesaWebhookLog,
+  adminAlertDispatches,
 } from "../../drizzle/schema";
+import {
+  listCareSignalFacilities,
+  getFacilityCareSignalDashboard,
+} from "../services/facility-care-signal.service";
+import { runAdminOpsAlerts } from "../lib/admin-ops-alerts";
 import {
   syncFellowshipProgressForUser,
   syncFellowshipProgressBatch,
@@ -834,6 +841,85 @@ export const adminStatsRouter = router({
       },
     };
   }),
+
+  /** M-Pesa / Daraja webhook audit log (forensics). */
+  getMpesaWebhookLog: adminProcedure
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(500).default(100),
+        outcome: z
+          .enum([
+            "received",
+            "signature_rejected",
+            "invalid_payload",
+            "duplicate_idempotency",
+            "payment_not_found",
+            "payment_completed",
+            "payment_failed",
+            "already_finalized",
+            "persist_error",
+            "acknowledged",
+            "error",
+          ])
+          .optional(),
+        checkoutRequestId: z.string().max(255).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [] as typeof mpesaWebhookLog.$inferSelect[] };
+
+      const filters: SQL[] = [];
+      if (input.outcome) filters.push(eq(mpesaWebhookLog.outcome, input.outcome));
+      if (input.checkoutRequestId?.trim()) {
+        filters.push(eq(mpesaWebhookLog.checkoutRequestId, input.checkoutRequestId.trim()));
+      }
+
+      const rows = await db
+        .select()
+        .from(mpesaWebhookLog)
+        .where(filters.length > 0 ? and(...filters) : undefined)
+        .orderBy(desc(mpesaWebhookLog.createdAt))
+        .limit(input.limit);
+
+      return { rows };
+    }),
+
+  /** Facilities with Care Signal activity (for platform QI dashboards). */
+  listCareSignalFacilities: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }).optional())
+    .query(async ({ input }) => listCareSignalFacilities({ limit: input?.limit ?? 50 })),
+
+  getFacilityCareSignalDashboard: adminProcedure
+    .input(
+      z.object({
+        facilityName: z.string().min(1).max(255),
+        lastDays: z.number().int().min(7).max(365).default(90),
+      })
+    )
+    .query(async ({ input }) =>
+      getFacilityCareSignalDashboard({
+        facilityName: input.facilityName,
+        lastDays: input.lastDays,
+      })
+    ),
+
+  /** Recent automated platform alert dispatches (dedupe audit). */
+  getAdminAlertDispatches: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [] as typeof adminAlertDispatches.$inferSelect[] };
+      const rows = await db
+        .select()
+        .from(adminAlertDispatches)
+        .orderBy(desc(adminAlertDispatches.createdAt))
+        .limit(input?.limit ?? 30);
+      return { rows };
+    }),
+
+  /** Manually run platform ops alert rules (same as hourly cron). */
+  runAdminOpsAlertsNow: adminProcedure.mutation(async () => runAdminOpsAlerts()),
 
   /**
    * One-time migration: replace files.manuscdn.com CDN URLs with self-hosted
