@@ -1,0 +1,23 @@
+# Does not deploy to Render — documents staging discipline on develop merges.
+# Operators: follow docs/STAGING_DEPLOYMENT.md and run verify:sprint1 on staging DB.
+
+name: Staging discipline reminder
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Staging checklist
+        run: |
+          echo "develop was updated. Per STAGING_DEPLOYMENT.md:"
+          echo "  1. Manual deploy to staging Render service"
+          echo "  2. Smoke critical journeys (enroll, ResusGPS, Safe-Truth, Care Signal)"
+          echo "  3. DATABASE_URL=staging pnpm run verify:sprint1"
+          echo "  4. Compare Admin → Reports with CLI output"
+          echo "  5. PR develop → main when staging passes"

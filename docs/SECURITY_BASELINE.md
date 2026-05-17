@@ -16,7 +16,7 @@
 
 ## 2. Session policy
 
-- **Max age:** Configurable via `SESSION_MAX_AGE_MS` (milliseconds). Recommended: **30 minutes** (e.g. `1800000`) for higher security; default remains 1 year if unset for backward compatibility.
+- **Max age:** Configurable via `SESSION_MAX_AGE_MS` (milliseconds). **New deployments:** set **`1800000`** (30 minutes) in `.env` (documented in `.env.example`). If unset, default remains 1 year for backward compatibility (`server/_core/env.ts`).
 - **Cookie:** `httpOnly`, `secure` in production, `sameSite: lax` on localhost (so login works without HTTPS). Cookie `maxAge` matches session max age.
 - **Refresh:** No sliding expiry or refresh token yet; session ends after max age.
 

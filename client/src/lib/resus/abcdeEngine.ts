@@ -2272,6 +2272,69 @@ export function exportClinicalRecord(session: ResusSession): string {
   return lines.join('\n');
 }
 
+/**
+ * P1-RESUS-1: Compact handoff / learning one-pager (clipboard-friendly).
+ * Shorter than exportClinicalRecord — for EHR paste and fellowship reflection.
+ */
+export function exportSessionSummaryOnePager(session: ResusSession): string {
+  const completedInterventions = session.threats
+    .flatMap((t) => t.interventions)
+    .filter((i) => i.status === 'completed' || i.status === 'in_progress');
+  const pendingCritical = session.threats
+    .flatMap((t) => t.interventions)
+    .filter((i) => i.status === 'pending' && i.critical);
+
+  const lines: string[] = [];
+  lines.push('PAEDS RESUS — SESSION SUMMARY (one-pager)');
+  lines.push(`When: ${new Date(session.startTime).toLocaleString()}`);
+  if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
+  if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
+  lines.push(`Phase: ${session.phase}`);
+  lines.push(`Quick assessment: ${session.quickAssessment || '—'}`);
+  lines.push(`Working diagnosis: ${session.definitiveDiagnosis || '—'}`);
+  if (session.concurrentDiagnoses?.length) {
+    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+  }
+
+  const vs = session.vitalSigns;
+  const vitals: string[] = [];
+  if (vs.hr !== undefined) vitals.push(`HR ${vs.hr}`);
+  if (vs.rr !== undefined) vitals.push(`RR ${vs.rr}`);
+  if (vs.spo2 !== undefined) vitals.push(`SpO2 ${vs.spo2}%`);
+  if (vs.sbp !== undefined && vs.dbp !== undefined) vitals.push(`BP ${vs.sbp}/${vs.dbp}`);
+  if (vitals.length) lines.push(`Vitals: ${vitals.join(' · ')}`);
+
+  if (completedInterventions.length) {
+    lines.push('');
+    lines.push('Interventions:');
+    for (const i of completedInterventions.slice(0, 12)) {
+      lines.push(`  • ${i.action} (${i.status})`);
+    }
+    if (completedInterventions.length > 12) {
+      lines.push(`  … +${completedInterventions.length - 12} more`);
+    }
+  }
+
+  if (pendingCritical.length) {
+    lines.push('');
+    lines.push('Pending critical:');
+    for (const i of pendingCritical.slice(0, 5)) {
+      lines.push(`  ! ${i.action}`);
+    }
+  }
+
+  if (session.fluidTracker.bolusCount > 0) {
+    lines.push(
+      `Fluids: ${session.fluidTracker.bolusCount} bolus(es), ~${Math.round(session.fluidTracker.totalVolumeMl)} mL` +
+        (session.fluidTracker.isFluidRefractory ? ' — FLUID-REFRACTORY' : '')
+    );
+  }
+
+  lines.push('');
+  lines.push('Training only — follow local protocol and senior review.');
+  return lines.join('\n');
+}
+
 // ─── LETTER_CONFIG for UI ───────────────────────────────────
 
 export const LETTER_CONFIG: Record<ABCDELetter, { label: string; color: string; bgColor: string; icon: string }> = {

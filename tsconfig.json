@@ -10,7 +10,6 @@
     "dist",
     "**/*.test.ts",
     "**/*.test.tsx",
-    // Bundled separately; uses ServiceWorkerGlobalScope (not DOM lib).
     "client/src/lib/pwa/service-worker.ts"
   ],
   "compilerOptions": {

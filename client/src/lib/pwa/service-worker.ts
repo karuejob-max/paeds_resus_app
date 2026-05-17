@@ -1,3 +1,4 @@
+// @ts-nocheck — Service Worker global types differ from app DOM lib; built separately via Vite/PWA.
 /**
  * Service Worker for PaedsResusGPS
  *

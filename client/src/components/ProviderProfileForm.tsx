@@ -39,6 +39,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
   const [newCertification, setNewCertification] = useState("");
   const [newLanguage, setNewLanguage] = useState("");
   const [completionPercentage, setCompletionPercentage] = useState(0);
+  const [facility, setFacility] = useState<FacilitySelection | null>(null);
 
   const getProfileMutation = trpc.provider.getProfile.useQuery();
   const updateProfileMutation = trpc.provider.updateProfile.useMutation();

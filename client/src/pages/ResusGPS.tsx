@@ -64,6 +64,7 @@ import {
   triggerCardiacArrest,
   achieveROSC,
   exportClinicalRecord,
+  exportSessionSummaryOnePager,
   updatePatientInfo,
   acknowledgeSafetyAlert,
   calcDose,
@@ -658,6 +659,16 @@ export default function ResusGPS() {
     );
   }, [session, trackButtonClick]);
 
+  const handleCopyOnePager = useCallback(async () => {
+    trackButtonClick('Copy one-pager summary');
+    const text = exportSessionSummaryOnePager(session);
+    void analytics.trackClinicalRecordExported(session.phase, timer.elapsed);
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success('One-pager copied — paste into handoff or notes'),
+      () => toast.error('Could not copy — check clipboard permissions')
+    );
+  }, [session, timer.elapsed, trackButtonClick, analytics]);
+
   const handleNewCase = () => {
     clearPersistedResusSession();
     // Optionally record the previous session before starting new one
@@ -894,6 +905,7 @@ export default function ResusGPS() {
             diagnoses={diagnoses}
             onExport={handleExport}
             onCopySummary={handleCopySummary}
+            onCopyOnePager={handleCopyOnePager}
             preFillSample={preFillSample}
             samplePreFillDismissed={samplePreFillDismissed}
             setSamplePreFillDismissed={setSamplePreFillDismissed}
@@ -1106,6 +1118,14 @@ export default function ResusGPS() {
         diagnosis={careSignalPromptDiagnosis}
         outcome={session.outcome || 'survived'}
       />
+
+      {session.phase !== 'IDLE' && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-2 pointer-events-none">
+          <div className="max-w-lg mx-auto pointer-events-auto shadow-lg rounded-lg overflow-hidden border border-border">
+            <MedicationTimerStrip threats={session.threats} />
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
@@ -1999,6 +2019,7 @@ function PostPrimaryScreen({
   diagnoses,
   onExport,
   onCopySummary,
+  onCopyOnePager,
   preFillSample,
   samplePreFillDismissed,
   setSamplePreFillDismissed,
@@ -2008,6 +2029,7 @@ function PostPrimaryScreen({
   diagnoses: DiagnosisSuggestion[];
   onExport: () => void;
   onCopySummary: () => void;
+  onCopyOnePager: () => void;
   preFillSample: PersistedSampleHistory | null;
   samplePreFillDismissed: boolean;
   setSamplePreFillDismissed: (v: boolean) => void;
@@ -2243,14 +2265,18 @@ function PostPrimaryScreen({
       )}
 
       {/* Export / copy (HI-CLIN-1) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Button className="w-full py-4" variant="secondary" onClick={onCopyOnePager}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy one-pager
+        </Button>
         <Button className="w-full py-4" variant="outline" onClick={onCopySummary}>
           <Copy className="h-4 w-4 mr-2" />
-          Copy summary
+          Full record
         </Button>
         <Button className="w-full py-4" onClick={onExport}>
           <Download className="h-4 w-4 mr-2" />
-          Export clinical record
+          Download .txt
         </Button>
       </div>
     </div>
