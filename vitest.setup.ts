@@ -1,6 +1,10 @@
 /**
  * Shared Vitest setup: browser APIs missing in Node test runs.
  */
+import { config } from "dotenv";
+
+config({ path: ".env" });
+
 import "fake-indexeddb/auto";
 
 class MockSpeechRecognition {

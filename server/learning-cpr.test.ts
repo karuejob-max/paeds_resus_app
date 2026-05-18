@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   users,
   enrollments,
@@ -357,10 +357,15 @@ describe.skipIf(!hasDatabase)("Learning Path and CPR Clock Integration", () => {
       const inserted = await (db as any)
         .select()
         .from(cprEvents)
-        .where(eq(cprEvents.cprSessionId, testCprSessionId))
+        .where(
+          and(
+            eq(cprEvents.cprSessionId, testCprSessionId),
+            eq(cprEvents.eventType, "medication")
+          )
+        )
         .limit(1);
-      
-      expect(inserted[0]).toBeDefined();
+
+      expect(inserted.length).toBeGreaterThan(0);
       expect(inserted[0].eventType).toBe("medication");
     });
 

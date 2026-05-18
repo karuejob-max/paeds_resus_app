@@ -16,6 +16,7 @@
     "test:api": "vitest run server/routers/role-boundary-provider-api.test.ts",
     "test:api:enrollment": "vitest run server/routers/enrollment-payment-flows.test.ts",
     "test:db": "node scripts/test-db-connection.mjs",
+    "test:db:integration": "vitest run server/recommendation-engine.test.ts server/learning-cpr.test.ts server/session-details.test.ts server/care-signal-analytics.test.ts server/resus-integration-e2e.test.ts",
     "test:e2e": "node -e \"console.log('E2E: wire Playwright or CI smoke; meanwhile: pnpm run verify:ux-hardening'); process.exit(0)\"",
     "test:enrollment-integration": "vitest run client/src/components/EnrollmentModal.integration.test.tsx",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",

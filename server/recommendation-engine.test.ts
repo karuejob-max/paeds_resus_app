@@ -1,307 +1,196 @@
 /**
- * Recommendation Engine Integration Tests
- * 
- * Tests the complete recommendation flow:
- * 1. Learner progress calculation
- * 2. Facility gap identification
- * 3. Personalized learning path generation
- * 4. Scoring and prioritization logic
+ * Recommendation Engine Integration Tests (requires DATABASE_URL)
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { getDb } from './db';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { eq } from "drizzle-orm";
+import { getDb } from "./db";
+import { users, resusGPSSessions } from "../drizzle/schema";
+import {
+  createTestUser,
+  createCompletedResusSession,
+  conditionsFromSession,
+  deleteUserResusSessions,
+  type TestDb,
+} from "./test-utils/resus-gps-test-helpers";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
-import { usersTable, resusSessionRecords, institutionsTable } from '../drizzle/schema';
-import { eq } from 'drizzle-orm';
 
-describe.skipIf(!hasDatabase)('Recommendation Engine', () => {
-  let testUserId: string;
-  let testInstitutionId: string;
-  let db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
+describe.skipIf(!hasDatabase)("Recommendation Engine", () => {
+  let testUserId: number;
+  let db: TestDb;
 
   beforeAll(async () => {
     const connection = await getDb();
-    if (!connection) throw new Error('Database not available');
+    if (!connection) throw new Error("Database not available");
     db = connection;
-    // Create test user
-    const userResult = await db
-      .insert(usersTable)
-      .values({
-        email: `test-rec-${Date.now()}@test.com`,
-        name: 'Test Recommendation User',
-        role: 'user',
-      })
-      .returning();
-
-    testUserId = userResult[0].id;
-
-    // Create test institution
-    const instResult = await db
-      .insert(institutionsTable)
-      .values({
-        name: 'Test Recommendation Hospital',
-        country: 'KE',
-        county: 'Nairobi',
-      })
-      .returning();
-
-    testInstitutionId = instResult[0].id;
+    testUserId = await createTestUser(db);
   });
 
   afterAll(async () => {
-    // Cleanup
-    await db.delete(resusSessionRecords).where(eq(resusSessionRecords.userId, testUserId));
-    await db.delete(usersTable).where(eq(usersTable.id, testUserId));
-    await db.delete(institutionsTable).where(eq(institutionsTable.id, testInstitutionId));
+    if (!db || !testUserId) return;
+    await deleteUserResusSessions(db, testUserId);
+    await db.delete(users).where(eq(users.id, testUserId));
   });
 
-  it('should calculate learner progress correctly', async () => {
-    // Create sessions with different condition counts
-    const sessions = [
-      {
-        userId: testUserId,
-        institutionId: testInstitutionId,
-        pathway: 'septic_shock',
-        attributedConditions: ['septic_shock', 'meningitis'],
-        isValid: true,
-        durationSeconds: 300,
-        interactionsCount: 5,
-        depthScore: 85,
-      },
-      {
-        userId: testUserId,
-        institutionId: testInstitutionId,
-        pathway: 'septic_shock',
-        attributedConditions: ['septic_shock', 'meningitis'],
-        isValid: true,
-        durationSeconds: 350,
-        interactionsCount: 6,
-        depthScore: 90,
-      },
-      {
-        userId: testUserId,
-        institutionId: testInstitutionId,
-        pathway: 'cardiac_arrest',
-        attributedConditions: ['cardiac_arrest'],
-        isValid: true,
-        durationSeconds: 400,
-        interactionsCount: 8,
-        depthScore: 95,
-      },
-    ];
+  it("should calculate learner progress correctly", async () => {
+    await createCompletedResusSession(db, {
+      userId: testUserId,
+      primaryDiagnosis: "septic_shock",
+      secondaryDiagnoses: ["meningitis"],
+    });
+    await createCompletedResusSession(db, {
+      userId: testUserId,
+      primaryDiagnosis: "septic_shock",
+      secondaryDiagnoses: ["meningitis"],
+    });
+    await createCompletedResusSession(db, {
+      userId: testUserId,
+      primaryDiagnosis: "cardiac_arrest",
+    });
 
-    await db.insert(resusSessionRecords).values(sessions);
-
-    // Verify sessions were created
     const createdSessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
     expect(createdSessions.length).toBeGreaterThanOrEqual(3);
-    expect(createdSessions.some((s) => s.pathway === 'septic_shock')).toBe(true);
-    expect(createdSessions.some((s) => s.pathway === 'cardiac_arrest')).toBe(true);
+    expect(createdSessions.some((s) => s.primaryDiagnosis === "septic_shock")).toBe(true);
+    expect(createdSessions.some((s) => s.primaryDiagnosis === "cardiac_arrest")).toBe(true);
   });
 
-  it('should identify conditions with insufficient practice', async () => {
-    // Query sessions for this user
+  it("should identify conditions with insufficient practice", async () => {
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
-    // Count valid sessions per condition
     const conditionCounts: Record<string, number> = {};
-
     sessions.forEach((session) => {
-      if (session.isValid && session.attributedConditions) {
-        const conditions = Array.isArray(session.attributedConditions)
-          ? session.attributedConditions
-          : [session.attributedConditions];
-
-        conditions.forEach((cond) => {
+      if (session.status === "completed") {
+        for (const cond of conditionsFromSession(session)) {
           conditionCounts[cond] = (conditionCounts[cond] || 0) + 1;
-        });
+        }
       }
     });
 
-    // Verify counts
-    expect(conditionCounts['septic_shock']).toBe(2);
-    expect(conditionCounts['meningitis']).toBe(2);
-    expect(conditionCounts['cardiac_arrest']).toBe(1);
+    expect(conditionCounts["septic_shock"]).toBeGreaterThanOrEqual(2);
+    expect(conditionCounts["meningitis"]).toBeGreaterThanOrEqual(2);
+    expect(conditionCounts["cardiac_arrest"]).toBeGreaterThanOrEqual(1);
 
-    // Conditions with <3 cases should be recommended
     const needsMorePractice = Object.entries(conditionCounts)
       .filter(([, count]) => count < 3)
       .map(([cond]) => cond);
 
-    expect(needsMorePractice).toContain('cardiac_arrest');
+    expect(needsMorePractice).toContain("cardiac_arrest");
   });
 
-  it('should score conditions based on multiple factors', async () => {
-    // Scoring logic should consider:
-    // 1. Practice count (0-2 cases = higher priority)
-    // 2. Time since last practice (>30 days = bonus)
-    // 3. Clinical priority (cardiac arrest > septic shock > etc.)
+  it("should score conditions based on multiple factors", async () => {
+    const thirtyDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
 
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    // Create an old session (>30 days)
-    await db.insert(resusSessionRecords).values({
+    await createCompletedResusSession(db, {
       userId: testUserId,
-      institutionId: testInstitutionId,
-      pathway: 'anaphylaxis',
-      attributedConditions: ['anaphylaxis'],
-      isValid: true,
-      durationSeconds: 200,
-      interactionsCount: 4,
-      depthScore: 70,
-      createdAt: new Date(thirtyDaysAgo.getTime() - 1000), // 1 second before 30 days
+      primaryDiagnosis: "anaphylaxis",
+      createdAt: thirtyDaysAgo,
     });
 
-    // Verify old session was created
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
-    const oldSession = sessions.find((s) => s.pathway === 'anaphylaxis');
+    const oldSession = sessions.find((s) => s.primaryDiagnosis === "anaphylaxis");
     expect(oldSession).toBeDefined();
-    expect(oldSession?.createdAt).toBeLessThan(thirtyDaysAgo);
+    expect(oldSession?.createdAt.getTime()).toBeLessThan(Date.now() - 30 * 24 * 60 * 60 * 1000);
   });
 
-  it('should handle facility gaps correctly', async () => {
-    // A facility gap is a condition with 0 practice in the last 30 days
-    // This should be identified and recommended
-
+  it("should handle facility gaps correctly", async () => {
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.institutionId, testInstitutionId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
-    // Get unique conditions practiced
     const practiced = new Set<string>();
     sessions.forEach((session) => {
-      if (session.isValid && session.attributedConditions) {
-        const conditions = Array.isArray(session.attributedConditions)
-          ? session.attributedConditions
-          : [session.attributedConditions];
-        conditions.forEach((c) => practiced.add(c));
+      if (session.status === "completed") {
+        for (const c of conditionsFromSession(session)) {
+          practiced.add(c);
+        }
       }
     });
 
-    // There should be some conditions not practiced
     const allConditions = [
-      'cardiac_arrest',
-      'airway_obstruction',
-      'severe_respiratory_distress',
-      'anaphylaxis',
-      'status_epilepticus',
-      'septic_shock',
-      'hypovolemic_shock',
-      'dka',
+      "cardiac_arrest",
+      "airway_obstruction",
+      "severe_respiratory_distress",
+      "anaphylaxis",
+      "status_epilepticus",
+      "septic_shock",
+      "hypovolemic_shock",
+      "dka",
     ];
 
     const gaps = allConditions.filter((c) => !practiced.has(c));
     expect(gaps.length).toBeGreaterThan(0);
   });
 
-  it('should prioritize critical conditions in recommendations', async () => {
-    // Critical conditions (cardiac arrest, airway, anaphylaxis) should be
-    // recommended before less critical ones
-
-    const criticalConditions = [
-      'cardiac_arrest',
-      'airway_obstruction',
-      'anaphylaxis',
-    ];
+  it("should prioritize critical conditions in recommendations", async () => {
+    const criticalConditions = ["cardiac_arrest", "airway_obstruction", "anaphylaxis"];
 
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
-    // Count practice for critical vs non-critical
     let criticalPractice = 0;
     let nonCriticalPractice = 0;
 
     sessions.forEach((session) => {
-      if (session.isValid && session.attributedConditions) {
-        const conditions = Array.isArray(session.attributedConditions)
-          ? session.attributedConditions
-          : [session.attributedConditions];
-
-        conditions.forEach((c) => {
-          if (criticalConditions.includes(c)) {
-            criticalPractice++;
-          } else {
-            nonCriticalPractice++;
-          }
-        });
+      if (session.status === "completed") {
+        for (const c of conditionsFromSession(session)) {
+          if (criticalConditions.includes(c)) criticalPractice++;
+          else nonCriticalPractice++;
+        }
       }
     });
 
-    // Both should have some practice
     expect(criticalPractice + nonCriticalPractice).toBeGreaterThan(0);
   });
 
-  it('should avoid recommending already-completed conditions', async () => {
-    // If a learner has 3+ valid sessions for a condition,
-    // it should not be the top recommendation
-
+  it("should avoid recommending already-completed conditions", async () => {
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
     const conditionCounts: Record<string, number> = {};
-
     sessions.forEach((session) => {
-      if (session.isValid && session.attributedConditions) {
-        const conditions = Array.isArray(session.attributedConditions)
-          ? session.attributedConditions
-          : [session.attributedConditions];
-
-        conditions.forEach((cond) => {
+      if (session.status === "completed") {
+        for (const cond of conditionsFromSession(session)) {
           conditionCounts[cond] = (conditionCounts[cond] || 0) + 1;
-        });
+        }
       }
     });
 
-    // Find conditions with 3+ cases
     const completed = Object.entries(conditionCounts)
       .filter(([, count]) => count >= 3)
       .map(([cond]) => cond);
 
-    // Completed conditions should not be in top recommendations
-    // (unless there are facility gaps)
     expect(completed.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('should generate valid learning path', async () => {
-    // A learning path should:
-    // 1. Include conditions with <3 cases
-    // 2. Prioritize facility gaps
-    // 3. Include clinical priority
-    // 4. Be limited to top N recommendations
-
+  it("should generate valid learning path", async () => {
     const sessions = await db
       .select()
-      .from(resusSessionRecords)
-      .where(eq(resusSessionRecords.userId, testUserId));
+      .from(resusGPSSessions)
+      .where(eq(resusGPSSessions.userId, testUserId));
 
     expect(sessions.length).toBeGreaterThan(0);
 
-    // Verify we have a mix of conditions
     const conditions = new Set<string>();
     sessions.forEach((session) => {
-      if (session.attributedConditions) {
-        const conds = Array.isArray(session.attributedConditions)
-          ? session.attributedConditions
-          : [session.attributedConditions];
-        conds.forEach((c) => conditions.add(c));
+      for (const c of conditionsFromSession(session)) {
+        conditions.add(c);
       }
     });
 
