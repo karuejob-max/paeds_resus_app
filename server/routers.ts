@@ -6,9 +6,16 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { getUserByEmail, createUserWithPassword, insertAdminAuditLog, updateUserContactInfo } from "./db";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
 import { normalizeUserPhone } from "@shared/user-phone";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+
+const authEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.string().email({ message: "Enter a valid email address" }));
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendEmail } from "./email-service";
@@ -136,7 +143,7 @@ export const appRouter = router({
     }),
     register: publicProcedure
       .input(z.object({
-        email: z.string().email(),
+        email: authEmailSchema,
         password: z.string().min(8).refine(
           (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
           "Password must contain at least one letter and one number"
@@ -147,7 +154,8 @@ export const appRouter = router({
         phoneValue: z.string().max(64).optional(),
       }))
       .mutation(async ({ input }) => {
-        const existing = await getUserByEmail(input.email);
+        const email = normalizeEmailForAuth(input.email);
+        const existing = await getUserByEmail(email);
         if (existing) throw new Error("Email already registered");
         let phone: string | null = null;
         if (input.phoneValue != null && String(input.phoneValue).trim() !== "") {
@@ -162,11 +170,11 @@ export const appRouter = router({
           }
           phone = normalized;
         }
-        const openId = `email:${input.email}`;
+        const openId = `email:${email}`;
         const passwordHash = await bcrypt.hash(input.password, 10);
         await createUserWithPassword({
           openId,
-          email: input.email,
+          email,
           name: input.name.trim(),
           passwordHash,
           userType: input.userType,
@@ -175,10 +183,23 @@ export const appRouter = router({
         return { success: true };
       }),
     loginWithPassword: publicProcedure
-      .input(z.object({ email: z.string().email(), password: z.string() }))
+      .input(
+        z.object({
+          email: authEmailSchema,
+          password: z.string().min(1, "Password is required"),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
-        const user = await getUserByEmail(input.email);
+        const email = normalizeEmailForAuth(input.email);
+        const user = await getUserByEmail(email);
         if (!user?.passwordHash) {
+          if (user && user.loginMethod && user.loginMethod !== "email") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "This email is registered with a different sign-in method. Use the original provider sign-in, or reset your password to set one.",
+            });
+          }
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
         }
         const ok = await bcrypt.compare(input.password, user.passwordHash);
@@ -195,7 +216,7 @@ export const appRouter = router({
         await db.createAuditLog({
           userId: user.id,
           action: 'LOGIN_SUCCESS',
-          details: { email: input.email, ip: ctx.req.ip },
+          details: { email, ip: ctx.req.ip },
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };
@@ -219,21 +240,22 @@ export const appRouter = router({
         return { success: true };
       }),
     requestPasswordReset: publicProcedure
-      .input(z.object({ email: z.string().email() }))
+      .input(z.object({ email: authEmailSchema }))
       .mutation(async ({ input }) => {
-        const user = await getUserByEmail(input.email);
+        const email = normalizeEmailForAuth(input.email);
+        const user = await getUserByEmail(email);
         if (!user?.passwordHash) return { success: true }; // Don't leak existence
         const token = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await db.createPasswordResetToken(user.id, token, expiresAt);
         const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
         const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
-        const result = await sendEmail(input.email, "passwordReset", {
+        const result = await sendEmail(email, "passwordReset", {
           userName: user.name || "User",
           resetLink,
         });
         if (!result.success) {
-          console.error(`[Auth] Failed to send password reset email to ${input.email}:`, result.error);
+          console.error(`[Auth] Failed to send password reset email to ${email}:`, result.error);
           // We still return success: true to the client to avoid leaking user existence,
           // but the log will help us diagnose provider issues.
         }

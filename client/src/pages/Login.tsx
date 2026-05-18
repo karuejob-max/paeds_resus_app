@@ -11,6 +11,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { TRPCClientError } from "@trpc/client";
 import { readSafeNextPathFromSearch } from "@/lib/authRedirect";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -43,16 +44,22 @@ export default function Login() {
         setError("Could not reach the server. Refresh and try again.");
         return;
       }
-      // Surface Zod / server validation errors clearly instead of silently failing
-      if (/Invalid email|invalid_format|BAD_REQUEST/i.test(e.message)) {
-        setError("Please enter a valid email address and password.");
-        return;
+      if (e instanceof TRPCClientError) {
+        if (e.data?.code === "UNAUTHORIZED" || /Invalid email or password/i.test(e.message)) {
+          setError("Invalid email or password. Check for extra spaces, or use Forgot password.");
+          return;
+        }
+        if (e.data?.code === "BAD_REQUEST" && /different sign-in method/i.test(e.message)) {
+          setError(e.message);
+          return;
+        }
+        if (e.data?.code === "BAD_REQUEST" && /invalid_format|Invalid email/i.test(e.message)) {
+          setError("Enter a valid email with no leading or trailing spaces.");
+          return;
+        }
       }
-      if (
-        e instanceof TRPCClientError &&
-        (e.data?.code === "UNAUTHORIZED" || /Invalid email or password/i.test(e.message))
-      ) {
-        setError("Invalid email or password.");
+      if (/invalid_format|Invalid email address/i.test(e.message)) {
+        setError("Enter a valid email with no leading or trailing spaces.");
         return;
       }
       setError(e.message || "Sign-in failed. Please check your credentials and try again.");
@@ -65,8 +72,8 @@ export default function Login() {
 
     // Read directly from DOM refs to capture browser-autofilled values that
     // may not have triggered React onChange events (a known browser behaviour).
-    const resolvedEmail = emailRef.current?.value ?? email;
-    const resolvedPassword = passwordRef.current?.value ?? password;
+    const resolvedEmail = normalizeEmailForAuth(emailRef.current?.value ?? email);
+    const resolvedPassword = (passwordRef.current?.value ?? password).trim();
 
     if (!resolvedEmail || !resolvedPassword) {
       setError("Please enter your email and password.");

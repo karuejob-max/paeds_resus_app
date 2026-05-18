@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, like } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import * as schema from "../drizzle/schema";
@@ -213,8 +213,13 @@ export async function getUserById(userId: number) {
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
+  const normalized = email.trim().toLowerCase();
   try {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(sql`LOWER(${users.email}) = ${normalized}`)
+      .limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -234,7 +239,7 @@ export async function getUserByEmail(email: string) {
           lastSignedIn: users.lastSignedIn,
         })
         .from(users)
-        .where(eq(users.email, email))
+        .where(sql`LOWER(${users.email}) = ${normalized}`)
         .limit(1);
       const row = fallback[0];
       if (!row) return undefined;
@@ -266,7 +271,7 @@ export async function createUserWithPassword(data: {
   if (!db) throw new Error("Database not available");
   await db.insert(users).values({
     openId: data.openId,
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     name: data.name,
     phone: data.phone ?? null,
     loginMethod: "email",
