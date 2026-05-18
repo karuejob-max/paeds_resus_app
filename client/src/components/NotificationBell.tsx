@@ -52,7 +52,11 @@ export function NotificationBell() {
   // Remote: Care Signal notifications
   const { data: countData, refetch: refetchCount } = trpc.careSignalReview.getUnreadCount.useQuery(
     undefined,
-    { refetchInterval: 60_000 }
+    {
+      refetchInterval: 60_000,
+      retry: false,
+      staleTime: 30_000,
+    }
   );
   const { data: remoteNotifications, refetch: refetchList } = trpc.careSignalReview.getMyNotifications.useQuery(
     { limit: 20, unreadOnly: false },
