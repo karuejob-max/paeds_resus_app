@@ -12,9 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Use packageManager from package.json (pnpm@10.x) — do not pin a conflicting version here.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
