@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPassword() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    requestReset.mutate({ email });
+    requestReset.mutate({ email: normalizeEmailForAuth(email) });
   };
 
   if (sent) {

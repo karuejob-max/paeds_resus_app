@@ -18,7 +18,7 @@ interface EmailParams {
 }
 
 const getAppBaseUrl = () => {
-  const fallback = "https://app.paedsresus.com";
+  const fallback = "https://www.paedsresus.com";
   const base = ENV.appBaseUrl || fallback;
   return base.replace(/\/$/, "");
 };
@@ -27,9 +27,14 @@ const getAppBaseUrl = () => {
  * Send email via AWS SES
  */
 export async function sendEmail({ to, subject, htmlBody, textBody }: EmailParams): Promise<boolean> {
+  const from = process.env.SES_FROM_EMAIL?.trim() || "noreply@paedsresus.com";
+  if (!process.env.AWS_ACCESS_KEY_ID?.trim() || !process.env.AWS_SECRET_ACCESS_KEY?.trim()) {
+    console.error("[Email] AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY missing — cannot send via SES");
+    return false;
+  }
   try {
     const command = new SendEmailCommand({
-      Source: process.env.SES_FROM_EMAIL || "noreply@paedsresus.com",
+      Source: from,
       Destination: {
         ToAddresses: [to],
       },
@@ -56,8 +61,9 @@ export async function sendEmail({ to, subject, htmlBody, textBody }: EmailParams
     await sesClient.send(command);
     console.log(`[Email] Successfully sent to ${to}: ${subject}`);
     return true;
-  } catch (error) {
-    console.error(`[Email] Failed to send to ${to}:`, error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[Email] Failed to send to ${to} from ${from} (region ${process.env.AWS_REGION || "us-east-1"}):`, msg);
     return false;
   }
 }

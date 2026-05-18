@@ -76,6 +76,49 @@ describe("Password Reset Flow", () => {
     );
   });
 
+  it("should send reset email for OAuth-only users without passwordHash", async () => {
+    const mockCtx = {
+      user: null,
+      req: { ip: "127.0.0.1" },
+      res: {},
+    };
+
+    const oauthUser = { ...mockUser, passwordHash: null, loginMethod: "manus" };
+    vi.mocked(db.getUserByEmail).mockResolvedValue(oauthUser);
+    vi.mocked(db.createPasswordResetToken).mockResolvedValue(undefined);
+    vi.mocked(emailService.sendEmail).mockResolvedValue({ success: true, messageId: "msg-oauth" });
+
+    const caller = appRouter.createCaller(mockCtx);
+    const result = await caller.auth.requestPasswordReset({ email: "test@example.com" });
+
+    expect(result.success).toBe(true);
+    expect(emailService.sendEmail).toHaveBeenCalled();
+  });
+
+  it("should surface email delivery failure to the client", async () => {
+    const mockCtx = {
+      user: null,
+      req: { ip: "127.0.0.1" },
+      res: {},
+    };
+
+    vi.mocked(db.getUserByEmail).mockResolvedValue(mockUser);
+    vi.mocked(db.createPasswordResetToken).mockResolvedValue(undefined);
+    vi.mocked(emailService.sendEmail).mockResolvedValue({
+      success: false,
+      error: "SES delivery failed",
+    });
+
+    const caller = appRouter.createCaller(mockCtx);
+
+    await expect(
+      caller.auth.requestPasswordReset({ email: "test@example.com" })
+    ).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: expect.stringContaining("could not send the reset email"),
+    });
+  });
+
   it("should not leak user existence on password reset request", async () => {
     const mockCtx = {
       user: null,

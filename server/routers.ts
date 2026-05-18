@@ -244,20 +244,23 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const email = normalizeEmailForAuth(input.email);
         const user = await getUserByEmail(email);
-        if (!user?.passwordHash) return { success: true }; // Don't leak existence
+        if (!user) return { success: true }; // Don't leak whether the address exists
         const token = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await db.createPasswordResetToken(user.id, token, expiresAt);
-        const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
-        const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
+        const baseUrl = (ENV.appBaseUrl || "https://www.paedsresus.com").replace(/\/$/, "");
+        const resetLink = `${baseUrl}/reset-password?token=${token}`;
         const result = await sendEmail(email, "passwordReset", {
           userName: user.name || "User",
           resetLink,
         });
         if (!result.success) {
           console.error(`[Auth] Failed to send password reset email to ${email}:`, result.error);
-          // We still return success: true to the client to avoid leaking user existence,
-          // but the log will help us diagnose provider issues.
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "We could not send the reset email. Please try again shortly or contact support@paedsresus.com.",
+          });
         }
         return { success: true };
       }),

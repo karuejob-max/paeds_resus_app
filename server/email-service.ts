@@ -636,6 +636,10 @@ export async function sendEmail(
       ? envOverride
       : provider;
 
+  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
+  const hasAwsCreds =
+    Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
+
   const sendSes = async () => {
     const success = await sendViaSES({
       to: Array.isArray(to) ? to[0] : to,
@@ -650,18 +654,31 @@ export async function sendEmail(
     return sendEmailViaMailgun(options);
   }
   if (dispatch === "ses") {
+    if (!hasAwsCreds) {
+      return { success: false, error: "AWS SES not configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SES_FROM_EMAIL)" };
+    }
+    return sendSes();
+  }
+  if (dispatch === "sendgrid") {
+    if (!sendgridKey) {
+      return { success: false, error: "SENDGRID_API_KEY not configured" };
+    }
+    return sendEmailViaSendGrid(options);
+  }
+
+  // Auto: prefer SES when only AWS creds are set; if SendGrid fails, fall back to SES
+  if (sendgridKey) {
+    const sgResult = await sendEmailViaSendGrid(options);
+    if (sgResult.success) return sgResult;
+    console.warn("[Email Service] SendGrid failed, trying SES fallback:", sgResult.error);
+    if (hasAwsCreds) return sendSes();
+    return sgResult;
+  }
+
+  if (hasAwsCreds) {
+    console.log("[Email Service] Using AWS SES (no SendGrid key)");
     return sendSes();
   }
 
-  // Default path: SendGrid when key present; otherwise SES if IAM user credentials exist
-  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
-  const hasAwsCreds =
-    Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
-
-  if (!sendgridKey && hasAwsCreds) {
-    console.log("[Email Service] SendGrid not configured, falling back to AWS SES");
-    return sendSes();
-  }
-
-  return sendEmailViaSendGrid(options);
+  return { success: false, error: "No email provider configured. Set EMAIL_PROVIDER=ses and AWS credentials on the server." };
 }
