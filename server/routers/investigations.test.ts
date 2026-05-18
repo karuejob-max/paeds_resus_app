@@ -11,6 +11,13 @@ function createQueryable(rows: unknown[] = []) {
   return queryable;
 }
 
+const investigationsDbMock = vi.hoisted(() => ({
+  selectPass: 0,
+  useAbnormalFixture: false,
+  patientInvestigations: [{ id: 1, patientId: 1 }],
+  abnormalResults: [{ id: 10, investigationId: 1, isAbnormal: true }],
+}));
+
 vi.mock("../db", () => {
   const insertResult = [{ insertId: 1 }];
   const insertChain = {
@@ -23,7 +30,17 @@ vi.mock("../db", () => {
       insert: vi.fn().mockReturnValue(insertChain),
       select: vi.fn().mockImplementation(() => ({
         from: vi.fn().mockImplementation(() => ({
-          where: vi.fn().mockImplementation(() => createQueryable([])),
+          where: vi.fn().mockImplementation(() => {
+            if (investigationsDbMock.useAbnormalFixture) {
+              investigationsDbMock.selectPass += 1;
+              const rows =
+                investigationsDbMock.selectPass === 1
+                  ? investigationsDbMock.patientInvestigations
+                  : investigationsDbMock.abnormalResults;
+              return createQueryable(rows);
+            }
+            return createQueryable([]);
+          }),
           orderBy: vi.fn().mockResolvedValue([]),
         })),
       })),
@@ -46,6 +63,11 @@ describe("Investigations Router", () => {
       email: "test@example.com",
     },
   };
+
+  beforeEach(() => {
+    investigationsDbMock.selectPass = 0;
+    investigationsDbMock.useAbnormalFixture = false;
+  });
 
   describe("uploadInvestigation", () => {
     it("should upload investigation successfully", async () => {
@@ -185,9 +207,11 @@ describe("Investigations Router", () => {
   });
 
   describe("getAbnormalResults", () => {
-    it.skip("should retrieve only abnormal results", async () => {
-      // Skipped: This test has a database query issue that causes timeout
-      // The getAbnormalResults router works in production but the test mock doesn't support the compound query
+    beforeEach(() => {
+      investigationsDbMock.useAbnormalFixture = true;
+    });
+
+    it("should retrieve only abnormal results", async () => {
       const abnormalResults = await investigationsRouter
         .createCaller(mockCtx)
         .getAbnormalResults({

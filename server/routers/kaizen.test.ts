@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+
+vi.mock('../db', () => ({
+  getDb: vi.fn().mockResolvedValue(null),
+}));
 import { kaizenMetricsRouter } from './kaizen-metrics';
 import { kaizenAutomationRouter } from './kaizen-automation';
 import { kaizenIntegrationRouter } from './kaizen-integration';
