@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { usePaymentPolling } from "./usePaymentPolling";
+
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    payments: {
+      getPaymentStatus: {
+        useQuery: vi.fn(() => ({
+          refetch: vi.fn().mockResolvedValue({
+            data: { status: "pending", message: "Awaiting payment confirmation" },
+          }),
+        })),
+      },
+    },
+  },
+}));
 
 /**
  * Test Suite: Payment Polling Hook
@@ -62,7 +76,9 @@ describe("usePaymentPolling", () => {
 
     expect(result.current.isPolling).toBe(true);
 
-    result.current.stopPolling();
+    act(() => {
+      result.current.stopPolling();
+    });
 
     expect(result.current.isPolling).toBe(false);
   });
@@ -80,7 +96,9 @@ describe("usePaymentPolling", () => {
 
     expect(result.current.isPolling).toBe(false);
 
-    result.current.startPolling();
+    act(() => {
+      result.current.startPolling();
+    });
 
     expect(result.current.isPolling).toBe(true);
   });
@@ -97,11 +115,15 @@ describe("usePaymentPolling", () => {
     );
 
     // Manually set some state
-    result.current.startPolling();
+    act(() => {
+      result.current.startPolling();
+    });
     expect(result.current.isPolling).toBe(true);
 
     // Reset
-    result.current.resetPolling();
+    act(() => {
+      result.current.resetPolling();
+    });
 
     expect(result.current.isPolling).toBe(true);
     expect(result.current.attempts).toBe(0);

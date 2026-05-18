@@ -37,6 +37,14 @@ vi.mock("../services/analytics.service", () => ({
   trackPaymentInitiation: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../mpesa", () => ({
+  getMpesaAccessToken: vi.fn().mockResolvedValue("test-token"),
+  initiateStkPush: vi.fn().mockResolvedValue({
+    success: true,
+    checkoutRequestID: "ws_CO_test_checkout",
+  }),
+}));
+
 function createAuthContext(overrides?: Partial<User>): TrpcContext {
   const user: User = {
     id: 1,
@@ -65,9 +73,11 @@ function createAuthContext(overrides?: Partial<User>): TrpcContext {
 describe("enrollment payment flows", () => {
   let ctx: TrpcContext;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     ctx = createAuthContext();
     vi.clearAllMocks();
+    const dbEnrollment = await import("../db-enrollment");
+    vi.mocked(dbEnrollment.getPendingMpesaEnrollment).mockResolvedValue(null);
   });
 
   describe("M-Pesa flow", () => {

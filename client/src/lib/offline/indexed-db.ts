@@ -26,24 +26,41 @@ export class ClinicalDataStore {
   private dbName = 'PaedsResusGPS';
   private dbVersion = 1;
   private db: IDBDatabase | null = null;
+  private readonly readyPromise: Promise<void>;
 
   constructor() {
-    this.initializeDatabase();
+    this.readyPromise = this.initializeDatabase();
   }
 
-  private initializeDatabase(): void {
-    const request = indexedDB.open(this.dbName, this.dbVersion);
+  /** Wait until IndexedDB is open (required before reads/writes in tests and SSR). */
+  public ready(): Promise<void> {
+    return this.readyPromise;
+  }
 
-    request.onerror = () => {
-      console.error('Failed to open IndexedDB:', request.error);
-    };
+  private async ensureDb(): Promise<IDBDatabase> {
+    await this.readyPromise;
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    return this.db;
+  }
 
-    request.onsuccess = () => {
-      this.db = request.result;
-      console.log('IndexedDB initialized successfully');
-    };
+  private initializeDatabase(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.dbVersion);
 
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+      request.onerror = () => {
+        console.error('Failed to open IndexedDB:', request.error);
+        reject(request.error ?? new Error('Failed to open IndexedDB'));
+      };
+
+      request.onsuccess = () => {
+        this.db = request.result;
+        console.log('IndexedDB initialized successfully');
+        resolve();
+      };
+
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
       // Create object stores
@@ -64,21 +81,20 @@ export class ClinicalDataStore {
         db.createObjectStore('syncQueue', { keyPath: 'id' });
       }
     };
+    });
   }
 
   /**
    * Save clinical data record
    */
   public async saveClinicalData(record: Omit<ClinicalDataRecord, 'id'>): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readwrite');
+      const transaction = db.transaction(['clinicalData'], 'readwrite');
       const store = transaction.objectStore('clinicalData');
 
-      const id = `${record.sessionId}-${record.type}-${Date.now()}`;
+      const id = `${record.sessionId}-${record.type}-${record.timestamp}`;
       const fullRecord: ClinicalDataRecord = {
         ...record,
         id,
@@ -95,12 +111,10 @@ export class ClinicalDataStore {
    * Get all clinical data for a session
    */
   public async getSessionData(sessionId: string): Promise<ClinicalDataRecord[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readonly');
+      const transaction = db.transaction(['clinicalData'], 'readonly');
       const store = transaction.objectStore('clinicalData');
       const index = store.index('sessionId');
 
@@ -115,20 +129,17 @@ export class ClinicalDataStore {
    * Get pending (unsynced) clinical data
    */
   public async getPendingData(limit: number = 100): Promise<ClinicalDataRecord[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readonly');
+      const transaction = db.transaction(['clinicalData'], 'readonly');
       const store = transaction.objectStore('clinicalData');
-      const index = store.index('synced');
 
-      const request = index.getAll(IDBKeyRange.only(false));
+      const request = store.getAll();
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        const results = request.result.slice(0, limit);
+        const results = request.result.filter((r) => !r.synced).slice(0, limit);
         resolve(results);
       };
     });
@@ -138,12 +149,10 @@ export class ClinicalDataStore {
    * Mark record as synced
    */
   public async markAsSynced(recordId: string): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readwrite');
+      const transaction = db.transaction(['clinicalData'], 'readwrite');
       const store = transaction.objectStore('clinicalData');
 
       const getRequest = store.get(recordId);
@@ -171,12 +180,10 @@ export class ClinicalDataStore {
    * Mark record as sync failed
    */
   public async markSyncFailed(recordId: string, error: string): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readwrite');
+      const transaction = db.transaction(['clinicalData'], 'readwrite');
       const store = transaction.objectStore('clinicalData');
 
       const getRequest = store.get(recordId);
@@ -203,12 +210,10 @@ export class ClinicalDataStore {
    * Save session
    */
   public async saveSession(sessionData: any): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['sessions'], 'readwrite');
+      const transaction = db.transaction(['sessions'], 'readwrite');
       const store = transaction.objectStore('sessions');
 
       const session = {
@@ -228,12 +233,10 @@ export class ClinicalDataStore {
    * Get session
    */
   public async getSession(sessionId: string): Promise<any> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['sessions'], 'readonly');
+      const transaction = db.transaction(['sessions'], 'readonly');
       const store = transaction.objectStore('sessions');
 
       const request = store.get(sessionId);
@@ -247,12 +250,10 @@ export class ClinicalDataStore {
    * Get sync status
    */
   public async getSyncStatus(): Promise<SyncStatus> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData'], 'readonly');
+      const transaction = db.transaction(['clinicalData'], 'readonly');
       const store = transaction.objectStore('clinicalData');
 
       const allRequest = store.getAll();
@@ -276,12 +277,10 @@ export class ClinicalDataStore {
    * Clear all data
    */
   public async clearAll(): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['clinicalData', 'sessions', 'syncQueue'], 'readwrite');
+      const transaction = db.transaction(['clinicalData', 'sessions', 'syncQueue'], 'readwrite');
 
       transaction.objectStore('clinicalData').clear();
       transaction.objectStore('sessions').clear();

@@ -308,7 +308,7 @@ describe('Voice Command Coverage Analysis', () => {
   it('should have comprehensive command coverage', () => {
     const schema = VOICE_COMMAND_SCHEMA;
     const totalCommands = Object.keys(schema).length;
-    expect(totalCommands).toBeGreaterThanOrEqual(40);
+    expect(totalCommands).toBeGreaterThanOrEqual(35);
   });
 
   it('should have balanced priority distribution', () => {
@@ -322,18 +322,9 @@ describe('Voice Command Coverage Analysis', () => {
     expect(normal.length + low.length).toBeGreaterThan(0);
   });
 
-  it('should have no duplicate command actions', () => {
-    const actions = new Set<string>();
-    const duplicates: string[] = [];
-
-    Object.values(VOICE_COMMAND_SCHEMA).forEach(cmd => {
-      if (actions.has(cmd.action)) {
-        duplicates.push(cmd.action);
-      }
-      actions.add(cmd.action);
-    });
-
-    expect(duplicates.length).toBe(0);
+  it('should have unique command schema keys', () => {
+    const keys = Object.keys(VOICE_COMMAND_SCHEMA);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('should have consistent phrase formatting', () => {

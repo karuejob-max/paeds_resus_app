@@ -14,9 +14,15 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ["./vitest.setup.ts"],
     environment: "node",
     // RTL + component tests under `client/src/components` use jsdom; server + `client/src/lib` stay on node.
-    environmentMatchGlobs: [["client/src/components/**", "jsdom"]],
+    environmentMatchGlobs: [
+      ["client/src/components/**", "jsdom"],
+      ["client/src/lib/offline/**", "jsdom"],
+      ["client/src/hooks/**", "jsdom"],
+      ["client/src/lib/voice/**", "jsdom"],
+    ],
     include: [
       "server/**/*.test.ts",
       "server/**/*.spec.ts",

@@ -224,7 +224,7 @@ export class VoiceCPRIntegration {
    */
   public isMedicationDue(): boolean {
     const timeSinceMed = this.getTimeSinceLastMedication();
-    if (!timeSinceMed) return true; // First medication
+    if (timeSinceMed === null) return true; // First medication
     return timeSinceMed > 180000; // 3 minutes
   }
 
@@ -233,7 +233,7 @@ export class VoiceCPRIntegration {
    */
   public isShockDue(): boolean {
     const timeSinceShock = this.getTimeSinceLastShock();
-    if (!timeSinceShock) return true; // First shock
+    if (timeSinceShock === null) return true; // First shock
     return timeSinceShock > 120000; // 2 minutes
   }
 

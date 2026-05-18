@@ -180,6 +180,7 @@ export class ClinicalVoiceCommandParser {
   private initializeCommandMap(): void {
     // CPR Interventions
     this.addCommand('epi given', 'intervention', 'recordMedication', 'epinephrine');
+    this.addCommand('give epi', 'intervention', 'recordMedication', 'epinephrine');
     this.addCommand('epinephrine', 'intervention', 'recordMedication', 'epinephrine');
     this.addCommand('shock delivered', 'intervention', 'recordShock', 'shock_delivered');
     this.addCommand('shock', 'intervention', 'recordShock', 'shock_delivered');

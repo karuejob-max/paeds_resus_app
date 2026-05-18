@@ -19,6 +19,7 @@ export default defineConfig({
   },
   test: {
     name: "unit",
+    setupFiles: ["./vitest.setup.ts"],
     environment: "node",
     environmentMatchGlobs: [["client/src/components/**", "jsdom"]],
     include: [

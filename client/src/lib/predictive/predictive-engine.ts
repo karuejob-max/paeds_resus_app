@@ -312,11 +312,19 @@ export class PredictiveEngine {
   private determineDirection(scores: number[]): 'improving' | 'stable' | 'deteriorating' {
     if (scores.length < 2) return 'stable';
 
+    if (scores.length < 5) {
+      const change = scores[scores.length - 1] - scores[0];
+      if (change > 1) return 'deteriorating';
+      if (change < -1) return 'improving';
+      return 'stable';
+    }
+
     const recent = scores.slice(-5);
     const older = scores.slice(-10, -5);
 
     const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
-    const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
+    const olderAvg =
+      older.length > 0 ? older.reduce((a, b) => a + b, 0) / older.length : scores[0];
 
     const change = recentAvg - olderAvg;
 

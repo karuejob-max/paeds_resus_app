@@ -7,6 +7,7 @@ describe('IndexedDB Persistence - Comprehensive', () => {
 
   beforeEach(async () => {
     store = new ClinicalDataStore();
+    await store.ready();
     await store.clearAll();
   });
 
@@ -185,6 +186,7 @@ describe('Background Sync Engine - Comprehensive', () => {
   beforeEach(async () => {
     engine = new BackgroundSyncEngine();
     store = new ClinicalDataStore();
+    await store.ready();
     await store.clearAll();
   });
 
@@ -261,28 +263,28 @@ describe('Offline Mode - Comprehensive', () => {
     expect(typeof navigator.onLine).toBe('boolean');
   });
 
-  it('should handle offline event', (done) => {
-    const handleOffline = () => {
-      expect(navigator.onLine).toBe(false);
-      window.removeEventListener('offline', handleOffline);
-      done();
-    };
-
-    window.addEventListener('offline', handleOffline);
-    // Simulate offline event
-    window.dispatchEvent(new Event('offline'));
+  it('should handle offline event', async () => {
+    await new Promise<void>((resolve) => {
+      const handleOffline = () => {
+        expect(navigator.onLine).toBe(false);
+        window.removeEventListener('offline', handleOffline);
+        resolve();
+      };
+      window.addEventListener('offline', handleOffline);
+      window.dispatchEvent(new Event('offline'));
+    });
   });
 
-  it('should handle online event', (done) => {
-    const handleOnline = () => {
-      expect(navigator.onLine).toBe(true);
-      window.removeEventListener('online', handleOnline);
-      done();
-    };
-
-    window.addEventListener('online', handleOnline);
-    // Simulate online event
-    window.dispatchEvent(new Event('online'));
+  it('should handle online event', async () => {
+    await new Promise<void>((resolve) => {
+      const handleOnline = () => {
+        expect(navigator.onLine).toBe(true);
+        window.removeEventListener('online', handleOnline);
+        resolve();
+      };
+      window.addEventListener('online', handleOnline);
+      window.dispatchEvent(new Event('online'));
+    });
   });
 });
 

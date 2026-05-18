@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "not_found" | "error";
@@ -37,6 +37,13 @@ export function usePaymentPolling({
 }: UsePaymentPollingOptions) {
   const [status, setStatus] = useState<PaymentStatus>("pending");
   const [isPolling, setIsPolling] = useState(enabled);
+  const manualPollingControl = useRef(false);
+
+  useEffect(() => {
+    if (!manualPollingControl.current) {
+      setIsPolling(enabled);
+    }
+  }, [enabled]);
   const [attempts, setAttempts] = useState(0);
   const [result, setResult] = useState<PaymentStatusResult | null>(null);
 
@@ -119,9 +126,16 @@ export function usePaymentPolling({
     isPolling,
     attempts,
     result,
-    stopPolling: () => setIsPolling(false),
-    startPolling: () => setIsPolling(true),
+    stopPolling: () => {
+      manualPollingControl.current = true;
+      setIsPolling(false);
+    },
+    startPolling: () => {
+      manualPollingControl.current = true;
+      setIsPolling(true);
+    },
     resetPolling: () => {
+      manualPollingControl.current = false;
       setAttempts(0);
       setStatus("pending");
       setResult(null);

@@ -1,6 +1,79 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { supportAgents } from "../drizzle/schema";
+
+vi.mock("./db", () => {
+  const mockConversation = {
+    id: 1,
+    userId: 1,
+    topic: "activation_help",
+    priority: "medium",
+    status: "open",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const mockMessage = {
+    id: 1,
+    conversationId: 1,
+    senderId: 1,
+    senderType: "user",
+    content: "Test message",
+    messageType: "text",
+    createdAt: new Date(),
+  };
+  const countRow = {
+    total: 1,
+    activeConversations: 2,
+    waitingConversations: 1,
+    totalResolved: 5,
+  };
+  const insertResult = [{ insertId: 1 }];
+  const insertChain = {
+    values: vi.fn().mockResolvedValue(insertResult),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  const limitChain = {
+    offset: vi.fn().mockResolvedValue([mockMessage]),
+    then: (resolve: (v: unknown) => void) => resolve([mockConversation]),
+  };
+  const orderByResult = {
+    limit: vi.fn().mockReturnValue(limitChain),
+    then: (resolve: (v: unknown) => void) => resolve([mockConversation]),
+  };
+  const whereChain = {
+    orderBy: vi.fn().mockReturnValue(orderByResult),
+    limit: vi.fn().mockResolvedValue([mockConversation]),
+    then: (resolve: (v: unknown) => void) => resolve([mockConversation]),
+  };
+  const fromMock = (table: unknown) => {
+    if (table === supportAgents) {
+      return { where: vi.fn().mockResolvedValue([]) };
+    }
+    return {
+      where: vi.fn().mockImplementation(() => whereChain),
+      orderBy: vi.fn().mockReturnValue(orderByResult),
+      then: (resolve: (v: unknown) => void) => resolve([]),
+    };
+  };
+  return {
+    getDb: vi.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue(insertChain),
+      select: vi.fn().mockImplementation((fields?: Record<string, unknown>) => {
+        if (fields && typeof fields === "object" && Object.keys(fields).length > 0) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([countRow]),
+            }),
+          };
+        }
+        return { from: vi.fn().mockImplementation(fromMock) };
+      }),
+      update: vi.fn().mockReturnValue(insertChain),
+    }),
+  };
+});
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 

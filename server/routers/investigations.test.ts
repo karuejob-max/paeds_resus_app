@@ -1,6 +1,43 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { investigationsRouter } from "./investigations";
 
+function createQueryable(rows: unknown[] = []) {
+  const queryable: Record<string, unknown> = {
+    limit: vi.fn().mockResolvedValue(rows),
+    orderBy: vi.fn().mockResolvedValue(rows),
+  };
+  queryable.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+    Promise.resolve(rows).then(resolve, reject);
+  return queryable;
+}
+
+vi.mock("../db", () => {
+  const insertResult = [{ insertId: 1 }];
+  const insertChain = {
+    values: vi.fn().mockResolvedValue(insertResult),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  return {
+    getDb: vi.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue(insertChain),
+      select: vi.fn().mockImplementation(() => ({
+        from: vi.fn().mockImplementation(() => ({
+          where: vi.fn().mockImplementation(() => createQueryable([])),
+          orderBy: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+      update: vi.fn().mockReturnValue(insertChain),
+    }),
+  };
+});
+
+vi.mock("../_core/llm", () => ({
+  invokeLLM: vi.fn().mockResolvedValue({
+    choices: [{ message: { content: "Clinical interpretation\nDifferential diagnoses\nRecommendations" } }],
+  }),
+}));
+
 describe("Investigations Router", () => {
   const mockCtx = {
     user: {

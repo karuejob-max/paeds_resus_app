@@ -31,6 +31,7 @@ function createAuthContext(): TrpcContext {
     name: "Test User",
     loginMethod: "manus",
     role: "user",
+    userType: "individual",
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),

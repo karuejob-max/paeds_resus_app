@@ -13,7 +13,7 @@ import {
 } from "../db";
 import { enrollments, payments, courses, microCourseEnrollments } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
-import { trackEvent } from "../services/analytics.service";
+import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
@@ -277,11 +277,17 @@ export const enrollmentRouter = router({
         await ensureMicroCoursesCatalog();
 
         const {
+          validatePromoCode,
           getCourseDetails,
+          calculateFinalPrice,
           isUserEnrolled,
+          getPendingMpesaEnrollment,
+          setEnrollmentCheckoutRequestId,
           createEnrollment: createEnrollmentDb,
+          incrementPromoCodeUsage,
+          isUserAdmin,
         } = await import("../db-enrollment");
-        
+
         const userId = ctx.user.id;
         const isIntubationSample = input.courseId === INTUBATION_SAMPLE_MICRO_COURSE_ID;
 
@@ -328,20 +334,23 @@ export const enrollmentRouter = router({
             .update(enrollments)
             .set({
               paymentStatus,
-              amountPaid: paymentStatus === "completed" ? amountPaidCents : row.paymentStatus === "completed" ? amountPaidCents : 0,
+              amountPaid:
+                paymentStatus === "completed"
+                  ? amountPaidCents
+                  : row.paymentStatus === "completed"
+                    ? amountPaidCents
+                    : 0,
               updatedAt: new Date(),
             })
             .where(eq(enrollments.id, row.id));
           return row.id;
         }
 
-        // 1. Get course details
         const course = await getCourseDetails(input.courseId);
         if (!course) {
           throw new Error("Course not found");
         }
 
-        // 2. Check if already enrolled
         const alreadyEnrolled = await isUserEnrolled(userId, course.id);
         if (alreadyEnrolled) {
           return {
@@ -350,29 +359,189 @@ export const enrollmentRouter = router({
           };
         }
 
-        // FREE ENROLLMENT — payment gate removed; all users enroll immediately
-        const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
+        const pendingMpesaEnrollment = await getPendingMpesaEnrollment(userId, course.id);
+        const isManualLipaPath = input.paymentPath === "manual_lipa";
+        if (
+          pendingMpesaEnrollment &&
+          (isManualLipaPath || Boolean(pendingMpesaEnrollment.transactionId))
+        ) {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", course.price);
+          return {
+            success: true,
+            enrollmentId: pendingMpesaEnrollment.id,
+            message: isManualLipaPath
+              ? "Pending enrollment found - submit your M-Pesa reference after paying via Paybill"
+              : "Pending M-Pesa payment found - continue with your phone prompt",
+            paymentMethod: "m-pesa",
+            checkoutRequestId: pendingMpesaEnrollment.transactionId,
+            amountPaid: course.price,
+            learningEnrollmentId,
+          };
+        }
+
+        const isAdmin = await isUserAdmin(userId);
+        if (isAdmin) {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message: "Admin enrollment successful",
+            paymentMethod: "admin-free",
+            learningEnrollmentId,
+          };
+        }
+
+        if (input.promoCode) {
+          const promoValidation = await validatePromoCode(input.promoCode);
+          if (!promoValidation.valid) {
+            return {
+              success: false,
+              error: promoValidation.error,
+            };
+          }
+          const promoDiscount = promoValidation.discountPercent ?? 0;
+          const promoCodeId = promoValidation.id;
+          if (!promoCodeId) {
+            return {
+              success: false,
+              error: "Promo code metadata missing",
+            };
+          }
+
+          const finalPrice = calculateFinalPrice(course.price, promoDiscount);
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", finalPrice);
+
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "promo-code",
+            promoCodeId,
+            amountPaid: finalPrice,
+          });
+
+          await incrementPromoCodeUsage(promoCodeId);
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "promo-code",
+            amountPaid: finalPrice,
+            promoCodeId,
+          });
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message:
+              finalPrice === 0
+                ? "Enrollment successful - Free course via promo code"
+                : `Enrollment successful - ${promoValidation.discountPercent}% discount applied`,
+            paymentMethod: "promo-code",
+            amountPaid: finalPrice,
+            learningEnrollmentId,
+          };
+        }
+
+        if (!input.phoneNumber) {
+          return {
+            success: false,
+            error: "Phone number required for M-Pesa payment",
+          };
+        }
+
         const enrollment = await createEnrollmentDb({
           userId,
           microCourseId: course.id,
-          paymentMethod: "admin-free",
-          amountPaid: 0,
+          paymentMethod: "m-pesa",
+          amountPaid: course.price,
         });
+        const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", course.price);
 
         await trackMicroCourseEnrollWithPayment({
           userId,
           courseIdSlug: input.courseId,
           microCourseId: course.id,
           enrollmentId: enrollment.insertId,
-          paymentMethod: "admin-free",
-          amountPaid: 0,
+          paymentMethod: "m-pesa",
+          amountPaid: course.price,
         });
+
+        if (isManualLipaPath) {
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message:
+              "Manual Lipa na M-Pesa selected. Complete Paybill payment, then submit your M-Pesa reference for verification.",
+            paymentMethod: "m-pesa",
+            amountPaid: course.price,
+            learningEnrollmentId,
+          };
+        }
+
+        const { getMpesaAccessToken, initiateStkPush } = await import("../mpesa");
+        const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
+
+        const tokenWarm = getMpesaAccessToken();
+        const accountReference = buildStkAccountReference({
+          enrollmentId: enrollment.insertId,
+          learnerName: ctx.user.name,
+          userId: ctx.user.id,
+        });
+        await tokenWarm;
+
+        const mpesaResult = await initiateStkPush({
+          phoneNumber: input.phoneNumber,
+          amount: Math.ceil(course.price / 100),
+          accountReference,
+          transactionDesc: `${course.title} - Paeds Resus Fellowship`,
+          orderId: `ENROLL-${enrollment.insertId}`,
+        });
+
+        if (!mpesaResult.success) {
+          return {
+            success: false,
+            error: mpesaResult.error || "Failed to initiate M-Pesa payment",
+          };
+        }
+
+        if (mpesaResult.checkoutRequestID) {
+          await setEnrollmentCheckoutRequestId(enrollment.insertId, mpesaResult.checkoutRequestID);
+        }
+
+        const kesAmount = Math.ceil(course.price / 100);
+        const checkoutId = mpesaResult.checkoutRequestID || "";
+        void trackPaymentInitiation(
+          userId,
+          kesAmount,
+          "m-pesa",
+          checkoutId ? `stk_${checkoutId}` : `micro_enroll_${enrollment.insertId}`
+        ).catch((err) => console.error("[Analytics] trackPaymentInitiation:", err));
 
         return {
           success: true,
           enrollmentId: enrollment.insertId,
-          message: "Enrollment successful",
-          paymentMethod: "admin-free",
+          message: "M-Pesa STK Push initiated - Check your phone",
+          paymentMethod: "m-pesa",
+          checkoutRequestId: mpesaResult.checkoutRequestID,
+          amountPaid: course.price,
           learningEnrollmentId,
         };
       } catch (error) {

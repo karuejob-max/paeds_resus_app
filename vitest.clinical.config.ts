@@ -20,6 +20,7 @@ export default defineConfig({
   },
   test: {
     name: "clinical",
+    setupFiles: ["./vitest.setup.ts"],
     environment: "node",
     include: [
       "client/src/lib/resus/**/*.test.ts",
