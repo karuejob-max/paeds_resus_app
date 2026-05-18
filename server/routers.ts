@@ -7,6 +7,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { getUserByEmail, createUserWithPassword, insertAdminAuditLog, updateUserContactInfo } from "./db";
 import { normalizeUserPhone } from "@shared/user-phone";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
@@ -177,9 +178,13 @@ export const appRouter = router({
       .input(z.object({ email: z.string().email(), password: z.string() }))
       .mutation(async ({ input, ctx }) => {
         const user = await getUserByEmail(input.email);
-        if (!user?.passwordHash) throw new Error("Invalid email or password");
+        if (!user?.passwordHash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
         const ok = await bcrypt.compare(input.password, user.passwordHash);
-        if (!ok) throw new Error("Invalid email or password");
+        if (!ok) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
         const sessionMaxAgeMs = ENV.sessionMaxAgeMs;
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name ?? "",

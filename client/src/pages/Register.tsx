@@ -24,7 +24,7 @@ type UserType = "individual" | "parent" | "institutional";
 export default function Register() {
   const [, setLocation] = useLocation();
   const search = useSearch();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, sessionSettled } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -90,10 +90,10 @@ export default function Register() {
   };
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !sessionSettled) return;
     if (!isAuthenticated) return;
     setLocation(nextPath);
-  }, [isAuthenticated, loading, nextPath, setLocation]);
+  }, [isAuthenticated, loading, sessionSettled, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

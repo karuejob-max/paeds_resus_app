@@ -9,12 +9,13 @@ import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { TRPCClientError } from "@trpc/client";
 import { readSafeNextPathFromSearch } from "@/lib/authRedirect";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const search = useSearch();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, sessionSettled } = useAuth();
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +48,13 @@ export default function Login() {
         setError("Please enter a valid email address and password.");
         return;
       }
+      if (
+        e instanceof TRPCClientError &&
+        (e.data?.code === "UNAUTHORIZED" || /Invalid email or password/i.test(e.message))
+      ) {
+        setError("Invalid email or password.");
+        return;
+      }
       setError(e.message || "Sign-in failed. Please check your credentials and try again.");
     },
   });
@@ -69,10 +77,10 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !sessionSettled) return;
     if (!isAuthenticated) return;
     setLocation(nextPath);
-  }, [isAuthenticated, loading, nextPath, setLocation]);
+  }, [isAuthenticated, loading, sessionSettled, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
