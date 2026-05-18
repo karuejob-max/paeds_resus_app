@@ -4,9 +4,25 @@ import * as db from "./db";
 import * as emailService from "./email-service";
 import { randomBytes } from "crypto";
 
-// Mock dependencies
-vi.mock("./db");
-vi.mock("./email-service");
+vi.mock("./db", () => ({
+  getDb: vi.fn().mockResolvedValue(null),
+  getUserByEmail: vi.fn(),
+  createPasswordResetToken: vi.fn(),
+  getPasswordResetToken: vi.fn(),
+  getPasswordResetTokenByToken: vi.fn(),
+  deletePasswordResetToken: vi.fn(),
+  updateUserPasswordById: vi.fn(),
+  createAuditLog: vi.fn(),
+  markPasswordResetTokenUsed: vi.fn(),
+  updateUserPassword: vi.fn(),
+  insertAdminAuditLog: vi.fn(),
+  createUserWithPassword: vi.fn(),
+  updateUserContactInfo: vi.fn(),
+  db: {},
+}));
+vi.mock("./email-service", () => ({
+  sendEmail: vi.fn(),
+}));
 
 describe("Password Reset Flow", () => {
   const mockUser = {

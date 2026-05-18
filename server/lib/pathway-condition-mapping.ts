@@ -154,6 +154,8 @@ export const PATHWAY_CONDITION_MAP: Record<
 
   [ResusGPSPathway.CARDIAC_ARREST_MODULE]: [
     FellowshipCondition.CARDIAC_ARREST,
+    FellowshipCondition.SVT,
+    FellowshipCondition.BRADYCARDIA,
   ],
 
   [ResusGPSPathway.ASTHMA_MODULE]: [
@@ -163,6 +165,7 @@ export const PATHWAY_CONDITION_MAP: Record<
   [ResusGPSPathway.DKA_MODULE]: [
     FellowshipCondition.DKA,
     FellowshipCondition.HYPOGLYCEMIA,
+    FellowshipCondition.HYPERKALEMIA,
   ],
 
   [ResusGPSPathway.STATUS_EPILEPTICUS_MODULE]: [

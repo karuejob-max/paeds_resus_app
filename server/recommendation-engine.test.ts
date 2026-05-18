@@ -9,15 +9,21 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from './db';
+import { getDb } from './db';
+
+const hasDatabase = Boolean(process.env.DATABASE_URL);
 import { usersTable, resusSessionRecords, institutionsTable } from '../drizzle/schema';
 import { eq } from 'drizzle-orm';
 
-describe('Recommendation Engine', () => {
+describe.skipIf(!hasDatabase)('Recommendation Engine', () => {
   let testUserId: string;
   let testInstitutionId: string;
+  let db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
   beforeAll(async () => {
+    const connection = await getDb();
+    if (!connection) throw new Error('Database not available');
+    db = connection;
     // Create test user
     const userResult = await db
       .insert(usersTable)

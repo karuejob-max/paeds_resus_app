@@ -3,7 +3,9 @@ import { appRouter } from './routers';
 import { getDb } from './db';
 import { cprSessions, cprEvents, cprTeamMembers } from '../drizzle/schema';
 
-describe('Session Details', () => {
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDatabase)('Session Details', () => {
   let db: Awaited<ReturnType<typeof getDb>>;
   let testSessionId: number;
 

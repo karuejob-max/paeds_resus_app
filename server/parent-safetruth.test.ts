@@ -1,6 +1,37 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+
+const parentDbMock = vi.hoisted(() => {
+  const insertResult = [{ insertId: 42 }];
+  const insertChain = {
+    values: vi.fn().mockResolvedValue(insertResult),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  const rows = [{ id: 42, userId: 1, childOutcome: "recovered" }];
+  const queryable = {
+    limit: vi.fn().mockResolvedValue(rows),
+    orderBy: vi.fn().mockResolvedValue(rows),
+    then: (resolve: (v: unknown) => void) => resolve(rows),
+  };
+  return {
+    getDb: vi.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue(insertChain),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue(queryable),
+          orderBy: vi.fn().mockResolvedValue(rows),
+        }),
+      }),
+      update: vi.fn().mockReturnValue(insertChain),
+    }),
+  };
+});
+
+vi.mock("./db", () => ({
+  getDb: parentDbMock.getDb,
+}));
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 

@@ -13,7 +13,9 @@ import {
   cprEvents,
 } from "../drizzle/schema";
 
-describe("Learning Path and CPR Clock Integration", () => {
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDatabase)("Learning Path and CPR Clock Integration", () => {
   let db: any;
   let testUserId: number;
   let testEnrollmentId: number;

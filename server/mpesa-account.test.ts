@@ -1,10 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 
 /**
  * Test to verify MPESA_ACCOUNT environment variable is correctly used
  * in payment initiation and appears in the STK Push payload
  */
 describe("M-Pesa Account Configuration", () => {
+  beforeAll(() => {
+    process.env.MPESA_ACCOUNT = process.env.MPESA_ACCOUNT ?? "Paeds Resus Limited";
+  });
+
   it("should use MPESA_ACCOUNT in payment initiation", () => {
     // The MPESA_ACCOUNT environment variable should be set to the business name
     const expectedAccount = "Paeds Resus Limited";

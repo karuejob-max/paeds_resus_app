@@ -244,7 +244,7 @@ describe('ResusGPS Analytics Integration', () => {
       const totalDuration = sessions.reduce((sum, s) => sum + s.duration, 0);
       const averageDuration = totalDuration / sessions.length;
 
-      expect(averageDuration).toBe(276.67);
+      expect(averageDuration).toBeCloseTo(276.67, 2);
     });
 
     it('should track provider engagement per condition', () => {

@@ -1,17 +1,20 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { appRouter } from './routers';
-import { getDb } from './db';
-import { cprSessions } from '../drizzle/schema';
+
+vi.mock('./db', () => ({
+  getDb: vi.fn().mockResolvedValue({
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    }),
+  }),
+}));
 
 describe('CPR Session Monitoring', () => {
-  let db: Awaited<ReturnType<typeof getDb>>;
-
-  beforeAll(async () => {
-    db = await getDb();
-  });
-
   it('should fetch all CPR sessions via getAllSessions procedure', async () => {
-    if (!db) throw new Error('Database not available');
 
     // Create a mock context with a user
     const mockContext = {
@@ -47,7 +50,6 @@ describe('CPR Session Monitoring', () => {
   });
 
   it('should return sessions ordered by most recent first', async () => {
-    if (!db) throw new Error('Database not available');
 
     const mockContext = {
       user: {
@@ -75,7 +77,6 @@ describe('CPR Session Monitoring', () => {
   });
 
   it('should limit results to 1000 sessions', async () => {
-    if (!db) throw new Error('Database not available');
 
     const mockContext = {
       user: {

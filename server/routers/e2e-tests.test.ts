@@ -1,5 +1,46 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { appRouter } from "../routers";
+
+const e2eDbMock = vi.hoisted(() => {
+  const mockState = { limitRows: [] as Array<Record<string, unknown>> };
+  const insertResult = [{ insertId: 1 }];
+  const insertChain = {
+    values: vi.fn().mockResolvedValue(insertResult),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  const institutionRow = {
+    id: 1,
+    userId: 1,
+    companyName: "Test Hospital",
+    status: "active",
+    name: "Test Hospital",
+  };
+  const queryable = {
+    limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+    orderBy: vi.fn().mockReturnValue({
+      limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+    }),
+    then: (resolve: (v: unknown) => void) => resolve(mockState.limitRows),
+  };
+  return {
+    mockState,
+    getDb: vi.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue(insertChain),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue(queryable),
+          orderBy: vi.fn().mockResolvedValue([institutionRow]),
+        }),
+      }),
+      update: vi.fn().mockReturnValue(insertChain),
+    }),
+  };
+});
+
+vi.mock("../db", () => ({
+  getDb: e2eDbMock.getDb,
+}));
 
 /**
  * End-to-End Test Suite for Hospital Workflow
@@ -17,15 +58,38 @@ describe("Hospital Workflow E2E Tests", () => {
   let enrollmentId: number;
   let certificateNumber: string;
 
+  const institutionRow = {
+    id: 1,
+    userId: 1,
+    companyName: "Test Hospital",
+    status: "active",
+    name: "Test Hospital",
+  };
+
   // Test context factory
   const createTestContext = (userId: number = 1, role: "admin" | "user" = "admin") => ({
-    user: { id: userId, role },
-    req: {} as any,
-    res: {} as any,
+    user: {
+      id: userId,
+      role,
+      openId: `test-${userId}`,
+      email: "test@hospital.com",
+      name: "Test User",
+      loginMethod: "manus",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    },
+    req: { protocol: "https", headers: {} } as any,
+    res: { clearCookie: () => {} } as any,
+  });
+
+  beforeEach(() => {
+    e2eDbMock.mockState.limitRows = [institutionRow];
   });
 
   describe("Phase 1: Institutional Registration", () => {
     it("should register a new hospital", async () => {
+      e2eDbMock.mockState.limitRows = [];
       const result = await appRouter.createCaller(createTestContext(1, "admin")).institution.register({
         hospitalName: "Test Hospital",
         hospitalType: "private",

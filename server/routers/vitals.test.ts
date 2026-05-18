@@ -1,20 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getDb } from "../db";
+import { describe, it, expect } from "vitest";
 import { vitalsRouter } from "./vitals";
-import { patients, users } from "../../drizzle/schema";
 
 describe("Vitals Router", () => {
-  let db: any;
-  let testUser: any;
-  let testPatient: any;
-
-  beforeAll(async () => {
-    db = await getDb();
-    if (!db) {
-      throw new Error("Database not available for tests");
-    }
-  });
-
   describe("Risk Scoring Algorithm", () => {
     it("should calculate LOW risk for normal vital signs", () => {
       const vitals = {

@@ -9,15 +9,21 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from './db';
-import { eq, and } from 'drizzle-orm';
-import { users, analyticsEvents, resusSessionRecords, careSignalEvents } from '@/drizzle/schema';
+import { getDb } from './db';
 
-describe('ResusGPS Analytics Integration E2E', () => {
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+import { eq, and } from 'drizzle-orm';
+import { users, analyticsEvents, resusSessionRecords, careSignalEvents } from '../drizzle/schema';
+
+describe.skipIf(!hasDatabase)('ResusGPS Analytics Integration E2E', () => {
   let testUserId: string;
   let testInstitutionId: string;
+  let db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
   beforeAll(async () => {
+    const connection = await getDb();
+    if (!connection) throw new Error('Database not available');
+    db = connection;
     // Create test user
     const userResult = await db
       .insert(users)

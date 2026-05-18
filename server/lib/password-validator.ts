@@ -79,7 +79,7 @@ export function validatePasswordStrength(password: string): PasswordValidationRe
   }
 
   // Check for excessive repetition
-  const repetitionPattern = new RegExp(`(.)\\1{${PASSWORD_REQUIREMENTS.MAX_CONSECUTIVE},}`);
+  const repetitionPattern = new RegExp(`(.)\\1{${PASSWORD_REQUIREMENTS.MAX_CONSECUTIVE - 1},}`);
   if (repetitionPattern.test(password)) {
     errors.push(`Password cannot contain more than ${PASSWORD_REQUIREMENTS.MAX_CONSECUTIVE} consecutive identical characters`);
   } else {
