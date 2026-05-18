@@ -12,7 +12,8 @@
 
 ## Verification
 
-- [ ] `pnpm run ci:gate` (or `pnpm run check` + `pnpm run test:unit` + `pnpm run build`)
+- [ ] `pnpm run ci:gate` (includes `verify:ci` — catches pnpm/lockfile drift before GitHub)
+- [ ] If `package.json` dependencies changed: `pnpm install` and commit `pnpm-lock.yaml`
 - [ ] Tested on **staging** (when staging exists — see `docs/STAGING_BRANCH_SETUP.md`)
 
 ## PSOT / analytics

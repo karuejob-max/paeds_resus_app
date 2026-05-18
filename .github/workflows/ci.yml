@@ -12,7 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Use packageManager from package.json (pnpm@10.x) — do not pin a conflicting version here.
+      - name: Verify CI workflow matches packageManager
+        run: node scripts/verify-ci-workflow.mjs
+
+      # Use packageManager from package.json (pnpm@10.x) — do not pin `version:` here.
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4

@@ -27,6 +27,8 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 - [ ] Staging rule when it exists: PRs verified on staging before production; branch-based deploys (e.g. develop → staging, main → production).
 - [ ] Domain: paedsresus.com → 301 to www.paedsresus.com (documented and implemented).
+- [ ] **GitHub CI / pnpm:** Do not pin `version:` under `pnpm/action-setup` when `package.json` has `packageManager` (use pnpm 10 from Corepack only). After dependency changes, run `pnpm install` and commit `pnpm-lock.yaml`. Run **`pnpm run verify:ci`** (also first step in GitHub CI).
+- [ ] **Branch protection on `main`:** require the **CI** workflow to pass before merge (see [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md)).
 
 ---
 
