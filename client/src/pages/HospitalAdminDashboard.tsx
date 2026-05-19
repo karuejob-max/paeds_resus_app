@@ -21,6 +21,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
+import SafeTruthPanel from "@/components/SafeTruthPanel";
+import { ResourceGapWidget } from "@/components/ResourceGapWidget";
+import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
+import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
 import {
   BarChart3,
   Users,
@@ -566,7 +570,7 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -574,6 +578,8 @@ export default function HospitalAdminDashboard() {
             <TabsTrigger value="quotations">Quotations</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="safe-truth">Safe Truth</TabsTrigger>
+            <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -716,6 +722,12 @@ export default function HospitalAdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          {/* Resource Gap Trends — auto-populated from ResusGPS sessions */}
+          <ResourceGapWidget compact limit={8} showTimeframeSelector />
+
+          {/* Multi-Facility Benchmark — anonymised cross-facility comparison */}
+          <MultiFacilityBenchmarkWidget />
+
           </TabsContent>
 
           {/* Staff Management Tab */}
@@ -1995,6 +2007,39 @@ export default function HospitalAdminDashboard() {
                 <Button variant="outline" className="w-full">
                   Upgrade Plan
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Safe Truth Tab */}
+          <TabsContent value="safe-truth" className="space-y-6">
+            {institutionId ? (
+              <SafeTruthPanel hospitalId={institutionId} />
+            ) : (
+              <div className="text-sm text-muted-foreground py-8 text-center">
+                Institution data not available. Please refresh.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="care-signal" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Care Signal — facility QI</CardTitle>
+                <CardDescription>
+                  Submissions and system gaps for{" "}
+                  <strong>{myInstitution?.institution?.companyName ?? "your facility"}</strong> (matched
+                  to provider profiles and event metadata)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {myInstitution?.institution?.companyName ? (
+                  <FacilityCareSignalDashboard institutionMode lastDays={90} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Link your hospital account to see facility-level Care Signal metrics.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

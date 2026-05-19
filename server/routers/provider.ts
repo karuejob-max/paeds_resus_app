@@ -3,6 +3,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { providerProfiles, providerPerformanceMetrics, users } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { syncProviderProfileFacility } from "../services/facility-registry.service";
 
 export const providerRouter = router({
   // Get or create provider profile
@@ -42,6 +43,7 @@ export const providerRouter = router({
         licenseExpiry: z.date().optional(),
         specialization: z.string().optional(),
         yearsOfExperience: z.number().optional(),
+        facilityId: z.number().int().positive().optional(),
         facilityName: z.string().optional(),
         facilityType: z.enum([
           "primary_health_center",
@@ -71,7 +73,7 @@ export const providerRouter = router({
         input.licenseNumber,
         input.specialization,
         input.yearsOfExperience,
-        input.facilityName,
+        input.facilityId ?? input.facilityName,
         input.facilityType,
         input.facilityRegion,
         input.bio,
@@ -94,6 +96,10 @@ export const providerRouter = router({
         .update(providerProfiles)
         .set(updateData)
         .where(eq(providerProfiles.userId, ctx.user.id));
+
+      if (input.facilityId) {
+        await syncProviderProfileFacility(ctx.user.id, input.facilityId);
+      }
 
       return { success: true, completionPercentage };
     }),

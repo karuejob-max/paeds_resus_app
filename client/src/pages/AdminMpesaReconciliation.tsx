@@ -23,7 +23,7 @@ export default function AdminMpesaReconciliation() {
       return;
     }
     if ((user as { role?: string })?.role !== "admin") {
-      setLocation("/home");
+      setLocation("/");
     }
   }, [user, isAuthenticated, loading, setLocation]);
 

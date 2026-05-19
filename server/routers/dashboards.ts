@@ -1,8 +1,44 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getExecutiveDashboard, getAnalyticsMetrics, getCohortAnalysis } from "../services/dashboards.service";
+import { buildProviderHomeSummary } from "../lib/provider-home-summary";
+import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 
 export const dashboardsRouter = router({
+  /**
+   * Lightweight provider-home summary used to render the next action without client-side races.
+   */
+  getSummary: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      return await buildProviderHomeSummary(ctx.user.id);
+    } catch (error) {
+      console.error("[dashboards.getSummary]", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not load your provider home right now.",
+      });
+    }
+  }),
+
+  /**
+   * Convenience endpoint for consumers that only need the next step.
+   */
+  getNextAction: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      const summary = await buildProviderHomeSummary(ctx.user.id);
+      return summary.primaryAction;
+    } catch (error) {
+      console.error("[dashboards.getNextAction]", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not load your next step right now.",
+      });
+    }
+  }),
+
   /**
    * Get executive dashboard (admin only)
    */

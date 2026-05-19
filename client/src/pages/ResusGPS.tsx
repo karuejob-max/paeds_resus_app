@@ -14,15 +14,16 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
+import { CPRClockTeam } from '@/components/CPRClockTeam';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
-import { useCountdownTimer } from '@/hooks/useCountdownTimer';
-import { TimerCard } from '@/components/TimerCard';
+import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
+import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
-import { estimateWeightFromAge, parseAgeString, type StructuredAge } from '@/lib/resus/age-calculator';
+import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
 import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
@@ -55,6 +56,7 @@ import {
   answerPrimarySurvey,
   completeIntervention,
   startIntervention,
+  markInterventionUnavailable,
   returnToPrimarySurvey,
   getActiveThreats,
   getPendingInterventions,
@@ -63,14 +65,27 @@ import {
   triggerCardiacArrest,
   achieveROSC,
   exportClinicalRecord,
+  exportSessionSummaryOnePager,
   updatePatientInfo,
   acknowledgeSafetyAlert,
   calcDose,
   setDefinitiveDiagnosis,
+  addConcurrentDiagnosis,
+  removeConcurrentDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
+  getAgeCategory,
 } from '@/lib/resus/abcdeEngine';
 import { pushToUndoStack, undo, redo } from '@/lib/resus/undo-manager';
+import {
+  persistResusSession,
+  loadPersistedResusSession,
+  clearPersistedResusSession,
+  saveSampleHistory,
+  loadLastSampleHistory,
+  clearSampleHistory,
+  type PersistedSampleHistory,
+} from '@/lib/resus/resusSessionStore';
 import {
   AlertTriangle,
   Activity,
@@ -102,7 +117,17 @@ import {
   Timer,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
+  XCircle,
+  BookOpen,
+  Layers,
+  Users,
 } from 'lucide-react';
+import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
+import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
+import { MultiPatientBoard } from '@/components/MultiPatientBoard';
+import PWAInstallBanner from '@/components/PWAInstallBanner';
+import { MedicationTimerStrip } from '@/components/MedicationTimerStrip';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -116,24 +141,61 @@ const LETTER_CONFIG: Record<ABCDELetter, { label: string; icon: React.ReactNode;
 };
 
 // ─── Timer Hook ─────────────────────────────────────────────
+//
+// Uses Date.now()-anchored requestAnimationFrame instead of setInterval.
+// Browsers throttle setInterval to ~1 Hz (or slower) when a tab is
+// backgrounded, which causes CPR cycle timers to drift during long codes.
+// rAF + wall-clock anchoring guarantees accuracy regardless of tab state.
 
 function useTimer() {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const startWallRef = useRef<number>(0); // wall-clock ms when timer was (re)started
+  const baseElapsedRef = useRef<number>(0); // elapsed seconds accumulated before last pause
 
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    if (!running) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+
+    // Anchor to wall clock so background throttling cannot cause drift
+    startWallRef.current = Date.now();
+
+    const tick = () => {
+      const wallSeconds = Math.floor((Date.now() - startWallRef.current) / 1000);
+      setElapsed(baseElapsedRef.current + wallSeconds);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
   }, [running]);
 
   const start = useCallback(() => setRunning(true), []);
-  const stop = useCallback(() => setRunning(false), []);
-  const reset = useCallback(() => { setElapsed(0); setRunning(false); }, []);
+
+  const stop = useCallback(() => {
+    setRunning(false);
+    // Snapshot current elapsed so resume continues from the right place
+    baseElapsedRef.current = elapsed;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed]);
+
+  const reset = useCallback(() => {
+    setElapsed(0);
+    baseElapsedRef.current = 0;
+    setRunning(false);
+  }, []);
 
   return { elapsed, running, start, stop, reset };
 }
@@ -144,13 +206,47 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+function approximateAgeMonths(age: string | null): number {
+  if (!age) return 0;
+  const structured = parseAgeString(age);
+  if (structured) return Math.max(0, Math.round(ageToMonths(structured)));
+  const lower = age.toLowerCase();
+  const n = parseInt(lower.match(/\d+/)?.[0] ?? '0', 10);
+  if (lower.includes('month')) return n;
+  if (lower.includes('week')) return Math.max(0, Math.round(n / 4.33));
+  if (lower.includes('day') || lower.includes('neonat')) return 0;
+  if (lower.includes('year') || lower.includes('y ')) return n * 12;
+  return n * 12;
+}
+
 // ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS() {
   const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
+  const analyticsRef = useRef(analytics);
+  analyticsRef.current = analytics;
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+  const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
+
+  // ── On mount: check for an unfinished persisted session + last SAMPLE ───────
+  useEffect(() => {
+    loadPersistedResusSession().then((saved) => {
+      if (saved && saved.phase !== 'IDLE') setResumeCandidate(saved);
+    });
+    loadLastSampleHistory().then((sample) => {
+      if (sample) setPreFillSample(sample);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-persist on every session change ──────────────────────────────────
+  useEffect(() => {
+    if (session.phase !== 'IDLE') {
+      persistResusSession(session);
+    }
+  }, [session]);
   const [recommendedPathway, setRecommendedPathway] = useState<{ pathway: string; condition: string; message: string } | null>(null);
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
@@ -162,7 +258,16 @@ export default function ResusGPS() {
   const [expandedThreat, setExpandedThreat] = useState<string | null>(null);
   const [reassessmentMode, setReassessmentMode] = useState<{ interventionId: string; checkIndex: number } | null>(null);
   const [showEventLog, setShowEventLog] = useState(false);
+  const [showCPRClock, setShowCPRClock] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [showProtocols, setShowProtocols] = useState(false);
+  const [showMCIBoard, setShowMCIBoard] = useState(false);
+  // Phase 6.3 — track which condition protocols were used + step counts for Fellowship Pillar B
+  const [protocolsUsed, setProtocolsUsed] = useState<Record<string, { completed: number; total: number }>>({});
+  const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
+  const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
   const timer = useTimer();
+  const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
 
   // Sync demographics
   useEffect(() => {
@@ -188,7 +293,7 @@ export default function ResusGPS() {
   }, [session.phase]);
 
   // Load recommendation on mount
-  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery(undefined, { enabled: true });
+  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery({}, { enabled: true });
   useEffect(() => {
     if (autoLaunchData) {
       setRecommendedPathway(autoLaunchData);
@@ -201,8 +306,41 @@ export default function ResusGPS() {
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
-n  // Active intervention timers
-  const [activeTimers, setActiveTimers] = useState<Map<string, any>>(new Map());
+
+  const prevLetterRef = useRef<ABCDELetter | null>(null);
+  const prevThreatCountRef = useRef(0);
+
+  useEffect(() => {
+    if (session.phase !== 'PRIMARY_SURVEY') {
+      prevLetterRef.current = null;
+      return;
+    }
+    const letter = session.currentLetter;
+    if (prevLetterRef.current && prevLetterRef.current !== letter) {
+      const threatsOnLetter = session.threats.filter(
+        (t) => t.letter === prevLetterRef.current && !t.resolved
+      ).length;
+      void analyticsRef.current.trackLetterCompleted(prevLetterRef.current, threatsOnLetter);
+      void analyticsRef.current.trackLetterStart(letter);
+    } else if (!prevLetterRef.current) {
+      void analyticsRef.current.trackLetterStart(letter);
+    }
+    prevLetterRef.current = letter;
+  }, [session.currentLetter, session.phase, session.threats]);
+
+  useEffect(() => {
+    if (session.threats.length <= prevThreatCountRef.current) {
+      prevThreatCountRef.current = session.threats.length;
+      return;
+    }
+    const added = session.threats.slice(prevThreatCountRef.current);
+    prevThreatCountRef.current = session.threats.length;
+    for (const threat of added) {
+      if (!threat.resolved) {
+        void analyticsRef.current.trackThreatDetected(threat.name, threat.severity);
+      }
+    }
+  }, [session.threats]);
 
   // ─── Handlers ───────────────────────────────────────────
 
@@ -224,7 +362,10 @@ n  // Active intervention timers
   };
 
   const handleAnswer = (question: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => {
-    setSession(prev => answerPrimarySurvey(prev, question.id, answer, question, numVal, numVal2));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Answer: ${question.id} = ${answer}`);
+      return answerPrimarySurvey(withUndo, question.id, answer, question, numVal, numVal2);
+    });
     setNumberInput('');
     setNumberInput2('');
     // Track question answered
@@ -233,7 +374,10 @@ n  // Active intervention timers
 
   const handleCompleteIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
-    setSession(prev => completeIntervention(prev, id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Complete: ${intervention?.action ?? id}`);
+      return completeIntervention(withUndo, id);
+    });
     // Track intervention completed
     if (intervention) {
       trackButtonClick('Log Intervention', { interventionName: intervention.action });
@@ -242,32 +386,50 @@ n  // Active intervention timers
   };
 
   const [duplicateWarning, setDuplicateWarning] = useState<{ intervention: Intervention; duplicate: Intervention } | null>(null);
+  const [showCareSignalPrompt, setShowCareSignalPrompt] = useState(false);
+  const [careSignalPromptDiagnosis, setCareSignalPromptDiagnosis] = useState('');
 
+  /** Single entry point for starting an intervention — keeps duplicate-medication checks consistent (Intervention screen, side panel, etc.). */
   const handleStartIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (!intervention) return;
 
     // Check for medication duplicates
-    const duplicate = checkMedicationDuplicate(session, intervention);
-    if (duplicate) {
-      setDuplicateWarning({ intervention, duplicate });
+    const duplicate = checkMedicationDuplicate(intervention, session);
+    if (duplicate.isDuplicate && duplicate.existingIntervention) {
+      setDuplicateWarning({ intervention, duplicate: duplicate.existingIntervention });
       return;
     }
 
     // No duplicate, proceed with intervention
-    setSession(prev => startIntervention(prev, id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Start: ${intervention.action}`);
+      return startIntervention(withUndo, id);
+    });
     analytics.trackInterventionStarted(intervention.action);
     
-    // Create timer for intervention (default 5 minutes)
-    const timerDuration = 300; // 5 minutes in seconds
-    const timer = useCountdownTimer(timerDuration);
-    setActiveTimers(prev => new Map(prev).set(id, timer));
-    timer.start();
+  };
+
+  const handleMarkInterventionUnavailable = (id: string) => {
+    const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
+    if (!intervention) return;
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Unavailable: ${intervention.action}`);
+      return markInterventionUnavailable(withUndo, id);
+    });
+    void analytics.trackResourceUnavailable(intervention.action);
+    toast.warning(
+      `⚠ Resource gap logged: "${intervention.action}" not available at this facility. Captured for Care Signal.`,
+      { duration: 5000 }
+    );
   };
 
   const handleConfirmDuplicateOverride = () => {
     if (!duplicateWarning) return;
-    setSession(prev => startIntervention(prev, duplicateWarning.intervention.id));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, `Override duplicate: ${duplicateWarning.intervention.action}`);
+      return startIntervention(withUndo, duplicateWarning.intervention.id);
+    });
     analytics.trackInterventionStarted(duplicateWarning.intervention.action);
     toast.warning('Duplicate intervention started - verify clinical decision');
     setDuplicateWarning(null);
@@ -290,15 +452,23 @@ n  // Active intervention timers
   };
 
   const handleCardiacArrest = () => {
-    setSession(prev => triggerCardiacArrest(prev));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, 'Cardiac arrest triggered');
+      return triggerCardiacArrest(withUndo);
+    });
     timer.reset();
     timer.start();
+    // Show CPR Clock for ACLS-aligned guidance
+    setShowCPRClock(true);
     // Track cardiac arrest triggered
     analytics.trackCardiacArrestTriggered();
   };
 
   const handleROSC = () => {
-    setSession(prev => achieveROSC(prev));
+    setSession(prev => {
+      const withUndo = pushToUndoStack(prev, 'ROSC achieved');
+      return achieveROSC(withUndo);
+    });
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
@@ -318,54 +488,111 @@ n  // Active intervention timers
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
-  const recordSessionMutation = trpc.resusSessionAnalytics.recordSession.useMutation();
+  const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation();
+  const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation();
 
-  const handleExport = async () => {
-    trackButtonClick('Complete Assessment');
-    // Track assessment completed
-    analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
-    
-    // Record session for fellowship analytics
-    // Determine pathway from session phase and threats
-    const pathway = session.phase === 'cardiac-arrest' 
+  // Phase 5.2 — Server-side SAMPLE history sync
+  const saveSampleHistoryMutation = trpc.sampleHistory.saveSampleHistory.useMutation();
+  const { data: serverSampleHistory } = trpc.sampleHistory.getLastSampleHistory.useQuery(undefined, {
+    enabled: session.phase === 'IDLE',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!serverSampleHistory || preFillSample) return;
+    setPreFillSample({
+      signs: serverSampleHistory.signs ?? '',
+      allergies: serverSampleHistory.allergies ?? '',
+      medications: serverSampleHistory.medications ?? '',
+      pastHistory: serverSampleHistory.pastHistory ?? '',
+      lastMeal: serverSampleHistory.lastMeal ?? '',
+      events: serverSampleHistory.events ?? '',
+    });
+  }, [serverSampleHistory, preFillSample]);
+
+  const handleSaveSession = async () => {
+    trackButtonClick('Save Session for Fellowship Credit');
+    const primaryDiagnosis = session.phase === 'CARDIAC_ARREST' 
       ? 'cardiac_arrest_protocol'
       : session.activeThreat?.id || 'general_resus';
     
     const interactionCount = session.events.filter(e => 
-      e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
     ).length;
+
+    const reassessmentCount = session.events.filter(e => e.type === 'reassessment').length;
     
     try {
-      const result = await recordSessionMutation.mutateAsync({
-        pathway,
-        durationSeconds: timer.elapsed,
-        interactionsCount: Math.max(interactionCount, 1),
-        patientAge: session.patientAge,
-        patientWeight: session.patientWeight,
+      // Step 1: Record the session (idempotent via session.id)
+      const sessionResult = await recordSessionMutation.mutateAsync({
         sessionId: session.id,
-        notes: `Phase: ${session.phase}, Threats: ${session.threats.map(t => t.id).join(', ')}`,
+        primaryDiagnosis,
+        patientAgeMonths: approximateAgeMonths(session.patientAge),
+        patientWeightKg: session.patientWeight || 0,
+        isTrauma: session.isTrauma,
+        isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+        interventionCount: interactionCount,
+        reassessmentCount,
+        durationSeconds: timer.elapsed,
+        depthScore: session.depthScore ?? 0,
+      });
+
+      // Step 2: Record the case (idempotent via sessionId + caseNumber)
+      // Include condition protocols used for Fellowship Pillar B credit
+      const protocolInterventions = Object.entries(protocolsUsed).map(
+        ([condId, { completed, total }]) => `protocol:${condId}:${completed}/${total}`
+      );
+      await recordCaseMutation.mutateAsync({
+        sessionId: session.id,
+        caseNumber: 1, // Currently ResusGPS v2 is single-case per session
+        diagnosis: primaryDiagnosis,
+        abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
+        interventions: [
+          ...session.events
+            .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+            .map(e => e.detail),
+          ...protocolInterventions,
+        ],
+        reassessments: session.events
+          .filter(e => e.type === 'reassessment')
+          .map(e => e.detail),
+        outcome: session.outcome ?? 'completed',
+        depthScore: session.depthScore ?? 0,
       });
       
-      if (result?.isValid) {
-        const conditionList = result.attributedConditions?.slice(0, 3).join(', ') || 'General resuscitation';
-        const nextRec = result.nextRecommendedCondition ? ` Practice next: ${result.nextRecommendedCondition}` : '';
+      if (sessionResult.success) {
         toast.success(
-          `Session Valid: ${conditionList}${result.attributedConditions?.length > 3 ? ` +${result.attributedConditions.length - 3}` : ''}${nextRec}`,
-          { duration: 5000 }
+          sessionResult.alreadyExists 
+            ? '✅ Session already saved for fellowship credit' 
+            : '✅ Session saved for fellowship credit', 
+          { duration: 3000 }
         );
-      } else if (result?.depthScore && result.depthScore < 50) {
-        toast.warning(
-          `Session recorded (depth: ${result.depthScore}%). ${Math.ceil((50 - result.depthScore) / 10)} more interactions needed for fellowship credit.`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success('Session recorded for fellowship tracking', { duration: 3000 });
+        // Closed-loop accountability: invite Care Signal report after session save
+        if (!sessionResult.alreadyExists) {
+          setCareSignalPromptDiagnosis(primaryDiagnosis);
+          setTimeout(() => setShowCareSignalPrompt(true), 1500);
+        }
       }
     } catch (error) {
-      console.error('Failed to record session:', error);
-      toast.error('Could not record session for analytics', { duration: 3000 });
+      console.error('Failed to save session:', error);
+      toast.error('Could not save session for fellowship credit. Please retry.', { 
+        duration: 5000,
+        action: {
+          label: 'Retry',
+          onClick: () => handleSaveSession()
+        }
+      });
     }
-    
+  };
+
+  const handleExport = () => {
+    trackButtonClick('Complete Assessment');
+    analytics.trackAssessmentCompleted(session.phase, timer.elapsed);
+    void analytics.trackClinicalRecordExported(session.phase, timer.elapsed);
+
+    // ── STEP 1: Generate and download the clinical record IMMEDIATELY.
+    // This must NEVER be blocked by a network call. Bedside handoff is
+    // time-critical; the provider cannot wait for a backend response.
     const text = exportClinicalRecord(session);
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -374,6 +601,53 @@ n  // Active intervention timers
     a.download = `resus-record-${new Date().toISOString().slice(0, 16)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success('Clinical record downloaded', { duration: 2000 });
+
+    // ── STEP 2: Fire-and-forget background sync for fellowship analytics.
+    // Failures here are logged silently and never surface to the provider
+    // during an active resuscitation.
+    const pathway = session.phase === 'CARDIAC_ARREST'
+      ? 'cardiac_arrest_protocol'
+      : session.activeThreat?.id || 'general_resus';
+    const interactionCount = session.events.filter(e =>
+      e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
+    ).length;
+
+    void (async () => {
+      try {
+        await recordSessionMutation.mutateAsync({
+          sessionId: session.id,
+          primaryDiagnosis: pathway,
+          patientAgeMonths: approximateAgeMonths(session.patientAge),
+          patientWeightKg: session.patientWeight || 0,
+          isTrauma: session.isTrauma,
+          isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+          interventionCount: interactionCount,
+          reassessmentCount: session.events.filter(e => e.type === 'reassessment').length,
+          durationSeconds: timer.elapsed,
+          depthScore: session.depthScore ?? 0,
+        });
+        await recordCaseMutation.mutateAsync({
+          sessionId: session.id,
+          caseNumber: 1,
+          diagnosis: pathway,
+          abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
+          interventions: session.events
+            .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
+            .map(e => e.detail),
+          reassessments: session.events
+            .filter(e => e.type === 'reassessment')
+            .map(e => e.detail),
+          outcome: session.outcome ?? 'completed',
+          depthScore: session.depthScore ?? 0,
+        });
+        // Quiet success — provider already has their file
+        console.info('[ResusGPS] Session synced for fellowship credit:', session.id);
+      } catch (error) {
+        // Silent failure — never interrupt the clinical workflow
+        console.warn('[ResusGPS] Background sync failed (non-critical):', error);
+      }
+    })();
   };
 
   /** HI-CLIN-1: Same text as export — copy for handoff / EHR paste */
@@ -386,47 +660,68 @@ n  // Active intervention timers
     );
   }, [session, trackButtonClick]);
 
+  const handleCopyOnePager = useCallback(async () => {
+    trackButtonClick('Copy one-pager summary');
+    const text = exportSessionSummaryOnePager(session);
+    void analytics.trackClinicalRecordExported(session.phase, timer.elapsed);
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success('One-pager copied — paste into handoff or notes'),
+      () => toast.error('Could not copy — check clipboard permissions')
+    );
+  }, [session, timer.elapsed, trackButtonClick, analytics]);
+
   const handleNewCase = () => {
+    clearPersistedResusSession();
     // Optionally record the previous session before starting new one
     // (only if it had significant activity)
     if (session.events.length > 5) {
-      const pathway = session.phase === 'cardiac-arrest' 
+      const pathway = session.phase === 'CARDIAC_ARREST' 
         ? 'cardiac_arrest_protocol'
         : session.activeThreat?.id || 'general_resus';
       
       const interactionCount = session.events.filter(e => 
-        e.type === 'intervention' || e.type === 'assessment' || e.type === 'reassessment'
+        e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
       ).length;
       
       if (timer.elapsed > 60 && interactionCount >= 3) {
-        recordSessionMutation.mutate(
-          {
-            pathway,
-            durationSeconds: timer.elapsed,
-            interactionsCount: interactionCount,
-            patientAge: session.patientAge,
-            patientWeight: session.patientWeight,
+        void recordSessionMutation
+          .mutateAsync({
             sessionId: session.id,
-            notes: 'Auto-recorded on new case',
-          },
-          {
-            onSuccess: (result) => {
-              if (result?.isValid) {
-                const conditionList = result.attributedConditions?.slice(0, 2).join(', ') || 'General resuscitation';
-                toast.success(
-                  `Session recorded: ${conditionList}`,
-                  { duration: 2000 }
-                );
-              }
-            },
-            onError: () => {
-              console.error('Auto-record failed');
-            },
-          }
-        );
+            primaryDiagnosis: pathway,
+            patientAgeMonths: approximateAgeMonths(session.patientAge),
+            patientWeightKg: session.patientWeight || 0,
+            isTrauma: session.isTrauma,
+            isCardiacArrest: session.phase === 'CARDIAC_ARREST',
+            interventionCount: interactionCount,
+            reassessmentCount: session.events.filter((e) => e.type === 'reassessment').length,
+            durationSeconds: timer.elapsed,
+            depthScore: session.depthScore ?? 0,
+          })
+          .then(() => {
+            toast.success('Previous session recorded for fellowship', { duration: 2000 });
+          })
+          .catch(() => {
+            console.error('Auto-record failed');
+          });
       }
     }
     
+    // Phase 5.2 — Save SAMPLE history to server before resetting
+    const sample = session.sampleHistory;
+    const hasSampleData = Object.values(sample).some(v => v && String(v).trim().length > 0);
+    if (hasSampleData) {
+      saveSampleHistoryMutation.mutate({
+        signs: sample.signs ?? '',
+        allergies: sample.allergies ?? '',
+        medications: sample.medications ?? '',
+        pastHistory: sample.pastHistory ?? '',
+        lastMeal: sample.lastMeal ?? '',
+        events: sample.events ?? '',
+        caseWeight: session.patientWeight ?? undefined,
+        caseAge: session.patientAge ?? undefined,
+      });
+    }
+
     setSession(createSession(getWeightInKg(), demographics.age || null));
     timer.reset();
     setNumberInput('');
@@ -435,10 +730,53 @@ n  // Active intervention timers
     setReassessmentMode(null);
   };
 
+  // ── Resume dialog ──────────────────────────────────────────────────────────
+  if (resumeCandidate) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-4">
+          <div className="rounded-xl border border-amber-400/60 bg-amber-50/80 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-amber-800 font-semibold text-base">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Unfinished case found
+            </div>
+            <p className="text-sm text-amber-900/90">
+              A ResusGPS case was interrupted — likely a browser refresh during an active resuscitation.
+              Do you want to resume it?
+            </p>
+            <div className="flex gap-3 pt-1">
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setSession(resumeCandidate);
+                  setResumeCandidate(null);
+                  if (resumeCandidate.phase !== 'IDLE') timer.start();
+                }}
+              >
+                Resume case
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  clearPersistedResusSession();
+                  setResumeCandidate(null);
+                }}
+              >
+                Start fresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Render ─────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <ClinicalUseDisclaimer />
       {/* Recording indicator */}
       {recordSessionMutation.isPending && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2 animate-pulse">
@@ -456,6 +794,8 @@ n  // Active intervention timers
         weight={weight}
         activeThreats={activeThreats}
         unackedAlerts={unackedAlerts}
+        canUndo={canUndo}
+        onUndo={handleUndo}
         onOpenPatientInfo={() => {
           setTempWeight(session.patientWeight?.toString() || '');
           setTempAge(session.patientAge || '');
@@ -463,10 +803,14 @@ n  // Active intervention timers
         }}
         onOpenInterventions={() => setInterventionPanelOpen(true)}
         onCardiacArrest={handleCardiacArrest}
+        onSaveSession={handleSaveSession}
         onExport={handleExport}
         onCopySummary={handleCopySummary}
         onNewCase={handleNewCase}
         onShowLog={() => setShowEventLog(true)}
+        onOpenDocuments={() => setShowDocuments(true)}
+        onOpenProtocols={() => setShowProtocols(true)}
+        onOpenMCIBoard={() => setShowMCIBoard(true)}
       />
 
       {/* Safety Alerts Banner */}
@@ -530,6 +874,7 @@ n  // Active intervention timers
           <InterventionScreen
             session={session}
             weight={weight}
+            patientAge={session.patientAge}
             onComplete={handleCompleteIntervention}
             onStart={handleStartIntervention}
             onReturnToPrimary={handleReturnToPrimarySurvey}
@@ -537,7 +882,15 @@ n  // Active intervention timers
           />
         )}
 
-        {session.phase === 'CARDIAC_ARREST' && (
+        {session.phase === 'CARDIAC_ARREST' && showCPRClock ? (
+          <CPRClockTeam
+            patientWeight={weight ?? 10}
+            patientAgeMonths={
+              session.patientAge ? approximateAgeMonths(session.patientAge) || undefined : undefined
+            }
+            onClose={() => setShowCPRClock(false)}
+          />
+        ) : session.phase === 'CARDIAC_ARREST' ? (
           <CardiacArrestScreen
             session={session}
             weight={weight}
@@ -545,7 +898,7 @@ n  // Active intervention timers
             onComplete={handleCompleteIntervention}
             onROSC={handleROSC}
           />
-        )}
+        ) : null}
 
         {(session.phase === 'SECONDARY_SURVEY' || session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') && (
           <PostPrimaryScreen
@@ -554,6 +907,10 @@ n  // Active intervention timers
             diagnoses={diagnoses}
             onExport={handleExport}
             onCopySummary={handleCopySummary}
+            onCopyOnePager={handleCopyOnePager}
+            preFillSample={preFillSample}
+            samplePreFillDismissed={samplePreFillDismissed}
+            setSamplePreFillDismissed={setSamplePreFillDismissed}
           />
         )}
       </main>
@@ -579,6 +936,9 @@ n  // Active intervention timers
             </SheetDescription>
           </SheetHeader>
 
+          {/* Medication countdown timers for in-progress interventions */}
+          <MedicationTimerStrip threats={session.threats} />
+
           <div className="space-y-4 mt-4">
             {activeThreats.map(threat => (
               <ThreatCard
@@ -589,6 +949,7 @@ n  // Active intervention timers
                 onToggle={() => setExpandedThreat(expandedThreat === threat.id ? null : threat.id)}
                 onComplete={handleCompleteIntervention}
                 onStart={handleStartIntervention}
+                onMarkUnavailable={handleMarkInterventionUnavailable}
                 reassessmentMode={reassessmentMode}
                 setReassessmentMode={setReassessmentMode}
                 session={session}
@@ -608,13 +969,14 @@ n  // Active intervention timers
 
       {/* Patient Info Dialog */}
       <Dialog open={patientInfoOpen} onOpenChange={setPatientInfoOpen}>
-        <DialogContent className="bg-background border-border">
+        <DialogContent className="bg-background border-border flex flex-col max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="text-foreground">Patient Information</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Update weight and age at any point. Drug doses recalculate automatically.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">Weight (kg)</label>
@@ -625,6 +987,11 @@ n  // Active intervention timers
                 onChange={e => setTempWeight(e.target.value)}
                 className="bg-background text-foreground"
               />
+              {tempWeight && (
+                <p className="text-xs text-green-400 mt-1">
+                  ✓ Weight set to {tempWeight} kg
+                </p>
+              )}
               {!tempWeight && (
                 <p className="text-xs text-amber-400 mt-1">
                   Without weight, drug doses show per-kg calculations only
@@ -634,17 +1001,16 @@ n  // Active intervention timers
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">Age</label>
               <AgeInput
-                value={tempAge}
-                onChange={(age) => {
-                  setTempAge(age);
+                age={parseAgeString(tempAge) ?? { years: 0, months: 0, weeks: 0 }}
+                onAgeChange={(age: StructuredAge) => {
+                  const formattedAge = `${age.years}y ${age.months}m ${age.weeks}w`;
+                  setTempAge(formattedAge);
                   // Auto-calculate weight from age if not manually set
-                  if (!tempWeight && age) {
-                    const parsedAge = parseAgeString(age);
-                    if (parsedAge) {
-                      const calculatedWeight = estimateWeightFromAge(parsedAge);
-                      if (calculatedWeight) {
-                        setTempWeight(calculatedWeight.toString());
-                      }
+                  if (!tempWeight) {
+                    const calculatedWeight = estimateWeightFromAge(age);
+                    if (calculatedWeight) {
+                      setTempWeight(calculatedWeight.toString());
+                      toast.success(`Weight auto-calculated: ${calculatedWeight} kg`);
                     }
                   }
                 }}
@@ -654,9 +1020,17 @@ n  // Active intervention timers
               </p>
             </div>
           </div>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
             <Button variant="outline" onClick={() => setPatientInfoOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdatePatientInfo}>Update</Button>
+            <Button 
+              onClick={handleUpdatePatientInfo}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2"
+              disabled={!tempWeight && !tempAge}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Save Weight & Age
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -713,6 +1087,48 @@ n  // Active intervention timers
         </button>
       )}
 
+      {/* Clinical Documents Panel */}
+      <ExportDocumentsPanel
+        open={showDocuments}
+        onClose={() => setShowDocuments(false)}
+        session={session}
+      />
+
+      {/* Condition Protocols Sheet */}
+      <ConditionProtocolSheet
+        open={showProtocols}
+        onOpenChange={setShowProtocols}
+        session={session}
+        onProtocolProgress={(conditionId, completed, total) => {
+          setProtocolsUsed(prev => ({ ...prev, [conditionId]: { completed, total } }));
+        }}
+      />
+
+      {/* Multi-Patient Board (MCI mode) */}
+      <MultiPatientBoard
+        open={showMCIBoard}
+        onOpenChange={setShowMCIBoard}
+      />
+
+      {/* PWA install prompt — only shown on idle screen, never during active case */}
+      {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
+
+      {/* Care Signal closed-loop prompt — shown after session save */}
+      <CareSignalPostEventPrompt
+        open={showCareSignalPrompt}
+        onClose={() => setShowCareSignalPrompt(false)}
+        diagnosis={careSignalPromptDiagnosis}
+        outcome={session.outcome || 'survived'}
+      />
+
+      {session.phase !== 'IDLE' && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-2 pointer-events-none">
+          <div className="max-w-lg mx-auto pointer-events-auto shadow-lg rounded-lg overflow-hidden border border-border">
+            <MedicationTimerStrip threats={session.threats} />
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
@@ -726,26 +1142,38 @@ function TopBar({
   weight,
   activeThreats,
   unackedAlerts,
+  canUndo,
+  onUndo,
   onOpenPatientInfo,
   onOpenInterventions,
   onCardiacArrest,
+  onSaveSession,
   onExport,
   onCopySummary,
   onNewCase,
   onShowLog,
+  onOpenDocuments,
+  onOpenProtocols,
+  onOpenMCIBoard,
 }: {
   session: ResusSession;
   timer: ReturnType<typeof useTimer>;
   weight: number | null;
   activeThreats: Threat[];
   unackedAlerts: typeof session.safetyAlerts;
+  canUndo: boolean;
+  onUndo: () => void;
   onOpenPatientInfo: () => void;
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
+  onSaveSession: () => void;
   onExport: () => void;
   onCopySummary: () => void;
   onNewCase: () => void;
   onShowLog: () => void;
+  onOpenDocuments: () => void;
+  onOpenProtocols: () => void;
+  onOpenMCIBoard: () => void;
 }) {
   if (session.phase === 'IDLE') return null;
 
@@ -834,7 +1262,7 @@ function TopBar({
           className="text-xs h-8 w-8 p-0"
           onClick={() => {
             if (canUndo) {
-              handleUndo();
+              onUndo();
               toast.success('Undo: Last action reverted');
             } else {
               toast.info('Nothing to undo');
@@ -847,6 +1275,39 @@ function TopBar({
           <Undo2 className="h-4 w-4" />
         </Button>
 
+        {/* Multi-Patient Board */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenMCIBoard}
+          title="Multi-patient board (mass casualty)"
+          aria-label="Multi-patient board"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
+        {/* Condition Protocols */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenProtocols}
+          title="Condition protocols (Septic Shock, Status Epilepticus, DKA, NRP, Anaphylaxis, Severe Asthma)"
+          aria-label="Condition protocols"
+        >
+          <Layers className="h-4 w-4" />
+        </Button>
+        {/* Clinical Documents */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={onOpenDocuments}
+          title="Generate clinical documents (Referral / Progress Note)"
+          aria-label="Clinical documents"
+        >
+          <BookOpen className="h-4 w-4" />
+        </Button>
         {/* Log */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
           <FileText className="h-4 w-4" />
@@ -860,6 +1321,18 @@ function TopBar({
           aria-label="Copy session summary"
         >
           <Copy className="h-4 w-4" />
+        </Button>
+        {/* Save Session for Fellowship Credit */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-8 px-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+          onClick={onSaveSession}
+          title="Save session for fellowship credit"
+          aria-label="Save session"
+        >
+          <CheckCircle2 className="h-4 w-4 mr-1" />
+          Save
         </Button>
         {/* New Case */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
@@ -1299,11 +1772,36 @@ function NumberPairInput({
   );
 }
 
+/** Shared dose rationale for intervention rows (age-aware, weight required). */
+function InterventionDoseRationale({
+  action,
+  dose,
+  weight,
+  patientAge,
+  className = 'mt-2 pt-2 border-t border-border/50',
+}: {
+  action: string;
+  dose: NonNullable<Intervention['dose']>;
+  weight: number | null;
+  patientAge: string | null;
+  className?: string;
+}) {
+  if (weight == null) return null;
+  const rationale = getDoseRationale(action, weight, getAgeCategory(patientAge), dose.route);
+  if (!rationale) return null;
+  return (
+    <div className={className}>
+      <DoseRationaleCard rationale={rationale} />
+    </div>
+  );
+}
+
 // ─── Intervention Screen ────────────────────────────────────
 
 function InterventionScreen({
   session,
   weight,
+  patientAge,
   onComplete,
   onStart,
   onReturnToPrimary,
@@ -1311,6 +1809,7 @@ function InterventionScreen({
 }: {
   session: ResusSession;
   weight: number | null;
+  patientAge: string | null;
   onComplete: (id: string) => void;
   onStart: (id: string) => void;
   onReturnToPrimary: () => void;
@@ -1355,6 +1854,13 @@ function InterventionScreen({
                       {intervention.dose.preparation && (
                         <p className="text-xs text-muted-foreground mt-1">{intervention.dose.preparation}</p>
                       )}
+                      <InterventionDoseRationale
+                        action={intervention.action}
+                        dose={intervention.dose}
+                        weight={weight}
+                        patientAge={patientAge}
+                        className="mt-2 pt-2 border-t border-primary/20"
+                      />
                     </div>
                   )}
                 </div>
@@ -1467,7 +1973,16 @@ function CardiacArrestScreen({
                   <div className="flex-1">
                     <p className="font-semibold text-foreground text-sm">{intervention.action}</p>
                     {intervention.dose && (
-                      <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
+                      <>
+                        <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
+                        <InterventionDoseRationale
+                          action={intervention.action}
+                          dose={intervention.dose}
+                          weight={weight}
+                          patientAge={session.patientAge}
+                          className="mt-2 pt-2 border-t border-border/50"
+                        />
+                      </>
                     )}
                     {intervention.detail && (
                       <p className="text-xs text-muted-foreground mt-1">{intervention.detail}</p>
@@ -1506,14 +2021,23 @@ function PostPrimaryScreen({
   diagnoses,
   onExport,
   onCopySummary,
+  onCopyOnePager,
+  preFillSample,
+  samplePreFillDismissed,
+  setSamplePreFillDismissed,
 }: {
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   diagnoses: DiagnosisSuggestion[];
   onExport: () => void;
   onCopySummary: () => void;
+  onCopyOnePager: () => void;
+  preFillSample: PersistedSampleHistory | null;
+  samplePreFillDismissed: boolean;
+  setSamplePreFillDismissed: (v: boolean) => void;
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
+  const resusAnalytics = useResusAnalytics();
 
   return (
     <div className="py-6 space-y-6">
@@ -1546,6 +2070,50 @@ function PostPrimaryScreen({
         </CardContent>
       </Card>
 
+      {/* Documented diagnoses (primary + co-diagnoses) */}
+      {(session.definitiveDiagnosis || (session.concurrentDiagnoses?.length ?? 0) > 0) && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground flex items-center gap-2">
+              <Stethoscope className="h-4 w-4" />
+              Working diagnoses
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {session.definitiveDiagnosis && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide">Primary</span>
+                <Badge variant="default" className="text-xs">
+                  {session.definitiveDiagnosis}
+                </Badge>
+              </div>
+            )}
+            {(session.concurrentDiagnoses?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap items-start gap-2">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide shrink-0 mt-1">
+                  Co-diagnoses
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {session.concurrentDiagnoses!.map((dx) => (
+                    <Badge key={dx} variant="secondary" className="text-xs gap-1 pr-1">
+                      {dx}
+                      <button
+                        type="button"
+                        className="rounded-full p-0.5 hover:bg-background/80"
+                        aria-label={`Remove ${dx}`}
+                        onClick={() => setSession(removeConcurrentDiagnosis(session, dx))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Suggested Diagnoses */}
       {diagnoses.length > 0 && (
         <Card className="bg-card border-border">
@@ -1559,14 +2127,37 @@ function PostPrimaryScreen({
             {diagnoses.map((dx, i) => (
               <DiagnosisCard
                 key={i}
-                diagnosis={dx.diagnosis}
-                confidence={dx.confidence}
-                supportingFindings={dx.supportingFindings}
-                protocol={dx.protocol}
-                onConfirm={() => {
-                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis));
+                diagnosis={{
+                  id: `suggested-${i}`,
+                  condition: dx.diagnosis,
+                  confidence:
+                    dx.confidence === 'high'
+                      ? 'likely'
+                      : dx.confidence === 'moderate'
+                        ? 'consider'
+                        : 'consider',
+                  findings: dx.supportingFindings,
+                  interventions: [dx.protocol],
+                  timestamp: Date.now(),
+                  resolved: false,
                 }}
+                pickMode
+                onSetPrimary={() => {
+                  trackButtonClick('Set primary diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                }}
+                onAddCoDiagnosis={() => {
+                  trackButtonClick('Add co-diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                  setSession(addConcurrentDiagnosis(session, dx.diagnosis));
+                }}
+                onResolve={() => {
+                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                }}
+                onRemove={() => {}}
               />
             ))}
           </CardContent>
@@ -1580,6 +2171,51 @@ function PostPrimaryScreen({
             <CardTitle className="text-sm text-foreground">SAMPLE History</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Pre-fill banner — shown when a previous session had SAMPLE data */}
+            {preFillSample && !samplePreFillDismissed && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                <AlertCircle className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-blue-300">Pre-fill from previous case?</p>
+                  <p className="text-[11px] text-blue-400/80 mt-0.5">
+                    Allergies, medications, and history from your last case are available.
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
+                      onClick={() => {
+                        // Apply pre-fill to all non-empty fields
+                        let updated = session;
+                        const fields = ['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const;
+                        fields.forEach(f => {
+                          const val = preFillSample[f];
+                          if (val && !session.sampleHistory[f]) {
+                            updated = updateSAMPLE(updated, f, val);
+                          }
+                        });
+                        setSession(updated);
+                        setSamplePreFillDismissed(true);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => {
+                        setSamplePreFillDismissed(true);
+                        clearSampleHistory();
+                      }}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             {(['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const).map(field => {
               const labels: Record<string, string> = {
                 signs: 'S — Signs & Symptoms',
@@ -1593,9 +2229,14 @@ function PostPrimaryScreen({
                 <div key={field}>
                   <label className="text-xs font-medium text-muted-foreground">{labels[field]}</label>
                   <Input
-                    placeholder={`Enter ${field}...`}
+                    placeholder={preFillSample?.[field] ? `Previous: ${preFillSample[field]}` : `Enter ${field}...`}
                     value={session.sampleHistory[field] || ''}
-                    onChange={e => setSession(updateSAMPLE(session, field, e.target.value))}
+                    onChange={e => {
+                      const updated = updateSAMPLE(session, field, e.target.value);
+                      setSession(updated);
+                      // Persist SAMPLE to IndexedDB on every change
+                      saveSampleHistory(updated.sampleHistory as PersistedSampleHistory);
+                    }}
                     className="mt-1 bg-background text-foreground"
                   />
                 </div>
@@ -1626,14 +2267,18 @@ function PostPrimaryScreen({
       )}
 
       {/* Export / copy (HI-CLIN-1) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Button className="w-full py-4" variant="secondary" onClick={onCopyOnePager}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy one-pager
+        </Button>
         <Button className="w-full py-4" variant="outline" onClick={onCopySummary}>
           <Copy className="h-4 w-4 mr-2" />
-          Copy summary
+          Full record
         </Button>
         <Button className="w-full py-4" onClick={onExport}>
           <Download className="h-4 w-4 mr-2" />
-          Export clinical record
+          Download .txt
         </Button>
       </div>
     </div>
@@ -1649,6 +2294,7 @@ function ThreatCard({
   onToggle,
   onComplete,
   onStart,
+  onMarkUnavailable,
   reassessmentMode,
   setReassessmentMode,
   session,
@@ -1660,6 +2306,7 @@ function ThreatCard({
   onToggle: () => void;
   onComplete: (id: string) => void;
   onStart: (id: string) => void;
+  onMarkUnavailable: (id: string) => void;
   reassessmentMode: { interventionId: string; checkIndex: number } | null;
   setReassessmentMode: (v: { interventionId: string; checkIndex: number } | null) => void;
   session: ResusSession;
@@ -1711,6 +2358,8 @@ function ThreatCard({
                       <CheckCircle2 className="h-4 w-4 text-green-400" />
                     ) : intervention.status === 'in_progress' ? (
                       <Play className="h-4 w-4 text-amber-400" />
+                    ) : intervention.status === 'skipped' ? (
+                      <AlertCircle className="h-4 w-4 text-orange-400" />
                     ) : (
                       <Circle className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -1728,29 +2377,36 @@ function ThreatCard({
                     )}
                     {/* Dose Rationale */}
                     {intervention.dose && (
-                      <div className="mt-2 pt-2 border-t border-border/50">
-                        <DoseRationaleCard
-                          drug={intervention.action}
-                          dose={calcDose(intervention.dose, weight)}
-                          weight={weight}
-                          rationale={getDoseRationale(intervention.action, weight)}
-                        />
-                      </div>
+                      <InterventionDoseRationale
+                        action={intervention.action}
+                        dose={intervention.dose}
+                        weight={weight}
+                        patientAge={session.patientAge}
+                      />
                     )}
 
                     {/* Status actions */}
                     {intervention.status === 'pending' && (
-                      <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2 flex-wrap">
                         <Button size="sm" className="h-7 text-xs" onClick={() => onStart(intervention.id)}>
                           <Play className="h-3 w-3 mr-1" /> Start
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onComplete(intervention.id)}>
                           Done
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                          onClick={() => onMarkUnavailable(intervention.id)}
+                          title="Mark this resource as unavailable at your facility"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" /> Not Available
+                        </Button>
                       </div>
                     )}
                     {intervention.status === 'in_progress' && (
-                      <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2 flex-wrap">
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
                         </Button>
@@ -1785,6 +2441,8 @@ function ThreatCard({
                     checks={intervention.reassessmentChecks}
                     currentIndex={reassessmentMode.checkIndex}
                     weight={weight}
+                    patientAge={session.patientAge}
+                    doseRationaleDrug={intervention.action}
                     session={session}
                     setSession={setSession}
                     onAdvance={(idx) => setReassessmentMode({ interventionId: intervention.id, checkIndex: idx })}
@@ -1806,6 +2464,8 @@ function ReassessmentFlow({
   checks,
   currentIndex,
   weight,
+  patientAge,
+  doseRationaleDrug,
   session,
   setSession,
   onAdvance,
@@ -1814,6 +2474,9 @@ function ReassessmentFlow({
   checks: ReassessmentCheck[];
   currentIndex: number;
   weight: number | null;
+  patientAge: string | null;
+  /** Parent intervention action — used to match dose rationale when reassessment options include a dose */
+  doseRationaleDrug: string;
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   onAdvance: (idx: number) => void;
@@ -1880,7 +2543,16 @@ function ReassessmentFlow({
               <p className="text-muted-foreground/70 mt-0.5 italic">{option.rationale}</p>
             )}
             {option.dose && (
-              <p className="text-primary mt-1 font-medium">{calcDose(option.dose, weight)}</p>
+              <>
+                <p className="text-primary mt-1 font-medium">{calcDose(option.dose, weight)}</p>
+                <InterventionDoseRationale
+                  action={doseRationaleDrug}
+                  dose={option.dose}
+                  weight={weight}
+                  patientAge={patientAge}
+                  className="mt-2 pt-2 border-t border-border/40"
+                />
+              </>
             )}
           </button>
         ))}

@@ -1,8 +1,11 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet } from "lucide-react";
-import { useEffect } from "react";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminHub() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -15,7 +18,7 @@ export default function AdminHub() {
       return;
     }
     if ((user as { role?: string })?.role !== "admin") {
-      setLocation("/home");
+      setLocation("/");
     }
   }, [user, isAuthenticated, loading, setLocation]);
 
@@ -55,6 +58,75 @@ export default function AdminHub() {
               </div>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/capstone-grading")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5" />
+                  Capstone Grading
+                </CardTitle>
+                <CardDescription>
+                  Review and grade fellowship capstone submissions (48h turnaround, 80% pass threshold)
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/mpesa-webhooks")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Webhook className="h-5 w-5" />
+                  M-Pesa webhook log
+                </CardTitle>
+                <CardDescription>
+                  Audit trail for Daraja callbacks — signature rejects, payment outcomes, forensics
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/admin/facility-care-signal")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Facility Care Signal
+                </CardTitle>
+                <CardDescription>
+                  Per-facility QI dashboard — gaps, reporter coverage, roster without submissions
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-orange-200 hover:border-orange-400"
+            onClick={() => setLocation("/admin/ops")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-orange-600" />
+                  Platform ops health
+                </CardTitle>
+                <CardDescription>
+                  Errors, failed/stale payments, stuck enrollments, deployment context, Care Signal facility rollup
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/admin/reports")}
@@ -66,11 +138,29 @@ export default function AdminHub() {
                   Reports & insights
                 </CardTitle>
                 <CardDescription>
-                  Registered users, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
+                  Registered users, enrollment ledger (training + micro-courses), fellowship pillar progress, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
                 </CardDescription>
               </div>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setLocation("/kaizen-dashboard")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Kaizen KPI (internal)
+                </CardTitle>
+                <CardDescription>
+                  Daily targets vs registrations, enrollments, revenue, certificates — platform ops view
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/hospital-admin-dashboard")}
@@ -121,8 +211,99 @@ export default function AdminHub() {
               </div>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-blue-200 hover:border-blue-400"
+            onClick={() => setLocation("/admin/national-signal")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  National Paediatric Emergency Signal
+                </CardTitle>
+                <CardDescription>
+                  Anonymised national surveillance dashboard — outcomes, system gaps, facility breakdown. MOH/WHO-ready.
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-amber-200 hover:border-amber-400"
+            onClick={() => setLocation("/admin/care-signal-review")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-600" />
+                  Care Signal review queue
+                </CardTitle>
+                <CardDescription>
+                  Review and close provider-submitted incident reports awaiting institutional action
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {/* ── Maintenance Tools ─────────────────────────────────────────────── */}
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Maintenance</h2>
+          <ImageMigrationCard />
         </div>
       </div>
     </div>
   );
 }
+
+function ImageMigrationCard() {
+  const { toast } = useToast();
+  const [done, setDone] = useState(false);
+  const migrate = trpc.adminStats.runImageMigration.useMutation({
+    onSuccess: (data) => {
+      setDone(true);
+      toast({
+        title: data.updated > 0 ? `✅ Migration complete` : '✅ Already migrated',
+        description: data.message,
+      });
+    },
+    onError: (err) => {
+      toast({ title: 'Migration failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  return (
+    <Card className="border-slate-200">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-start gap-3">
+          <ImageIcon className="h-5 w-5 text-slate-500 mt-0.5" />
+          <div>
+            <CardTitle className="text-sm">Course Image URL Migration</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Replaces CDN (files.manuscdn.com) image URLs with self-hosted paths.
+              Safe to run multiple times.
+            </CardDescription>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={done ? 'outline' : 'default'}
+          disabled={migrate.isPending || done}
+          onClick={() => migrate.mutate()}
+          className="shrink-0"
+        >
+          {migrate.isPending ? (
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Running…</>
+          ) : done ? (
+            <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Done</>
+          ) : (
+            'Run Migration'
+          )}
+        </Button>
+      </CardHeader>
+    </Card>
+  );
+}
+
+

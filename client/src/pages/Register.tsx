@@ -1,32 +1,53 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
+import type { PhoneCountryMode } from "@shared/user-phone";
+import { normalizeUserPhone } from "@shared/user-phone";
 
 type UserType = "individual" | "parent" | "institutional";
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const { isAuthenticated, loading, sessionSettled } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [userType, setUserType] = useState<UserType>("individual");
+  const [phoneMode, setPhoneMode] = useState<PhoneCountryMode>("ke");
+  const [phoneValue, setPhoneValue] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const nextPath = useMemo(() => readSafeNextPathFromSearch(search, "/home"), [search]);
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: () => {
-      setLocation("/login");
+      localStorage.removeItem("userRole");
+      window.dispatchEvent(new CustomEvent("userRoleChanged", { detail: null }));
+      setLocation(buildLoginUrl(nextPath));
     },
     onError: (e) => {
+      if (/Failed to fetch|NetworkError|Load failed/i.test(e.message)) {
+        setError("Could not reach the server. Refresh and try again.");
+        return;
+      }
       setError(e.message);
     },
   });
@@ -34,6 +55,11 @@ export default function Register() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Please enter your full name as it should appear on your certificate.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -42,72 +68,115 @@ export default function Register() {
       setError("Passwords do not match.");
       return;
     }
-    registerMutation.mutate({ email, password, name: name || undefined, userType });
+    if (phoneValue.trim()) {
+      const n = normalizeUserPhone({ mode: phoneMode, value: phoneValue });
+      if (!n) {
+        setError(
+          phoneMode === "ke"
+            ? "Kenya mobile: enter 9 digits (e.g. 712345678 or 0712345678)."
+            : "International: enter your full number with country code (e.g. +447700900123)."
+        );
+        return;
+      }
+    }
+    registerMutation.mutate({
+      email,
+      password,
+      name: trimmedName,
+      userType,
+      phoneMode,
+      phoneValue: phoneValue.trim() === "" ? undefined : phoneValue,
+    });
   };
+
+  useEffect(() => {
+    if (loading || !sessionSettled) return;
+    if (!isAuthenticated) return;
+    setLocation(nextPath);
+  }, [isAuthenticated, loading, sessionSettled, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create an account</CardTitle>
-          <CardDescription>Enter your details to get started</CardDescription>
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>
+            One minute to get started. You can switch between provider, parent, and hospital tools later from the menu.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
             <div className="space-y-2">
-              <Label>I am a</Label>
-              <RadioGroup
-                value={userType}
-                onValueChange={(v) => setUserType(v as UserType)}
-                className="flex flex-col gap-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="individual" id="individual" />
-                  <Label htmlFor="individual" className="font-normal cursor-pointer">Healthcare provider</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="parent" id="parent" />
-                  <Label htmlFor="parent" className="font-normal cursor-pointer">Parent or guardian</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="institutional" id="institutional" />
-                  <Label htmlFor="institutional" className="font-normal cursor-pointer">Institution (e.g. hospital)</Label>
-                </div>
-              </RadioGroup>
+              <Label htmlFor="reg-role">I am signing up as</Label>
+              <Select value={userType} onValueChange={(v) => setUserType(v as UserType)}>
+                <SelectTrigger id="reg-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Healthcare provider (clinical staff)</SelectItem>
+                  <SelectItem value="parent">Parent or caregiver</SelectItem>
+                  <SelectItem value="institutional">Hospital or institution</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="name">Name (optional)</Label>
+              <Label htmlFor="name">Full name</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Your name"
+                placeholder="e.g. Jane Wanjiru Muthoni"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Use the spelling you want on your AHA and Paeds Resus certificates.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mobile (optional)</Label>
+              <Select value={phoneMode} onValueChange={(v) => setPhoneMode(v as PhoneCountryMode)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ke">Kenya (+254)</SelectItem>
+                  <SelectItem value="intl">Outside Kenya</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder={phoneMode === "ke" ? "712345678 or 0712345678" : "e.g. +447700900123"}
+                value={phoneValue}
+                onChange={(e) => setPhoneValue(e.target.value)}
+                autoComplete="tel"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="you@hospital.or.ke"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 8 characters, letters and numbers"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -125,13 +194,14 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Re-enter your password"
+                  placeholder="Re-enter password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -148,6 +218,7 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
             <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
               {registerMutation.isPending ? "Creating account…" : "Create account"}
             </Button>

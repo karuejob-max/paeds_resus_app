@@ -8,7 +8,7 @@
 
 ## Context you need
 
-1. **Source of truth:** Read `docs/CEO_Platform_Update_And_Reply_To_AI_Team.md` (Part 1 and Part 2). It defines our brand (Paeds Resus; ResusGPS, Safe-Truth, fellowship as offerings), user model (multi-role, single account, provider/parent/institution), core surfaces (ResusGPS, /home, parent-safe-truth, institutional-portal, admin/reports), and how we work (extend don’t replace, preserve auth and infra).
+1. **Source of truth:** Read `docs/CEO_Platform_Update_And_Reply_To_AI_Team.md` (Part 1 and Part 2). It defines our brand (Paeds Resus; ResusGPS, Safe-Truth, fellowship as offerings), user model (multi-role, single account, provider/parent/institution), core surfaces (ResusGPS, /home, parent-safe-truth, hospital-admin-dashboard with legacy institutional-portal redirect, admin/reports), and how we work (extend don’t replace, preserve auth and infra).
 
 2. **Recent work:** We just integrated previously unlinked pages and fixed broken buttons. See `docs/UNLINKED_PAGES_INTEGRATION.md` for what was added (routes for referral, personal-impact, kaizen-dashboard, personalized-learning, predictive-intervention, targeted-solutions, problem-identification, reassessment, circulation-assessment, course/bls, institutional-onboarding) and what was redirected or relinked (dashboard, contact, resources, footer links, etc.). So **routes and nav are now in good shape**; your job is to find the *next* layer of opportunity.
 

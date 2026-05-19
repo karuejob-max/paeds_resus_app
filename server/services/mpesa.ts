@@ -4,7 +4,7 @@
  */
 
 import { getMpesaDeploymentMode } from "../lib/mpesa-env";
-import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
+import { resolveStkCallbackUrlFromEnv } from "../lib/mpesa-callback-path";
 import { getDarajaTimestampNairobi } from "../lib/daraja-timestamp";
 
 interface TokenResponse {
@@ -36,9 +36,13 @@ class MpesaService {
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
   constructor() {
-    this.consumerKey = process.env.DARAJA_CONSUMER_KEY || "";
-    this.consumerSecret = process.env.DARAJA_CONSUMER_SECRET || "";
-    this.paybill = process.env.MPESA_PAYBILL || "";
+    // Support both MPESA_* (preferred) and DARAJA_* (legacy) naming conventions
+    this.consumerKey =
+      process.env.MPESA_CONSUMER_KEY?.trim() || process.env.DARAJA_CONSUMER_KEY?.trim() || "";
+    this.consumerSecret =
+      process.env.MPESA_CONSUMER_SECRET?.trim() || process.env.DARAJA_CONSUMER_SECRET?.trim() || "";
+    this.paybill =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || process.env.DARAJA_SHORTCODE?.trim() || "";
     this.accountNumber = process.env.MPESA_ACCOUNT || "";
     this.environment = getMpesaDeploymentMode();
 
@@ -150,8 +154,8 @@ class MpesaService {
       PartyA: phoneNumber,
       PartyB: this.paybill,
       PhoneNumber: phoneNumber,
-      CallBackURL: defaultStkCallbackUrl(
-        process.env.CALLBACK_URL?.trim() || process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com"
+      CallBackURL: resolveStkCallbackUrlFromEnv(
+        process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com"
       ),
       AccountReference: this.accountNumber,
       TransactionDesc: description,

@@ -1,4 +1,4 @@
-# Course portfolio & Advanced Diploma in Fellowship (ADF) — strategy
+# Course portfolio & Paeds Resus Fellowship — strategy
 
 **Status:** Canonical product strategy — complements [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) and [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md).  
 **Version:** 1.0 · **Date:** 2026-04-04  
@@ -27,7 +27,7 @@ We do **not** use “levels” as a pedagogical gate. We use **exhaustive topic 
 | **BLS** | Blended | 6 hours | Blended | **10,000** | Universal foundation; CPR and basic life support in children. |
 | **ACLS** | Blended | 16 hours | Blended | **20,000** | Cardiovascular emergencies and arrest algorithms in broader populations; bridges to paediatric specifics. |
 | **PALS** | Blended | 16 hours | Blended | **20,000** | Paediatric-specific resuscitation and peri-arrest care. |
-| **ADF — micro-courses** | Fully online | Short modules | Online | **200 each** | Deep, condition-specific mastery; builds toward **ADF Fellow** identity. |
+| **Paeds Resus Fellowship** | Fully online | Short modules | Online | **200 each** | Deep, condition-specific mastery; builds toward **Paeds Resus Fellow** identity. |
 
 **Note:** Prices and hours are **commercial defaults**; local contracts, institutions, and campaigns may vary. Update this table when pricing is locked in product/catalog.
 
@@ -36,19 +36,19 @@ We do **not** use “levels” as a pedagogical gate. We use **exhaustive topic 
 ## 4. MECE logic (why this portfolio)
 
 - **BLS / ACLS / PALS** cover **structured, credential-style** pathways aligned with international *style* training while remaining **adapted** to LMIC deployment (cost, access, blended learning).
-- **ADF micro-courses** cover **residual specificity**—the “long tail” of conditions and contexts that generic courses cannot exhaust—without forcing a rigid level hierarchy.
+- **Paeds Resus Fellowship micro-courses** cover **residual specificity**—the “long tail” of conditions and contexts that generic courses cannot exhaust—without forcing a rigid level hierarchy.
 - Together, they address **knowledge**, **pattern recognition**, and **execution** (reinforced by **ResusGPS** at the point of care).
 
 **Gap we avoid:** Claiming two different courses teach the *same* core objective without distinction. Each micro-course should have **one primary learning outcome** and a clear place in the map below.
 
 ---
 
-## 5. Advanced Diploma in Fellowship (ADF) — structure
+## 5. Paeds Resus Fellowship — structure
 
 ### 5.1 Positioning
 
-- **ADF** is the **umbrella** for micro-courses and fellow identity—not a single LMS module.
-- Learners may **choose order** by **what they see most** in practice (e.g. sepsis before rare metabolic emergencies), while marketing communicates a **vision** of completing the full map and becoming an **ADF Fellow**.
+- **The Paeds Resus Fellowship** is the **umbrella** for micro-courses and fellow identity—not a single LMS module.
+- Learners may **choose order** by **what they see most** in practice (e.g. sepsis before rare metabolic emergencies), while marketing communicates a **vision** of completing the full map and becoming a **Paeds Resus Fellow**.
 - **Renewal:** Micro-courses are designed for **re-certification ~every 2 years**, supporting a **recurring revenue** relationship without punitive lockouts.
 
 ### 5.2 “World Cup” progression (metaphor)
@@ -66,7 +66,7 @@ The metaphor motivates **completion** and **peer referral**; **technical impleme
 
 ---
 
-## 6. Cross-cutting ADF modules (standalone)
+## 6. Cross-cutting Fellowship modules (standalone)
 
 These sit **under the fellowship** but are **not tied** to a single anatomic domain:
 
@@ -175,7 +175,7 @@ These sit **under the fellowship** but are **not tied** to a single anatomic dom
 
 ## 15. Marketing principles
 
-1. **Choice + vision:** Learners pick where to start; the **ADF Fellow** path is the **aspirational horizon**.  
+1. **Choice + vision:** Learners pick where to start; the **Paeds Resus Fellow** path is the **aspirational horizon**.  
 2. **Affordable micro-pricing** lowers trial friction.  
 3. **Community and metaphor** (World Cup) build **identity** without shaming slow progress.  
 4. **Outcome honesty:** We measure **completion, feedback, and ResusGPS usage** before claiming mortality impact (see STRATEGIC_FOUNDATION §12).
@@ -203,4 +203,4 @@ Revisit **quarterly** or when adding **≥5** new micro-courses — update MECE 
 |------|--------|
 | 2026-03-31 | Fellow title criteria, profile gate, internal intelligence: [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md); [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §17. |
 | 2026-03-31 | Linked **24-slot** micro-course backlog ([MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)). |
-| 2026-04-04 | Initial publication: MECE portfolio, ADF, domains, incentives, MECE circulatory example. |
+| 2026-04-04 | Initial publication: MECE portfolio, Paeds Resus Fellowship, domains, incentives, MECE circulatory example. |

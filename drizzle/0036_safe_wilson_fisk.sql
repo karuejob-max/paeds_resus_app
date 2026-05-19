@@ -1,0 +1,1 @@
+ALTER TABLE `microCourses` ADD `isPublished` boolean DEFAULT false NOT NULL;

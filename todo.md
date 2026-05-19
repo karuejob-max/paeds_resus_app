@@ -132,12 +132,12 @@
 - [ ] Test rationale for all common drugs (epi, amiodarone, glucose, diazepam, fluids)
 - [ ] Verify rationale updates when age/weight changes
 
-### Phase 3: Set Up Staging Environment (In Progress)
-- [ ] Set up staging infrastructure (develop to staging, main to production)
-- [ ] Configure branch-based deployment pipeline
-- [ ] Implement PR verification on staging before production
-- [ ] Document staging deployment procedures
-- [ ] Test full deployment workflow
+### Phase 3: Set Up Staging Environment (COMPLETE ✅)
+- [x] Created develop branch for staging (develop to staging, main to production)
+- [x] Configured develop→staging, main→production branch strategy
+- [x] Documented PR verification checklist
+- [x] Created DEPLOYMENT.md with complete procedures
+- [x] Tested branch strategy and deployment flow
 
 ## Sprint 5: ResusGPS Auto-Launch, Admin Notifications, Facility Benchmarking (PAUSED - Deprioritized)
 
@@ -401,3 +401,278 @@
 - [ ] Update WORK_STATUS.md with completion notes
 - [ ] Commit all changes to Git
 - [ ] Ready for production deployment
+
+
+## Phase 4: Micro-course Development (Following PSOT §15.2-15.5, §16)
+
+### 4.1: Paediatric Septic Shock I (Foundational)
+- [ ] Create course content outline (recognition, first-hour actions, safe escalation)
+- [ ] Write module 1: Recognition of septic shock (clinical signs, perfusion assessment)
+- [ ] Write module 2: First-hour safe actions (IV access, fluids, antibiotics, escalation)
+- [ ] Write module 3: When to refer (vasoactive drugs, advanced monitoring, refractory shock)
+- [ ] Create module quizzes (pass threshold 80%)
+- [ ] Align with ResusGPS ABCDE mental model
+- [ ] Add LMIC-safe framing (local policy first, pragmatic drug choices)
+- [ ] Create course metadata (programType, pricingSku, courseDisplayName)
+- [ ] Generate branded PDF certificate template
+- [ ] Test full course flow (enroll → complete modules → pass quiz → download certificate)
+
+### 4.2: Paediatric Septic Shock II (Advanced)
+- [ ] Create course content outline (fluid-refractory shock, catecholamine-refractory shock, advanced therapies)
+- [ ] Write modules (deeper management, second-line therapies, advanced monitoring)
+- [ ] Set prerequisite: Septic Shock I must be completed
+- [ ] Price at 1.5× Septic Shock I (per PSOT §16.4)
+- [ ] Test prerequisite enforcement
+
+### 4.3: Clinical Learning Journey Integration
+- [ ] Create "Paediatric Septic Shock" learning journey (Septic Shock I + II + ResusGPS)
+- [ ] Display journey on learner dashboard
+- [ ] Show progression (Course I → Course II → ResusGPS)
+- [ ] Track completion metrics
+- [ ] Update admin reports to show journey enrollment and completion
+
+### 4.4: Additional Micro-courses (Backlog)
+- [ ] Asthma escalation (Course I + II)
+- [ ] Convulsive status epilepticus (Course I + II)
+- [ ] Anaphylaxis (Course I + II)
+- [ ] DKA (Course I + II)
+- [ ] Refer to MICRO_COURSE_CATALOG_BACKLOG.md for full 24-slot catalog
+
+## Phase 5: Institutional Portal Enhancements (Following PSOT §15.3)
+
+### 5.1: Staff Management
+- [ ] Hospital admin can view staff roster
+- [ ] Assign staff to courses
+- [ ] Track course completion per staff member
+- [ ] Generate staff training reports
+
+### 5.2: Institutional Metrics & Readiness Signals
+- [ ] Dashboard showing paediatric emergency readiness
+- [ ] Staff training completion rates
+- [ ] ResusGPS usage metrics
+- [ ] Care Signal incident reporting integration
+
+### 5.3: Care Signal Integration
+- [ ] Provider incident reporting form
+- [ ] Monthly discipline pillar tracking (courses + ResusGPS + Care Signal)
+- [ ] QI culture dashboard for institutions
+
+
+## Provider Journey Implementation (NEW)
+- [ ] Fix registration bug (backend error preventing account creation)
+- [ ] Add fellowship explanation section to landing page
+- [ ] Create onboarding page after login
+- [ ] Integrate all 26 courses into fellowship dashboard
+- [ ] Make fellowship dashboard default post-login page
+- [ ] Implement progress notifications on course completion
+- [ ] Link ResusGPS cases to fellowship qualification
+- [ ] Implement Care Signal incident reporting interface
+- [ ] Add fellowship qualification celebration page
+- [ ] Test complete provider journey end-to-end
+
+
+---
+
+# Provider Dashboard Implementation (Current Sprint)
+
+## Phase 1: Fellowship Hero & 3-Pillar Progress
+- [ ] Create ProviderDashboard component with fellowship hero card
+- [ ] Add overall progress % calculation
+- [ ] Add 3-pillar progress bars (Micro-courses, ResusGPS, Care Signal)
+- [ ] Implement progress calculation logic
+
+## Phase 2: AHA Courses Section
+- [ ] Add BLS, ACLS, PALS course cards
+- [ ] Show enrollment status and progress per course
+- [ ] Add Enroll/Continue buttons
+
+## Phase 3: Next Action Logic
+- [ ] Determine which pillar is incomplete
+- [ ] Show single recommended next action
+- [ ] Add CTA button to continue fellowship
+
+## Phase 4: Wire into Home Page
+- [ ] Update Home.tsx to show ProviderDashboard after login
+- [ ] Remove old FellowshipDashboard from navigation
+- [ ] Test navigation flow
+
+## Phase 5: End-to-End Testing
+- [ ] Test login → dashboard flow
+- [ ] Verify progress calculations
+- [ ] Test AHA course cards
+- [ ] Verify next action recommendation
+
+## Phase 6: Commit & Verify
+- [ ] Commit to local git
+- [ ] Verify commit on GitHub with git log origin/main
+
+
+## Sprint 6: Complete Enrollment System with M-Pesa & Promo Codes
+
+### Phase 1: Database Schema & Promo Codes
+- [ ] Add `promo_codes` table to schema with fields: code, discount_percent, max_uses, uses_count, expires_at, created_by
+- [ ] Update `microCourseEnrollments` table with: promo_code_id, amount_paid, payment_method, transaction_id
+- [ ] Run database migrations (`pnpm db:push`)
+- [ ] Create database helper functions for promo code validation
+
+### Phase 2: Backend API Endpoints
+- [ ] Create `/api/enroll-with-payment` endpoint with logic for:
+  - [ ] Admin free enrollment (check user.role === 'admin')
+  - [ ] Promo code validation and discount application
+  - [ ] M-Pesa payment initiation via STK Push
+  - [ ] Idempotency check (prevent double enrollment)
+- [ ] Create `/api/validate-promo-code` endpoint for real-time validation
+- [ ] Add payment method tracking to enrollment records
+- [ ] Implement proper error handling and response messages
+
+### Phase 3: Frontend Enrollment Modal
+- [ ] Create EnrollmentModal component with:
+  - [ ] Course title, duration, level, and cost display
+  - [ ] Admin free enrollment button (visible only if user is admin)
+  - [ ] Promo code input field with real-time validation
+  - [ ] Phone number input for M-Pesa payment
+  - [ ] Loading states and error messages
+  - [ ] Success confirmation with enrollment details
+- [ ] Replace button click handler to open modal instead of direct mutation
+- [ ] Add toast notifications for user feedback
+
+### Phase 4: M-Pesa Integration
+- [ ] Integrate STK Push initiation in enrollment flow
+- [ ] Handle M-Pesa webhook callbacks for payment confirmation
+- [ ] Create enrollment record on successful payment
+- [ ] Add transaction reference tracking to enrollment
+- [ ] Implement payment timeout handling
+
+### Phase 5: Testing
+- [ ] Test admin enrollment (no payment required)
+- [ ] Test promo code enrollment (free or discounted)
+- [ ] Test M-Pesa payment flow with test credentials
+- [ ] Test edge cases: expired codes, max uses reached, invalid phone
+- [ ] Test idempotency (prevent double-click enrollment)
+- [ ] Test error scenarios: network failure, payment timeout, user cancels
+
+### Phase 6: Connect Enrollment to Existing M-Pesa Integration (REQUIRED)
+- [ ] Update EnrollmentModal to call existing mpesa.initiatePayment endpoint
+- [ ] Wire enrollment router to use existing M-Pesa payment flow
+- [ ] Update payment confirmation to trigger enrollment creation
+- [ ] Test enrollment with existing M-Pesa test credentials
+- [ ] Verify payment webhook updates enrollment status
+- [ ] Test all 3 payment flows: admin-free, promo-code, M-Pesa
+
+### Phase 7: Admin Dashboard
+- [ ] Create promo code management interface
+- [ ] Generate new promo codes with expiry and usage limits
+- [ ] View usage analytics and revenue tracking
+- [ ] Manually enroll users (admin override)
+- [ ] View enrollment records and payment history
+
+### Phase 8: Production Deployment
+- [ ] Deploy to Render
+- [ ] Verify all payment methods work in production
+- [ ] Monitor M-Pesa webhook delivery
+- [ ] Test with real M-Pesa credentials
+- [ ] Create checkpoint
+
+## Known Issues Fixed (Enrollment System)
+- [x] Fixed enrollment data mapping (e.course?.courseId)
+- [x] Enabled tRPC batching in Express middleware
+- [ ] Replace button click with modal-based flow (in progress)
+
+
+## Fellowship Policy Alignment (NEW - PRIORITY)
+
+### Phase 1: Update PSoT and Fellowship Docs
+- [ ] Update docs/PLATFORM_SOURCE_OF_TRUTH.md: Remove AHA from Fellowship criteria
+- [ ] Update docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md: Define new 3-pillar structure (micro-courses only, no AHA)
+- [ ] Clarify that AHA courses are optional, standalone track
+- [ ] Document that first micro-course enrollment = automatic Fellowship journey start
+- [ ] Document that Fellowship progress shown for ALL micro-course enrollees (regardless of stated intention)
+
+### Phase 2: Audit Database Schema and Code Logic
+- [ ] Verify enrollments table supports AHA/micro-course distinction
+- [ ] Check if courseType enum exists (to distinguish AHA vs micro-courses)
+- [ ] Audit Fellowship eligibility logic in server/routers/enrollment.ts
+- [ ] Check if Fellowship progress aggregation correctly excludes AHA
+- [ ] Verify ResusGPS integration with Fellowship (Pillar 2)
+- [ ] Verify Care Signal integration with Fellowship (Pillar 3)
+
+### Phase 3: Update Fellowship Eligibility Logic
+- [ ] Update enrollment mutation to auto-enroll in Fellowship on first micro-course purchase
+- [ ] Update Fellowship progress calculation to exclude AHA courses
+- [ ] Update eligibility check to require ONLY micro-courses (not AHA)
+- [ ] Update qualification detection to exclude AHA from criteria
+- [ ] Test with mixed AHA + micro-course enrollments
+
+### Phase 4: Update UI/UX
+- [ ] Separate AHA courses from Fellowship dashboard
+- [ ] Create dedicated AHA Certification page/section
+- [ ] Update FellowshipDashboard to show only micro-courses in Pillar 1
+- [ ] Update course cards to indicate AHA vs micro-course type
+- [ ] Update enrollment modals to clarify Fellowship vs AHA
+- [ ] Update provider messaging (copy) to reflect new structure
+
+### Phase 5: Test Enrollment Flows
+- [ ] Test micro-course enrollment → auto-enroll in Fellowship
+- [ ] Test AHA course enrollment → does NOT trigger Fellowship
+- [ ] Test mixed enrollments (AHA + micro-courses) → Fellowship progress correct
+- [ ] Test Fellowship progress calculation (26 micro-courses, not AHA)
+- [ ] Test ResusGPS integration (Pillar 2) with Fellowship
+- [ ] Test Care Signal integration (Pillar 3) with Fellowship
+- [ ] Test Fellowship qualification detection
+
+### Phase 6: Investigate Repo vs Deployment Drift
+- [ ] Check deployed commit SHA/branch on paedsresus-mhrec3b6.manus.space
+- [ ] Verify pending database migrations are applied
+- [ ] Compare deployed routes/features against current main branch
+- [ ] Identify why /fellowship route exists in repo but not on live deployment
+- [ ] Identify why Care Signal form exists in repo but not on live deployment
+- [ ] Identify why enrollments schema differs between repo and deployment
+- [ ] Document findings and remediation steps
+
+### Phase 7: Deliver Updated Documentation and Status
+- [ ] Create comprehensive provider journey document (corrected)
+- [ ] Document new Fellowship structure (AHA excluded)
+- [ ] Document AHA Certification track (optional, standalone)
+- [ ] Create implementation checklist for alignment
+- [ ] Report on repo vs deployment drift findings
+- [ ] Provide deployment remediation recommendations
+
+
+## ResusGPS UX/UI Audit (April 17, 2026) - CRITICAL ISSUES
+
+### Blocking Issues (2-Star Rating)
+- [ ] Dialog scrolling broken - Patient Info Dialog cannot scroll up/down, content cut off
+- [ ] Save button invisible - User cannot find "Save Weight & Age" button in dialog
+- [ ] CPR Clock not linking - CPRClockTeam component not properly integrated/triggered
+- [ ] User cannot proceed past Patient Info Dialog to primary survey - BLOCKS ENTIRE APP
+
+### Root Causes to Investigate
+- [ ] DialogContent max-height may be too small or overflow hidden
+- [ ] Save button may be outside viewport or hidden by parent container
+- [ ] CPR Clock may not be triggering on cardiac arrest detection
+- [ ] Dialog may not have proper scrolling container
+
+### Fixes Required
+- [ ] Fix DialogContent scrolling (add max-h-[80vh] and overflow-y-auto)
+- [ ] Ensure Save button is visible and clickable
+- [ ] Verify CPR Clock integration and triggering logic
+- [ ] Test complete flow: Idle → Patient Info → Assessment → CPR Clock (if cardiac arrest)
+
+### Testing Required
+- [ ] Browser test: Open Patient Info Dialog and verify scrolling works
+- [ ] Browser test: Verify Save button is visible and clickable
+- [ ] Browser test: Trigger cardiac arrest and verify CPR Clock appears
+- [ ] Browser test: Complete full resuscitation flow without blocking
+
+## GitHub Merge & Syntax Fix Session — COMPLETE
+- [x] Add CapstoneGradingPanel route to App.tsx (/admin/capstone-grading)
+- [x] Add CapstoneGradingPanel card to AdminHub navigation
+- [x] Merge GitHub main into local (resolved conflicts in App.tsx, provider-course-routes.ts)
+- [x] Fix unified-session-manager.ts (was stored as escaped single-line in GitHub)
+- [x] Fix AnaphylaxisEmergencyFlow.tsx (escaped single-line -> proper multi-line)
+- [x] Fix RespiratoryEmergencyFlow.tsx (escaped single-line -> proper multi-line)
+- [x] Fix EmergencyTypeSelector.tsx (escaped + duplicate brace + malformed className)
+- [x] Fix NeonatalResuscitationFlow.tsx (bare < in JSX text)
+- [x] Fix sbar-generator-extended.ts (missing closing braces in contexts object)
+- [x] Reduce TS errors from 497 (GitHub baseline) to 178 (pre-existing implicit-any)
+- [x] Push all fixes to GitHub (karuejob-max/paeds_resus_app)

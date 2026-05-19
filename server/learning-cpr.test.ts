@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   users,
   enrollments,
@@ -13,7 +13,9 @@ import {
   cprEvents,
 } from "../drizzle/schema";
 
-describe("Learning Path and CPR Clock Integration", () => {
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDatabase)("Learning Path and CPR Clock Integration", () => {
   let db: any;
   let testUserId: number;
   let testEnrollmentId: number;
@@ -183,16 +185,16 @@ describe("Learning Path and CPR Clock Integration", () => {
       expect(courseModules[0].courseId).toBe(testCourseId);
     });
 
-    it.skip("should retrieve module content", async () => {
-      const module = await (db as any)
+    it("should retrieve module content", async () => {
+      const moduleRows = await (db as any)
         .select()
         .from(modules)
-        .where(eq(modules.id, testModuleId))
+        .where(and(eq(modules.courseId, testCourseId), eq(modules.title, "Test Module")))
         .limit(1);
 
-      expect(module[0]).toBeDefined();
-      expect(module[0].content).toBeDefined();
-      expect(module[0].title).toBe("Test Module");
+      expect(moduleRows[0]).toBeDefined();
+      expect(moduleRows[0].content).toBeDefined();
+      expect(moduleRows[0].title).toBe("Test Module");
     });
   });
 
@@ -296,11 +298,13 @@ describe("Learning Path and CPR Clock Integration", () => {
   });
 
   describe("CPR Clock - Session Management", () => {
-    it.skip("should create CPR session", async () => {
+    it("should create CPR session", async () => {
       const session = await (db as any)
         .select()
         .from(cprSessions)
-        .where(eq(cprSessions.id, testCprSessionId))
+        .where(
+          and(eq(cprSessions.providerId, testUserId), eq(cprSessions.status, "active"))
+        )
         .limit(1);
 
       expect(session[0]).toBeDefined();
@@ -325,11 +329,13 @@ describe("Learning Path and CPR Clock Integration", () => {
       expect(subsequentEnergy).toBeGreaterThan(initialEnergy);
     });
 
-    it.skip("should track CPR session metadata", async () => {
+    it("should track CPR session metadata", async () => {
       const session = await (db as any)
         .select()
         .from(cprSessions)
-        .where(eq(cprSessions.id, testCprSessionId))
+        .where(
+          and(eq(cprSessions.providerId, testUserId), eq(cprSessions.patientId, testUserId))
+        )
         .limit(1);
 
       expect(session[0]).toBeDefined();
@@ -355,10 +361,15 @@ describe("Learning Path and CPR Clock Integration", () => {
       const inserted = await (db as any)
         .select()
         .from(cprEvents)
-        .where(eq(cprEvents.cprSessionId, testCprSessionId))
+        .where(
+          and(
+            eq(cprEvents.cprSessionId, testCprSessionId),
+            eq(cprEvents.eventType, "medication")
+          )
+        )
         .limit(1);
-      
-      expect(inserted[0]).toBeDefined();
+
+      expect(inserted.length).toBeGreaterThan(0);
       expect(inserted[0].eventType).toBe("medication");
     });
 

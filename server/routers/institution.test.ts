@@ -1,6 +1,43 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
+
+const institutionDbMock = vi.hoisted(() => {
+  const mockState = { limitRows: [] as Array<Record<string, unknown>> };
+  const rows = [
+    { id: 1, userId: 999, name: "Test Hospital", verified: true, status: "active" },
+  ];
+  const insertResult = [{ insertId: 1 }];
+  const insertChain = {
+    values: vi.fn().mockResolvedValue(insertResult),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  const queryable = {
+    limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+    orderBy: vi.fn().mockReturnValue({
+      limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+    }),
+    then: (resolve: (v: unknown) => void) => resolve(mockState.limitRows),
+  };
+  return {
+    mockState,
+    getDb: vi.fn().mockResolvedValue({
+      insert: vi.fn().mockReturnValue(insertChain),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue(queryable),
+          orderBy: vi.fn().mockResolvedValue(rows),
+        }),
+      }),
+      update: vi.fn().mockReturnValue(insertChain),
+    }),
+  };
+});
+
+vi.mock("../db", () => ({
+  getDb: institutionDbMock.getDb,
+}));
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -47,8 +84,15 @@ function createPublicContext(): TrpcContext {
 }
 
 describe("Institution Router", () => {
+  beforeEach(() => {
+    institutionDbMock.mockState.limitRows = [
+      { id: 1, userId: 999, name: "Test Hospital", verified: true, status: "active" },
+    ];
+  });
+
   describe("register", () => {
     it("should register a new institution successfully", async () => {
+      institutionDbMock.mockState.limitRows = [];
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -253,6 +297,7 @@ describe("Institution Router", () => {
     });
 
     it("should return false for non-existent institution", async () => {
+      institutionDbMock.mockState.limitRows = [];
       const ctx = createPublicContext();
       const caller = appRouter.createCaller(ctx);
 

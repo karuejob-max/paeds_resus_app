@@ -1,4 +1,4 @@
-import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
+import { router, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 
 export const automatedGradingRouter = router({
@@ -58,7 +58,7 @@ export const automatedGradingRouter = router({
     }),
 
   // Get grading rubric
-  getGradingRubric: publicProcedure
+  getGradingRubric: protectedProcedure
     .input(z.object({
       assessmentId: z.number(),
     }))
@@ -148,7 +148,7 @@ export const automatedGradingRouter = router({
     }),
 
   // Get grading status
-  getGradingStatus: publicProcedure
+  getGradingStatus: protectedProcedure
     .input(z.object({
       submissionId: z.string(),
     }))
@@ -177,7 +177,7 @@ export const automatedGradingRouter = router({
     }),
 
   // Get bulk grading status
-  getBulkGradingStatus: publicProcedure
+  getBulkGradingStatus: protectedProcedure
     .input(z.object({
       batchId: z.string(),
     }))
@@ -295,7 +295,7 @@ export const automatedGradingRouter = router({
     }),
 
   // Get appeal status
-  getAppealStatus: publicProcedure
+  getAppealStatus: protectedProcedure
     .input(z.object({
       appealId: z.string(),
     }))
@@ -311,7 +311,7 @@ export const automatedGradingRouter = router({
     }),
 
   // Get grading standards
-  getGradingStandards: publicProcedure.query(async () => {
+  getGradingStandards: protectedProcedure.query(async () => {
     return {
       standards: [
         { grade: 'A', range: '90-100', description: 'Excellent' },

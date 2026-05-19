@@ -152,6 +152,7 @@ describe('Undo Manager', () => {
   describe('redo', () => {
     it('should restore redone state', () => {
       let session = createSession();
+      session.patientWeight = 10;
       session = pushToUndoStack(session, 'Set weight');
       session.patientWeight = 20;
 
@@ -166,13 +167,14 @@ describe('Undo Manager', () => {
 
     it('should move current state to undo stack', () => {
       let session = createSession();
+      session.patientWeight = 10;
       session = pushToUndoStack(session, 'Set weight');
       session.patientWeight = 20;
 
       let undone = undo(session);
       const redone = redo(undone!);
 
-      expect(redone!.undoStack.length).toBe(2);
+      expect(redone!.undoStack.length).toBe(1);
     });
 
     it('should return null if nothing to redo', () => {

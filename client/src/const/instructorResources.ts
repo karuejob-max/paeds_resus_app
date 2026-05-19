@@ -19,7 +19,7 @@ export const instructorResources: InstructorResourceLink[] = [
   {
     title: "Learner dashboard",
     description: "Enroll in courses, open modules, and download certificates.",
-    href: "/learner-dashboard",
+    href: "/home",
   },
   {
     title: "Enroll — Instructor Course",

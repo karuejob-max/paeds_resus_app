@@ -28,10 +28,12 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 ## Verification (Days 8–9)
 
 - [x] **Rolling window:** `adminStats.getReport` uses **rolling N×24h from now** for `analyticsEvents` (see `server/lib/report-time-windows.ts`) — matches PLATFORM_SOURCE_OF_TRUTH §8.
-- [ ] Trigger each instrumented journey on **local or staging** (production only if policy allows)
-- [ ] Run **`pnpm run verify:analytics`** with `DATABASE_URL` set — confirms rows in **`analyticsEvents`** grouped by `eventType` for the same window as Admin Reports
-- [ ] Open **Admin → Reports**: total events and top types match CLI spot-check; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
-- [ ] Naming review: fix fragmented `eventType` / `eventName` pairs if they break grouping
+- [x] **CLI ↔ Admin parity:** `pnpm run verify:analytics` uses the same bucketing as Admin → Reports (`server/lib/admin-analytics-rollup.ts`, shared with `adminStats.getReport`). Older CLI versions grouped only SQL `eventType`; that could diverge when bucketing uses `eventType || eventName`.
+- [x] **Automated:** `pnpm run verify:sprint1` — rollup self-test + `events.trackEvent` Vitest (no DB); with `DATABASE_URL` also runs `verify:analytics`.
+- [ ] Trigger each instrumented journey on **local or staging** (production only if policy allows) — operator step; see `docs/STAGING_DEPLOYMENT.md` + `.github/workflows/staging-reminder.yml`
+- [ ] Run **`pnpm run verify:analytics`** on staging DB after journeys — totals should match **Admin → Reports** (`VERIFY_LAST_DAYS=7` default).
+- [ ] Open **Admin → Reports**: spot-check total events and top types against CLI; **`resusGpsAnalyticsLastDays`** only counts `resus_*`; mission/revenue types appear under **App & Paeds Resus activity**
+- [x] Naming review: Sprint 1 types frozen in `shared/sprint1-expected-events.ts` + `EVENT_TAXONOMY.md`
 
 ---
 
@@ -53,7 +55,7 @@ Implement `trackEvent` / server analytics helpers with **one naming convention**
 
 ## Stretch (only if checklist above is complete)
 
-- [ ] **P1-RESUS-1** thin slice: end-of-session **summary export** (copy / one-pager) — connects bedside → learning without institutional dashboards
+- [x] **P1-RESUS-1** thin slice: `exportSessionSummaryOnePager` + **Copy one-pager** on ResusGPS post-primary screen
 
 ---
 

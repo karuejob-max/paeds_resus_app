@@ -3,8 +3,7 @@ const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png",
+  "/favicon.png",
 ];
 
 // Install event
@@ -133,8 +132,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body || "New notification from Paeds Resus",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    icon: "/favicon.png",
+    badge: "/favicon.png",
     tag: data.tag || "paeds-resus-notification",
     requireInteraction: data.requireInteraction || false,
     actions: [

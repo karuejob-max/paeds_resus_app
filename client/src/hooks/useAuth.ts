@@ -1,12 +1,2 @@
-import { trpc } from "@/lib/trpc";
-
-export function useAuth() {
-  const { data: user, isLoading, error } = trpc.auth.me.useQuery();
-  
-  return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    error,
-  };
-}
+/** @deprecated Import from `@/_core/hooks/useAuth` — this re-export keeps legacy paths working. */
+export { useAuth } from "@/_core/hooks/useAuth";

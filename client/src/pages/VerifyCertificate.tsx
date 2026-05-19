@@ -7,23 +7,23 @@ import { CheckCircle, AlertCircle, Search } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 export default function VerifyCertificate() {
-  const [certificateId, setCertificateId] = useState("");
-  const [staffName, setStaffName] = useState("");
+  const [certificateNumber, setCertificateNumber] = useState("");
+  const [recipientName, setRecipientName] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const { data: result, isLoading, error } = trpc.certificate.verify.useQuery(
-    { certificateId, staffName },
+  const { data: result, isLoading, error } = trpc.certificates.verify.useQuery(
+    { certificateNumber, recipientName },
     { enabled: submitted }
   );
 
   const handleVerify = () => {
-    if (!certificateId || !staffName) {
+    if (!certificateNumber || !recipientName) {
       return;
     }
     setSubmitted(true);
   };
 
-  const isValid = result?.isValid;
+  const isValid = result?.valid;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
@@ -48,8 +48,8 @@ export default function VerifyCertificate() {
                 <Input
                   type="text"
                   placeholder="e.g., CERT-2026-001234"
-                  value={certificateId}
-                  onChange={(e) => setCertificateId(e.target.value.toUpperCase())}
+                  value={certificateNumber}
+                  onChange={(e) => setCertificateNumber(e.target.value.toUpperCase())}
                   className="pl-10"
                   disabled={isLoading}
                 />
@@ -63,15 +63,15 @@ export default function VerifyCertificate() {
               <Input
                 type="text"
                 placeholder="e.g., John Doe"
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
                 disabled={isLoading}
               />
             </div>
 
             <Button
               onClick={handleVerify}
-              disabled={!certificateId || !staffName || isLoading}
+              disabled={!certificateNumber || !recipientName || isLoading}
               className="w-full"
             >
               {isLoading ? "Verifying..." : "Verify Certificate"}
@@ -119,35 +119,44 @@ export default function VerifyCertificate() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-600">Staff Name</p>
-                          <p className="text-lg font-semibold text-gray-900">{result.staffName}</p>
+                          <p className="text-lg font-semibold text-gray-900">{recipientName}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Course</p>
-                          <p className="text-lg font-semibold text-gray-900">{result.course}</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {result.certificate?.programType?.toUpperCase() ?? "-"}
+                          </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Issue Date</p>
                           <p className="text-lg font-semibold text-gray-900">
-                            {new Date(result.issueDate).toLocaleDateString()}
+                            {result.certificate?.issueDate
+                              ? new Date(result.certificate.issueDate).toLocaleDateString()
+                              : "-"}
                           </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Expiry Date</p>
                           <p className="text-lg font-semibold text-gray-900">
-                            {new Date(result.expiryDate).toLocaleDateString()}
+                            {result.certificate?.expiryDate
+                              ? new Date(result.certificate.expiryDate).toLocaleDateString()
+                              : "-"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Institution</p>
-                          <p className="text-lg font-semibold text-gray-900">{result.institution}</p>
+                          <p className="text-sm text-gray-600">Verification Result</p>
+                          <p className="text-lg font-semibold text-gray-900">Authentic</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Certificate ID</p>
-                          <p className="text-lg font-mono font-semibold text-gray-900">{result.certificateId}</p>
+                          <p className="text-lg font-mono font-semibold text-gray-900">
+                            {result.certificate?.certificateNumber ?? certificateNumber}
+                          </p>
                         </div>
                       </div>
 
-                      {result.status === "expired" && (
+                      {result.certificate?.expiryDate &&
+                        new Date(result.certificate.expiryDate).getTime() < Date.now() && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
                           <p className="text-sm text-yellow-800">
                             ⚠️ This certificate has expired. Please contact the institution for renewal.

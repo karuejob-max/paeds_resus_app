@@ -12,6 +12,7 @@ import {
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import { markAhaCognitiveComplete } from "../certificates";
 import {
   ensurePaediatricSepticShockCatalog,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
@@ -22,7 +23,7 @@ export const learningPathRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
+        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma"]),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -529,6 +530,9 @@ export const learningPathRouter = router({
             completedAt: new Date(),
           });
       }
+
+      // Check if all modules for this enrollment are now complete; if so, set the AHA cognitive gate.
+      await markAhaCognitiveComplete(input.enrollmentId);
 
       return { success: true };
     }),

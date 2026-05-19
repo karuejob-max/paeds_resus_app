@@ -29,7 +29,7 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Home", path: "/home" },
-  { icon: Users, label: "Learner Dashboard", path: "/learner-dashboard" },
+  { icon: Users, label: "Learner Dashboard", path: "/home" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

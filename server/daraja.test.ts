@@ -4,8 +4,13 @@ import { describe, it, expect } from "vitest";
  * Test Daraja API credentials by attempting to get a Bearer token
  * This validates that DARAJA_CONSUMER_KEY and DARAJA_CONSUMER_SECRET are correct
  */
+const hasDarajaCredentials =
+  Boolean(process.env.DARAJA_CONSUMER_KEY) && Boolean(process.env.DARAJA_CONSUMER_SECRET);
+
 describe("Daraja API Credentials", () => {
-  it("should successfully authenticate with Daraja API and get Bearer token", async () => {
+  it.skipIf(!hasDarajaCredentials)(
+    "should successfully authenticate with Daraja API and get Bearer token",
+    async () => {
     const consumerKey = process.env.DARAJA_CONSUMER_KEY;
     const consumerSecret = process.env.DARAJA_CONSUMER_SECRET;
 
@@ -48,5 +53,6 @@ describe("Daraja API Credentials", () => {
         `Failed to authenticate with Daraja: ${error instanceof Error ? error.message : String(error)}`
       );
     }
-  });
+  },
+  );
 });

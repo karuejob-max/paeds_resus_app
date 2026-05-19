@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { instructorResources } from "@/const/instructorResources";
+import { toast } from "sonner";
 import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  ClipboardCheck,
   ExternalLink,
   GraduationCap,
   Loader2,
@@ -20,6 +22,8 @@ import {
   Phone,
   Shield,
   User,
+  Users,
+  XCircle,
 } from "lucide-react";
 
 function startOfTodayLocal(): Date {
@@ -28,11 +32,161 @@ function startOfTodayLocal(): Date {
   return d;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Roster panel for a single training session
+// ─────────────────────────────────────────────────────────────────────────────
+function SessionRoster({ scheduleId }: { scheduleId: number }) {
+  const rosterQuery = trpc.instructor.getSessionRoster.useQuery({ scheduleId });
+  const signOffMutation = trpc.instructor.signOffPracticalSkills.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      rosterQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const updateAttendanceMutation = trpc.instructor.updateAttendance.useMutation({
+    onSuccess: () => {
+      toast.success("Attendance updated.");
+      rosterQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  if (rosterQuery.isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground flex items-center gap-2 py-2">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading roster…
+      </p>
+    );
+  }
+
+  const roster = rosterQuery.data?.roster ?? [];
+  if (roster.length === 0) {
+    return <p className="text-sm text-muted-foreground py-2">No learners registered for this session yet.</p>;
+  }
+
+  return (
+    <div className="space-y-3 mt-3">
+      {roster.map((learner) => (
+        <div
+          key={learner.userId}
+          className="rounded-lg border border-border p-3 space-y-2"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div>
+              <p className="font-medium text-foreground text-sm">{learner.name}</p>
+              {learner.email && <p className="text-xs text-muted-foreground">{learner.email}</p>}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {/* Cognitive status */}
+              <Badge
+                variant={learner.cognitiveModulesComplete ? "default" : "secondary"}
+                className="gap-1 text-xs"
+              >
+                {learner.cognitiveModulesComplete ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                Cognitive {learner.cognitiveModulesComplete ? "complete" : "incomplete"}
+              </Badge>
+              {/* Practical sign-off status */}
+              <Badge
+                variant={learner.practicalSkillsSignedOff ? "default" : "secondary"}
+                className="gap-1 text-xs"
+              >
+                {learner.practicalSkillsSignedOff ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                Practical {learner.practicalSkillsSignedOff ? "signed off" : "pending"}
+              </Badge>
+              {/* Certificate status */}
+              {learner.certificateIssued && (
+                <Badge variant="default" className="gap-1 text-xs bg-emerald-600">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Certificate issued
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Attendance selector */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Attendance:</span>
+            {(["registered", "attended", "absent"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() =>
+                  updateAttendanceMutation.mutate({
+                    attendanceId: learner.attendanceId,
+                    attendanceStatus: status,
+                  })
+                }
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  learner.attendanceStatus === status
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          {/* Sign-off button — only show if not yet signed off and enrollment exists */}
+          {!learner.practicalSkillsSignedOff && learner.enrollmentId && (
+            <div className="pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                disabled={signOffMutation.isPending}
+                onClick={() =>
+                  signOffMutation.mutate({ enrollmentId: learner.enrollmentId! })
+                }
+              >
+                {signOffMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ClipboardCheck className="h-3 w-3" />
+                )}
+                Sign off practical skills
+              </Button>
+              {!learner.cognitiveModulesComplete && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Note: cognitive modules not yet complete. Sign-off will be recorded but certificate will only issue once both are done.
+                </p>
+              )}
+            </div>
+          )}
+
+          {learner.practicalSkillsSignedOff && learner.practicalSignedOffByName && (
+            <p className="text-xs text-muted-foreground">
+              Signed off by {learner.practicalSignedOffByName}
+              {learner.practicalSignedOffAt
+                ? ` on ${new Date(learner.practicalSignedOffAt).toLocaleDateString()}`
+                : ""}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────────────────────────────────────
 export default function InstructorPortal() {
   useScrollToTop();
   const { isAuthenticated, loading } = useAuth();
   const statusQuery = trpc.instructor.getStatus.useQuery(undefined, { enabled: isAuthenticated });
   const assignmentsQuery = trpc.instructor.getMyAssignments.useQuery(undefined, { enabled: isAuthenticated });
+
+  // Track which assignment's roster is expanded
+  const [expandedRosterId, setExpandedRosterId] = useState<number | null>(null);
 
   const { upcoming, past } = useMemo(() => {
     const list = [...(assignmentsQuery.data?.assignments ?? [])];
@@ -111,6 +265,7 @@ export default function InstructorPortal() {
           {a.status ?? "scheduled"}
         </Badge>
       </div>
+
       {(a.institutionContactName || a.institutionContactEmail || a.institutionContactPhone) && (
         <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-sm">
           <p className="font-medium text-foreground mb-1 flex items-center gap-1.5">
@@ -145,6 +300,22 @@ export default function InstructorPortal() {
           ) : null}
         </div>
       )}
+
+      {/* ── AHA Practical Skills Sign-Off Section ── */}
+      <div className="border-t border-border pt-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs h-7 gap-1.5 text-muted-foreground hover:text-foreground"
+          onClick={() =>
+            setExpandedRosterId(expandedRosterId === a.id ? null : a.id)
+          }
+        >
+          <Users className="h-3.5 w-3.5" />
+          {expandedRosterId === a.id ? "Hide roster" : "View roster & sign off skills"}
+        </Button>
+        {expandedRosterId === a.id && <SessionRoster scheduleId={a.id} />}
+      </div>
     </li>
   );
 
@@ -158,7 +329,8 @@ export default function InstructorPortal() {
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Instructor portal</h1>
               <p className="mt-2 text-white/90 max-w-2xl">
                 Complete the Instructor Course for your instructor number, then receive platform approval to teach on
-                institutional schedules.
+                institutional schedules. Use the roster view to sign off learners' practical skills — required for AHA
+                certificate issuance.
               </p>
             </div>
           </div>
@@ -166,6 +338,7 @@ export default function InstructorPortal() {
       </section>
 
       <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
+        {/* Status card */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -226,6 +399,29 @@ export default function InstructorPortal() {
           </CardContent>
         </Card>
 
+        {/* AHA Certificate Workflow Info */}
+        {unlocked && (
+          <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base text-emerald-800 dark:text-emerald-300">
+                <ClipboardCheck className="h-5 w-5" />
+                AHA certificate workflow
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-foreground/80 space-y-2">
+              <p>For a learner to receive their BLS, ACLS, or PALS certificate, <strong>both</strong> of the following must be complete:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>All cognitive modules completed and passed (learner-driven, tracked automatically).</li>
+                <li>Practical skills signed off by you (the assigned instructor) using the roster below.</li>
+              </ol>
+              <p className="text-xs text-muted-foreground pt-1">
+                Certificates are valid for 2 years from the date of issuance, in line with AHA provider card requirements.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Assignments card */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -233,8 +429,8 @@ export default function InstructorPortal() {
               My assignments
             </CardTitle>
             <CardDescription>
-              Hospital sessions where you are the assigned instructor. Upcoming first; contact the institution for
-              changes.
+              Hospital sessions where you are the assigned instructor. Expand a session to view the learner roster and
+              sign off practical skills.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -268,6 +464,7 @@ export default function InstructorPortal() {
           </CardContent>
         </Card>
 
+        {/* Resources card */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

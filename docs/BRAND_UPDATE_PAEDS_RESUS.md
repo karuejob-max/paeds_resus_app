@@ -9,13 +9,14 @@
 ### 1. Page title and meta
 
 - **`client/index.html`**  
-  - `<title>` → "Paeds Resus - Real-Time Pediatric Emergency Guidance"  
-  - `og:title` → "Paeds Resus - Pediatric Emergency Navigation"  
+  - `<title>` → "Paeds Resus — Paediatric emergency care platform"  
+  - `meta description` / `og:description` / `twitter:title` / `twitter:description` → aligned with integrated platform positioning (training, ResusGPS, institutional, Care Signal, Safe-Truth; facility protocol reminder)  
+  - `og:title` → same as `<title>`  
   - `canonical` → `https://www.paedsresus.com`  
   - `apple-mobile-web-app-title` → "Paeds Resus"
 
 - **`client/public/manifest.json`**  
-  - `name` → "Paeds Resus - Clinical Decision Support for Emergencies"  
+  - `name` → "Paeds Resus — Paediatric emergency care platform"  
   - `short_name` → "Paeds Resus"
 
 ### 2. Logo and header/footer text

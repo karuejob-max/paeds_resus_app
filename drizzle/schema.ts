@@ -30,6 +30,8 @@ export const users = mysqlTable("users", {
   /** Unique Paeds Resus instructor ID after completing the Instructor Course (certificate issued). */
   instructorNumber: varchar("instructorNumber", { length: 32 }).unique(),
   instructorCertifiedAt: timestamp("instructorCertifiedAt"),
+  /** Rolling ResusGPS access window: extended by 30 days when a fellowship micro-course is completed (null = unrestricted legacy). */
+  resusGpsAccessExpiresAt: timestamp("resusGpsAccessExpiresAt"),
 });
 
 export type User = typeof users.$inferSelect;
@@ -53,7 +55,7 @@ export const enrollments = mysqlTable("enrollments", {
   userId: int("userId").notNull(),
   /** When set, PALS learning path is limited to this catalog course (micro-course SKU). */
   courseId: int("courseId"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"]).notNull(), // heartsaver added in DB migration fix_cert_enum.py
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),
   amountPaid: int("amountPaid").default(0), // in cents (KES)
@@ -62,6 +64,13 @@ export const enrollments = mysqlTable("enrollments", {
   certificateVerified: boolean("certificateVerified").default(false),
   reminderSent: boolean("reminderSent").default(false),
   reminderSentAt: timestamp("reminderSentAt"),
+  /** AHA-CERT-1: Set by server when all cognitive (online) modules are completed */
+  cognitiveModulesComplete: boolean("cognitiveModulesComplete").default(false).notNull(),
+  /** AHA-CERT-1: Set by an approved instructor after the hands-on skills assessment */
+  practicalSkillsSignedOff: boolean("practicalSkillsSignedOff").default(false).notNull(),
+  practicalSignedOffAt: timestamp("practicalSignedOffAt"),
+  practicalSignedOffByUserId: int("practicalSignedOffByUserId"),
+  practicalSignedOffByName: varchar("practicalSignedOffByName", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -94,13 +103,15 @@ export const certificates = mysqlTable("certificates", {
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
   certificateNumber: varchar("certificateNumber", { length: 255 }).unique(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive"]).notNull(),
   issueDate: timestamp("issueDate").notNull(),
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
   verificationCode: varchar("verificationCode", { length: 255 }).unique(),
   /** Set when user or scheduled job sends a renewal reminder (HI-CERT-1 dedupe). */
   renewalReminderSentAt: timestamp("renewalReminderSentAt"),
+  /** For micro-course certs: the microCourseEnrollments.id (avoids enrollmentId collision with AHA enrollments table) */
+  microCourseEnrollmentId: int("microCourseEnrollmentId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -124,6 +135,8 @@ export type InsertCertificateDownloadFeedback = typeof certificateDownloadFeedba
 export const careSignalEvents = mysqlTable("careSignalEvents", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
+  /** Facility ID from providerProfiles — enables institutional reporting (migration 0037) */
+  facilityId: int("facilityId"),
   eventDate: timestamp("eventDate").notNull(),
   childAge: int("childAge").notNull(),
   eventType: varchar("eventType", { length: 255 }).notNull(),
@@ -135,6 +148,12 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   outcome: varchar("outcome", { length: 512 }).notNull(),
   neurologicalStatus: varchar("neurologicalStatus", { length: 512 }).notNull(),
   status: varchar("status", { length: 32 }).default("submitted").notNull(),
+  /** Admin/coordinator who reviewed this event (migration 0037) */
+  reviewerId: int("reviewerId"),
+  /** Whether this event qualifies for Fellowship Pillar C (migration 0037) */
+  eligibleForFellowship: boolean("eligibleForFellowship").default(true).notNull(),
+  /** Form version used for submission — audit trail (migration 0037) */
+  submissionVersion: varchar("submissionVersion", { length: 16 }).default("v1").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -717,7 +736,7 @@ export const courses = mysqlTable("courses", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"]).notNull(),
   duration: int("duration"), // in minutes
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default("beginner"),
   order: int("order").default(0),
@@ -727,6 +746,67 @@ export const courses = mysqlTable("courses", {
 
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = typeof courses.$inferInsert;
+
+// Micro-Courses table (26 courses: foundational + advanced tiers)
+export const microCourses = mysqlTable("microCourses", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: varchar("courseId", { length: 64 }).notNull().unique(), // e.g., 'asthma-i', 'septic-shock-ii'
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  level: mysqlEnum("level", ["foundational", "advanced"]).notNull(),
+  emergencyType: mysqlEnum("emergencyType", ["respiratory", "shock", "seizure", "toxicology", "metabolic", "infectious", "burns", "trauma"]).notNull(),
+  duration: int("duration").notNull(), // in minutes
+  price: int("price").notNull(), // in KES cents (800 KES = 80000 cents)
+  prerequisiteId: varchar("prerequisiteId", { length: 64 }), // e.g., 'asthma-i' is prerequisite for 'asthma-ii'
+  order: int("order").default(0),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MicroCourse = typeof microCourses.$inferSelect;
+export type InsertMicroCourse = typeof microCourses.$inferInsert;
+
+// Promo Codes table
+export const promoCodes = mysqlTable("promoCodes", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 64 }).notNull().unique(), // e.g., 'EARLYBIRD20', 'ADMIN100'
+  discountPercent: int("discountPercent").default(0), // 0-100, 0 means free
+  maxUses: int("maxUses"), // NULL = unlimited
+  usesCount: int("usesCount").default(0),
+  expiresAt: timestamp("expiresAt"),
+  createdBy: int("createdBy").notNull(), // admin user id
+  description: text("description"), // e.g., "Early bird discount for first 100 users"
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PromoCode = typeof promoCodes.$inferSelect;
+export type InsertPromoCode = typeof promoCodes.$inferInsert;
+
+// Micro-Course Enrollments table
+export const microCourseEnrollments = mysqlTable("microCourseEnrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  microCourseId: int("microCourseId").notNull(),
+  enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "active", "completed", "expired"]).default("pending"),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "completed", "free"]).default("pending"),
+  paymentMethod: mysqlEnum("paymentMethod", ["m-pesa", "admin-free", "promo-code"]), // how they enrolled
+  paymentId: int("paymentId"), // links to payments table if paid via M-Pesa
+  promoCodeId: int("promoCodeId"), // links to promoCodes table if used promo code
+  amountPaid: int("amountPaid"), // actual amount paid in KES cents (after discount)
+  transactionId: varchar("transactionId", { length: 255 }), // M-Pesa reference
+  progressPercentage: int("progressPercentage").default(0),
+  quizScore: int("quizScore"), // percentage (80+ = pass)
+  certificateUrl: text("certificateUrl"),
+  certificateIssuedAt: timestamp("certificateIssuedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MicroCourseEnrollment = typeof microCourseEnrollments.$inferSelect;
+export type InsertMicroCourseEnrollment = typeof microCourseEnrollments.$inferInsert;
 
 // Modules table
 export const modules = mysqlTable("modules", {
@@ -741,8 +821,23 @@ export const modules = mysqlTable("modules", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+
 export type Module = typeof modules.$inferSelect;
 export type InsertModule = typeof modules.$inferInsert;
+
+// Module Sections table (Breakdown each module into interactive sections)
+export const moduleSections = mysqlTable("moduleSections", {
+  id: int("id").autoincrement().primaryKey(),
+  moduleId: int("moduleId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content"), // HTML content for this section
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ModuleSection = typeof moduleSections.$inferSelect;
+export type InsertModuleSection = typeof moduleSections.$inferInsert;
 
 // Quizzes table
 export const quizzes = mysqlTable("quizzes", {
@@ -777,6 +872,27 @@ export type QuizQuestion = typeof quizQuestions.$inferSelect;
 export type InsertQuizQuestion = typeof quizQuestions.$inferInsert;
 
 // User Progress table
+// ============================================
+// CAPSTONE SUBMISSIONS TABLE
+// ============================================
+export const capstoneSubmissions = mysqlTable("capstoneSubmissions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  courseId: varchar("courseId", { length: 255 }).notNull(),
+  caseResponse: text("caseResponse").notNull(),
+  status: mysqlEnum("status", ["pending", "under_review", "graded", "passed", "failed"]).default("pending").notNull(),
+  score: int("score"), // 0-100
+  instructorId: int("instructorId"),
+  instructorFeedback: text("instructorFeedback"),
+  gradedAt: timestamp("gradedAt"),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CapstoneSubmission = typeof capstoneSubmissions.$inferSelect;
+export type InsertCapstoneSubmission = typeof capstoneSubmissions.$inferInsert;
+
 export const userProgress = mysqlTable("userProgress", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -1099,9 +1215,11 @@ export const providerProfiles = mysqlTable("providerProfiles", {
   licenseExpiry: timestamp("licenseExpiry"),
   specialization: varchar("specialization", { length: 255 }), // e.g., "Pediatrics", "Emergency Medicine"
   yearsOfExperience: int("yearsOfExperience"),
+  /** Canonical facility — preferred over free-text facilityName */
+  facilityId: int("facilityId"),
   facilityName: varchar("facilityName", { length: 255 }),
   facilityType: mysqlEnum("facilityType", ["primary_health_center", "health_post", "district_hospital", "private_clinic", "ngo_clinic", "other"]),
-  facilityRegion: varchar("facilityRegion", { length: 255 }), // e.g., "Nairobi", "Kisumu"
+  facilityRegion: varchar("facilityRegion", { length: 255 }), // legacy; prefer county on careFacilities
   facilityCountry: varchar("facilityCountry", { length: 255 }).default("Kenya"),
   facilityPhone: varchar("facilityPhone", { length: 20 }),
   facilityEmail: varchar("facilityEmail", { length: 320 }),
@@ -1904,6 +2022,30 @@ export const parentSafeTruthSubmissions = mysqlTable("parentSafeTruthSubmissions
   parentName: varchar("parentName", { length: 255 }),
   parentEmail: varchar("parentEmail", { length: 255 }),
   status: mysqlEnum("status", ["draft", "submitted", "reviewed", "archived"]).default("submitted"),
+
+  // ── Pre-hospital journey fields ────────────────────────────────────────────
+  // When did the parent/caregiver first notice the child was unwell?
+  symptomOnsetDate: varchar("symptomOnsetDate", { length: 20 }),   // YYYY-MM-DD
+  // How long after symptom onset did the family decide to seek care?
+  decisionDelayBand: varchar("decisionDelayBand", { length: 50 }), // "immediate"|"under-1h"|"1-6h"|"6-24h"|"over-24h"
+  // Why did they wait before seeking care?
+  decisionDelayReasons: text("decisionDelayReasons"),              // JSON: string[]
+  // How did the child reach this facility?
+  transportMode: varchar("transportMode", { length: 50 }),         // "personal-vehicle"|"matatu"|"boda-boda"|"ambulance"|"walked"|"other"
+  transportDurationBand: varchar("transportDurationBand", { length: 50 }), // "under-15m"|"15-30m"|"30-60m"|"over-1h"
+  // Was an ambulance called? How long did it take?
+  ambulanceCalled: boolean("ambulanceCalled").default(false),
+  ambulanceWaitBand: varchar("ambulanceWaitBand", { length: 50 }), // "under-15m"|"15-30m"|"30-60m"|"over-1h"|"never-came"
+  // Did the child visit another facility before this one?
+  priorFacilityVisit: boolean("priorFacilityVisit").default(false),
+  // JSON array of prior stops: [{name, type, reasonLeft, timeSpentBand}]
+  priorFacilityChain: text("priorFacilityChain"),
+  // Why did they leave the prior facility / get referred?
+  referralReason: varchar("referralReason", { length: 100 }),      // "no-equipment"|"no-specialist"|"no-blood"|"self-referred"|"advised-to-go"|"other"
+  // Computed: symptom onset → arrival at this facility (minutes)
+  preHospitalDelayMinutes: int("preHospitalDelayMinutes"),
+  // ──────────────────────────────────────────────────────────────────────────
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -2210,3 +2352,310 @@ export const auditLogs = mysqlTable("auditLogs", {
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+// ============================================================================
+// FELLOWSHIP QUALIFICATION SYSTEM (3 Pillars: Courses, ResusGPS, Care Signal)
+// ============================================================================
+
+/**
+ * ResusGPS Sessions — track each ResusGPS case session initiated by a provider.
+ * Pillar 2: ResusGPS cases (≥3 attributable cases per taught condition).
+ */
+export const resusGPSSessions = mysqlTable("resusGPSSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull().unique(), // UUID for session tracking
+  /** Primary diagnosis/condition (e.g., "septic-shock", "asthma", "status-epilepticus") */
+  primaryDiagnosis: varchar("primaryDiagnosis", { length: 255 }).notNull(),
+  /** Secondary diagnoses if multi-diagnosis session */
+  secondaryDiagnoses: text("secondaryDiagnoses"), // JSON array of diagnosis strings
+  /** Patient age in months (for depth validation) */
+  patientAgeMonths: int("patientAgeMonths").notNull(),
+  /** Patient weight in kg (for dose validation) */
+  patientWeightKg: decimal("patientWeightKg", { precision: 5, scale: 2 }),
+  /** Trauma case? (for trauma pathway tracking) */
+  isTrauma: boolean("isTrauma").default(false),
+  /** Cardiac arrest case? (for CPR tracking) */
+  isCardiacArrest: boolean("isCardiacArrest").default(false),
+  /** Session status: ongoing, completed, abandoned */
+  status: mysqlEnum("status", ["ongoing", "completed", "abandoned"]).default("ongoing"),
+  /** Number of interventions recorded in session */
+  interventionCount: int("interventionCount").default(0),
+  /** Number of reassessments performed */
+  reassessmentCount: int("reassessmentCount").default(0),
+  /** Session duration in seconds */
+  durationSeconds: int("durationSeconds"),
+  /** Outcome: survived, transferred, other */
+  outcome: varchar("outcome", { length: 64 }),
+  /** Depth score (0-100) for anti-gaming validation */
+  depthScore: int("depthScore").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResusGPSSession = typeof resusGPSSessions.$inferSelect;
+export type InsertResusGPSSession = typeof resusGPSSessions.$inferInsert;
+
+/**
+ * ResusGPS Cases — individual cases within a session (for detailed tracking).
+ * Each session may have multiple cases if provider switches between patients.
+ */
+export const resusGPSCases = mysqlTable("resusGPSCases", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: varchar("sessionId", { length: 64 }).notNull(), // FK to resusGPSSessions.sessionId
+  userId: int("userId").notNull(),
+  /** Case identifier within session */
+  caseNumber: int("caseNumber").notNull(), // 1st case, 2nd case, etc.
+  /** Diagnosis for this specific case */
+  diagnosis: varchar("diagnosis", { length: 255 }).notNull(),
+  /** ABCDE assessment completed? */
+  abcdeCompleted: boolean("abcdeCompleted").default(false),
+  /** Interventions performed (JSON array of intervention objects) */
+  interventions: text("interventions"), // JSON array
+  /** Reassessments performed (JSON array of reassessment findings) */
+  reassessments: text("reassessments"), // JSON array
+  /** Case outcome */
+  outcome: varchar("outcome", { length: 64 }),
+  /** Depth score for this case (0-100) */
+  depthScore: int("depthScore").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResusGPSCase = typeof resusGPSCases.$inferSelect;
+export type InsertResusGPSCase = typeof resusGPSCases.$inferInsert;
+
+/**
+ * Fellowship Progress — cumulative tracking of all 3 pillars for each user.
+ * Single row per user; updated as they progress through courses, ResusGPS, Care Signal.
+ */
+export const fellowshipProgress = mysqlTable("fellowshipProgress", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(), // One row per user
+  
+  // PILLAR 1: Courses (all 26 ADF micro-courses; BLS, ACLS, PALS are optional, standalone)
+  /** Total courses required for fellowship (26 ADF micro-courses + legacy courses) */
+  totalCoursesRequired: int("totalCoursesRequired").default(26),
+  /** Courses completed (count of certificates with completion date) */
+  coursesCompleted: int("coursesCompleted").default(0),
+  /** Percentage of courses completed (0-100) */
+  coursesPercentage: int("coursesPercentage").default(0),
+  
+  // PILLAR 2: ResusGPS Cases (≥3 cases per taught condition)
+  /** Total ResusGPS cases completed */
+  resusGPSCasesCompleted: int("resusGPSCasesCompleted").default(0),
+  /** Conditions with ≥3 cases (count of conditions meeting threshold) */
+  conditionsWithThreshold: int("conditionsWithThreshold").default(0),
+  /** Total conditions taught (from courses) */
+  totalConditionsTaught: int("totalConditionsTaught").default(0),
+  /** Percentage of conditions with ≥3 cases */
+  resusGPSPercentage: int("resusGPSPercentage").default(0),
+  
+  // PILLAR 3: Care Signal (24 consecutive qualifying months)
+  /** Consecutive months of Care Signal participation (0-24+) */
+  careSignalStreak: int("careSignalStreak").default(0),
+  /** Total Care Signal events submitted */
+  careSignalEventsSubmitted: int("careSignalEventsSubmitted").default(0),
+  /** Percentage of 24-month requirement (0-100) */
+  careSignalPercentage: int("careSignalPercentage").default(0),
+  
+  // OVERALL FELLOWSHIP STATUS
+  /** Fellowship qualified? (all 3 pillars at 100%) */
+  isQualified: boolean("isQualified").default(false),
+  /** Date when fellowship was achieved (if qualified) */
+  qualifiedAt: timestamp("qualifiedAt"),
+  /** Overall completion percentage (average of 3 pillars) */
+  overallPercentage: int("overallPercentage").default(0),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FellowshipProgress = typeof fellowshipProgress.$inferSelect;
+export type InsertFellowshipProgress = typeof fellowshipProgress.$inferInsert;
+
+/**
+ * Fellowship Grace Usage — track grace periods used per user per calendar year (EAT).
+ * Max 2 grace periods per calendar year; after using grace, next month must have ≥3 events.
+ */
+export const fellowshipGraceUsage = mysqlTable("fellowshipGraceUsage", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  /** Calendar year (EAT) when grace was used */
+  year: int("year").notNull(),
+  /** Month (1-12, EAT) when grace was used */
+  month: int("month").notNull(),
+  /** Reason for grace: "zero_events", "insufficient_events", "technical_issue" */
+  reason: varchar("reason", { length: 64 }).notNull(),
+  /** Notes about the grace period */
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FellowshipGraceUsage = typeof fellowshipGraceUsage.$inferSelect;
+export type InsertFellowshipGraceUsage = typeof fellowshipGraceUsage.$inferInsert;
+
+/**
+ * Fellowship Streak Resets — track when Care Signal streak resets (pillar C only).
+ * Pillar A (courses) and B (ResusGPS) do not reset; only C resets on 3rd failure.
+ */
+export const fellowshipStreakResets = mysqlTable("fellowshipStreakResets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  /** Calendar year (EAT) when reset occurred */
+  year: int("year").notNull(),
+  /** Month (1-12, EAT) when reset occurred */
+  month: int("month").notNull(),
+  /** Reason: "third_failure", "manual_admin_reset" */
+  reason: varchar("reason", { length: 64 }).notNull(),
+  /** Previous streak value before reset */
+  previousStreak: int("previousStreak").notNull(),
+  /** Admin notes if manual reset */
+  adminNotes: text("adminNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FellowshipStreakReset = typeof fellowshipStreakResets.$inferSelect;
+export type InsertFellowshipStreakReset = typeof fellowshipStreakResets.$inferInsert;
+
+
+/**
+ * Provider SAMPLE History — stores the last SAMPLE history per provider.
+ * Used to pre-fill the SAMPLE fields in ResusGPS for returning patients.
+ * One row per user, upserted on every ResusGPS case completion.
+ */
+export const providerSampleHistory = mysqlTable("providerSampleHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  signs: text("signs"),
+  allergies: text("allergies"),
+  medications: text("medications"),
+  pastHistory: text("pastHistory"),
+  lastMeal: text("lastMeal"),
+  events: text("events"),
+  caseWeight: decimal("caseWeight", { precision: 5, scale: 1 }),
+  caseAge: varchar("caseAge", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProviderSampleHistory = typeof providerSampleHistory.$inferSelect;
+export type InsertProviderSampleHistory = typeof providerSampleHistory.$inferInsert;
+
+/**
+ * Care Signal Reviews — admin/MOH responses to resource gap reports.
+ */
+export const careSignalReviews = mysqlTable("careSignalReviews", {
+  id: int("id").autoincrement().primaryKey(),
+  analyticsEventId: int("analyticsEventId").notNull(),
+  reporterUserId: int("reporterUserId").notNull(),
+  reviewerUserId: int("reviewerUserId").notNull(),
+  interventionName: varchar("interventionName", { length: 128 }).notNull(),
+  responseText: text("responseText").notNull(),
+  actionTaken: varchar("actionTaken", { length: 64 }).notNull().default("acknowledged"),
+  expectedResolutionDate: varchar("expectedResolutionDate", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CareSignalReview = typeof careSignalReviews.$inferSelect;
+export type InsertCareSignalReview = typeof careSignalReviews.$inferInsert;
+
+/**
+ * In-App Notifications — lightweight notification inbox for providers.
+ */
+export const inAppNotifications = mysqlTable("inAppNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  type: varchar("type", { length: 64 }).notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body").notNull(),
+  actionUrl: varchar("actionUrl", { length: 512 }),
+  relatedId: int("relatedId"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type InAppNotification = typeof inAppNotifications.$inferSelect;
+export type InsertInAppNotification = typeof inAppNotifications.$inferInsert;
+
+/** Audit log for every inbound M-Pesa / Daraja callback (forensics beyond payments.status). */
+export const mpesaWebhookLog = mysqlTable("mpesaWebhookLog", {
+  id: int("id").autoincrement().primaryKey(),
+  callbackType: mysqlEnum("callbackType", [
+    "stk",
+    "stk_timeout",
+    "stk_query",
+    "c2b_validation",
+    "c2b_confirmation",
+  ]).notNull(),
+  checkoutRequestId: varchar("checkoutRequestId", { length: 255 }),
+  resultCode: int("resultCode"),
+  resultDesc: varchar("resultDesc", { length: 512 }),
+  httpStatus: int("httpStatus").notNull(),
+  outcome: mysqlEnum("outcome", [
+    "received",
+    "signature_rejected",
+    "invalid_payload",
+    "duplicate_idempotency",
+    "payment_not_found",
+    "payment_completed",
+    "payment_failed",
+    "already_finalized",
+    "persist_error",
+    "acknowledged",
+    "error",
+  ]).notNull(),
+  paymentId: int("paymentId"),
+  enrollmentId: int("enrollmentId"),
+  amountCents: int("amountCents"),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 64 }),
+  errorMessage: text("errorMessage"),
+  payloadSnippet: text("payloadSnippet"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MpesaWebhookLog = typeof mpesaWebhookLog.$inferSelect;
+export type InsertMpesaWebhookLog = typeof mpesaWebhookLog.$inferInsert;
+
+/** Dedupes platform admin alert emails/SMS (one per rule per cooldown window). */
+export const adminAlertDispatches = mysqlTable("adminAlertDispatches", {
+  id: int("id").autoincrement().primaryKey(),
+  ruleKey: varchar("ruleKey", { length: 64 }).notNull(),
+  channel: mysqlEnum("channel", ["email", "sms"]).default("email").notNull(),
+  recipient: varchar("recipient", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 255 }),
+  bodySnippet: text("bodySnippet"),
+  metricValue: int("metricValue"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminAlertDispatch = typeof adminAlertDispatches.$inferSelect;
+export type InsertAdminAlertDispatch = typeof adminAlertDispatches.$inferInsert;
+
+/**
+ * Canonical facility registry for providers, Care Signal, and geographic QI rollups.
+ * Use `mergedIntoId` when admin merges duplicate names; always resolve via registry helper.
+ */
+export const careFacilities = mysqlTable("careFacilities", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  county: varchar("county", { length: 128 }),
+  country: varchar("country", { length: 128 }).notNull().default("Kenya"),
+  subCounty: varchar("subCounty", { length: 128 }),
+  facilityType: mysqlEnum("facilityType", [
+    "primary_health_center",
+    "health_post",
+    "district_hospital",
+    "private_clinic",
+    "ngo_clinic",
+    "other",
+  ]),
+  /** Points to canonical row after admin merge */
+  mergedIntoId: int("mergedIntoId"),
+  institutionalAccountId: int("institutionalAccountId"),
+  isSystem: boolean("isSystem").default(false).notNull(),
+  /** Stable key for seeded system rows (e.g. outreach-mobile) */
+  systemSlug: varchar("systemSlug", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type CareFacility = typeof careFacilities.$inferSelect;
+export type InsertCareFacility = typeof careFacilities.$inferInsert;

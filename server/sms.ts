@@ -14,7 +14,8 @@ interface SMSMessage {
     | "enrollment_confirmation"
     | "payment_reminder"
     | "training_reminder"
-    | "post_training_feedback";
+    | "post_training_feedback"
+    | "lifecycle_nudge";
 }
 
 interface SendSMSResult {

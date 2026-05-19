@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "not_found" | "error";
@@ -6,7 +6,6 @@ export type PaymentStatus = "pending" | "completed" | "failed" | "not_found" | "
 interface PaymentStatusResult {
   status: PaymentStatus;
   amount?: number;
-  currency?: string;
   paymentMethod?: string;
   transactionId?: string;
   updatedAt?: Date;
@@ -38,6 +37,13 @@ export function usePaymentPolling({
 }: UsePaymentPollingOptions) {
   const [status, setStatus] = useState<PaymentStatus>("pending");
   const [isPolling, setIsPolling] = useState(enabled);
+  const manualPollingControl = useRef(false);
+
+  useEffect(() => {
+    if (!manualPollingControl.current) {
+      setIsPolling(enabled);
+    }
+  }, [enabled]);
   const [attempts, setAttempts] = useState(0);
   const [result, setResult] = useState<PaymentStatusResult | null>(null);
 
@@ -61,7 +67,14 @@ export function usePaymentPolling({
         return;
       }
 
-      const paymentResult = data.data;
+      const paymentResult: PaymentStatusResult = {
+        status: (data.data.status ?? "error") as PaymentStatus,
+        amount: data.data.amount ?? undefined,
+        paymentMethod: data.data.paymentMethod ?? undefined,
+        transactionId: data.data.transactionId ?? undefined,
+        updatedAt: data.data.updatedAt ?? undefined,
+        message: data.data.message,
+      };
       setResult(paymentResult);
       setStatus(paymentResult.status);
 
@@ -113,9 +126,16 @@ export function usePaymentPolling({
     isPolling,
     attempts,
     result,
-    stopPolling: () => setIsPolling(false),
-    startPolling: () => setIsPolling(true),
+    stopPolling: () => {
+      manualPollingControl.current = true;
+      setIsPolling(false);
+    },
+    startPolling: () => {
+      manualPollingControl.current = true;
+      setIsPolling(true);
+    },
     resetPolling: () => {
+      manualPollingControl.current = false;
       setAttempts(0);
       setStatus("pending");
       setResult(null);

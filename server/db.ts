@@ -1,10 +1,17 @@
-import { eq, desc, and, gte, lte, like } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics } from "../drizzle/schema";
+import * as schema from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-let _db: ReturnType<typeof drizzle> | null = null;
+function createDrizzle(pool: mysql.Pool) {
+  return drizzle(pool, { schema, mode: "default" });
+}
+
+type Database = ReturnType<typeof createDrizzle>;
+
+let _db: Database | null = null;
 
 // mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.
 // Build config from URL and set ssl object when Aiven/cloud SSL is required.
@@ -29,19 +36,32 @@ function getConnectionConfig(databaseUrl: string): mysql.PoolOptions {
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
+      console.log('[Database] Attempting to connect...');
       const config = getConnectionConfig(process.env.DATABASE_URL);
+      console.log('[Database] Connection config:', { host: config.host, user: config.user, database: config.database });
       const pool = mysql.createPool(config);
-      _db = drizzle(pool) as unknown as NonNullable<typeof _db>;
+      console.log('[Database] Pool created');
+      _db = createDrizzle(pool);
+      console.log('[Database] Drizzle instance created successfully');
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error instanceof Error ? error.message : String(error));
       _db = null;
     }
+  } else if (!process.env.DATABASE_URL) {
+    console.error('[Database] DATABASE_URL not set in environment');
   }
   return _db;
 }
 
-// Export db instance for convenience (use getDb() in async contexts)
-export { _db as db };
+// Export a typed db facade for legacy synchronous imports.
+export const db = new Proxy({} as Database, {
+  get(_target, prop, receiver) {
+    if (!_db) {
+      throw new Error("Database client not initialized. Use getDb() in async flows before accessing db.");
+    }
+    return Reflect.get(_db, prop, receiver);
+  },
+}) as Database;
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -109,22 +129,132 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  try {
+    const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    console.warn("[DB] users schema drift detected on getUserByOpenId; using legacy-compatible projection.");
+    const fallback = await db
+      .select({
+        id: users.id,
+        openId: users.openId,
+        name: users.name,
+        email: users.email,
+        loginMethod: users.loginMethod,
+        passwordHash: users.passwordHash,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        lastSignedIn: users.lastSignedIn,
+      })
+      .from(users)
+      .where(eq(users.openId, openId))
+      .limit(1);
+    const row = fallback[0];
+    if (!row) return undefined;
+    return {
+      ...row,
+      phone: null,
+      institutionalRole: null,
+      providerType: null,
+      userType: "individual" as const,
+      instructorApprovedAt: null,
+      instructorNumber: null,
+      instructorCertifiedAt: null,
+      resusGpsAccessExpiresAt: null,
+    };
+  }
+}
 
-  return result.length > 0 ? result[0] : undefined;
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    console.warn("[DB] users schema drift detected on getUserById; using legacy-compatible projection.");
+    const fallback = await db
+      .select({
+        id: users.id,
+        openId: users.openId,
+        name: users.name,
+        email: users.email,
+        loginMethod: users.loginMethod,
+        passwordHash: users.passwordHash,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        lastSignedIn: users.lastSignedIn,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const row = fallback[0];
+    if (!row) return undefined;
+    return {
+      ...row,
+      phone: null,
+      institutionalRole: null,
+      providerType: null,
+      userType: "individual" as const,
+      instructorApprovedAt: null,
+      instructorNumber: null,
+      instructorCertifiedAt: null,
+      resusGpsAccessExpiresAt: null,
+    };
+  }
 }
 
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
+  const normalized = email.trim().toLowerCase();
+  const openIdMatch = `email:${normalized}`;
   try {
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(sql`LOWER(${users.email}) = ${normalized} OR ${users.openId} = ${openIdMatch}`)
+      .limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) {
-      console.error("[DB] users table may be missing columns. Run: pnpm db:fix-users", msg);
-      throw new Error("Database schema may be out of date. Please ask an admin to run: pnpm db:fix-users");
+      console.warn("[DB] users schema drift detected on getUserByEmail; using legacy-compatible projection.");
+      const fallback = await db
+        .select({
+          id: users.id,
+          openId: users.openId,
+          name: users.name,
+          email: users.email,
+          loginMethod: users.loginMethod,
+          passwordHash: users.passwordHash,
+          role: users.role,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          lastSignedIn: users.lastSignedIn,
+        })
+        .from(users)
+        .where(sql`LOWER(${users.email}) = ${normalized}`)
+        .limit(1);
+      const row = fallback[0];
+      if (!row) return undefined;
+      return {
+        ...row,
+        phone: null,
+        institutionalRole: null,
+        providerType: null,
+        userType: "individual" as const,
+        instructorApprovedAt: null,
+        instructorNumber: null,
+        instructorCertifiedAt: null,
+        resusGpsAccessExpiresAt: null,
+      };
     }
     throw err;
   }
@@ -136,17 +266,31 @@ export async function createUserWithPassword(data: {
   name: string | null;
   passwordHash: string;
   userType?: "individual" | "institutional" | "parent";
+  phone?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(users).values({
     openId: data.openId,
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     name: data.name,
+    phone: data.phone ?? null,
     loginMethod: "email",
     passwordHash: data.passwordHash,
     userType: data.userType ?? "individual",
   });
+}
+
+export async function updateUserContactInfo(
+  userId: number,
+  data: { name: string; phone: string | null }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(users)
+    .set({ name: data.name, phone: data.phone, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {
@@ -327,6 +471,30 @@ export async function insertAdminAuditLog(data: InsertAdminAuditLog): Promise<vo
   } catch (e) {
     console.error("[DB] insertAdminAuditLog failed:", e);
   }
+}
+
+/**
+ * Backward-compatible audit helper used by legacy router callsites.
+ * Maps legacy payload shape to adminAuditLog schema fields.
+ */
+export async function createAuditLog(data: {
+  userId: number;
+  action: string;
+  details?: unknown;
+  timestamp?: Date;
+}): Promise<void> {
+  const inputSummary =
+    data.details == null
+      ? null
+      : typeof data.details === "string"
+        ? data.details
+        : JSON.stringify(data.details);
+  await insertAdminAuditLog({
+    adminUserId: data.userId,
+    procedurePath: data.action,
+    inputSummary,
+    createdAt: data.timestamp ?? new Date(),
+  });
 }
 
 // Experiments queries
@@ -521,4 +689,89 @@ export async function calculateNPS() {
   const total = responses.length;
   if (total === 0) return 0;
   return Math.round(((promoters - detractors) / total) * 100);
+}
+
+
+// ============================================================================
+// FELLOWSHIP QUALIFICATION SYSTEM
+// ============================================================================
+
+/**
+ * Create a ResusGPS session record
+ */
+export async function createResusGPSSession(data: InsertResusGPSSession) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(resusGPSSessions).values(data);
+  return result;
+}
+
+/**
+ * Create a ResusGPS case record
+ */
+export async function createResusGPSCase(data: InsertResusGPSCase) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(resusGPSCases).values(data);
+  return result;
+}
+
+/**
+ * Create a fellowship progress record
+ */
+export async function createFellowshipProgress(data: InsertFellowshipProgress) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipProgress).values(data);
+  return result;
+}
+
+/**
+ * Update a fellowship progress record
+ */
+export async function updateFellowshipProgress(
+  userId: number,
+  data: Partial<InsertFellowshipProgress>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .update(fellowshipProgress)
+    .set(data)
+    .where(eq(fellowshipProgress.userId, userId));
+  return result;
+}
+
+/**
+ * Record a grace period usage
+ */
+export async function recordGracePeriod(data: InsertFellowshipGraceUsage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipGraceUsage).values(data);
+  return result;
+}
+
+/**
+ * Record a streak reset
+ */
+export async function recordStreakReset(data: InsertFellowshipStreakReset) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipStreakResets).values(data);
+  return result;
+}
+
+/**
+ * Get fellowship progress for a user
+ */
+export async function getFellowshipProgress(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .select()
+    .from(fellowshipProgress)
+    .where(eq(fellowshipProgress.userId, userId))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
 }

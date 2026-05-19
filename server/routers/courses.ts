@@ -1,0 +1,777 @@
+/**
+ * Course Management Router
+ * Handles micro-course catalog, enrollment, M-Pesa payments, and admin access
+ */
+
+import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
+import { z } from 'zod';
+import { TRPCError } from "@trpc/server";
+import { getDb } from '../db';
+import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
+import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
+import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
+import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
+import { eq, and, asc, inArray, desc } from 'drizzle-orm';
+import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
+import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
+import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
+
+async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
+  const database = await getDb();
+  if (!database) {
+    return [];
+  }
+  await ensureMicroCoursesCatalog();
+  const enrollments = await database.query.microCourseEnrollments.findMany({
+    where: (enrollments) => eq(enrollments.userId, userId),
+    orderBy: (e, { desc }) => [
+      // Completed enrollments first so MicroCoursePlayer picks up the right row
+      desc(e.completedAt),
+      desc(e.createdAt),
+    ],
+  });
+  const enriched = await Promise.all(
+    enrollments.map(async (enrollment) => {
+      const course = await database.query.microCourses.findFirst({
+        where: (courses) => eq(courses.id, enrollment.microCourseId),
+      });
+      return { ...enrollment, course };
+    })
+  );
+  return enriched;
+}
+
+export const coursesRouter = router({
+  /**
+   * List all fellowship micro-courses (DB-backed; catalog ensured on read).
+   */
+  listAll: publicProcedure.query(async () => {
+    try {
+      return await loadMicroCoursesFromDb();
+    } catch (error) {
+      console.error('Error fetching micro-courses:', error);
+      return [];
+    }
+  }),
+
+  /**
+   * AHA-style certification programs (BLS, ACLS, PALS) from `courses` — not fellowship micro-courses.
+   */
+  listAhaPrograms: publicProcedure.query(async () => {
+    try {
+      const database = await getDb();
+      if (!database) return [];
+      await ensureCourseCatalogForSchedule(database, 'bls');
+      await ensureCourseCatalogForSchedule(database, 'acls');
+      await ensureCourseCatalogForSchedule(database, 'pals');
+      return await database
+        .select()
+        .from(courses)
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
+        .orderBy(asc(courses.programType), asc(courses.order));
+    } catch (error) {
+      console.error('[courses.listAhaPrograms]', error);
+      return [];
+    }
+  }),
+
+  /**
+   * One anchor row per BLS / ACLS / PALS for provider hub (avoids duplicate PALS catalog rows).
+   */
+  listAhaHubPrograms: publicProcedure.query(async () => {
+    try {
+      const database = await getDb();
+      if (!database) return [];
+      await ensureCourseCatalogForSchedule(database, 'bls');
+      await ensureCourseCatalogForSchedule(database, 'acls');
+      await ensureCourseCatalogForSchedule(database, 'pals');
+      const rows = await database
+        .select()
+        .from(courses)
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
+        .orderBy(asc(courses.programType), asc(courses.id));
+      const seen = new Set<string>();
+      const distinct: (typeof rows)[number][] = [];
+      for (const r of rows) {
+        if (seen.has(r.programType)) continue;
+        seen.add(r.programType);
+        distinct.push(r);
+      }
+      const order = ['bls', 'acls', 'pals', 'heartsaver'] as const;
+      return order.map((pt) => distinct.find((r) => r.programType === pt)).filter(Boolean) as (typeof rows)[number][];
+    } catch (error) {
+      console.error('[courses.listAhaHubPrograms]', error);
+      return [];
+    }
+  }),
+
+  /** User rows in `enrollments` for BLS / ACLS / PALS (AHA path — not micro-courses). */
+  getMyAhaEnrollments: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      const database = await getDb();
+      if (!database) return [];
+      return await database
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver'])))
+        .orderBy(desc(enrollments.createdAt));
+    } catch (error) {
+      console.error('[courses.getMyAhaEnrollments]', error);
+      return [];
+    }
+  }),
+
+  /**
+   * Get user's micro-course enrollments with course details
+   */
+  getEnrollments: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      return await fetchMicroCourseEnrollmentsWithCourses(ctx.user.id);
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+      return [];
+    }
+  }),
+
+  /** Alias for clients that invalidate `courses.getUserEnrollments` (same payload as getEnrollments). */
+  getUserEnrollments: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      return await fetchMicroCourseEnrollmentsWithCourses(ctx.user.id);
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+      return [];
+    }
+  }),
+
+  /**
+   * Enroll user in a course
+   */
+  enroll: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) {
+          throw new Error('Database unavailable');
+        }
+        await ensureMicroCoursesCatalog();
+
+        // Look up course by courseId to get database id
+        const course = await database.query.microCourses.findFirst({
+          where: (courses) => eq(courses.courseId, input.courseId),
+        });
+
+        if (!course) {
+          return { success: false, message: 'Course not found', enrolled: false };
+        }
+
+        // Check if already enrolled
+        const existing = await database.query.microCourseEnrollments.findFirst({
+          where: (enrollments) =>
+            and(
+              eq(enrollments.userId, ctx.user.id),
+              eq(enrollments.microCourseId, course.id)
+            ),
+        });
+
+        if (existing) {
+          return { success: false, message: 'Already enrolled in this course', enrolled: true };
+        }
+
+        // Create enrollment using microCourseId (database id)
+        await database.insert(microCourseEnrollments).values({
+          userId: ctx.user.id,
+          microCourseId: course.id,
+          enrollmentStatus: 'active',
+          paymentStatus: 'free',
+          progressPercentage: 0,
+          createdAt: new Date(),
+        });
+
+        return { success: true, message: 'Successfully enrolled in course', enrolled: true };
+      } catch (error) {
+        console.error('Error enrolling in course:', error);
+        return { success: false, message: 'Failed to enroll in course', enrolled: false };
+      }
+    }),
+
+  /**
+   * Mark course as completed
+   */
+  complete: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) {
+          throw new Error('Database unavailable');
+        }
+        await ensureMicroCoursesCatalog();
+
+        // Look up course by courseId to get database id
+        const course = await database.query.microCourses.findFirst({
+          where: (c) => eq(c.courseId, input.courseId),
+        });
+
+        if (!course) {
+          return { success: false, message: 'Course not found' };
+        }
+
+        // Update enrollment status
+        await database
+          .update(microCourseEnrollments)
+          .set({
+            enrollmentStatus: 'completed',
+            progressPercentage: 100,
+            completedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(microCourseEnrollments.userId, ctx.user.id),
+              eq(microCourseEnrollments.microCourseId, course.id)
+            )
+          );
+
+        await extendResusGpsAccessAfterMicroCourseCompletion(ctx.user.id);
+
+        // Issue certificate for this micro-course completion (idempotent)
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: and(
+            eq(microCourseEnrollments.userId, ctx.user.id),
+            eq(microCourseEnrollments.microCourseId, course.id)
+          ),
+        });
+        let certificateNumber: string | undefined;
+        if (enrollment) {
+          const userRows = await database
+            .select({ name: users.name })
+            .from(users)
+            .where(eq(users.id, ctx.user.id))
+            .limit(1);
+          const recipientName = userRows[0]?.name ?? 'Participant';
+          const certResult = await saveMicroCourseCertificate(
+            enrollment.id,
+            ctx.user.id,
+            recipientName,
+            course.title ?? input.courseId
+          );
+          if (certResult.success) {
+            certificateNumber = certResult.certificateNumber;
+          } else {
+            // Throw so tRPC returns a 500 with the exact error message visible in browser
+            throw new Error(`CERT_FAIL: ${certResult.error ?? 'unknown'}`);
+          }
+        }
+
+        void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+          console.warn("[Fellowship] sync after micro-course complete failed:", e)
+        );
+
+        return { success: true, message: 'Course marked as completed', certificateNumber };
+      } catch (error) {
+        console.error('Error completing course:', error);
+        return { success: false, message: 'Failed to complete course' };
+      }
+    }),
+
+  /**
+   * Initiate M-Pesa payment for course enrollment
+   */
+  initiateMpesaPayment: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.string(),
+        phoneNumber: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        if (!isMpesaConfigured()) {
+          return { success: false, message: 'M-Pesa not configured' };
+        }
+
+        // Find course to get price
+        const database = await getDb();
+        if (!database) {
+          return { success: false, message: 'Database unavailable' };
+        }
+        await ensureMicroCoursesCatalog();
+        const course = await database.query.microCourses.findFirst({
+          where: (courses) => eq(courses.courseId, input.courseId),
+        });
+        if (!course) {
+          return { success: false, message: 'Course not found' };
+        }
+
+        // Validate phone number
+        if (!validatePhoneNumber(input.phoneNumber)) {
+          return { success: false, message: 'Invalid phone number' };
+        }
+
+        // Initiate STK push
+        const result = await initiateSTKPush(
+          input.phoneNumber,
+          Math.round(course.price / 100),
+          input.courseId,
+          course.title,
+          0
+        );
+
+        if (result.success) {
+          // Save payment record
+          if (database) {
+            await database.insert(payments).values({
+              enrollmentId: 0,
+              userId: ctx.user.id,
+              amount: course.price,
+              paymentMethod: 'mpesa',
+              status: 'pending',
+              transactionId: result.checkoutRequestId || '',
+              idempotencyKey: result.checkoutRequestId || undefined,
+            });
+          }
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Error initiating M-Pesa payment:', error);
+        return { success: false, message: 'Failed to initiate payment' };
+      }
+    }),
+
+  /**
+   * Submit module quiz and save score
+   */
+  submitModuleQuiz: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        moduleId: z.number(),
+        quizId: z.number().optional(),
+        score: z.number().min(0).max(100),
+        answers: z.record(z.string(), z.string()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) {
+          return { success: false, message: 'Database unavailable' };
+        }
+
+        // Check if user is enrolled in this course
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: eq(microCourseEnrollments.id, input.enrollmentId),
+        });
+
+        if (!enrollment || enrollment.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Not enrolled in this course',
+          });
+        }
+
+        // Save or update user progress
+        const existingProgress = await database.query.userProgress.findFirst({
+          where: and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.moduleId, input.moduleId)
+          ),
+        });
+
+        if (existingProgress) {
+          // Update existing progress
+          await database
+            .update(userProgress)
+            .set({
+              score: input.score,
+              status: input.score >= 80 ? 'completed' : 'in_progress',
+              attempts: (existingProgress.attempts || 0) + 1,
+              completedAt: input.score >= 80 ? new Date() : null,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(userProgress.userId, ctx.user.id),
+                eq(userProgress.enrollmentId, input.enrollmentId),
+                eq(userProgress.moduleId, input.moduleId)
+              )
+            );
+        } else {
+          // Create new progress record
+          await database.insert(userProgress).values({
+            userId: ctx.user.id,
+            enrollmentId: input.enrollmentId,
+            moduleId: input.moduleId,
+            quizId: input.quizId,
+            score: input.score,
+            status: input.score >= 80 ? 'completed' : 'in_progress',
+            attempts: 1,
+            completedAt: input.score >= 80 ? new Date() : null,
+          });
+        }
+
+        return {
+          success: true,
+          message: input.score >= 80 ? 'Quiz passed!' : 'Quiz submitted. Score below 80%. Please try again.',
+          score: input.score,
+          passed: input.score >= 80,
+        };
+      } catch (error) {
+        console.error('Error submitting quiz:', error);
+        if (error instanceof TRPCError) throw error;
+        return { success: false, message: 'Failed to submit quiz' };
+      }
+    }),
+
+  /** Submit capstone project for instructor grading */
+  submitCapstone: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.number(),
+      courseId: z.string(),
+      caseResponse: z.string().min(100, 'Response must be at least 100 characters'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) return { success: false, message: 'Database unavailable' };
+        const enrollment = await database.query.microCourseEnrollments.findFirst({
+          where: and(eq(microCourseEnrollments.userId, ctx.user.id), eq(microCourseEnrollments.id, input.enrollmentId)),
+        });
+        if (!enrollment) throw new TRPCError({ code: 'FORBIDDEN', message: 'Not enrolled in this course' });
+        const existing = await database.query.capstoneSubmissions.findFirst({
+          where: and(eq(capstoneSubmissions.userId, ctx.user.id), eq(capstoneSubmissions.enrollmentId, input.enrollmentId)),
+        });
+        if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Capstone already submitted. Awaiting grading.' });
+        await database.insert(capstoneSubmissions).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          courseId: input.courseId,
+          caseResponse: input.caseResponse,
+          status: 'pending',
+        });
+        return { success: true, message: 'Capstone submitted. An instructor will review it within 48 hours.' };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error submitting capstone:', error);
+        return { success: false, message: 'Failed to submit capstone' };
+      }
+    }),
+
+  /** Get my capstone submission status for an enrollment */
+  getMyCapstoneStatus: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const database = await getDb();
+        if (!database) return null;
+        return await database.query.capstoneSubmissions.findFirst({
+          where: and(eq(capstoneSubmissions.userId, ctx.user.id), eq(capstoneSubmissions.enrollmentId, input.enrollmentId)),
+        }) ?? null;
+      } catch { return null; }
+    }),
+
+  /** Admin: list all pending capstone submissions */
+  listPendingCapstones: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+      try {
+        const database = await getDb();
+        if (!database) return [];
+        return await database.query.capstoneSubmissions.findMany({
+          where: eq(capstoneSubmissions.status, 'pending'),
+          orderBy: [asc(capstoneSubmissions.submittedAt)],
+        });
+      } catch { return []; }
+    }),
+
+  /** Admin: grade a capstone submission */
+  gradeCapstone: protectedProcedure
+    .input(z.object({
+      submissionId: z.number(),
+      score: z.number().min(0).max(100),
+      feedback: z.string().min(20, 'Feedback must be at least 20 characters'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+      try {
+        const database = await getDb();
+        if (!database) return { success: false, message: 'Database unavailable' };
+        const passed = input.score >= 80;
+        await database.update(capstoneSubmissions).set({
+          score: input.score,
+          instructorId: ctx.user.id,
+          instructorFeedback: input.feedback,
+          status: passed ? 'passed' : 'failed',
+          gradedAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(capstoneSubmissions.id, input.submissionId));
+        return { success: true, passed, message: passed ? 'Capstone passed. Certificate will be issued.' : 'Capstone failed. Learner may resubmit.' };
+      } catch (error) {
+        console.error('Error grading capstone:', error);
+        return { success: false, message: 'Failed to grade capstone' };
+      }
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-CERT-2: Mark AHA cognitive modules complete and issue gatepass certificate.
+  // Called from the AHA course player when the learner passes the final knowledge check.
+  // ─────────────────────────────────────────────────────────────────────────
+  markAhaCognitiveComplete: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']),
+        courseId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) throw new Error('Database unavailable');
+
+        // Find or auto-create enrollment
+        let enrolRow: { id: number; cognitiveModulesComplete: boolean | null } | null = null;
+
+        // Try by enrollmentId first
+        if (input.enrollmentId > 0) {
+          const rows = await database
+            .select({ id: enrollments.id, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+            .from(enrollments)
+            .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+            .limit(1);
+          if (rows.length > 0) enrolRow = rows[0];
+        }
+
+        // Fall back: find by userId + programType
+        if (!enrolRow) {
+          const existing = await database
+            .select({ id: enrollments.id, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+            .from(enrollments)
+            .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+            .limit(1);
+          if (existing.length > 0) enrolRow = existing[0];
+        }
+
+        // Auto-create enrollment if still not found
+        if (!enrolRow) {
+          const inserted = await database
+            .insert(enrollments)
+            .values({
+              userId: ctx.user.id,
+              programType: input.programType,
+              trainingDate: new Date(), // required NOT NULL
+              paymentStatus: 'completed',
+              cognitiveModulesComplete: false,
+            })
+            .$returningId();
+          const newId = (inserted as any)[0]?.id ?? 0;
+          enrolRow = { id: newId, cognitiveModulesComplete: false };
+        }
+
+        // Mark cognitive modules complete (idempotent)
+        if (!enrolRow.cognitiveModulesComplete) {
+          await database
+            .update(enrollments)
+            .set({ cognitiveModulesComplete: true })
+            .where(eq(enrollments.id, enrolRow.id));
+        }
+
+        // Issue cognitive gatepass certificate (idempotent)
+        const userRows = await database
+          .select({ name: users.name })
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1);
+        const recipientName = userRows[0]?.name ?? 'Participant';
+
+        const certResult = await saveAhaCognitiveCertificate(
+          enrolRow.id,
+          ctx.user.id,
+          recipientName,
+          input.programType
+        );
+
+        return {
+          success: true,
+          cognitiveComplete: true,
+          certificateNumber: certResult.certificateNumber,
+        };
+      } catch (err) {
+        console.error('[courses.markAhaCognitiveComplete]', err);
+        return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+      }
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-SCHED-1: List upcoming public hands-on sessions available for booking.
+  // ─────────────────────────────────────────────────────────────────────────
+  listUpcomingHandsOnSessions: protectedProcedure
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const now = new Date();
+      const rows = await db
+        .select({
+          id: trainingSchedules.id,
+          scheduledDate: trainingSchedules.scheduledDate,
+          startTime: trainingSchedules.startTime,
+          endTime: trainingSchedules.endTime,
+          location: trainingSchedules.location,
+          trainingType: trainingSchedules.trainingType,
+          status: trainingSchedules.status,
+          maxCapacity: trainingSchedules.maxCapacity,
+          enrolledCount: trainingSchedules.enrolledCount,
+          instructorName: trainingSchedules.instructorName,
+          programType: courses.programType,
+          courseTitle: courses.title,
+        })
+        .from(trainingSchedules)
+        .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+        .where(eq(trainingSchedules.status, "scheduled"))
+        .orderBy(asc(trainingSchedules.scheduledDate));
+      return rows.filter(
+        (r) =>
+          r.scheduledDate &&
+          new Date(r.scheduledDate) > now &&
+          (r.trainingType === "hands_on" || r.trainingType === "hybrid") &&
+          (r.enrolledCount ?? 0) < (r.maxCapacity ?? 999) &&
+          (!input.programType || r.programType === input.programType)
+      );
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-SCHED-2: Learner registers for a hands-on session.
+  // ─────────────────────────────────────────────────────────────────────────
+  bookHandsOnSession: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [session] = await db
+        .select({
+          id: trainingSchedules.id,
+          maxCapacity: trainingSchedules.maxCapacity,
+          enrolledCount: trainingSchedules.enrolledCount,
+          status: trainingSchedules.status,
+          scheduledDate: trainingSchedules.scheduledDate,
+        })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      if (session.status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "This session has been cancelled" });
+      if (session.scheduledDate && new Date(session.scheduledDate) < new Date()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
+      }
+      if ((session.enrolledCount ?? 0) >= (session.maxCapacity ?? 0)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This session is fully booked" });
+      }
+      const existing = await db
+        .select({ id: trainingAttendance.id })
+        .from(trainingAttendance)
+        .where(and(eq(trainingAttendance.trainingScheduleId, input.scheduleId), eq(trainingAttendance.staffMemberId, ctx.user.id)))
+        .limit(1);
+      if (existing.length > 0) {
+        return { success: true, alreadyRegistered: true, message: "You are already registered for this session" };
+      }
+      await db.insert(trainingAttendance).values({
+        trainingScheduleId: input.scheduleId,
+        staffMemberId: ctx.user.id,
+        attendanceStatus: "registered",
+      });
+      await db
+        .update(trainingSchedules)
+        .set({ enrolledCount: (session.enrolledCount ?? 0) + 1 })
+        .where(eq(trainingSchedules.id, input.scheduleId));
+      return { success: true, alreadyRegistered: false, message: "Successfully registered for the session" };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-SCHED-3: Get the learner's own session bookings.
+  // ─────────────────────────────────────────────────────────────────────────
+  getMyHandsOnBookings: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({
+        attendanceId: trainingAttendance.id,
+        scheduleId: trainingAttendance.trainingScheduleId,
+        attendanceStatus: trainingAttendance.attendanceStatus,
+        skillsAssessmentScore: trainingAttendance.skillsAssessmentScore,
+        certificateIssued: trainingAttendance.certificateIssued,
+        scheduledDate: trainingSchedules.scheduledDate,
+        startTime: trainingSchedules.startTime,
+        endTime: trainingSchedules.endTime,
+        location: trainingSchedules.location,
+        trainingType: trainingSchedules.trainingType,
+        status: trainingSchedules.status,
+        instructorName: trainingSchedules.instructorName,
+        programType: courses.programType,
+        courseTitle: courses.title,
+      })
+      .from(trainingAttendance)
+      .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
+      .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+      .where(eq(trainingAttendance.staffMemberId, ctx.user.id))
+      .orderBy(asc(trainingSchedules.scheduledDate));
+  }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AHA-ENROLL-1: Upsert an AHA enrollment row and return its id.
+  // Called by the course player on first quiz submit so recordQuizAttempt
+  // always has a valid enrollmentId even on a first visit.
+  // ─────────────────────────────────────────────────────────────────────────
+  ensureAhaEnrollment: protectedProcedure
+    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) throw new Error('Database unavailable');
+        // Return existing enrollment id if present
+        const existing = await database
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+          .limit(1);
+        if (existing.length > 0) {
+          return { success: true, enrollmentId: existing[0].id };
+        }
+        // Create new enrollment row (trainingDate required NOT NULL — default to now)
+        const inserted = await database
+          .insert(enrollments)
+          .values({
+            userId: ctx.user.id,
+            programType: input.programType,
+            trainingDate: new Date(),
+            paymentStatus: 'completed',
+            cognitiveModulesComplete: false,
+          })
+          .$returningId();
+        const newId = (inserted as any)[0]?.id ?? 0;
+        return { success: true, enrollmentId: newId };
+      } catch (err) {
+        console.error('[courses.ensureAhaEnrollment]', err);
+        return { success: false, enrollmentId: 0, error: err instanceof Error ? err.message : 'Unknown error' };
+      }
+    }),
+});

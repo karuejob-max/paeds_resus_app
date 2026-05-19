@@ -25,7 +25,7 @@ export const AI_SYSTEM_PROMPT = `You are Paeds Resus AI, an intelligent clinical
 
 ## PLATFORM FEATURES:
 - Safe-Truth Logger: Confidential event reporting for pediatric emergencies
-- Elite Fellowship: Advanced training for healthcare providers
+- Paeds Resus Fellowship: Advanced training for healthcare providers
 - Certification Programs: PALS, NRP, and specialized pediatric courses
 - Institutional Management: Bulk provider onboarding and institutional dashboards
 - Resources: Segmented by user type (parent/caregiver vs healthcare provider)

@@ -23,7 +23,7 @@ export const mainNavItems: NavItem[] = [
 
 // Authenticated user navigation - ONLY WORKING PAGES
 export const authenticatedNavItems: NavItem[] = [
-  { label: "Learner Dashboard", href: "/learner-dashboard", requiresAuth: true },
+  { label: "Learner Dashboard", href: "/home", requiresAuth: true },
   { label: "Payment", href: "/payment", requiresAuth: true },
 ];
 
@@ -31,6 +31,7 @@ export const authenticatedNavItems: NavItem[] = [
 export const adminNavItems: NavItem[] = [
   { label: "Hospital Admin", href: "/hospital-admin-dashboard", requiresAdmin: true },
   { label: "Advanced Analytics", href: "/advanced-analytics", requiresAdmin: true },
+  { label: "Kaizen KPI", href: "/kaizen-dashboard", requiresAdmin: true },
 ];
 
 // Learning & Development - ONLY WORKING PAGES
@@ -41,7 +42,7 @@ export const learningNavItems: NavItem[] = [
 
 // Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institutional Portal", href: "/institutional-portal", description: "Manage your institution" },
+  { label: "Institutional Dashboard", href: "/hospital-admin-dashboard", description: "Manage your institution" },
   { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
@@ -72,25 +73,19 @@ export const footerSections = {
     { label: "BLS Course", href: "/course/bls" },
   ],
   institutional: [
-    { label: "Institutional Portal", href: "/institutional-portal" },
+    { label: "Institutional Dashboard", href: "/hospital-admin-dashboard" },
     { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
-  mlDashboards: [
-    { label: "Predictive Alerts", href: "/predictive-intervention" },
-    { label: "Learning Path", href: "/personalized-learning" },
-    { label: "Kaizen Dashboard", href: "/kaizen-dashboard" },
-  ],
+  // Simulated ML previews — not linked in production nav (see AspirationalSurfaceGate).
+  mlDashboards: [] as { label: string; href: string }[],
 };
 
 // Dashboard sidebar navigation for authenticated users - ONLY WORKING PAGES
 export const dashboardNavItems: NavItem[] = [
-  { label: "Learner Dashboard", href: "/learner-dashboard", icon: "📊" },
+  { label: "Learner Dashboard", href: "/home", icon: "📊" },
   { label: "Payment", href: "/payment", icon: "💳" },
   { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
-  { label: "Predictive Alerts", href: "/predictive-intervention", icon: "🚨" },
-  { label: "Learning Path", href: "/personalized-learning", icon: "🧠" },
-  { label: "Kaizen Dashboard", href: "/kaizen-dashboard", icon: "📈" },
 ];
 
 // Breadcrumb navigation helper - ONLY WORKING PAGES
@@ -100,13 +95,13 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/parent-safe-truth": ["Home", "Parent Resources"],
   "/course/bls": ["Home", "Courses", "BLS"],
   "/institutional": ["Home", "Institutions"],
-  "/institutional-portal": ["Home", "Institutions", "Portal"],
+  "/institutional-portal": ["Home", "Institutions", "Portal (legacy redirect)"],
   "/institutional-onboarding": ["Home", "Institutions", "Onboarding"],
-  "/learner-dashboard": ["Home", "Dashboard"],
+  "/home": ["Home", "Dashboard"],
   "/payment": ["Home", "Payment"],
   "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
   "/advanced-analytics": ["Home", "Admin", "Analytics"],
-  "/kaizen-dashboard": ["Home", "Kaizen"],
+  "/kaizen-dashboard": ["Home", "Admin", "Kaizen KPI"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],
   "/enroll": ["Home", "Enroll"],

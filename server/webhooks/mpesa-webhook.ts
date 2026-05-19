@@ -6,6 +6,7 @@ import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { runWithRetries } from "../lib/async-retry";
 import { logStructured } from "../lib/structured-log";
 import { trackPaymentCompletion } from "../services/analytics.service";
+import { attachMpesaWebhookLogging, type MpesaWebhookLogBuilder } from "../lib/mpesa-webhook-log";
 import crypto from "crypto";
 
 /**
@@ -52,12 +53,53 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
   }
 }
 
+function isSignatureRequired(): boolean {
+  const raw = process.env.MPESA_REQUIRE_CALLBACK_SIGNATURE?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+/**
+ * Daraja STK callbacks commonly do not send a signature header.
+ * Keep verification available, but don't block callbacks unless explicitly required.
+ */
+function validateOptionalDarajaSignature(
+  req: Request,
+  res: Response,
+  scope: "webhook" | "query" | "timeout" | "c2b"
+): boolean {
+  const signature = req.headers["x-daraja-signature"] as string | undefined;
+  const required = isSignatureRequired();
+
+  if (!signature) {
+    if (required) {
+      console.warn(`[M-Pesa] ${scope}: Missing X-Daraja-Signature header (required=true)`);
+      res.status(401).json({ error: "Unauthorized: missing signature" });
+      return false;
+    }
+    console.warn(
+      `[M-Pesa] ${scope}: Missing X-Daraja-Signature header; continuing because MPESA_REQUIRE_CALLBACK_SIGNATURE is not enabled`
+    );
+    return true;
+  }
+
+  const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  if (!verifyMpesaSignature(rawBody, signature)) {
+    console.error(`[M-Pesa] ${scope}: Signature verification failed`);
+    res.status(401).json({ error: "Unauthorized: invalid signature" });
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * C2B URL Validation Handler
  * Daraja sends this when registering a C2B URL to verify it's working
  * Must respond with specific format for Daraja to accept the URL
  */
 export async function handleC2BValidation(req: Request, res: Response) {
+  const log: MpesaWebhookLogBuilder = { callbackType: "c2b_validation", outcome: "acknowledged" };
+  attachMpesaWebhookLogging(res, log, req.body);
   try {
     console.log("[M-Pesa] C2B URL validation request received");
     
@@ -78,19 +120,11 @@ export async function handleC2BValidation(req: Request, res: Response) {
  * Updates payment records with M-Pesa transaction details
  */
 export async function handleC2BConfirmation(req: Request, res: Response) {
+  const log: MpesaWebhookLogBuilder = { callbackType: "c2b_confirmation", outcome: "acknowledged" };
+  attachMpesaWebhookLogging(res, log, req.body);
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      console.warn("[M-Pesa] C2B confirmation: Missing signature");
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      console.error("[M-Pesa] C2B confirmation: Signature verification failed");
-      return res.status(401).json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "c2b")) {
+      return;
     }
 
     const body = req.body;
@@ -158,36 +192,25 @@ export async function handleC2BConfirmation(req: Request, res: Response) {
  * MPESA-4: Implements idempotency to prevent duplicate webhook processing
  */
 export async function handleMpesaWebhook(req: Request, res: Response) {
+  const log: MpesaWebhookLogBuilder = { callbackType: "stk", outcome: "received" };
+  attachMpesaWebhookLogging(res, log, req.body);
   try {
-    // Extract signature from headers
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-
-    if (!signature) {
-      console.warn("[M-Pesa] Missing X-Daraja-Signature header");
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    // Get raw body for signature verification
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-
-    // Verify signature
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      console.error("[M-Pesa] Webhook signature verification failed");
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "webhook")) {
+      log.outcome = "signature_rejected";
+      return;
     }
 
     const { Body } = req.body;
 
     if (!Body) {
+      log.outcome = "invalid_payload";
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
     const stkCallback = Body.stkCallback;
 
     if (!stkCallback) {
+      log.outcome = "invalid_payload";
       return res.status(400).json({ error: "Missing STK callback" });
     }
 
@@ -198,8 +221,13 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
     const idempotencyKey =
       typeof CheckoutRequestID === "string" ? CheckoutRequestID.trim() : String(CheckoutRequestID ?? "").trim();
 
+    log.checkoutRequestId = idempotencyKey || null;
+    log.resultCode = typeof ResultCode === "number" ? ResultCode : Number(ResultCode);
+    log.resultDesc = typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? "");
+
     if (!idempotencyKey) {
       console.warn("[M-Pesa] Missing CheckoutRequestID for idempotency check");
+      log.outcome = "invalid_payload";
       return res.status(400).json({ error: "Missing CheckoutRequestID" });
     }
 
@@ -224,6 +252,8 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
     if (existingPayment.length > 0) {
       console.info(`[M-Pesa] Webhook already processed for CheckoutRequestID: ${idempotencyKey}. Skipping duplicate.`);
+      log.outcome = "duplicate_idempotency";
+      log.paymentId = existingPayment[0]?.id ?? null;
       return res.status(200).json({ success: true, message: "Webhook already processed" });
     }
 
@@ -251,14 +281,20 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       if (paymentRecords.length === 0) {
         console.warn(`Payment not found for CheckoutRequestID: ${lookupId}`);
+        log.outcome = "payment_not_found";
         return res.status(200).json({ success: true }); // Still return 200 to acknowledge
       }
 
       const payment = paymentRecords[0];
+      log.paymentId = payment.id;
+      log.enrollmentId = payment.enrollmentId ?? null;
+      log.amountCents = typeof amount === "number" ? Math.round(amount * 100) : null;
+      log.mpesaReceiptNumber = mpesaReceiptNumber || null;
 
       // Idempotent: row-level + MPESA-4 global key (above)
       if (payment.status === "completed" || payment.idempotencyKey === idempotencyKey) {
         console.log(`[M-Pesa] Already completed for checkout ${lookupId}; acknowledging`);
+        log.outcome = "already_finalized";
         return res.status(200).json({ success: true, message: "Already processed" });
       }
 
@@ -319,10 +355,15 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           "[M-Pesa] Persist failed after retries (returning 500 for Daraja retry):",
           persistError
         );
+        log.outcome = "persist_error";
+        log.errorMessage =
+          persistError instanceof Error ? persistError.message : String(persistError);
         return res.status(500).json({
           error: "Transient persistence failure; callback may be retried",
         });
       }
+
+      log.outcome = "payment_completed";
 
       await trackPaymentCompletion(
         payment.userId,
@@ -348,7 +389,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        log.paymentId = payment.id;
         if (payment.status === "failed" || payment.status === "completed") {
+          log.outcome = "already_finalized";
           return res.status(200).json({ success: true, message: "Already finalized" });
         }
         await db
@@ -359,6 +402,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
+        log.outcome = "payment_failed";
       }
       return res
         .status(200)
@@ -368,9 +412,12 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
     console.log(
       `[M-Pesa] Non-success callback ResultCode=${ResultCode} for ${lookupId}: ${ResultDesc}`
     );
+    log.outcome = "acknowledged";
     return res.status(200).json({ success: true, message: "Callback acknowledged" });
   } catch (error) {
     console.error("[M-Pesa] Webhook handler error:", error);
+    log.outcome = "error";
+    log.errorMessage = error instanceof Error ? error.message : String(error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -383,25 +430,20 @@ export async function handleMpesaQueryWebhook(
   req: Request,
   res: Response
 ) {
+  const log: MpesaWebhookLogBuilder = { callbackType: "stk_query", outcome: "acknowledged" };
+  attachMpesaWebhookLogging(res, log, req.body);
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "query")) {
+      log.outcome = "signature_rejected";
+      return;
     }
 
     console.log("[M-Pesa] Query webhook received (not yet implemented)");
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error("[M-Pesa] Query webhook error:", error);
+    log.outcome = "error";
+    log.errorMessage = error instanceof Error ? error.message : String(error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -414,29 +456,37 @@ export async function handleMpesaTimeoutWebhook(
   req: Request,
   res: Response
 ) {
+  const log: MpesaWebhookLogBuilder = { callbackType: "stk_timeout", outcome: "received" };
+  attachMpesaWebhookLogging(res, log, req.body);
   try {
-    // Verify signature
-    const signature = req.headers["x-daraja-signature"] as string | undefined;
-    if (!signature) {
-      return res.status(401).json({ error: "Unauthorized: missing signature" });
-    }
-
-    const rawBody =
-      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (!verifyMpesaSignature(rawBody, signature)) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized: invalid signature" });
+    if (!validateOptionalDarajaSignature(req, res, "timeout")) {
+      log.outcome = "signature_rejected";
+      return;
     }
 
     const { Body } = req.body;
     if (!Body) {
+      log.outcome = "invalid_payload";
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
-
-    const { CheckoutRequestID } = Body;
+    // Safaricom sends CheckoutRequestID inside Body.stkCallback, not directly on Body
+    const stkCallback = Body.stkCallback;
+    const CheckoutRequestID = stkCallback?.CheckoutRequestID ?? Body.CheckoutRequestID;
+    const ResultCode = stkCallback?.ResultCode ?? Body.ResultCode;
+    const ResultDesc = stkCallback?.ResultDesc ?? Body.ResultDesc ?? "";
+    log.checkoutRequestId =
+      typeof CheckoutRequestID === "string"
+        ? CheckoutRequestID
+        : String(CheckoutRequestID ?? "");
+    log.resultCode = typeof ResultCode === "number" ? ResultCode : Number(ResultCode);
+    log.resultDesc = typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? "");
+    logStructured("mpesa_stk_timeout", {
+      checkoutRequestId: CheckoutRequestID,
+      resultCode: ResultCode,
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc.slice(0, 200) : String(ResultDesc ?? ""),
+    });
     console.log(
-      `[M-Pesa] User timeout for CheckoutRequestID: ${CheckoutRequestID}`
+      `[M-Pesa] User timeout for CheckoutRequestID: ${CheckoutRequestID} (ResultCode: ${ResultCode})`
     );
 
     // Update payment status to timeout
@@ -449,7 +499,9 @@ export async function handleMpesaTimeoutWebhook(
 
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
+        log.paymentId = payment.id;
         if (payment.status === "completed" || payment.status === "failed") {
+          log.outcome = "already_finalized";
           return res.status(200).json({ success: true });
         }
         await db
@@ -459,12 +511,17 @@ export async function handleMpesaTimeoutWebhook(
             updatedAt: new Date(),
           })
           .where(eq(payments.id, payment.id));
+        log.outcome = "payment_failed";
+      } else {
+        log.outcome = "payment_not_found";
       }
     }
 
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error("[M-Pesa] Timeout webhook error:", error);
+    log.outcome = "error";
+    log.errorMessage = error instanceof Error ? error.message : String(error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }

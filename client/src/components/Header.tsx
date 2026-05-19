@@ -4,6 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -70,29 +71,24 @@ export default function Header() {
       return [
         RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
-        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
-        { label: "Patients", href: "/patients", icon: "👥" },
-        { label: "Protocols", href: "/protocols", icon: "📋" },
-        { label: "Performance", href: "/performance-dashboard", icon: "🏆" },
+        { label: "Fellowship", href: "/fellowship", icon: "📚" },
+        { label: "AHA", href: "/aha-courses", icon: "🩺" },
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
-        { label: "Referral", href: "/referral", icon: "📤" },
-        { label: "Personal Impact", href: "/personal-impact", icon: "📊" },
+        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
       ];
     }
     if (r === "institution") {
       return [
-        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
-        { label: "Staff", href: "/institutional-portal", icon: "👥" },
+        { label: "Staff", href: "/hospital-admin-dashboard", icon: "👥" },
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
     if (r === "parent") {
       return [
-        RESUS_GPS_NAV,
         { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
-        { label: "Courses", href: "/learner-dashboard", icon: "📚" },
-        { label: "Resources", href: "/parent-safe-truth", icon: "📖" },
+        { label: "Safe-Truth", href: "/parent-safe-truth", icon: "🧡" },
+        { label: "Resources", href: "/help", icon: "📖" },
       ];
     }
     return [];
@@ -151,7 +147,22 @@ export default function Header() {
             <ThemeToggle />
           </div>
 
-          {/* Role Selector - Persistent and Prominent */}
+          {/* Role Pill — mobile always-visible indicator (taps to open hamburger menu) */}
+          {isAuthenticated && effectiveRole && (
+            <button
+              type="button"
+              className="md:hidden flex items-center gap-1.5 px-2 py-1 rounded-full border border-border text-xs font-medium text-foreground bg-accent/50 hover:bg-accent transition flex-shrink-0"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label={`Current role: ${effectiveRole}. Tap to switch.`}
+            >
+              {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
+              {effectiveRole === 'parent' && <Heart className="w-3.5 h-3.5" />}
+              {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
+              <span className="capitalize">{effectiveRole === 'provider' ? 'Provider' : effectiveRole === 'institution' ? 'Institution' : 'Parent'}</span>
+            </button>
+          )}
+
+          {/* Role Selector - Persistent and Prominent (desktop) */}
           {isAuthenticated && effectiveRole && (
             <div className="relative hidden md:block flex-shrink-0" ref={roleDropdownRef}>
               <button
@@ -195,7 +206,7 @@ export default function Header() {
                             }
                             if (r === "provider") setLocation("/home");
                             else if (r === "parent") setLocation("/parent-safe-truth");
-                            else setLocation("/institutional-portal");
+                            else setLocation("/hospital-admin-dashboard");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                             effectiveRole === option.value
@@ -231,11 +242,11 @@ export default function Header() {
               className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2"
               aria-label="Explore by audience"
             >
-              <Link href="/resus">
+              <a href={getLoginUrl("/resus")}>
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   ResusGPS
                 </span>
-              </Link>
+              </a>
               <Link href="/start">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
                   Start
@@ -257,13 +268,9 @@ export default function Header() {
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
             {isAuthenticated && (
-              <button
-                type="button"
-                className="p-2 hover:bg-accent rounded-lg transition hidden sm:block focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5 text-foreground" />
-              </button>
+              <div className="hidden sm:block">
+                <NotificationBell />
+              </div>
             )}
 
             {/* Auth Section */}
@@ -298,6 +305,14 @@ export default function Header() {
 
                       {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
+                        <Link href="/account">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            Account settings
+                          </div>
+                        </Link>
                         <Link href={effectiveRole === "parent" ? "/parent-safe-truth" : effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
@@ -306,20 +321,22 @@ export default function Header() {
                             Dashboard
                           </div>
                         </Link>
-                        <Link href="/resus">
+                        {effectiveRole === "provider" && (
+                          <Link href="/resus">
+                            <div
+                              className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                              onClick={() => setAccountDropdownOpen(false)}
+                            >
+                              ResusGPS
+                            </div>
+                          </Link>
+                        )}
+                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : effectiveRole === "parent" ? "/parent-safe-truth" : "/provider-profile"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
-                            ResusGPS
-                          </div>
-                        </Link>
-                        <Link href="/provider-profile">
-                          <div
-                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                            onClick={() => setAccountDropdownOpen(false)}
-                          >
-                            Profile
+                            {effectiveRole === "provider" ? "Profile" : "My dashboard"}
                           </div>
                         </Link>
                         {(user as { role?: string })?.role === "admin" && (
@@ -388,9 +405,9 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
-                <Link href="/resus" onClick={() => setMobileMenuOpen(false)}>
+                <a href={getLoginUrl("/resus")} onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground font-medium">ResusGPS</span>
-                </Link>
+                </a>
                 <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground font-medium">Start</span>
                 </Link>
@@ -424,7 +441,7 @@ export default function Header() {
                         }
                         if (r === "provider") setLocation("/home");
                         else if (r === "parent") setLocation("/parent-safe-truth");
-                        else setLocation("/institutional-portal");
+                        else setLocation("/hospital-admin-dashboard");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
                         effectiveRole === option.value

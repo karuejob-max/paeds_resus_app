@@ -1,9 +1,10 @@
-import { defineConfig } from "vitest/config";
 import path from "path";
+import { defineConfig } from "vitest/config";
 
 const templateRoot = path.resolve(import.meta.dirname);
 
 export default defineConfig({
+  esbuild: { jsx: "automatic" },
   root: templateRoot,
   resolve: {
     alias: {
@@ -13,7 +14,22 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ["./vitest.setup.ts"],
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/**/*.test.ts", "client/src/**/*.spec.ts"],
+    // RTL + component tests under `client/src/components` use jsdom; server + `client/src/lib` stay on node.
+    environmentMatchGlobs: [
+      ["client/src/components/**", "jsdom"],
+      ["client/src/lib/offline/**", "jsdom"],
+      ["client/src/hooks/**", "jsdom"],
+      ["client/src/lib/voice/**", "jsdom"],
+    ],
+    include: [
+      "server/**/*.test.ts",
+      "server/**/*.spec.ts",
+      "client/src/**/*.test.ts",
+      "client/src/**/*.spec.ts",
+      "client/src/**/*.test.tsx",
+      "client/src/**/*.spec.tsx",
+    ],
   },
 });

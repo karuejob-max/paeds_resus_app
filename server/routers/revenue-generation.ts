@@ -1,9 +1,13 @@
-import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
+/**
+ * Planning / narrative mock revenue surfaces — **not** authoritative financial data.
+ * Mounted only when `ENABLE_ASPIRATIONAL_APIS` is set (see `server/routers.ts`).
+ */
+import { router, adminProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 
 export const revenueGenerationRouter = router({
   // Get revenue dashboard
-  getRevenueDashboard: publicProcedure.query(async () => {
+  getRevenueDashboard: adminProcedure.query(async () => {
     return {
       timestamp: new Date(),
       totalRevenue: 0,
@@ -60,7 +64,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get hospital subscription pricing
-  getHospitalSubscriptionPricing: publicProcedure.query(async () => {
+  getHospitalSubscriptionPricing: adminProcedure.query(async () => {
     return {
       subscriptionModel: 'Tiered by facility size and staff count',
       tiers: [
@@ -132,7 +136,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get government contract opportunities
-  getGovernmentContractOpportunities: publicProcedure.query(async () => {
+  getGovernmentContractOpportunities: adminProcedure.query(async () => {
     return {
       contractModel: 'Per healthcare worker trained and certified',
       pricePerWorker: 50,
@@ -179,7 +183,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get NGO and international partnership opportunities
-  getNGOPartnershipOpportunities: publicProcedure.query(async () => {
+  getNGOPartnershipOpportunities: adminProcedure.query(async () => {
     return {
       partnershipModel: 'Custom agreements based on organization goals',
       potentialPartners: [
@@ -225,7 +229,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get data and analytics services pricing
-  getDataAnalyticsServicesPricing: publicProcedure.query(async () => {
+  getDataAnalyticsServicesPricing: adminProcedure.query(async () => {
     return {
       serviceModel: 'Premium analytics and reporting services',
       services: [
@@ -270,7 +274,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get certification revenue model
-  getCertificationRevenueModel: publicProcedure.query(async () => {
+  getCertificationRevenueModel: adminProcedure.query(async () => {
     return {
       model: 'Certification fees for completion and renewal',
       certifications: [
@@ -308,7 +312,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get financial sustainability plan
-  getFinancialSustainabilityPlan: publicProcedure.query(async () => {
+  getFinancialSustainabilityPlan: adminProcedure.query(async () => {
     return {
       breakEvenPoint: 'Q3 2026',
       profitabilityTarget: 'Q4 2026',
@@ -343,7 +347,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get payment processing setup
-  getPaymentProcessingSetup: publicProcedure.query(async () => {
+  getPaymentProcessingSetup: adminProcedure.query(async () => {
     return {
       paymentMethods: [
         {
@@ -389,7 +393,7 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get financial metrics tracking
-  getFinancialMetricsTracking: publicProcedure.query(async () => {
+  getFinancialMetricsTracking: adminProcedure.query(async () => {
     return {
       keyMetrics: [
         {
@@ -439,39 +443,29 @@ export const revenueGenerationRouter = router({
   }),
 
   // Get impact to revenue correlation
-  getImpactToRevenueCorrelation: publicProcedure.query(async () => {
+  getImpactToRevenueCorrelation: adminProcedure.query(async () => {
     return {
-      correlation: 'Direct correlation between impact and revenue',
+      disclaimer:
+        'Planning / fundraising narrative only — not measured clinical outcomes or verified revenue.',
+      correlation: 'Illustrative subscription and partnership model (internal planning)',
       model: {
-        livesSaved: {
-          metric: 'Estimated lives saved',
-          revenueMultiplier: 1000,
-          description: 'Each life saved generates $1,000 in social impact value',
-        },
         healthcareWorkersTrained: {
-          metric: 'Healthcare workers trained and certified',
-          revenueMultiplier: 50,
-          description: 'Each worker trained generates $50 in revenue',
+          metric: 'Healthcare workers trained and certified (planning)',
+          description: 'Per-worker certification pricing in business model',
         },
         facilitiesImpacted: {
-          metric: 'Facilities using platform',
-          revenueMultiplier: 10000,
-          description: 'Each facility generates $10,000 annual revenue',
+          metric: 'Facilities on platform (planning)',
+          description: 'Tiered institutional subscription assumptions',
         },
         countriesCovered: {
-          metric: 'Countries with active deployment',
-          revenueMultiplier: 500000,
-          description: 'Each country generates $500,000 annual revenue',
+          metric: 'Countries with active deployment (planning)',
+          description: 'Regional partnership assumptions',
         },
       },
-      projectedImpactAndRevenue: {
-        year_2026: { livesSaved: 5000, revenue: 1750000, revenuePerLifeSaved: 350 },
-        year_2027: { livesSaved: 20000, revenue: 8000000, revenuePerLifeSaved: 400 },
-        year_2028: { livesSaved: 50000, revenue: 15000000, revenuePerLifeSaved: 300 },
-        year_2029: { livesSaved: 100000, revenue: 22000000, revenuePerLifeSaved: 220 },
-        year_2030: { livesSaved: 200000, revenue: 30000000, revenuePerLifeSaved: 150 },
+      projectedPlanningScenarios: {
+        year_2026: { subscriptionRevenue: 1750000, note: 'Scenario — not audited financials' },
+        year_2027: { subscriptionRevenue: 8000000, note: 'Scenario — not audited financials' },
       },
-      winWinModel: 'More lives saved = More revenue. More revenue = More resources to save more lives.',
     };
   }),
 

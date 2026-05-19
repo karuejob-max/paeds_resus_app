@@ -22,6 +22,17 @@ export default defineConfig({
     emptyOutDir: true,
     /** Render/Vite: large clinical bundles; warning only — prefer code-splitting over failing CI noise */
     chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("react-dom")) return "vendor-react-dom";
+          if (id.includes("@tanstack/react-query")) return "vendor-rq";
+          if (id.includes("@trpc")) return "vendor-trpc";
+          if (id.includes("lucide-react")) return "vendor-icons";
+        },
+      },
+    },
   },
   server: {
     host: true,

@@ -103,7 +103,7 @@ export interface NavItemVisibility {
 export const navItemVisibility: NavItemVisibility = {
   "Care Signal": ["provider"],
   "Parent Safe-Truth": ["parent"],
-  "Elite Fellowship": ["provider"],
+  "Paeds Resus Fellowship": ["provider"],
   "For Providers": ["provider"],
   "For Institutions": ["institution"],
   "For Parents": ["parent"],

@@ -14,10 +14,14 @@ import {
   incidents,
   institutionalAnalytics,
   users,
+  payments,
+  enrollments,
+  careFacilities,
 } from "../../drizzle/schema";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull } from "drizzle-orm";
-import { processBulkEnrollment } from "../institutional-enrollment";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull } from "drizzle-orm";
+import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
+import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
@@ -25,6 +29,7 @@ import {
   rollupAllInstitutionalAccounts,
 } from "../institutional-analytics-rollup";
 import { trackEvent } from "../services/analytics.service";
+import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -164,6 +169,46 @@ export const institutionRouter = router({
       institutions: rows,
     };
   }),
+
+  /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
+  getCareSignalFacilityDashboard: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const rows = await db
+        .select({
+          id: institutionalAccounts.id,
+          companyName: institutionalAccounts.companyName,
+        })
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.userId, ctx.user.id))
+        .orderBy(desc(institutionalAccounts.id))
+        .limit(1);
+      const inst = rows[0];
+      if (!inst?.companyName?.trim()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(
+          and(
+            eq(careFacilities.institutionalAccountId, inst.id),
+            isNull(careFacilities.mergedIntoId)
+          )
+        )
+        .limit(1);
+
+      return getFacilityCareSignalDashboard({
+        facilityId: linkedFacility?.id,
+        facilityName: inst.companyName.trim(),
+        lastDays: input?.lastDays ?? 90,
+      });
+    }),
 
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
   submitLeadInquiry: publicProcedure
@@ -1440,5 +1485,133 @@ export const institutionRouter = router({
           message: "Failed to fetch staff roles",
         });
       }
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INST-BULK-PAY-1: Get a live bulk enrollment quote (staff count + course type).
+  // Used by the portal to show a real-time price breakdown before payment.
+  // ─────────────────────────────────────────────────────────────────────────
+  getBulkEnrollmentQuote: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        courseType: z.enum(["bls", "acls", "pals", "fellowship"]),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const staffRows = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+      const staffCount = staffRows.length;
+      if (staffCount === 0) {
+        return { staffCount: 0, basePrice: 0, pricePerStaff: 0, totalPrice: 0, discountPercentage: 0, totalDiscount: 0 };
+      }
+
+      const pricing = getInstitutionalPricing(input.courseType, staffCount);
+      return { staffCount, ...pricing };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INST-BULK-PAY-2: Initiate M-Pesa STK push for bulk enrollment payment.
+  // Creates all enrollment rows (pending), then triggers a single STK push
+  // for the total amount to the institution admin's phone.
+  // On M-Pesa callback, the webhook marks the payment completed and the
+  // existing certificate flow handles individual cert issuance.
+  // ─────────────────────────────────────────────────────────────────────────
+  initiateBulkEnrollmentPayment: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        courseType: z.enum(["bls", "acls", "pals", "fellowship"]),
+        trainingDate: z.coerce.date(),
+        phoneNumber: z.string().min(9).max(15),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      if (!isMpesaConfigured()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "M-Pesa is not configured on this server" });
+      }
+
+      if (!validatePhoneNumber(input.phoneNumber)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid M-Pesa phone number" });
+      }
+
+      // Step 1: Create all enrollment rows (paymentStatus = 'pending')
+      const enrollmentResult = await processBulkEnrollment({
+        institutionId: input.institutionId,
+        courseType: input.courseType,
+        staffList: await (async () => {
+          const staffRows = await db
+            .select()
+            .from(institutionalStaffMembers)
+            .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+          return staffRows.map((s) => ({
+            name: s.staffName,
+            email: s.staffEmail ?? `staff-${s.id}@institution.local`,
+            phone: s.staffPhone?.trim() || "0000000000",
+            department: s.department ?? undefined,
+            role: s.staffRole ?? undefined,
+          }));
+        })(),
+        trainingDate: input.trainingDate,
+      });
+
+      if (!enrollmentResult.success || enrollmentResult.enrolledCount === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Bulk enrollment failed: ${enrollmentResult.failedEmails.length} staff could not be enrolled. Ensure all staff have valid email addresses.`,
+        });
+      }
+
+      // Step 2: Initiate a single STK push for the total amount
+      const totalAmountKes = Math.round(enrollmentResult.finalCost);
+      const description = `${input.courseType.toUpperCase()} bulk training — ${enrollmentResult.enrolledCount} staff`;
+
+      const stkResult = await initiateSTKPush(
+        input.phoneNumber,
+        totalAmountKes,
+        `BULK-${input.institutionId}-${input.courseType.toUpperCase()}`,
+        description,
+        0
+      );
+
+      if (!stkResult.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: stkResult.message || "M-Pesa STK push failed",
+        });
+      }
+
+      // Step 3: Record a single consolidated payment row for the bulk transaction
+      // enrollmentId = first enrollment in the batch (used for webhook lookup)
+      const firstEnrollmentId = enrollmentResult.enrollmentIds[0] ?? 0;
+      await db.insert(payments).values({
+        enrollmentId: firstEnrollmentId,
+        userId: ctx.user.id,
+        amount: totalAmountKes * 100, // stored in cents
+        paymentMethod: "mpesa",
+        status: "pending",
+        transactionId: stkResult.checkoutRequestId || `BULK-${Date.now()}`,
+        idempotencyKey: stkResult.checkoutRequestId || undefined,
+      });
+
+      return {
+        success: true,
+        checkoutRequestId: stkResult.checkoutRequestId,
+        enrolledCount: enrollmentResult.enrolledCount,
+        failedCount: enrollmentResult.failedCount,
+        totalAmountKes,
+        message: `STK push sent to ${input.phoneNumber}. Enter your M-Pesa PIN to confirm payment for ${enrollmentResult.enrolledCount} staff.`,
+      };
     }),
 });

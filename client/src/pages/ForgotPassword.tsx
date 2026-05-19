@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPassword() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    requestReset.mutate({ email });
+    requestReset.mutate({ email: normalizeEmailForAuth(email) });
   };
 
   if (sent) {
@@ -29,7 +30,7 @@ export default function ForgotPassword() {
           <CardHeader>
             <CardTitle>Check your email</CardTitle>
             <CardDescription>
-              If an account exists for {email}, we sent a password reset link. It expires in 24 hours.
+              If an account exists for {email}, we sent a password reset link. It expires in 24 hours. Check spam or promotions if you do not see it within a few minutes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -45,7 +46,9 @@ export default function ForgotPassword() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Forgot password</CardTitle>
-          <CardDescription>Enter your email to receive a reset link.</CardDescription>
+            <CardDescription>
+              Enter the same email you used to register. If you signed in with Google, use that option on the sign-in page instead.
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

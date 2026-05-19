@@ -11,10 +11,10 @@
 **Paeds Resus** is the organisation and the platform. We are not “Paeds Resus / ResusGPS” as if they were the same thing — that’s confusing. **ResusGPS** is one of our key offerings; it stands **side by side** with other unique products that are not inferior to it, including:
 
 - **Safe-Truth** — Parent and guardian resources and truth-sharing.
-- **Our elite fellowship** — Among our flagship programmes.
+- **Paeds Resus Fellowship** — Our flagship fellowship programme.
 - **Other products** — Yet to be launched.
 
-ResusGPS is a core part of our identity, but not on its own. When you read “platform” or “we,” think **Paeds Resus**; when we refer to a specific product, we’ll name it (ResusGPS, Safe-Truth, fellowship, etc.).
+ResusGPS is a core part of our identity, but not on its own. When you read “platform” or “we,” think **Paeds Resus**; when we refer to a specific product, we’ll name it (ResusGPS, Safe-Truth, Paeds Resus Fellowship, etc.).
 
 ---
 
@@ -28,7 +28,7 @@ Here’s a concise snapshot of where the platform is today and how it’s struct
 
 ## 1. What we’re building
 
-**Paeds Resus** is our paediatric resuscitation and emergency-care organisation and platform. We offer multiple products under one brand: ResusGPS (real-time clinical guidance), Safe-Truth (parent and guardian), our elite fellowship, BLS/ACLS/PALS, and more to come. We’re on **our own infrastructure and identity** so we control the experience end-to-end and can grow without being tied to a single provider. Your role is to help us ship fast, keep quality high, and use this structure as the single source of truth.
+**Paeds Resus** is our paediatric resuscitation and emergency-care organisation and platform. We offer multiple products under one brand: ResusGPS (real-time clinical guidance), Safe-Truth (parent and guardian), the Paeds Resus Fellowship, BLS/ACLS/PALS, and more to come. We’re on **our own infrastructure and identity** so we control the experience end-to-end and can grow without being tied to a single provider. Your role is to help us ship fast, keep quality high, and use this structure as the single source of truth.
 
 ---
 
@@ -46,7 +46,7 @@ Here’s a concise snapshot of where the platform is today and how it’s struct
 - **ResusGPS (/) —** Our real-time paediatric emergency guidance product (ABCDE, protocols, interventions). A key point-of-care offering.
 - **Provider hub (/home) —** Dashboard for providers: access to ResusGPS, Enrol in a course, My learning, plus “Use as Institution” and “Use as Parent” so one person (e.g. medical director or clinician–parent) can reach all our experiences.
 - **Parent & guardian (/parent-safe-truth) —** Safe-Truth and parent-facing resources.
-- **Institution (/institutional-portal, /hospital-admin-dashboard) —** Institutional metrics, staff, and management.
+- **Institution (/hospital-admin-dashboard; legacy `/institutional-portal` redirect) —** Institutional metrics, staff, and management.
 - **Admin —** For the platform owner (me): **Admin** in header/account menu → **Admin hub (/admin)** with:
   - **Reports & insights (/admin/reports)** — Registered users by type, enrollments this month (BLS/ACLS/PALS/Fellowship), certificates issued this month, Parent Safe-Truth usage this month, and app/product activity (last 7 days). Optional list of registered users.
   - **Hospital Admin Dashboard** — Institutional view.
@@ -76,7 +76,7 @@ When you suggest changes or debug, assume this stack and this deployment model u
 
 ## 4. How I need you to work with this
 
-- **Use this as the source of truth** for “what exists” and “how it’s structured.” When you propose features or refactors, align with: one account / multi-role, provider hub, **all our offerings** (ResusGPS, Safe-Truth, fellowship, etc.) as first-class, and admin reports as the main visibility layer.
+- **Use this as the source of truth** for “what exists” and “how it’s structured.” When you propose features or refactors, align with: one account / multi-role, provider hub, **all our offerings** (ResusGPS, Safe-Truth, Paeds Resus Fellowship, etc.) as first-class, and admin reports as the main visibility layer.
 - **Preserve our user model:** Don’t reintroduce a single-role lock or remove the ability to switch between provider, institution, and parent.
 - **Respect the new auth and infra:** We’re off external OAuth and on our own DB and deployment. Suggestions should assume email/password, our MySQL schema, and Render + Aiven unless we explicitly change direction.
 - **Extend, don’t replace:** New features (e.g. more report filters, more analytics events, new courses) should plug into the existing routes, tRPC procedures, and admin reports where it makes sense.
@@ -106,7 +106,7 @@ Thank you both. Your summaries and questions are exactly the kind of clarity we 
 We have a live **Reports & insights** surface at `/admin/reports` (reachable from the Admin hub) that includes:
 
 - **Registered users** — Counts by type (provider, parent, institution) and an optional list (name, email, type, joined).
-- **Enrollments this month** — BLS, ACLS, PALS, Fellowship (from `enrollments.createdAt`).
+- **Enrollments this month** — BLS, ACLS, PALS, Paeds Resus Fellowship (from `enrollments.createdAt`).
 - **Certificates issued this month** — Same four programmes (from `certificates.issueDate`).
 - **Parent Safe-Truth usage this month** — Count of `parentSafeTruthSubmissions` with `createdAt` in that month.
 - **App / product activity (last 7 days)** — Count and top event types from `analyticsEvents`.
@@ -131,7 +131,7 @@ So that item is **done** for the current scope. What’s still open is: **instru
 
 ### Post-login redirect priority
 
-- **Current:** One-time redirect by **default `userType`** only: individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`. We do **not** use “last-used role” yet.
+- **Current:** One-time redirect by **default `userType`** only: individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard` (legacy `/institutional-portal` redirects). We do **not** use “last-used role” yet.
 - **Default order when one account has multiple roles:** We don’t store “multiple roles” in DB; we have one `userType` and a UI switch. So the only “order” is: **first landing** = by `userType`; after that, the user chooses context from the header. If we later add last-used context (e.g. in localStorage), we can define whether that overrides the first-time redirect; for now it’s “userType only.”
 
 ### Admin reports — definitions (to avoid metric drift)
@@ -210,7 +210,7 @@ Thanks for being part of getting **Paeds Resus** to the next level.
 |-------|--------|
 | **Role model: multi-role table now?** | **No.** Keep single `userType` in DB for now. **Interim source of truth for “this user can switch to X”:** any logged-in user can choose any of the three contexts (Provider / Parent / Institution) in the UI; the DB only stores default `userType` for post-login redirect. Revisit a proper multi-role mapping table when we have a concrete need (e.g. permissions, billing). |
 | **Admin identity** | **Canonical:** Admin = `role === 'admin'` in the DB. **Mechanism:** Only via `openId === OWNER_OPEN_ID` at auth/upsert (e.g. `email:admin@...`). We do **not** allow role elevation by editing `role` in the DB for other users; OWNER_OPEN_ID is the only way to become admin. |
-| **Post-login redirect** | **Default order:** Redirect by **default `userType`** only (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`). We do **not** use “last-used role context” yet. So: first landing = by `userType`; after that, user chooses context from the header. |
+| **Post-login redirect** | **Default order:** Redirect by **default `userType`** only (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard`; legacy `/institutional-portal` redirects). We do **not** use “last-used role context” yet. So: first landing = by `userType`; after that, user chooses context from the header. |
 | **Admin reports — timezone** | **“This month”** = calendar month in **EAT (East Africa Time, UTC+3)**. **“Last 7 days”** = rolling 7×24h from “now.” KPI sources: Safe-Truth = one row per `parentSafeTruthSubmissions` in that month (EAT); product activity = one row per `analyticsEvents` in last 7 days. |
 | **Course funnel** | Authoritative: **Applied/enrolled** = `enrollments` (e.g. `createdAt`, `programType`, `paymentStatus`). **Certified** = `certificates` (`issueDate`, `programType`). We are **not** enforcing a strict state machine yet; we count by date. Propose a short spec if you want formal status transitions. |
 | **Deployment** | **Current:** Single production (Render + Aiven). **No** separate staging yet. **Rule when we add it:** All PRs should be verified on staging before production. |

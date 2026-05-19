@@ -40,7 +40,7 @@ export const curriculumRouter = router({
       },
       {
         id: 'fellowship',
-        name: 'Elite Fellowship Program',
+        name: 'Paeds Resus Fellowship Program',
         description: 'Advanced clinical training for healthcare leaders',
         duration: 200,
         modules: 15,
@@ -124,7 +124,7 @@ export const curriculumRouter = router({
         },
         fellowship: {
           id: 'fellowship',
-          name: 'Elite Fellowship Program',
+          name: 'Paeds Resus Fellowship Program',
           description: 'Advanced clinical training for healthcare leaders',
           duration: 200,
           modules: 15,

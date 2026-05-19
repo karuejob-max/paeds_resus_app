@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { FormativeQuestion, ModuleStep } from "@/lib/pss-module-formative";
 import { ArrowRight, BookOpen, ClipboardCheck, ChevronLeft } from "lucide-react";
+import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 
 const prose = cn(
   "prose prose-neutral max-w-none dark:prose-invert",
@@ -167,7 +168,10 @@ export function PssModulePagedReader({
               <p className="text-xs font-medium text-muted-foreground mb-4">
                 Section {step.index + 1} of {step.total}
               </p>
-              <div className={prose} dangerouslySetInnerHTML={{ __html: step.html }} />
+              <div
+                className={prose}
+                dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(step.html) }}
+              />
               <div className="flex flex-col-reverse sm:flex-row gap-3 mt-8">
                 <Button
                   type="button"

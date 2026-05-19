@@ -115,18 +115,23 @@ export function CPRDebriefing({
   const calculateMetrics = (): PerformanceMetrics => {
     // Compression fraction (% of time doing compressions)
     // Simplified: assume 2-min cycles, 10s rhythm checks
-    const rhythmChecks = events.filter(e => e.action.includes('Rhythm check') || e.action.includes('rhythm')).length;
-    const pauseTime = rhythmChecks * 10; // 10s per rhythm check
+    // Better compression fraction calculation if events have durations
+    const compressionEvents = events.filter(e => e.action.toLowerCase().includes('compression'));
+    const rhythmChecks = events.filter(e => e.action.toLowerCase().includes('rhythm check') || e.action.toLowerCase().includes('rhythm assessment'));
+    
+    // Fallback to estimation if no duration data
+    const pauseTime = rhythmChecks.length * 10; // 10s per rhythm check
     const compressionTime = totalDuration - pauseTime;
-    const compressionFraction = (compressionTime / totalDuration) * 100;
+    const compressionFraction = Math.max(0, Math.min(100, (compressionTime / totalDuration) * 100));
 
-    // Time to first epinephrine
-    const firstEpi = events.find(e => e.action.includes('Epinephrine') || e.action.includes('Epi'));
-    const timeToFirstEpi = firstEpi ? firstEpi.timestamp : null;
+    // Time to first epinephrine (relative to first arrest event)
+    const arrestStart = events.length > 0 ? events[0].timestamp : 0;
+    const firstEpi = events.find(e => e.action.toLowerCase().includes('epinephrine') || e.action.toLowerCase().includes('epi'));
+    const timeToFirstEpi = firstEpi ? (firstEpi.timestamp - arrestStart) / 1000 : null;
 
     // Time to first shock
-    const firstShock = events.find(e => e.action.includes('Shock'));
-    const timeToFirstShock = firstShock ? firstShock.timestamp : null;
+    const firstShock = events.find(e => e.action.toLowerCase().includes('shock') || e.action.toLowerCase().includes('defibrillation'));
+    const timeToFirstShock = firstShock ? (firstShock.timestamp - arrestStart) / 1000 : null;
 
     // Rhythm check intervals
     const rhythmCheckEvents = events.filter(e => e.action.includes('Rhythm check'));

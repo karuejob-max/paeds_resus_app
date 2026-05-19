@@ -6,6 +6,7 @@ import { invokeLLM } from "../_core/llm";
 import {
   courses,
   modules,
+  moduleSections,
   quizzes,
   quizQuestions,
   userProgress,
@@ -17,7 +18,11 @@ import {
   getPaediatricSepticShockCourseId,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
 import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
-import { issueCertificateForEnrollmentIfEligible } from "../certificates";
+import {
+  ensureIntubationSampleCourseCatalog,
+  getIntubationSampleCourseId,
+} from "../lib/ensure-intubation-sample-course-catalog";
+import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 
 export const learningRouter = router({
   // Get all courses
@@ -30,6 +35,19 @@ export const learningRouter = router({
       return { courseId: id };
     } catch (e) {
       console.error("[learning.getSepticShockCourseMeta]", e);
+      return { courseId: null };
+    }
+  }),
+
+  getIntubationSampleCourseMeta: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { courseId: null as number | null };
+    try {
+      await ensureIntubationSampleCourseCatalog(db);
+      const id = await getIntubationSampleCourseId(db);
+      return { courseId: id };
+    } catch (e) {
+      console.error("[learning.getIntubationSampleCourseMeta]", e);
       return { courseId: null };
     }
   }),
@@ -113,7 +131,7 @@ export const learningRouter = router({
       };
     }),
 
-  // Get module content with quizzes
+  // Get module content with sections and quizzes
   getModuleContent: publicProcedure
     .input(z.object({ moduleId: z.number() }))
     .query(async ({ input }) => {
@@ -127,6 +145,13 @@ export const learningRouter = router({
       if (!module.length) {
         throw new Error("Module not found");
       }
+
+      // Fetch sections for this module
+      const sections = await (db as any)
+        .select()
+        .from(moduleSections)
+        .where(eq(moduleSections.moduleId, input.moduleId))
+        .orderBy(moduleSections.order);
 
       const moduleQuizzes = await (db as any)
         .select()
@@ -159,6 +184,7 @@ export const learningRouter = router({
 
       return {
         ...module[0],
+        sections,
         quizzes: quizzesWithQuestions,
       };
     }),
@@ -307,7 +333,10 @@ export const learningRouter = router({
           )
         );
 
-      await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
+      // After marking a module complete, check if ALL modules for this enrollment are now done.
+      // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
+      // markAhaCognitiveComplete internally checks all modules before setting the flag.
+      await markAhaCognitiveComplete(input.enrollmentId);
 
       return { success: true };
     }),
@@ -649,5 +678,64 @@ export const learningRouter = router({
           });
       }
       return { success: true };
+    }),
+
+  /**
+   * getResumeModule — returns the 0-based index of the first module the user
+   * has NOT yet completed for a given enrollment.  Returns 0 if no progress
+   * exists (fresh start).
+   *
+   * When all modules are complete (allCompleted=true), returns resumeIndex=0
+   * so that review mode always starts from the first module rather than
+   * dropping the user onto the final exam.
+   */
+  getResumeModule: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.number(),       // DB course id (modules.courseId)
+        enrollmentId: z.number(),   // enrollment id scoping the progress rows
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+
+      // Fetch ordered module list for this course
+      const courseModules = await (db as any)
+        .select({ id: modules.id })
+        .from(modules)
+        .where(eq(modules.courseId, input.courseId))
+        .orderBy(modules.order);
+
+      if (!courseModules.length) return { resumeIndex: 0, totalModules: 0 };
+
+      // Fetch all completed progress rows for this user + enrollment
+      const completedRows = await (db as any)
+        .select({ moduleId: userProgress.moduleId })
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.status, "completed")
+          )
+        );
+
+      const completedModuleIds = new Set(
+        completedRows.map((r: { moduleId: number }) => r.moduleId)
+      );
+
+      // First module whose id is NOT in the completed set
+      const resumeIndex = courseModules.findIndex(
+        (m: { id: number }) => !completedModuleIds.has(m.id)
+      );
+
+      // -1 means every module is completed → review mode: start from module 1
+      const allCompleted = resumeIndex === -1;
+      return {
+        resumeIndex: allCompleted ? 0 : resumeIndex,
+        totalModules: courseModules.length,
+        allCompleted,
+      };
     }),
 });

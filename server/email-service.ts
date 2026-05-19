@@ -1,7 +1,8 @@
 /**
  * Email Service Integration
- * Supports SendGrid and Mailgun with template management
+ * Supports SendGrid, Mailgun, and AWS SES with template management
  */
+import { sendEmail as sendViaSES } from "./email";
 
 export interface EmailTemplate {
   id: string;
@@ -34,7 +35,7 @@ export const emailTemplates: Record<string, EmailTemplate> = {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
           <h1 style="margin: 0;">Welcome to Paeds Resus</h1>
-          <p style="margin: 10px 0 0 0; font-size: 14px;">Elite Fellowship and Safe-Truth Platform</p>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Paeds Resus Fellowship and Safe-Truth Platform</p>
         </div>
         <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
           <p>Hello {{providerName}},</p>
@@ -183,6 +184,29 @@ export const emailTemplates: Record<string, EmailTemplate> = {
       "specialOffer",
       "promoCode",
     ],
+  },
+
+  providerLifecycleNudge: {
+    id: "provider-lifecycle-nudge",
+    name: "Provider lifecycle learning nudge",
+    subject: "{{reminderTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Paeds Resus</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{userName}},</p>
+          <p>{{reminderBody}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{actionLink}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">{{actionLabel}}</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{userName}},\n\n{{reminderBody}}\n\n{{actionLabel}}: {{actionLink}}\n\nPaeds Resus Limited`,
+    variables: ["userName", "reminderTitle", "reminderBody", "actionLink", "actionLabel"],
   },
 
   enrollmentConfirmation: {
@@ -485,6 +509,7 @@ export async function sendEmailViaSendGrid(options: EmailOptions): Promise<{ suc
   try {
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
+      console.error("[Email Service] SENDGRID_API_KEY is missing from environment variables.");
       throw new Error("SENDGRID_API_KEY not configured");
     }
 
@@ -526,6 +551,7 @@ export async function sendEmailViaMailgun(options: EmailOptions): Promise<{ succ
     const domain = process.env.MAILGUN_DOMAIN;
 
     if (!apiKey || !domain) {
+      console.error("[Email Service] MAILGUN_API_KEY or MAILGUN_DOMAIN is missing from environment variables.");
       throw new Error("MAILGUN_API_KEY or MAILGUN_DOMAIN not configured");
     }
 
@@ -584,7 +610,7 @@ export async function sendEmail(
   to: string | string[],
   templateId: string,
   variables: Record<string, string>,
-  provider: "sendgrid" | "mailgun" = "sendgrid"
+  provider: "sendgrid" | "mailgun" | "ses" = "sendgrid"
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const template = emailTemplates[templateId];
   if (!template) {
@@ -603,9 +629,63 @@ export async function sendEmail(
     text,
   };
 
-  if (provider === "mailgun") {
+  /** Render / cron / auth use `sendEmail(..., "sendgrid")` by default; set `EMAIL_PROVIDER=ses` on the host to force AWS SES. */
+  const envOverride = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  const dispatch: "sendgrid" | "mailgun" | "ses" =
+    envOverride === "ses" || envOverride === "sendgrid" || envOverride === "mailgun"
+      ? envOverride
+      : provider;
+
+  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
+  const hasAwsCreds =
+    Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
+
+  const sendSes = async () => {
+    const sesResult = await sendViaSES({
+      to: Array.isArray(to) ? to[0] : to,
+      subject,
+      htmlBody: html,
+      textBody: text,
+    });
+    if (sesResult.success) {
+      return { success: true as const, messageId: sesResult.messageId };
+    }
+    return { success: false as const, error: sesResult.error || "SES delivery failed" };
+  };
+
+  if (dispatch === "mailgun") {
     return sendEmailViaMailgun(options);
-  } else {
+  }
+  if (dispatch === "ses") {
+    if (!hasAwsCreds) {
+      return {
+        success: false,
+        error: "AWS SES not configured (set EMAIL_PROVIDER=ses, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SES_FROM_EMAIL on the server)",
+      };
+    }
+    console.log(`[Email Service] Sending via SES (${process.env.AWS_REGION || "us-east-1"}) template=${templateId}`);
+    return sendSes();
+  }
+  if (dispatch === "sendgrid") {
+    if (!sendgridKey) {
+      return { success: false, error: "SENDGRID_API_KEY not configured" };
+    }
     return sendEmailViaSendGrid(options);
   }
+
+  // Auto: prefer SES when only AWS creds are set; if SendGrid fails, fall back to SES
+  if (sendgridKey) {
+    const sgResult = await sendEmailViaSendGrid(options);
+    if (sgResult.success) return sgResult;
+    console.warn("[Email Service] SendGrid failed, trying SES fallback:", sgResult.error);
+    if (hasAwsCreds) return sendSes();
+    return sgResult;
+  }
+
+  if (hasAwsCreds) {
+    console.log("[Email Service] Using AWS SES (no SendGrid key)");
+    return sendSes();
+  }
+
+  return { success: false, error: "No email provider configured. Set EMAIL_PROVIDER=ses and AWS credentials on the server." };
 }

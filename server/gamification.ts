@@ -166,10 +166,10 @@ class GamificationService {
       {
         id: "elite_fellow",
         name: "Elite Fellow",
-        description: "Complete Elite Fellowship program",
+        description: "Complete Paeds Resus Fellowship program",
         type: "achievement",
         icon: "👑",
-        criteria: "Complete Elite Fellowship",
+        criteria: "Complete Paeds Resus Fellowship",
         rarity: "legendary",
         pointsReward: 5000,
       },

@@ -2,17 +2,10 @@ import { router, protectedProcedure, publicProcedure } from '../_core/trpc';
 import { z } from 'zod';
 
 /**
- * Real-Time Impact Measurement System
- * 
- * Prove value immediately. Show impact in real-time.
- * - Live patient outcomes
- * - Lives saved counter
- * - Mortality reduction tracking
- * - Cost-benefit analysis
- * - ROI calculation
- * - Proof of concept
- * 
- * No waiting for results. Impact visible immediately.
+ * Real-Time Impact Measurement System (aspirational / simulated metrics).
+ *
+ * **Not mounted** on `appRouter` — contains randomised “lives saved” style outputs unsuitable for
+ * production truth claims (Codex external audit). Kept only so guarded dev tooling does not reintroduce it blindly.
  */
 
 export const realTimeImpact = router({

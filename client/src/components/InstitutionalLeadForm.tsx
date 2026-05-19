@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { MessageCircle, CheckCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { formatPrice, getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
 
 interface LeadFormData {
   institutionName: string;
@@ -22,7 +23,7 @@ export function InstitutionalLeadForm() {
     contactEmail: "",
     contactPhone: "",
     staffCount: 0,
-    preferredCourse: "BLS",
+    preferredCourse: "bls",
     message: "",
   });
 
@@ -36,19 +37,14 @@ export function InstitutionalLeadForm() {
     },
   });
 
-  const courses = [
-    { id: "BLS", name: "BLS (10,000 KES)", price: 10000 },
-    { id: "ACLS", name: "ACLS (20,000 KES)", price: 20000 },
-    { id: "PALS", name: "PALS (20,000 KES)", price: 20000 },
-    { id: "Bronze", name: "Bronze Fellowship (70,000 KES)", price: 70000 },
-    { id: "Silver", name: "Silver Fellowship (100,000 KES)", price: 100000 },
-    { id: "Gold", name: "Gold Fellowship (150,000 KES)", price: 150000 },
-  ];
+  const courses = Object.entries(institutionalPricing).map(([id, config]) => ({
+    id,
+    name: config.name,
+    basePricePerSeat: config.basePricePerSeat,
+  }));
 
-  const selectedCourse = courses.find((c) => c.id === formData.preferredCourse);
-  const estimatedTotal = selectedCourse ? selectedCourse.price * formData.staffCount : 0;
-  const bulkDiscount = formData.staffCount >= 200 ? 0.4 : formData.staffCount >= 100 ? 0.3 : formData.staffCount >= 50 ? 0.2 : formData.staffCount >= 20 ? 0.1 : 0;
-  const discountedTotal = estimatedTotal * (1 - bulkDiscount);
+  const selectedCourse = courses.find((course) => course.id === formData.preferredCourse);
+  const priceEstimate = getInstitutionalPrice(formData.preferredCourse, formData.staffCount);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -77,7 +73,7 @@ export function InstitutionalLeadForm() {
       /* onError sets saveError */
     }
 
-    const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Cost: ${discountedTotal.toLocaleString()} KES\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
+    const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${selectedCourse?.name ?? formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Budget: ${priceEstimate ? formatPrice(priceEstimate.totalPrice) : "To be confirmed"}\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
     const whatsappUrl = `https://wa.me/254706781260?text=${encodeURIComponent(whatsappMessage)}`;
     window.open(whatsappUrl, "_blank");
 
@@ -91,7 +87,7 @@ export function InstitutionalLeadForm() {
         contactEmail: "",
         contactPhone: "",
         staffCount: 0,
-        preferredCourse: "BLS",
+        preferredCourse: "bls",
         message: "",
       });
     }, 4000);
@@ -101,9 +97,10 @@ export function InstitutionalLeadForm() {
     return (
       <Card className="p-8 text-center bg-green-50 border-green-200">
         <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-green-900 mb-2">Quote Request Sent!</h3>
+        <h3 className="text-lg font-semibold text-green-900 mb-2">Quote Request Sent</h3>
         <p className="text-green-700">
-          Your details were saved and WhatsApp opened. Our team will follow up shortly.
+          Your details were saved and WhatsApp opened. Our team will review your request and follow up using the
+          contact details you shared.
         </p>
         {saveError && <p className="text-amber-800 text-sm mt-2">{saveError}</p>}
       </Card>
@@ -112,7 +109,7 @@ export function InstitutionalLeadForm() {
 
   return (
     <Card className="p-8 bg-white">
-      <h2 className="text-2xl font-bold mb-6">Get a Personalized Quote</h2>
+      <h2 className="text-2xl font-bold mb-6">Request an Institutional Quote</h2>
       {saveError && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
           {saveError} WhatsApp will still open so you can reach us directly.
@@ -121,27 +118,21 @@ export function InstitutionalLeadForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Institution Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Institution Name *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Institution Name *</label>
             <Input
               type="text"
               name="institutionName"
               value={formData.institutionName}
               onChange={handleChange}
-              placeholder="e.g., Kenyatta National Hospital"
+              placeholder="e.g., County referral hospital"
               required
               className="w-full"
             />
           </div>
 
-          {/* Contact Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Name *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
             <Input
               type="text"
               name="contactName"
@@ -153,11 +144,8 @@ export function InstitutionalLeadForm() {
             />
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
             <Input
               type="email"
               name="contactEmail"
@@ -169,11 +157,8 @@ export function InstitutionalLeadForm() {
             />
           </div>
 
-          {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
             <Input
               type="tel"
               name="contactPhone"
@@ -185,11 +170,8 @@ export function InstitutionalLeadForm() {
             />
           </div>
 
-          {/* Staff Count */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Number of Staff to Train *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Number of Staff to Train *</label>
             <Input
               type="number"
               name="staffCount"
@@ -202,11 +184,8 @@ export function InstitutionalLeadForm() {
             />
           </div>
 
-          {/* Course Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preferred Course *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Programme *</label>
             <select
               name="preferredCourse"
               value={formData.preferredCourse}
@@ -215,75 +194,77 @@ export function InstitutionalLeadForm() {
             >
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.name}
+                  {course.name} ({formatPrice(course.basePricePerSeat)} per seat before bulk discounts)
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Price Calculation */}
-        {formData.staffCount > 0 && (
+        {formData.staffCount > 0 && selectedCourse && (
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3">Pricing Breakdown</h3>
+            <h3 className="font-semibold text-blue-900 mb-3">Planning Estimate</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span>Base Price per Person:</span>
-                <span className="font-medium">{selectedCourse?.price.toLocaleString()} KES</span>
+                <span>Programme:</span>
+                <span className="font-medium">{selectedCourse.name}</span>
               </div>
               <div className="flex justify-between">
-                <span>Number of Staff:</span>
+                <span>Estimated price per seat:</span>
+                <span className="font-medium">
+                  {priceEstimate ? formatPrice(priceEstimate.pricePerSeat) : formatPrice(selectedCourse.basePricePerSeat)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Number of staff:</span>
                 <span className="font-medium">{formData.staffCount}</span>
               </div>
               <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span className="font-medium">{estimatedTotal.toLocaleString()} KES</span>
+                <span>Bulk discount applied:</span>
+                <span className="font-medium">{priceEstimate?.discountPercentage ?? 0}%</span>
               </div>
-              {bulkDiscount > 0 && (
-                <>
-                  <div className="flex justify-between text-green-700">
-                    <span>Bulk Discount ({Math.round(bulkDiscount * 100)}%):</span>
-                    <span className="font-medium">
-                      -{(estimatedTotal * bulkDiscount).toLocaleString()} KES
-                    </span>
-                  </div>
-                  <div className="border-t border-blue-200 pt-2 flex justify-between font-bold text-blue-900">
-                    <span>Total Cost:</span>
-                    <span>{discountedTotal.toLocaleString()} KES</span>
-                  </div>
-                </>
-              )}
+              <div className="border-t border-blue-200 pt-2 flex justify-between font-bold text-blue-900">
+                <span>Budget estimate:</span>
+                <span>{priceEstimate ? formatPrice(priceEstimate.totalPrice) : "To be confirmed"}</span>
+              </div>
+              <p className="text-muted-foreground">
+                Final pricing depends on confirmed cohort size, delivery format, and scope of work.
+              </p>
             </div>
           </div>
         )}
 
-        {/* Additional Message */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Additional Information (Optional)
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information (Optional)</label>
           <textarea
             name="message"
             value={formData.message}
             onChange={handleChange}
-            placeholder="Tell us about your specific needs or questions..."
+            placeholder="Tell us about your facility, timeline, or questions..."
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        {/* Submit Button */}
         <Button
           type="submit"
-          disabled={loading || !formData.institutionName || !formData.contactName || !formData.contactEmail || !formData.contactPhone || formData.staffCount === 0}
+          disabled={
+            loading ||
+            !formData.institutionName ||
+            !formData.contactName ||
+            !formData.contactEmail ||
+            !formData.contactPhone ||
+            formData.staffCount === 0
+          }
           className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
         >
           <MessageCircle className="w-5 h-5" />
-          {loading ? "Sending..." : "Get Quote via WhatsApp"}
+          {loading ? "Sending..." : "Send Quote Request via WhatsApp"}
         </Button>
 
         <p className="text-xs text-gray-500 text-center">
-          Clicking this button will open WhatsApp with your quote details. Our sales team will respond within 24 hours.
+          Clicking this button opens WhatsApp with your request details. We use this information only to scope your
+          institutional inquiry and follow up.
         </p>
       </form>
     </Card>

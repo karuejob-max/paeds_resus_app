@@ -1,22 +1,29 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { ArrowRight, BarChart3, CheckCircle2, LogIn, ShieldCheck, Users } from "lucide-react";
+
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, TrendingUp, Users, DollarSign, CheckCircle2, ArrowRight, BarChart3, Settings, LogIn } from "lucide-react";
-import { Link } from "wouter";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { VideoTestimonialGrid } from "@/components/VideoTestimonial";
 import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getAllCourses } from "@/lib/courseData";
 import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
 import { getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
 
-const COURSE_TO_PRICING_KEY: Record<string, string> = { bls: "bls", acls: "acls", pals: "pals", bronze: "fellowship", silver: "fellowship", gold: "fellowship" };
+const COURSE_TO_PRICING_KEY: Record<string, string> = {
+  bls: "bls",
+  acls: "acls",
+  pals: "pals",
+  bronze: "fellowship",
+  silver: "fellowship",
+  gold: "fellowship",
+};
 
 export default function Institutional() {
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -26,83 +33,44 @@ export default function Institutional() {
     }, 100);
     return () => window.clearTimeout(t);
   }, []);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
 
   const pricingKey = selectedCourse ? COURSE_TO_PRICING_KEY[selectedCourse] ?? "bls" : "bls";
   const institutionalResult = getInstitutionalPrice(pricingKey, staffCount);
-  const pricePerPerson = institutionalResult?.pricePerSeat ?? 8000;
-  const totalCost = institutionalResult?.totalPrice ?? staffCount * 8000;
-
-  const calculateROI = (count: number) => {
-    const result = getInstitutionalPrice(pricingKey, count);
-    const total = result?.totalPrice ?? count * 8000;
-    const estimatedLivesSaved = Math.floor(count * 0.15); // Conservative estimate
-    const valuePerLife = 500000; // Estimated value in KES
-    const totalValue = estimatedLivesSaved * valuePerLife;
-    return {
-      totalCost: total,
-      estimatedLivesSaved,
-      totalValue,
-      roi: total > 0 ? Math.round(((totalValue - total) / total) * 100) : 0,
-    };
-  };
-
-  const roi = calculateROI(staffCount);
-
-  const features = [
-    {
-      icon: Users,
-      title: "Bulk Training",
-      description: "Train your entire team with customized schedules and on-site options",
-    },
-    {
-      icon: TrendingUp,
-      title: "Proven Results",
-      description: "80-90% reduction in preventable child deaths in partner institutions",
-    },
-    {
-      icon: DollarSign,
-      title: "Cost Savings",
-      description: "Bulk discounts and flexible payment options for institutions",
-    },
-    {
-      icon: CheckCircle2,
-      title: "Ongoing Support",
-      description: "Continuous training, updates, and institutional dashboard access",
-    },
-  ];
-
   const config = institutionalPricing[pricingKey as keyof typeof institutionalPricing];
-  const pricingTiers = config
-    ? config.bulkDiscounts.map((t) => ({
-        staff: t.seats,
-        price: Math.round(config.basePricePerSeat * (1 - t.discount / 100)),
-        discount: t.discount,
-      }))
-    : [];
+  const pricePerPerson = institutionalResult?.pricePerSeat ?? config?.basePricePerSeat ?? 8000;
+  const totalCost = institutionalResult?.totalPrice ?? staffCount * pricePerPerson;
+
+  const pricingTiers = (config?.bulkDiscounts ?? []).map((t) => ({
+    staff: t.seats,
+    price: Math.round((config?.basePricePerSeat ?? 8000) * (1 - t.discount / 100)),
+    discount: t.discount,
+  }));
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Hero Section */}
+    <div className="min-h-screen flex flex-col bg-background">
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-5xl font-bold mb-6">For Institutions</h1>
-          <p className="text-xl text-orange-100 max-w-2xl">
-            Transform your institution's resuscitation capacity. 50+ institutions already partner with us to reduce preventable child deaths.
+        <div className="max-w-6xl mx-auto space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold">Paeds Resus for Institutions</h1>
+          <p className="text-lg md:text-xl text-orange-100 max-w-3xl">
+            Equip your teams with structured paediatric emergency training, role-appropriate tools, and operational
+            dashboards that support improvement planning.
+          </p>
+          <p className="text-sm text-orange-100/90 max-w-3xl">
+            We publish only supportable claims. Clinical outcomes depend on facility context, staffing, and adherence
+            to local protocols.
           </p>
         </div>
       </section>
 
-      {/* P1-INST-1: clear funnel — marketing vs signed-in portal */}
       <section className="bg-[#0a2828] border-t border-white/10 text-white" aria-label="How to work with us">
         <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-6">
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
-            <h2 className="text-lg font-semibold mb-2">Exploring training for your hospital?</h2>
+            <h2 className="text-lg font-semibold mb-2">Evaluating a partnership?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Request a quote or message us — no login required. This page is for buyers and clinical leaders.
+              Request a scoped quote for your facility. No login is required for this buyer workflow.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]">
+              <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_get_quote")}>
                 <a href="#quote">Get a quote</a>
               </Button>
               <WhatsAppButton
@@ -114,13 +82,13 @@ export default function Institutional() {
             </div>
           </div>
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
-            <h2 className="text-lg font-semibold mb-2">Already a partner?</h2>
+            <h2 className="text-lg font-semibold mb-2">Already onboarded?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Sign in to your hospital admin portal for roster, staff training, schedules, and analytics.
+              Use the hospital admin portal for roster management, session scheduling, and training analytics.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/login">
-                <Button variant="secondary" className="gap-2 bg-white text-[#0a2828] hover:bg-orange-50">
+                <Button variant="secondary" className="gap-2 bg-white text-[#0a2828] hover:bg-orange-50" onClick={() => trackButtonClick("institutional_sign_in")}>
                   <LogIn className="h-4 w-4" />
                   Sign in
                 </Button>
@@ -140,17 +108,62 @@ export default function Institutional() {
         </div>
       </section>
 
-      {/* Available Courses Section */}
+      <section className="py-14 px-4">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-5">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-2 text-base">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Clinical scope clarity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              ResusGPS is a provider tool for structured bedside guidance. It supports clinical teams and does not
+              replace local policy or senior decision making.
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-2 text-base">
+                <Users className="h-4 w-4 text-primary" />
+                Team training model
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Combine foundational courses and focused modules to match your workforce needs across nurses, clinicians,
+              and emergency-facing teams.
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-2 text-base">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Operational visibility
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Institutional dashboards help track participation and learning operations so leadership can prioritize
+              improvements and follow-through.
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       <section className="py-16 px-4 bg-gradient-to-b from-white to-orange-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Available Training Programs</h2>
-          <p className="text-center text-muted-foreground mb-8">Click on any course to calculate pricing for your institution</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center text-[#1a4d4d]">Training programmes</h2>
+          <p className="text-center text-muted-foreground mb-8">
+            Select a programme to preview content and planning costs.
+          </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {getAllCourses().map((course) => (
               <Card
                 key={course.id}
                 className="border-t-4 border-[#ff6633] hover:shadow-lg transition cursor-pointer"
-                onClick={() => setSelectedCourse(course.id)}
+                onClick={() => {
+                  setSelectedCourse(course.id);
+                  trackButtonClick("institutional_programme_selected", { courseId: course.id });
+                }}
               >
                 <CardHeader>
                   <CardTitle className="text-[#1a4d4d]">{course.name}</CardTitle>
@@ -159,7 +172,7 @@ export default function Institutional() {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-foreground/90">{course.description}</p>
                   <div className="bg-[#ff6633]/5 p-3 rounded">
-                    <p className="text-sm font-semibold text-[#1a4d4d] mb-2">Topics Covered:</p>
+                    <p className="text-sm font-semibold text-[#1a4d4d] mb-2">Selected topics:</p>
                     <ul className="text-xs space-y-1">
                       {course.topics.slice(0, 4).map((topic) => (
                         <li key={topic} className="flex items-center gap-2">
@@ -167,113 +180,41 @@ export default function Institutional() {
                           {topic}
                         </li>
                       ))}
-                      {course.topics.length > 4 && (
-                        <li className="text-[#ff6633] font-medium">+{course.topics.length - 4} more...</li>
-                      )}
                     </ul>
                   </div>
                   <div className="border-t pt-3">
                     <p className="font-bold text-[#1a4d4d]">{course.basePrice.toLocaleString()} KES base price</p>
-                    <Button className="w-full mt-3 bg-[#ff6633] hover:bg-[#e55a22]">Calculate Cost</Button>
+                    <Button className="w-full mt-3 bg-[#ff6633] hover:bg-[#e55a22]">Open programme calculator</Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Course Calculator Modal */}
           {selectedCourse && COURSES[selectedCourse] && (
             <CourseCalculator
               course={COURSES[selectedCourse]}
-              isOpen={!!selectedCourse}
+              isOpen={Boolean(selectedCourse)}
               onClose={() => setSelectedCourse(null)}
             />
           )}
         </div>
       </section>
 
-      {/* Institutional Features Links */}
       <section className="py-16 px-4 bg-gradient-to-r from-[#1a4d4d]/5 to-[#ff6633]/5">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center text-[#1a4d4d]">Institutional Management Tools</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <Link href="/hospital-admin-dashboard">
-              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
-                <CardHeader>
-                  <div className="text-4xl mb-3">📊</div>
-                  <CardTitle className="text-[#1a4d4d]">Institutional Dashboard</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm mb-4">Manage your institution, track staff progress, and monitor training outcomes</p>
-                  <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Access Dashboard</Button>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/institutional">
-              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#1a4d4d]">
-                <CardHeader>
-                  <div className="text-4xl mb-3">💰</div>
-                  <CardTitle className="text-[#1a4d4d]">Pricing Calculator</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm mb-4">Calculate training costs with bulk discounts and see ROI projections</p>
-                  <Button variant="outline" className="w-full border-[#1a4d4d] text-[#1a4d4d] hover:bg-[#1a4d4d]/10">Calculate Pricing</Button>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/institutional">
-              <Card className="hover:shadow-lg transition cursor-pointer border-l-4 border-[#ff6633]">
-                <CardHeader>
-                  <div className="text-4xl mb-3">📈</div>
-                  <CardTitle className="text-[#1a4d4d]">ROI Calculator</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm mb-4">Calculate return on investment and financial impact of training</p>
-                  <Button variant="outline" className="w-full border-[#ff6633] text-[#ff6633] hover:bg-[#ff6633]/10">Calculate ROI</Button>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-16 px-4 bg-gradient-to-b from-orange-50 to-white">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Why Institutions Choose Us</h2>
-          <div className="grid md:grid-cols-4 gap-8">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <Card key={feature.title} className="border-l-4 border-[#ff6633]">
-                  <CardHeader>
-                    <Icon className="w-8 h-8 text-[#ff6633] mb-4" />
-                    <CardTitle className="text-[#1a4d4d]">{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Calculator Section */}
-      <section className="py-16 px-4 bg-gradient-to-r from-[#1a4d4d]/5 to-[#ff6633]/5">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center text-[#1a4d4d]">Pricing Calculator</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-10 text-center text-[#1a4d4d]">Budget planning calculator</h2>
           <div className="grid md:grid-cols-2 gap-12">
-            {/* Calculator */}
             <Card className="border-t-4 border-[#ff6633]">
               <CardHeader>
-                <CardTitle className="text-[#1a4d4d]">Calculate Your Cost</CardTitle>
-                <CardDescription>Adjust staff count to see pricing</CardDescription>
+                <CardTitle className="text-[#1a4d4d]">Estimate programme budget</CardTitle>
+                <CardDescription>Use this for planning only. Final quote depends on confirmed scope.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[#1a4d4d]">Number of Staff: {staffCount}</label>
+                  <label className="block text-sm font-semibold mb-2 text-[#1a4d4d]">
+                    Number of staff: {staffCount}
+                  </label>
                   <input
                     type="range"
                     min="10"
@@ -288,67 +229,55 @@ export default function Institutional() {
                     }}
                     className="w-full"
                   />
-                  <p className="text-xs text-muted-foreground mt-2">Slide to adjust your institution size</p>
                 </div>
 
                 <div className="bg-brand-surface p-4 rounded-lg space-y-3 border border-border/60">
-                  <div className="text-xs text-muted-foreground bg-white p-2 rounded">
-                    <p className="font-semibold mb-1">How we calculate ({config?.name ?? "Institutional"}):</p>
-                    <p>Base price: {(config?.basePricePerSeat ?? 8000).toLocaleString()} KES per person</p>
-                    <p>Bulk discount applied based on staff count</p>
-                    {(config?.bulkDiscounts ?? []).map((t) => (
-                      <p key={t.seats}>{t.seats}+ staff: {t.discount}% discount = {Math.round((config!.basePricePerSeat) * (1 - t.discount / 100)).toLocaleString()} KES</p>
-                    ))}
-                  </div>
-                  <div className="flex justify-between mb-2 border-t pt-2">
-                    <span className="text-muted-foreground">Price per person:</span>
+                  <p className="text-xs text-muted-foreground">Programme: {config?.name ?? "Institutional programme"}</p>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-muted-foreground">Estimated price per seat:</span>
                     <span className="font-bold">{pricePerPerson.toLocaleString()} KES</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
-                    <span>Total Cost:</span>
-                    <span className="text-green-900">{roi.totalCost.toLocaleString()} KES</span>
+                    <span>Estimated total:</span>
+                    <span className="text-green-900">{totalCost.toLocaleString()} KES</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    This estimate excludes any bespoke consulting or implementation scope.
+                  </p>
                 </div>
 
-                <Link href="/institutional">
-                  <Button className="w-full bg-green-900 hover:bg-green-800">
-                    Request Quote
-                  </Button>
-                </Link>
+                <Button asChild className="w-full bg-green-900 hover:bg-green-800">
+                  <a href="#quote">Request formal quote</a>
+                </Button>
               </CardContent>
             </Card>
 
-            {/* ROI Calculator */}
             <Card>
               <CardHeader>
-                <CardTitle>Estimated ROI</CardTitle>
-                <CardDescription>Based on conservative projections</CardDescription>
+                <CardTitle>How engagement works</CardTitle>
+                <CardDescription>A typical institutional path from inquiry to operations.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Training Investment:</span>
-                    <span className="font-bold">{roi.totalCost.toLocaleString()} KES</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Estimated Lives Saved:</span>
-                    <span className="font-bold text-green-900">{roi.estimatedLivesSaved} children</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Estimated Value Created:</span>
-                    <span className="font-bold">{(roi.totalValue / 1000000).toFixed(1)}M KES</span>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-lg border-t pt-4">
-                    <div className="flex justify-between text-2xl font-bold">
-                      <span>ROI:</span>
-                      <span className="text-green-900">{roi.roi}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Link href="/institutional">
-                  <Button className="w-full bg-green-900 hover:bg-green-800">
-                    Schedule Demo
+              <CardContent className="space-y-4 text-sm text-muted-foreground">
+                <p className="inline-flex items-start gap-2">
+                  <span className="font-semibold text-foreground">1.</span>
+                  <span>Scope your cohort, training priorities, and timeline with the partnerships team.</span>
+                </p>
+                <p className="inline-flex items-start gap-2">
+                  <span className="font-semibold text-foreground">2.</span>
+                  <span>Receive a quote with programme options and delivery assumptions.</span>
+                </p>
+                <p className="inline-flex items-start gap-2">
+                  <span className="font-semibold text-foreground">3.</span>
+                  <span>Onboard your team to the institutional portal for scheduling and staff operations.</span>
+                </p>
+                <p className="inline-flex items-start gap-2">
+                  <span className="font-semibold text-foreground">4.</span>
+                  <span>Review participation and operational indicators to guide improvement planning.</span>
+                </p>
+                <Link href="/help">
+                  <Button variant="outline" className="w-full justify-between">
+                    Review support and onboarding help
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </CardContent>
@@ -357,18 +286,17 @@ export default function Institutional() {
         </div>
       </section>
 
-      {/* Pricing Tiers */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Bulk Pricing Tiers</h2>
+          <h2 className="text-3xl font-bold mb-10 text-center">Bulk pricing tiers</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-border">
-                  <th className="text-left py-4 px-4">Staff Count</th>
-                  <th className="text-left py-4 px-4">Price per Person</th>
+                  <th className="text-left py-4 px-4">Staff count</th>
+                  <th className="text-left py-4 px-4">Estimated price per person</th>
                   <th className="text-left py-4 px-4">Discount</th>
-                  <th className="text-left py-4 px-4">Total Cost</th>
+                  <th className="text-left py-4 px-4">Estimated total</th>
                 </tr>
               </thead>
               <tbody>
@@ -381,9 +309,7 @@ export default function Institutional() {
                         {tier.discount}% off
                       </span>
                     </td>
-                    <td className="py-4 px-4 font-bold">
-                      {(tier.staff * tier.price).toLocaleString()} KES
-                    </td>
+                    <td className="py-4 px-4 font-bold">{(tier.staff * tier.price).toLocaleString()} KES</td>
                   </tr>
                 ))}
               </tbody>
@@ -392,104 +318,16 @@ export default function Institutional() {
         </div>
       </section>
 
-      {/* Video Testimonials */}
-      <section className="py-16 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Hospital Partner Testimonials</h2>
-          <VideoTestimonialGrid
-            testimonials={[
-              {
-                id: "knh-1",
-                title: "Transforming Emergency Care at KNH",
-                hospitalName: "Kenyatta National Hospital",
-                speakerName: "Dr. James Kipchoge",
-                speakerRole: "Head of Pediatric Emergency Department",
-                videoUrl: "https://example.com/knh-testimonial.mp4",
-                description: "How Paeds Resus training reduced preventable child deaths by 45% in our emergency department.",
-                duration: "3:45",
-              },
-              {
-                id: "aga-khan-1",
-                title: "Building Regional Training Excellence",
-                hospitalName: "Aga Khan University Hospital",
-                speakerName: "Dr. Amina Hassan",
-                speakerRole: "Director of Nursing Education",
-                videoUrl: "https://example.com/aga-khan-testimonial.mp4",
-                description: "Becoming a regional training center through Paeds Resus Elite Fellowship program.",
-                duration: "2:30",
-              },
-              {
-                id: "mombasa-1",
-                title: "Zero Preventable Deaths Achievement",
-                hospitalName: "Mombasa County Hospital",
-                speakerName: "Dr. Mohamed Ali",
-                speakerRole: "Chief Medical Officer",
-                videoUrl: "https://example.com/mombasa-testimonial.mp4",
-                description: "Our journey to achieving zero preventable child deaths in 6 months with evidence-based protocols.",
-                duration: "2:15",
-              },
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* Case Studies */}
-      <section className="py-16 px-4 bg-muted/30">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold mb-12 text-center">Success Stories</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                hospital: "Kenyatta National Hospital",
-                staff: 150,
-                result: "45% reduction in preventable child deaths",
-              },
-              {
-                hospital: "Aga Khan University Hospital",
-                staff: 80,
-                result: "Became regional training center",
-              },
-              {
-                hospital: "Mombasa County Hospital",
-                staff: 120,
-                result: "Zero preventable deaths in 6 months",
-              },
-              {
-                hospital: "Nakuru Teaching Hospital",
-                staff: 100,
-                result: "Improved staff retention by 30%",
-              },
-            ].map((study) => (
-              <Card key={study.hospital}>
-                <CardHeader>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Building2 className="w-6 h-6 text-green-900" />
-                    <CardTitle>{study.hospital}</CardTitle>
-                  </div>
-                  <CardDescription>{study.staff} staff trained</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-green-900 font-semibold">{study.result}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
       <section className="py-16 px-4 bg-green-900 text-white">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-6">Transform Your Institution</h2>
-          <p className="text-xl text-green-100 mb-8">
-            Join 50+ institutions reducing preventable child deaths through evidence-based training.
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to scope your facility plan?</h2>
+          <p className="text-lg text-green-100 mb-8">
+            Share your staffing and programme needs. We will return a formal quote and next-step onboarding path.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/institutional">
-              <Button size="lg" className="bg-white text-green-900 hover:bg-green-50">
-                Get in Touch
-              </Button>
-            </Link>
+            <Button asChild size="lg" className="bg-white text-green-900 hover:bg-green-50">
+              <a href="#quote">Request quote</a>
+            </Button>
             <WhatsAppButton
               phoneNumber="254706781260"
               message="Hello Paeds Resus, I am interested in institutional training for my hospital."
@@ -497,24 +335,21 @@ export default function Institutional() {
               className="bg-green-500 hover:bg-green-600 text-white"
               label="Chat on WhatsApp"
             />
-            <Link href="/learner-dashboard">
+            <Link href="/help">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                View Resources
+                View support centre
               </Button>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Lead Capture Section */}
       <section id="quote" className="py-16 bg-muted/30 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Ready to Transform Your Facility?
-            </h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Request an institutional quote</h2>
             <p className="text-lg text-muted-foreground">
-              Get a personalized quote for your institution. Our team will contact you within 24 hours.
+              We use your details to scope training and follow up with your team.
             </p>
           </div>
           <InstitutionalLeadForm />

@@ -1,35 +1,93 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { TRPCClientError } from "@trpc/client";
+import { readSafeNextPathFromSearch } from "@/lib/authRedirect";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const { isAuthenticated, loading, sessionSettled } = useAuth();
+  const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const nextPath = useMemo(() => {
+    return readSafeNextPathFromSearch(search, "/home");
+  }, [search]);
 
   const loginMutation = trpc.auth.loginWithPassword.useMutation({
-    onSuccess: () => {
-      setLocation("/home");
-      window.location.reload();
+    onSuccess: async () => {
+      // Reset role context on fresh sign-in so landing follows server-side userType.
+      localStorage.removeItem("userRole");
+      window.dispatchEvent(new CustomEvent("userRoleChanged", { detail: null }));
+      // Invalidate the auth.me cache so useAuth reflects the new session cookie
+      // before navigating. Without this, the stale null cache triggers an
+      // immediate redirect back to /login.
+      await utils.auth.me.invalidate();
+      setLocation(nextPath);
     },
     onError: (e) => {
-      setError(e.message);
+      if (/Failed to fetch|NetworkError|Load failed/i.test(e.message)) {
+        setError("Could not reach the server. Refresh and try again.");
+        return;
+      }
+      if (e instanceof TRPCClientError) {
+        if (e.data?.code === "UNAUTHORIZED" || /Invalid email or password/i.test(e.message)) {
+          setError("Invalid email or password. Check for extra spaces, or use Forgot password.");
+          return;
+        }
+        if (e.data?.code === "BAD_REQUEST" && /different sign-in method/i.test(e.message)) {
+          setError(e.message);
+          return;
+        }
+        if (e.data?.code === "BAD_REQUEST" && /invalid_format|Invalid email/i.test(e.message)) {
+          setError("Enter a valid email with no leading or trailing spaces.");
+          return;
+        }
+      }
+      if (/invalid_format|Invalid email address/i.test(e.message)) {
+        setError("Enter a valid email with no leading or trailing spaces.");
+        return;
+      }
+      setError(e.message || "Sign-in failed. Please check your credentials and try again.");
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate({ email, password });
+
+    // Read directly from DOM refs to capture browser-autofilled values that
+    // may not have triggered React onChange events (a known browser behaviour).
+    const resolvedEmail = normalizeEmailForAuth(emailRef.current?.value ?? email);
+    const resolvedPassword = (passwordRef.current?.value ?? password).trim();
+
+    if (!resolvedEmail || !resolvedPassword) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
+    loginMutation.mutate({ email: resolvedEmail, password: resolvedPassword });
   };
+
+  useEffect(() => {
+    if (loading || !sessionSettled) return;
+    if (!isAuthenticated) return;
+    setLocation(nextPath);
+  }, [isAuthenticated, loading, sessionSettled, nextPath, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -41,12 +99,16 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" aria-label="Sign in form">
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <Alert variant="destructive">
+                <AlertTitle>Sign-in failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                ref={emailRef}
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -60,6 +122,7 @@ export default function Login() {
               <div className="relative">
                 <Input
                   id="password"
+                  ref={passwordRef}
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

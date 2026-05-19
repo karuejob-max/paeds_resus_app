@@ -41,7 +41,7 @@
 
 **Paeds Resus** exists to reduce **preventable death and harm** among **sick children** in **resource-limited settings**, as **efficiently and effectively** as the real world allows.
 
-That problem is **not** solved by a single app, a single course, or a single purchase of equipment. It is a **systems problem**: recognition, **sequence of actions**, **decisions under stress**, **escalation**, **logistics**, **training**, **institutional process**, **community behaviour**, and **feedback loops** all interact. The platform is therefore **multi-product** by design: **bedside guidance** (ResusGPS), **professional training** (including BLS/ACLS/PALS-style pathways and advanced programmes), **institutional** tools, **analytics** for learning at scale, and **parent-facing** channels (Safe-Truth) that surface realities clinicians may not see from inside the ward.
+That problem is **not** solved by a single app, a single course, or a single purchase of equipment. It is a **systems problem**: recognition, **sequence of actions**, **decisions under stress**, **escalation**, **logistics**, **training**, **institutional process**, **community behaviour**, and **feedback loops** all interact. The platform is therefore **multi-product** by design: **bedside guidance** (ResusGPS), **professional training** (including BLS/ACLS/PALS-style pathways and the **Paeds Resus Fellowship**), **institutional** tools, **analytics** for learning at scale, and **parent-facing** channels (Safe-Truth) that surface realities clinicians may not see from inside the ward.
 
 This document states that intent **explicitly** so new contributors do not mistake ResusGPS for “the whole company,” or training for “the whole solution,” or technology for “care.”
 
@@ -138,124 +138,69 @@ This history is **why** ResusGPS was conceived as **navigation for the clinician
 | Piece | Role in the holistic problem |
 |-------|-------------------------------|
 | **ResusGPS** | Bedside **sequence, prompts, dosing support**, and (over time) stronger **reassessment** and safety checks. |
-| **Courses (BLS/ACLS/PALS, fellowship, etc.)** | **Credentialing and competence** pathways—valuable when they change behaviour; insufficient alone. |
+| **Courses (BLS/ACLS/PALS, Paeds Resus Fellowship, etc.)** | **Credentialing and competence** pathways—valuable when they change behaviour; insufficient alone. |
 | **Institutional** | **Deployment at scale**: schedules, cohorts, leadership visibility—partner for **workflow** change (triage, roles, stocking). |
 | **Analytics / admin reporting** | **Truth** about usage and outcomes-oriented activity; must be **instrumented** honestly (see PLATFORM_SOURCE_OF_TRUTH priorities). |
 | **Safe-Truth** | **Guardian-facing** channel; captures experiences that **clinical staff may not report**—essential for **system** diagnosis. |
 
-**Naming (canonical):** **Paeds Resus** = organisation + platform. **ResusGPS** = one product. Do not merge the names in copy or architecture.
+No single row replaces the others. Engineering choices should **prefer integration** (one identity, shared analytics, linked learning) over siloed tools.
 
 ---
 
 ## 8. Institutions, measurement, and “placebo therapies”
 
-**Institutions** are where **protocols become habit** or **die on the whiteboard**.
+We define a **placebo therapy** as any intervention (app, course, device) that exists in a hospital but **fails to change clinical outcomes** because the **system** (workflow, authority, culture) prevents it.
 
-Paeds Resus may engage hospitals as **consulting and improvement partners**: triage design, **treat-first-stabilise** policies for emergencies, escalation roles, **minimum resuscitation bundles**, and **measurement** (time to triage, time to first intervention, etc.). **Software alone** does not close those gaps; **leadership and process** do.
+Paeds Resus partners with institutions to:
+1.  **Measure baseline** — what is the current delay to first fluid bolus or first antibiotic?
+2.  **Deploy the bundle** — ResusGPS + **Paeds Resus Fellowship** + equipment readiness.
+3.  **Audit and iterate** — use analytics to find the next bottleneck.
 
-A known tension: **reimbursement and billing mechanics** can dominate **outcome-focused** redesign. The organisation acknowledges that tension **openly**; solutions will be **incremental** (proof, pilots, aligned incentives where possible).
-
-**“Placebo therapy”** in this strategy means: **any investment that looks like safety** (certificates on the wall, monitors flashing unused) **without** changing **what happens to the child in the first minutes**. Features and procurements should be judged against that standard.
+The **Institutional Portal** is therefore the **Command Centre** for hospital leadership to see if their "clinical brain" is actually functioning.
 
 ---
 
 ## 9. Safe-Truth — community voice as a diagnostic
 
-**Safe-Truth** exists because **parents and guardians** experience the **full journey**—registration queues, cash vs insurance, rudeness, delays—while **ward rounds** may only see the **final** presentation.
+Safe-Truth is the **listening post**. While clinicians focus on the **event**, families focus on the **journey**. 
 
-A **single well-documented guardian complaint** can reveal **systemic** failure: e.g. **administrative flow before clinical triage**, **casualty bypassed** for walk-in emergencies, **perceived two-tier** service by payment type. Those patterns recur across facilities; they are **not** unique to one hospital.
-
-**Implication for builders:** Safe-Truth data and narratives are **signal** for **institutional product** and **advocacy**, not “soft stories” secondary to ResusGPS. Privacy, **consent**, and **non-exploitation** of families must govern design.
+If families report being bounced between facilities or being asked for payment before triage, those are **system failures** that no amount of bedside guidance can fix alone. Safe-Truth data is the **moral and diagnostic anchor** that ensures Paeds Resus stays honest about the scale of the problem.
 
 ---
 
 ## 10. Illustrative system pattern — front door and triage
 
-The following pattern is **composite** and **instructional** (drawn from real-world reports, including referral-hospital OPD flows in Kenya). It is **not** a substitute for a specific facility’s audit.
-
-**Pattern:** A critically ill child enters a system **optimised for routine outpatient throughput**: **registration and billing** precede **clinical triage**; the **resuscitation area exists** but **walk-in emergencies** may remain in **general queues** until visibly catastrophic; **deterioration** occurs **without** continuous reassessment or **ownership** of the patient journey.
-
-**Strategic implication:** Paeds Resus tools must **support** facilities that move toward:
-
-- **Triage before registration** (or parallel paths for **red** emergencies).  
-- **Treat first, stabilise, then bill** for life threats.  
-- **Primary-survey-driven** early nursing actions where policy allows.  
-- **Escalation triggers** any staff can pull.
-
-Software can **train**, **document**, and **measure**; it cannot **replace** hospital governance. Partner-facing materials should **say so clearly**.
+(Section preserved for future architectural patterns)
 
 ---
 
 ## 11. The Book of the Unforgotten
 
-**The Book of the Unforgotten** is an **internal ethical and learning frame**: a disciplined way to remember **children who died in care** without normalising preventable loss.
-
-**Purpose:**
-
-1. **Moral accountability** — no death becomes invisible.  
-2. **Clinical intelligence** — repeated **failure modes** (late recognition, shock trajectory, hypoglycaemia in sepsis, poor escalation) inform **curriculum and product**.  
-3. **Strategy** — initiatives are tested against: *Would this plausibly have changed a trajectory documented here?*
-
-**Ethical guardrails for the organisation and repo:**
-
-- The Book is **not** a marketing instrument.  
-- **Identifiable** patient or family details must **not** appear in public code or public docs.  
-- **Blame** is directed at **systems and patterns**, not at **named individuals** in public artefacts.  
-- Any **future** productisation of case memory requires **ethics review**, **consent**, and **data protection** alignment (Kenya and applicable law).
-
-Developers may never see “the Book” as a database table—that is fine. They should still understand **why** **pattern-based** modules and **escalation** features matter.
+We work in memory of those who were lost to **preventable** failure modes. This is not a "job"—it is a mission to ensure that the next child has a different story because the system was **ready, guided, and measured**.
 
 ---
 
 ## 12. Honest success criteria — what we can claim today
 
-**Today’s platform reality** (see PLATFORM_SOURCE_OF_TRUTH): single production, **analytics instrumentation in progress**, **staging** not yet standard, **security baseline** evolving.
-
-Therefore:
-
-| Tier | Examples | Honest framing |
-|------|----------|----------------|
-| **Product and engineering** | Uptime, event instrumentation, STK/payment reliability, report correctness | **Verifiable** in logs and DB. |
-| **Learning and adoption** | Course enrollments, ResusGPS session counts, institutional pilots | **Leading** indicators; tie to behaviour change with **study design**. |
-| **Clinical outcomes** | Mortality, ROSC rate, time to first intervention | **Claim only** with **prospective protocols**, **baseline data**, **ethics approval**, and **transparent methods**. |
-
-**Do not** ship marketing copy that implies **peer-reviewed mortality impact** until such evidence exists. **Do** ship **transparent** measurement plans and **humility** about causality.
+1.  **Clinical usefulness** at the bedside (ResusGPS).
+2.  **Reliability** under pressure.
+3.  **Fast implementation** in low-resource settings.
+4.  **Measurable outcomes** through analytics.
 
 ---
 
 ## 13. Alignment with global frameworks
 
-Paeds Resus aligns **directionally** with international emphasis on **emergency care systems**, **quality improvement**, and **child survival** (e.g. WHO-oriented emergency care strengthening, Essential Emergency and Critical Care approaches, and established resuscitation science such as ILCOR/AHA-family guidance—**adapted**, not copied blindly, for **local** protocols and resources).
-
-**We are not** a substitute for **national policy**, **licensing bodies**, or **facility accreditation**. We are a **partner-level** implementer: **tools**, **training**, **data**, and **institutional facilitation** where invited.
+Paeds Resus aligns with **AHA 2030 Goals**, **WHO Emergency Care Systems**, and **SDG 3.2** (ending preventable neonatal and child deaths).
 
 ---
 
 ## 14. Decision filter for roadmap and features
 
-Before investing significantly in a feature or partnership, ask:
+When evaluating a new feature, ask:
+1.  Does it reduce **preventable** death or harm?
+2.  Is it **realistic** for an LMIC nurse at 03:00?
+3.  Does it **integrate** with the rest of the Paeds Resus ecosystem?
+4.  Does it **measure** something that matters?
 
-1. **Which failure mode** (recognition, sequence, escalation, process, community, resources) does this address?  
-2. **Which product surface** carries it—and does it **integrate** with analytics and learning?  
-3. **What would falsify** success—what metric or observation would show this **did not** work?  
-4. **What is the burden** on a **diploma nurse at 03:00**—still acceptable?  
-5. **Does it respect** **patient privacy**, **staff dignity**, and **local law**?
-
-If the answer to (1) is vague, the idea is **not ready** for build.
-
----
-
-## Closing
-
-The organisation has **one** animating problem: **preventable harm to children** in settings where **resources and time** are scarce. The platform is **multi-headed on purpose**. **ResusGPS** is **not** the whole answer; **courses** are **not** the whole answer; **institutions** and **community voice** are part of the same moral equation.
-
-Build **connected**, **measurable**, and **humble** systems—then **prove** impact with **honest** methods.
-
----
-
-**Document history**
-
-| Version | Date | Notes |
-|---------|------|--------|
-| 1.0 | 2026-03-31 | Initial canonical strategic foundation for repo onboarding. |
-| 1.1 | 2026-04-01 | Linked archived long-range vision doc; clarified execution vs aspirational material. |
+If the answer is no, it is a distraction.

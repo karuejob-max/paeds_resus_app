@@ -1,16 +1,90 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
-import { initiateStkPush, queryStk } from "../mpesa";
+import { getMpesaAccessToken, initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
-import { payments, enrollments } from "../../drizzle/schema";
+import { payments, enrollments, microCourseEnrollments, microCourses } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
+import {
+  INTUBATION_SAMPLE_MICRO_COURSE_ID,
+  ensureIntubationSampleCourseCatalog,
+  getIntubationSampleCourseId,
+} from "../lib/ensure-intubation-sample-course-catalog";
+
+async function syncIntubationLearningEnrollmentOnMicroPaymentSuccess(params: {
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
+  userId: number;
+  microEnrollmentId: number;
+  amountPaidCents: number | null;
+}) {
+  const microEnrollmentRows = await params.db
+    .select({ microCourseId: microCourseEnrollments.microCourseId })
+    .from(microCourseEnrollments)
+    .where(
+      and(
+        eq(microCourseEnrollments.id, params.microEnrollmentId),
+        eq(microCourseEnrollments.userId, params.userId)
+      )
+    )
+    .limit(1);
+  const microEnrollment = microEnrollmentRows[0];
+  if (!microEnrollment) return;
+
+  const microCourseRows = await params.db
+    .select({ courseId: microCourses.courseId })
+    .from(microCourses)
+    .where(eq(microCourses.id, microEnrollment.microCourseId))
+    .limit(1);
+  const microCourse = microCourseRows[0];
+  if (!microCourse || microCourse.courseId !== INTUBATION_SAMPLE_MICRO_COURSE_ID) return;
+
+  await ensureIntubationSampleCourseCatalog(params.db);
+  const intubationCourseId = await getIntubationSampleCourseId(params.db);
+  if (intubationCourseId == null) return;
+
+  const linked = await params.db
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.userId, params.userId),
+        eq(enrollments.programType, "fellowship"),
+        eq(enrollments.courseId, intubationCourseId)
+      )
+    )
+    .orderBy(desc(enrollments.id))
+    .limit(1);
+  if (!linked.length) return;
+
+  await params.db
+    .update(enrollments)
+    .set({
+      paymentStatus: "completed",
+      amountPaid: params.amountPaidCents ?? 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(enrollments.id, linked[0].id));
+}
 
 export const mpesaRouter = router({
+  /**
+   * Prefetch Daraja OAuth token while the user enters their phone number.
+   * Cuts one sequential HTTPS round-trip from the critical path on cold cache.
+   */
+  warmDarajaAuth: protectedProcedure.mutation(async () => {
+    try {
+      await getMpesaAccessToken();
+      return { ok: true as const };
+    } catch (e) {
+      console.error("[M-Pesa] warmDarajaAuth failed:", e);
+      return { ok: false as const };
+    }
+  }),
+
   /**
    * Initiate M-Pesa STK Push payment
    */
@@ -72,6 +146,9 @@ export const mpesaRouter = router({
           userId: ctx.user?.id ?? 0,
         });
 
+        const tokenWarm = getMpesaAccessToken();
+        await tokenWarm;
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: input.amount,
@@ -99,12 +176,12 @@ export const mpesaRouter = router({
         const paymentId = (paymentRecord as any)[0]?.id ?? null;
 
         const checkoutId = mpesaResponse.checkoutRequestID || "";
-        await trackPaymentInitiation(
+        void trackPaymentInitiation(
           ctx.user!.id,
           input.amount,
           "mpesa",
           checkoutId ? `stk_${checkoutId}` : `stk_order_${orderId}`,
-        );
+        ).catch((err) => console.error("[Analytics] trackPaymentInitiation:", err));
 
         return {
           success: true,
@@ -146,6 +223,154 @@ export const mpesaRouter = router({
           error: error.message || "Query failed",
         };
       }
+    }),
+
+  /**
+   * Compatibility endpoint used by enrollment modal polling.
+   * Checks Daraja status by CheckoutRequestID and syncs micro-course enrollment state.
+   */
+  checkPaymentStatus: protectedProcedure
+    .input(
+      z.object({
+        checkoutRequestId: z.string().min(1),
+        enrollmentId: z.coerce.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { status: "pending" as const, errorMessage: "Database unavailable" };
+      }
+
+      const enrollmentRows = await db
+        .select()
+        .from(microCourseEnrollments)
+        .where(
+          and(
+            eq(microCourseEnrollments.id, input.enrollmentId),
+            eq(microCourseEnrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+
+      if (!enrollmentRows.length) {
+        return { status: "failed" as const, errorMessage: "Enrollment not found" };
+      }
+
+      const enrollment = enrollmentRows[0];
+      if (enrollment.paymentStatus === "completed") {
+        return { status: "completed" as const, transactionId: enrollment.transactionId || undefined };
+      }
+
+      const stk = await queryStk(input.checkoutRequestId);
+      const resultCode = String(stk.resultCode ?? "");
+      const receipt = (stk as { mpesaReceiptNumber?: string }).mpesaReceiptNumber;
+
+      if (resultCode === "0") {
+        await db
+          .update(microCourseEnrollments)
+          .set({
+            paymentStatus: "completed",
+            enrollmentStatus: "active",
+            transactionId: receipt || input.checkoutRequestId,
+            updatedAt: new Date(),
+          })
+          .where(eq(microCourseEnrollments.id, input.enrollmentId));
+
+        await syncIntubationLearningEnrollmentOnMicroPaymentSuccess({
+          db,
+          userId: ctx.user.id,
+          microEnrollmentId: input.enrollmentId,
+          amountPaidCents: enrollment.amountPaid,
+        });
+
+        return {
+          status: "completed" as const,
+          transactionId: receipt || input.checkoutRequestId,
+        };
+      }
+
+      if (resultCode === "1") {
+        return { status: "cancelled" as const, errorMessage: stk.resultDesc || "Payment cancelled" };
+      }
+
+      // Surface transport errors so the client can stop polling after 3 consecutive failures
+      if (resultCode === "QUERY_TRANSPORT_ERROR") {
+        return { status: "pending" as const, errorMessage: "QUERY_TRANSPORT_ERROR: " + (stk.resultDesc || "Safaricom query failed") };
+      }
+
+      return { status: "pending" as const, errorMessage: stk.resultDesc || undefined };
+    }),
+
+  /**
+   * Manual poll trigger from learner modal; uses same logic as automatic status check.
+   */
+  reconcilePayment: protectedProcedure
+    .input(
+      z.object({
+        checkoutRequestId: z.string().min(1),
+        enrollmentId: z.coerce.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { status: "pending" as const, errorMessage: "Database unavailable" };
+      }
+
+      const enrollmentRows = await db
+        .select()
+        .from(microCourseEnrollments)
+        .where(
+          and(
+            eq(microCourseEnrollments.id, input.enrollmentId),
+            eq(microCourseEnrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+
+      if (!enrollmentRows.length) {
+        return { status: "failed" as const, errorMessage: "Enrollment not found" };
+      }
+
+      const enrollment = enrollmentRows[0];
+      if (enrollment.paymentStatus === "completed") {
+        return { status: "completed" as const, transactionId: enrollment.transactionId || undefined };
+      }
+
+      const stk = await queryStk(input.checkoutRequestId);
+      const resultCode = String(stk.resultCode ?? "");
+      const receipt = (stk as { mpesaReceiptNumber?: string }).mpesaReceiptNumber;
+
+      if (resultCode === "0") {
+        await db
+          .update(microCourseEnrollments)
+          .set({
+            paymentStatus: "completed",
+            enrollmentStatus: "active",
+            transactionId: receipt || input.checkoutRequestId,
+            updatedAt: new Date(),
+          })
+          .where(eq(microCourseEnrollments.id, input.enrollmentId));
+
+        await syncIntubationLearningEnrollmentOnMicroPaymentSuccess({
+          db,
+          userId: ctx.user.id,
+          microEnrollmentId: input.enrollmentId,
+          amountPaidCents: enrollment.amountPaid,
+        });
+
+        return {
+          status: "completed" as const,
+          transactionId: receipt || input.checkoutRequestId,
+        };
+      }
+
+      if (resultCode === "1") {
+        return { status: "cancelled" as const, errorMessage: stk.resultDesc || "Payment cancelled" };
+      }
+
+      return { status: "pending" as const, errorMessage: stk.resultDesc || undefined };
     }),
 
   /**
@@ -379,6 +604,9 @@ export const mpesaRouter = router({
           userId: ctx.user?.id ?? 0,
         });
 
+        const tokenWarm = getMpesaAccessToken();
+        await tokenWarm;
+
         const mpesaResponse = await initiateStkPush({
           phoneNumber: input.phoneNumber,
           amount: paymentRecord.amount,
@@ -533,6 +761,9 @@ export const mpesaRouter = router({
       process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
     );
     const passkeyOk = Boolean(process.env.MPESA_PASSKEY?.trim());
+    const paybillNumber =
+      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || null;
+    const accountNumber = process.env.MPESA_ACCOUNT?.trim() || null;
 
     const stkInfrastructureReady = keyPair && paybillOk && passkeyOk && callbackOk;
     const stkOffered = !disabled && stkInfrastructureReady;
@@ -542,6 +773,8 @@ export const mpesaRouter = router({
       stkPushOffered: stkOffered,
       stkDisabledByConfig: disabled,
       bankTransferAvailable: true,
+      paybillNumber,
+      accountNumber,
       userMessage: disabled
         ? "Mobile Money (STK) checkout is temporarily turned off. Use bank transfer below, or contact support."
         : !stkInfrastructureReady
@@ -592,4 +825,44 @@ export const mpesaRouter = router({
         Boolean(callback && !callback.includes("example.com")),
     };
   }),
+
+  // TEMPORARY DEBUG: returns raw Safaricom STK Push response — remove after diagnosis
+  debugStkPush: protectedProcedure
+    .input(z.object({ phoneNumber: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await initiateStkPush({
+          phoneNumber: input.phoneNumber,
+          amount: 1,
+          accountReference: "DEBUG_TEST",
+          transactionDesc: "Debug STK Push Test",
+          orderId: "debug_" + Date.now(),
+        });
+        return {
+          ok: true,
+          result,
+          config: {
+            env: process.env.MPESA_ENVIRONMENT,
+            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
+            passkeySet: !!process.env.MPESA_PASSKEY,
+            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
+            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
+          },
+        };
+      } catch (err: any) {
+        return {
+          ok: false,
+          error: err.message,
+          status: err?.response?.status,
+          daraja: err?.response?.data,
+          config: {
+            env: process.env.MPESA_ENVIRONMENT,
+            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
+            passkeySet: !!process.env.MPESA_PASSKEY,
+            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
+            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
+          },
+        };
+      }
+    }),
 });

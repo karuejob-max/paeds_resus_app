@@ -13,7 +13,7 @@ CREATE TABLE `webhookRetryQueue` (
 	CONSTRAINT `webhookRetryQueue_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-ALTER TABLE `certificates` ADD `renewalReminderSentAt` timestamp;--> statement-breakpoint
+-- renewalReminderSentAt on certificates: applied in 0026_certificate_renewal_reminder_sent_at.sql (avoid duplicate column)
 ALTER TABLE `clinicalReferrals` ADD `facilityContactEmail` varchar(320);--> statement-breakpoint
 ALTER TABLE `institutionalStaffMembers` ADD `institutionalRole` enum('director','coordinator','finance_officer','department_head','staff_member') DEFAULT 'staff_member';--> statement-breakpoint
 ALTER TABLE `payments` ADD `idempotencyKey` varchar(255);--> statement-breakpoint

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { trpc } from "@/lib/trpc";
 import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import SubmissionConfirmationModal from "./SubmissionConfirmationModal";
+import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
 
 export default function CareSignalForm() {
   const [step, setStep] = useState(1);
@@ -26,12 +28,50 @@ export default function CareSignalForm() {
   const [success, setSuccess] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
-  
+  const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
+  const [facility, setFacility] = useState<FacilitySelection | null>(null);
+
+  // Read ResusGPS pre-fill params from URL query string
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prefillEventType = params.get("prefill_eventType");
+    const prefillOutcome = params.get("prefill_outcome");
+    const source = params.get("source");
+    if (prefillEventType) {
+      // Map event type back to algorithm label used in the form
+      const algorithmMap: Record<string, string> = {
+        cardiac_arrest: "Cardiac Arrest",
+        septic_shock: "Shock",
+        respiratory_failure: "Respiratory Failure",
+        status_epilepticus: "Other",
+        dka: "Other",
+        anaphylaxis: "Shock",
+        trauma: "Other",
+        shock_other: "Shock",
+        other_emergency: "Other",
+      };
+      const algorithm = algorithmMap[prefillEventType] || "Other";
+      setFormData((prev: any) => ({
+        ...prev,
+        algorithm,
+        outcome: prefillOutcome || prev.outcome,
+      }));
+      if (source === "resusgps") {
+        setPrefillBanner("Pre-filled from your ResusGPS session. Review and complete the remaining fields.");
+      }
+    }
+  }, []);
+
   const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
+  const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const handleSubmit = async () => {
     try {
       setError("");
+      if (!facility?.facilityId) {
+        setError("Please select the facility where this care was delivered.");
+        return;
+      }
       const submitData = {
         eventDate: formData.eventDate || new Date().toISOString(),
         childAge: childAgeMonthsForSafeTruth({
@@ -55,21 +95,34 @@ export default function CareSignalForm() {
         gapDetails: {},
         outcome: formData.outcome || "unknown",
         neurologicalStatus: formData.neuroStatus || "unknown",
+        facilityId: facility.facilityId,
       };
 
-      await submitMutation.mutateAsync(submitData);
+      const result = await submitMutation.mutateAsync(submitData);
+      trackProductActivity.mutate({
+        eventType: "care_signal",
+        eventName: "Care Signal event submitted",
+        pageUrl: "/care-signal",
+        sessionId: getAnalyticsSessionId(),
+        eventData: {
+          eventId: result.eventId,
+          anonymous: isAnonymous,
+        },
+      });
       setSubmittedData({
         ...submitData,
         algorithm: formData.algorithm,
         outcome: formData.outcome,
+        // Capture server-generated recommendations for the confirmation modal
+        recommendations: result.recommendations ?? [],
+        eventId: result.eventId,
+        timestamp: result.timestamp,
       });
       setShowConfirmation(true);
       setSuccess(true);
-      setTimeout(() => {
-        setStep(1);
-        setFormData({});
-        setSuccess(false);
-      }, 3000);
+      // Reset form after modal is closed (not on a timer) — modal handles navigation
+      setStep(1);
+      setFormData({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submission failed");
     }
@@ -101,6 +154,13 @@ export default function CareSignalForm() {
             <CardTitle>Event Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {prefillBanner && (
+              <Alert className="border-blue-200 bg-blue-50">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-700 text-sm">{prefillBanner}</AlertDescription>
+              </Alert>
+            )}
+            <FacilityPicker value={facility} onChange={setFacility} required />
             <div>
               <Label>Event Date & Time</Label>
               <input

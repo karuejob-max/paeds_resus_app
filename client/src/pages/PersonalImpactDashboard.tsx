@@ -39,14 +39,16 @@ export function PersonalImpactDashboard() {
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-4xl font-bold">Your Impact Dashboard</h1>
-        <p className="text-gray-600">Track your interventions and lives saved</p>
+        <p className="text-gray-600">
+          Track interventions you log — outcomes are from your records, not platform-wide impact claims
+        </p>
       </div>
 
       {/* Impact Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Lives Saved</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Outcomes: improved</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-green-600">

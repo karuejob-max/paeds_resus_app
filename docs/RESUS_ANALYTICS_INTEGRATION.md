@@ -9,10 +9,10 @@
 
 ## Overview
 
-This document describes the complete integration of ResusGPS analytics with fellowship pillar B tracking:
+This document describes the complete integration of ResusGPS analytics with Paeds Resus Fellowship pillar B tracking:
 
 1. **Analytics Wiring** — ResusGPS sessions → pathway validation → analytics events
-2. **Fellowship Progress UI** — Learner dashboard showing condition checklist (X/27 with ≥3 cases)
+2. **Paeds Resus Fellowship Progress UI** — Learner dashboard showing condition checklist (X/27 with ≥3 cases)
 3. **Admin Condition Heatmap** — Facility-level visualization of condition practice patterns
 
 ---
@@ -137,7 +137,7 @@ await trpc.resusSessionAnalytics.recordSession.mutate({
 
 ---
 
-## 2. Fellowship Progress UI
+## 2. Paeds Resus Fellowship Progress UI
 
 ### Component: `FellowshipProgressCard`
 

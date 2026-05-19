@@ -7,7 +7,7 @@ import { TRPCError } from "@trpc/server";
 // Email campaign templates
 const emailTemplates = {
   enrollmentConfirmation: {
-    subject: "Welcome to Paeds Resus Elite Fellowship!",
+    subject: "Welcome to Paeds Resus Paeds Resus Fellowship!",
     body: (name: string, courseName: string) => `
       <h2>Welcome, ${name}!</h2>
       <p>Thank you for enrolling in <strong>${courseName}</strong>.</p>

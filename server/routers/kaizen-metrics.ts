@@ -3,12 +3,20 @@ import { z } from 'zod';
 import { getDb } from '../db';
 import { users, enrollments, payments, certificates } from '../../drizzle/schema';
 import { eq, gte, lte, and, count, avg, sum } from 'drizzle-orm';
+import {
+  kaizenAnnualMetricsFallback,
+  kaizenDailyMetricsFallback,
+  kaizenDashboardFallback,
+  kaizenMonthlyMetricsFallback,
+  kaizenQuarterlyMetricsFallback,
+  kaizenWeeklyMetricsFallback,
+} from '../lib/kaizen-metrics-fallbacks';
 
 export const kaizenMetricsRouter = router({
   // Get real-time daily metrics
   getDailyMetrics: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenDailyMetricsFallback();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -88,7 +96,7 @@ export const kaizenMetricsRouter = router({
   // Get weekly metrics summary
   getWeeklyMetrics: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenWeeklyMetricsFallback();
 
     const today = new Date();
     const weekAgo = new Date(today);
@@ -152,7 +160,7 @@ export const kaizenMetricsRouter = router({
   // Get monthly metrics summary
   getMonthlyMetrics: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenMonthlyMetricsFallback();
 
     const today = new Date();
     const monthAgo = new Date(today);
@@ -229,7 +237,7 @@ export const kaizenMetricsRouter = router({
   // Get quarterly metrics summary
   getQuarterlyMetrics: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenQuarterlyMetricsFallback();
 
     const today = new Date();
     const quarterAgo = new Date(today);
@@ -289,7 +297,7 @@ export const kaizenMetricsRouter = router({
   // Get annual metrics summary
   getAnnualMetrics: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenAnnualMetricsFallback();
 
     const today = new Date();
     const yearAgo = new Date(today);
@@ -449,7 +457,7 @@ export const kaizenMetricsRouter = router({
   // Get kaizen dashboard summary
   getKaizenDashboard: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { error: 'Database not available' };
+    if (!db) return kaizenDashboardFallback();
 
     const today = new Date();
     const weekAgo = new Date(today);

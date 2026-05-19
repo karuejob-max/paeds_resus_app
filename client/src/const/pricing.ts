@@ -9,37 +9,20 @@ export interface CoursePrice {
   description: string;
   price: number;
   category: "individual" | "institutional" | "parent";
+  providerTrack?: "aha_certification" | "paeds_resus";
   duration?: string;
   level?: string;
 }
 
-export interface PricingTier {
-  name: string;
-  price: number;
-  description: string;
-  features: string[];
-  color: string;
-}
-
 // Individual Provider Courses
 export const individualCourses: CoursePrice[] = [
-  {
-    id: "pals_septic",
-    name: "Paediatric septic shock — rapid course + ResusGPS",
-    description:
-      "Evidence-informed micro-course: recognise septic shock early, first-hour principles, escalation. Pairs with ResusGPS at the bedside. Not a substitute for your hospital protocol.",
-    /** Accessible entry price; adjust in one place as you scale volume. */
-    price: 200,
-    category: "individual",
-    duration: "~90 min self-paced",
-    level: "All providers",
-  },
   {
     id: "bls",
     name: "BLS (Basic Life Support)",
     description: "Essential life support techniques for healthcare providers",
     price: 10000,
     category: "individual",
+    providerTrack: "aha_certification",
     duration: "2 days",
     level: "Beginner",
   },
@@ -49,16 +32,18 @@ export const individualCourses: CoursePrice[] = [
     description: "Advanced cardiac care and emergency protocols",
     price: 20000,
     category: "individual",
+    providerTrack: "aha_certification",
     duration: "3 days",
     level: "Intermediate",
   },
   {
     id: "pals",
-    name: "The systematic approach to a seriously ill child",
+    name: "PALS (Pediatric Advanced Life Support)",
     description:
-      "Structured assessment and stabilization for the critically unwell child — aligned with pediatric emergency practice (PALS-level).",
+      "Advanced pediatric emergency assessment and stabilization for critically ill children.",
     price: 100,
     category: "individual",
+    providerTrack: "aha_certification",
     duration: "Self-paced",
     level: "Advanced",
   },
@@ -69,61 +54,9 @@ export const individualCourses: CoursePrice[] = [
       "Train-the-trainer path: complete to receive your Paeds Resus instructor number; platform approval unlocks B2B teaching assignments.",
     price: 25000,
     category: "individual",
+    providerTrack: "paeds_resus",
     duration: "Self-paced + assessment",
     level: "Advanced",
-  },
-];
-
-// Elite Fellowship Tiers
-export const fellowshipTiers: PricingTier[] = [
-  {
-    name: "Bronze Paeds Resus Fellowship",
-    price: 70000,
-    description: "Foundation level fellowship with core competencies",
-    features: [
-      "12-month fellowship program",
-      "Core pediatric resuscitation training",
-      "Monthly live training sessions",
-      "Access to learning materials",
-      "Peer community access",
-      "Certificate upon completion",
-      "Email support",
-    ],
-    color: "from-amber-600 to-amber-700",
-  },
-  {
-    name: "Silver Paeds Resus Fellowship",
-    price: 100000,
-    description: "Intermediate level with advanced clinical skills",
-    features: [
-      "All Bronze features",
-      "Advanced clinical training",
-      "Weekly live sessions",
-      "One-on-one mentoring (2 sessions)",
-      "Simulation training access",
-      "Priority support",
-      "Continuing education credits",
-      "Advanced certificate",
-    ],
-    color: "from-gray-400 to-gray-500",
-  },
-  {
-    name: "Gold Paeds Resus Fellowship",
-    price: 150000,
-    description: "Premium level with elite training and mentorship",
-    features: [
-      "All Silver features",
-      "Elite trainer access",
-      "Bi-weekly one-on-one mentoring",
-      "Advanced simulation lab access",
-      "Research project opportunity",
-      "Leadership training",
-      "International networking",
-      "Lifetime community access",
-      "Premium certificate",
-      "Job placement assistance",
-    ],
-    color: "from-yellow-400 to-yellow-600",
   },
 ];
 
@@ -219,6 +152,10 @@ export const parentCourses: CoursePrice[] = [
 export function getIndividualCoursePrice(courseId: string): number | null {
   const course = individualCourses.find((c) => c.id === courseId);
   return course?.price ?? null;
+}
+
+export function getIndividualCoursesByTrack(track: "aha_certification" | "paeds_resus"): CoursePrice[] {
+  return individualCourses.filter((course) => course.providerTrack === track);
 }
 
 export function getInstitutionalPrice(

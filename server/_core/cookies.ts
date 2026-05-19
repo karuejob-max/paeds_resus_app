@@ -40,8 +40,8 @@ export function getSessionCookieOptions(
   //       : undefined;
 
   const secure = isSecureRequest(req);
-  // sameSite: "none" requires secure: true; on localhost (http) use "lax" so the cookie is stored and sent
-  const sameSite = secure ? "none" : "lax";
+  // Same-origin SPA + API on www.paedsresus.com: Lax is more reliable than None (Safari / IT policies).
+  const sameSite = secure ? "lax" : "lax";
 
   return {
     httpOnly: true,

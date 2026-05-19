@@ -1,371 +1,250 @@
 /**
- * Paeds Resus Service Worker
- * 
- * Implements offline-first architecture for clinical decision support.
- * Critical for LMICs where connectivity is intermittent.
- * 
+ * Paeds Resus Platform — Service Worker v3
+ *
  * Strategy:
- * - Cache clinical data (PR-DC, guidelines) on install
- * - Serve from cache first, update in background
- * - Queue failed requests for retry when online
- * - Sync assessment data when connectivity restored
+ *   - Cache-first for static assets (JS/CSS/fonts/images)
+ *   - Network-first with cache fallback for API calls
+ *   - Stale-while-revalidate for HTML navigation
+ *   - Background sync for analytics queue and SAMPLE history queue
+ *
+ * Critical for LMIC settings where connectivity is intermittent.
  */
 
-const CACHE_VERSION = 'paeds-resus-v1';
-const CLINICAL_DATA_CACHE = 'clinical-data-v1';
-const RUNTIME_CACHE = 'runtime-v1';
+const CACHE_VERSION = 'paeds-resus-v3';
+const STATIC_CACHE  = `${CACHE_VERSION}-static`;
+const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const API_CACHE     = `${CACHE_VERSION}-api`;
 
-// Critical clinical resources to cache immediately
-const CLINICAL_RESOURCES = [
-  '/clinical-assessment',
-  '/docs/PR-DC_V1.0_Drug_Compendium.md',
-  '/docs/Clinical_Guideline_V1.0.md',
-  '/shared/weightEstimation.js',
-  '/shared/drugCalculations.js',
-];
-
-// Static assets to cache
-const STATIC_ASSETS = [
+const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/assets/index.js',
-  '/assets/index.css',
   '/manifest.json',
+  '/favicon.png',
 ];
 
-/**
- * Install event - cache critical resources
- */
+const CACHEABLE_API_PREFIXES = [
+  '/api/trpc/drugCalculations',
+  '/api/trpc/weightEstimation',
+];
+
+// ─── Install ─────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-
   event.waitUntil(
-    (async () => {
-      // Cache static assets
-      const staticCache = await caches.open(CACHE_VERSION);
-      await staticCache.addAll(STATIC_ASSETS.map((url) => new Request(url, { cache: 'reload' })));
-
-      // Cache clinical data
-      const clinicalCache = await caches.open(CLINICAL_DATA_CACHE);
-      await clinicalCache.addAll(CLINICAL_RESOURCES.map((url) => new Request(url, { cache: 'reload' })));
-
-      console.log('[SW] Service worker installed successfully');
-
-      // Skip waiting to activate immediately
-      self.skipWaiting();
-    })()
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(SHELL_ASSETS).catch((err) => console.warn('[SW] Shell cache partial fail:', err)))
+      .then(() => self.skipWaiting())
   );
 });
 
-/**
- * Activate event - clean up old caches
- */
+// ─── Activate ────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-
   event.waitUntil(
-    (async () => {
-      // Delete old caches
-      const cacheNames = await caches.keys();
-      await Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_VERSION && name !== CLINICAL_DATA_CACHE && name !== RUNTIME_CACHE)
-          .map((name) => {
-            console.log(`[SW] Deleting old cache: ${name}`);
-            return caches.delete(name);
-          })
-      );
-
-      // Claim all clients immediately
-      await self.clients.claim();
-
-      console.log('[SW] Service worker activated successfully');
-    })()
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys
+          .filter((k) => k.startsWith('paeds-resus-') && k !== STATIC_CACHE && k !== RUNTIME_CACHE && k !== API_CACHE)
+          .map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-/**
- * Fetch event - serve from cache first, then network
- */
+// ─── Fetch ───────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip cross-origin requests
-  if (url.origin !== self.location.origin) {
+  if (request.method !== 'GET') return;
+  if (url.hostname !== self.location.hostname) return;
+
+  // Static assets — cache first
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico')
+  ) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+  // Cacheable API calls — network first, cache fallback
+  if (CACHEABLE_API_PREFIXES.some((p) => url.pathname.startsWith(p))) {
+    event.respondWith(networkFirstWithCache(request, API_CACHE));
     return;
   }
 
-  // Handle clinical data requests (cache-first)
-  if (isClinicalResource(url.pathname)) {
-    event.respondWith(cacheFirstStrategy(request, CLINICAL_DATA_CACHE));
-    return;
-  }
+  // All other API/tRPC — skip (analytics queue handles retry)
+  if (url.pathname.startsWith('/api/')) return;
 
-  // Handle static assets (cache-first with network fallback)
-  if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirstStrategy(request, CACHE_VERSION));
-    return;
-  }
-
-  // Handle API requests (network-first with cache fallback)
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirstStrategy(request, RUNTIME_CACHE));
-    return;
-  }
-
-  // Default: network-first
-  event.respondWith(networkFirstStrategy(request, RUNTIME_CACHE));
+  // HTML navigation — stale-while-revalidate, fallback to shell
+  event.respondWith(navigationHandler(request));
 });
 
-/**
- * Cache-first strategy
- * Try cache first, fall back to network, update cache in background
- */
-async function cacheFirstStrategy(request, cacheName) {
-  try {
-    // Try cache first
-    const cache = await caches.open(cacheName);
-    const cachedResponse = await cache.match(request);
-
-    if (cachedResponse) {
-      console.log(`[SW] Serving from cache: ${request.url}`);
-
-      // Update cache in background
-      fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            cache.put(request, networkResponse.clone());
-          }
-        })
-        .catch(() => {
-          // Network failed, but we already have cached version
-        });
-
-      return cachedResponse;
-    }
-
-    // Cache miss - fetch from network
-    console.log(`[SW] Cache miss, fetching from network: ${request.url}`);
-    const networkResponse = await fetch(request);
-
-    // Cache successful responses
-    if (networkResponse && networkResponse.status === 200) {
-      cache.put(request, networkResponse.clone());
-    }
-
-    return networkResponse;
-  } catch (error) {
-    console.error(`[SW] Cache-first strategy failed for ${request.url}:`, error);
-
-    // Return offline page if available
-    const cache = await caches.open(CACHE_VERSION);
-    const offlinePage = await cache.match('/offline.html');
-    if (offlinePage) {
-      return offlinePage;
-    }
-
-    // Last resort: generic error response
-    return new Response('Offline - Clinical data unavailable', {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: new Headers({
-        'Content-Type': 'text/plain',
-      }),
-    });
-  }
-}
-
-/**
- * Network-first strategy
- * Try network first, fall back to cache if offline
- */
-async function networkFirstStrategy(request, cacheName) {
-  try {
-    // Try network first
-    const networkResponse = await fetch(request);
-
-    // Cache successful responses
-    if (networkResponse && networkResponse.status === 200) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, networkResponse.clone());
-    }
-
-    return networkResponse;
-  } catch (error) {
-    console.log(`[SW] Network failed, trying cache: ${request.url}`);
-
-    // Network failed - try cache
-    const cache = await caches.open(cacheName);
-    const cachedResponse = await cache.match(request);
-
-    if (cachedResponse) {
-      console.log(`[SW] Serving from cache (offline): ${request.url}`);
-      return cachedResponse;
-    }
-
-    // No cache available
-    console.error(`[SW] No cache available for ${request.url}`);
-    return new Response('Offline - No cached data available', {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: new Headers({
-        'Content-Type': 'text/plain',
-      }),
-    });
-  }
-}
-
-/**
- * Check if URL is a clinical resource
- */
-function isClinicalResource(pathname) {
-  return (
-    pathname.startsWith('/docs/') ||
-    pathname.startsWith('/shared/') ||
-    pathname === '/clinical-assessment' ||
-    pathname.includes('Drug_Compendium') ||
-    pathname.includes('Clinical_Guideline')
-  );
-}
-
-/**
- * Check if URL is a static asset
- */
-function isStaticAsset(pathname) {
-  return (
-    pathname === '/' ||
-    pathname === '/index.html' ||
-    pathname.startsWith('/assets/') ||
-    pathname.startsWith('/icons/') ||
-    pathname === '/manifest.json' ||
-    pathname.endsWith('.js') ||
-    pathname.endsWith('.css') ||
-    pathname.endsWith('.png') ||
-    pathname.endsWith('.jpg') ||
-    pathname.endsWith('.svg') ||
-    pathname.endsWith('.woff') ||
-    pathname.endsWith('.woff2')
-  );
-}
-
-/**
- * Background sync event - retry failed requests
- */
+// ─── Background Sync ─────────────────────────────────────────────────────────
 self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync triggered:', event.tag);
-
-  if (event.tag === 'sync-assessments') {
-    event.waitUntil(syncAssessments());
+  if (event.tag === 'analytics-queue-drain') {
+    event.waitUntil(drainAnalyticsQueue());
+  }
+  if (event.tag === 'sample-history-sync') {
+    event.waitUntil(drainSampleHistoryQueue());
   }
 });
 
-/**
- * Sync pending assessments when back online
- */
-async function syncAssessments() {
-  try {
-    // Get pending assessments from IndexedDB
-    const db = await openDatabase();
-    const tx = db.transaction('pendingAssessments', 'readonly');
-    const store = tx.objectStore('pendingAssessments');
-    const pendingAssessments = await store.getAll();
+// ─── Push Notifications ───────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Paeds Resus', {
+      body: data.body || '',
+      icon: '/favicon.png',
+      badge: '/favicon.png',
+      tag: data.tag || 'paeds-resus',
+      data: data.url ? { url: data.url } : undefined,
+    })
+  );
+});
 
-    console.log(`[SW] Syncing ${pendingAssessments.length} pending assessments`);
-
-    // Sync each assessment
-    for (const assessment of pendingAssessments) {
-      try {
-        const response = await fetch('/api/trpc/assessment.save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(assessment.data),
-        });
-
-        if (response.ok) {
-          // Remove from pending queue
-          const deleteTx = db.transaction('pendingAssessments', 'readwrite');
-          const deleteStore = deleteTx.objectStore('pendingAssessments');
-          await deleteStore.delete(assessment.id);
-          console.log(`[SW] Synced assessment ${assessment.id}`);
-        }
-      } catch (error) {
-        console.error(`[SW] Failed to sync assessment ${assessment.id}:`, error);
-      }
-    }
-
-    console.log('[SW] Assessment sync complete');
-  } catch (error) {
-    console.error('[SW] Assessment sync failed:', error);
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.notification.data && event.notification.data.url) {
+    event.waitUntil(clients.openWindow(event.notification.data.url));
   }
-}
+});
 
-/**
- * Open IndexedDB database
- */
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('PaedsResusDB', 1);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-
-      // Create object stores if they don't exist
-      if (!db.objectStoreNames.contains('pendingAssessments')) {
-        db.createObjectStore('pendingAssessments', { keyPath: 'id', autoIncrement: true });
-      }
-
-      if (!db.objectStoreNames.contains('clinicalData')) {
-        db.createObjectStore('clinicalData', { keyPath: 'key' });
-      }
-    };
-  });
-}
-
-/**
- * Message event - handle messages from clients
- */
+// ─── Message Handler ─────────────────────────────────────────────────────────
 self.addEventListener('message', (event) => {
-  console.log('[SW] Received message:', event.data);
-
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-
-  if (event.data && event.data.type === 'CACHE_CLINICAL_DATA') {
-    event.waitUntil(cacheClinicalData(event.data.payload));
+  if (event.data && event.data.type === 'CACHE_URLS') {
+    event.waitUntil(
+      caches.open(RUNTIME_CACHE).then((cache) => cache.addAll(event.data.urls || []))
+    );
   }
 });
 
-/**
- * Cache clinical data from client
- */
-async function cacheClinicalData(data) {
+// ─── Fetch Helpers ────────────────────────────────────────────────────────────
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
   try {
-    const db = await openDatabase();
-    const tx = db.transaction('clinicalData', 'readwrite');
-    const store = tx.objectStore('clinicalData');
-
-    await store.put({
-      key: data.key,
-      value: data.value,
-      timestamp: Date.now(),
-    });
-
-    console.log(`[SW] Cached clinical data: ${data.key}`);
-  } catch (error) {
-    console.error('[SW] Failed to cache clinical data:', error);
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (_) {
+    return new Response('Offline', { status: 503 });
   }
 }
 
-console.log('[SW] Service worker script loaded');
+async function networkFirstWithCache(request, cacheName) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (_) {
+    const cached = await caches.match(request);
+    return cached || new Response(JSON.stringify({ error: 'offline' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function navigationHandler(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(RUNTIME_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (_) {
+    const cached = await caches.match(request) ||
+                   await caches.match('/') ||
+                   await caches.match('/index.html');
+    return cached || new Response('Offline', { status: 503 });
+  }
+}
+
+// ─── Background Sync Helpers ──────────────────────────────────────────────────
+async function drainAnalyticsQueue() {
+  try {
+    const db = await openIDB('paeds-resus-offline', 3);
+    const tx = db.transaction('analyticsQueue', 'readwrite');
+    const store = tx.objectStore('analyticsQueue');
+    const events = await idbGetAll(store);
+    if (!events.length) return;
+    for (const evt of events) {
+      try {
+        const res = await fetch('/api/trpc/events.trackEvent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ json: evt.payload }),
+        });
+        if (res.ok) store.delete(evt.id);
+      } catch (_) { /* leave in queue */ }
+    }
+    await txComplete(tx);
+  } catch (err) {
+    console.warn('[SW] Analytics drain failed:', err);
+  }
+}
+
+async function drainSampleHistoryQueue() {
+  try {
+    const db = await openIDB('paeds-resus-offline', 3);
+    if (!db.objectStoreNames.contains('sampleHistoryQueue')) return;
+    const tx = db.transaction('sampleHistoryQueue', 'readwrite');
+    const store = tx.objectStore('sampleHistoryQueue');
+    const items = await idbGetAll(store);
+    if (!items.length) return;
+    for (const item of items) {
+      try {
+        const res = await fetch('/api/trpc/sampleHistory.saveSampleHistory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ json: item.payload }),
+        });
+        if (res.ok) store.delete(item.id);
+      } catch (_) { /* leave in queue */ }
+    }
+    await txComplete(tx);
+  } catch (err) {
+    console.warn('[SW] SAMPLE history drain failed:', err);
+  }
+}
+
+function openIDB(name, version) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(name, version);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onupgradeneeded = () => { /* stores managed by client */ };
+  });
+}
+
+function idbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function txComplete(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}

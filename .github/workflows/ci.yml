@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify CI workflow matches packageManager
+        run: node scripts/verify-ci-workflow.mjs
+
+      # Use packageManager from package.json (pnpm@10.x) — do not pin `version:` here.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (app + service worker)
+        run: pnpm run check
+
+      - name: Unit + clinical engine tests
+        run: pnpm run test:unit && pnpm run test:clinical
+
+      - name: Sprint 1 rollup verify
+        run: pnpm run verify:sprint1
+
+      - name: Production build
+        run: pnpm run build

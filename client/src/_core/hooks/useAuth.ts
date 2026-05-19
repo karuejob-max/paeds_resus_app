@@ -1,4 +1,9 @@
 import { getLoginUrl } from "@/const";
+import {
+  clearAuthSessionCache,
+  readCachedAuthMe,
+  writeAuthMeCache,
+} from "@/lib/auth-session-cache";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
@@ -13,14 +18,22 @@ export function useAuth(options?: UseAuthOptions) {
     options ?? {};
   const utils = trpc.useUtils();
 
+  const cachedMe = useMemo(() => readCachedAuthMe(), []);
+
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    /** Show last-known user while validating cookie with server (does not skip refetch). */
+    ...(cachedMe !== undefined ? { placeholderData: () => cachedMe } : {}),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: "always",
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
       utils.auth.me.setData(undefined, null);
+      clearAuthSessionCache();
     },
   });
 
@@ -37,42 +50,48 @@ export function useAuth(options?: UseAuthOptions) {
       throw error;
     } finally {
       utils.auth.me.setData(undefined, null);
+      clearAuthSessionCache();
       await utils.auth.me.invalidate();
     }
   }, [logoutMutation, utils]);
 
+  const sessionSettled = meQuery.isFetchedAfterMount;
+
   const state = useMemo(() => {
-    localStorage.setItem(
-      "paeds-resus-user-info",
-      JSON.stringify(meQuery.data)
-    );
     return {
-      user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
+      user: sessionSettled ? (meQuery.data ?? null) : null,
+      /** Wait for server auth.me before trusting session (avoids stale localStorage lock-out). */
+      loading: !sessionSettled || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
+      isAuthenticated: sessionSettled && Boolean(meQuery.data),
+      sessionSettled,
     };
   }, [
     meQuery.data,
     meQuery.error,
-    meQuery.isLoading,
     logoutMutation.error,
     logoutMutation.isPending,
+    sessionSettled,
   ]);
 
   useEffect(() => {
+    if (!sessionSettled) return;
+    writeAuthMeCache(meQuery.data ?? null);
+  }, [meQuery.data, sessionSettled]);
+
+  useEffect(() => {
     if (!redirectOnUnauthenticated) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if (!sessionSettled || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
-    window.location.href = redirectPath
+    window.location.href = redirectPath;
   }, [
     redirectOnUnauthenticated,
     redirectPath,
     logoutMutation.isPending,
-    meQuery.isLoading,
+    sessionSettled,
     state.user,
   ]);
 

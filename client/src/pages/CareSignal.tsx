@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Shield, TrendingUp, Users, AlertCircle, CheckCircle2 } from "lucide-react";
-import CareSignalForm from "@/components/CareSignalForm";
+import CareSignalFormV2 from "@/components/CareSignalFormV2";
+import { ResourceGapWidget } from "@/components/ResourceGapWidget";
+import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
+import { CARE_SIGNAL_V2_STEP_GUIDE } from "@/lib/care-signal-v2";
 
 export default function CareSignal() {
   const loggerRef = useRef<HTMLDivElement>(null);
@@ -22,7 +25,7 @@ export default function CareSignal() {
             <h1 className="text-4xl font-bold">Care Signal</h1>
           </div>
           <p className="text-lg text-blue-100 max-w-2xl mb-6">
-            A confidential space for healthcare providers to report paediatric emergency events, identify system gaps, and drive improvement. Parent and guardian stories live under Safe-Truth (parents), not here.
+            Structured reporting so no child dies from preventable causes — timelines, delays, resources, and system fixes your facility, county, and partners can act on. Parent stories remain under Safe-Truth.
           </p>
           <div className="flex flex-wrap gap-3">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
@@ -51,7 +54,7 @@ export default function CareSignal() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Report system gaps without fear—knowledge, resources, leadership, communication, or infrastructure barriers that impact care.
+                Capture delays, equipment gaps, and system barriers — structured for facility, county, and national quality improvement.
               </p>
             </CardContent>
           </Card>
@@ -65,7 +68,7 @@ export default function CareSignal() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Receive personalized, role-specific recommendations to improve your practice and your facility's care quality.
+                Assess preventability and contributing factors so leaders can prioritise interventions that stop preventable deaths.
               </p>
             </CardContent>
           </Card>
@@ -79,7 +82,7 @@ export default function CareSignal() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Contribute to a movement toward neurologically intact survival (pCOSCA) for all children, regardless of circumstances.
+                Propose concrete system fixes your hospital, county, or partners can implement — not blame, but actionable change.
               </p>
             </CardContent>
           </Card>
@@ -87,7 +90,33 @@ export default function CareSignal() {
 
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
-          <CareSignalForm />
+          <CareSignalFormV2 />
+        </div>
+
+        {/* Resource Gap Trends — sourced from ResusGPS sessions, NOT from Care Signal events */}
+        <div className="mb-8">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ResusGPS Data
+            </span>
+            <span className="text-xs text-slate-400">— interventions marked unavailable during live resuscitations</span>
+          </div>
+          <ResourceGapWidget
+            title="Resource Gap Trends"
+            description="Equipment and medications most frequently unavailable during live paediatric resuscitations at your facility (sourced from ResusGPS sessions, not Care Signal reports)"
+            limit={10}
+          />
+        </div>
+
+        {/* Multi-Facility Benchmark — sourced from ResusGPS sessions, anonymised cross-facility comparison */}
+        <div className="mb-12">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ResusGPS Data
+            </span>
+            <span className="text-xs text-slate-400">— anonymised cross-facility comparison from ResusGPS sessions</span>
+          </div>
+          <MultiFacilityBenchmarkWidget />
         </div>
 
         {/* How It Works */}
@@ -95,68 +124,24 @@ export default function CareSignal() {
           <CardHeader>
             <CardTitle>How Care Signal works</CardTitle>
             <CardDescription>
-              A 4-step process to capture, analyze, and improve pediatric emergency care
+              Seven focused steps: facility context, delays, resources, preventability, and actions for systems change
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white font-bold">
-                    1
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Log the Event</h3>
-                  <p className="text-gray-600 mt-1">
-                    Report when and where a pediatric emergency occurred, the child's age, and initial presentation.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white font-bold">
-                    2
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Track the Chain of Survival</h3>
-                  <p className="text-gray-600 mt-1">
-                    Check off each step of the chain of survival (Recognition, Activation, CPR, Defibrillation, Advanced Care, Post-Resuscitation).
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
+              {CARE_SIGNAL_V2_STEP_GUIDE.map((step, index) => (
+                <div key={step.title} className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white font-bold">
-                      3
+                    <div className="flex items-center justify-center h-12 w-12 rounded-md bg-[#1a4d4d] text-white font-bold">
+                      {index + 1}
                     </div>
                   </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Identify System Gaps</h3>
-                  <p className="text-gray-600 mt-1">
-                    Select gaps you identified: knowledge, resources, leadership, communication, protocol, equipment, training, staffing, or infrastructure.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white font-bold">
-                    4
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{step.title}</h3>
+                    <p className="text-gray-600 mt-1">{step.description}</p>
                   </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Receive Recommendations</h3>
-                  <p className="text-gray-600 mt-1">
-                    Get personalized insights and recommendations based on your role and the gaps identified. Track your progress over time.
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -193,8 +178,8 @@ export default function CareSignal() {
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Every event you log contributes to our understanding of how to improve pediatric emergency care and save more children's lives.
           </p>
-          <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={scrollToLogger}>
-            Start Logging Events
+          <Button size="lg" className="bg-[#1a4d4d] hover:bg-[#0d3333]" onClick={scrollToLogger}>
+            Start a Care Signal report
           </Button>
         </div>
       </div>

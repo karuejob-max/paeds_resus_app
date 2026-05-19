@@ -104,6 +104,10 @@ export interface Intervention {
   completedAt?: number;
   startedAt?: number;
   repeatCount?: number;
+  /** Set when the provider marks this resource as unavailable at their facility */
+  unavailableAt?: number;
+  /** Free-text description of the alternative used when the primary resource was unavailable */
+  alternativeUsed?: string;
 }
 
 export interface SafetyAlert {
@@ -128,7 +132,8 @@ export interface ClinicalEvent {
   timestamp: number;
   type: 'phase_change' | 'finding' | 'threat_identified' | 'intervention_started'
     | 'intervention_completed' | 'safety_alert' | 'reassessment' | 'vital_sign'
-    | 'diagnosis' | 'note' | 'cardiac_arrest_start' | 'rosc' | 'patient_info_updated';
+    | 'diagnosis' | 'note' | 'cardiac_arrest_start' | 'rosc' | 'patient_info_updated'
+    | 'resource_unavailable';
   letter?: ABCDELetter;
   detail: string;
   data?: Record<string, unknown>;
@@ -157,14 +162,18 @@ export interface FluidTracker {
 }
 
 export interface ResusSession {
+  id: string;
   phase: Phase;
   currentLetter: ABCDELetter;
   quickAssessment: 'sick' | 'not_sick' | null;
   findings: Finding[];
   threats: Threat[];
+  activeThreat?: Threat | null;
   safetyAlerts: SafetyAlert[];
   sampleHistory: Partial<SAMPLEHistory>;
   definitiveDiagnosis: string | null;
+  /** Working differential / documented co-existing diagnoses (primary remains `definitiveDiagnosis`) */
+  concurrentDiagnoses: string[];
   patientWeight: number | null;
   patientAge: string | null;
   isTrauma: boolean;
@@ -180,7 +189,12 @@ export interface ResusSession {
   derivedPerfusion: string | null; // engine-derived perfusion state
   undoStack: ResusSession[]; // Previous states (max 50)
   redoStack: ResusSession[]; // States after undo (max 50)
+  /** Parallel to undoStack (same length): human-readable label for the next undo */
+  undoActionLabels: string[];
   lastActionId?: string; // Track what was undone for UI feedback
+  /** Fellowship / analytics (optional; not required for core ABCDE engine) */
+  depthScore?: number;
+  outcome?: string;
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────
@@ -1560,14 +1574,17 @@ const safetyRules: SafetyRule[] = [
 
 export function createSession(weight?: number | null, age?: string | null, isTrauma?: boolean): ResusSession {
   return {
+    id: `resus-${Date.now()}`,
     phase: 'IDLE',
     currentLetter: isTrauma ? 'X' : 'A',
     quickAssessment: null,
     findings: [],
     threats: [],
+    activeThreat: null,
     safetyAlerts: [],
     sampleHistory: {},
     definitiveDiagnosis: null,
+    concurrentDiagnoses: [],
     patientWeight: weight ?? null,
     patientAge: age ?? null,
     isTrauma: isTrauma ?? false,
@@ -1588,6 +1605,9 @@ export function createSession(weight?: number | null, age?: string | null, isTra
       bolusHistory: [],
     },
     derivedPerfusion: null,
+    undoStack: [],
+    redoStack: [],
+    undoActionLabels: [],
   };
 }
 
@@ -1839,6 +1859,41 @@ export function startIntervention(session: ResusSession, interventionId: string)
   return next;
 }
 
+/**
+ * markInterventionUnavailable — called when a provider taps "Not Available"
+ * on an intervention card. Records the gap for Care Signal data collection
+ * and optionally captures what alternative was used instead.
+ *
+ * The intervention status is set to 'skipped' so the UI can show a clear
+ * visual indicator and the export record documents the resource gap.
+ */
+export function markInterventionUnavailable(
+  session: ResusSession,
+  interventionId: string,
+  alternativeUsed?: string
+): ResusSession {
+  const next = deepCopy(session);
+  for (const threat of next.threats) {
+    const intervention = threat.interventions.find(i => i.id === interventionId);
+    if (intervention) {
+      intervention.status = 'skipped';
+      intervention.unavailableAt = Date.now();
+      if (alternativeUsed) {
+        intervention.alternativeUsed = alternativeUsed;
+      }
+      const altNote = alternativeUsed ? ` → Alternative: ${alternativeUsed}` : '';
+      log(
+        next,
+        'resource_unavailable',
+        `⚠ RESOURCE UNAVAILABLE: ${intervention.action}${altNote}`,
+        threat.letter
+      );
+      break;
+    }
+  }
+  return next;
+}
+
 export function returnToPrimarySurvey(session: ResusSession): ResusSession {
   const next = deepCopy(session);
 
@@ -1874,9 +1929,27 @@ export function updateSAMPLE(session: ResusSession, field: keyof SAMPLEHistory, 
 export function setDefinitiveDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
   const next = deepCopy(session);
   next.definitiveDiagnosis = diagnosis;
+  next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(d => d !== diagnosis);
   next.phase = 'DEFINITIVE_CARE';
   log(next, 'diagnosis', `DEFINITIVE DIAGNOSIS: ${diagnosis}`);
   log(next, 'phase_change', `→ DEFINITIVE CARE: ${diagnosis}`);
+  return next;
+}
+
+export function addConcurrentDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
+  const next = deepCopy(session);
+  const d = diagnosis.trim();
+  if (!d || next.definitiveDiagnosis === d) return next;
+  const list = next.concurrentDiagnoses ?? [];
+  if (list.includes(d)) return next;
+  next.concurrentDiagnoses = [...list, d];
+  log(next, 'diagnosis', `Co-diagnosis added: ${d}`);
+  return next;
+}
+
+export function removeConcurrentDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
+  const next = deepCopy(session);
+  next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(x => x !== diagnosis);
   return next;
 }
 
@@ -2109,7 +2182,10 @@ export function exportClinicalRecord(session: ResusSession): string {
   if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
   if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
   lines.push(`Quick Assessment: ${session.quickAssessment || 'N/A'}`);
-  if (session.definitiveDiagnosis) lines.push(`Diagnosis: ${session.definitiveDiagnosis}`);
+  if (session.definitiveDiagnosis) lines.push(`Primary diagnosis: ${session.definitiveDiagnosis}`);
+  if (session.concurrentDiagnoses?.length) {
+    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+  }
   lines.push('');
 
   // Vital Signs
@@ -2184,13 +2260,78 @@ export function exportClinicalRecord(session: ResusSession): string {
     lines.push('');
   }
 
-  // Event Log
+  // Event Log — Filter to clinical events only (exclude keystroke/UI noise)
   lines.push('── EVENT LOG ──');
-  for (const event of session.events) {
+  const clinicalEventTypes = ['phase_change', 'finding', 'threat_identified', 'intervention_started', 'intervention_completed', 'safety_alert', 'note', 'diagnosis', 'cardiac_arrest_start', 'rosc', 'reassessment', 'patient_info_updated'];
+  const clinicalEvents = session.events.filter(e => clinicalEventTypes.includes(e.type));
+  for (const event of clinicalEvents) {
     const time = new Date(event.timestamp).toLocaleTimeString();
     lines.push(`[${time}] ${event.detail}`);
   }
 
+  return lines.join('\n');
+}
+
+/**
+ * P1-RESUS-1: Compact handoff / learning one-pager (clipboard-friendly).
+ * Shorter than exportClinicalRecord — for EHR paste and fellowship reflection.
+ */
+export function exportSessionSummaryOnePager(session: ResusSession): string {
+  const completedInterventions = session.threats
+    .flatMap((t) => t.interventions)
+    .filter((i) => i.status === 'completed' || i.status === 'in_progress');
+  const pendingCritical = session.threats
+    .flatMap((t) => t.interventions)
+    .filter((i) => i.status === 'pending' && i.critical);
+
+  const lines: string[] = [];
+  lines.push('PAEDS RESUS — SESSION SUMMARY (one-pager)');
+  lines.push(`When: ${new Date(session.startTime).toLocaleString()}`);
+  if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
+  if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
+  lines.push(`Phase: ${session.phase}`);
+  lines.push(`Quick assessment: ${session.quickAssessment || '—'}`);
+  lines.push(`Working diagnosis: ${session.definitiveDiagnosis || '—'}`);
+  if (session.concurrentDiagnoses?.length) {
+    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+  }
+
+  const vs = session.vitalSigns;
+  const vitals: string[] = [];
+  if (vs.hr !== undefined) vitals.push(`HR ${vs.hr}`);
+  if (vs.rr !== undefined) vitals.push(`RR ${vs.rr}`);
+  if (vs.spo2 !== undefined) vitals.push(`SpO2 ${vs.spo2}%`);
+  if (vs.sbp !== undefined && vs.dbp !== undefined) vitals.push(`BP ${vs.sbp}/${vs.dbp}`);
+  if (vitals.length) lines.push(`Vitals: ${vitals.join(' · ')}`);
+
+  if (completedInterventions.length) {
+    lines.push('');
+    lines.push('Interventions:');
+    for (const i of completedInterventions.slice(0, 12)) {
+      lines.push(`  • ${i.action} (${i.status})`);
+    }
+    if (completedInterventions.length > 12) {
+      lines.push(`  … +${completedInterventions.length - 12} more`);
+    }
+  }
+
+  if (pendingCritical.length) {
+    lines.push('');
+    lines.push('Pending critical:');
+    for (const i of pendingCritical.slice(0, 5)) {
+      lines.push(`  ! ${i.action}`);
+    }
+  }
+
+  if (session.fluidTracker.bolusCount > 0) {
+    lines.push(
+      `Fluids: ${session.fluidTracker.bolusCount} bolus(es), ~${Math.round(session.fluidTracker.totalVolumeMl)} mL` +
+        (session.fluidTracker.isFluidRefractory ? ' — FLUID-REFRACTORY' : '')
+    );
+  }
+
+  lines.push('');
+  lines.push('Training only — follow local protocol and senior review.');
   return lines.join('\n');
 }
 

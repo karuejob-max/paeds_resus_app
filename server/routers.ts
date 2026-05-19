@@ -5,10 +5,21 @@ import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import { getUserByEmail, createUserWithPassword, insertAdminAuditLog, updateUserContactInfo } from "./db";
+import { normalizeEmailForAuth } from "@shared/normalize-email";
+import { normalizeUserPhone } from "@shared/user-phone";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+
+const authEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.string().email({ message: "Enter a valid email address" }));
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendEmail } from "./email-service";
+import { trackEvent } from "./services/analytics.service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { instructorRouter } from "./routers/instructor";
 import { certificateRouter } from "./routers/certificates";
@@ -16,7 +27,8 @@ import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
 import { securityRouter } from "./routers/security";
-import { securityIntegrationRouter } from "./routers/security-integration";
+import { securityIntegrationRouter } from './routers/security-integration';
+import { microCoursesRouter } from './routers/micro-courses'; // Legacy micro-courses router
 import { googleWorkspaceRouter } from "./routers/google-workspace";
 import { personalizationRouter } from "./routers/personalization";
 import { paymentsRouter } from "./routers/payments";
@@ -35,6 +47,8 @@ import { emailCampaignsRouter } from "./routers/email-campaigns";
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
 import { careSignalEventsRouter } from "./routers/care-signal-events";
+import { careSignalReviewRouter } from "./routers/care-signal-review";
+import { sampleHistoryRouter } from "./routers/sample-history";
 import { reportingRouter } from "./routers/reporting";
 import { mobileRouter } from "./routers/mobile-features";
 import { enterpriseRouter } from "./routers/enterprise";
@@ -50,6 +64,7 @@ import { predictionsRouter } from "./routers/predictions";
 import { emailRouter } from "./routers/email";
 import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { adminStatsRouter } from "./routers/admin-stats";
+import { facilitiesRouter } from "./routers/facilities";
 import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
@@ -62,6 +77,7 @@ import { emrIntegrationRouter } from "./routers/emr-integration";
 import { telemedicineRouter } from "./routers/telemedicine";
 import { vitalsRouter } from "./routers/vitals";
 import { cprClockRouter } from "./routers/cprClock";
+import { cprOverrideRouter } from "./routers/cpr-override";
 import { emergencyProtocolsRouter } from "./routers/emergencyProtocols";
 import { alertsRouter } from "./routers/alerts";
 import { diagnosisRouter } from "./routers/diagnosis";
@@ -75,7 +91,6 @@ import { hospitalLeaderboardsRouter } from "./routers/hospital-leaderboards";
 import { realTimeAnalyticsRouter } from "./routers/real-time-analytics";
 import { smsWhatsappRouter } from "./routers/sms-whatsapp";
 import { aiAdaptiveLearningRouter } from "./routers/ai-adaptive-learning";
-import { automatedGradingRouter } from "./routers/automated-grading";
 import { autonomousOperationsRouter } from "./routers/autonomous-operations";
 import { executionTrackingRouter } from "./routers/execution-tracking";
 import { revenueGenerationRouter } from "./routers/revenue-generation";
@@ -89,6 +104,7 @@ import { researchSynthesisRouter } from "./routers/research-synthesis";
 import { capacityBuildingRouter } from "./routers/capacity-building";
 import { qualityImprovementRouter } from "./routers/quality-improvement";
 import { continentalScalingRouter } from "./routers/continental-scaling";
+import { automatedGradingRouter } from "./routers/automated-grading";
 // Removed non-existent router imports to fix TypeScript errors
 // These will be added back when the routers are implemented
 import { patientRouter } from "./routers/patients";
@@ -102,6 +118,9 @@ import { streakTrackingRouter } from "./routers/streak-tracking";
 import { resusAutoLaunch } from "./routers/resus-auto-launch";
 import { adminNotifications } from "./routers/admin-notifications";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
+import { coursesRouter } from "./routers/courses";
+import { fellowshipRouter } from "./routers/fellowship";
+import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 
 export const appRouter = router({
   system: systemRouter,
@@ -124,35 +143,69 @@ export const appRouter = router({
     }),
     register: publicProcedure
       .input(z.object({
-        email: z.string().email(),
+        email: authEmailSchema,
         password: z.string().min(8).refine(
           (p) => /[a-zA-Z]/.test(p) && /\d/.test(p),
           "Password must contain at least one letter and one number"
         ),
-        name: z.string().optional(),
+        name: z.string().min(1, "Enter your full name as it should appear on your certificate").max(200),
         userType: z.enum(["individual", "parent", "institutional"]),
+        phoneMode: z.enum(["ke", "intl"]).optional(),
+        phoneValue: z.string().max(64).optional(),
       }))
       .mutation(async ({ input }) => {
-        const existing = await db.getUserByEmail(input.email);
+        const email = normalizeEmailForAuth(input.email);
+        const existing = await getUserByEmail(email);
         if (existing) throw new Error("Email already registered");
-        const openId = `email:${input.email}`;
+        let phone: string | null = null;
+        if (input.phoneValue != null && String(input.phoneValue).trim() !== "") {
+          const mode = input.phoneMode ?? "intl";
+          const normalized = normalizeUserPhone({ mode, value: input.phoneValue });
+          if (!normalized) {
+            throw new Error(
+              mode === "ke"
+                ? "Enter a valid Kenya mobile number (9 digits after 0 or +254)."
+                : "Enter a valid international number with country code (e.g. +447700900123)."
+            );
+          }
+          phone = normalized;
+        }
+        const openId = `email:${email}`;
         const passwordHash = await bcrypt.hash(input.password, 10);
-        await db.createUserWithPassword({
+        await createUserWithPassword({
           openId,
-          email: input.email,
-          name: input.name ?? null,
+          email,
+          name: input.name.trim(),
           passwordHash,
           userType: input.userType,
+          phone,
         });
         return { success: true };
       }),
     loginWithPassword: publicProcedure
-      .input(z.object({ email: z.string().email(), password: z.string() }))
+      .input(
+        z.object({
+          email: authEmailSchema,
+          password: z.string().min(1, "Password is required"),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
-        const user = await db.getUserByEmail(input.email);
-        if (!user?.passwordHash) throw new Error("Invalid email or password");
+        const email = normalizeEmailForAuth(input.email);
+        const user = await getUserByEmail(email);
+        if (!user?.passwordHash) {
+          if (user && user.loginMethod && user.loginMethod !== "email") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "This email is registered with a different sign-in method. Use the original provider sign-in, or reset your password to set one.",
+            });
+          }
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
         const ok = await bcrypt.compare(input.password, user.passwordHash);
-        if (!ok) throw new Error("Invalid email or password");
+        if (!ok) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
         const sessionMaxAgeMs = ENV.sessionMaxAgeMs;
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name ?? "",
@@ -163,7 +216,7 @@ export const appRouter = router({
         await db.createAuditLog({
           userId: user.id,
           action: 'LOGIN_SUCCESS',
-          details: { email: input.email, ip: ctx.req.ip },
+          details: { email, ip: ctx.req.ip },
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };
@@ -172,22 +225,50 @@ export const appRouter = router({
       .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
       .mutation(async ({ input, ctx }) => {
         await db.updateUserType(ctx.user.id, input.userType);
+        if (input.userType === "individual") {
+          await trackEvent({
+            userId: ctx.user.id,
+            eventType: "provider_conversion",
+            eventName: "user_type_updated_to_provider",
+            pageUrl: "/home",
+            eventData: {
+              selectedUserType: input.userType,
+            },
+            sessionId: `user_type_${ctx.user.id}`,
+          });
+        }
         return { success: true };
       }),
     requestPasswordReset: publicProcedure
-      .input(z.object({ email: z.string().email() }))
+      .input(z.object({ email: authEmailSchema }))
       .mutation(async ({ input }) => {
-        const user = await db.getUserByEmail(input.email);
-        if (!user?.passwordHash) return { success: true }; // Don't leak existence
+        const email = normalizeEmailForAuth(input.email);
+        const user = await getUserByEmail(email);
+        if (!user) return { success: true }; // Don't leak whether the address exists
+        const deliverTo = (user.email?.trim() || email).toLowerCase();
         const token = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await db.createPasswordResetToken(user.id, token, expiresAt);
-        const baseUrl = ENV.appBaseUrl || "http://localhost:5173";
-        const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
-        await sendEmail(input.email, "passwordReset", {
-          userName: user.name || "User",
-          resetLink,
-        });
+        const baseUrl = (ENV.appBaseUrl || "https://www.paedsresus.com").replace(/\/$/, "");
+        const resetLink = `${baseUrl}/reset-password?token=${token}`;
+        // Always prefer SES for auth mail (avoids SendGrid accepting mail that never arrives).
+        const result = await sendEmail(
+          deliverTo,
+          "passwordReset",
+          {
+            userName: user.name || "User",
+            resetLink,
+          },
+          "ses"
+        );
+        if (!result.success) {
+          console.error(`[Auth] Failed to send password reset email to ${deliverTo}:`, result.error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "We could not send the reset email. Please try again shortly or contact support@paedsresus.com.",
+          });
+        }
         return { success: true };
       }),
     resetPassword: publicProcedure
@@ -239,6 +320,44 @@ export const appRouter = router({
         }).catch(() => {});
         return { success: true };
       }),
+    updateMyProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1, "Name is required").max(200),
+          phoneMode: z.enum(["ke", "intl"]).optional(),
+          phoneValue: z.string().max(64).optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        let phone: string | null = ctx.user.phone ?? null;
+        if (input.phoneValue !== undefined) {
+          if (input.phoneValue == null || String(input.phoneValue).trim() === "") {
+            phone = null;
+          } else {
+            const mode = input.phoneMode ?? "intl";
+            const normalized = normalizeUserPhone({ mode, value: input.phoneValue });
+            if (!normalized) {
+              throw new Error(
+                mode === "ke"
+                  ? "Enter a valid Kenya mobile number (9 digits after 0 or +254)."
+                  : "Enter a valid international number with country code (e.g. +447700900123)."
+              );
+            }
+            phone = normalized;
+          }
+        }
+        await updateUserContactInfo(ctx.user.id, {
+          name: input.name.trim(),
+          phone,
+        });
+        await db.createAuditLog({
+          userId: ctx.user.id,
+          action: "PROFILE_UPDATED",
+          details: { fields: ["name", "phone"] },
+          timestamp: new Date(),
+        }).catch(() => {});
+        return { success: true };
+      }),
   }),
   enrollment: enrollmentRouter,
   instructor: instructorRouter,
@@ -263,6 +382,8 @@ export const appRouter = router({
   chatSupport: chatSupportRouter,
   aiAssistant: aiAssistantRouter,
   careSignalEvents: careSignalEventsRouter,
+  careSignalReview: careSignalReviewRouter,
+  sampleHistory: sampleHistoryRouter,
   reporting: reportingRouter,
   mobile: mobileRouter,
   enterprise: enterpriseRouter,
@@ -274,15 +395,36 @@ export const appRouter = router({
   performance: performanceRouter,
   support: supportRouter,
   dashboards: dashboardsRouter,
-  predictions: predictionsRouter,
-  email:  emailRouter,
+  // Mock / planning routers: off in production unless ENABLE_ASPIRATIONAL_APIS=true (see server/_core/env.ts).
+  ...(ENV.exposeAspirationalApis
+    ? {
+        predictions: predictionsRouter,
+        predictiveAnalytics: predictiveAnalyticsRouter,
+        realTimeAnalytics: realTimeAnalyticsRouter,
+        autonomousOperations: autonomousOperationsRouter,
+        executionTracking: executionTrackingRouter,
+        revenueGeneration: revenueGenerationRouter,
+        kaizen: kaizenContinuousImprovementRouter,
+        alutaContinua: alutaContinuaRouter,
+        regionalHubs: regionalHubsRouter,
+        complianceAutomation: complianceAutomationRouter,
+        clinicalDecisionSupport: clinicalDecisionSupportRouter,
+        patientMonitoring: patientMonitoringRouter,
+        researchSynthesis: researchSynthesisRouter,
+        capacityBuilding: capacityBuildingRouter,
+        qualityImprovement: qualityImprovementRouter,
+        continentalScaling: continentalScalingRouter,
+        automatedGrading: automatedGradingRouter,
+      }
+    : {}),
+  email: emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   adminStats: adminStatsRouter,
+  facilities: facilitiesRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
-  predictiveAnalytics: predictiveAnalyticsRouter,
   localization: localizationRouter,
   mobileSync: mobileSyncRouter,
   incidentAlerts: incidentAlertsRouter,
@@ -291,6 +433,7 @@ export const appRouter = router({
   vitals: vitalsRouter,
   cprClock: cprClockRouter,
   cprSession: cprSessionRouter,
+  cprOverride: cprOverrideRouter,
   guidelines: guidelinesRouter,
   fellowshipPathways: fellowshipPathwaysRouter,
   recommendationEngine: recommendationEngineRouter,
@@ -305,23 +448,10 @@ export const appRouter = router({
   videoGeneration: videoGenerationRouter,
   liveInstructor: liveInstructorRouter,
   hospitalLeaderboards: hospitalLeaderboardsRouter,
-  realTimeAnalytics: realTimeAnalyticsRouter,
   smsWhatsapp: smsWhatsappRouter,
   aiAdaptiveLearning: aiAdaptiveLearningRouter,
-  automatedGrading: automatedGradingRouter,
-  autonomousOperations: autonomousOperationsRouter,
-  executionTracking: executionTrackingRouter,
-  revenueGeneration: revenueGenerationRouter,
-  kaizen: kaizenContinuousImprovementRouter,
-  alutaContinua: alutaContinuaRouter,
-  regionalHubs: regionalHubsRouter,
-  complianceAutomation: complianceAutomationRouter,
-  clinicalDecisionSupport: clinicalDecisionSupportRouter,
-  patientMonitoring: patientMonitoringRouter,
-  researchSynthesis: researchSynthesisRouter,
-  capacityBuilding: capacityBuildingRouter,
-  qualityImprovement: qualityImprovementRouter,
-  continentalScaling: continentalScalingRouter,
+  /** Operational KPI dashboard (/kaizen-dashboard); DB-backed metrics — not the aspirational Kaizen *continuous improvement* mock router. */
+  kaizenMetrics: kaizenMetricsRouter,
   // TODO: Re-add these routers after implementation
   // aiContentGeneration,
   // globalInfrastructure,
@@ -339,7 +469,6 @@ export const appRouter = router({
   // viralReferral,
   // coreExponential,
   // TODO: Re-add these routers after implementation
-  // kaizenMetrics: kaizenMetricsRouter,
   // kaizenAutomation: kaizenAutomationRouter,
   // kaizenIntegration: kaizenIntegrationRouter,
   // kaizenRealMetrics: kaizenRealMetricsRouter,
@@ -347,13 +476,16 @@ export const appRouter = router({
   // kaizenTOC: kaizenTOCRouter,
   // ml: mlRouter,
   // autonomousOrchestration: autonomousOrchestrationRouter,
-  // patients: patientRouter,
-  // interventions: interventionRouter,
-  // provider: providerRouter,
-  // resusAutoLaunch,
-  // adminNotifications,
-  // facilityBenchmarking,
+  patients: patientRouter,
+  interventions: interventionRouter,
+  provider: providerRouter,
+  resusAutoLaunch,
+  adminNotifications,
+  facilityBenchmarking,
   securityIntegration: securityIntegrationRouter,
+  microCourses: microCoursesRouter,
+  courses: coursesRouter,
+  fellowship: fellowshipRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -10,7 +10,7 @@ export default function FloatingWhatsAppWidget() {
   // WhatsApp phone number and messages for different pages
   const getWhatsAppMessage = () => {
     const messages: Record<string, string> = {
-      "/providers": "Hi! I'm interested in the Elite Fellowship program. Can you tell me more?",
+      "/providers": "Hi! I'm interested in the Paeds Resus Fellowship program. Can you tell me more?",
       "/institutional": "Hello! We're interested in bulk training for our hospital staff. Can we discuss pricing?",
       "/parents": "Hi! I'd like to learn life-saving skills for my family. What courses do you offer?",
       "/about": "Hi! I'd like to know more about Paeds Resus.",

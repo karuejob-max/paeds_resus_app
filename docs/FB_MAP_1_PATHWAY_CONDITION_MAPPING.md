@@ -1,4 +1,4 @@
-# FB-MAP-1: ResusGPS Pathway ↔ Fellowship Condition Mapping
+# FB-MAP-1: ResusGPS Pathway ↔ Paeds Resus Fellowship Condition Mapping
 
 **Status:** ✅ Complete (config + types + tRPC + tests)  
 **Date:** 2026-04-06  
@@ -11,7 +11,7 @@
 
 FB-MAP-1 builds the **configuration and API layer** for mapping ResusGPS assessment pathways to fellowship-qualifying conditions. This enables:
 
-1. **Fellowship pillar B tracking:** System can attribute ResusGPS sessions to specific conditions (≥3 cases per condition required)
+1. **Paeds Resus Fellowship pillar B tracking:** System can attribute ResusGPS sessions to specific conditions (≥3 cases per condition required)
 2. **Analytics:** Understand which conditions providers are practicing with ResusGPS
 3. **Learner dashboards:** Show providers which conditions they've practiced and which need more cases
 4. **Extensibility:** Add new pathways/conditions without breaking existing logic
@@ -23,7 +23,7 @@ FB-MAP-1 builds the **configuration and API layer** for mapping ResusGPS assessm
 ### 1. Config Layer: `server/lib/pathway-condition-mapping.ts`
 
 **Enums:**
-- `FellowshipCondition` — 27 clinical conditions (shock types, respiratory, cardiac, metabolic, neurological, trauma)
+- `FellowshipCondition` — 27 Paeds Resus Fellowship conditions (shock types, respiratory, cardiac, metabolic, neurological, trauma)
 - `ResusGPSPathway` — 13 assessment pathways (ABCDE primary survey + shock differentiation + 7 condition-specific modules)
 
 **Mappings:**
@@ -181,9 +181,9 @@ Shock Differentiation pathway requires:
 
 ---
 
-## Fellowship Pillar B Integration
+## Paeds Resus Fellowship Pillar B Integration
 
-**Requirement:** Providers must demonstrate ≥3 attributable ResusGPS cases per **taught condition** to earn fellowship.
+**Requirement:** Providers must demonstrate ≥3 attributable ResusGPS cases per **taught condition** to earn the title **Paeds Resus Fellow**.
 
 **How FB-MAP-1 enables this:**
 

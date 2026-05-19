@@ -12,7 +12,9 @@ import { eq, gte, sql } from "drizzle-orm";
  * 3. Admin reports can see the event in the rolling 7-day window
  */
 
-describe("FB-AN-2: Care Signal Analytics Verification", () => {
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDatabase)("FB-AN-2: Care Signal Analytics Verification", () => {
   let db: any;
   let testUserId = 999; // Mock user ID for testing
 

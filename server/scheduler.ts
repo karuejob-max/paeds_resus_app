@@ -5,12 +5,37 @@ import { eq, and, lt } from "drizzle-orm";
 import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
+import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
+
+function useMpesaMock(): boolean {
+  const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/**
+ * While the Node process is running, refresh the cached Daraja OAuth token before it expires.
+ * (Does not wake a sleeping host — pair with GET /api/health + external ping for that.)
+ */
+function scheduleDarajaTokenWarm() {
+  if (useMpesaMock()) return;
+
+  cron.schedule("*/12 * * * *", async () => {
+    try {
+      const { getMpesaAccessToken } = await import("./mpesa");
+      await getMpesaAccessToken();
+    } catch (error) {
+      console.warn("[Scheduler] Daraja token warm failed:", error instanceof Error ? error.message : error);
+    }
+  });
+}
 
 /**
  * Initialize scheduled jobs for automated reminders and follow-ups
  */
 export function initializeScheduler() {
   console.log("[Scheduler] Initializing automated tasks...");
+
+  scheduleDarajaTokenWarm();
 
   // Run payment reminders every day at 9 AM
   schedulePaymentReminders();
@@ -27,7 +52,42 @@ export function initializeScheduler() {
   // HI-CERT-1: Daily renewal reminder emails (deduped per certificate row)
   scheduleCertificateRenewalReminders();
 
+  // Fellowship: refresh denormalized pillar rows for active learners
+  scheduleFellowshipProgressSync();
+
+  // Platform ops: email alerts for stale payments, critical errors, backlogs
+  scheduleAdminOpsAlerts();
+
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleAdminOpsAlerts() {
+  cron.schedule("15 * * * *", async () => {
+    try {
+      const { runAdminOpsAlerts } = await import("./lib/admin-ops-alerts");
+      const result = await runAdminOpsAlerts();
+      if (result.alertsSent > 0) {
+        console.log(
+          `[Scheduler] admin ops alerts: evaluated=${result.rulesEvaluated} sent=${result.alertsSent}`
+        );
+      }
+    } catch (error) {
+      console.error("[Scheduler] admin ops alerts failed:", error);
+    }
+  });
+}
+
+function scheduleFellowshipProgressSync() {
+  cron.schedule("30 4 * * *", async () => {
+    try {
+      const result = await runScheduledFellowshipProgressSync();
+      console.log(
+        `[Scheduler] fellowshipProgress sync: processed=${result.totalProcessed} succeeded=${result.totalSucceeded}`
+      );
+    } catch (error) {
+      console.error("[Scheduler] fellowshipProgress sync failed:", error);
+    }
+  });
 }
 
 function scheduleCertificateRenewalReminders() {

@@ -6,6 +6,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 ## Every PR / sprint slice
 
+- [ ] **`pnpm run check`** (`tsc --noEmit`) passes. Prefer **`pnpm run ci:gate`** (check + `test:unit` + `verify:sprint1` + build) before merge to `main`. Run **`pnpm run test:clinical`** when touching Resus/clinical engines.
 - [ ] Aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) (auth, roles, reports definitions, priority order).
 - [ ] If the change affects **positioning**, **multi-product scope**, or **institutional / community** flows, aligns with [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
 - [ ] No new single-role lock; multi-role UI switch and default `userType` behaviour preserved.
@@ -18,7 +19,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 ## When touching auth or users
 
 - [ ] Admin only via `OWNER_OPEN_ID`; auth check is `role === 'admin'`.
-- [ ] Post-login redirect follows default `userType` (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/institutional-portal`).
+- [ ] Post-login redirect follows default `userType` (individual → `/home`, parent → `/parent-safe-truth`, institutional → `/hospital-admin-dashboard`; legacy `/institutional-portal` redirects).
 
 ---
 
@@ -26,6 +27,8 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 - [ ] Staging rule when it exists: PRs verified on staging before production; branch-based deploys (e.g. develop → staging, main → production).
 - [ ] Domain: paedsresus.com → 301 to www.paedsresus.com (documented and implemented).
+- [ ] **GitHub CI / pnpm:** Do not pin `version:` under `pnpm/action-setup` when `package.json` has `packageManager` (use pnpm 10 from Corepack only). After dependency changes, run `pnpm install` and commit `pnpm-lock.yaml`. Run **`pnpm run verify:ci`** (also first step in GitHub CI).
+- [ ] **Branch protection on `main`:** require the **CI** workflow to pass before merge (see [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md)).
 
 ---
 
@@ -33,6 +36,15 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 - [ ] Events flow to existing `events.trackEvent` → `analyticsEvents`; no parallel ad-hoc tracking.
 - [ ] Report KPIs match PLATFORM_SOURCE_OF_TRUTH (Safe-Truth = submissions in month EAT; product activity = events in last 7 days).
+
+---
+
+## Pre-launch / production cut (operator)
+
+- [ ] **`DATABASE_URL`** on the host (e.g. Render) matches the Aiven URI you used for a successful local **`pnpm run db:test-connection`** (and migrations applied — see [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md); full reset: `pnpm run db:fresh-migrate` only when intentional).
+- [ ] **`pnpm run verify:analytics`** against production/staging DB (or run after first real traffic) — confirms `analyticsEvents` pipeline; see [EVENT_TAXONOMY.md](./EVENT_TAXONOMY.md).
+- [ ] **Smoke:** sign-in, one learner path (e.g. enroll or course open), Admin Reports load for `OWNER_OPEN_ID` user.
+- [ ] **M-Pesa (if live keys):** `MPESA_CALLBACK_URL` / Daraja callback path documented; optional **`MPESA_CALLBACK_IP_ALLOWLIST`** per [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) / `.env.example`.
 
 ---
 

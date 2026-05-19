@@ -11,7 +11,7 @@ function courseTypeLabel(courseType: string): string {
     bls: "Basic Life Support",
     acls: "Advanced Cardiovascular Life Support",
     pals: "Pediatric Advanced Life Support",
-    fellowship: "Paeds Resus Elite Fellowship",
+    fellowship: "Paeds Resus Paeds Resus Fellowship",
   };
   return courseNames[courseType] ?? courseType;
 }

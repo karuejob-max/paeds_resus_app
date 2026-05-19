@@ -12,11 +12,12 @@ import { BottomNav } from "@/components/BottomNav";
 const tiles = [
   {
     title: "ResusGPS",
-    description: "Point-of-care paediatric resuscitation guidance — no account required to try the tool.",
-    href: "/resus",
+    description: "Point-of-care paediatric resuscitation guidance for healthcare providers after sign-in.",
+    href: getLoginUrl("/resus"),
     icon: Siren,
-    cta: "Open ResusGPS",
+    cta: "Provider sign-in for ResusGPS",
     variant: "default" as const,
+    external: true,
   },
   {
     title: "Healthcare providers",
@@ -66,6 +67,18 @@ export default function Start() {
           </p>
         </div>
 
+        <Card className="mb-6 border-border/70 bg-card/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">First time here?</CardTitle>
+            <CardDescription>Use this quick sequence for a smoother start.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-1">
+            <p>1) Choose your primary path below and sign in.</p>
+            <p>2) Complete your first action (open ResusGPS, submit a story, or request an institutional quote).</p>
+            <p>3) Use the header role switcher whenever you need another workspace.</p>
+          </CardContent>
+        </Card>
+
         <div className="space-y-4">
           {tiles.map((tile) => {
             const Icon = tile.icon;
@@ -106,7 +119,8 @@ export default function Start() {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-10">
-          Clinical emergency? ResusGPS at <Link href="/resus" className="text-primary underline font-medium">/resus</Link> is the fastest entry.
+          Clinical emergency? Healthcare providers can sign in first, then open ResusGPS at{" "}
+          <a href={getLoginUrl("/resus")} className="text-primary underline font-medium">/resus</a>.
         </p>
       </div>
       <BottomNav />

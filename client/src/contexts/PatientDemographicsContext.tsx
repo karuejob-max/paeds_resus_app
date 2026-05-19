@@ -23,22 +23,33 @@ interface PatientDemographicsContextType {
 
 const PatientDemographicsContext = createContext<PatientDemographicsContextType | undefined>(undefined);
 
+/** Session-scoped only (tab); clears when the tab closes. See docs/SECURITY_BASELINE.md §clinical browser context. */
+const SESSION_STORAGE_KEY = 'paeds_resus_session_demographics_v1';
+/** Legacy key — migrated once into session storage (Codex audit: reduce long-lived clinical-ish data in localStorage). */
+const LEGACY_LOCALSTORAGE_KEY = 'patientDemographics';
+
 export function PatientDemographicsProvider({ children }: { children: ReactNode }) {
   const [demographics, setDemographicsState] = useState<PatientDemographics>({
     age: '',
     weight: ''
   });
 
-  // Load from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('patientDemographics');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setDemographicsState(parsed);
-      } catch (error) {
-        console.error('[PatientDemographics] Failed to parse stored demographics:', error);
+    try {
+      const fromSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (fromSession) {
+        setDemographicsState(JSON.parse(fromSession));
+        return;
       }
+      const legacy = localStorage.getItem(LEGACY_LOCALSTORAGE_KEY);
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        setDemographicsState(parsed);
+        sessionStorage.setItem(SESSION_STORAGE_KEY, legacy);
+        localStorage.removeItem(LEGACY_LOCALSTORAGE_KEY);
+      }
+    } catch (error) {
+      console.error('[PatientDemographics] Failed to restore demographics:', error);
     }
   }, []);
 
@@ -48,12 +59,21 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
       timestamp: new Date().toISOString()
     };
     setDemographicsState(updated);
-    localStorage.setItem('patientDemographics', JSON.stringify(updated));
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // sessionStorage may be unavailable (private mode)
+    }
   };
 
   const clearDemographics = () => {
     setDemographicsState({ age: '', weight: '' });
-    localStorage.removeItem('patientDemographics');
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_LOCALSTORAGE_KEY);
+    } catch {
+      // ignore
+    }
   };
 
   // Parse weight to number (handles kg input)

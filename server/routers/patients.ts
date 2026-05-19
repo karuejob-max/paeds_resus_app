@@ -4,6 +4,22 @@ import { getDb } from "../db";
 import { patients, patientVitals } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 
+function extractInsertId(result: unknown): number {
+  if (Array.isArray(result)) {
+    return Number((result[0] as { insertId?: number } | undefined)?.insertId ?? 0);
+  }
+  return Number((result as { insertId?: number } | undefined)?.insertId ?? 0);
+}
+
+type RiskVitals = {
+  heartRate?: number | null;
+  respiratoryRate?: number | null;
+  oxygenSaturation?: number | null;
+  temperature?: number | string | null;
+  systolicBP?: number | null;
+  diastolicBP?: number | null;
+};
+
 export const patientRouter = router({
   // Add a new patient
   addPatient: publicProcedure
@@ -37,7 +53,7 @@ export const patientRouter = router({
         diagnosis: input.diagnosis || null,
       });
 
-      const patientId = Number(result[0]?.insertId || 0);
+      const patientId = extractInsertId(result);
 
       // Insert vitals if provided
       if (input.heartRate || input.respiratoryRate || input.oxygenSaturation) {
@@ -195,7 +211,7 @@ export const patientRouter = router({
 });
 
 // Helper function to calculate risk score (0-100)
-function calculateRiskScore(vitals: any): number {
+function calculateRiskScore(vitals: RiskVitals): number {
   let score = 0;
 
   // Heart rate scoring (normal: 60-100 bpm for adults)

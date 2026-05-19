@@ -22,6 +22,7 @@ import {
 import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
 import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
 import { initializeScheduler } from "../scheduler";
+import { initializeDatabase, runMigrations } from "./initialize";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -55,6 +56,15 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
+  /**
+   * Lightweight liveness for uptime monitors (UptimeRobot, Render health checks, cron curl).
+   * Keeps serverless-style hosts from cold-stopping between user sessions — the main lever for
+   * sub-minute STK initiation (under ~10s when warm) vs multi-minute spin-up delays.
+   */
+  app.get("/api/health", (_req, res) => {
+    res.status(200).type("application/json").send(JSON.stringify({ ok: true }));
+  });
+
   // STK / Daraja callbacks (canonical path per Safaricom URL naming; legacy alias for old Daraja configs)
   const mpesaStkCallbackHandler: express.RequestHandler = (req, res) => {
     if (!isMpesaCallbackIpAllowed(req)) {
@@ -83,6 +93,9 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      batching: {
+        enabled: true,
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
@@ -101,6 +114,10 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Apply pending DB migrations, then seed courses
+    runMigrations()
+      .then(() => initializeDatabase())
+      .catch(err => console.error('[Initialize] Failed:', err));
     if (process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULER === "1") {
       initializeScheduler();
     }
