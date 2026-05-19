@@ -44,8 +44,15 @@ import {
   CARE_SIGNAL_V2_STEP_GUIDE,
 } from "@/lib/care-signal-v2";
 import type { SafeTruthAgeBand } from "@/lib/safetruth-age";
+import { cn } from "@/lib/utils";
 
 const STEPS = CARE_SIGNAL_V2_STEP_GUIDE.map((step, id) => ({ id, title: step.title }));
+
+/** Readable copy on Care Signal light teal / white surfaces (avoid washed-out muted-foreground). */
+const CS_OPTION =
+  "flex items-start space-x-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:border-teal-200/80 hover:bg-teal-50/60 transition-colors";
+const CS_CHECK_GRID =
+  "border border-slate-200 rounded-md bg-slate-50/90 p-3";
 
 export default function CareSignalFormV2() {
   const [step, setStep] = useState(0);
@@ -178,20 +185,20 @@ export default function CareSignalFormV2() {
         onClose={() => setShowConfirmation(false)}
       />
 
-      <Card className="border-[#1a4d4d]/20 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-[#f0f9f9] to-white border-b">
+      <Card className="border-brand-teal/20 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-brand-surface to-white border-b border-slate-200/80">
           <div className="flex items-start gap-3">
-            <Heart className="h-8 w-8 text-[#1a4d4d] shrink-0 mt-1" />
+            <Heart className="h-8 w-8 text-brand-teal shrink-0 mt-1" />
             <div className="flex-1">
-              <CardTitle className="text-xl">Report for every child who matters</CardTitle>
-              <CardDescription className="mt-1">
+              <CardTitle className="text-xl text-slate-900">Report for every child who matters</CardTitle>
+              <CardDescription className="mt-1 text-slate-600">
                 Structured reporting so your facility, county, and national partners can act on{" "}
                 <strong>preventable harm</strong> — not just checklists. Typical time: 8–12 minutes.
               </CardDescription>
             </div>
           </div>
           <div className="mt-4 space-y-1">
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-slate-600 font-medium">
               <span>
                 Step {step + 1} of {STEPS.length}: {STEPS[step]?.title}
               </span>
@@ -201,7 +208,7 @@ export default function CareSignalFormV2() {
           </div>
         </CardHeader>
 
-        <CardContent className="pt-6 space-y-6">
+        <CardContent className="pt-6 space-y-6 text-slate-800">
           {prefillBanner ? (
             <Alert className="border-blue-200 bg-blue-50">
               <AlertCircle className="h-4 w-4 text-blue-600" />
@@ -211,9 +218,9 @@ export default function CareSignalFormV2() {
 
           {step === 0 ? (
             <div className="space-y-4">
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertDescription className="text-sm">
+              <Alert className="border-teal-200/90 bg-teal-50/90 text-slate-800 [&_[data-slot=alert-description]]:text-slate-700">
+                <Shield className="h-4 w-4 text-brand-teal" />
+                <AlertDescription className="text-sm text-slate-700">
                   Reports aggregate by <strong>facility, county, and country</strong>. No patient names
                   or identifiers — focus on systems that failed or saved a life.
                 </AlertDescription>
@@ -251,12 +258,16 @@ export default function CareSignalFormV2() {
                 {REPORT_TYPE_OPTIONS.map((opt) => (
                   <div
                     key={opt.value}
-                    className="flex items-start space-x-3 rounded-lg border p-3 hover:bg-muted/40"
+                    className={cn(
+                      CS_OPTION,
+                      form.reportType === opt.value &&
+                        "border-brand-teal/50 bg-teal-50 ring-1 ring-brand-teal/25",
+                    )}
                   >
                     <RadioGroupItem value={opt.value} id={opt.value} className="mt-1" />
                     <Label htmlFor={opt.value} className="font-normal cursor-pointer flex-1">
-                      <span className="font-medium block">{opt.label}</span>
-                      <span className="text-xs text-muted-foreground">{opt.hint}</span>
+                      <span className="font-medium block text-slate-900">{opt.label}</span>
+                      <span className="text-xs text-slate-600 leading-snug">{opt.hint}</span>
                     </Label>
                   </div>
                 ))}
@@ -380,7 +391,7 @@ export default function CareSignalFormV2() {
 
           {step === 3 && !skipPatientDetail ? (
             <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-slate-600">
                 Delays are the strongest signal for county and national QI — estimate honestly.
               </p>
               {(
@@ -516,7 +527,7 @@ export default function CareSignalFormV2() {
               </div>
               <div>
                 <Label className="mb-2 block">Equipment / resources NOT available when needed</Label>
-                <div className="grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                <div className={cn("grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto", CS_CHECK_GRID)}>
                   {EQUIPMENT_CHECKLIST.map((item) => (
                     <div key={item} className="flex items-start gap-2">
                       <Checkbox
@@ -524,7 +535,7 @@ export default function CareSignalFormV2() {
                         checked={form.equipmentUnavailable.includes(item)}
                         onCheckedChange={() => toggleArray("equipmentUnavailable", item)}
                       />
-                      <Label htmlFor={`eq-${item}`} className="font-normal text-xs leading-tight">
+                      <Label htmlFor={`eq-${item}`} className="font-normal text-xs leading-tight text-slate-700">
                         {item}
                       </Label>
                     </div>
@@ -657,14 +668,14 @@ export default function CareSignalFormV2() {
               </div>
               <div>
                 <Label>Contributing factors (select all that apply)</Label>
-                <div className="grid sm:grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                <div className={cn("grid sm:grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto", CS_CHECK_GRID)}>
                   {CONTRIBUTING_FACTORS.map((f) => (
                     <div key={f} className="flex items-start gap-2">
                       <Checkbox
                         checked={form.contributingFactors.includes(f)}
                         onCheckedChange={() => toggleArray("contributingFactors", f)}
                       />
-                      <Label className="font-normal text-xs">{f}</Label>
+                      <Label className="font-normal text-xs text-slate-700">{f}</Label>
                     </div>
                   ))}
                 </div>
@@ -749,7 +760,11 @@ export default function CareSignalFormV2() {
               Back
             </Button>
             {step < STEPS.length - 1 ? (
-              <Button type="button" onClick={handleNext} className="flex-1">
+              <Button
+                type="button"
+                onClick={handleNext}
+                className="flex-1 bg-brand-teal hover:bg-[#143333] text-white"
+              >
                 Next
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -758,7 +773,7 @@ export default function CareSignalFormV2() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitMutation.isPending}
-                className="flex-1 bg-[#1a4d4d] hover:bg-[#0d3333]"
+                className="flex-1 bg-brand-teal hover:bg-[#143333]"
               >
                 {submitMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
