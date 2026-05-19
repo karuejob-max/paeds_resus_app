@@ -11,6 +11,7 @@ import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
+import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
 import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
@@ -83,23 +84,11 @@ export const coursesRouter = router({
     try {
       const database = await getDb();
       if (!database) return [];
-      await ensureCourseCatalogForSchedule(database, 'bls');
-      await ensureCourseCatalogForSchedule(database, 'acls');
-      await ensureCourseCatalogForSchedule(database, 'pals');
-      const rows = await database
-        .select()
-        .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
-        .orderBy(asc(courses.programType), asc(courses.id));
-      const seen = new Set<string>();
-      const distinct: (typeof rows)[number][] = [];
-      for (const r of rows) {
-        if (seen.has(r.programType)) continue;
-        seen.add(r.programType);
-        distinct.push(r);
-      }
       const order = ['bls', 'acls', 'pals', 'heartsaver'] as const;
-      return order.map((pt) => distinct.find((r) => r.programType === pt)).filter(Boolean) as (typeof rows)[number][];
+      const anchors = await Promise.all(
+        order.map((pt) => resolveAhaCourseAnchor(database, pt))
+      );
+      return anchors.filter(Boolean) as NonNullable<(typeof anchors)[number]>[];
     } catch (error) {
       console.error('[courses.listAhaHubPrograms]', error);
       return [];

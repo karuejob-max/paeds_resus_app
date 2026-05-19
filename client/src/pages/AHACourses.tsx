@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BookOpen, CheckCircle2, ArrowLeft, XCircle, Clock, ClipboardCheck, CalendarPlus, Award } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
-import { getAhaContinueRoute } from "@/lib/providerCourseRoutes";
+import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { toast } from "sonner";
 
 const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver", { title: string; description: string }> = {
   bls: {
@@ -106,6 +107,15 @@ export default function AHACourses() {
   const { data: ahaCourses } = trpc.courses.listAhaHubPrograms.useQuery();
   const { data: ahaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, { enabled: !!user });
 
+  const openAhaPlayer = (pt: AhaProgramType, enrollmentId: number) => {
+    const hubCourse = (ahaCourses ?? []).find((c) => c.programType === pt);
+    if (!hubCourse?.id) {
+      toast.error(`${pt.toUpperCase()} course content is not ready yet. Please refresh in a moment.`);
+      return;
+    }
+    setLocation(getAhaContinueRoute(pt, enrollmentId, hubCourse.id).destination);
+  };
+
   const latestAhaByProgram = useMemo(() => {
     const m = new Map<string, (NonNullable<typeof ahaEnrollments>[number])>();
     for (const e of ahaEnrollments ?? []) {
@@ -130,8 +140,7 @@ export default function AHACourses() {
               enrollmentId: enrol.id,
               source: "aha_courses_primary",
             });
-            const config = getAhaContinueRoute(pt, enrol.id);
-            setLocation(config.destination);
+            openAhaPlayer(pt, enrol.id);
           },
         };
       }
@@ -152,7 +161,7 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [latestAhaByProgram, setLocation, track]);
+  }, [latestAhaByProgram, setLocation, track, ahaCourses]);
 
   const anyEnrolled = [...latestAhaByProgram.values()].length > 0;
   const anyCognitiveComplete = [...latestAhaByProgram.values()].some((e) => (e as any)?.cognitiveModulesComplete);
@@ -281,16 +290,13 @@ export default function AHACourses() {
                           source: "aha_courses_page",
                         });
                         if (enrol?.id) {
-                          const config = getAhaContinueRoute(pt as "bls" | "acls" | "pals" | "heartsaver", enrol.id);
-                          setLocation(config.destination);
+                          openAhaPlayer(pt as AhaProgramType, enrol.id);
                           return;
                         }
                         setLocation("/home");
                       }}
                     >
-                      {enrol?.id
-                        ? getAhaContinueRoute(pt as "bls" | "acls" | "pals" | "heartsaver", enrol.id).ctaLabel
-                        : "Open learner dashboard"}
+                      {enrol?.id ? "Start course" : "Open learner dashboard"}
                     </Button>
                   )}
                   {isEnrolled && cognitiveComplete && !certIssued && (
