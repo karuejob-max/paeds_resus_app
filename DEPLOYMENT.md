@@ -424,3 +424,113 @@ Paeds Resus Platform © 2026. All rights reserved.
 
 **Last Updated:** January 22, 2026  
 **Next Review:** April 22, 2026
+
+
+---
+
+## Phase 3: Staging Environment Setup (April 6, 2026)
+
+### Branch Strategy
+
+- **develop** → Staging environment (auto-deploys on push)
+- **main** → Production environment (auto-deploys on push)
+
+### GitHub Actions Workflow
+
+Automated deployment pipeline configured in `.github/workflows/deploy.yml`:
+
+```yaml
+- develop branch push → Render staging deployment
+- main branch push → Render production deployment
+```
+
+### Staging Verification Checklist
+
+Before merging to main:
+
+1. **Code Quality**
+   - [ ] All tests pass: `pnpm test`
+   - [ ] Build succeeds: `pnpm build`
+   - [ ] No TypeScript errors: `pnpm tsc --noEmit`
+   - [ ] No console errors in browser
+
+2. **Feature Testing**
+   - [ ] Undo functionality (Cmd+Z shortcuts)
+   - [ ] Medication deduplication (prevents overdosing)
+   - [ ] Countdown timers (5-min intervention tracking)
+   - [ ] Structured age input (WHO weight auto-calculation)
+   - [ ] Multi-diagnosis support (concurrent conditions)
+   - [ ] Dose rationale display (AHA 2020 PALS)
+
+3. **Security Testing**
+   - [ ] Password complexity enforced (8+ chars, mixed case/numbers)
+   - [ ] Session management working (sliding expiry)
+   - [ ] Audit logging active (all auth actions logged)
+   - [ ] Password visibility toggle in login form
+
+4. **Clinical Flow Testing**
+   - [ ] Full resuscitation scenario (enter findings → interventions → reassessment)
+   - [ ] Undo doesn't break state machine
+   - [ ] Deduplication prevents duplicate drugs
+   - [ ] Timers fire and trigger reassessment
+   - [ ] Age-based dosing accurate (neonatal, pediatric, adolescent)
+   - [ ] Multi-diagnosis displays all matching conditions
+
+5. **Performance**
+   - [ ] Page load < 2 seconds
+   - [ ] Intervention start < 500ms
+   - [ ] Undo/redo < 100ms
+   - [ ] No memory leaks in browser
+
+### Deployment Workflow
+
+```bash
+# 1. Feature development on develop branch
+git checkout develop
+git pull github develop
+git checkout -b feature/your-feature
+
+# 2. Make changes and commit
+git add .
+git commit -m "Feature: description"
+git push github feature/your-feature
+
+# 3. Create Pull Request to develop
+# Review and merge on GitHub
+
+# 4. Render auto-deploys to staging
+# Test on staging URL
+
+# 5. Create Pull Request from develop to main
+# Review carefully
+
+# 6. Merge to main
+# Render auto-deploys to production
+```
+
+### Rollback Procedure
+
+If production deployment fails:
+
+```bash
+git revert HEAD
+git push github main
+# Render auto-deploys previous version
+```
+
+### Monitoring
+
+- **Staging logs:** Render dashboard (develop branch)
+- **Production logs:** Render dashboard (main branch)
+- **Error tracking:** Browser console + server logs
+- **Performance:** Render metrics (CPU, memory, response times)
+
+### Success Criteria for Phase 3
+
+- ✅ develop branch auto-deploys to staging
+- ✅ main branch auto-deploys to production
+- ✅ GitHub Actions workflow configured
+- ✅ Deployment documentation complete
+- ✅ All Phase 1-2 features tested on staging
+- ✅ No regressions detected
+- ✅ Ready for production rollout

@@ -12,7 +12,7 @@ This document is an **operational checklist**. Update PSOT §10 only when stagin
 |------|--------|
 | Branch **`develop`** | Synced with `main` — re-sync after each production release: `scripts/sync-develop-from-main.sh` |
 | **`main` protection** | PR required (0 approvals), check **`gate`**, strict, no force-push — `scripts/github-branch-protection-main.json` |
-| **`develop` protection** | Check **`gate`** only (direct pushes OK) — `scripts/github-branch-protection-develop.json` |
+| **`develop` protection** | Ruleset **`develop-ci-gate`** — required check **`gate`**, no PR required (re-apply: `scripts/github-ruleset-develop.json`) |
 | Legacy ruleset “Ruleset 1” | **Removed** |
 | Pre-merge | [PRE_MERGE_CHECKLIST.md](./PRE_MERGE_CHECKLIST.md) |
 
