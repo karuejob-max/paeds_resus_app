@@ -12,9 +12,10 @@
 
 ## Verification
 
-- [ ] `pnpm run ci:gate` (includes `verify:ci` — catches pnpm/lockfile drift before GitHub)
+- [ ] `pnpm run ci:gate` — see `docs/PRE_MERGE_CHECKLIST.md`
 - [ ] If `package.json` dependencies changed: `pnpm install` and commit `pnpm-lock.yaml`
-- [ ] Tested on **staging** (when staging exists — see `docs/STAGING_BRANCH_SETUP.md`)
+- [ ] Tested on **staging** for risky changes (auth, payments, migrations) — `docs/RENDER_STAGING_SETUP.md`
+- [ ] No `.env` or secrets in the diff
 
 ## PSOT / analytics
 

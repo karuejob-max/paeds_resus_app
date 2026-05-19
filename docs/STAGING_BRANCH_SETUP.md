@@ -1,26 +1,27 @@
 # Staging branch setup (PSOT §10)
 
-**PSOT:** [PLATFORM_SOURCE_OF_TRUTH.md §10](./PLATFORM_SOURCE_OF_TRUTH.md) — today **single production**; when staging exists, **`develop` → staging**, **`main` → production**.
+**PSOT:** [PLATFORM_SOURCE_OF_TRUTH.md §10](./PLATFORM_SOURCE_OF_TRUTH.md) — **production** on `main`; **staging Render** is operator setup ([RENDER_STAGING_SETUP.md](./RENDER_STAGING_SETUP.md)). Git branch **`develop`** is the integration branch for staging deploys.
 
-This document is an **operational checklist**. It does not change PSOT.
-
----
-
-## 1. Repository
-
-1. Create long-lived branch **`develop`** from current `main` (or default trunk policy your team uses).
-2. Protect **`main`** (**enabled 2026-05-18** via GitHub API): require PR (0 approvals — CI is the gate), required status check **`gate`** (workflow `CI`), strict up-to-date, no force-push, admins included. Re-apply from `scripts/github-branch-protection-main.json` if settings are reset:  
-   `gh api -X PUT repos/karuejob-max/paeds_resus_app/branches/main/protection --input scripts/github-branch-protection-main.json`
-3. Protect **`develop`**: same checks where possible; allow fast iteration.
+This document is an **operational checklist**. Update PSOT §10 only when staging URL is confirmed live.
 
 ---
 
-## 2. Hosting (e.g. Render — adjust for your provider)
+## 1. Repository (status 2026-05-18)
 
-1. **Production service:** deploy from **`main`** (existing).
-2. **Staging service:** new Web Service, deploy from **`develop`**, **distinct** `DATABASE_URL` (staging DB)—never point staging at production MySQL.
-3. Set **`APP_BASE_URL`**, **`VITE_TRPC_URL`** (if used), **`JWT_SECRET`**, **`OWNER_OPEN_ID`**, M-Pesa/Daraja keys to **sandbox** or non-production values on staging.
-4. Optional: subdomain `staging.paedsresus.com` or provider default URL.
+| Item | Status |
+|------|--------|
+| Branch **`develop`** | Synced with `main` — re-sync after each production release: `scripts/sync-develop-from-main.sh` |
+| **`main` protection** | PR required (0 approvals), check **`gate`**, strict, no force-push — `scripts/github-branch-protection-main.json` |
+| **`develop` protection** | Check **`gate`** only (direct pushes OK) — `scripts/github-branch-protection-develop.json` |
+| Legacy ruleset “Ruleset 1” | **Removed** |
+| Pre-merge | [PRE_MERGE_CHECKLIST.md](./PRE_MERGE_CHECKLIST.md) |
+
+---
+
+## 2. Hosting (Render)
+
+1. **Production:** deploy from **`main`** (www.paedsresus.com).
+2. **Staging:** [RENDER_STAGING_SETUP.md](./RENDER_STAGING_SETUP.md) — branch `develop`, separate `DATABASE_URL`, sandbox M-Pesa.
 
 ---
 
@@ -41,4 +42,10 @@ This document is an **operational checklist**. It does not change PSOT.
 
 ## 5. When complete
 
-Update **PSOT §10** only when leadership confirms staging is live (single sentence: “Staging environment available at …”). Until then PSOT remains accurate: **no staging yet**.
+Update **PSOT §10** with the staging URL when Render staging is live.
+
+## 6. Operator links
+
+- [GITHUB_NOTIFICATIONS.md](./GITHUB_NOTIFICATIONS.md)
+- [RENDER_STAGING_SETUP.md](./RENDER_STAGING_SETUP.md)
+- [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md)
