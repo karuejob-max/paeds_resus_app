@@ -34,7 +34,7 @@
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "seed:pals-course": "tsx server/seed-pals-seriously-ill-course.ts",
     "seed:micro-courses": "tsx server/seed-micro-courses.ts",
-    "seed:bls-acls": "tsx server/seed-bls-acls-courses.ts",
+    "seed:bls-acls": "tsx --import dotenv/config server/seed-bls-acls-courses.ts",
     "db:apply-0037": "node scripts/apply-0037-aha-completion-gates.mjs",
     "db:apply-0040": "node scripts/apply-0040-mpesa-webhook-admin-alerts.mjs",
     "db:apply-0041": "node scripts/apply-0041-care-facilities-registry.mjs",
