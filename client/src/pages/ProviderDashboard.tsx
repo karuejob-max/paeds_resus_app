@@ -318,13 +318,13 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
         </Card>
 
         {/* ── AHA Courses ───────────────────────────────────────────────────── */}
-        <Card className="border-amber-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-4 text-white">
+        <Card className="border-brand-orange/25 overflow-hidden">
+          <div className="bg-gradient-to-r from-brand-orange to-[var(--brand-orange-hover)] px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <BookOpen className="h-8 w-8 opacity-90" />
               <div>
                 <h2 className="font-bold text-lg leading-tight">AHA Courses</h2>
-                <p className="text-amber-100 text-xs mt-0.5">BLS · ACLS · PALS · Internationally recognized</p>
+                <p className="text-white/90 text-xs mt-0.5">BLS · ACLS · PALS · Internationally recognized</p>
               </div>
             </div>
           </div>
@@ -333,7 +333,8 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               Earn internationally recognized American Heart Association certifications for BLS, ACLS, and PALS.
             </p>
             <Button
-              className="w-full justify-between bg-amber-500 hover:bg-amber-600 text-white"
+              variant="cta"
+              className="w-full justify-between"
               onClick={() => {
                 track("provider_conversion", "provider_cta_open_aha_hub", { source: "provider_home_aha_card" });
                 setLocation("/aha-courses");

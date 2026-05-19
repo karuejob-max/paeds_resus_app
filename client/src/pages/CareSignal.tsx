@@ -24,7 +24,7 @@ export default function CareSignal() {
             <Shield className="w-8 h-8" />
             <h1 className="text-4xl font-bold">Care Signal</h1>
           </div>
-          <p className="text-lg text-blue-100 max-w-2xl mb-6">
+          <p className="text-lg text-white/90 max-w-2xl mb-6">
             Structured reporting so no child dies from preventable causes — timelines, delays, resources, and system fixes your facility, county, and partners can act on. Parent stories remain under Safe-Truth.
           </p>
           <div className="flex flex-wrap gap-3">
