@@ -98,7 +98,7 @@ export default function MultiFacilityBenchmarkWidget() {
   }
 
   return (
-    <Card className="border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm">
+    <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>

@@ -735,12 +735,12 @@ export default function ResusGPS() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-4">
-          <div className="rounded-xl border border-amber-400/60 bg-amber-50/80 p-5 space-y-3">
+          <div className="rounded-xl border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-5 space-y-3">
             <div className="flex items-center gap-2 text-amber-800 font-semibold text-base">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               Unfinished case found
             </div>
-            <p className="text-sm text-amber-900/90">
+            <p className="text-sm text-amber-950 dark:text-amber-100">
               A ResusGPS case was interrupted — likely a browser refresh during an active resuscitation.
               Do you want to resume it?
             </p>

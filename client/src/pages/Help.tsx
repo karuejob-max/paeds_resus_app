@@ -9,7 +9,7 @@ export default function Help() {
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <h1 className="text-3xl font-bold">Help centre</h1>
-        <p className="text-muted-foreground">Paeds Resus support for providers, institutions, and families.</p>
+        <p className="text-slate-700 dark:text-slate-300">Paeds Resus support for providers, institutions, and families.</p>
         <Alert>
           <LifeBuoy className="h-4 w-4" />
           <AlertTitle>Need urgent product help?</AlertTitle>

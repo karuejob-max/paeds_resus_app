@@ -481,7 +481,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                     className={cn(
                       "border-b px-6 py-5",
                       quizResult.passed
-                        ? "bg-gradient-to-r from-primary/10 to-brand-surface/80"
+                        ? "bg-primary/10 border border-primary/20"
                         : "bg-destructive/5"
                     )}
                   >
@@ -612,7 +612,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
                 </Card>
               ) : !showQuiz ? (
                 <Card className="overflow-hidden rounded-2xl border-border shadow-md">
-                  <div className="border-b border-border bg-gradient-to-r from-brand-surface/80 to-card px-6 py-4">
+                  <div className="border-b border-border bg-brand-surface dark:bg-card px-6 py-4">
                     <h2 className="text-lg font-bold text-foreground md:text-xl">{moduleContentQuery.data?.title}</h2>
                   </div>
                   <div className="p-6 md:p-8">

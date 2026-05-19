@@ -401,7 +401,7 @@ export default function InstructorPortal() {
 
         {/* AHA Certificate Workflow Info */}
         {unlocked && (
-          <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+          <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base text-emerald-800 dark:text-emerald-300">
                 <ClipboardCheck className="h-5 w-5" />
