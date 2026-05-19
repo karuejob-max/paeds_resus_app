@@ -14,11 +14,11 @@ Reduce CI noise while keeping failures visible.
 | Branch | Policy |
 |--------|--------|
 | `main` | PR required (0 approvals), **`gate`** CI required, strict, no force-push |
-| `develop` | Direct push OK; **`gate`** CI required |
+| `develop` | Direct push OK; ruleset **`develop-ci-gate`** requires green **`gate`** |
 
 Re-apply if reset:
 
 ```bash
 gh api -X PUT repos/karuejob-max/paeds_resus_app/branches/main/protection --input scripts/github-branch-protection-main.json
-gh api -X PUT repos/karuejob-max/paeds_resus_app/branches/develop/protection --input scripts/github-branch-protection-develop.json
+gh api repos/karuejob-max/paeds_resus_app/rulesets -X POST --input scripts/github-ruleset-develop.json
 ```
