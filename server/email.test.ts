@@ -25,6 +25,9 @@ vi.mock("@aws-sdk/client-ses", () => {
 describe("email service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.AWS_ACCESS_KEY_ID = "test-key";
+    process.env.AWS_SECRET_ACCESS_KEY = "test-secret";
+    process.env.SES_FROM_EMAIL = "noreply@paedsresus.com";
   });
 
   describe("sendEmail", () => {
@@ -36,7 +39,8 @@ describe("email service", () => {
         textBody: "Test content",
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.messageId).toBeTruthy();
     });
 
     it("should handle email without text body", async () => {
@@ -46,7 +50,7 @@ describe("email service", () => {
         htmlBody: "<p>Test content</p>",
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it("should validate email address format", async () => {
@@ -57,7 +61,7 @@ describe("email service", () => {
       });
 
       // Should still attempt to send (AWS SES will validate)
-      expect(typeof result).toBe("boolean");
+      expect(result.success).toBe(true);
     });
 
     it("should include proper HTML formatting", async () => {
@@ -77,7 +81,17 @@ describe("email service", () => {
         htmlBody,
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
+    });
+
+    it("returns failure when AWS credentials are missing", async () => {
+      delete process.env.AWS_ACCESS_KEY_ID;
+      const result = await sendEmail({
+        to: "test@example.com",
+        subject: "Test",
+        htmlBody: "<p>Test</p>",
+      });
+      expect(result.success).toBe(false);
     });
   });
 
@@ -259,7 +273,7 @@ describe("email service", () => {
         `,
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it("should include contact information", async () => {
@@ -272,7 +286,7 @@ describe("email service", () => {
         `,
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it("should use proper email styling", async () => {
@@ -296,7 +310,7 @@ describe("email service", () => {
         `,
       });
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
   });
 });

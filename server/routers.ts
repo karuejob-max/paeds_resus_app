@@ -245,17 +245,24 @@ export const appRouter = router({
         const email = normalizeEmailForAuth(input.email);
         const user = await getUserByEmail(email);
         if (!user) return { success: true }; // Don't leak whether the address exists
+        const deliverTo = (user.email?.trim() || email).toLowerCase();
         const token = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await db.createPasswordResetToken(user.id, token, expiresAt);
         const baseUrl = (ENV.appBaseUrl || "https://www.paedsresus.com").replace(/\/$/, "");
         const resetLink = `${baseUrl}/reset-password?token=${token}`;
-        const result = await sendEmail(email, "passwordReset", {
-          userName: user.name || "User",
-          resetLink,
-        });
+        // Always prefer SES for auth mail (avoids SendGrid accepting mail that never arrives).
+        const result = await sendEmail(
+          deliverTo,
+          "passwordReset",
+          {
+            userName: user.name || "User",
+            resetLink,
+          },
+          "ses"
+        );
         if (!result.success) {
-          console.error(`[Auth] Failed to send password reset email to ${email}:`, result.error);
+          console.error(`[Auth] Failed to send password reset email to ${deliverTo}:`, result.error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message:

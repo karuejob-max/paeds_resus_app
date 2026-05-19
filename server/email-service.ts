@@ -641,13 +641,16 @@ export async function sendEmail(
     Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
 
   const sendSes = async () => {
-    const success = await sendViaSES({
+    const sesResult = await sendViaSES({
       to: Array.isArray(to) ? to[0] : to,
       subject,
       htmlBody: html,
       textBody: text,
     });
-    return { success, error: success ? undefined : "SES delivery failed" } as const;
+    if (sesResult.success) {
+      return { success: true as const, messageId: sesResult.messageId };
+    }
+    return { success: false as const, error: sesResult.error || "SES delivery failed" };
   };
 
   if (dispatch === "mailgun") {
@@ -655,8 +658,12 @@ export async function sendEmail(
   }
   if (dispatch === "ses") {
     if (!hasAwsCreds) {
-      return { success: false, error: "AWS SES not configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SES_FROM_EMAIL)" };
+      return {
+        success: false,
+        error: "AWS SES not configured (set EMAIL_PROVIDER=ses, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SES_FROM_EMAIL on the server)",
+      };
     }
+    console.log(`[Email Service] Sending via SES (${process.env.AWS_REGION || "us-east-1"}) template=${templateId}`);
     return sendSes();
   }
   if (dispatch === "sendgrid") {

@@ -26,15 +26,25 @@ const getAppBaseUrl = () => {
 /**
  * Send email via AWS SES
  */
-export async function sendEmail({ to, subject, htmlBody, textBody }: EmailParams): Promise<boolean> {
+export type SesSendResult = { success: true; messageId: string } | { success: false; error: string };
+
+export async function sendEmail({
+  to,
+  subject,
+  htmlBody,
+  textBody,
+}: EmailParams): Promise<SesSendResult> {
   const from = process.env.SES_FROM_EMAIL?.trim() || "noreply@paedsresus.com";
+  const region = process.env.AWS_REGION?.trim() || "us-east-1";
   if (!process.env.AWS_ACCESS_KEY_ID?.trim() || !process.env.AWS_SECRET_ACCESS_KEY?.trim()) {
-    console.error("[Email] AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY missing — cannot send via SES");
-    return false;
+    const error = "AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY missing";
+    console.error(`[Email] ${error}`);
+    return { success: false, error };
   }
   try {
     const command = new SendEmailCommand({
       Source: from,
+      ReplyToAddresses: [process.env.SES_REPLY_TO_EMAIL?.trim() || "paedsresus254@gmail.com"],
       Destination: {
         ToAddresses: [to],
       },
@@ -58,13 +68,14 @@ export async function sendEmail({ to, subject, htmlBody, textBody }: EmailParams
       },
     });
 
-    await sesClient.send(command);
-    console.log(`[Email] Successfully sent to ${to}: ${subject}`);
-    return true;
+    const response = await sesClient.send(command);
+    const messageId = response.MessageId ?? "unknown";
+    console.log(`[Email] SES sent to ${to} from ${from} (${region}) messageId=${messageId} subject=${subject}`);
+    return { success: true, messageId };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[Email] Failed to send to ${to} from ${from} (region ${process.env.AWS_REGION || "us-east-1"}):`, msg);
-    return false;
+    console.error(`[Email] SES failed to ${to} from ${from} (${region}):`, msg);
+    return { success: false, error: msg };
   }
 }
 
@@ -118,12 +129,12 @@ export async function sendEnrollmentConfirmation(
     </html>
   `;
 
-  return sendEmail({
+  return (await sendEmail({
     to: email,
     subject: `Enrollment Confirmed: ${programName}`,
     htmlBody,
     textBody: `Welcome to Paeds Resus! Your enrollment in ${programName} has been confirmed. Your enrollment ID is ${enrollmentId}. Check your email for next steps.`,
-  });
+  })).success;
 }
 
 /**
@@ -175,12 +186,12 @@ export async function sendPaymentReminder(
     </html>
   `;
 
-  return sendEmail({
+  return (await sendEmail({
     to: email,
     subject: `Payment Reminder: ${amount.toLocaleString()} KES Due`,
     htmlBody,
     textBody: `Payment reminder: ${amount.toLocaleString()} KES is due for enrollment ${enrollmentId}. Complete your payment to secure your spot.`,
-  });
+  })).success;
 }
 
 /**
@@ -241,12 +252,12 @@ export async function sendTrainingConfirmation(
     </html>
   `;
 
-  return sendEmail({
+  return (await sendEmail({
     to: email,
     subject: `Training Confirmed: ${programName} on ${trainingDate.toLocaleDateString()}`,
     htmlBody,
     textBody: `Your training is confirmed! ${programName} on ${trainingDate.toLocaleDateString()} at ${location}. Instructor: ${instructorName}`,
-  });
+  })).success;
 }
 
 /**
@@ -298,10 +309,10 @@ export async function sendInstitutionalResponse(
     </html>
   `;
 
-  return sendEmail({
+  return (await sendEmail({
     to: email,
     subject: `Thank You for Your Interest - ${institutionName}`,
     htmlBody,
     textBody: `Thank you for your interest in Paeds Resus. Our team will contact you within 24 hours with customized proposals for ${institutionName}.`,
-  });
+  })).success;
 }

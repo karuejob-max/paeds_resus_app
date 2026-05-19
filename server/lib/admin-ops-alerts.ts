@@ -74,13 +74,13 @@ async function sendAdminAlert(rule: AlertRule): Promise<boolean> {
 
   let sentAny = false;
   for (const to of recipients) {
-    const ok = await sendEmail({
+    const result = await sendEmail({
       to,
       subject: `[Paeds Resus Ops] ${rule.subject}`,
       htmlBody,
       textBody: `${rule.subject}\n\n${rule.body}\n\nOpen /admin/ops`,
     });
-    if (ok) {
+    if (result.success) {
       sentAny = true;
       await recordDispatch(rule, to, "email");
     }

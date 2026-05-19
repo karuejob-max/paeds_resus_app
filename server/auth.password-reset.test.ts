@@ -72,7 +72,8 @@ describe("Password Reset Flow", () => {
       expect.objectContaining({
         userName: "Test User",
         resetLink: expect.stringContaining("/reset-password?token="),
-      })
+      }),
+      "ses"
     );
   });
 
