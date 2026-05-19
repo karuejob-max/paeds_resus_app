@@ -105,8 +105,7 @@ export default function CareSignalFormV2() {
       setError("Select the facility where care was delivered.");
       return;
     }
-    const stepToValidate = step === 0 ? 1 : step;
-    const msg = validateCareSignalV2Step(stepToValidate, form);
+    const msg = validateCareSignalV2Step(step, form);
     if (msg) {
       setError(msg);
       return;
