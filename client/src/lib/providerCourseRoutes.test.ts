@@ -2,27 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAhaContinueRoute, getProviderCourseDestination } from "./providerCourseRoutes";
 
 describe("getProviderCourseDestination", () => {
-  it("returns BLS route with enrollment context", () => {
-    expect(getProviderCourseDestination("bls", 101)).toBe(
-      "/micro-course/1?enrollmentId=101&programType=bls",
+  it("returns BLS route with enrollment context and DB course id", () => {
+    expect(getProviderCourseDestination("bls", 101, "/fellowship", 47)).toBe(
+      "/micro-course/47?programType=bls&enrollmentId=101",
     );
   });
 
-  it("returns ACLS route with enrollment context", () => {
-    expect(getProviderCourseDestination("acls", 102)).toBe(
-      "/micro-course/2?enrollmentId=102&programType=acls",
+  it("returns ACLS route with enrollment context and DB course id", () => {
+    expect(getProviderCourseDestination("acls", 102, "/fellowship", 52)).toBe(
+      "/micro-course/52?programType=acls&enrollmentId=102",
+    );
+  });
+
+  it("falls back to program slug when DB id is unknown", () => {
+    expect(getProviderCourseDestination("bls", 101)).toBe(
+      "/micro-course/bls?programType=bls&enrollmentId=101",
     );
   });
 
   it("returns PALS route with enrollment context", () => {
-    expect(getProviderCourseDestination("pals", 103)).toBe(
-      "/micro-course/3?enrollmentId=103&programType=pals",
+    expect(getProviderCourseDestination("pals", 103, "/fellowship", 8)).toBe(
+      "/micro-course/8?programType=pals&enrollmentId=103",
     );
   });
 
   it("returns septic route with enrollment context", () => {
-    expect(getProviderCourseDestination("pals_septic", 104)).toBe(
-      "/micro-course/3?enrollmentId=104&programType=pals_septic",
+    expect(getProviderCourseDestination("pals_septic", 104, "/fellowship", 8)).toBe(
+      "/micro-course/8?programType=pals&enrollmentId=104",
     );
   });
 
@@ -37,7 +43,9 @@ describe("getProviderCourseDestination", () => {
   });
 
   it("returns route without enrollment when not provided", () => {
-    expect(getProviderCourseDestination("acls")).toBe("/micro-course/2?programType=acls");
+    expect(getProviderCourseDestination("acls", undefined, "/fellowship", 52)).toBe(
+      "/micro-course/52?programType=acls",
+    );
   });
 
   it("routes unknown course ids through the generic micro-course player", () => {
@@ -54,20 +62,20 @@ describe("getProviderCourseDestination", () => {
 
 describe("getAhaContinueRoute", () => {
   it("returns start-course CTA and destination for AHA programs", () => {
-    const bls = getAhaContinueRoute("bls", 301);
-    const acls = getAhaContinueRoute("acls", 302);
-    const pals = getAhaContinueRoute("pals", 303);
+    const bls = getAhaContinueRoute("bls", 301, 47);
+    const acls = getAhaContinueRoute("acls", 302, 52);
+    const pals = getAhaContinueRoute("pals", 303, 8);
 
     expect(bls).toEqual({
-      destination: "/micro-course/1?enrollmentId=301&programType=bls",
+      destination: "/micro-course/47?programType=bls&enrollmentId=301",
       ctaLabel: "Start course",
     });
     expect(acls).toEqual({
-      destination: "/micro-course/2?enrollmentId=302&programType=acls",
+      destination: "/micro-course/52?programType=acls&enrollmentId=302",
       ctaLabel: "Start course",
     });
     expect(pals).toEqual({
-      destination: "/micro-course/3?enrollmentId=303&programType=pals",
+      destination: "/micro-course/8?programType=pals&enrollmentId=303",
       ctaLabel: "Start course",
     });
   });

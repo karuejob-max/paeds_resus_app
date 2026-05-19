@@ -23,6 +23,8 @@ import {
   getIntubationSampleCourseId,
 } from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
+import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
+import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
 
 export const learningRouter = router({
   // Get all courses
@@ -104,29 +106,75 @@ export const learningRouter = router({
       return (db as any).select().from(courses).orderBy(courses.order);
     }),
 
-  // Get course details with modules
-  getCourseDetails: publicProcedure
-    .input(z.object({ courseId: z.number() }))
+  /** Canonical AHA catalog row (most modules) for BLS / ACLS / PALS / Heartsaver. */
+  getAhaCourseAnchor: publicProcedure
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]) }))
     .query(async ({ input }) => {
       const db = await getDb();
-      const course = await (db as any)
-        .select()
-        .from(courses)
-        .where(eq(courses.id, input.courseId))
-        .limit(1);
+      if (!db) return null;
+      return resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
+    }),
 
-      if (!course.length) {
+  // Get course details with modules
+  getCourseDetails: publicProcedure
+    .input(
+      z.object({
+        courseId: z.number(),
+        /** When the URL has a stale numeric id (e.g. /micro-course/1), resolve the real row. */
+        programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
         throw new Error("Course not found");
+      }
+
+      let courseRow: (typeof courses.$inferSelect) | null = null;
+
+      if (input.programType && (!input.courseId || input.courseId <= 0)) {
+        courseRow = await resolveAhaCourseAnchor(db, input.programType);
+      }
+
+      if (!courseRow && input.courseId > 0) {
+        const byId = await (db as any)
+          .select()
+          .from(courses)
+          .where(eq(courses.id, input.courseId))
+          .limit(1);
+
+        if (byId.length) {
+          const row = byId[0];
+          const pt = input.programType;
+          if (!pt || row.programType === pt) {
+            courseRow = row;
+          }
+        }
+      }
+
+      if (!courseRow && input.programType) {
+        courseRow = await resolveAhaCourseAnchor(db, input.programType);
+      }
+
+      if (!courseRow) {
+        throw new Error("Course not found");
+      }
+
+      const pt = courseRow.programType as string;
+      if (pt === "bls") {
+        await ensureBlsCatalog(db);
+      } else if (pt === "acls") {
+        await ensureAclsCatalog(db);
       }
 
       const courseModules = await (db as any)
         .select()
         .from(modules)
-        .where(eq(modules.courseId, input.courseId))
+        .where(eq(modules.courseId, courseRow.id))
         .orderBy(modules.order);
 
       return {
-        ...course[0],
+        ...courseRow,
         modules: courseModules,
       };
     }),

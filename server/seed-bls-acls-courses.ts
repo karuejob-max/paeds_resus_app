@@ -1,11 +1,12 @@
 /**
  * Seed BLS and ACLS course catalogs with full AHA 2020-aligned cognitive content.
  *
- * Run: pnpm exec tsx server/seed-bls-acls-courses.ts
- * Requires DATABASE_URL / DB access (same as app).
+ * Run: pnpm run seed:bls-acls
+ * Requires DATABASE_URL in .env or environment.
  *
  * This is idempotent — safe to run multiple times.
  */
+import "dotenv/config";
 import { getDb } from "./db";
 import { ensureBlsCatalog, ensureAclsCatalog } from "./lib/ensure-bls-acls-catalog";
 
