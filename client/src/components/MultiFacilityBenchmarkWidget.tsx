@@ -40,8 +40,8 @@ function GapBar({ item, max, color }: { item: GapItem; max: number; color: strin
     <div className="flex items-center gap-2 py-1">
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="text-xs font-medium truncate">{item.intervention}</span>
-          <span className="text-xs text-muted-foreground ml-2 shrink-0">{item.count}×</span>
+          <span className="text-xs font-medium truncate text-foreground">{item.intervention}</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400 ml-2 shrink-0">{item.count}×</span>
         </div>
         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
           <div
@@ -98,7 +98,7 @@ export default function MultiFacilityBenchmarkWidget() {
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
+    <Card className="border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -106,7 +106,7 @@ export default function MultiFacilityBenchmarkWidget() {
               <Globe className="h-4 w-4 text-amber-600" />
               Multi-Facility Resource Gap Benchmark
             </CardTitle>
-            <CardDescription className="text-xs mt-1">
+            <CardDescription className="text-xs mt-1 text-slate-700 dark:text-slate-300">
               Anonymised comparison across all platform providers. Minimum 5 reports before a gap
               appears in platform data.
             </CardDescription>
@@ -147,18 +147,18 @@ export default function MultiFacilityBenchmarkWidget() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-background border p-3 text-center">
                 <p className="text-2xl font-bold text-amber-600">{data.totalMyEvents}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Your resource gap reports</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Your resource gap reports</p>
               </div>
               <div className="rounded-lg bg-background border p-3 text-center">
                 <p className="text-2xl font-bold text-blue-600">{data.totalPlatformEvents}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Platform-wide reports</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Platform-wide reports</p>
               </div>
             </div>
 
             {/* Platform-wide top gaps */}
             {data.platformWide.length > 0 ? (
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
                   <Globe className="h-3.5 w-3.5" />
                   Platform-wide top gaps (anonymised)
                 </h4>
@@ -168,8 +168,8 @@ export default function MultiFacilityBenchmarkWidget() {
               </div>
             ) : (
               <div className="rounded-lg bg-muted/40 border border-dashed p-4 text-center">
-                <Info className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                <p className="text-xs text-muted-foreground">
+                <Info className="h-4 w-4 text-slate-600 dark:text-slate-400 mx-auto mb-1" />
+                <p className="text-xs text-slate-600 dark:text-slate-400">
                   Not enough platform data yet (minimum 5 reports per gap required).
                 </p>
               </div>
@@ -178,7 +178,7 @@ export default function MultiFacilityBenchmarkWidget() {
             {/* My facility gaps */}
             {data.myFacility.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
                   <Building2 className="h-3.5 w-3.5" />
                   Your reported gaps
                 </h4>
@@ -191,7 +191,7 @@ export default function MultiFacilityBenchmarkWidget() {
             {/* Insights */}
             {(data.uniqueToMe.length > 0 || data.widespreadGaps.length > 0) && (
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1">
                   <TrendingUp className="h-3.5 w-3.5" />
                   Insights
                 </h4>
@@ -208,7 +208,7 @@ export default function MultiFacilityBenchmarkWidget() {
                         </Badge>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
                       Escalate to county/national procurement — this is not isolated to your facility.
                     </p>
                   </div>
@@ -226,7 +226,7 @@ export default function MultiFacilityBenchmarkWidget() {
                         </Badge>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
                       Prioritise local procurement or stock management for these items.
                     </p>
                   </div>
@@ -236,9 +236,9 @@ export default function MultiFacilityBenchmarkWidget() {
 
             {data.myFacility.length === 0 && data.platformWide.length === 0 && (
               <div className="rounded-lg bg-muted/40 border border-dashed p-6 text-center">
-                <AlertTriangle className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
+                <AlertTriangle className="h-5 w-5 text-slate-600 dark:text-slate-400 mx-auto mb-2" />
                 <p className="text-sm font-medium">No resource gap data yet</p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                   Use the "Not Available" button in ResusGPS when a recommended intervention
                   cannot be performed. Data will appear here automatically.
                 </p>
@@ -249,11 +249,11 @@ export default function MultiFacilityBenchmarkWidget() {
 
         {/* MOH Export section — always visible */}
         <div className="border-t pt-4 mt-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+          <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
             <Download className="h-3.5 w-3.5" />
             MOH / County Export
           </h4>
-          <p className="text-xs text-muted-foreground mb-3">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
             Download anonymised resource gap data as CSV for Ministry of Health or county procurement reporting.
           </p>
           <div className="flex items-center gap-2">
