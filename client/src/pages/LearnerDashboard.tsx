@@ -445,7 +445,7 @@ export default function LearnerDashboard() {
               </Card>
             )}
             {timedLifecycleNudge && (
-              <Card className="md:col-span-3 border-2 border-amber-300 bg-amber-50/90">
+              <Card className="md:col-span-3 border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-amber-700" />
@@ -524,10 +524,10 @@ export default function LearnerDashboard() {
               </Card>
             )}
             {renewalAttention.length > 0 && (
-              <Alert className="md:col-span-3 border-amber-200 bg-amber-50/80">
+              <Alert className="md:col-span-3 border-amber-300 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-amber-950/60 [&_[data-slot=alert-title]]:text-amber-950 [&_[data-slot=alert-description]]:text-amber-950 dark:[&_[data-slot=alert-title]]:text-amber-100 dark:[&_[data-slot=alert-description]]:text-amber-100">
                 <AlertCircle className="h-4 w-4 text-amber-700" />
                 <AlertTitle className="text-amber-900">Certificate renewal</AlertTitle>
-                <AlertDescription className="text-amber-900/90">
+                <AlertDescription className="text-amber-950 dark:text-amber-100">
                   {renewalAttention.length} certificate(s) expire within 90 days or are expired. Recertify to stay
                   compliant.
                   <div className="mt-3 flex flex-wrap gap-2">

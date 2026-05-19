@@ -51,8 +51,7 @@ const STEPS = CARE_SIGNAL_V2_STEP_GUIDE.map((step, id) => ({ id, title: step.tit
 /** Readable copy on Care Signal light teal / white surfaces (avoid washed-out muted-foreground). */
 const CS_OPTION =
   "flex items-start space-x-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:border-teal-200/80 hover:bg-teal-50/60 transition-colors";
-const CS_CHECK_GRID =
-  "border border-slate-200 rounded-md bg-slate-50/90 p-3";
+const CS_CHECK_GRID = "border border-slate-200 rounded-md bg-slate-50 p-3 dark:bg-slate-900/40";
 
 export default function CareSignalFormV2() {
   const [step, setStep] = useState(0);

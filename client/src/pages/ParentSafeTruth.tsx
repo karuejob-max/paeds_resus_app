@@ -7,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ParentSafeTruthForm from "@/components/ParentSafeTruthForm";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { ALERT_EMERALD_SOLID, HERO_BADGE, HERO_SUBTITLE } from "@/lib/readable-surfaces";
+import { cn } from "@/lib/utils";
 
 export default function ParentSafeTruth() {
   const formRef = useRef<HTMLDivElement>(null);
@@ -41,17 +43,17 @@ export default function ParentSafeTruth() {
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance">
               Your voice can make care safer for children in Kenya
             </h1>
-            <p className="text-base md:text-lg text-white/90 leading-relaxed">
+            <p className={cn("text-base md:text-lg leading-relaxed", HERO_SUBTITLE)}>
               Whether you were at a national referral hospital, a county facility, or a clinic—if your child had a
               frightening emergency, we want to hear how it felt for your family. There is no blame here. Honest stories
               help hospitals and teams understand what to fix first.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
-              <Badge variant="secondary" className="bg-white/15 text-primary-foreground border-white/25 font-normal">
+              <Badge variant="outline" className={HERO_BADGE}>
                 <Shield className="w-3 h-3 mr-1" aria-hidden /> Private — we use this to improve systems, not to point
                 fingers
               </Badge>
-              <Badge variant="secondary" className="bg-white/15 text-primary-foreground border-white/25 font-normal">
+              <Badge variant="outline" className={HERO_BADGE}>
                 <MessageCircle className="w-3 h-3 mr-1" aria-hidden /> Plain language — no medical exam required
               </Badge>
             </div>
@@ -61,7 +63,7 @@ export default function ParentSafeTruth() {
 
       <div className="max-w-3xl mx-auto py-10 px-4 pb-16">
         {isAuthenticated && stats && stats.reviewedSubmissionsCount > 0 && (
-          <Alert className="mb-8 border-emerald-600/40 bg-emerald-50/90 text-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-50 dark:border-emerald-500/40">
+          <Alert className={cn("mb-8", ALERT_EMERALD_SOLID)}>
             <CheckCircle2 className="text-emerald-700 dark:text-emerald-400" />
             <AlertTitle>We have replied</AlertTitle>
             <AlertDescription>

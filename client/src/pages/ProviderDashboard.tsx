@@ -274,7 +274,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               <GraduationCap className="h-8 w-8 opacity-90" />
               <div>
                 <h2 className="font-bold text-lg leading-tight">Paeds Resus Fellowship</h2>
-                <p className="text-violet-200 text-xs mt-0.5">27 micro-courses · Evidence-based · Certified</p>
+                <p className="text-white/90 text-xs mt-0.5">27 micro-courses · Evidence-based · Certified</p>
               </div>
             </div>
           </div>

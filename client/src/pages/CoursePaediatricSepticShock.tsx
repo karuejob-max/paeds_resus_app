@@ -147,7 +147,7 @@ export default function CoursePaediatricSepticShock() {
 
       <div className="max-w-4xl mx-auto mb-8">
         <Card className="border-border shadow-sm overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-border bg-gradient-to-r from-primary/8 to-brand-surface/40 pb-4">
+          <CardHeader className="border-b border-border bg-brand-surface dark:bg-card pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
                 <Compass className="h-5 w-5" />
@@ -155,7 +155,7 @@ export default function CoursePaediatricSepticShock() {
               ResusGPS and this course
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-5 space-y-3 text-sm text-muted-foreground leading-relaxed">
+          <CardContent className="pt-5 space-y-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
             <p>
               After you work through these modules, you will get more from{" "}
               <Link href="/resus" className="text-primary font-medium underline-offset-2 hover:underline">

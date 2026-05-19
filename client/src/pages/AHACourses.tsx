@@ -193,7 +193,7 @@ export default function AHACourses() {
 
         {/* How certification works — shown when any course is enrolled */}
         {anyEnrolled && (
-          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-300">
                 <ClipboardCheck className="h-4 w-4" />
@@ -213,7 +213,7 @@ export default function AHACourses() {
 
         {/* Cognitive gatepass certificate notice */}
         {anyCognitiveComplete && (
-          <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+          <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
             <CardContent className="pt-4 pb-4 flex items-center gap-3">
               <Award className="h-5 w-5 text-emerald-600 shrink-0" />
               <div>

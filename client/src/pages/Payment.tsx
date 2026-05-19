@@ -298,7 +298,7 @@ export default function Payment() {
           </Alert>
         )}
         {payCaps?.userMessage && (
-          <Alert className="border-amber-200 bg-amber-50/90">
+          <Alert className="border-amber-300 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-amber-950/60 [&_[data-slot=alert-title]]:text-amber-950 [&_[data-slot=alert-description]]:text-amber-950 dark:[&_[data-slot=alert-title]]:text-amber-100 dark:[&_[data-slot=alert-description]]:text-amber-100">
             <AlertCircle className="h-4 w-4 text-amber-800" />
             <AlertTitle className="text-amber-950">Payments notice</AlertTitle>
             <AlertDescription className="text-amber-900">{payCaps.userMessage}</AlertDescription>

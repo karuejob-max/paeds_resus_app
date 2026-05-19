@@ -44,7 +44,7 @@ export function RecommendationBanner({
   };
 
   return (
-    <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-transparent">
+    <Card className="border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/40">
       <CardContent className="pt-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1">
@@ -53,15 +53,15 @@ export function RecommendationBanner({
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-gray-900">Recommended Pathway</h3>
+                <h3 className="font-semibold text-foreground">Recommended Pathway</h3>
                 <Badge variant="outline" className="text-xs">
                   {pathway}
                 </Badge>
               </div>
               
-              <p className="text-sm text-gray-700 mb-2">{message}</p>
+              <p className="text-sm text-slate-800 dark:text-slate-200 mb-2">{message}</p>
 
-              <div className="space-y-1 text-xs text-gray-600">
+              <div className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
                 <p>
                   <strong>Condition:</strong> {condition}
                 </p>

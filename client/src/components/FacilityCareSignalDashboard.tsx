@@ -91,7 +91,7 @@ export function FacilityCareSignalDashboard({
       </div>
 
       {data.qiMetrics && data.qiMetrics.v2SubmissionCount > 0 ? (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
           <CardHeader>
             <CardTitle className="text-base">Preventability & contributing factors (v2 reports)</CardTitle>
             <CardDescription>
