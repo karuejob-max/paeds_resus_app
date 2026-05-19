@@ -333,18 +333,10 @@ export default function Enroll() {
                     return;
                   }
                   const programType = selectedCourse as "bls" | "acls" | "pals" | "instructor";
-                  const payload: {
-                    programType: typeof programType;
-                    trainingDate: Date;
-                    pricingSku?: "pals";
-                  } = {
+                  createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),
-                  };
-                  if (programType === "pals") {
-                    payload.pricingSku = "pals";
-                  }
-                  createEnrollment.mutate(payload);
+                  });
                 }}
                 className="space-y-6"
               >
