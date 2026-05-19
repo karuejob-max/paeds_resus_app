@@ -9,7 +9,8 @@ This document is an **operational checklist**. It does not change PSOT.
 ## 1. Repository
 
 1. Create long-lived branch **`develop`** from current `main` (or default trunk policy your team uses).
-2. Protect **`main`**: require PR, required checks (e.g. `pnpm run ci:gate`), no force-push.
+2. Protect **`main`** (**enabled 2026-05-18** via GitHub API): require PR (0 approvals — CI is the gate), required status check **`gate`** (workflow `CI`), strict up-to-date, no force-push, admins included. Re-apply from `scripts/github-branch-protection-main.json` if settings are reset:  
+   `gh api -X PUT repos/karuejob-max/paeds_resus_app/branches/main/protection --input scripts/github-branch-protection-main.json`
 3. Protect **`develop`**: same checks where possible; allow fast iteration.
 
 ---
