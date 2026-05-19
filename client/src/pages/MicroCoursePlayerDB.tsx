@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
+import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -26,22 +27,38 @@ type CourseModuleRow = NonNullable<
 >[number];
 
 export default function MicroCoursePlayerDB() {
-  const { courseId: slug } = useParams<{ courseId: string }>();
+  const { courseId: routeSlug } = useParams<{ courseId: string }>();
   const { isAuthenticated } = useAuth();
   const [location, navigate] = useLocation();
+  const search = useSearch();
 
-  // Detect if this is an AHA course (numeric slug like "1", "2", "3", "30")
+  // `/micro-course/:courseId` or legacy `/course/bls` style paths (no :courseId param)
+  const slug = useMemo(() => {
+    if (routeSlug) return routeSlug;
+    const pathOnly = location.split("?")[0] ?? "";
+    const legacy = pathOnly.match(/\/course\/(bls|acls|pals|heartsaver)$/);
+    return legacy?.[1] ?? routeSlug;
+  }, [routeSlug, location]);
+
   const numericCourseId = useMemo(() => {
+    if (!slug) return null;
     const n = parseInt(slug, 10);
     return !isNaN(n) && String(n) === slug ? n : null;
   }, [slug]);
-  const isAhaCourse = numericCourseId !== null;
 
-  // Extract programType from URL query params (set by AHACourses navigation)
+  const ahaProgramFromSlug = useMemo((): AhaProgramType | null => {
+    if (slug && isAhaProgramSlug(slug)) return slug;
+    return null;
+  }, [slug]);
+
+  const isAhaCourse = numericCourseId !== null || ahaProgramFromSlug !== null;
+
   const programType = useMemo(() => {
-    const params = new URLSearchParams(location.split('?')[1] ?? '');
-    return params.get('programType') ?? null;
-  }, [location]);
+    const params = new URLSearchParams(search);
+    const fromQuery = params.get("programType");
+    if (fromQuery && isAhaProgramSlug(fromQuery)) return fromQuery;
+    return ahaProgramFromSlug;
+  }, [search, ahaProgramFromSlug]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
@@ -90,11 +107,26 @@ export default function MicroCoursePlayerDB() {
     [fellowshipCourses, microCourseRow]
   );
 
-  // Path B: AHA courses — query getCourseDetails directly by numeric ID
-  const { data: ahaCourseDetails, isLoading: ahaDetailsLoading } = trpc.learning.getCourseDetails.useQuery(
-    { courseId: numericCourseId ?? 0 },
-    { enabled: isAhaCourse && !!numericCourseId }
-  );
+  const ahaProgram = programType ?? ahaProgramFromSlug;
+
+  // Path B: AHA — programType resolves stale numeric ids (e.g. /micro-course/1?programType=bls)
+  const { data: ahaCourseDetails, isLoading: ahaDetailsLoading, isError: ahaDetailsError } =
+    trpc.learning.getCourseDetails.useQuery(
+      {
+        courseId: numericCourseId ?? 0,
+        programType: ahaProgram ?? undefined,
+      },
+      { enabled: isAhaCourse && !!ahaProgram }
+    );
+
+  // Replace legacy hardcoded ids (/micro-course/1) with the real catalog id
+  useEffect(() => {
+    if (!ahaCourseDetails?.id || !ahaProgram || numericCourseId === null) return;
+    if (numericCourseId === ahaCourseDetails.id) return;
+    const qs = new URLSearchParams(search);
+    qs.set("programType", ahaProgram);
+    navigate(`/micro-course/${ahaCourseDetails.id}?${qs.toString()}`, { replace: true });
+  }, [ahaCourseDetails?.id, ahaProgram, numericCourseId, search, navigate]);
 
   // Unified dbCourse: either fellowship or AHA
   const dbCourse = useMemo(() => {
@@ -137,12 +169,14 @@ export default function MicroCoursePlayerDB() {
 
   const enrollment = useMemo(() => {
     if (isAhaCourse) {
-      // For AHA courses, find enrollment by programType
-      const pt = programType ?? (numericCourseId === 1 ? 'bls' : numericCourseId === 2 ? 'acls' : numericCourseId === 3 ? 'pals' : 'heartsaver');
+      const pt =
+        ahaProgram ??
+        ((ahaCourseDetails as { programType?: string } | undefined)?.programType as AhaProgramType | undefined) ??
+        "bls";
       return myAhaEnrollments?.find((e: any) => e.programType === pt) as any;
     }
     return myEnrollments?.find((e) => e.course?.courseId === slug);
-  }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, programType, numericCourseId]);
+  }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
 
   // ── Resume Progress Query ──────────────────────────────────────────────────
   // Only fire once we have both courseDetails (to know the courseId) and
@@ -435,7 +469,9 @@ export default function MicroCoursePlayerDB() {
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
         <h2 className="text-xl font-bold mb-2">Content Not Found</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          This course is not yet available in the interactive format.
+          {isAhaCourse && !ahaDetailsLoading && (ahaDetailsError || !ahaCourseDetails)
+            ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
+            : "This course is not yet available in the interactive format."}
         </p>
         <Button onClick={() => navigate(isAhaCourse ? "/aha-courses" : "/fellowship")}>Go Back</Button>
       </div>

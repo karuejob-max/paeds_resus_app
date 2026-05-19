@@ -7,7 +7,7 @@
  *   - learning.getCourses when the BLS/ACLS catalog is empty
  *   - isAhaCognitiveComplete (before checking module completion)
  */
-import { desc, eq, and } from "drizzle-orm";
+import { asc, desc, eq, and } from "drizzle-orm";
 import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -688,17 +688,30 @@ async function ensureCatalog(
   courseLevel: "beginner" | "intermediate" | "advanced",
   moduleDefinitions: typeof BLS_MODULES
 ): Promise<void> {
-  // Find or create the course
+  // Prefer an existing row that already has modules (ignore empty duplicate test rows).
   const existing = await db
     .select({ id: courses.id })
     .from(courses)
     .where(eq(courses.programType, programType))
-    .limit(1);
+    .orderBy(asc(courses.id));
 
-  let courseId: number;
-  if (existing.length > 0) {
+  let courseId: number | undefined;
+  for (const row of existing) {
+    const mod = await db
+      .select({ id: modules.id })
+      .from(modules)
+      .where(eq(modules.courseId, row.id))
+      .limit(1);
+    if (mod.length > 0) {
+      courseId = row.id;
+      break;
+    }
+  }
+  if (courseId == null && existing.length > 0) {
     courseId = existing[0].id;
-  } else {
+  }
+
+  if (courseId == null) {
     await db.insert(courses).values({
       title: courseTitle,
       description: courseDescription,
@@ -715,6 +728,10 @@ async function ensureCatalog(
       .limit(1);
     courseId = row[0]!.id;
     console.log(`[Catalog] Created ${programType.toUpperCase()} course (id=${courseId})`);
+  }
+
+  if (courseId == null) {
+    throw new Error(`Failed to resolve ${programType.toUpperCase()} course catalog row`);
   }
 
   // Ensure each module

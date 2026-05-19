@@ -46,7 +46,7 @@ describe("selectProviderHomePrimaryAction", () => {
 
     expect(action.key).toBe("start_course");
     expect(action.destination).toBe(
-      "/micro-course/3?enrollmentId=22&programType=pals_septic",
+      "/micro-course/pals_septic?programType=pals&enrollmentId=22",
     );
   });
 
@@ -68,7 +68,7 @@ describe("selectProviderHomePrimaryAction", () => {
 
     expect(action.key).toBe("start_course");
     expect(action.destination).toBe(
-      "/micro-course/3?enrollmentId=22&programType=pals_septic",
+      "/micro-course/pals_septic?programType=pals&enrollmentId=22",
     );
   });
 
@@ -90,7 +90,7 @@ describe("selectProviderHomePrimaryAction", () => {
 
     expect(action.key).toBe("continue_learning");
     expect(action.destination).toBe(
-      "/micro-course/1?enrollmentId=33&programType=bls",
+      "/micro-course/bls?programType=bls&enrollmentId=33",
     );
   });
 

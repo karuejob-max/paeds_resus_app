@@ -27,67 +27,74 @@ export type ProviderCourseProgram =
   | "burns-i"
   | "burns-ii";
 
+export type AhaProgramType = "bls" | "acls" | "pals" | "heartsaver";
+
+export const AHA_PROGRAM_TYPES: readonly AhaProgramType[] = ["bls", "acls", "pals", "heartsaver"];
+
 export type ContinueRouteConfig = {
   destination: string;
   ctaLabel: "Start course" | "Open learner dashboard";
 };
 
-/**
- * AHA courses are stored in the `courses` table with these numeric IDs.
- * All AHA courses are routed through the unified DB-backed micro-course player.
- */
-const AHA_COURSE_DB_IDS: Record<string, number> = {
-  bls: 1,
-  acls: 2,
-  pals: 3,
-  pals_septic: 3,
-  heartsaver: 30,
-};
+export function isAhaProgramSlug(courseId: string): courseId is AhaProgramType {
+  return (AHA_PROGRAM_TYPES as readonly string[]).includes(courseId);
+}
+
+function buildMicroCourseDestination(
+  pathSegment: string,
+  programType: string,
+  enrollmentId?: number
+): string {
+  const qs = new URLSearchParams({ programType });
+  if (enrollmentId != null) qs.set("enrollmentId", String(enrollmentId));
+  return `/micro-course/${pathSegment}?${qs.toString()}`;
+}
 
 /**
  * Maps course IDs to their learning destinations.
- * AHA courses use the numeric DB ID with the unified player.
- * Fellowship micro-courses use the string courseId with the same player.
+ * AHA courses use the DB `courses.id` when known (pass `courseDbId`); otherwise the program slug
+ * so the player can resolve the catalog row. Fellowship micro-courses use the string courseId.
  */
 export function getProviderCourseDestination(
   courseId: string | null | undefined,
   enrollmentId?: number,
-  fallback = "/learner-dashboard"
+  fallback = "/learner-dashboard",
+  courseDbId?: number
 ): string {
   if (!courseId) return fallback;
 
-  // AHA courses — route to the unified DB-backed player using numeric course IDs
-  if (AHA_COURSE_DB_IDS[courseId] !== undefined) {
-    const numId = AHA_COURSE_DB_IDS[courseId];
-    return enrollmentId
-      ? `/micro-course/${numId}?enrollmentId=${enrollmentId}&programType=${courseId}`
-      : `/micro-course/${numId}?programType=${courseId}`;
+  if (courseId === "pals_septic") {
+    const segment = courseDbId != null ? String(courseDbId) : "pals_septic";
+    return buildMicroCourseDestination(segment, "pals", enrollmentId);
   }
 
-  // Instructor course — dedicated page
+  if (isAhaProgramSlug(courseId)) {
+    const segment = courseDbId != null ? String(courseDbId) : courseId;
+    return buildMicroCourseDestination(segment, courseId, enrollmentId);
+  }
+
   if (courseId === "instructor") {
     return enrollmentId ? `/course/instructor?enrollmentId=${enrollmentId}` : "/course/instructor";
   }
 
-  // Intubation Essentials — dedicated page
   if (courseId === "intubation-essentials") {
     return enrollmentId
       ? `/course/intubation-essentials?enrollmentId=${enrollmentId}`
       : "/course/intubation-essentials";
   }
 
-  // Fellowship micro-courses — use the string courseId with the unified player
   return enrollmentId
     ? `/micro-course/${courseId}?enrollmentId=${enrollmentId}`
     : `/micro-course/${courseId}`;
 }
 
 export function getAhaContinueRoute(
-  programType: "bls" | "acls" | "pals" | "heartsaver",
-  enrollmentId: number
+  programType: AhaProgramType,
+  enrollmentId: number,
+  courseDbId: number
 ): ContinueRouteConfig {
   return {
-    destination: getProviderCourseDestination(programType, enrollmentId),
+    destination: getProviderCourseDestination(programType, enrollmentId, "/learner-dashboard", courseDbId),
     ctaLabel: "Start course",
   };
 }
