@@ -51,6 +51,24 @@ function daysBackForTimeframe(timeframe: "week" | "month" | "quarter" | "year"):
     : 365;
 }
 
+interface GapCategoryStat {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+/** Convert raw gap counts to the array shape the analytics UI expects. */
+function gapCountsToArray(gapCounts: Record<string, number>): GapCategoryStat[] {
+  const total = Object.values(gapCounts).reduce((sum, count) => sum + count, 0);
+  return Object.entries(gapCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, count]) => ({
+      category,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+    }));
+}
+
 // ─── Dynamic recommendation engine ──────────────────────────────────────────
 
 interface GapRecommendation {
@@ -580,7 +598,7 @@ export const careSignalEventsRouter = router({
           return {
             success: true,
             timeframe: input.timeframe,
-            gaps: {} as Record<string, number>,
+            gaps: [] as GapCategoryStat[],
             recommendations: [] as GapRecommendation[],
             totalEvents: 0,
           };
@@ -643,7 +661,7 @@ export const careSignalEventsRouter = router({
         return {
           success: true,
           timeframe: input.timeframe,
-          gaps: gapCounts,
+          gaps: gapCountsToArray(gapCounts),
           recommendations,
           totalEvents: events.length,
         };
