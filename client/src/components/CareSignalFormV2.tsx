@@ -62,7 +62,12 @@ export default function CareSignalFormV2() {
   const [submittedData, setSubmittedData] = useState<SubmissionData | null>(null);
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
 
-  const submitMutation = trpc.careSignalEvents.logEvent.useMutation();
+  const utils = trpc.useUtils();
+  const submitMutation = trpc.careSignalEvents.logEvent.useMutation({
+    onSuccess: () => {
+      void utils.fellowship.getProgress.invalidate();
+    },
+  });
   const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const patch = (partial: Partial<CareSignalV2FormState>) =>

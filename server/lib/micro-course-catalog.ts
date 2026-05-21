@@ -1,7 +1,12 @@
 /**
- * Single source of truth for fellowship ADF micro-courses (26 rows).
+ * Single source of truth for fellowship ADF micro-courses.
  * Prices are in KES cents; product default 200 KES per micro-course (PSoT / leadership).
  */
+
+/** Count of published micro-courses required for Pillar A (includes sample catalog rows). */
+export function getFellowshipMicroCourseRequiredCount(): number {
+  return MICRO_COURSE_CATALOG.filter((c) => c.isPublished).length;
+}
 
 import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db";

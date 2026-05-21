@@ -17,6 +17,7 @@ import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
+import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-enrollment-progress";
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   const database = await getDb();
@@ -37,7 +38,15 @@ async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
       const course = await database.query.microCourses.findFirst({
         where: (courses) => eq(courses.id, enrollment.microCourseId),
       });
-      return { ...enrollment, course };
+      let progressPercentage = enrollment.progressPercentage ?? 0;
+      if (enrollment.enrollmentStatus !== "completed") {
+        progressPercentage = await computeMicroCourseEnrollmentProgress(
+          database,
+          userId,
+          enrollment.id
+        );
+      }
+      return { ...enrollment, progressPercentage, course };
     })
   );
   return enriched;
@@ -194,6 +203,58 @@ export const coursesRouter = router({
     }),
 
   /**
+   * Idempotent: ensure a micro-course enrollment row exists (mirrors AHA ensureAhaEnrollment).
+   */
+  ensureMicroCourseEnrollment: protectedProcedure
+    .input(z.object({ courseId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      try {
+        const database = await getDb();
+        if (!database) throw new Error('Database unavailable');
+        await ensureMicroCoursesCatalog();
+
+        const course = await database.query.microCourses.findFirst({
+          where: (c) => eq(c.courseId, input.courseId),
+        });
+        if (!course) {
+          return { success: false, enrollmentId: 0, error: 'Course not found' };
+        }
+
+        const existing = await database.query.microCourseEnrollments.findFirst({
+          where: and(
+            eq(microCourseEnrollments.userId, ctx.user.id),
+            eq(microCourseEnrollments.microCourseId, course.id)
+          ),
+        });
+        if (existing) {
+          return { success: true, enrollmentId: existing.id, created: false };
+        }
+
+        const inserted = await database
+          .insert(microCourseEnrollments)
+          .values({
+            userId: ctx.user.id,
+            microCourseId: course.id,
+            enrollmentStatus: 'active',
+            paymentStatus: 'free',
+            progressPercentage: 0,
+            createdAt: new Date(),
+          })
+          .$returningId();
+        const newId = (inserted as { id?: number }[])[0]?.id ?? 0;
+        return { success: true, enrollmentId: newId, created: true };
+      } catch (err) {
+        console.error('[courses.ensureMicroCourseEnrollment]', err);
+        return {
+          success: false,
+          enrollmentId: 0,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        };
+      }
+    }),
+
+  /**
    * Mark course as completed
    */
   complete: protectedProcedure
@@ -227,6 +288,7 @@ export const coursesRouter = router({
             enrollmentStatus: 'completed',
             progressPercentage: 100,
             completedAt: new Date(),
+            updatedAt: new Date(),
           })
           .where(
             and(
@@ -261,9 +323,13 @@ export const coursesRouter = router({
           if (certResult.success) {
             certificateNumber = certResult.certificateNumber;
           } else {
-            // Throw so tRPC returns a 500 with the exact error message visible in browser
             throw new Error(`CERT_FAIL: ${certResult.error ?? 'unknown'}`);
           }
+        } else {
+          return {
+            success: false,
+            message: 'No enrollment found for this course. Please enroll first from the Fellowship page.',
+          };
         }
 
         void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
@@ -273,7 +339,14 @@ export const coursesRouter = router({
         return { success: true, message: 'Course marked as completed', certificateNumber };
       } catch (error) {
         console.error('Error completing course:', error);
-        return { success: false, message: 'Failed to complete course' };
+        const msg = error instanceof Error ? error.message : 'Failed to complete course';
+        if (msg.startsWith('CERT_FAIL:')) {
+          return {
+            success: false,
+            message: `Certificate could not be issued: ${msg.replace(/^CERT_FAIL:\s*/, '')}`,
+          };
+        }
+        return { success: false, message: msg };
       }
     }),
 

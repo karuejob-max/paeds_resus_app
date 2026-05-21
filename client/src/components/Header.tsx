@@ -268,9 +268,7 @@ export default function Header() {
           <div className="flex items-center gap-2 ml-auto">
             {/* Notifications */}
             {isAuthenticated && (
-              <div className="hidden sm:block">
-                <NotificationBell />
-              </div>
+              <NotificationBell />
             )}
 
             {/* Auth Section */}
