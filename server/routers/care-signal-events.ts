@@ -277,7 +277,9 @@ export const careSignalEventsRouter = router({
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
-          userId: input.isAnonymous ? null : ctx.user.id,
+          // Always link provider submissions to the account for Fellowship Pillar C,
+          // even when isAnonymous hides identity from facility-facing views (PSoT §20.3).
+          userId: isParentStory ? (input.isAnonymous ? null : ctx.user.id) : ctx.user.id,
           facilityId: resolvedFacilityId,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
@@ -339,7 +341,7 @@ export const careSignalEventsRouter = router({
           timestamp: new Date().toISOString(),
         });
 
-        if (!input.isAnonymous) {
+        if (!isParentStory) {
           void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
             console.warn("[Fellowship] sync after Care Signal submit failed:", e)
           );
