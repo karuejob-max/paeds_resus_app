@@ -46,6 +46,33 @@ const PRIORITY_BADGE: Record<string, string> = {
   low: "bg-blue-100 text-blue-800",
 };
 
+type GapCategoryStat = { category: string; count: number; percentage: number };
+
+/** Accept legacy object-shaped gap payloads as well as the current array form. */
+function normalizeGapList(gaps: unknown): GapCategoryStat[] {
+  if (Array.isArray(gaps)) {
+    return gaps.filter(
+      (g): g is GapCategoryStat =>
+        g != null &&
+        typeof g === "object" &&
+        typeof (g as GapCategoryStat).category === "string" &&
+        typeof (g as GapCategoryStat).count === "number"
+    );
+  }
+  if (gaps && typeof gaps === "object") {
+    const entries = Object.entries(gaps as Record<string, number>);
+    const total = entries.reduce((sum, [, count]) => sum + Number(count), 0);
+    return entries
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([category, count]) => ({
+        category,
+        count: Number(count),
+        percentage: total > 0 ? Math.round((Number(count) / total) * 100) : 0,
+      }));
+  }
+  return [];
+}
+
 function StatCard({
   label,
   value,
@@ -91,8 +118,8 @@ export default function CareSignalAnalytics() {
   const gapQ = trpc.careSignalEvents.getGapAnalysis.useQuery({ timeframe: "month" });
 
   const stats = statsQ.data;
-  const history = historyQ.data?.events ?? [];
-  const gaps = gapQ.data?.gaps ?? [];
+  const history = Array.isArray(historyQ.data?.events) ? historyQ.data.events : [];
+  const gaps = normalizeGapList(gapQ.data?.gaps);
 
   // Derive outcome distribution from history (since getEventStats doesn't return byOutcome)
   const outcomeCounts: Record<string, number> = {};
@@ -357,7 +384,7 @@ export default function CareSignalAnalytics() {
                     No gap data yet. Report incidents with system gaps to populate this view.
                   </p>
                 ) : (
-                  (gaps as { category: string; count: number; percentage: number }[]).map((gap) => (
+                  gaps.map((gap) => (
                     <div key={gap.category}>
                       <div className="flex justify-between mb-1">
                         <span className="font-medium">{gap.category}</span>
