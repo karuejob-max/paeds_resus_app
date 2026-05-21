@@ -550,15 +550,10 @@ export default function FellowshipDashboard() {
                     fellowshipCertificates.map((c) => c.courseTitle?.trim()).filter(Boolean) as string[]
                   );
                   return enrollments
-                    .filter(
-                      (e: { enrollmentStatus?: string; course?: { courseId?: string; title?: string } }) =>
-                        e.enrollmentStatus === "completed" && e.course?.courseId
-                    )
-                    .filter(
-                      (e: { course?: { title?: string } }) => !certTitles.has(e.course?.title?.trim() ?? "")
-                    )
-                    .map((e: { id: number; course?: { courseId?: string; title?: string } }) => {
-                    const slug = e.course!.courseId!;
+                    .filter((e) => e.enrollmentStatus === "completed" && e.course?.courseId)
+                    .filter((e) => !certTitles.has(e.course?.title?.trim() ?? ""))
+                    .map((e) => {
+                    const slug = e.course!.courseId;
                     return (
                       <div
                         key={e.id}
