@@ -5,6 +5,7 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { courses, modules } from "../../drizzle/schema";
 import { ensureBlsCatalog, ensureAclsCatalog } from "./ensure-bls-acls-catalog";
+import { ensureHeartsaverCatalog } from "./ensure-heartsaver-catalog";
 import { ensureCourseCatalogForSchedule } from "./ensure-course-catalog-for-schedule";
 
 export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver";
@@ -19,6 +20,8 @@ export async function ensureAhaProgramCatalog(
     await ensureAclsCatalog(db);
   } else if (programType === "pals") {
     await ensureCourseCatalogForSchedule(db, "pals");
+  } else if (programType === "heartsaver") {
+    await ensureHeartsaverCatalog(db);
   }
 }
 

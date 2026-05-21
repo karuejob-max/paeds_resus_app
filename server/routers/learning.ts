@@ -24,6 +24,7 @@ import {
 } from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
+import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
 import {
   isMicroCourseEnrollmentId,
@@ -169,6 +170,8 @@ export const learningRouter = router({
         await ensureBlsCatalog(db);
       } else if (pt === "acls") {
         await ensureAclsCatalog(db);
+      } else if (pt === "heartsaver") {
+        await ensureHeartsaverCatalog(db);
       }
 
       const courseModules = await (db as any)

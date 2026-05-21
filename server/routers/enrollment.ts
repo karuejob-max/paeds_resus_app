@@ -57,7 +57,7 @@ async function trackMicroCourseEnrollWithPayment(params: {
 }
 
 const enrollmentSchema = z.object({
-  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
+  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver"]),
   trainingDate: z.date(),
   /** PALS only: which micro-course SKU (sets enrollments.courseId). */
   pricingSku: z.enum(["pals", "pals_septic"]).optional(),
