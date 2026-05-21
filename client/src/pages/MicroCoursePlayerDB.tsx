@@ -52,6 +52,8 @@ export default function MicroCoursePlayerDB() {
   }, [slug]);
 
   const isAhaCourse = numericCourseId !== null || ahaProgramFromSlug !== null;
+  const coursesHubPath = isAhaCourse ? "/aha-courses" : "/fellowship";
+  const coursesHubReturnLabel = isAhaCourse ? "Return to AHA Courses" : "Return to Fellowship Dashboard";
 
   const programType = useMemo(() => {
     const params = new URLSearchParams(search);
@@ -519,7 +521,7 @@ export default function MicroCoursePlayerDB() {
             ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
             : "This course is not yet available in the interactive format."}
         </p>
-        <Button onClick={() => navigate(isAhaCourse ? "/aha-courses" : "/fellowship")}>Go Back</Button>
+        <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
       </div>
     );
   }
@@ -640,9 +642,9 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="ghost"
                   className="w-full py-4 text-slate-500 font-medium"
-                  onClick={() => navigate("/fellowship")}
+                  onClick={() => navigate(coursesHubPath)}
                 >
-                  Return to Fellowship Dashboard
+                  {coursesHubReturnLabel}
                 </Button>
               </div>
             </CardContent>
@@ -665,7 +667,7 @@ export default function MicroCoursePlayerDB() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/fellowship")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(coursesHubPath)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
