@@ -180,8 +180,15 @@ export async function createEnrollment(data: {
   promoCodeId?: number;
   amountPaid?: number;
   transactionId?: string;
+  /** When set, overrides default payment/enrollment status derived from paymentMethod. */
+  paymentStatus?: "pending" | "completed" | "free";
 }) {
   try {
+    const paymentStatus =
+      data.paymentStatus ??
+      (data.paymentMethod === "m-pesa" ? "pending" : "completed");
+    const enrollmentStatus = paymentStatus === "pending" ? "pending" : "active";
+
     const result = await db.insert(microCourseEnrollments).values({
       userId: data.userId,
       microCourseId: data.microCourseId,
@@ -190,8 +197,8 @@ export async function createEnrollment(data: {
       promoCodeId: data.promoCodeId,
       amountPaid: data.amountPaid || 0,
       transactionId: data.transactionId,
-      enrollmentStatus: data.paymentMethod === "m-pesa" ? "pending" : "active",
-      paymentStatus: data.paymentMethod === "m-pesa" ? "pending" : "completed",
+      enrollmentStatus,
+      paymentStatus,
     });
 
     const raw = result as unknown;

@@ -460,6 +460,36 @@ export const enrollmentRouter = router({
           };
         }
 
+        // Fellowship micro-courses: complimentary enrollment when M-Pesa gate is off (UI enrolls without phone).
+        if (!input.phoneNumber && input.paymentPath !== "manual_lipa") {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+            paymentStatus: "free",
+          });
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message: "Enrollment successful — free access",
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+            learningEnrollmentId,
+          };
+        }
+
         if (!input.phoneNumber) {
           return {
             success: false,
