@@ -17,25 +17,54 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Stethoscope, AlertCircle, CheckCircle2, Clock, Award, Heart, Zap, Lock } from "lucide-react";
-import { useLocation } from "wouter";
+import {
+  BookOpen,
+  Stethoscope,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Award,
+  Heart,
+  Zap,
+  Lock,
+  Download,
+  Loader2,
+} from "lucide-react";
+import { useLocation, useSearch } from "wouter";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { EnrollmentModal } from "@/components/EnrollmentModal";
+import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const utils = trpc.useUtils();
-  const [activeTab, setActiveTab] = useState("overview");
+  const initialTab = new URLSearchParams(search).get("tab");
+  const [activeTab, setActiveTab] = useState(
+    initialTab === "certificates" ? "certificates" : "overview"
+  );
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
+  const [feedbackDialog, setFeedbackDialog] = useState<{
+    certificateId: number;
+    certificateNumber: string;
+    courseLabel: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       setLocation("/login");
     }
   }, [loading, user, setLocation]);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(search).get("tab");
+    if (tab === "certificates") setActiveTab("certificates");
+  }, [search]);
 
   // Fetch fellowship progress
   const { data: progress, isLoading, error } = trpc.fellowship.getProgress.useQuery(undefined, {
@@ -57,6 +86,88 @@ export default function FellowshipDashboard() {
     refetchOnWindowFocus: true,
     staleTime: 15_000,
   });
+
+  const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
+    enabled: Boolean(user),
+  });
+  const fellowshipCertificates = (certData?.success ? certData.certificates ?? [] : []).filter(
+    (c) => c.programType === "fellowship"
+  );
+
+  const downloadCert = trpc.certificates.download.useMutation();
+  const ensureCert = trpc.certificates.ensureMicroCourseCertificate.useMutation({
+    onSuccess: async (res) => {
+      if (res.success) {
+        toast.success(
+          res.certificateNumber
+            ? `Certificate ready (#${res.certificateNumber})`
+            : "Certificate issued"
+        );
+        await utils.certificates.getMyCertificates.invalidate();
+      } else {
+        toast.error(res.error ?? "Could not issue certificate");
+      }
+    },
+    onError: (e) => toast.error(e.message || "Could not issue certificate"),
+  });
+
+  const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
+    try {
+      const byteCharacters = atob(pdfBase64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteArray[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Certificate downloaded");
+    } catch {
+      toast.error("Failed to save the PDF. Try another browser.");
+    }
+  };
+
+  const runCertificateDownload = (certNumber: string, certId: number) => {
+    downloadCert.mutate(
+      { certificateNumber: certNumber },
+      {
+        onSuccess: (res) => {
+          setDownloadingCertificateId(null);
+          if (res.success && res.pdfBase64) {
+            triggerBrowserDownload(res.pdfBase64, res.filename || `certificate-${certNumber}.pdf`);
+          } else if (res.error === "feedback_required" && "certificateId" in res && res.certificateId) {
+            const cert = fellowshipCertificates.find((c) => c.certificateNumber === certNumber);
+            setFeedbackDialog({
+              certificateId: res.certificateId,
+              certificateNumber: certNumber,
+              courseLabel: cert?.courseTitle?.trim() || "Fellowship micro-course",
+            });
+          } else {
+            toast.error(typeof res.error === "string" ? res.error : "Download failed");
+          }
+        },
+        onError: (e) => {
+          setDownloadingCertificateId(null);
+          toast.error(e.message || "Download failed");
+        },
+      }
+    );
+  };
+
+  const handleDownloadCertificate = (certId: number, certNumber: string | null | undefined) => {
+    if (!certNumber) {
+      toast.error("Certificate not issued yet. Use “Get certificate” if you finished the course.");
+      return;
+    }
+    setDownloadingCertificateId(certId);
+    runCertificateDownload(certNumber, certId);
+  };
 
   const handleEnrollClick = (course: any) => {
     setSelectedCourse(course);
@@ -165,9 +276,12 @@ export default function FellowshipDashboard() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="courses">Micro-courses ({coursesPillar.completed}/{coursesPillar.required})</TabsTrigger>
+            <TabsTrigger value="certificates">
+              Certificates{fellowshipCertificates.length > 0 ? ` (${fellowshipCertificates.length})` : ""}
+            </TabsTrigger>
             <TabsTrigger value="resusgps">ResusGPS</TabsTrigger>
             <TabsTrigger value="caresignal">Care Signal</TabsTrigger>
           </TabsList>
@@ -383,6 +497,93 @@ export default function FellowshipDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Certificates Tab */}
+          <TabsContent value="certificates" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Fellowship micro-course certificates</CardTitle>
+                <CardDescription>
+                  Download PDF certificates for completed micro-courses. One quick feedback step is required before each first download.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {fellowshipCertificates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No certificates yet. Complete a micro-course final exam to receive yours.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {fellowshipCertificates.map((c) => (
+                      <li
+                        key={c.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{c.courseTitle?.trim() || "Fellowship course"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
+                            {c.certificateNumber ? ` · No. ${c.certificateNumber}` : ""}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!c.certificateNumber || downloadingCertificateId === c.id}
+                          onClick={() => handleDownloadCertificate(c.id, c.certificateNumber)}
+                        >
+                          {downloadingCertificateId === c.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Download className="w-4 h-4 mr-1" />
+                              Download PDF
+                            </>
+                          )}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {(() => {
+                  const certTitles = new Set(
+                    fellowshipCertificates.map((c) => c.courseTitle?.trim()).filter(Boolean) as string[]
+                  );
+                  return enrollments
+                    .filter(
+                      (e: { enrollmentStatus?: string; course?: { courseId?: string; title?: string } }) =>
+                        e.enrollmentStatus === "completed" && e.course?.courseId
+                    )
+                    .filter(
+                      (e: { course?: { title?: string } }) => !certTitles.has(e.course?.title?.trim() ?? "")
+                    )
+                    .map((e: { id: number; course?: { courseId?: string; title?: string } }) => {
+                    const slug = e.course!.courseId!;
+                    return (
+                      <div
+                        key={e.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-dashed p-3 bg-muted/40"
+                      >
+                        <p className="text-sm font-medium">{e.course?.title ?? slug}</p>
+                        <Button
+                          size="sm"
+                          disabled={ensureCert.isPending}
+                          onClick={() => ensureCert.mutate({ courseId: slug })}
+                        >
+                          {ensureCert.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Get certificate"
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  });
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ResusGPS Tab */}
           <TabsContent value="resusgps" className="space-y-4">
             <Card>
@@ -439,6 +640,23 @@ export default function FellowshipDashboard() {
           onClose={() => setIsEnrollmentModalOpen(false)}
           onEnrollmentSuccess={handleEnrollmentSuccess}
         />
+
+        {feedbackDialog ? (
+          <CertificateDownloadFeedbackDialog
+            open
+            onOpenChange={(o) => {
+              if (!o) setFeedbackDialog(null);
+            }}
+            certificateId={feedbackDialog.certificateId}
+            courseLabel={feedbackDialog.courseLabel}
+            onFeedbackSaved={() => {
+              const num = feedbackDialog.certificateNumber;
+              const cid = feedbackDialog.certificateId;
+              setFeedbackDialog(null);
+              runCertificateDownload(num, cid);
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

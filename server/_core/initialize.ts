@@ -33,6 +33,31 @@ export async function runMigrations() {
     } else {
       console.log('[Migrations] ✓ microCourseEnrollmentId already exists, skipping');
     }
+
+    // 0030: pre-download certificate feedback (required before PDF download)
+    const [fbTable] = await db.execute(sql`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'certificateDownloadFeedback'
+    `);
+    if (Array.isArray(fbTable) && (fbTable as { TABLE_NAME?: string }[]).length === 0) {
+      console.log('[Migrations] Creating certificateDownloadFeedback table...');
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS \`certificateDownloadFeedback\` (
+          \`id\` int NOT NULL AUTO_INCREMENT,
+          \`userId\` int NOT NULL,
+          \`certificateId\` int NOT NULL,
+          \`rating\` int NOT NULL,
+          \`improvements\` text,
+          \`createdAt\` timestamp NOT NULL DEFAULT (now()),
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`cert_dl_fb_user_cert\` (\`userId\`, \`certificateId\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      console.log('[Migrations] ✓ certificateDownloadFeedback table created');
+    } else {
+      console.log('[Migrations] ✓ certificateDownloadFeedback already exists, skipping');
+    }
     // ── Course image CDN → self-hosted migration ──────────────────────────────
     // Replaces files.manuscdn.com URLs with local /assets/course-images/ paths
     // to fix CORS-blocked images in the course player.

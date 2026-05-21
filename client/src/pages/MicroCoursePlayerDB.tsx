@@ -614,7 +614,7 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="outline"
                   className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
-                  onClick={() => navigate("/fellowship?tab=certificates")}
+                  onClick={() => navigate("/certificates")}
                 >
                   View My Certificates
                 </Button>

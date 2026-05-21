@@ -672,17 +672,74 @@ export async function getCertificateForDownload(
 export async function hasCertificateDownloadFeedback(userId: number, certificateId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-  const rows = await db
-    .select({ id: certificateDownloadFeedback.id })
-    .from(certificateDownloadFeedback)
-    .where(
-      and(
-        eq(certificateDownloadFeedback.userId, userId),
-        eq(certificateDownloadFeedback.certificateId, certificateId)
+  try {
+    const rows = await db
+      .select({ id: certificateDownloadFeedback.id })
+      .from(certificateDownloadFeedback)
+      .where(
+        and(
+          eq(certificateDownloadFeedback.userId, userId),
+          eq(certificateDownloadFeedback.certificateId, certificateId)
+        )
       )
-    )
-    .limit(1);
-  return rows.length > 0;
+      .limit(1);
+    return rows.length > 0;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/certificateDownloadFeedback|doesn't exist/i.test(msg)) {
+      console.warn("[Certificates] certificateDownloadFeedback table missing — skipping feedback gate");
+      return true;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Issue (or return existing) fellowship micro-course certificate when the learner has completed the course.
+ */
+export async function ensureMicroCourseCertificateForCompletedCourse(
+  userId: number,
+  courseIdSlug: string
+): Promise<{ success: boolean; certificateNumber?: string; error?: string }> {
+  try {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+
+    const course = await db.query.microCourses.findFirst({
+      where: eq(microCourses.courseId, courseIdSlug),
+    });
+    if (!course) return { success: false, error: "Course not found" };
+
+    const enrollment = await db.query.microCourseEnrollments.findFirst({
+      where: and(
+        eq(microCourseEnrollments.userId, userId),
+        eq(microCourseEnrollments.microCourseId, course.id)
+      ),
+    });
+    if (!enrollment) {
+      return { success: false, error: "Not enrolled in this course" };
+    }
+    if (enrollment.enrollmentStatus !== "completed") {
+      return { success: false, error: "Complete the course final exam to receive your certificate" };
+    }
+
+    const userRows = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const recipientName = userRows[0]?.name ?? "Participant";
+
+    return await saveMicroCourseCertificate(
+      enrollment.id,
+      userId,
+      recipientName,
+      course.title ?? courseIdSlug
+    );
+  } catch (err) {
+    console.error("[Certificates] ensureMicroCourseCertificateForCompletedCourse:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
 }
 
 export async function submitCertificateDownloadFeedback(params: {
@@ -719,6 +776,13 @@ export async function submitCertificateDownloadFeedback(params: {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("Duplicate") || msg.includes("duplicate") || msg.includes("UNIQUE")) {
       return { success: false, error: "Feedback was already submitted for this certificate." };
+    }
+    if (/certificateDownloadFeedback|doesn't exist/i.test(msg)) {
+      console.error("[Certificates] certificateDownloadFeedback table missing:", e);
+      return {
+        success: false,
+        error: "Certificate download is temporarily unavailable (server update required). Please try again shortly.",
+      };
     }
     console.error("[Certificates] submitCertificateDownloadFeedback:", e);
     return { success: false, error: "Could not save feedback." };

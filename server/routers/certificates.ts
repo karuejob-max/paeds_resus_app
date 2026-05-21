@@ -11,6 +11,7 @@ import {
   getCertificateForDownload,
   hasCertificateDownloadFeedback,
   submitCertificateDownloadFeedback,
+  ensureMicroCourseCertificateForCompletedCourse,
 } from "../certificates";
 import { sendEmail } from "../email-service";
 import { getDb } from "../db";
@@ -256,6 +257,16 @@ export const certificateRouter = router({
         programType: data.cert.programType,
         courseTitle: data.courseDisplayName ?? null,
       };
+    }),
+
+  /** Issue fellowship micro-course certificate when course is completed (idempotent backfill). */
+  ensureMicroCourseCertificate: protectedProcedure
+    .input(z.object({ courseId: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await ensureMicroCourseCertificateForCompletedCourse(ctx.user.id, input.courseId);
+      return result.success
+        ? { success: true as const, certificateNumber: result.certificateNumber }
+        : { success: false as const, error: result.error ?? "Could not issue certificate" };
     }),
 
   /** Save one-time feedback before certificate download. */
