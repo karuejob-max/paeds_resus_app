@@ -18,8 +18,19 @@ function certificatePdfDir(): string {
 /** Canonical URL for QR codes and printed copy (see PLATFORM_SOURCE_OF_TRUTH §10). */
 export const CERTIFICATE_VERIFY_SITE = "https://www.paedsresus.com";
 
-/** Shown under “PAEDS RESUS” on all certificates — neutral; not fellowship-specific. */
+/** Shown under logo on all certificates — neutral; not fellowship-specific. */
 const CERTIFICATE_HEADER_TAGLINE = "Global Benchmark for Paediatric Resuscitation Science";
+
+/** Named signatory (env overrides for deployments). */
+const CERTIFICATE_SIGNATORY_NAME =
+  process.env.CERTIFICATE_SIGNATORY_NAME?.trim() || "Job Karue";
+const CERTIFICATE_SIGNATORY_TITLE =
+  process.env.CERTIFICATE_SIGNATORY_TITLE?.trim() || "Course Director";
+
+const PAGE = { width: 842, height: 595 };
+const MARGIN_X = 52;
+const FOOTER_TOP = 108;
+const LINE_GAP = 14;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -154,30 +165,65 @@ function resolveLogoJpgBytes(): Buffer | null {
   return null;
 }
 
+function drawCenteredText(
+  page: ReturnType<PDFDocument["addPage"]>,
+  text: string,
+  y: number,
+  size: number,
+  textFont: Awaited<ReturnType<PDFDocument["embedFont"]>>,
+  color: ReturnType<typeof rgb>
+): number {
+  const w = textFont.widthOfTextAtSize(text, size);
+  page.drawText(text, {
+    x: PAGE.width / 2 - w / 2,
+    y,
+    size,
+    font: textFont,
+    color,
+  });
+  return y - size - 6;
+}
+
+function drawWrappedCentered(
+  page: ReturnType<PDFDocument["addPage"]>,
+  text: string,
+  y: number,
+  size: number,
+  textFont: Awaited<ReturnType<PDFDocument["embedFont"]>>,
+  color: ReturnType<typeof rgb>,
+  maxWidth: number
+): number {
+  const lines = wrapTextByWidth(text, textFont, size, maxWidth);
+  for (const line of lines) {
+    const lw = textFont.widthOfTextAtSize(line, size);
+    page.drawText(line, {
+      x: PAGE.width / 2 - lw / 2,
+      y,
+      size,
+      font: textFont,
+      color,
+    });
+    y -= size + 5;
+  }
+  return y;
+}
+
 /**
  * Generate certificate PDF (landscape A4-style: 842 × 595 pt)
  */
 export async function generateCertificatePDF(data: CertificateData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
-  const width = 842;
-  const height = 595;
+  const { width, height } = PAGE;
   const page = pdfDoc.addPage([width, height]);
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const template = CERTIFICATE_TEMPLATES[data.programType] ?? CERTIFICATE_TEMPLATES.bls;
+  const contentMaxWidth = width - MARGIN_X * 2;
 
-  // Background Design - Elegant Border
-  page.drawRectangle({
-    x: 0,
-    y: 0,
-    width,
-    height,
-    color: BRAND.paper,
-  });
+  page.drawRectangle({ x: 0, y: 0, width, height, color: BRAND.paper });
 
-  // Top Accent Bar
-  const topBarH = 12;
+  const topBarH = 10;
   page.drawRectangle({
     x: 0,
     y: height - topBarH,
@@ -186,226 +232,187 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: BRAND.teal,
   });
 
-  // Logo Integration
+  // Header: logo + tagline (compact — less empty space at top)
+  let headerBottom = height - topBarH - 12;
   const logoJpg = resolveLogoJpgBytes();
   if (logoJpg) {
     try {
       const img = await pdfDoc.embedJpg(logoJpg);
-      const maxW = 220;
+      const maxW = 168;
       const scale = maxW / img.width;
       const lw = img.width * scale;
       const lh = img.height * scale;
       page.drawImage(img, {
         x: width / 2 - lw / 2,
-        y: height - topBarH - 30 - lh,
+        y: headerBottom - lh,
         width: lw,
         height: lh,
       });
+      headerBottom -= lh + 8;
     } catch (e) {
       console.warn("[certificate-pdf] Could not embed logo:", e);
     }
   }
 
-  let y = height - 200;
+  let y = drawCenteredText(page, CERTIFICATE_HEADER_TAGLINE, headerBottom, 8, font, BRAND.inkMuted);
+  y -= 10;
 
-  // Tagline
-  const tag = CERTIFICATE_HEADER_TAGLINE;
-  const tagW = font.widthOfTextAtSize(tag, 9);
-  page.drawText(tag, {
-    x: width / 2 - tagW / 2,
-    y,
-    size: 9,
-    font,
-    color: BRAND.inkMuted,
-  });
-  y -= 45;
+  y = drawCenteredText(page, "CERTIFICATE OF COMPLETION", y, 15, fontBold, BRAND.orange);
+  y -= 8;
+  y = drawCenteredText(page, "This is to certify that", y, 11, font, BRAND.inkMuted);
+  y -= 6;
 
-  // Certificate Label
-  const certLabel = "CERTIFICATE OF COMPLETION";
-  const certW = fontBold.widthOfTextAtSize(certLabel, 16);
-  page.drawText(certLabel, {
-    x: width / 2 - certW / 2,
-    y,
-    size: 16,
-    font: fontBold,
-    color: BRAND.orange,
-  });
-  y -= 40;
+  const nameSize = Math.min(34, data.recipientName.length > 28 ? 26 : 34);
+  y = drawCenteredText(page, data.recipientName, y, nameSize, fontBold, BRAND.teal);
+  y -= 10;
 
-  // Recipient Name
-  const hereby = "This is to certify that";
-  const herebyW = font.widthOfTextAtSize(hereby, 12);
-  page.drawText(hereby, {
-    x: width / 2 - herebyW / 2,
-    y,
-    size: 12,
-    font,
-    color: BRAND.inkMuted,
-  });
-  y -= 45;
-
-  const nameSize = 36;
-  const nameW = fontBold.widthOfTextAtSize(data.recipientName, nameSize);
-  page.drawText(data.recipientName, {
-    x: width / 2 - nameW / 2,
-    y,
-    size: nameSize,
-    font: fontBold,
-    color: BRAND.teal,
-  });
-  y -= 40;
-
-  // Horizontal Divider
   page.drawLine({
-    start: { x: width / 2 - 150, y },
-    end: { x: width / 2 + 150, y },
+    start: { x: width / 2 - 140, y },
+    end: { x: width / 2 + 140, y },
     color: BRAND.orange,
     thickness: 1,
   });
-  y -= 35;
+  y -= 16;
 
-  // Course Description
-  // For BLS/ACLS/PALS/Heartsaver certifications, always use the canonical programme title.
-  // courseDisplayName is only used for fellowship micro-course modules.
-  const isCertificationProgramme = ["bls", "acls", "pals", "heartsaver", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive"].includes(data.programType);
-  const courseName = isCertificationProgramme ? template.title : (data.courseDisplayName?.trim() || template.title);
-  const bodyDescription = template.description;
-  const descLines = wrapText(bodyDescription, 80);
-  for (const line of descLines) {
-    const lw = font.widthOfTextAtSize(line, 13);
-    page.drawText(line, {
-      x: width / 2 - lw / 2,
-      y,
-      size: 13,
-      font,
-      color: BRAND.ink,
-    });
-    y -= 18;
-  }
-  y -= 25;
+  const isCertificationProgramme = [
+    "bls", "acls", "pals", "heartsaver",
+    "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive",
+  ].includes(data.programType);
+  const courseName = isCertificationProgramme
+    ? template.title
+    : data.courseDisplayName?.trim() || template.title;
 
-  // Specific Course Title (Bold)
-  const courseTitleSize = 18;
-  const courseTitleW = fontBold.widthOfTextAtSize(courseName, courseTitleSize);
-  page.drawText(courseName, {
-    x: width / 2 - courseTitleW / 2,
-    y,
-    size: courseTitleSize,
-    font: fontBold,
-    color: BRAND.teal,
+  y = drawWrappedCentered(page, template.description, y, 12, font, BRAND.ink, contentMaxWidth - 40);
+  y -= 8;
+  y = drawCenteredText(page, courseName, y, 16, fontBold, BRAND.teal);
+
+  // Footer band — three columns so date, signatory, and QR do not overlap
+  const footerDividerY = FOOTER_TOP + 78;
+  page.drawLine({
+    start: { x: MARGIN_X, y: footerDividerY },
+    end: { x: width - MARGIN_X, y: footerDividerY },
+    color: BRAND.tealLight,
+    thickness: 0.5,
   });
-  y -= 60;
 
-  // Footer Details (Date, Expiry, ID, AHA Attribution, QR)
-  // footY raised to 100 to give the QR code (height=70) a top edge at ~165,
-  // safely below the course title which can reach as low as ~140 on long titles.
-  const footY = 100;
+  const showAhaLine = [
+    "bls", "acls", "pals", "heartsaver",
+    "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive",
+  ].includes(data.programType);
+  if (showAhaLine) {
+    drawCenteredText(
+      page,
+      "Aligned with 2025 American Heart Association Guidelines",
+      footerDividerY + 8,
+      7,
+      font,
+      BRAND.inkMuted
+    );
+  }
 
-  // Compute 2-year expiry for BLS/ACLS/PALS/Heartsaver certifications
   const expiryDate = new Date(data.trainingDate);
   expiryDate.setFullYear(expiryDate.getFullYear() + 2);
   const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
 
-  // AHA Guidelines attribution line (above footer)
-  const ahaText = "Aligned with 2025 American Heart Association Guidelines";
-  const ahaW = font.widthOfTextAtSize(ahaText, 8);
-  page.drawText(ahaText, {
-    x: width / 2 - ahaW / 2,
-    y: footY + 30,
-    size: 8,
-    font,
-    color: BRAND.inkMuted,
-  });
-
-  // Date
-  page.drawText(`Date of Issue: ${formatDate(data.trainingDate)}`, {
-    x: 80,
-    y: footY,
-    size: 10,
-    font,
-    color: BRAND.ink,
-  });
-
-  // Expiry date (2 years from issue)
-  if (showExpiry) {
-    page.drawText(`Expiry Date: ${formatDate(expiryDate)}`, {
-      x: 80,
-      y: footY - 15,
-      size: 10,
-      font,
-      color: BRAND.ink,
-    });
+  const leftLines = [
+    `Date of Issue: ${formatDate(data.trainingDate)}`,
+    ...(showExpiry ? [`Valid Until: ${formatDate(expiryDate)}`] : []),
+    `Certificate ID: ${data.certificateNumber}`,
+  ];
+  let leftY = FOOTER_TOP + 52;
+  for (const line of leftLines) {
+    page.drawText(line, { x: MARGIN_X, y: leftY, size: 9, font, color: BRAND.ink });
+    leftY -= LINE_GAP;
   }
 
-  // Certificate ID
-  page.drawText(`Certificate ID: ${data.certificateNumber}`, {
-    x: 80,
-    y: showExpiry ? footY - 30 : footY - 15,
-    size: 10,
-    font,
+  // Centre: named signatory (credibility vs generic “Authorised Representative”)
+  const sigLineW = 200;
+  const sigX = width / 2 - sigLineW / 2;
+  const sigBaseY = FOOTER_TOP + 38;
+  page.drawLine({
+    start: { x: sigX, y: sigBaseY + 22 },
+    end: { x: sigX + sigLineW, y: sigBaseY + 22 },
     color: BRAND.ink,
+    thickness: 0.6,
   });
+  drawCenteredText(page, CERTIFICATE_SIGNATORY_NAME, sigBaseY + 8, 11, fontBold, BRAND.teal);
+  drawCenteredText(page, CERTIFICATE_SIGNATORY_TITLE, sigBaseY - 4, 9, font, BRAND.inkMuted);
+  drawCenteredText(page, "Paeds Resus", sigBaseY - 16, 8, font, BRAND.inkMuted);
 
-  // Verification QR Code
   const verifyUrl = `${CERTIFICATE_VERIFY_SITE}/verify?code=${encodeURIComponent(data.verificationCode)}`;
+  const qrSize = 64;
+  const qrX = width - MARGIN_X - qrSize;
+  const qrY = FOOTER_TOP + 42;
   try {
     const qrPng = await QRCode.toBuffer(verifyUrl, {
       type: "png",
-      width: 200,
+      width: 180,
       margin: 1,
       color: { dark: "#1b3d3dff", light: "#ffffffff" },
     });
     const qrImg = await pdfDoc.embedPng(qrPng);
-    const qrSize = 70;
-    page.drawImage(qrImg, { 
-      x: width - 80 - qrSize, 
-      y: footY - 5,   // QR top edge = footY - 5 + qrSize = footY + 65 — clear of course title
-      width: qrSize, 
-      height: qrSize 
-    });
-    
-    // Verify text sits below the QR code with 4px gap
-    const verifyText = "Verify at paedsresus.com/verify";
+    page.drawImage(qrImg, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+    const verifyText = "Scan to verify";
     const vtW = font.widthOfTextAtSize(verifyText, 7);
     page.drawText(verifyText, {
-      x: width - 80 - qrSize + (qrSize - vtW) / 2,
-      y: footY - 14,  // 9px below the QR bottom edge
+      x: qrX + (qrSize - vtW) / 2,
+      y: qrY - 12,
       size: 7,
+      font,
+      color: BRAND.inkMuted,
+    });
+    const urlText = "paedsresus.com/verify";
+    const urlW = font.widthOfTextAtSize(urlText, 6);
+    page.drawText(urlText, {
+      x: qrX + (qrSize - urlW) / 2,
+      y: qrY - 22,
+      size: 6,
       font,
       color: BRAND.inkMuted,
     });
   } catch (e) {
     console.warn("[certificate-pdf] QR code failed:", e);
+    page.drawText("Verify online", {
+      x: qrX,
+      y: FOOTER_TOP + 20,
+      size: 8,
+      font,
+      color: BRAND.inkMuted,
+    });
   }
-
-  // Authorized Signature (Placeholder for future digital signature)
-  const sigW = 180;
-  const sigX = width / 2 - sigW / 2;
-  page.drawLine({
-    start: { x: sigX, y: footY + 10 },
-    end: { x: sigX + sigW, y: footY + 10 },
-    color: BRAND.ink,
-    thickness: 0.5,
-  });
-  const repText = "Authorised Representative";
-  const repW = font.widthOfTextAtSize(repText, 10);
-  page.drawText(repText, {
-    x: width / 2 - repW / 2,
-    y: footY - 5,
-    size: 10,
-    font,
-    color: BRAND.inkMuted,
-  });
 
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);
 }
 
+function wrapTextByWidth(
+  text: string,
+  textFont: Awaited<ReturnType<PDFDocument["embedFont"]>>,
+  size: number,
+  maxWidth: number
+): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (textFont.widthOfTextAtSize(candidate, size) > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = candidate;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+/** @deprecated Use wrapTextByWidth — kept for any external imports */
 function wrapText(text: string, maxLength: number): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
   let currentLine = "";
-
   for (const word of words) {
     if ((currentLine + word).length > maxLength) {
       if (currentLine) lines.push(currentLine.trim());
@@ -414,7 +421,6 @@ function wrapText(text: string, maxLength: number): string[] {
       currentLine += (currentLine ? " " : "") + word;
     }
   }
-
   if (currentLine) lines.push(currentLine.trim());
   return lines;
 }
