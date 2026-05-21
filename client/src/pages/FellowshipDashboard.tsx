@@ -51,11 +51,11 @@ export default function FellowshipDashboard() {
     staleTime: 60_000,
   });
 
-  // Fetch user enrollments
+  // Fetch user enrollments (always — powers course tab badges + completion state)
   const { data: enrollments = [] } = trpc.courses.getEnrollments.useQuery(undefined, {
-    enabled: Boolean(user) && activeTab === "courses",
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    enabled: Boolean(user),
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
   });
 
   const handleEnrollClick = (course: any) => {
@@ -64,8 +64,8 @@ export default function FellowshipDashboard() {
   };
 
   const handleEnrollmentSuccess = () => {
-    // Refetch enrollments after successful enrollment
     void utils.courses.getEnrollments.invalidate();
+    void utils.courses.getUserEnrollments.invalidate();
     void utils.fellowship.getProgress.invalidate();
   };
 
@@ -306,7 +306,7 @@ export default function FellowshipDashboard() {
               <CardHeader>
                 <CardTitle>Fellowship micro-courses</CardTitle>
                 <CardDescription>
-                  Complete all 26 toward fellowship certification. Each completed course extends ResusGPS access by 30 days
+                  Complete all {coursesPillar.required} toward fellowship certification. Each completed course extends ResusGPS access by 30 days
                   (stackable). Pay per course (KES 200 each) via M-Pesa or approved paths.
                 </CardDescription>
               </CardHeader>

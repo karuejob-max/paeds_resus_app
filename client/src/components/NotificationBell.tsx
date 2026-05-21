@@ -88,9 +88,12 @@ export function NotificationBell() {
 
     // In-progress courses (up to 3)
     const inProgress = enrollments.filter(
-      (e: any) => e.status === 'in_progress' && (e.progressPercentage ?? 0) > 0
+      (e) =>
+        e.enrollmentStatus === 'active' &&
+        (e.progressPercentage ?? 0) > 0 &&
+        (e.progressPercentage ?? 0) < 100
     );
-    inProgress.slice(0, 3).forEach((e: any) => {
+    inProgress.slice(0, 3).forEach((e) => {
       items.push({
         id: `resume-${e.id}`,
         type: 'course_resume',
@@ -104,7 +107,7 @@ export function NotificationBell() {
 
     // Not-started enrolled courses
     const notStarted = enrollments.filter(
-      (e: any) => e.status === 'enrolled' && (e.progressPercentage ?? 0) === 0
+      (e) => e.enrollmentStatus === 'active' && (e.progressPercentage ?? 0) === 0
     );
     if (notStarted.length > 0) {
       items.push({

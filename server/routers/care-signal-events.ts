@@ -9,6 +9,7 @@ import {
   providerProfiles,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
+import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
 import {
   getFacilityById,
   resolveCanonicalFacilityId,
@@ -319,6 +320,12 @@ export const careSignalEventsRouter = router({
           facilityCounty,
           timestamp: new Date().toISOString(),
         });
+
+        if (!input.isAnonymous) {
+          void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+            console.warn("[Fellowship] sync after Care Signal submit failed:", e)
+          );
+        }
 
         return {
           success: true,

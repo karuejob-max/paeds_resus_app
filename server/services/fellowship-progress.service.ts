@@ -19,16 +19,19 @@ import {
   computeCareSignalStreak,
   enumerateMonthsEndingAt,
 } from "../routers/fellowship-care-signal-streak";
+import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 
 export type FellowshipPillarStatus = Awaited<ReturnType<typeof calculateFellowshipStatus>>;
 
 export async function calculateCoursesPillar(userId: number) {
   const db = await getDb();
   if (!db) {
-    return { completed: 0, required: 27, percentage: 0, legacyCourses: 0 };
+    const required = getFellowshipMicroCourseRequiredCount();
+    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
   }
 
   try {
+    const totalRequired = getFellowshipMicroCourseRequiredCount();
     const completedCerts = await db.query.certificates.findMany({
       where: (certs) => eq(certs.userId, userId),
     });
@@ -39,13 +42,13 @@ export async function calculateCoursesPillar(userId: number) {
     const legacyCourses = completedCerts.filter((c) =>
       ["bls", "acls", "pals", "instructor"].includes(c.programType)
     ).length;
-    const totalRequired = 27;
     const completed = completedMicroCourses.length;
     const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
     return { completed, required: totalRequired, percentage, legacyCourses };
   } catch (error) {
     console.error("[Fellowship] Error calculating courses pillar:", error);
-    return { completed: 0, required: 27, percentage: 0, legacyCourses: 0 };
+    const required = getFellowshipMicroCourseRequiredCount();
+    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
   }
 }
 

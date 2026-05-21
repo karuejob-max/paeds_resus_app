@@ -227,6 +227,7 @@ export default function ResusGPS() {
   const analyticsRef = useRef(analytics);
   analyticsRef.current = analytics;
   const { trackButtonClick } = useAnalytics('ResusGPS');
+  const utils = trpc.useUtils();
   const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
   const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
 
@@ -488,8 +489,16 @@ export default function ResusGPS() {
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
-  const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation();
-  const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation();
+  const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation({
+    onSuccess: () => {
+      void utils.fellowship.getProgress.invalidate();
+    },
+  });
+  const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation({
+    onSuccess: () => {
+      void utils.fellowship.getProgress.invalidate();
+    },
+  });
 
   // Phase 5.2 — Server-side SAMPLE history sync
   const saveSampleHistoryMutation = trpc.sampleHistory.saveSampleHistory.useMutation();
