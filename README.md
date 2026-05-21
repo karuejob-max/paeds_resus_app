@@ -15,6 +15,7 @@ Read in this order before deep work:
 3. **[`docs/WORK_STATUS.md`](docs/WORK_STATUS.md)** — What was done, in progress, critique.
 4. **[`docs/AI_TEAM_WORKFLOW.md`](docs/AI_TEAM_WORKFLOW.md)** — How collaborators sync via git.
 5. **[`docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md)** — Pre-merge checks.
+6. **[`docs/PRE_MERGE_CHECKLIST.md`](docs/PRE_MERGE_CHECKLIST.md)** — `pnpm run ci:gate` before PRs; **[`docs/STAGING_BRANCH_SETUP.md`](docs/STAGING_BRANCH_SETUP.md)** — `develop` / staging / production flow.
 
 Long-range or aspirational multi-year material (not near-term commitments) lives under **[`docs/archive/`](docs/archive/)** — see [`docs/archive/README.md`](docs/archive/README.md).
 

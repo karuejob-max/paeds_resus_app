@@ -112,7 +112,7 @@ export default function AHABookSession() {
         </div>
 
         {/* How it works */}
-        <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
           <CardContent className="pt-4 pb-4 text-sm text-foreground/80 space-y-1">
             <p className="font-medium text-blue-800 dark:text-blue-300">How practical sign-off works</p>
             <ol className="list-decimal list-inside space-y-0.5 ml-2 text-xs">

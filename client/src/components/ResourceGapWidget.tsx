@@ -87,7 +87,7 @@ export function ResourceGapWidget({
               {title}
             </CardTitle>
             {!compact && (
-              <CardDescription>{description}</CardDescription>
+              <CardDescription className="text-slate-600 dark:text-slate-400">{description}</CardDescription>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -132,17 +132,17 @@ export function ResourceGapWidget({
         ) : gaps.length === 0 ? (
           <div className="text-center py-6 space-y-2">
             <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               No resource gaps recorded in {timeframeLabel[timeframe].toLowerCase()}.
             </p>
-            <p className="text-xs text-muted-foreground/70">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Gaps are captured automatically when providers mark an intervention as "Not Available" in ResusGPS.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {/* Summary line */}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               <span className="font-medium text-foreground">{totalEvents}</span> gap event{totalEvents !== 1 ? "s" : ""} recorded
               {" · "}{timeframeLabel[timeframe].toLowerCase()}
             </p>
@@ -153,7 +153,7 @@ export function ResourceGapWidget({
                 <li key={intervention} className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs text-muted-foreground w-4 shrink-0 text-right">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 w-4 shrink-0 text-right">
                         {idx + 1}.
                       </span>
                       <span className="text-sm font-medium text-foreground truncate">
@@ -176,7 +176,7 @@ export function ResourceGapWidget({
             </ul>
 
             {/* Legend */}
-            <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 pt-1 text-xs text-slate-600 dark:text-slate-400">
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-full bg-red-500" />High frequency
               </span>
