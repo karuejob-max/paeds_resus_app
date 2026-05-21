@@ -141,8 +141,19 @@ export default function MicroCoursePlayerDB() {
         programType: (ahaCourseDetails as any).programType ?? programType ?? 'bls',
       };
     }
-    return fellowshipDbCourse ?? null;
-  }, [isAhaCourse, ahaCourseDetails, fellowshipDbCourse, programType]);
+    // Fellowship: learning content lives on `courses` (numeric id) but
+    // courses.complete expects microCourses.courseId slug (e.g. asthma-i).
+    if (fellowshipDbCourse && microCourseRow) {
+      return {
+        id: fellowshipDbCourse.id,
+        courseId: microCourseRow.courseId,
+        title: fellowshipDbCourse.title ?? microCourseRow.title,
+        level: microCourseRow.level ?? 'foundational',
+        duration: microCourseRow.duration ?? fellowshipDbCourse.duration ?? 45,
+      };
+    }
+    return null;
+  }, [isAhaCourse, ahaCourseDetails, fellowshipDbCourse, microCourseRow, programType]);
 
   // Unified courseDetails: for AHA use ahaCourseDetails, for fellowship use the separate query
   const { data: fellowshipCourseDetails, isLoading: detailsLoading } = trpc.learning.getCourseDetails.useQuery(
@@ -288,6 +299,9 @@ export default function MicroCoursePlayerDB() {
       } else {
         toast.error(data.message || "Failed to complete course");
       }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Could not issue certificate. Please try again.");
     },
   });
 
@@ -470,7 +484,12 @@ export default function MicroCoursePlayerDB() {
       const enrollmentId = (enrollment as any)?.id ?? 0;
       markAhaCognitive.mutate({ enrollmentId, programType: pt });
     } else {
-      completeCourse.mutate({ courseId: dbCourse.courseId });
+      const microCourseSlug = microCourseRow?.courseId ?? slug;
+      if (!microCourseSlug) {
+        toast.error("Could not resolve this course. Return to Fellowship and open the course again.");
+        return;
+      }
+      completeCourse.mutate({ courseId: microCourseSlug });
     }
   };
 

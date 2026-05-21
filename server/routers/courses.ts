@@ -272,10 +272,15 @@ export const coursesRouter = router({
         }
         await ensureMicroCoursesCatalog();
 
-        // Look up course by courseId to get database id
-        const course = await database.query.microCourses.findFirst({
+        // Look up course by catalog slug (e.g. asthma-i); tolerate legacy numeric ids from older clients
+        let course = await database.query.microCourses.findFirst({
           where: (c) => eq(c.courseId, input.courseId),
         });
+        if (!course && /^\d+$/.test(input.courseId)) {
+          course = await database.query.microCourses.findFirst({
+            where: (c) => eq(c.id, Number(input.courseId)),
+          });
+        }
 
         if (!course) {
           return { success: false, message: 'Course not found' };
