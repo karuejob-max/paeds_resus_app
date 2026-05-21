@@ -52,7 +52,7 @@ export const individualCourses: CoursePrice[] = [
     name: "Heartsaver CPR AED",
     description:
       "CPR and AED skills for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR.",
-    price: 0,
+    price: 5000,
     category: "individual",
     providerTrack: "aha_certification",
     duration: "Self-paced",

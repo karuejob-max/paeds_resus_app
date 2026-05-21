@@ -327,12 +327,27 @@ export default function Enroll() {
                     KES {course.price.toLocaleString()}
                   </span>
                 </div>
-                <div className="border-t border-border pt-3 flex justify-between items-baseline">
-                  <span className="font-bold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-brand-orange tabular-nums">
-                    KES {course.price.toLocaleString()}
-                  </span>
-                </div>
+                {selectedCourse === "heartsaver" && course.price > 0 ? (
+                  <>
+                    <div className="flex justify-between gap-4 text-sm">
+                      <span className="text-muted-foreground">Promotional enrollment — no payment today</span>
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        − KES {course.price.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                      <span className="font-bold text-foreground">Total due today</span>
+                      <span className="text-2xl font-bold text-brand-orange tabular-nums">KES 0</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                    <span className="font-bold text-foreground">Total</span>
+                    <span className="text-2xl font-bold text-brand-orange tabular-nums">
+                      KES {course.price.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
