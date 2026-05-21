@@ -21,6 +21,7 @@ import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
+import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
@@ -389,6 +390,7 @@ export default function ResusGPS() {
   const [duplicateWarning, setDuplicateWarning] = useState<{ intervention: Intervention; duplicate: Intervention } | null>(null);
   const [showCareSignalPrompt, setShowCareSignalPrompt] = useState(false);
   const [careSignalPromptDiagnosis, setCareSignalPromptDiagnosis] = useState('');
+  const [showFellowshipPillarBanner, setShowFellowshipPillarBanner] = useState(false);
 
   /** Single entry point for starting an intervention — keeps duplicate-medication checks consistent (Intervention screen, side panel, etc.). */
   const handleStartIntervention = (id: string) => {
@@ -570,6 +572,7 @@ export default function ResusGPS() {
       });
       
       if (sessionResult.success) {
+        setShowFellowshipPillarBanner(true);
         toast.success(
           sessionResult.alreadyExists 
             ? '✅ Session already saved for fellowship credit' 
@@ -650,7 +653,7 @@ export default function ResusGPS() {
           outcome: session.outcome ?? 'completed',
           depthScore: session.depthScore ?? 0,
         });
-        // Quiet success — provider already has their file
+        setShowFellowshipPillarBanner(true);
         console.info('[ResusGPS] Session synced for fellowship credit:', session.id);
       } catch (error) {
         // Silent failure — never interrupt the clinical workflow
@@ -795,6 +798,11 @@ export default function ResusGPS() {
           </p>
         </div>
       )}
+
+      <ResusGpsFellowshipPillarBanner
+        open={showFellowshipPillarBanner}
+        onDismiss={() => setShowFellowshipPillarBanner(false)}
+      />
       
       {/* Top Bar */}
       <TopBar
