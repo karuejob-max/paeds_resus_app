@@ -82,6 +82,7 @@ export default function MicroCoursePlayerDB() {
     try { return parseInt(localStorage.getItem(progressKey + '-module') ?? '0', 10) || 0; } catch { return 0; }
   });
   const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
+  const [backToLastSectionOfModule, setBackToLastSectionOfModule] = useState(false);
 
   // Persist maxReachedModuleIndex whenever it advances
   useEffect(() => {
@@ -373,6 +374,56 @@ export default function MicroCoursePlayerDB() {
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+
+  useEffect(() => {
+    if (!backToLastSectionOfModule || contentLoading || !currentModuleId) return;
+    const lastSectionIdx = sections.length > 0 ? sections.length - 1 : 0;
+    setCurrentSectionIndex(lastSectionIdx);
+    setBackToLastSectionOfModule(false);
+    window.scrollTo(0, 0);
+  }, [backToLastSectionOfModule, contentLoading, currentModuleId, sections.length]);
+
+  const resetQuizState = () => {
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+  };
+
+  const goToPreviousStep = (exitAtStart: boolean) => {
+    if (showSummativeQuiz) {
+      setShowSummativeQuiz(false);
+      setShowFormativeQuiz(false);
+      resetQuizState();
+      setCurrentModuleIndex(Math.max(0, modules.length - 1));
+      setBackToLastSectionOfModule(true);
+      return;
+    }
+    if (showFormativeQuiz) {
+      setShowFormativeQuiz(false);
+      resetQuizState();
+      setCurrentSectionIndex(sections.length > 0 ? sections.length - 1 : 0);
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(currentSectionIndex - 1);
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (currentModuleIndex > 0) {
+      setShowFormativeQuiz(false);
+      setShowSummativeQuiz(false);
+      setCurrentModuleIndex(currentModuleIndex - 1);
+      setBackToLastSectionOfModule(true);
+      return;
+    }
+    if (exitAtStart) {
+      navigate(coursesHubPath);
+    }
+  };
+
+  const handleHeaderBack = () => goToPreviousStep(true);
+  const canGoBackInContent = currentSectionIndex > 0 || currentModuleIndex > 0;
 
   const handleNextSection = () => {
     if (currentSectionIndex < sections.length - 1) {
@@ -667,7 +718,21 @@ export default function MicroCoursePlayerDB() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(coursesHubPath)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleHeaderBack}
+              aria-label={
+                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                  ? "Go to previous section or module"
+                  : coursesHubReturnLabel
+              }
+              title={
+                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                  ? "Previous section or module"
+                  : coursesHubReturnLabel
+              }
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -814,8 +879,8 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="ghost" 
                   className="text-muted-foreground font-semibold"
-                  onClick={() => setCurrentSectionIndex(Math.max(0, currentSectionIndex - 1))}
-                  disabled={currentSectionIndex === 0}
+                  onClick={() => goToPreviousStep(false)}
+                  disabled={!canGoBackInContent}
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Previous
