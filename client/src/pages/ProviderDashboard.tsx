@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Award,
   BookOpen,
-  Bell,
   CheckCircle2,
   Clock,
   Download,
@@ -63,6 +62,11 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     enabled: isAuthenticated,
   });
 
+  const { data: fellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -89,10 +93,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
   // ── Derived data ─────────────────────────────────────────────────────────────
   const allEnrollments = enrollmentsData ?? [];
   const inProgressCourses = allEnrollments.filter(
-    (e) => e.enrollmentStatus === "active" && (e.progressPercentage ?? 0) > 0
-  );
-  const notStartedCourses = allEnrollments.filter(
-    (e) => e.enrollmentStatus === "active" && (e.progressPercentage ?? 0) === 0
+    (e) => e.enrollmentStatus === "active" && (e.progressPercentage ?? 0) > 0 && (e.progressPercentage ?? 0) < 100
   );
   const completedCourses = allEnrollments.filter(
     (e) => e.enrollmentStatus === "completed"
@@ -102,42 +103,8 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     return days !== null && days <= 90;
   });
 
-  // Build notification list
-  type Notification = {
-    id: string;
-    type: "warning" | "info";
-    message: string;
-    action?: () => void;
-    actionLabel?: string;
-  };
-  const notifications: Notification[] = [];
-  inProgressCourses.slice(0, 3).forEach((e) => {
-    notifications.push({
-      id: `progress-${e.id}`,
-      type: "info",
-      message: `Continue: ${e.course?.title ?? "Course"} — ${e.progressPercentage ?? 0}% complete`,
-      action: () => setLocation(`/micro-course/${e.course?.courseId}`),
-      actionLabel: "Resume",
-    });
-  });
-  if (notStartedCourses.length > 0) {
-    notifications.push({
-      id: "not-started",
-      type: "info",
-      message: `${notStartedCourses.length} enrolled course${notStartedCourses.length > 1 ? "s" : ""} not yet started`,
-      action: () => setLocation("/fellowship"),
-      actionLabel: "Start now",
-    });
-  }
-  if (renewalAttention.length > 0) {
-    notifications.push({
-      id: "renewal",
-      type: "warning",
-      message: `${renewalAttention.length} certificate${renewalAttention.length > 1 ? "s" : ""} expiring within 90 days`,
-      action: () => setShowCertificates(true),
-      actionLabel: "View",
-    });
-  }
+  const fellowshipCoursesRequired = fellowshipProgress?.coursesPillar?.required ?? 27;
+  const fellowshipCoursesCompleted = fellowshipProgress?.coursesPillar?.completed ?? completedCourses.length;
 
   // ── Certificate download ──────────────────────────────────────────────────────
   const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
@@ -274,21 +241,30 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               <GraduationCap className="h-8 w-8 opacity-90" />
               <div>
                 <h2 className="font-bold text-lg leading-tight">Paeds Resus Fellowship</h2>
-                <p className="text-white/90 text-xs mt-0.5">27 micro-courses · Evidence-based · Certified</p>
+                <p className="text-white/90 text-xs mt-0.5">
+                  {fellowshipCoursesRequired} micro-courses · Evidence-based · Certified
+                </p>
               </div>
             </div>
           </div>
           <CardContent className="px-5 py-4 space-y-3">
-            {allEnrollments.length > 0 ? (
+            {allEnrollments.length > 0 || fellowshipCoursesCompleted > 0 ? (
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-slate-500">
-                  <span>{completedCourses.length} of {allEnrollments.length} courses completed</span>
+                  <span>
+                    {fellowshipCoursesCompleted} of {fellowshipCoursesRequired} fellowship courses completed
+                  </span>
                   <span className="font-semibold text-slate-700">
-                    {Math.round((completedCourses.length / allEnrollments.length) * 100)}%
+                    {fellowshipProgress?.coursesPillar?.percentage ??
+                      Math.round((fellowshipCoursesCompleted / fellowshipCoursesRequired) * 100)}
+                    %
                   </span>
                 </div>
                 <Progress
-                  value={Math.round((completedCourses.length / allEnrollments.length) * 100)}
+                  value={
+                    fellowshipProgress?.coursesPillar?.percentage ??
+                    Math.round((fellowshipCoursesCompleted / fellowshipCoursesRequired) * 100)
+                  }
                   className="h-2"
                 />
                 {inProgressCourses.length > 0 && (

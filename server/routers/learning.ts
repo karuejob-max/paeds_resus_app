@@ -25,6 +25,10 @@ import {
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
+import {
+  isMicroCourseEnrollmentId,
+  syncMicroCourseEnrollmentProgress,
+} from "../lib/sync-micro-course-enrollment-progress";
 
 export const learningRouter = router({
   // Get all courses
@@ -346,6 +350,10 @@ export const learningRouter = router({
         });
       }
 
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+      }
+
       return { success: true, score: input.score, passed, passingScore };
     }),
 
@@ -385,6 +393,10 @@ export const learningRouter = router({
       // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
       // markAhaCognitiveComplete internally checks all modules before setting the flag.
       await markAhaCognitiveComplete(input.enrollmentId);
+
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+      }
 
       return { success: true };
     }),

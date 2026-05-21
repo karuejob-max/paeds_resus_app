@@ -215,7 +215,28 @@ export default function MicroCoursePlayerDB() {
   }, [resumeQuery.data, hasResumed]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-  const completeModuleMutation = trpc.learning.completeModule.useMutation();
+  const utils = trpc.useUtils();
+  const ensureMicroEnrollment = trpc.courses.ensureMicroCourseEnrollment.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        void utils.courses.getUserEnrollments.invalidate();
+      }
+    },
+  });
+
+  // Fellowship: auto-create enrollment row on first visit (mirrors AHA path)
+  const [ensureEnrollmentAttempted, setEnsureEnrollmentAttempted] = useState(false);
+  useEffect(() => {
+    if (isAhaCourse || !slug || !isAuthenticated || enrollment || ensureEnrollmentAttempted) return;
+    setEnsureEnrollmentAttempted(true);
+    ensureMicroEnrollment.mutate({ courseId: slug });
+  }, [isAhaCourse, slug, isAuthenticated, enrollment, ensureEnrollmentAttempted, ensureMicroEnrollment]);
+
+  const completeModuleMutation = trpc.learning.completeModule.useMutation({
+    onSuccess: () => {
+      void utils.courses.getUserEnrollments.invalidate();
+    },
+  });
   const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
@@ -225,6 +246,8 @@ export default function MicroCoursePlayerDB() {
         toast.success(`Cognitive certificate issued! #${data.certificateNumber}`);
       }
       if (data.success) {
+        void utils.certificates.getMyCertificates.invalidate();
+        void utils.fellowship.getProgress.invalidate();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "AHA cognitive pathway completed",
@@ -249,6 +272,9 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
+        void utils.courses.getUserEnrollments.invalidate();
+        void utils.certificates.getMyCertificates.invalidate();
+        void utils.fellowship.getProgress.invalidate();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "Micro-course completed",
@@ -316,6 +342,7 @@ export default function MicroCoursePlayerDB() {
         toast.success(showSummativeQuiz ? "Final exam passed!" : "Module quiz passed!");
         setQuizScore(result.score);
         setQuizSubmitted(true);
+        void utils.courses.getUserEnrollments.invalidate();
       } else if (result.success) {
         setQuizScore(result.score);
         setQuizSubmitted(true);

@@ -19,6 +19,7 @@ import {
   calculateFellowshipStatus,
   syncFellowshipProgressForUser,
 } from "../services/fellowship-progress.service";
+import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 import { trackEvent } from "../services/analytics.service";
 
 export const fellowshipRouter = router({
@@ -51,7 +52,7 @@ export const fellowshipRouter = router({
       console.error("[Fellowship] Error in getProgress:", error);
       // Return default 0% progress on error
       return {
-        coursesPillar: { completed: 0, required: 27, percentage: 0, legacyCourses: 0 },
+        coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
         resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0 },
         careSignalPillar: { streak: 0, eventsSubmitted: 0, percentage: 0 },
         isQualified: false,
