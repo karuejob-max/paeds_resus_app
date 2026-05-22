@@ -201,17 +201,17 @@ function isJpgBuffer(buf: Buffer): boolean {
   return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
 }
 
-function resolveLogoJpgBytes(): Buffer | null {
+function resolveAssetBytes(relativePath: string): Buffer | null {
   const cwd = process.cwd();
   const here = certificatePdfDir();
   
-  const logoPaths = [
-    path.join(cwd, "server", "assets", "logos", "logo-landscape.jpg"),
-    path.join(cwd, "client", "public", "assets", "logos", "logo-landscape.jpg"),
-    path.join(here, "assets", "logos", "logo-landscape.jpg"),
+  const assetPaths = [
+    path.join(cwd, "server", "assets", relativePath),
+    path.join(cwd, "client", "public", "assets", relativePath),
+    path.join(here, "assets", relativePath),
   ];
 
-  for (const p of logoPaths) {
+  for (const p of assetPaths) {
     try {
       if (fs.existsSync(p)) {
         return fs.readFileSync(p);
@@ -234,6 +234,14 @@ function drawInsetFrame(
     borderColor: BRAND.tealLight,
     borderWidth: FRAME_STROKE,
   });
+}
+
+function resolveLogoJpgBytes(): Buffer | null {
+  return resolveAssetBytes(path.join("logos", "logo-landscape.jpg"));
+}
+
+function resolveSignaturePngBytes(): Buffer | null {
+  return resolveAssetBytes(path.join("signatures", "job-karue-signature.png"));
 }
 
 function drawCenteredText(
@@ -469,6 +477,26 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   for (let i = 1; i < leftLines.length; i++) {
     page.drawText(leftLines[i], { x: MARGIN_X, y: leftY, size: 9, font, color: BRAND.ink });
     leftY -= FOOTER_ROW_GAP;
+  }
+
+  // Signature Image
+  const signaturePng = resolveSignaturePngBytes();
+  if (signaturePng) {
+    try {
+      const sigImg = await pdfDoc.embedPng(signaturePng);
+      const maxH = SIGNATURE_PAD_HEIGHT - 4;
+      const scale = maxH / sigImg.height;
+      const sw = sigImg.width * scale;
+      const sh = sigImg.height * scale;
+      page.drawImage(sigImg, {
+        x: width / 2 - sw / 2,
+        y: signatureGuideY + 2,
+        width: sw,
+        height: sh,
+      });
+    } catch (e) {
+      console.warn("[certificate-pdf] Could not embed signature:", e);
+    }
   }
 
   drawCenteredText(page, CERTIFICATE_SIGNATORY_NAME, metadataRowY, 11, fontBold, BRAND.teal, 4);
