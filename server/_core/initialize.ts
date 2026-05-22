@@ -259,6 +259,89 @@ export async function runMigrations() {
     } catch (palsErr) {
       console.error('[Migrations] PALS content migration error (non-fatal):', palsErr instanceof Error ? palsErr.message : palsErr);
     }
+
+    // ── Heartsaver 2025 infant CPR technique migration ────────────────────────
+    // Final Knowledge Check Q9 + Module 4 quiz: 2-finger eliminated; heel of 1 hand.
+    try {
+      const hsInfantExplanation =
+        "The 2025 AHA ECC Guidelines eliminate the 2-finger technique for infant CPR. For a single rescuer, use the heel of 1 hand on the sternum. The 2 thumb-encircling hands technique is preferred when 2 rescuers are available or when a single rescuer can encircle the chest.";
+
+      const isTwoFingerAnswer = (value: string | null | undefined) => {
+        if (!value) return false;
+        let parsed = value;
+        try {
+          const json = JSON.parse(value);
+          if (typeof json === "string") parsed = json;
+        } catch {
+          /* plain string */
+        }
+        return /two.?finger/i.test(parsed);
+      };
+
+      const finalInfantRows = await db
+        .select({ id: quizQuestions.id, correctAnswer: quizQuestions.correctAnswer })
+        .from(quizQuestions)
+        .where(like(quizQuestions.question, "%infant CPR technique for a single rescuer%"));
+      for (const row of finalInfantRows) {
+        if (isTwoFingerAnswer(row.correctAnswer)) {
+          await db
+            .update(quizQuestions)
+            .set({ correctAnswer: "Heel of one hand", explanation: hsInfantExplanation })
+            .where(eq(quizQuestions.id, row.id));
+          console.log(`[Migrations] ✓ Fixed Heartsaver Final infant CPR Q (id=${row.id}): heel of 1 hand`);
+        }
+      }
+
+      const moduleInfantRows = await db
+        .select({ id: quizQuestions.id, correctAnswer: quizQuestions.correctAnswer })
+        .from(quizQuestions)
+        .where(like(quizQuestions.question, "%compression technique for a single rescuer performing infant CPR%"));
+      for (const row of moduleInfantRows) {
+        if (isTwoFingerAnswer(row.correctAnswer)) {
+          await db
+            .update(quizQuestions)
+            .set({
+              correctAnswer: "Heel of one hand on the sternum",
+              explanation: hsInfantExplanation,
+            })
+            .where(eq(quizQuestions.id, row.id));
+          console.log(`[Migrations] ✓ Fixed Heartsaver module infant CPR Q (id=${row.id}): heel of 1 hand`);
+        }
+      }
+
+      const twoFingerSections = await db
+        .select({ id: moduleSections.id, content: moduleSections.content })
+        .from(moduleSections)
+        .where(like(moduleSections.content, "%Two-finger technique%"));
+      for (const row of twoFingerSections) {
+        const content = row.content ?? "";
+        if (!content.includes("Two-finger technique") && !content.includes("Two-finger")) continue;
+        const updated = content
+          .replace(
+            /<td>Two fingers \(1 rescuer\) or two-thumb encircling \(2 rescuers\)<\/td>/g,
+            "<td>Heel of 1 hand (1 rescuer) or two-thumb encircling (2 rescuers or when chest can be encircled)</td>"
+          )
+          .replace(
+            /<li><strong>1 rescuer:<\/strong> Two-finger technique[^<]*<\/li>/g,
+            "<li><strong>1 rescuer:</strong> Heel of 1 hand on the lower half of the sternum</li>"
+          )
+          .replace(
+            /than the two-finger technique\. Use it whenever 2 rescuers are available\./g,
+            ". Use it whenever 2 rescuers are available, or when a single rescuer can encircle the chest with both hands."
+          );
+        if (updated !== content) {
+          await db.update(moduleSections).set({ content: updated }).where(eq(moduleSections.id, row.id));
+          console.log(`[Migrations] ✓ Updated infant CPR section (id=${row.id}) for 2025 technique`);
+        }
+      }
+
+      console.log("[Migrations] ✓ Heartsaver 2025 infant CPR migration complete");
+    } catch (hsErr) {
+      console.error(
+        "[Migrations] Heartsaver content migration error (non-fatal):",
+        hsErr instanceof Error ? hsErr.message : hsErr
+      );
+    }
   } catch (error) {
     console.error('[Migrations] Migration error (non-fatal):', error instanceof Error ? error.message : error);
     // Don't throw — allow server to start even if a migration fails
