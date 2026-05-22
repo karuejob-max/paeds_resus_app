@@ -59,7 +59,6 @@ const Reassessment = lazy(() => import("./pages/Reassessment"));
 const CirculationAssessment = lazy(() => import("./pages/CirculationAssessment"));
 const CourseBLS = lazy(() => import("./pages/CourseBLS"));
 const CourseACLS = lazy(() => import("./pages/CourseACLS"));
-const CourseSeriouslyIllChild = lazy(() => import("./pages/CourseSeriouslyIllChild"));
 const CoursePaediatricSepticShock = lazy(() => import("./pages/CoursePaediatricSepticShock"));
 const CourseIntubationEssentials = lazy(() => import("./pages/CourseIntubationEssentials"));
 const CourseInstructor = lazy(() => import("./pages/CourseInstructor"));
@@ -337,9 +336,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/course/seriously-ill-child">{() => (
-            <RoleGate allowed={["provider"]}>
-              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
-            </RoleGate>
+            <Redirect to="/micro-course/seriously-ill-child-i" />
           )}</Route>
           <Route path="/course/paediatric-septic-shock">{() => (
             <RoleGate allowed={["provider"]}>

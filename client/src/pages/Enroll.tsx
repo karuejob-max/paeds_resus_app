@@ -9,12 +9,14 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
+import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 
 export default function Enroll() {
   useScrollToTop();
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const search = useSearch();
+  const utils = trpc.useUtils();
   const requestedCourseId = new URLSearchParams(search).get("courseId");
   const [step, setStep] = useState<"course-select" | "checkout" | "success">(
     requestedCourseId ? "checkout" : "course-select"
@@ -23,8 +25,29 @@ export default function Enroll() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const createEnrollment = trpc.enrollment.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async (data, variables) => {
       setStep("success");
+      const pt = variables.programType;
+      if (isAhaProgramSlug(pt) && data.enrollmentId) {
+        try {
+          const hubs = await utils.courses.listAhaHubPrograms.fetch();
+          const hub = hubs.find((c) => c.programType === pt);
+          if (hub?.id) {
+            setTimeout(() => {
+              setLocation(getAhaContinueRoute(pt as AhaProgramType, data.enrollmentId, hub.id).destination);
+            }, 1500);
+            return;
+          }
+        } catch {
+          /* fall through to AHA hub */
+        }
+        setTimeout(() => setLocation("/aha-courses"), 1500);
+        return;
+      }
+      if (pt === "instructor") {
+        setTimeout(() => setLocation("/course/instructor"), 1500);
+        return;
+      }
       setTimeout(() => setLocation("/home"), 3000);
     },
     onError: (error) => {
@@ -106,15 +129,15 @@ export default function Enroll() {
               Choose your provider path
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              AHA certification (BLS, ACLS, PALS) and Paeds Resus instructor training are separate paths. Fellowship micro-courses are started in Fellowship.
+              AHA certification (BLS, ACLS, PALS, Heartsaver) and Paeds Resus instructor training are separate paths. Fellowship micro-courses are started in Fellowship.
             </p>
           </div>
 
           <div className="space-y-10">
             <section>
               <h2 className="text-2xl font-bold text-foreground mb-2">AHA certification</h2>
-              <p className="text-sm text-muted-foreground mb-5">Choose BLS, ACLS, or PALS.</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <p className="text-sm text-muted-foreground mb-5">Choose BLS, ACLS, PALS, or Heartsaver.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {ahaEnrollOptions.map((course) => (
                   <div
                     id={course.id === "pals" ? "course-pals" : undefined}
@@ -304,12 +327,27 @@ export default function Enroll() {
                     KES {course.price.toLocaleString()}
                   </span>
                 </div>
-                <div className="border-t border-border pt-3 flex justify-between items-baseline">
-                  <span className="font-bold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-brand-orange tabular-nums">
-                    KES {course.price.toLocaleString()}
-                  </span>
-                </div>
+                {selectedCourse === "heartsaver" && course.price > 0 ? (
+                  <>
+                    <div className="flex justify-between gap-4 text-sm">
+                      <span className="text-muted-foreground">Promotional enrollment — no payment today</span>
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        − KES {course.price.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                      <span className="font-bold text-foreground">Total due today</span>
+                      <span className="text-2xl font-bold text-brand-orange tabular-nums">KES 0</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                    <span className="font-bold text-foreground">Total</span>
+                    <span className="text-2xl font-bold text-brand-orange tabular-nums">
+                      KES {course.price.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -332,7 +370,7 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
-                  const programType = selectedCourse as "bls" | "acls" | "pals" | "instructor";
+                  const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "instructor";
                   createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),
@@ -422,7 +460,9 @@ export default function Enroll() {
               </div>
 
               <p className="text-xs text-muted-foreground mb-4">
-                Redirecting to your dashboard in 3 seconds...
+                {isAhaProgramSlug(selectedCourse ?? "") || selectedCourse === "instructor"
+                  ? "Opening your course in a moment…"
+                  : "Redirecting to your dashboard in 3 seconds..."}
               </p>
             </div>
           </CardContent>

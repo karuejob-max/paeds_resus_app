@@ -11,11 +11,10 @@ import {
 } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
-import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import { ensurePaediatricSepticShockCatalog } from "../lib/ensure-paediatric-septic-shock-catalog";
+import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
+import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
 import { markAhaCognitiveComplete } from "../certificates";
-import {
-  ensurePaediatricSepticShockCatalog,
-} from "../lib/ensure-paediatric-septic-shock-catalog";
 
 export const learningPathRouter = router({
   // Get personalized learning path for user
@@ -56,7 +55,7 @@ export const learningPathRouter = router({
       if (input.programType === "pals") {
         try {
           await ensurePaediatricSepticShockCatalog(db);
-          await ensurePalsSeriouslyIllCatalog(db);
+          await ensurePalsAhaCatalog(db);
         } catch (e) {
           console.error("[learningPath.getPersonalizedPath] ensure PALS catalog:", e);
         }
@@ -64,9 +63,9 @@ export const learningPathRouter = router({
         if (ec != null) {
           programCourses = programCourses.filter((c: { id: number }) => c.id === ec);
         } else {
-          const sid = await getSeriouslyIllChildCourseId(db);
-          if (sid != null) {
-            programCourses = programCourses.filter((c: { id: number }) => c.id === sid);
+          const anchor = await resolveAhaCourseAnchor(db, "pals");
+          if (anchor) {
+            programCourses = programCourses.filter((c: { id: number }) => c.id === anchor.id);
           }
         }
       }

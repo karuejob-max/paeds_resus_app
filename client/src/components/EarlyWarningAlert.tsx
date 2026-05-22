@@ -76,7 +76,7 @@ export function EarlyWarningAlert({
 
       {/* Trend Analysis */}
       {trendAnalysis && (
-        <div className="bg-white/50 rounded p-3 space-y-2">
+        <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Trend:</span>
             <div className="flex items-center gap-2">
@@ -96,7 +96,7 @@ export function EarlyWarningAlert({
             </div>
           )}
 
-          <div className="text-xs text-gray-600">
+          <div className="text-xs text-slate-700 dark:text-slate-300">
             Predicted next score: {trendAnalysis.predictedNextScore.toFixed(1)}
           </div>
         </div>
@@ -104,7 +104,7 @@ export function EarlyWarningAlert({
 
       {/* Risk Factors */}
       {pewsScore.riskFactors.length > 0 && (
-        <div className="bg-white/50 rounded p-3 space-y-2">
+        <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded p-3 space-y-2">
           <h4 className="text-sm font-semibold">Risk Factors:</h4>
           <ul className="text-sm space-y-1">
             {pewsScore.riskFactors.map((factor, idx) => (
@@ -119,7 +119,7 @@ export function EarlyWarningAlert({
 
       {/* Recommendations */}
       {pewsScore.recommendations.length > 0 && (
-        <div className="bg-white/50 rounded p-3 space-y-2">
+        <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded p-3 space-y-2">
           <h4 className="text-sm font-semibold">Recommendations:</h4>
           <ul className="text-sm space-y-1">
             {pewsScore.recommendations.map((rec, idx) => (

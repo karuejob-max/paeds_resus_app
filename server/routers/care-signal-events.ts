@@ -9,6 +9,7 @@ import {
   providerProfiles,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
+import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
 import {
   getFacilityById,
   resolveCanonicalFacilityId,
@@ -48,6 +49,24 @@ function daysBackForTimeframe(timeframe: "week" | "month" | "quarter" | "year"):
     : timeframe === "month" ? 30
     : timeframe === "quarter" ? 90
     : 365;
+}
+
+interface GapCategoryStat {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+/** Convert raw gap counts to the array shape the analytics UI expects. */
+function gapCountsToArray(gapCounts: Record<string, number>): GapCategoryStat[] {
+  const total = Object.values(gapCounts).reduce((sum, count) => sum + count, 0);
+  return Object.entries(gapCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, count]) => ({
+      category,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+    }));
 }
 
 // ─── Dynamic recommendation engine ──────────────────────────────────────────
@@ -258,7 +277,9 @@ export const careSignalEventsRouter = router({
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
-          userId: input.isAnonymous ? null : ctx.user.id,
+          // Always link provider submissions to the account for Fellowship Pillar C,
+          // even when isAnonymous hides identity from facility-facing views (PSoT §20.3).
+          userId: isParentStory ? (input.isAnonymous ? null : ctx.user.id) : ctx.user.id,
           facilityId: resolvedFacilityId,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
@@ -319,6 +340,12 @@ export const careSignalEventsRouter = router({
           facilityCounty,
           timestamp: new Date().toISOString(),
         });
+
+        if (!isParentStory) {
+          await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+            console.warn("[Fellowship] sync after Care Signal submit failed:", e)
+          );
+        }
 
         return {
           success: true,
@@ -573,7 +600,7 @@ export const careSignalEventsRouter = router({
           return {
             success: true,
             timeframe: input.timeframe,
-            gaps: {} as Record<string, number>,
+            gaps: [] as GapCategoryStat[],
             recommendations: [] as GapRecommendation[],
             totalEvents: 0,
           };
@@ -636,7 +663,7 @@ export const careSignalEventsRouter = router({
         return {
           success: true,
           timeframe: input.timeframe,
-          gaps: gapCounts,
+          gaps: gapCountsToArray(gapCounts),
           recommendations,
           totalEvents: events.length,
         };

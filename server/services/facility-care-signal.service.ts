@@ -114,6 +114,7 @@ export async function getFacilityCareSignalDashboard(input: {
     .select({
       id: careSignalEvents.id,
       userId: careSignalEvents.userId,
+      isAnonymous: careSignalEvents.isAnonymous,
       facilityId: careSignalEvents.facilityId,
       eventDate: careSignalEvents.eventDate,
       eventType: careSignalEvents.eventType,
@@ -151,7 +152,7 @@ export async function getFacilityCareSignalDashboard(input: {
   for (const e of events) {
     outcomeBreakdown[e.outcome] = (outcomeBreakdown[e.outcome] ?? 0) + 1;
     statusBreakdown[e.status] = (statusBreakdown[e.status] ?? 0) + 1;
-    if (e.userId) reporterIds.add(e.userId);
+    if (e.userId && !e.isAnonymous) reporterIds.add(e.userId);
     if (e.outcome === "died") deathsCount++;
     try {
       const gaps = JSON.parse(e.systemGaps) as string[];
@@ -252,7 +253,7 @@ export async function getFacilityCareSignalDashboard(input: {
       eventType: e.eventType,
       outcome: e.outcome,
       status: e.status,
-      userId: e.userId,
+      userId: e.isAnonymous ? null : e.userId,
     })),
     providersAtFacility,
     providersWithoutSubmissionList: providersWithoutSubmission.slice(0, 20),

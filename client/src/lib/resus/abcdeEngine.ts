@@ -27,6 +27,11 @@
  * Clinical protocol docs (shock, sepsis, registry): docs/clinical-protocols/
  */
 
+import {
+  getFellowshipMicrocourseResusConditionLabel,
+  normalizeToFellowshipResusConditionId,
+} from '@shared/fellowship-microcourse-resus-conditions';
+
 // ─── Types ──────────────────────────────────────────────────
 
 export type Phase =
@@ -1922,12 +1927,12 @@ export function returnToPrimarySurvey(session: ResusSession): ResusSession {
 export function updateSAMPLE(session: ResusSession, field: keyof SAMPLEHistory, value: string): ResusSession {
   const next = deepCopy(session);
   next.sampleHistory[field] = value;
-  log(next, 'note', `SAMPLE - ${field}: ${value}`);
   return next;
 }
 
 export function setDefinitiveDiagnosis(session: ResusSession, diagnosis: string): ResusSession {
   const next = deepCopy(session);
+  if (next.definitiveDiagnosis === diagnosis) return session;
   next.definitiveDiagnosis = diagnosis;
   next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(d => d !== diagnosis);
   next.phase = 'DEFINITIVE_CARE';
@@ -2173,102 +2178,309 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
 
 // ─── Export Clinical Record ─────────────────────────────────
 
+const ABCDE_SECTION_TITLES: Record<ABCDELetter, string> = {
+  X: 'X — Exsanguination',
+  A: 'A — Airway',
+  B: 'B — Breathing',
+  C: 'C — Circulation',
+  D: 'D — Disability',
+  E: 'E — Exposure',
+};
+
+function formatClinicalDateTime(ts: number): string {
+  return new Date(ts).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+function formatClinicalTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+function formatDiagnosisForRecord(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  const label = getFellowshipMicrocourseResusConditionLabel(
+    normalizeToFellowshipResusConditionId(trimmed)
+  );
+  if (label && label !== trimmed.replace(/_/g, ' ')) return label;
+  return trimmed
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function shortQuestionLabel(text: string): string {
+  const q = text.indexOf('?');
+  if (q > 0 && q <= 72) return text.slice(0, q).trim();
+  return text.length > 72 ? `${text.slice(0, 69).trim()}…` : text;
+}
+
+function getAssessmentQuestionById(questionId: string): AssessmentQuestion | undefined {
+  for (const letter of ['X', 'A', 'B', 'C', 'D', 'E'] as ABCDELetter[]) {
+    const match = primarySurveyQuestions[letter]?.find((q) => q.id === questionId);
+    if (match) return match;
+  }
+  return undefined;
+}
+
+function formatFindingForRecord(finding: Finding, session: ResusSession): string {
+  const question = getAssessmentQuestionById(finding.id);
+  const label = shortQuestionLabel(question?.text ?? finding.id.replace(/_/g, ' '));
+
+  if (question?.inputType === 'select' && question.options) {
+    const option = question.options.find((o) => o.value === finding.description);
+    return `${label}: ${option?.label ?? finding.description.replace(/_/g, ' ')}`;
+  }
+
+  if (question?.inputType === 'number' && question.numberConfig && finding.value !== undefined) {
+    const interp = question.numberConfig.interpret(Number(finding.value), session);
+    return `${label}: ${interp.label}`;
+  }
+
+  if (
+    question?.inputType === 'number_pair' &&
+    question.numberPairConfig &&
+    finding.value !== undefined
+  ) {
+    const sbp = session.vitalSigns.sbp ?? Number(finding.value);
+    const dbp = session.vitalSigns.dbp ?? 0;
+    const interp = question.numberPairConfig.interpret(sbp, dbp, session);
+    return `${label}: ${interp.label}`;
+  }
+
+  if (finding.value !== undefined) {
+    const unit = finding.unit ? ` ${finding.unit}` : '';
+    return `${label}: ${finding.value}${unit}`;
+  }
+
+  return `${label}: ${finding.description.replace(/_/g, ' ')}`;
+}
+
+function buildClinicalTimeline(session: ResusSession): string[] {
+  const lines: string[] = [];
+  const seenDiagnosis = new Set<string>();
+  let lastPhase: string | null = null;
+
+  for (const event of session.events) {
+    const time = formatClinicalTime(event.timestamp);
+    const detail = event.detail;
+
+    if (event.type === 'note') continue;
+    if (event.type === 'finding') continue;
+    if (event.type === 'intervention_started') continue;
+
+    if (event.type === 'diagnosis') {
+      const dx = detail.replace(/^DEFINITIVE DIAGNOSIS: /, '').replace(/^Co-diagnosis added: /, '');
+      const key = `${event.type}:${dx}`;
+      if (seenDiagnosis.has(key)) continue;
+      seenDiagnosis.add(key);
+      if (detail.startsWith('DEFINITIVE DIAGNOSIS:')) {
+        lines.push(`${time}  Working diagnosis: ${formatDiagnosisForRecord(dx)}`);
+      } else {
+        lines.push(`${time}  Co-diagnosis: ${formatDiagnosisForRecord(dx)}`);
+      }
+      continue;
+    }
+
+    if (event.type === 'phase_change') {
+      if (detail.includes('→ DEFINITIVE CARE')) continue;
+      if (/→ PRIMARY SURVEY: [A-E]$/.test(detail)) continue;
+      if (detail === lastPhase) continue;
+      lastPhase = detail;
+
+      if (detail.includes('QUICK ASSESSMENT')) {
+        lines.push(`${time}  Session started`);
+        continue;
+      }
+      if (detail.includes('PRIMARY SURVEY starting')) {
+        lines.push(`${time}  Primary survey initiated`);
+        continue;
+      }
+      if (detail.includes('SECONDARY SURVEY')) {
+        lines.push(`${time}  Secondary survey (SAMPLE history)`);
+        continue;
+      }
+      if (detail.includes('INTERVENTION for')) {
+        lines.push(`${time}  ${detail.replace('→ ', '')}`);
+        continue;
+      }
+      if (detail.includes('CARDIAC ARREST')) {
+        lines.push(`${time}  Cardiac arrest pathway`);
+        continue;
+      }
+      continue;
+    }
+
+    if (event.type === 'threat_identified') {
+      lines.push(`${time}  ${detail.replace('🚨 THREAT: ', 'Threat identified: ')}`);
+      continue;
+    }
+
+    if (event.type === 'intervention_completed') {
+      lines.push(`${time}  Completed: ${detail.replace(/^✓ /, '')}`);
+      continue;
+    }
+
+    if (event.type === 'cardiac_arrest_start') {
+      lines.push(`${time}  Cardiac arrest — CPR started`);
+      continue;
+    }
+
+    if (event.type === 'rosc') {
+      lines.push(`${time}  ROSC achieved`);
+      continue;
+    }
+
+    if (event.type === 'safety_alert') {
+      lines.push(`${time}  Safety alert: ${detail}`);
+    }
+  }
+
+  return lines;
+}
+
 export function exportClinicalRecord(session: ResusSession): string {
   const lines: string[] = [];
-  lines.push('═══════════════════════════════════════════');
-  lines.push('  Paeds Resus — CLINICAL RECORD');
-  lines.push('═══════════════════════════════════════════');
-  lines.push(`Date: ${new Date(session.startTime).toLocaleString()}`);
-  if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
-  if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
-  lines.push(`Quick Assessment: ${session.quickAssessment || 'N/A'}`);
-  if (session.definitiveDiagnosis) lines.push(`Primary diagnosis: ${session.definitiveDiagnosis}`);
-  if (session.concurrentDiagnoses?.length) {
-    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+  lines.push('PAEDS RESUS — CLINICAL RECORD');
+  lines.push('============================================');
+  lines.push(`Date/time: ${formatClinicalDateTime(session.startTime)}`);
+  if (session.patientAge || session.patientWeight) {
+    const parts: string[] = [];
+    if (session.patientAge) parts.push(`Age ${session.patientAge}`);
+    if (session.patientWeight) parts.push(`Weight ${session.patientWeight} kg`);
+    lines.push(`Patient: ${parts.join(' | ')}`);
   }
+  lines.push(
+    `Presentation: ${session.quickAssessment ? session.quickAssessment.charAt(0).toUpperCase() + session.quickAssessment.slice(1) : 'Not recorded'}`
+  );
   lines.push('');
 
-  // Vital Signs
+  if (session.definitiveDiagnosis || (session.concurrentDiagnoses?.length ?? 0) > 0) {
+    lines.push('DIAGNOSIS');
+    if (session.definitiveDiagnosis) {
+      lines.push(`  Primary: ${formatDiagnosisForRecord(session.definitiveDiagnosis)}`);
+    }
+    if (session.concurrentDiagnoses?.length) {
+      lines.push(
+        `  Co-diagnoses: ${session.concurrentDiagnoses.map(formatDiagnosisForRecord).join('; ')}`
+      );
+    }
+    lines.push('');
+  }
+
   const vs = session.vitalSigns;
-  lines.push('── VITAL SIGNS ──');
-  if (vs.hr !== undefined) lines.push(`HR: ${vs.hr} bpm`);
-  if (vs.rr !== undefined) lines.push(`RR: ${vs.rr} /min`);
-  if (vs.spo2 !== undefined) lines.push(`SpO2: ${vs.spo2}%`);
-  if (vs.sbp !== undefined && vs.dbp !== undefined) lines.push(`BP: ${vs.sbp}/${vs.dbp} mmHg`);
-  if (vs.temp !== undefined) lines.push(`Temp: ${vs.temp}°C`);
-  if (vs.glucose !== undefined) lines.push(`Glucose: ${vs.glucose} mmol/L (${Math.round(vs.glucose * 18)} mg/dL)`);
-  if (vs.crt !== undefined) lines.push(`CRT: ${vs.crt} seconds`);
-  if (vs.lactate !== undefined) lines.push(`Lactate: ${vs.lactate} mmol/L`);
-  lines.push('');
+  const vitalParts: string[] = [];
+  if (vs.hr !== undefined) vitalParts.push(`HR ${vs.hr} bpm`);
+  if (vs.rr !== undefined) vitalParts.push(`RR ${vs.rr}/min`);
+  if (vs.spo2 !== undefined) vitalParts.push(`SpO2 ${vs.spo2}%`);
+  if (vs.sbp !== undefined && vs.dbp !== undefined) vitalParts.push(`BP ${vs.sbp}/${vs.dbp} mmHg`);
+  if (vs.temp !== undefined) vitalParts.push(`Temp ${vs.temp}°C`);
+  if (vs.glucose !== undefined) {
+    vitalParts.push(`Glucose ${vs.glucose} mmol/L (${Math.round(vs.glucose * 18)} mg/dL)`);
+  }
+  if (vs.crt !== undefined) vitalParts.push(`CRT ${vs.crt} s`);
+  if (vs.lactate !== undefined) vitalParts.push(`Lactate ${vs.lactate} mmol/L`);
 
-  // Fluid Tracker
+  if (vitalParts.length > 0) {
+    lines.push('VITAL SIGNS');
+    lines.push(`  ${vitalParts.join(' | ')}`);
+    if (session.derivedPerfusion) {
+      lines.push(
+        `  Perfusion: ${session.derivedPerfusion.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`
+      );
+    }
+    lines.push('');
+  }
+
   if (session.fluidTracker.bolusCount > 0) {
-    lines.push('── FLUID RESUSCITATION ──');
-    lines.push(`Boluses given: ${session.fluidTracker.bolusCount}`);
-    lines.push(`Total volume: ${Math.round(session.fluidTracker.totalVolumeMl)} mL`);
+    lines.push('FLUID RESUSCITATION');
+    lines.push(`  Boluses: ${session.fluidTracker.bolusCount}`);
+    lines.push(`  Total volume: ${Math.round(session.fluidTracker.totalVolumeMl)} mL`);
     if (session.patientWeight) {
-      lines.push(`Volume per kg: ${Math.round(session.fluidTracker.totalVolumePerKg)} mL/kg`);
+      lines.push(`  Volume/kg: ${Math.round(session.fluidTracker.totalVolumePerKg)} mL/kg`);
     }
-    lines.push(`Fluid type: ${session.fluidTracker.fluidType}`);
-    if (session.fluidTracker.isFluidRefractory) lines.push('⚠️ FLUID-REFRACTORY SHOCK');
+    lines.push(`  Fluid type: ${session.fluidTracker.fluidType}`);
+    if (session.fluidTracker.isFluidRefractory) {
+      lines.push('  Note: Fluid-refractory shock');
+    }
     lines.push('');
   }
 
-  // Derived Perfusion
-  if (session.derivedPerfusion) {
-    lines.push(`Perfusion state (engine-derived): ${session.derivedPerfusion}`);
+  if (session.findings.length > 0) {
+    lines.push('PRIMARY SURVEY (ABCDE)');
+    lines.push('');
+    const letters: ABCDELetter[] = session.isTrauma
+      ? ['X', 'A', 'B', 'C', 'D', 'E']
+      : ['A', 'B', 'C', 'D', 'E'];
+    for (const letter of letters) {
+      const letterFindings = session.findings.filter((f) => f.letter === letter);
+      if (letterFindings.length === 0) continue;
+      lines.push(`  ${ABCDE_SECTION_TITLES[letter]}`);
+      for (const finding of letterFindings) {
+        lines.push(`    • ${formatFindingForRecord(finding, session)}`);
+      }
+      lines.push('');
+    }
+  }
+
+  if (session.threats.length > 0) {
+    lines.push('INTERVENTIONS');
+    for (const threat of session.threats) {
+      lines.push(`  [${threat.letter}] ${threat.name} (${threat.severity})`);
+      for (const intervention of threat.interventions) {
+        const status =
+          intervention.status === 'completed'
+            ? 'done'
+            : intervention.status === 'in_progress'
+              ? 'in progress'
+              : intervention.status === 'skipped'
+                ? 'skipped'
+                : 'pending';
+        lines.push(`    - ${intervention.action} (${status})`);
+      }
+    }
     lines.push('');
   }
 
-  // Findings
-  lines.push('── FINDINGS ──');
-  for (const finding of session.findings) {
-    const val = finding.value !== undefined ? ` = ${finding.value}${finding.unit ? ' ' + finding.unit : ''}` : '';
-    lines.push(`[${finding.letter}] ${finding.id}: ${finding.description}${val}`);
-  }
-  lines.push('');
-
-  // Threats
-  lines.push('── THREATS IDENTIFIED ──');
-  for (const threat of session.threats) {
-    lines.push(`[${threat.letter}] ${threat.name} (${threat.severity})`);
-    for (const intervention of threat.interventions) {
-      const status = intervention.status === 'completed' ? '✓' : intervention.status === 'in_progress' ? '▶' : '○';
-      lines.push(`  ${status} ${intervention.action}`);
-    }
-  }
-  lines.push('');
-
-  // Safety Alerts
   if (session.safetyAlerts.length > 0) {
-    lines.push('── SAFETY ALERTS ──');
+    lines.push('SAFETY ALERTS');
     for (const alert of session.safetyAlerts) {
-      lines.push(`[${alert.severity.toUpperCase()}] ${alert.message}`);
+      lines.push(`  [${alert.severity.toUpperCase()}] ${alert.message}`);
     }
     lines.push('');
   }
 
-  // SAMPLE History
-  if (Object.values(session.sampleHistory).some(v => v)) {
-    lines.push('── SAMPLE HISTORY ──');
-    if (session.sampleHistory.signs) lines.push(`S: ${session.sampleHistory.signs}`);
-    if (session.sampleHistory.allergies) lines.push(`A: ${session.sampleHistory.allergies}`);
-    if (session.sampleHistory.medications) lines.push(`M: ${session.sampleHistory.medications}`);
-    if (session.sampleHistory.pastHistory) lines.push(`P: ${session.sampleHistory.pastHistory}`);
-    if (session.sampleHistory.lastMeal) lines.push(`L: ${session.sampleHistory.lastMeal}`);
-    if (session.sampleHistory.events) lines.push(`E: ${session.sampleHistory.events}`);
+  if (Object.values(session.sampleHistory).some((v) => v)) {
+    lines.push('SAMPLE HISTORY');
+    if (session.sampleHistory.signs) lines.push(`  S (Signs/symptoms): ${session.sampleHistory.signs}`);
+    if (session.sampleHistory.allergies) lines.push(`  A (Allergies): ${session.sampleHistory.allergies}`);
+    if (session.sampleHistory.medications) lines.push(`  M (Medications): ${session.sampleHistory.medications}`);
+    if (session.sampleHistory.pastHistory) lines.push(`  P (Past history): ${session.sampleHistory.pastHistory}`);
+    if (session.sampleHistory.lastMeal) lines.push(`  L (Last meal/intake): ${session.sampleHistory.lastMeal}`);
+    if (session.sampleHistory.events) lines.push(`  E (Events): ${session.sampleHistory.events}`);
     lines.push('');
   }
 
-  // Event Log — Filter to clinical events only (exclude keystroke/UI noise)
-  lines.push('── EVENT LOG ──');
-  const clinicalEventTypes = ['phase_change', 'finding', 'threat_identified', 'intervention_started', 'intervention_completed', 'safety_alert', 'note', 'diagnosis', 'cardiac_arrest_start', 'rosc', 'reassessment', 'patient_info_updated'];
-  const clinicalEvents = session.events.filter(e => clinicalEventTypes.includes(e.type));
-  for (const event of clinicalEvents) {
-    const time = new Date(event.timestamp).toLocaleTimeString();
-    lines.push(`[${time}] ${event.detail}`);
+  const timeline = buildClinicalTimeline(session);
+  if (timeline.length > 0) {
+    lines.push('CLINICAL TIMELINE');
+    for (const entry of timeline) {
+      lines.push(`  ${entry}`);
+    }
+    lines.push('');
   }
 
+  lines.push('--------------------------------------------');
+  lines.push('Training documentation — verify against local protocol and senior review.');
   return lines.join('\n');
 }
 
@@ -2285,15 +2497,19 @@ export function exportSessionSummaryOnePager(session: ResusSession): string {
     .filter((i) => i.status === 'pending' && i.critical);
 
   const lines: string[] = [];
-  lines.push('PAEDS RESUS — SESSION SUMMARY (one-pager)');
-  lines.push(`When: ${new Date(session.startTime).toLocaleString()}`);
-  if (session.patientAge) lines.push(`Age: ${session.patientAge}`);
-  if (session.patientWeight) lines.push(`Weight: ${session.patientWeight} kg`);
-  lines.push(`Phase: ${session.phase}`);
-  lines.push(`Quick assessment: ${session.quickAssessment || '—'}`);
-  lines.push(`Working diagnosis: ${session.definitiveDiagnosis || '—'}`);
+  lines.push('PAEDS RESUS — HANDOFF SUMMARY');
+  lines.push('============================================');
+  lines.push(`When: ${formatClinicalDateTime(session.startTime)}`);
+  if (session.patientAge || session.patientWeight) {
+    const parts: string[] = [];
+    if (session.patientAge) parts.push(`Age ${session.patientAge}`);
+    if (session.patientWeight) parts.push(`Weight ${session.patientWeight} kg`);
+    lines.push(`Patient: ${parts.join(' | ')}`);
+  }
+  lines.push(`Presentation: ${session.quickAssessment || '—'}`);
+  lines.push(`Working diagnosis: ${session.definitiveDiagnosis ? formatDiagnosisForRecord(session.definitiveDiagnosis) : '—'}`);
   if (session.concurrentDiagnoses?.length) {
-    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.join('; ')}`);
+    lines.push(`Co-diagnoses: ${session.concurrentDiagnoses.map(formatDiagnosisForRecord).join('; ')}`);
   }
 
   const vs = session.vitalSigns;
@@ -2302,7 +2518,8 @@ export function exportSessionSummaryOnePager(session: ResusSession): string {
   if (vs.rr !== undefined) vitals.push(`RR ${vs.rr}`);
   if (vs.spo2 !== undefined) vitals.push(`SpO2 ${vs.spo2}%`);
   if (vs.sbp !== undefined && vs.dbp !== undefined) vitals.push(`BP ${vs.sbp}/${vs.dbp}`);
-  if (vitals.length) lines.push(`Vitals: ${vitals.join(' · ')}`);
+  if (vs.temp !== undefined) vitals.push(`Temp ${vs.temp}°C`);
+  if (vitals.length) lines.push(`Vitals: ${vitals.join(' | ')}`);
 
   if (completedInterventions.length) {
     lines.push('');

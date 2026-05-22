@@ -52,6 +52,8 @@ export default function MicroCoursePlayerDB() {
   }, [slug]);
 
   const isAhaCourse = numericCourseId !== null || ahaProgramFromSlug !== null;
+  const coursesHubPath = isAhaCourse ? "/aha-courses" : "/fellowship";
+  const coursesHubReturnLabel = isAhaCourse ? "Return to AHA Courses" : "Return to Fellowship Dashboard";
 
   const programType = useMemo(() => {
     const params = new URLSearchParams(search);
@@ -80,6 +82,7 @@ export default function MicroCoursePlayerDB() {
     try { return parseInt(localStorage.getItem(progressKey + '-module') ?? '0', 10) || 0; } catch { return 0; }
   });
   const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
+  const [backToLastSectionOfModule, setBackToLastSectionOfModule] = useState(false);
 
   // Persist maxReachedModuleIndex whenever it advances
   useEffect(() => {
@@ -141,8 +144,19 @@ export default function MicroCoursePlayerDB() {
         programType: (ahaCourseDetails as any).programType ?? programType ?? 'bls',
       };
     }
-    return fellowshipDbCourse ?? null;
-  }, [isAhaCourse, ahaCourseDetails, fellowshipDbCourse, programType]);
+    // Fellowship: learning content lives on `courses` (numeric id) but
+    // courses.complete expects microCourses.courseId slug (e.g. asthma-i).
+    if (fellowshipDbCourse && microCourseRow) {
+      return {
+        id: fellowshipDbCourse.id,
+        courseId: microCourseRow.courseId,
+        title: fellowshipDbCourse.title ?? microCourseRow.title,
+        level: microCourseRow.level ?? 'foundational',
+        duration: microCourseRow.duration ?? fellowshipDbCourse.duration ?? 45,
+      };
+    }
+    return null;
+  }, [isAhaCourse, ahaCourseDetails, fellowshipDbCourse, microCourseRow, programType]);
 
   // Unified courseDetails: for AHA use ahaCourseDetails, for fellowship use the separate query
   const { data: fellowshipCourseDetails, isLoading: detailsLoading } = trpc.learning.getCourseDetails.useQuery(
@@ -215,7 +229,28 @@ export default function MicroCoursePlayerDB() {
   }, [resumeQuery.data, hasResumed]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-  const completeModuleMutation = trpc.learning.completeModule.useMutation();
+  const utils = trpc.useUtils();
+  const ensureMicroEnrollment = trpc.courses.ensureMicroCourseEnrollment.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        void utils.courses.getUserEnrollments.invalidate();
+      }
+    },
+  });
+
+  // Fellowship: auto-create enrollment row on first visit (mirrors AHA path)
+  const [ensureEnrollmentAttempted, setEnsureEnrollmentAttempted] = useState(false);
+  useEffect(() => {
+    if (isAhaCourse || !slug || !isAuthenticated || enrollment || ensureEnrollmentAttempted) return;
+    setEnsureEnrollmentAttempted(true);
+    ensureMicroEnrollment.mutate({ courseId: slug });
+  }, [isAhaCourse, slug, isAuthenticated, enrollment, ensureEnrollmentAttempted, ensureMicroEnrollment]);
+
+  const completeModuleMutation = trpc.learning.completeModule.useMutation({
+    onSuccess: () => {
+      void utils.courses.getUserEnrollments.invalidate();
+    },
+  });
   const trackProductActivity = trpc.events.trackEvent.useMutation();
 
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
@@ -225,6 +260,8 @@ export default function MicroCoursePlayerDB() {
         toast.success(`Cognitive certificate issued! #${data.certificateNumber}`);
       }
       if (data.success) {
+        void utils.certificates.getMyCertificates.invalidate();
+        void utils.fellowship.getProgress.invalidate();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "AHA cognitive pathway completed",
@@ -249,6 +286,9 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
+        void utils.courses.getUserEnrollments.invalidate();
+        void utils.certificates.getMyCertificates.invalidate();
+        void utils.fellowship.getProgress.invalidate();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "Micro-course completed",
@@ -262,6 +302,9 @@ export default function MicroCoursePlayerDB() {
       } else {
         toast.error(data.message || "Failed to complete course");
       }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Could not issue certificate. Please try again.");
     },
   });
 
@@ -316,6 +359,7 @@ export default function MicroCoursePlayerDB() {
         toast.success(showSummativeQuiz ? "Final exam passed!" : "Module quiz passed!");
         setQuizScore(result.score);
         setQuizSubmitted(true);
+        void utils.courses.getUserEnrollments.invalidate();
       } else if (result.success) {
         setQuizScore(result.score);
         setQuizSubmitted(true);
@@ -330,6 +374,56 @@ export default function MicroCoursePlayerDB() {
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+
+  useEffect(() => {
+    if (!backToLastSectionOfModule || contentLoading || !currentModuleId) return;
+    const lastSectionIdx = sections.length > 0 ? sections.length - 1 : 0;
+    setCurrentSectionIndex(lastSectionIdx);
+    setBackToLastSectionOfModule(false);
+    window.scrollTo(0, 0);
+  }, [backToLastSectionOfModule, contentLoading, currentModuleId, sections.length]);
+
+  const resetQuizState = () => {
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+  };
+
+  const goToPreviousStep = (exitAtStart: boolean) => {
+    if (showSummativeQuiz) {
+      setShowSummativeQuiz(false);
+      setShowFormativeQuiz(false);
+      resetQuizState();
+      setCurrentModuleIndex(Math.max(0, modules.length - 1));
+      setBackToLastSectionOfModule(true);
+      return;
+    }
+    if (showFormativeQuiz) {
+      setShowFormativeQuiz(false);
+      resetQuizState();
+      setCurrentSectionIndex(sections.length > 0 ? sections.length - 1 : 0);
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(currentSectionIndex - 1);
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (currentModuleIndex > 0) {
+      setShowFormativeQuiz(false);
+      setShowSummativeQuiz(false);
+      setCurrentModuleIndex(currentModuleIndex - 1);
+      setBackToLastSectionOfModule(true);
+      return;
+    }
+    if (exitAtStart) {
+      navigate(coursesHubPath);
+    }
+  };
+
+  const handleHeaderBack = () => goToPreviousStep(true);
+  const canGoBackInContent = currentSectionIndex > 0 || currentModuleIndex > 0;
 
   const handleNextSection = () => {
     if (currentSectionIndex < sections.length - 1) {
@@ -443,7 +537,12 @@ export default function MicroCoursePlayerDB() {
       const enrollmentId = (enrollment as any)?.id ?? 0;
       markAhaCognitive.mutate({ enrollmentId, programType: pt });
     } else {
-      completeCourse.mutate({ courseId: dbCourse.courseId });
+      const microCourseSlug = microCourseRow?.courseId ?? slug;
+      if (!microCourseSlug) {
+        toast.error("Could not resolve this course. Return to Fellowship and open the course again.");
+        return;
+      }
+      completeCourse.mutate({ courseId: microCourseSlug });
     }
   };
 
@@ -473,7 +572,7 @@ export default function MicroCoursePlayerDB() {
             ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
             : "This course is not yet available in the interactive format."}
         </p>
-        <Button onClick={() => navigate(isAhaCourse ? "/aha-courses" : "/fellowship")}>Go Back</Button>
+        <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
       </div>
     );
   }
@@ -587,16 +686,16 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="outline"
                   className="w-full py-6 border-slate-200 text-slate-700 font-semibold"
-                  onClick={() => navigate("/fellowship?tab=certificates")}
+                  onClick={() => navigate("/certificates")}
                 >
                   View My Certificates
                 </Button>
                 <Button 
                   variant="ghost"
                   className="w-full py-4 text-slate-500 font-medium"
-                  onClick={() => navigate("/fellowship")}
+                  onClick={() => navigate(coursesHubPath)}
                 >
-                  Return to Fellowship Dashboard
+                  {coursesHubReturnLabel}
                 </Button>
               </div>
             </CardContent>
@@ -619,7 +718,21 @@ export default function MicroCoursePlayerDB() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/fellowship")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleHeaderBack}
+              aria-label={
+                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                  ? "Go to previous section or module"
+                  : coursesHubReturnLabel
+              }
+              title={
+                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                  ? "Previous section or module"
+                  : coursesHubReturnLabel
+              }
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -766,8 +879,8 @@ export default function MicroCoursePlayerDB() {
                 <Button 
                   variant="ghost" 
                   className="text-muted-foreground font-semibold"
-                  onClick={() => setCurrentSectionIndex(Math.max(0, currentSectionIndex - 1))}
-                  disabled={currentSectionIndex === 0}
+                  onClick={() => goToPreviousStep(false)}
+                  disabled={!canGoBackInContent}
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   Previous

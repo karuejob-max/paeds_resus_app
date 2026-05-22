@@ -17,18 +17,29 @@ import {
 } from "../../drizzle/schema";
 import {
   computeCareSignalStreak,
+  computeCareSignalTimelineKeys,
   enumerateMonthsEndingAt,
+  monthKeyEAT,
 } from "../routers/fellowship-care-signal-streak";
+import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
+import {
+  FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
+  getFellowshipMicrocourseResusConditionCount,
+  isFellowshipMicrocourseResusCondition,
+  normalizeToFellowshipResusConditionId,
+} from "../../shared/fellowship-microcourse-resus-conditions";
 
 export type FellowshipPillarStatus = Awaited<ReturnType<typeof calculateFellowshipStatus>>;
 
 export async function calculateCoursesPillar(userId: number) {
   const db = await getDb();
   if (!db) {
-    return { completed: 0, required: 27, percentage: 0, legacyCourses: 0 };
+    const required = getFellowshipMicroCourseRequiredCount();
+    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
   }
 
   try {
+    const totalRequired = getFellowshipMicroCourseRequiredCount();
     const completedCerts = await db.query.certificates.findMany({
       where: (certs) => eq(certs.userId, userId),
     });
@@ -39,70 +50,156 @@ export async function calculateCoursesPillar(userId: number) {
     const legacyCourses = completedCerts.filter((c) =>
       ["bls", "acls", "pals", "instructor"].includes(c.programType)
     ).length;
-    const totalRequired = 27;
     const completed = completedMicroCourses.length;
     const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
     return { completed, required: totalRequired, percentage, legacyCourses };
   } catch (error) {
     console.error("[Fellowship] Error calculating courses pillar:", error);
-    return { completed: 0, required: 27, percentage: 0, legacyCourses: 0 };
+    const required = getFellowshipMicroCourseRequiredCount();
+    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
   }
 }
 
 export async function calculateResusGPSPillar(userId: number) {
   const db = await getDb();
   if (!db) {
+    const emptyBreakdown = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => ({
+      id: cond.id,
+      label: cond.label,
+      count: 0,
+      required: 3,
+      remaining: 3,
+      complete: false,
+    }));
     return {
       casesCompleted: 0,
       conditionsWithThreshold: 0,
-      totalConditionsTaught: 0,
+      totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
+      casesByCondition: {} as Record<string, number>,
+      conditionBreakdown: emptyBreakdown,
+      casesStillNeeded: emptyBreakdown.reduce((sum, c) => sum + c.remaining, 0),
+      incompleteConditions: emptyBreakdown.length,
     };
   }
 
   try {
-    const sessions = await db.query.resusGPSSessions.findMany({
-      where: (sessions) => and(eq(sessions.userId, userId), eq(sessions.status, "completed")),
-    });
-    const sessionIds = sessions.map((s) => s.sessionId);
-    const allCases = await db.query.resusGPSCases.findMany({
-      where: (cases) =>
-        sessionIds.length > 0
-          ? and(eq(cases.userId, userId), inArray(cases.sessionId, sessionIds))
-          : undefined,
-    });
+    const sessions = await db
+      .select()
+      .from(resusGPSSessions)
+      .where(and(eq(resusGPSSessions.userId, userId), eq(resusGPSSessions.status, "completed")));
+
+    const completedSessionIds = new Set(sessions.map((s) => s.sessionId));
+
+    const userCases = await db
+      .select()
+      .from(resusGPSCases)
+      .where(eq(resusGPSCases.userId, userId));
+
+    const casesInCompletedSessions = userCases.filter((c) => completedSessionIds.has(c.sessionId));
+
+    // One fellowship credit per completed session (case diagnosis overrides session primary)
+    const creditBySession = new Map<string, string>();
+    for (const s of sessions) {
+      const condition = normalizeToFellowshipResusConditionId(s.primaryDiagnosis);
+      if (isFellowshipMicrocourseResusCondition(condition)) {
+        creditBySession.set(s.sessionId, condition);
+      }
+    }
+    for (const c of casesInCompletedSessions) {
+      const condition = normalizeToFellowshipResusConditionId(c.diagnosis);
+      if (isFellowshipMicrocourseResusCondition(condition)) {
+        creditBySession.set(c.sessionId, condition);
+      }
+    }
+
     const casesByCondition: Record<string, number> = {};
-    allCases.forEach((c) => {
-      const condition = c.diagnosis || "unknown";
+    for (const condition of creditBySession.values()) {
       casesByCondition[condition] = (casesByCondition[condition] || 0) + 1;
-    });
-    const conditionsWithThreshold = Object.values(casesByCondition).filter((count) => count >= 3).length;
-    const totalConditionsTaught = 10;
+    }
+
+    const casesCompleted = creditBySession.size;
+    const conditionsWithThreshold = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.filter(
+      (cond) => (casesByCondition[cond.id] ?? 0) >= 3
+    ).length;
+    const totalConditionsTaught = getFellowshipMicrocourseResusConditionCount();
     const percentage = Math.min(
       100,
       Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
     );
+    const conditionBreakdown = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => {
+      const count = casesByCondition[cond.id] ?? 0;
+      const required = 3;
+      return {
+        id: cond.id,
+        label: cond.label,
+        count,
+        required,
+        remaining: Math.max(0, required - count),
+        complete: count >= required,
+      };
+    });
+    const casesStillNeeded = conditionBreakdown.reduce((sum, c) => sum + c.remaining, 0);
+    const incompleteConditions = conditionBreakdown.filter((c) => !c.complete).length;
+
     return {
-      casesCompleted: allCases.length,
+      casesCompleted,
       conditionsWithThreshold,
       totalConditionsTaught,
       percentage,
+      casesByCondition,
+      conditionBreakdown,
+      casesStillNeeded,
+      incompleteConditions,
     };
   } catch (error) {
     console.error("[Fellowship] Error calculating ResusGPS pillar:", error);
     return {
       casesCompleted: 0,
       conditionsWithThreshold: 0,
-      totalConditionsTaught: 0,
+      totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
+      casesByCondition: {} as Record<string, number>,
+      conditionBreakdown: [] as Array<{
+        id: string;
+        label: string;
+        count: number;
+        required: number;
+        remaining: number;
+        complete: boolean;
+      }>,
+      casesStillNeeded: getFellowshipMicrocourseResusConditionCount() * 3,
+      incompleteConditions: getFellowshipMicrocourseResusConditionCount(),
     };
   }
+}
+
+function formatCareSignalMonthLabel(monthKey: string): string {
+  const year = Number(monthKey.slice(0, 4));
+  const month = Number(monthKey.slice(5, 7));
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export async function calculateCareSignalPillar(userId: number) {
   const db = await getDb();
   if (!db) {
-    return { streak: 0, eventsSubmitted: 0, percentage: 0 };
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      reportsThisMonth: 0,
+      percentage: 0,
+      monthsRemaining: 24,
+      monthlyTimeline: [] as Array<{
+        monthKey: string;
+        label: string;
+        reportCount: number;
+        isCurrentMonth: boolean;
+      }>,
+    };
   }
 
   try {
@@ -114,18 +211,24 @@ export async function calculateCareSignalPillar(userId: number) {
     const eatNow = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000);
     const currentYear = eatNow.getUTCFullYear();
     const currentMonth = eatNow.getUTCMonth() + 1;
+    const currentMonthKey = monthKeyEAT(currentYear, currentMonth);
 
     allEvents.forEach((event) => {
-      const eventDate = new Date(event.createdAt);
+      const eventDate = new Date(event.eventDate);
       const eatEvent = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000);
       const year = eatEvent.getUTCFullYear();
       const month = eatEvent.getUTCMonth() + 1;
-      const key = `${year}-${String(month).padStart(2, "0")}`;
+      const key = monthKeyEAT(year, month);
       eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
     });
 
-    const windowKeys = enumerateMonthsEndingAt(currentYear, currentMonth, 24);
-    const windowYears = [...new Set(windowKeys.map((k) => Number(k.slice(0, 4))))];
+    const timelineKeys = computeCareSignalTimelineKeys(
+      eventsByMonth,
+      currentYear,
+      currentMonth,
+      24
+    );
+    const windowYears = [...new Set(timelineKeys.map((k) => Number(k.slice(0, 4))))];
 
     const graceUsage = await db.query.fellowshipGraceUsage.findMany({
       where: (grace) => and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
@@ -137,13 +240,41 @@ export async function calculateCareSignalPillar(userId: number) {
       anchorYear: currentYear,
       anchorMonth: currentMonth,
       windowMonths: 24,
+      timelineKeys,
     });
 
+    const reportsThisMonth = eventsByMonth[currentMonthKey] ?? 0;
     const percentage = Math.min(100, Math.round((streak / 24) * 100));
-    return { streak, eventsSubmitted: allEvents.length, percentage };
+    const monthsRemaining = Math.max(0, 24 - streak);
+    const displayTimelineKeys =
+      timelineKeys.length > 0
+        ? timelineKeys
+        : enumerateMonthsEndingAt(currentYear, currentMonth, 24);
+    const monthlyTimeline = displayTimelineKeys.map((monthKey) => ({
+      monthKey,
+      label: formatCareSignalMonthLabel(monthKey),
+      reportCount: eventsByMonth[monthKey] ?? 0,
+      isCurrentMonth: monthKey === currentMonthKey,
+    }));
+
+    return {
+      streak,
+      eventsSubmitted: allEvents.length,
+      reportsThisMonth,
+      percentage,
+      monthsRemaining,
+      monthlyTimeline,
+    };
   } catch (error) {
     console.error("[Fellowship] Error calculating Care Signal pillar:", error);
-    return { streak: 0, eventsSubmitted: 0, percentage: 0 };
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      reportsThisMonth: 0,
+      percentage: 0,
+      monthsRemaining: 24,
+      monthlyTimeline: [],
+    };
   }
 }
 

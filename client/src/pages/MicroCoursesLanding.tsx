@@ -181,7 +181,7 @@ export default function MicroCoursesLanding() {
             <Award className="h-8 w-8" />
             <h1 className="text-4xl md:text-5xl font-bold">Paeds Resus Fellowship</h1>
           </div>
-          <p className="text-lg text-blue-100 mb-6 max-w-2xl">
+          <p className="text-lg text-white/95 mb-6 max-w-2xl">
             Master 26 evidence-based micro-courses covering all pediatric emergency conditions. 
             Complete formative assessments, pass summative exams, and earn your fellowship certification.
           </p>
@@ -190,17 +190,17 @@ export default function MicroCoursesLanding() {
           {progress && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
               <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-                <div className="text-sm text-blue-100 mb-2">Courses Completed</div>
+                <div className="text-sm text-white/95 mb-2">Courses Completed</div>
                 <div className="text-3xl font-bold">{progress.coursesPillar.completed}/{progress.coursesPillar.required}</div>
                 <Progress value={progress.coursesPillar.percentage} className="mt-2 h-2" />
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-                <div className="text-sm text-blue-100 mb-2">ResusGPS Cases</div>
+                <div className="text-sm text-white/95 mb-2">ResusGPS Cases</div>
                 <div className="text-3xl font-bold">{progress.resusGPSPillar.casesCompleted}</div>
                 <Progress value={progress.resusGPSPillar.percentage} className="mt-2 h-2" />
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-                <div className="text-sm text-blue-100 mb-2">Overall Progress</div>
+                <div className="text-sm text-white/95 mb-2">Overall Progress</div>
                 <div className="text-3xl font-bold">{progress.overallPercentage}%</div>
                 <Progress value={progress.overallPercentage} className="mt-2 h-2" />
               </div>

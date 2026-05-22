@@ -20,15 +20,23 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { PAGE_BODY_MUTED } from "@/lib/readable-surfaces";
+import { cn } from "@/lib/utils";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+const STAT_LABEL = "text-sm font-semibold text-slate-800 dark:text-slate-200";
+const STAT_SUB = "text-xs text-slate-700 dark:text-slate-300 mt-1";
+const BODY_TEXT = "text-sm text-slate-800 dark:text-slate-200";
+const NOTE_TEXT = "text-xs text-slate-700 dark:text-slate-300";
+const EMPTY_TEXT = "text-sm text-slate-700 dark:text-slate-300";
+
 const OUTCOME_STYLE: Record<string, string> = {
-  survived: "bg-blue-100 text-blue-700",
-  neurologically_intact: "bg-green-100 text-green-700",
-  poor_outcome: "bg-red-100 text-red-700",
-  died: "bg-red-200 text-red-900",
-  unknown: "bg-slate-100 text-slate-600",
+  survived: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-100",
+  neurologically_intact: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100",
+  poor_outcome: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100",
+  died: "bg-red-200 text-red-950 dark:bg-red-950 dark:text-red-100",
+  unknown: "bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
 };
 
 const GAP_COLORS: Record<string, string> = {
@@ -41,10 +49,37 @@ const GAP_COLORS: Record<string, string> = {
 };
 
 const PRIORITY_BADGE: Record<string, string> = {
-  high: "bg-red-100 text-red-800",
-  medium: "bg-amber-100 text-amber-800",
-  low: "bg-blue-100 text-blue-800",
+  high: "bg-red-200 text-red-950 dark:bg-red-900 dark:text-red-100",
+  medium: "bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100",
+  low: "bg-blue-200 text-blue-950 dark:bg-blue-900 dark:text-blue-100",
 };
+
+type GapCategoryStat = { category: string; count: number; percentage: number };
+
+/** Accept legacy object-shaped gap payloads as well as the current array form. */
+function normalizeGapList(gaps: unknown): GapCategoryStat[] {
+  if (Array.isArray(gaps)) {
+    return gaps.filter(
+      (g): g is GapCategoryStat =>
+        g != null &&
+        typeof g === "object" &&
+        typeof (g as GapCategoryStat).category === "string" &&
+        typeof (g as GapCategoryStat).count === "number"
+    );
+  }
+  if (gaps && typeof gaps === "object") {
+    const entries = Object.entries(gaps as Record<string, number>);
+    const total = entries.reduce((sum, [, count]) => sum + Number(count), 0);
+    return entries
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([category, count]) => ({
+        category,
+        count: Number(count),
+        percentage: total > 0 ? Math.round((Number(count) / total) * 100) : 0,
+      }));
+  }
+  return [];
+}
 
 function StatCard({
   label,
@@ -60,17 +95,17 @@ function StatCard({
   loading?: boolean;
 }) {
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium text-slate-600">{label}</CardTitle>
+        <CardTitle className={STAT_LABEL}>{label}</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
           <Skeleton className="h-9 w-20" />
         ) : (
-          <p className={`text-3xl font-bold ${color}`}>{value}</p>
+          <p className={cn("text-3xl font-bold", color)}>{value}</p>
         )}
-        {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+        {sub && <p className={STAT_SUB}>{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -91,8 +126,8 @@ export default function CareSignalAnalytics() {
   const gapQ = trpc.careSignalEvents.getGapAnalysis.useQuery({ timeframe: "month" });
 
   const stats = statsQ.data;
-  const history = historyQ.data?.events ?? [];
-  const gaps = gapQ.data?.gaps ?? [];
+  const history = Array.isArray(historyQ.data?.events) ? historyQ.data.events : [];
+  const gaps = normalizeGapList(gapQ.data?.gaps);
 
   // Derive outcome distribution from history (since getEventStats doesn't return byOutcome)
   const outcomeCounts: Record<string, number> = {};
@@ -138,14 +173,14 @@ export default function CareSignalAnalytics() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    <div className="min-h-screen bg-brand-surface dark:bg-background py-12 px-4">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">Care Signal Analytics</h1>
-            <p className="text-lg text-slate-600">
+            <h1 className="text-4xl font-bold text-foreground mb-2">Care Signal Analytics</h1>
+            <p className={cn("text-lg", PAGE_BODY_MUTED)}>
               Incident analysis and system gap identification for continuous quality improvement
             </p>
           </div>
@@ -161,9 +196,9 @@ export default function CareSignalAnalytics() {
 
         {/* Error state */}
         {statsQ.error && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-700">
+          <Alert className="mb-6 border-red-300 bg-red-50 shadow-sm dark:border-red-800 dark:bg-red-950/40">
+            <AlertTriangle className="h-4 w-4 text-red-700 dark:text-red-300" />
+            <AlertDescription className="text-red-900 dark:text-red-100">
               Could not load analytics data. Please refresh or try again later.
             </AlertDescription>
           </Alert>
@@ -210,18 +245,18 @@ export default function CareSignalAnalytics() {
 
         {/* Empty state */}
         {!statsQ.isLoading && totalEvents === 0 && (
-          <Card className="mb-8 border-blue-200 bg-blue-50">
+          <Card className="mb-8 border-blue-300 bg-blue-50 shadow-sm dark:border-blue-800 dark:bg-blue-950/40">
             <CardContent className="pt-6 flex items-start gap-4">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="w-5 h-5 text-blue-800 dark:text-blue-300 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-blue-900 mb-1">No events submitted yet</p>
-                <p className="text-sm text-blue-700">
+                <p className="font-semibold text-blue-950 dark:text-blue-100 mb-1">No events submitted yet</p>
+                <p className={cn(BODY_TEXT, "text-blue-900 dark:text-blue-100")}>
                   Start reporting incidents and near-misses to see analytics here. Every
                   submission builds the safety signal that drives quality improvement.
                 </p>
                 <Button
                   size="sm"
-                  className="mt-3 bg-blue-600 hover:bg-blue-700"
+                  className="mt-3 bg-brand-teal hover:bg-[#143333] text-white"
                   onClick={() => setLocation("/care-signal")}
                 >
                   Submit your first event
@@ -242,13 +277,13 @@ export default function CareSignalAnalytics() {
 
           {/* ── Overview Tab ── */}
           <TabsContent value="overview" className="space-y-6">
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <BarChart3 className="w-5 h-5 text-brand-teal" />
                   Outcome Distribution
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={PAGE_BODY_MUTED}>
                   Based on your {historyTotal} submitted event{historyTotal !== 1 ? "s" : ""} (most recent 20 shown)
                 </CardDescription>
               </CardHeader>
@@ -260,7 +295,7 @@ export default function CareSignalAnalytics() {
                     ))}
                   </div>
                 ) : outcomeDistribution.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-8">
+                  <p className={cn(EMPTY_TEXT, "text-center py-8")}>
                     No outcome data yet. Submit events to see distribution.
                   </p>
                 ) : (
@@ -268,8 +303,8 @@ export default function CareSignalAnalytics() {
                     {outcomeDistribution.map((o) => (
                       <div key={o.rawLabel}>
                         <div className="flex justify-between mb-1">
-                          <span className="font-medium text-sm capitalize">{o.label}</span>
-                          <span className="text-sm font-bold">
+                          <span className="font-semibold text-sm capitalize text-foreground">{o.label}</span>
+                          <span className="text-sm font-bold text-foreground">
                             {o.count} (
                             {history.length > 0
                               ? Math.round((o.count / history.length) * 100)
@@ -304,31 +339,31 @@ export default function CareSignalAnalytics() {
 
             {/* Summary stats card */}
             {stats && totalEvents > 0 && (
-              <Card>
+              <Card className="shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <TrendingUp className="w-5 h-5 text-brand-teal" />
                     Your Reporting Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-600">{stats.avgChildAge} mo</p>
-                    <p className="text-sm text-slate-500 mt-1">Avg child age</p>
+                  <div className="text-center p-4 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.avgChildAge} mo</p>
+                    <p className={cn(NOTE_TEXT, "mt-1")}>Avg child age</p>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
-                    <p className="text-2xl font-bold text-purple-600 capitalize">
+                  <div className="text-center p-4 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="text-2xl font-bold text-purple-700 dark:text-purple-300 capitalize">
                       {stats.mostCommonEventType !== "N/A"
                         ? stats.mostCommonEventType.replace(/_/g, " ")
                         : "—"}
                     </p>
-                    <p className="text-sm text-slate-500 mt-1">Most common event</p>
+                    <p className={cn(NOTE_TEXT, "mt-1")}>Most common event</p>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
-                    <p className="text-2xl font-bold text-orange-600">
+                  <div className="text-center p-4 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                       {stats.lastMonthCount}
                     </p>
-                    <p className="text-sm text-slate-500 mt-1">Last month submissions</p>
+                    <p className={cn(NOTE_TEXT, "mt-1")}>Last month submissions</p>
                   </div>
                 </CardContent>
               </Card>
@@ -337,13 +372,13 @@ export default function CareSignalAnalytics() {
 
           {/* ── Gap Analysis Tab ── */}
           <TabsContent value="gaps" className="space-y-6">
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <ShieldAlert className="w-5 h-5 text-brand-teal" />
                   System Gaps by Category
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={PAGE_BODY_MUTED}>
                   Derived from system gaps you reported in the last 30 days
                 </CardDescription>
               </CardHeader>
@@ -353,15 +388,15 @@ export default function CareSignalAnalytics() {
                     {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
                   </div>
                 ) : gaps.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-8">
+                  <p className={cn(EMPTY_TEXT, "text-center py-8")}>
                     No gap data yet. Report incidents with system gaps to populate this view.
                   </p>
                 ) : (
-                  (gaps as { category: string; count: number; percentage: number }[]).map((gap) => (
+                  gaps.map((gap) => (
                     <div key={gap.category}>
                       <div className="flex justify-between mb-1">
-                        <span className="font-medium">{gap.category}</span>
-                        <span className="text-sm font-bold">
+                        <span className="font-semibold text-foreground">{gap.category}</span>
+                        <span className="text-sm font-bold text-foreground">
                           {gap.count} ({gap.percentage}%)
                         </span>
                       </div>
@@ -380,9 +415,9 @@ export default function CareSignalAnalytics() {
             </Card>
 
             {/* Gap category legend */}
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle>Gap Categories Explained</CardTitle>
+                <CardTitle className="text-foreground">Gap Categories Explained</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {[
@@ -418,8 +453,8 @@ export default function CareSignalAnalytics() {
                   },
                 ].map((g) => (
                   <div key={g.label} className={`border-l-4 ${g.color} pl-4`}>
-                    <p className="font-medium">{g.label}</p>
-                    <p className="text-sm text-slate-600">{g.desc}</p>
+                    <p className="font-semibold text-foreground">{g.label}</p>
+                    <p className={BODY_TEXT}>{g.desc}</p>
                   </div>
                 ))}
               </CardContent>
@@ -428,13 +463,13 @@ export default function CareSignalAnalytics() {
 
           {/* ── My Events Tab ── */}
           <TabsContent value="incidents" className="space-y-6">
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <Activity className="w-5 h-5 text-brand-teal" />
                   Your Submitted Events
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={PAGE_BODY_MUTED}>
                   Your personal Care Signal history — confidential
                 </CardDescription>
               </CardHeader>
@@ -445,13 +480,13 @@ export default function CareSignalAnalytics() {
                   </div>
                 ) : history.length === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-slate-500 mb-4">
+                    <p className={cn(BODY_TEXT, "mb-4")}>
                       You have not submitted any events yet.
                     </p>
                     <Button
                       size="sm"
                       onClick={() => setLocation("/care-signal")}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-brand-teal hover:bg-[#143333] text-white"
                     >
                       Report your first incident
                     </Button>
@@ -465,14 +500,14 @@ export default function CareSignalAnalytics() {
                       return (
                         <div
                           key={event.id}
-                          className="border rounded-lg p-4 hover:bg-slate-50 transition-colors"
+                          className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-card hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
                         >
                           <div className="flex items-start justify-between mb-2">
                             <div>
-                              <h4 className="font-semibold text-slate-900 capitalize">
+                              <h4 className="font-semibold text-foreground capitalize">
                                 {event.eventType.replace(/_/g, " ")}
                               </h4>
-                              <p className="text-xs text-slate-500">
+                              <p className={cn(NOTE_TEXT, "mt-0.5")}>
                                 <Calendar className="w-3 h-3 inline mr-1" />
                                 {new Date(event.eventDate).toLocaleDateString("en-KE", {
                                   year: "numeric",
@@ -483,7 +518,7 @@ export default function CareSignalAnalytics() {
                             </div>
                             <Badge
                               className={
-                                OUTCOME_STYLE[event.outcome] ?? "bg-slate-100 text-slate-600"
+                                OUTCOME_STYLE[event.outcome] ?? "bg-slate-200 text-slate-900"
                               }
                             >
                               {event.outcome.replace(/_/g, " ")}
@@ -496,7 +531,7 @@ export default function CareSignalAnalytics() {
                                 <Badge
                                   key={i}
                                   variant="outline"
-                                  className="text-xs border-slate-300"
+                                  className="text-xs border-slate-400 text-slate-800 dark:border-slate-600 dark:text-slate-200"
                                 >
                                   {g}
                                 </Badge>
@@ -509,14 +544,14 @@ export default function CareSignalAnalytics() {
                               variant="outline"
                               className={
                                 event.status === "reviewed"
-                                  ? "border-green-300 text-green-700"
-                                  : "border-slate-300 text-slate-500"
+                                  ? "border-green-400 text-green-800 dark:text-green-300"
+                                  : "border-slate-400 text-slate-700 dark:text-slate-300"
                               }
                             >
                               {event.status}
                             </Badge>
                             {event.isAnonymous && (
-                              <span className="text-xs text-slate-400">Anonymous</span>
+                              <span className={NOTE_TEXT}>Anonymous</span>
                             )}
                           </div>
                         </div>
@@ -530,13 +565,13 @@ export default function CareSignalAnalytics() {
 
           {/* ── Insights Tab ── */}
           <TabsContent value="recommendations" className="space-y-6">
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <CheckCircle2 className="w-5 h-5 text-brand-teal" />
                   Personalised Insights
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={PAGE_BODY_MUTED}>
                   Based on your submission history and reported gaps
                 </CardDescription>
               </CardHeader>
@@ -547,8 +582,8 @@ export default function CareSignalAnalytics() {
                   </div>
                 ) : totalEvents === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-slate-500 mb-2">No insights yet.</p>
-                    <p className="text-sm text-slate-400">
+                    <p className={cn(BODY_TEXT, "mb-2")}>No insights yet.</p>
+                    <p className={NOTE_TEXT}>
                       Submit events with system gaps to receive personalised insights.
                     </p>
                   </div>
@@ -556,19 +591,19 @@ export default function CareSignalAnalytics() {
                   <div className="space-y-4">
                     {/* Streak insight */}
                     {(stats?.streakMonths ?? 0) > 0 && (
-                      <div className="border rounded-lg p-4 border-green-200 bg-green-50">
+                      <div className="border rounded-lg p-4 border-green-300 bg-green-50 shadow-sm dark:border-green-800 dark:bg-green-950/40">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-semibold text-green-900">Reporting Streak</h4>
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800">
+                          <h4 className="font-semibold text-green-950 dark:text-green-100">Reporting Streak</h4>
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-200 text-green-950 dark:bg-green-900 dark:text-green-100">
                             POSITIVE
                           </span>
                         </div>
-                        <p className="text-sm text-green-800">
+                        <p className={cn(BODY_TEXT, "text-green-900 dark:text-green-100")}>
                           You have reported for {stats?.streakMonths} consecutive month
                           {(stats?.streakMonths ?? 0) !== 1 ? "s" : ""}. Consistent reporting
                           is the foundation of quality improvement. Keep it going.
                         </p>
-                        <div className="flex items-center gap-1 text-xs font-medium text-green-600 mt-2">
+                        <div className={cn("flex items-center gap-1 text-xs font-semibold mt-2", "text-green-800 dark:text-green-200")}>
                           <ArrowRight className="w-3 h-3" />
                           Aim for at least 1 submission every month to maintain your Fellowship Pillar C streak.
                         </div>
@@ -577,21 +612,21 @@ export default function CareSignalAnalytics() {
 
                     {/* Most common gap insight */}
                     {hasGapData && (
-                      <div className="border rounded-lg p-4">
+                      <div className="border border-amber-200 rounded-lg p-4 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-amber-950/40">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-semibold text-slate-900">
+                          <h4 className="font-semibold text-foreground">
                             Most Reported Gap: {mostCommonGap}
                           </h4>
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold", PRIORITY_BADGE.medium)}>
                             MEDIUM
                           </span>
                         </div>
-                        <p className="text-sm text-slate-700">
+                        <p className={BODY_TEXT}>
                           You have consistently reported {mostCommonGap.toLowerCase()} as a
                           system gap. This pattern suggests a systemic issue at your facility
                           that warrants escalation to your quality improvement team.
                         </p>
-                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 mt-2">
+                        <div className={cn("flex items-center gap-1 text-xs font-semibold mt-2", NOTE_TEXT)}>
                           <ArrowRight className="w-3 h-3" />
                           Document this gap in your facility QI log and request a root cause analysis.
                         </div>
@@ -600,19 +635,19 @@ export default function CareSignalAnalytics() {
 
                     {/* Outcome insight */}
                     {totalEvents >= 3 && (
-                      <div className="border rounded-lg p-4">
+                      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50 shadow-sm dark:border-blue-800 dark:bg-blue-950/40">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-semibold text-slate-900">Outcome Pattern</h4>
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-800">
+                          <h4 className="font-semibold text-foreground">Outcome Pattern</h4>
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold", PRIORITY_BADGE.low)}>
                             INFO
                           </span>
                         </div>
-                        <p className="text-sm text-slate-700">
+                        <p className={BODY_TEXT}>
                           {neurointactPct >= 50
                             ? `${neurointactPct}% of your reported cases had successful outcomes. Your facility is performing at or above expected levels for neurologically intact survival.`
                             : `${neurointactPct}% of your reported cases had successful outcomes. This is below the target threshold. Consider reviewing your chain-of-survival compliance and CPR quality metrics.`}
                         </p>
-                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 mt-2">
+                        <div className={cn("flex items-center gap-1 text-xs font-semibold mt-2", NOTE_TEXT)}>
                           <ArrowRight className="w-3 h-3" />
                           {neurointactPct >= 50
                             ? "Share your practices with peers through the Fellowship programme."
@@ -626,16 +661,16 @@ export default function CareSignalAnalytics() {
             </Card>
 
             {/* Export */}
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle>Export Your Data</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-foreground">Export Your Data</CardTitle>
+                <CardDescription className={PAGE_BODY_MUTED}>
                   Download your personal event history as CSV for your records or QI work
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
-                  className="w-full gap-2 bg-teal-600 hover:bg-teal-700"
+                  className="w-full gap-2 bg-brand-teal hover:bg-[#143333] text-white"
                   onClick={handleExport}
                   disabled={history.length === 0}
                 >

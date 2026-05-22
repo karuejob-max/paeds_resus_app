@@ -119,8 +119,9 @@ describe("enrollment payment flows", () => {
       expect(result.enrollmentId).toBeDefined();
     });
 
-    it("should reject M-Pesa enrollment without phone number", async () => {
-      const { getCourseDetails, isUserEnrolled } = await import("../db-enrollment");
+    it("should create complimentary enrollment without phone number", async () => {
+      const { getCourseDetails, isUserEnrolled, isUserAdmin, createEnrollment } =
+        await import("../db-enrollment");
 
       vi.mocked(getCourseDetails).mockResolvedValueOnce({
         id: 1,
@@ -137,6 +138,10 @@ describe("enrollment payment flows", () => {
       });
 
       vi.mocked(isUserEnrolled).mockResolvedValueOnce(false);
+      vi.mocked(isUserAdmin).mockResolvedValueOnce(false);
+      vi.mocked(createEnrollment).mockResolvedValueOnce({
+        insertId: 102,
+      });
 
       const caller = appRouter.createCaller(ctx);
 
@@ -144,8 +149,17 @@ describe("enrollment payment flows", () => {
         courseId: "asthma-i",
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Phone number required");
+      expect(result.success).toBe(true);
+      expect(result.paymentMethod).toBe("admin-free");
+      expect(result.enrollmentId).toBe(102);
+      expect(result.message).toContain("free access");
+      expect(createEnrollment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: "admin-free",
+          amountPaid: 0,
+          paymentStatus: "free",
+        })
+      );
     });
 
     it("should reject M-Pesa enrollment for non-existent course", async () => {
@@ -232,8 +246,9 @@ describe("enrollment payment flows", () => {
       expect(result.message).toContain("Admin enrollment successful");
     });
 
-    it("should not apply admin-free to non-admin users", async () => {
-      const { getCourseDetails, isUserEnrolled, isUserAdmin } = await import("../db-enrollment");
+    it("should create complimentary enrollment for non-admin users without phone", async () => {
+      const { getCourseDetails, isUserEnrolled, isUserAdmin, createEnrollment } =
+        await import("../db-enrollment");
 
       vi.mocked(getCourseDetails).mockResolvedValueOnce({
         id: 1,
@@ -251,6 +266,9 @@ describe("enrollment payment flows", () => {
 
       vi.mocked(isUserEnrolled).mockResolvedValueOnce(false);
       vi.mocked(isUserAdmin).mockResolvedValueOnce(false);
+      vi.mocked(createEnrollment).mockResolvedValueOnce({
+        insertId: 103,
+      });
 
       const caller = appRouter.createCaller(ctx);
 
@@ -258,8 +276,9 @@ describe("enrollment payment flows", () => {
         courseId: "asthma-i",
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Phone number required");
+      expect(result.success).toBe(true);
+      expect(result.paymentMethod).toBe("admin-free");
+      expect(result.enrollmentId).toBe(103);
     });
   });
 

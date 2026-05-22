@@ -14,11 +14,9 @@ import {
 import { enrollments, payments, courses, microCourseEnrollments } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
-import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
-import {
-  ensurePaediatricSepticShockCatalog,
-  getPaediatricSepticShockCourseId,
-} from "../lib/ensure-paediatric-septic-shock-catalog";
+import { ensurePaediatricSepticShockCatalog, getPaediatricSepticShockCourseId } from "../lib/ensure-paediatric-septic-shock-catalog";
+import { ensurePalsAhaCatalog, getPalsAhaCourseId } from "../lib/ensure-pals-aha-catalog";
+import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
 import {
   resolveAhaCourseAnchor,
   type AhaAnchorProgramType,
@@ -62,7 +60,7 @@ async function trackMicroCourseEnrollWithPayment(params: {
 }
 
 const enrollmentSchema = z.object({
-  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
+  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver"]),
   trainingDate: z.date(),
   /**
    * PALS only — ADF catalog SKUs (legacy Paeds Resus micro-courses under programType=pals).
@@ -482,6 +480,36 @@ export const enrollmentRouter = router({
                 : `Enrollment successful - ${promoValidation.discountPercent}% discount applied`,
             paymentMethod: "promo-code",
             amountPaid: finalPrice,
+            learningEnrollmentId,
+          };
+        }
+
+        // Fellowship micro-courses: complimentary enrollment when M-Pesa gate is off (UI enrolls without phone).
+        if (!input.phoneNumber && input.paymentPath !== "manual_lipa") {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
+          const enrollment = await createEnrollmentDb({
+            userId,
+            microCourseId: course.id,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+            paymentStatus: "free",
+          });
+
+          await trackMicroCourseEnrollWithPayment({
+            userId,
+            courseIdSlug: input.courseId,
+            microCourseId: course.id,
+            enrollmentId: enrollment.insertId,
+            paymentMethod: "admin-free",
+            amountPaid: 0,
+          });
+
+          return {
+            success: true,
+            enrollmentId: enrollment.insertId,
+            message: "Enrollment successful — free access",
+            paymentMethod: "admin-free",
+            amountPaid: 0,
             learningEnrollmentId,
           };
         }

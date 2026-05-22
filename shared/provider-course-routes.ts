@@ -83,6 +83,12 @@ export function getProviderCourseDestination(
       : "/course/intubation-essentials";
   }
 
+  if (courseId === "seriously-ill-child-i" || courseId === "seriously-ill-child") {
+    return enrollmentId
+      ? `/micro-course/seriously-ill-child-i?enrollmentId=${enrollmentId}`
+      : "/micro-course/seriously-ill-child-i";
+  }
+
   return enrollmentId
     ? `/micro-course/${courseId}?enrollmentId=${enrollmentId}`
     : `/micro-course/${courseId}`;

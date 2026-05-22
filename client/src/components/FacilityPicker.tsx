@@ -103,7 +103,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
           {required ? <span className="text-destructive">*</span> : null}
         </Label>
         {showProfileHint ? (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-slate-600 mt-1">
             Used for facility, county, and national quality insights. Select your hospital or clinic —
             not your home address.
           </p>
@@ -111,10 +111,10 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
       </div>
 
       {value ? (
-        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+        <div className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50 border-slate-200">
           <div className="flex-1 text-sm">
             <p className="font-medium">{value.facilityName}</p>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-slate-600 text-xs">
               {[value.county, value.country].filter(Boolean).join(" · ") || "Location not set"}
             </p>
           </div>
@@ -138,7 +138,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
             onChange={(e) => setQuery(e.target.value)}
           />
           {isFetching ? (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <p className="text-xs text-slate-600 flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" />
               Searching…
             </p>
@@ -149,11 +149,11 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
                 <button
                   key={f.id}
                   type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm flex justify-between gap-2"
+                  className="w-full text-left px-3 py-2 hover:bg-teal-50/80 text-sm flex justify-between gap-2"
                   onClick={() => selectResult(f)}
                 >
                   <span>{f.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
+                  <span className="text-xs text-slate-600 shrink-0">
                     {f.badge}
                     {f.county ? ` · ${f.county}` : ""}
                     {f.country ? ` · ${f.country}` : ""}
@@ -162,7 +162,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
               ))}
             </div>
           ) : query.trim().length >= 2 ? (
-            <p className="text-xs text-muted-foreground">No matches — add your facility below.</p>
+            <p className="text-xs text-slate-600">No matches — add your facility below.</p>
           ) : null}
         </>
       )}
@@ -188,7 +188,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
       )}
 
       {showAddForm && !value ? (
-        <div className="border rounded-lg p-3 space-y-3 bg-muted/20">
+        <div className="border rounded-lg p-3 space-y-3 bg-slate-50/80">
           <p className="text-sm font-medium">Add your facility</p>
           <div className="space-y-2">
             <Label>Facility name</Label>

@@ -391,14 +391,17 @@ export function buildCareSignalV2SubmitPayload(
   };
 }
 
+/** Step index matches CareSignalFormV2 UI steps (0 = facility & context, 1 = event type, …). */
 export function validateCareSignalV2Step(step: number, form: CareSignalV2FormState): string | null {
+  if (step === 0) {
+    if (!form.eventDate) return "Enter when the event occurred.";
+  }
   if (step === 1) {
     if (!form.reportType) return "Select what type of report this is.";
     if (!form.careLocation) return "Select where care took place.";
     if (form.careLocation === "other_hospital_area" && !form.careLocationOther.trim()) {
       return "Describe the care location.";
     }
-    if (!form.eventDate) return "Enter when the event occurred.";
   }
   if (step === 2) {
     if (form.reportType === "near_miss") {

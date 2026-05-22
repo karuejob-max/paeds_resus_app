@@ -150,8 +150,11 @@ async function computeLifecycleNudgesForUser(userId: number): Promise<LifecycleN
 
 function lifecycleDestination(courseId: string | null, enrollmentId: number): string {
   if (courseId === "bls") return `/course/bls?enrollmentId=${enrollmentId}`;
-  if (courseId === "pals") return `/course/seriously-ill-child?enrollmentId=${enrollmentId}`;
+  if (courseId === "pals") return `/course/pals?enrollmentId=${enrollmentId}`;
   if (courseId === "pals_septic") return `/course/paediatric-septic-shock?enrollmentId=${enrollmentId}`;
+  if (courseId === "seriously-ill-child-i" || courseId === "seriously-ill-child") {
+    return `/micro-course/seriously-ill-child-i?enrollmentId=${enrollmentId}`;
+  }
   if (courseId === "instructor") return `/course/instructor?enrollmentId=${enrollmentId}`;
   return "/fellowship";
 }

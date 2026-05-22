@@ -1,10 +1,10 @@
 /**
  * Training schedules reference `courses.id`. Ensure at least one catalog row exists per program type
- * before creating/updating institutional schedules (same idea as PALS auto-seed on learning.getCourses).
+ * before creating/updating institutional schedules.
  */
 import { eq, asc } from "drizzle-orm";
 import { courses } from "../../drizzle/schema";
-import { ensurePalsSeriouslyIllCatalog } from "./ensure-pals-seriously-ill-catalog";
+import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 
 type Pt = "bls" | "acls" | "pals" | "fellowship";
 
@@ -39,7 +39,7 @@ export async function ensureCourseCatalogForSchedule(db: any, programType: Pt): 
   if (existing.length) return;
 
   if (programType === "pals") {
-    await ensurePalsSeriouslyIllCatalog(db);
+    await ensurePalsAhaCatalog(db);
     return;
   }
 

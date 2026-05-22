@@ -12,7 +12,10 @@ import {
   userProgress,
   enrollments,
 } from "../../drizzle/schema";
-import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
+import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
+import {
+  ensureSeriouslyIllChildFellowshipCatalog,
+} from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
   getPaediatricSepticShockCourseId,
@@ -24,7 +27,12 @@ import {
 } from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
+import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
+import {
+  isMicroCourseEnrollmentId,
+  syncMicroCourseEnrollmentProgress,
+} from "../lib/sync-micro-course-enrollment-progress";
 
 export const learningRouter = router({
   // Get all courses
@@ -76,7 +84,7 @@ export const learningRouter = router({
         if (pt === "pals") {
           try {
             await ensurePaediatricSepticShockCatalog(db);
-            await ensurePalsSeriouslyIllCatalog(db);
+            await ensurePalsAhaCatalog(db);
             rows = await (db as any)
               .select()
               .from(courses)
@@ -84,6 +92,18 @@ export const learningRouter = router({
               .orderBy(courses.order);
           } catch (e) {
             console.error("[learning.getCourses] ensure PALS catalog failed:", e);
+          }
+        }
+        if (pt === "fellowship") {
+          try {
+            await ensureSeriouslyIllChildFellowshipCatalog(db);
+            rows = await (db as any)
+              .select()
+              .from(courses)
+              .where(eq(courses.programType, pt))
+              .orderBy(courses.order);
+          } catch (e) {
+            console.error("[learning.getCourses] ensure fellowship catalog failed:", e);
           }
         }
         if (input.courseId != null) {
@@ -165,6 +185,10 @@ export const learningRouter = router({
         await ensureBlsCatalog(db);
       } else if (pt === "acls") {
         await ensureAclsCatalog(db);
+      } else if (pt === "heartsaver") {
+        await ensureHeartsaverCatalog(db);
+      } else if (pt === "pals") {
+        await ensurePalsAhaCatalog(db);
       }
 
       const courseModules = await (db as any)
@@ -346,6 +370,10 @@ export const learningRouter = router({
         });
       }
 
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+      }
+
       return { success: true, score: input.score, passed, passingScore };
     }),
 
@@ -385,6 +413,10 @@ export const learningRouter = router({
       // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
       // markAhaCognitiveComplete internally checks all modules before setting the flag.
       await markAhaCognitiveComplete(input.enrollmentId);
+
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+      }
 
       return { success: true };
     }),
@@ -504,7 +536,7 @@ export const learningRouter = router({
       if (input.programType === "pals") {
         try {
           await ensurePaediatricSepticShockCatalog(db);
-          await ensurePalsSeriouslyIllCatalog(db);
+          await ensurePalsAhaCatalog(db);
         } catch (e) {
           console.error("[learning.getPersonalizedPath] ensure PALS catalog:", e);
         }
@@ -512,9 +544,9 @@ export const learningRouter = router({
         if (ec != null) {
           programCourses = programCourses.filter((c: { id: number }) => c.id === ec);
         } else {
-          const sid = await getSeriouslyIllChildCourseId(db);
-          if (sid != null) {
-            programCourses = programCourses.filter((c: { id: number }) => c.id === sid);
+          const anchor = await resolveAhaCourseAnchor(db, "pals");
+          if (anchor) {
+            programCourses = programCourses.filter((c: { id: number }) => c.id === anchor.id);
           }
         }
       }

@@ -1,11 +1,17 @@
 /**
- * Single source of truth for fellowship ADF micro-courses (26 rows).
+ * Single source of truth for fellowship ADF micro-courses.
  * Prices are in KES cents; product default 200 KES per micro-course (PSoT / leadership).
  */
+
+/** Count of published micro-courses required for Pillar A (includes sample catalog rows). */
+export function getFellowshipMicroCourseRequiredCount(): number {
+  return MICRO_COURSE_CATALOG.filter((c) => c.isPublished).length;
+}
 
 import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { microCourses } from "../../drizzle/schema";
+import { ensureSeriouslyIllChildFellowshipCatalog } from "./ensure-seriously-ill-child-fellowship-catalog";
 
 /** 200 KES = 20000 cents — agreed micro-course list price */
 export const MICRO_COURSE_PRICE_KES_CENTS = 20000;
@@ -31,6 +37,18 @@ export type MicroCourseCatalogRow = {
 };
 
 export const MICRO_COURSE_CATALOG: MicroCourseCatalogRow[] = [
+  {
+    courseId: "seriously-ill-child-i",
+    title: "The systematic approach to a seriously ill child",
+    description:
+      "Structured assessment, prioritisation, escalation, and safety across ABCDE in practice — cross-cutting fellowship foundation.",
+    level: "foundational",
+    emergencyType: "trauma",
+    duration: 45,
+    prerequisiteId: null,
+    order: 0,
+    isPublished: true,
+  },
   { courseId: "asthma-i", title: "Paediatric Asthma I: Recognition and Initial Management", description: "Recognize asthma exacerbation severity, implement rapid bronchodilator therapy (salbutamol), and assess response to treatment.", level: "foundational", emergencyType: "respiratory", duration: 45, prerequisiteId: null, order: 1, isPublished: true },
   { courseId: "asthma-ii", title: "Paediatric Asthma II: Severe Exacerbation and Status Asthmaticus", description: "Manage severe asthma exacerbation, IV magnesium, aminophylline, and mechanical ventilation preparation.", level: "advanced", emergencyType: "respiratory", duration: 60, prerequisiteId: "asthma-i", order: 2, isPublished: true },
   { courseId: "pneumonia-i", title: "Paediatric Pneumonia I: Recognition and Initial Antibiotics", description: "Recognize pneumonia severity, perform chest examination, initiate appropriate antibiotics based on age and risk factors.", level: "foundational", emergencyType: "respiratory", duration: 45, prerequisiteId: null, order: 3, isPublished: true },
@@ -108,6 +126,13 @@ export async function ensureMicroCoursesCatalog(): Promise<void> {
       });
     }
   }
+
+  try {
+    await ensureSeriouslyIllChildFellowshipCatalog(db);
+  } catch (e) {
+    console.error("[micro-course-catalog] ensure seriously-ill-child fellowship content failed:", e);
+  }
+
   _catalogSeeded = true;
 }
 
