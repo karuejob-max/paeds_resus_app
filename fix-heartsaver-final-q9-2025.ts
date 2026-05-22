@@ -6,24 +6,33 @@
  */
 import mysql from "mysql2/promise";
 import type { PoolOptions } from "mysql2/promise";
+import dns from "node:dns/promises";
 import "dotenv/config";
 
 const EXPLANATION =
   "The 2025 AHA ECC Guidelines eliminate the 2-finger technique for infant CPR. For a single rescuer, use the heel of 1 hand on the sternum. The 2 thumb-encircling hands technique is preferred when 2 rescuers are available or when a single rescuer can encircle the chest.";
 
-function getConnectionConfig(databaseUrl: string): PoolOptions {
+async function getConnectionConfig(databaseUrl: string): Promise<PoolOptions> {
   const url = new URL(databaseUrl);
   const needsSsl =
     /ssl-mode=REQUIRED|ssl=true/i.test(databaseUrl) || url.hostname.endsWith(".aivencloud.com");
+  // Prefer IPv4 — hostname often resolves to IPv6 first on Windows, which can ETIMEDOUT to Aiven.
+  let host = url.hostname;
+  try {
+    const { address } = await dns.lookup(url.hostname, { family: 4 });
+    if (address) host = address;
+  } catch {
+    /* fall back to hostname */
+  }
   const config: PoolOptions = {
-    host: url.hostname,
+    host,
     port: url.port ? parseInt(url.port, 10) : 3306,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, "") || undefined,
   };
   if (needsSsl) {
-    config.ssl = { rejectUnauthorized: false };
+    config.ssl = { rejectUnauthorized: false, servername: url.hostname };
   }
   return config;
 }
@@ -31,7 +40,7 @@ function getConnectionConfig(databaseUrl: string): PoolOptions {
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL not set");
-  const pool = mysql.createPool(getConnectionConfig(databaseUrl));
+  const pool = mysql.createPool(await getConnectionConfig(databaseUrl));
 
   const [finalRows] = await pool.query(`
     SELECT qq.id, qq.question, qq.correctAnswer, qq.options, qq.\`order\`
