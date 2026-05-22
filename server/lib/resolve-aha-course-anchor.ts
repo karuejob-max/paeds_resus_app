@@ -2,11 +2,11 @@
  * Pick the canonical `courses` row for an AHA program (BLS / ACLS / PALS / Heartsaver).
  * Prefers the row with the most modules so empty test duplicates are ignored.
  */
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, not, sql } from "drizzle-orm";
 import { courses, modules } from "../../drizzle/schema";
 import { ensureBlsCatalog, ensureAclsCatalog } from "./ensure-bls-acls-catalog";
 import { ensureHeartsaverCatalog } from "./ensure-heartsaver-catalog";
-import { ensureCourseCatalogForSchedule } from "./ensure-course-catalog-for-schedule";
+import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 
 export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver";
 
@@ -19,7 +19,7 @@ export async function ensureAhaProgramCatalog(
   } else if (programType === "acls") {
     await ensureAclsCatalog(db);
   } else if (programType === "pals") {
-    await ensureCourseCatalogForSchedule(db, "pals");
+    await ensurePalsAhaCatalog(db);
   } else if (programType === "heartsaver") {
     await ensureHeartsaverCatalog(db);
   }
@@ -31,10 +31,19 @@ export async function resolveAhaCourseAnchor(
 ): Promise<(typeof courses.$inferSelect) | null> {
   await ensureAhaProgramCatalog(db, programType);
 
+  const palsFilter =
+    programType === "pals"
+      ? and(
+          eq(courses.programType, programType),
+          not(like(courses.title, "%seriously ill%")),
+          not(like(courses.title, "%Paediatric septic shock%"))
+        )
+      : eq(courses.programType, programType);
+
   const rows = await db
     .select()
     .from(courses)
-    .where(eq(courses.programType, programType))
+    .where(palsFilter)
     .orderBy(asc(courses.id));
 
   if (!rows.length) return null;
