@@ -20,6 +20,7 @@ import {
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { PAGE_BODY_MUTED } from "@/lib/readable-surfaces";
+import { formatChildAgeMonths } from "@/lib/safetruth-age";
 import { cn } from "@/lib/utils";
 
 const SUMMARY_LABEL = "text-xs font-semibold text-slate-800 dark:text-slate-200";
@@ -37,6 +38,8 @@ interface GapRecommendation {
 export interface SubmissionData {
   eventDate: string;
   childAge: number;
+  /** Human-readable age when available from the submit form. */
+  childAgeLabel?: string;
   hospital?: string;
   outcome?: string;
   systemGaps?: string[];
@@ -120,7 +123,9 @@ export default function SubmissionConfirmationModal({
                 </div>
                 <div>
                   <p className={SUMMARY_LABEL}>Child age</p>
-                  <p className={SUMMARY_VALUE}>{data.childAge} months</p>
+                  <p className={SUMMARY_VALUE}>
+                    {data.childAgeLabel ?? formatChildAgeMonths(data.childAge)}
+                  </p>
                 </div>
                 {data.outcome && (
                   <div>

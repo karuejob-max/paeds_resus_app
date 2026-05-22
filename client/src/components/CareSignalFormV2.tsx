@@ -43,7 +43,7 @@ import {
   type CareSignalV2FormState,
   CARE_SIGNAL_V2_STEP_GUIDE,
 } from "@/lib/care-signal-v2";
-import type { SafeTruthAgeBand } from "@/lib/safetruth-age";
+import { formatChildAgeFromInput, type SafeTruthAgeBand } from "@/lib/safetruth-age";
 import { cn } from "@/lib/utils";
 
 const STEPS = CARE_SIGNAL_V2_STEP_GUIDE.map((step, id) => ({ id, title: step.title }));
@@ -165,6 +165,7 @@ export default function CareSignalFormV2() {
       setSubmittedData({
         eventDate: payload.eventDate,
         childAge: payload.childAge,
+        childAgeLabel: formatChildAgeFromInput(form),
         isAnonymous: payload.isAnonymous,
         eventType: payload.eventType,
         systemGaps: payload.systemGaps,
@@ -312,18 +313,18 @@ export default function CareSignalFormV2() {
             <div className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Patient age group</Label>
+                  <Label id="cs-age-band">Age category</Label>
                   <Select
                     value={form.ageBand}
                     onValueChange={(v) => patch({ ageBand: v as SafeTruthAgeBand })}
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1" aria-labelledby="cs-age-band">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="neonate">Neonate (0–28 days)</SelectItem>
                       <SelectItem value="infant">Infant (1–12 months)</SelectItem>
-                      <SelectItem value="child">Child (1 year+)</SelectItem>
+                      <SelectItem value="child">Child (1 year or older)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -341,6 +342,83 @@ export default function CareSignalFormV2() {
                   />
                 </div>
               </div>
+
+              {form.ageBand === "neonate" ? (
+                <div>
+                  <Label htmlFor="cs-neonate-days">Exact age — days of life</Label>
+                  <Input
+                    id="cs-neonate-days"
+                    type="number"
+                    min={0}
+                    max={28}
+                    step={1}
+                    placeholder="e.g. 7"
+                    value={form.neonateDays}
+                    onChange={(e) => patch({ neonateDays: e.target.value })}
+                    className="mt-1 max-w-xs"
+                  />
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                    Enter 0–28 days. Exact age supports research and age-appropriate QI analysis.
+                  </p>
+                </div>
+              ) : null}
+
+              {form.ageBand === "infant" ? (
+                <div>
+                  <Label htmlFor="cs-infant-months">Exact age — months</Label>
+                  <Input
+                    id="cs-infant-months"
+                    type="number"
+                    min={1}
+                    max={12}
+                    step={1}
+                    placeholder="e.g. 6"
+                    value={form.infantMonths}
+                    onChange={(e) => patch({ infantMonths: e.target.value })}
+                    className="mt-1 max-w-xs"
+                  />
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                    Enter 1–12 months.
+                  </p>
+                </div>
+              ) : null}
+
+              {form.ageBand === "child" ? (
+                <div className="grid sm:grid-cols-2 gap-4 max-w-xl">
+                  <div>
+                    <Label htmlFor="cs-child-years">Exact age — years</Label>
+                    <Input
+                      id="cs-child-years"
+                      type="number"
+                      min={1}
+                      max={25}
+                      step={1}
+                      placeholder="e.g. 5"
+                      value={form.childYears}
+                      onChange={(e) => patch({ childYears: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cs-child-extra-months">Additional months (optional)</Label>
+                    <Input
+                      id="cs-child-extra-months"
+                      type="number"
+                      min={0}
+                      max={11}
+                      step={1}
+                      placeholder="0–11"
+                      value={form.childExtraMonths}
+                      onChange={(e) => patch({ childExtraMonths: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 sm:col-span-2">
+                    Example: 5 years and 3 months for a child who is 5 years 3 months old.
+                  </p>
+                </div>
+              ) : null}
+
               {form.reportType !== "near_miss" ? (
                 <>
                   <div>

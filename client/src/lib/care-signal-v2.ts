@@ -2,7 +2,11 @@
  * Care Signal form v2 — structured QI data for facility / county / national improvement.
  * Stored in gapDetails.formVersion === "v2"; maps to legacy columns for fellowship + analytics.
  */
-import { childAgeMonthsForSafeTruth, type SafeTruthAgeBand } from "@/lib/safetruth-age";
+import {
+  childAgeMonthsForSafeTruth,
+  validatePatientAgeInput,
+  type SafeTruthAgeBand,
+} from "@/lib/safetruth-age";
 import type { FacilitySelection } from "@/components/FacilityPicker";
 
 export const CARE_SIGNAL_FORM_VERSION = "v2" as const;
@@ -22,7 +26,7 @@ export const CARE_SIGNAL_V2_STEP_GUIDE: Array<{ title: string; description: stri
   {
     title: "Child & presentation",
     description:
-      "Record age band, primary emergency type, and a brief clinical summary so reviewers understand what happened.",
+      "Record the child's exact age, primary emergency type, and a brief clinical summary so reviewers understand what happened.",
   },
   {
     title: "Timeline & delays",
@@ -85,6 +89,7 @@ export type CareSignalV2FormState = {
   neonateDays: string;
   infantMonths: string;
   childYears: string;
+  childExtraMonths: string;
   weightKg: string;
   primaryEmergencyType: CareSignalEmergencyType | "";
   presentationSummary: string;
@@ -245,8 +250,9 @@ export function initialCareSignalV2State(): CareSignalV2FormState {
     careLocationOther: "",
     ageBand: "child",
     neonateDays: "",
-    infantMonths: "6",
+    infantMonths: "",
     childYears: "",
+    childExtraMonths: "",
     weightKg: "",
     primaryEmergencyType: "",
     presentationSummary: "",
@@ -306,6 +312,7 @@ export function buildCareSignalV2SubmitPayload(
     neonateDays: form.neonateDays,
     infantMonths: form.infantMonths,
     childYears: form.childYears,
+    childExtraMonths: form.childExtraMonths,
   });
 
   const gapDetailsV2 = {
@@ -313,6 +320,26 @@ export function buildCareSignalV2SubmitPayload(
     reportType: form.reportType,
     careLocation: form.careLocation,
     careLocationOther: form.careLocationOther || null,
+    patientAge: {
+      ageBand: form.ageBand,
+      neonateDays:
+        form.ageBand === "neonate" && form.neonateDays.trim() !== ""
+          ? Number(form.neonateDays)
+          : null,
+      infantMonths:
+        form.ageBand === "infant" && form.infantMonths.trim() !== ""
+          ? Number(form.infantMonths)
+          : null,
+      childYears:
+        form.ageBand === "child" && form.childYears.trim() !== ""
+          ? Number(form.childYears)
+          : null,
+      childExtraMonths:
+        form.ageBand === "child" && form.childExtraMonths.trim() !== ""
+          ? Number(form.childExtraMonths)
+          : 0,
+      totalMonths: childAge,
+    },
     weightKg: form.weightKg ? Number(form.weightKg) : null,
     primaryEmergencyType: form.primaryEmergencyType,
     presentationSummary: form.presentationSummary.trim(),
@@ -417,6 +444,8 @@ export function validateCareSignalV2Step(step: number, form: CareSignalV2FormSta
       return null;
     }
     if (!form.primaryEmergencyType) return "Select the primary emergency type.";
+    const ageError = validatePatientAgeInput(form);
+    if (ageError) return ageError;
     if (form.presentationSummary.trim().length < 10) {
       return "Briefly describe what happened (at least 10 characters).";
     }
@@ -474,6 +503,35 @@ export function careSignalV2ReviewRows(gapDetails: Record<string, unknown>): Arr
       label: "Care location",
       value: labelFor(CARE_LOCATION_OPTIONS, String(gapDetails.careLocation ?? "")),
     },
+  ];
+
+  const patientAge = gapDetails.patientAge as
+    | {
+        ageBand?: SafeTruthAgeBand;
+        neonateDays?: number | null;
+        infantMonths?: number | null;
+        childYears?: number | null;
+        childExtraMonths?: number | null;
+        totalMonths?: number | null;
+      }
+    | undefined;
+  if (patientAge?.ageBand) {
+    const ageLabel =
+      patientAge.ageBand === "neonate" && patientAge.neonateDays != null
+        ? `${patientAge.neonateDays} days old`
+        : patientAge.ageBand === "infant" && patientAge.infantMonths != null
+          ? `${patientAge.infantMonths} months old`
+          : patientAge.ageBand === "child" && patientAge.childYears != null
+            ? patientAge.childExtraMonths
+              ? `${patientAge.childYears} years ${patientAge.childExtraMonths} months old`
+              : `${patientAge.childYears} years old`
+            : patientAge.totalMonths != null
+              ? `${patientAge.totalMonths} months total`
+              : "—";
+    rows.push({ label: "Patient age", value: ageLabel });
+  }
+
+  rows.push(
     {
       label: "Presentation",
       value: String(gapDetails.presentationSummary ?? "—"),
@@ -497,8 +555,8 @@ export function careSignalV2ReviewRows(gapDetails: Record<string, unknown>): Arr
     {
       label: "Preventability",
       value: labelFor(PREVENTABLE_OPTIONS, String(gapDetails.preventableAssessment ?? "")),
-    },
-  ];
+    }
+  );
 
   const equipment = response.equipmentUnavailable as string[] | undefined;
   if (equipment?.length) {
