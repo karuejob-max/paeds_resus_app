@@ -43,6 +43,10 @@ const FOOTER_ROW_GAP = 13;
 const GAP_COURSE_TO_FOOTER = 10;
 /** Minimum gap between AHA alignment line and footer rule. */
 const GAP_AHA_TO_FOOTER = 14;
+/** Minimum gap below header tagline before certificate title band. */
+const MIN_GAP_AFTER_TAGLINE = 8;
+const CERTIFICATE_TITLE_SIZE = 15;
+const CERTIFY_LINE_SIZE = 11;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
 /** Offset below participant name baseline for the orange divider (not full em height). */
@@ -304,9 +308,17 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     }
   }
 
-  drawCenteredText(page, CERTIFICATE_HEADER_TAGLINE, headerBottom, 8, font, BRAND.inkMuted, 12);
+  const taglineBlockBottom = drawCenteredText(
+    page,
+    CERTIFICATE_HEADER_TAGLINE,
+    headerBottom,
+    8,
+    font,
+    BRAND.inkMuted,
+    12
+  );
 
-  const zoneTop = headerBottom - 22;
+  const zoneTop = taglineBlockBottom - MIN_GAP_AFTER_TAGLINE;
   const showAhaLine = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
   const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? GAP_AHA_TO_FOOTER : GAP_COURSE_TO_FOOTER);
 
@@ -323,20 +335,40 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     contentMaxWidth - 48
   );
   const bodyBlockHeight =
-    12 +
-    15 +
-    8 +
-    11 +
+    CERTIFY_LINE_SIZE +
     GAP_CERTIFY_TO_NAME +
     nameSize +
     ORANGE_BELOW_NAME_BASELINE +
     GAP_ORANGE_TO_DESCRIPTION +
     descLines.length * (12 + 6);
   const available = zoneTop - zoneBottom;
-  let y = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
+  const certifyBaselineY = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
 
-  y = drawCenteredText(page, "CERTIFICATE OF COMPLETION", y, 15, fontBold, BRAND.orange, 14);
-  y = drawCenteredText(page, "This is to certify that", y, 11, font, BRAND.inkMuted, GAP_CERTIFY_TO_NAME);
+  const certTitleBandTop = zoneTop;
+  const certTitleBandBottom = certifyBaselineY;
+  const certTitleY =
+    certTitleBandTop > certTitleBandBottom
+      ? certTitleBandBottom + (certTitleBandTop - certTitleBandBottom) / 2
+      : certTitleBandBottom;
+
+  drawCenteredText(
+    page,
+    "CERTIFICATE OF COMPLETION",
+    certTitleY,
+    CERTIFICATE_TITLE_SIZE,
+    fontBold,
+    BRAND.orange,
+    0
+  );
+  let y = drawCenteredText(
+    page,
+    "This is to certify that",
+    certifyBaselineY,
+    CERTIFY_LINE_SIZE,
+    font,
+    BRAND.inkMuted,
+    GAP_CERTIFY_TO_NAME
+  );
 
   const nameBaselineY = y;
   const nameWidth = fontBold.widthOfTextAtSize(data.recipientName, nameSize);
