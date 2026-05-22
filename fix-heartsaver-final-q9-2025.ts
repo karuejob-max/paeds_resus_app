@@ -5,13 +5,33 @@
  * Usage: npx tsx fix-heartsaver-final-q9-2025.ts
  */
 import mysql from "mysql2/promise";
+import type { PoolOptions } from "mysql2/promise";
 import "dotenv/config";
 
 const EXPLANATION =
   "The 2025 AHA ECC Guidelines eliminate the 2-finger technique for infant CPR. For a single rescuer, use the heel of 1 hand on the sternum. The 2 thumb-encircling hands technique is preferred when 2 rescuers are available or when a single rescuer can encircle the chest.";
 
+function getConnectionConfig(databaseUrl: string): PoolOptions {
+  const url = new URL(databaseUrl);
+  const needsSsl =
+    /ssl-mode=REQUIRED|ssl=true/i.test(databaseUrl) || url.hostname.endsWith(".aivencloud.com");
+  const config: PoolOptions = {
+    host: url.hostname,
+    port: url.port ? parseInt(url.port, 10) : 3306,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\//, "") || undefined,
+  };
+  if (needsSsl) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+  return config;
+}
+
 async function main() {
-  const pool = mysql.createPool(process.env.DATABASE_URL!);
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL not set");
+  const pool = mysql.createPool(getConnectionConfig(databaseUrl));
 
   const [finalRows] = await pool.query(`
     SELECT qq.id, qq.question, qq.correctAnswer, qq.options, qq.\`order\`
