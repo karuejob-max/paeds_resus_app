@@ -34,6 +34,10 @@ const MARGIN_BOTTOM = 38;
 const FOOTER_DIVIDER_Y = 148;
 /** Empty band below the rule for a handwritten signature. */
 const SIGNATURE_PAD_HEIGHT = 54;
+/** Gap between the short signature guide line and the signatory name baseline. */
+const SIGNATURE_GUIDE_ABOVE_NAME = 12;
+/** Gap between signature pad bottom and the metadata row baseline. */
+const FOOTER_METADATA_BELOW_PAD = 14;
 const FOOTER_ROW_GAP = 13;
 /** Minimum gap between course title baseline and footer rule (non-AHA). */
 const GAP_COURSE_TO_FOOTER = 10;
@@ -368,8 +372,12 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     thickness: 0.5,
   });
 
-  // Signature pad (uniform space below the rule, above the metadata row)
-  const signatureGuideY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT / 2 - 4;
+  const expiryDate = new Date(data.trainingDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + 2);
+  const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
+
+  const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - FOOTER_METADATA_BELOW_PAD;
+  const signatureGuideY = metadataRowY + SIGNATURE_GUIDE_ABOVE_NAME;
   const sigGuideW = 220;
   page.drawLine({
     start: { x: width / 2 - sigGuideW / 2, y: signatureGuideY },
@@ -378,11 +386,6 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     thickness: 0.35,
   });
 
-  const expiryDate = new Date(data.trainingDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + 2);
-  const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
-
-  const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - 14;
   const leftLines = [
     `Issued on: ${formatDate(data.trainingDate)}`,
     ...(showExpiry ? [`Valid until: ${formatDate(expiryDate)}`] : []),
