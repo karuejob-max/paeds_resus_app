@@ -335,10 +335,11 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     }
   }
 
+  const taglineBaselineY = headerBottom;
   const taglineBlockBottom = drawCenteredText(
     page,
     CERTIFICATE_HEADER_TAGLINE,
-    headerBottom,
+    taglineBaselineY,
     8,
     font,
     BRAND.inkMuted,
@@ -371,12 +372,10 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   const available = zoneTop - zoneBottom;
   const certifyBaselineY = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
 
-  const certTitleBandTop = zoneTop;
-  const certTitleBandBottom = certifyBaselineY;
+  const taglineVisualBottom = taglineBaselineY - 8;
+  const certifyVisualTop = certifyBaselineY + CERTIFY_LINE_SIZE;
   const certTitleY =
-    certTitleBandTop > certTitleBandBottom
-      ? certTitleBandBottom + (certTitleBandTop - certTitleBandBottom) / 2
-      : certTitleBandBottom;
+    certifyVisualTop + (taglineVisualBottom - certifyVisualTop) / 2;
 
   drawCenteredText(
     page,
