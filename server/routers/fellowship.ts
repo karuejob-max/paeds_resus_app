@@ -54,7 +54,7 @@ export const fellowshipRouter = router({
       return {
         coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
         resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0 },
-        careSignalPillar: { streak: 0, eventsSubmitted: 0, percentage: 0 },
+        careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 },
         isQualified: false,
         overallPercentage: 0,
         resusGpsAccessExpiresAt: null as Date | null,
@@ -164,6 +164,9 @@ export const fellowshipRouter = router({
         .limit(1);
 
       if (existingCase.length > 0) {
+        await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+          console.warn("[Fellowship] sync after existing case record failed:", e)
+        );
         return { success: true, caseId: existingCase[0].id, alreadyExists: true };
       }
 
@@ -182,10 +185,6 @@ export const fellowshipRouter = router({
         updatedAt: new Date(),
       });
 
-      void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
-        console.warn("[Fellowship] sync after case record failed:", e)
-      );
-
       void trackEvent({
         userId: ctx.user.id,
         eventType: "resus_assessment",
@@ -197,6 +196,10 @@ export const fellowshipRouter = router({
           source: "fellowship_api",
         },
       });
+
+      await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+        console.warn("[Fellowship] sync after case record failed:", e)
+      );
 
       return { success: true, caseId: result[0].insertId };
     }),

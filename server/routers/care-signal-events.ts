@@ -342,7 +342,7 @@ export const careSignalEventsRouter = router({
         });
 
         if (!isParentStory) {
-          void syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+          await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
             console.warn("[Fellowship] sync after Care Signal submit failed:", e)
           );
         }

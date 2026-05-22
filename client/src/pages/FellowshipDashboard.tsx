@@ -357,7 +357,10 @@ export default function FellowshipDashboard() {
                       <span className="text-muted-foreground"> of {resusGPSPillar.totalConditionsTaught} conditions</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {resusGPSPillar.casesCompleted} total cases
+                      {resusGPSPillar.casesCompleted} case{resusGPSPillar.casesCompleted === 1 ? "" : "s"} logged
+                      {resusGPSPillar.casesCompleted > 0 && resusGPSPillar.percentage === 0
+                        ? " · 3 cases per condition required for credit"
+                        : ""}
                     </p>
                   </div>
                   <Button
@@ -398,7 +401,13 @@ export default function FellowshipDashboard() {
                       <span className="text-muted-foreground"> of 24 months</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {24 - careSignalPillar.streak} months remaining
+                      {careSignalPillar.eventsSubmitted} report{careSignalPillar.eventsSubmitted === 1 ? "" : "s"} submitted
+                      {(careSignalPillar.reportsThisMonth ?? 0) > 0
+                        ? ` · ${careSignalPillar.reportsThisMonth} this month`
+                        : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {24 - careSignalPillar.streak} months remaining on streak
                     </p>
                   </div>
                   <Button

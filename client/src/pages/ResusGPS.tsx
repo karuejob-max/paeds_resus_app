@@ -653,6 +653,7 @@ export default function ResusGPS() {
           outcome: session.outcome ?? 'completed',
           depthScore: session.depthScore ?? 0,
         });
+        void utils.fellowship.getProgress.invalidate();
         setShowFellowshipPillarBanner(true);
         console.info('[ResusGPS] Session synced for fellowship credit:', session.id);
       } catch (error) {

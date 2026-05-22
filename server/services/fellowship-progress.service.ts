@@ -17,7 +17,8 @@ import {
 } from "../../drizzle/schema";
 import {
   computeCareSignalStreak,
-  enumerateMonthsEndingAt,
+  computeCareSignalTimelineKeys,
+  monthKeyEAT,
 } from "../routers/fellowship-care-signal-streak";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 
@@ -67,13 +68,11 @@ export async function calculateResusGPSPillar(userId: number) {
     const sessions = await db.query.resusGPSSessions.findMany({
       where: (sessions) => and(eq(sessions.userId, userId), eq(sessions.status, "completed")),
     });
-    const sessionIds = sessions.map((s) => s.sessionId);
-    const allCases = await db.query.resusGPSCases.findMany({
-      where: (cases) =>
-        sessionIds.length > 0
-          ? and(eq(cases.userId, userId), inArray(cases.sessionId, sessionIds))
-          : undefined,
+    const completedSessionIds = new Set(sessions.map((s) => s.sessionId));
+    const userCases = await db.query.resusGPSCases.findMany({
+      where: (cases) => eq(cases.userId, userId),
     });
+    const allCases = userCases.filter((c) => completedSessionIds.has(c.sessionId));
     const casesByCondition: Record<string, number> = {};
     allCases.forEach((c) => {
       const condition = c.diagnosis || "unknown";
@@ -105,7 +104,7 @@ export async function calculateResusGPSPillar(userId: number) {
 export async function calculateCareSignalPillar(userId: number) {
   const db = await getDb();
   if (!db) {
-    return { streak: 0, eventsSubmitted: 0, percentage: 0 };
+    return { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 };
   }
 
   try {
@@ -117,18 +116,24 @@ export async function calculateCareSignalPillar(userId: number) {
     const eatNow = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000);
     const currentYear = eatNow.getUTCFullYear();
     const currentMonth = eatNow.getUTCMonth() + 1;
+    const currentMonthKey = monthKeyEAT(currentYear, currentMonth);
 
     allEvents.forEach((event) => {
-      const eventDate = new Date(event.createdAt);
+      const eventDate = new Date(event.eventDate);
       const eatEvent = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000);
       const year = eatEvent.getUTCFullYear();
       const month = eatEvent.getUTCMonth() + 1;
-      const key = `${year}-${String(month).padStart(2, "0")}`;
+      const key = monthKeyEAT(year, month);
       eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
     });
 
-    const windowKeys = enumerateMonthsEndingAt(currentYear, currentMonth, 24);
-    const windowYears = [...new Set(windowKeys.map((k) => Number(k.slice(0, 4))))];
+    const timelineKeys = computeCareSignalTimelineKeys(
+      eventsByMonth,
+      currentYear,
+      currentMonth,
+      24
+    );
+    const windowYears = [...new Set(timelineKeys.map((k) => Number(k.slice(0, 4))))];
 
     const graceUsage = await db.query.fellowshipGraceUsage.findMany({
       where: (grace) => and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
@@ -140,13 +145,15 @@ export async function calculateCareSignalPillar(userId: number) {
       anchorYear: currentYear,
       anchorMonth: currentMonth,
       windowMonths: 24,
+      timelineKeys,
     });
 
+    const reportsThisMonth = eventsByMonth[currentMonthKey] ?? 0;
     const percentage = Math.min(100, Math.round((streak / 24) * 100));
-    return { streak, eventsSubmitted: allEvents.length, percentage };
+    return { streak, eventsSubmitted: allEvents.length, reportsThisMonth, percentage };
   } catch (error) {
     console.error("[Fellowship] Error calculating Care Signal pillar:", error);
-    return { streak: 0, eventsSubmitted: 0, percentage: 0 };
+    return { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 };
   }
 }
 

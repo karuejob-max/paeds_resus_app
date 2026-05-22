@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeCareSignalStreak,
+  computeCareSignalTimelineKeys,
   enumerateMonthsEndingAt,
 } from "./fellowship-care-signal-streak";
 
@@ -166,6 +167,21 @@ describe("computeCareSignalStreak", () => {
         anchorYear: 2026,
         anchorMonth: 4,
         windowMonths: 1,
+      });
+      expect(streak).toBe(1);
+    });
+
+    it("first fellowship report in a 24-month window counts as month 1 (trimmed timeline)", () => {
+      const eventsByMonth = { "2026-05": 1 };
+      const timelineKeys = computeCareSignalTimelineKeys(eventsByMonth, 2026, 5, 24);
+      expect(timelineKeys).toEqual(["2026-05"]);
+      const streak = computeCareSignalStreak({
+        eventsByMonth,
+        graceUsage: [],
+        anchorYear: 2026,
+        anchorMonth: 5,
+        windowMonths: 24,
+        timelineKeys,
       });
       expect(streak).toBe(1);
     });
