@@ -371,14 +371,10 @@ export default function Enroll() {
                     return;
                   }
                   const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "instructor";
-                  const payload: {
-                    programType: typeof programType;
-                    trainingDate: Date;
-                  } = {
+                  createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),
-                  };
-                  createEnrollment.mutate(payload);
+                  });
                 }}
                 className="space-y-6"
               >

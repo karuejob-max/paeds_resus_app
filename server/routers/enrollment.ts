@@ -15,8 +15,14 @@ import { enrollments, payments, courses, microCourseEnrollments } from "../../dr
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { ensurePaediatricSepticShockCatalog, getPaediatricSepticShockCourseId } from "../lib/ensure-paediatric-septic-shock-catalog";
-import { ensurePalsAhaCatalog, getPalsAhaCourseId } from "../lib/ensure-pals-aha-catalog";
-import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
+import {
+  getSeriouslyIllChildFellowshipCourseId,
+} from "../lib/ensure-seriously-ill-child-fellowship-catalog";
+import {
+  resolveAhaCourseAnchor,
+  type AhaAnchorProgramType,
+} from "../lib/resolve-aha-course-anchor";
+import { isAhaProgramType } from "../../shared/training-product-taxonomy";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -57,9 +63,36 @@ async function trackMicroCourseEnrollWithPayment(params: {
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver"]),
   trainingDate: z.date(),
-  /** PALS only: optional legacy E2E septic SKU (sets enrollments.courseId). */
-  pricingSku: z.enum(["pals_septic"]).optional(),
+  /**
+   * PALS only — ADF catalog SKUs (legacy Paeds Resus micro-courses under programType=pals).
+   * Omit for AHA PALS certification (uses canonical AHA catalog row via resolveAhaCourseAnchor).
+   */
+  pricingSku: z.enum(["pals", "pals_septic"]).optional(),
 });
+
+async function resolveTrainingCourseIdOnCreate(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: { programType: string; pricingSku?: "pals" | "pals_septic" }
+): Promise<number | null> {
+  if (input.programType === "pals") {
+    if (input.pricingSku === "pals_septic") {
+      await ensurePaediatricSepticShockCatalog(db);
+      return getPaediatricSepticShockCourseId(db);
+    }
+    if (input.pricingSku === "pals") {
+      return getSeriouslyIllChildFellowshipCourseId(db);
+    }
+    const anchor = await resolveAhaCourseAnchor(db, "pals");
+    return anchor?.id ?? null;
+  }
+
+  if (isAhaProgramType(input.programType)) {
+    const anchor = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
+    return anchor?.id ?? null;
+  }
+
+  return null;
+}
 
 const paymentSchema = z.object({
   enrollmentId: z.number(),
@@ -77,18 +110,12 @@ export const enrollmentRouter = router({
       const db = await getDb();
       let courseId: number | null = null;
 
-      if (input.programType === "pals" && db) {
-        await ensurePaediatricSepticShockCatalog(db);
-        await ensurePalsAhaCatalog(db);
-        if (input.pricingSku === "pals_septic") {
-          courseId = await getPaediatricSepticShockCourseId(db);
-        } else {
-          courseId = await getPalsAhaCourseId(db);
-        }
+      if (db && (input.programType === "pals" || isAhaProgramType(input.programType))) {
+        courseId = await resolveTrainingCourseIdOnCreate(db, input);
         if (courseId == null) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Could not resolve PALS course catalog. Try again or contact support.",
+            message: "Could not resolve course catalog for this program. Try again or contact support.",
           });
         }
       }
@@ -100,7 +127,7 @@ export const enrollmentRouter = router({
           programType: input.programType,
           trainingDate: input.trainingDate,
           paymentStatus: "completed",
-          courseId: input.programType === "pals" ? courseId : null,
+          courseId,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
