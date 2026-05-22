@@ -127,8 +127,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import {
+  FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
   getFellowshipMicrocourseResusConditionCount,
   getFellowshipMicrocourseResusConditionLabel,
+  isFellowshipMicrocourseResusCondition,
   normalizeToFellowshipResusConditionId,
   resolveFellowshipDiagnosisFromSession,
 } from '@shared/fellowship-microcourse-resus-conditions';
@@ -2114,6 +2116,24 @@ function PostPrimaryScreen({
     [diagnoses]
   );
 
+  const primaryFellowshipId = normalizeToFellowshipResusConditionId(session.definitiveDiagnosis);
+
+  const threatFellowshipSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; label: string; source: string }[] = [];
+    for (const threat of session.threats) {
+      const id = normalizeToFellowshipResusConditionId(threat.id || threat.name);
+      if (!isFellowshipMicrocourseResusCondition(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        id,
+        label: getFellowshipMicrocourseResusConditionLabel(id),
+        source: threat.name,
+      });
+    }
+    return out;
+  }, [session.threats]);
+
   return (
     <div className="py-6 space-y-6">
       {/* Vital Signs Summary */}
@@ -2189,67 +2209,170 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {/* Suggested Diagnoses — set primary for fellowship credit */}
-      {diagnoses.length > 0 && (
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-foreground flex items-center gap-2">
-              <Stethoscope className="h-4 w-4" />
-              Differential diagnoses
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Set a <strong className="font-medium text-foreground">primary diagnosis</strong> so this case counts toward
-              the matching fellowship micro-course condition (≥3 cases each).
+      {/* Differential diagnoses — always shown so fellows can pick primary for Pillar B */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-foreground flex items-center gap-2">
+            <Stethoscope className="h-4 w-4" />
+            Differential diagnoses
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Set a <strong className="font-medium text-foreground">primary diagnosis</strong> so this case counts toward
+            the matching fellowship micro-course condition (≥3 cases each across {fellowshipConditionTotal}{' '}
+            conditions).
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {diagnoses.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Suggested from case findings
+              </p>
+              {diagnoses.map((dx, i) => (
+                <div key={i} className="space-y-1">
+                  {suggestedForFellowship[i]?.fellowshipId &&
+                    isFellowshipMicrocourseResusCondition(suggestedForFellowship[i].fellowshipId) && (
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                        Fellowship: {suggestedForFellowship[i].fellowshipLabel} ·{' '}
+                        {(casesByCondition[suggestedForFellowship[i].fellowshipId] ?? 0)}/3 cases logged
+                      </p>
+                    )}
+                  <DiagnosisCard
+                    key={i}
+                    diagnosis={{
+                      id: `suggested-${i}`,
+                      condition: dx.diagnosis,
+                      confidence:
+                        dx.confidence === 'high'
+                          ? 'likely'
+                          : dx.confidence === 'moderate'
+                            ? 'consider'
+                            : 'consider',
+                      findings: dx.supportingFindings,
+                      interventions: [dx.protocol],
+                      timestamp: Date.now(),
+                      resolved: false,
+                    }}
+                    pickMode
+                    onSetPrimary={() => {
+                      trackButtonClick('Set primary diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                      void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                      setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                    }}
+                    onAddCoDiagnosis={() => {
+                      trackButtonClick('Add co-diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                      void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                      setSession(addConcurrentDiagnosis(session, dx.diagnosis));
+                    }}
+                    onResolve={() => {
+                      trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
+                      void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
+                      setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
+                    }}
+                    onRemove={() => {}}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {threatFellowshipSuggestions.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                From threats identified in this case
+              </p>
+              {threatFellowshipSuggestions.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Threat: {item.source} · {(casesByCondition[item.id] ?? 0)}/3 cases logged
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={primaryFellowshipId === item.id ? 'default' : 'outline'}
+                    onClick={() => {
+                      trackButtonClick('Set primary diagnosis from threat', { diagnosis: item.id });
+                      setSession(setDefinitiveDiagnosis(session, item.id));
+                    }}
+                  >
+                    {primaryFellowshipId === item.id ? 'Primary' : 'Set primary'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Fellowship micro-course conditions
             </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {diagnoses.map((dx, i) => (
-              <div key={i} className="space-y-1">
-                {suggestedForFellowship[i]?.fellowshipId && (
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-                    Fellowship: {suggestedForFellowship[i].fellowshipLabel} ·{' '}
-                    {(casesByCondition[suggestedForFellowship[i].fellowshipId] ?? 0)}/3 cases logged
-                  </p>
-                )}
-              <DiagnosisCard
-                key={i}
-                diagnosis={{
-                  id: `suggested-${i}`,
-                  condition: dx.diagnosis,
-                  confidence:
-                    dx.confidence === 'high'
-                      ? 'likely'
-                      : dx.confidence === 'moderate'
-                        ? 'consider'
-                        : 'consider',
-                  findings: dx.supportingFindings,
-                  interventions: [dx.protocol],
-                  timestamp: Date.now(),
-                  resolved: false,
-                }}
-                pickMode
-                onSetPrimary={() => {
-                  trackButtonClick('Set primary diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
-                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
-                }}
-                onAddCoDiagnosis={() => {
-                  trackButtonClick('Add co-diagnosis', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
-                  setSession(addConcurrentDiagnosis(session, dx.diagnosis));
-                }}
-                onResolve={() => {
-                  trackButtonClick('View Protocol', { diagnosis: dx.diagnosis, protocol: dx.protocol });
-                  void resusAnalytics.trackDiagnosisSelected(dx.diagnosis);
-                  setSession(setDefinitiveDiagnosis(session, dx.diagnosis as never));
-                }}
-                onRemove={() => {}}
-              />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            <p className="text-[11px] text-muted-foreground">
+              Choose the condition that best matches this case. Each requires at least 3 saved ResusGPS cases for
+              fellowship credit.
+            </p>
+            <div className="space-y-2 max-h-[min(24rem,50vh)] overflow-y-auto pr-1">
+              {FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => {
+                const isPrimary = primaryFellowshipId === cond.id;
+                const isCoDiagnosis = (session.concurrentDiagnoses ?? []).some(
+                  (d) => normalizeToFellowshipResusConditionId(d) === cond.id
+                );
+                return (
+                  <div
+                    key={cond.id}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                      isPrimary
+                        ? 'border-emerald-500/60 bg-emerald-50/80 dark:bg-emerald-950/30'
+                        : 'border-border'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{cond.label}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {(casesByCondition[cond.id] ?? 0)}/3 cases logged
+                        {isCoDiagnosis && !isPrimary ? ' · co-diagnosis' : ''}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      {!isPrimary && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            trackButtonClick('Add co-diagnosis from catalog', { diagnosis: cond.id });
+                            setSession(addConcurrentDiagnosis(session, cond.id));
+                          }}
+                        >
+                          + Co
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isPrimary ? 'default' : 'outline'}
+                        className={isPrimary ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                        onClick={() => {
+                          trackButtonClick('Set primary diagnosis from catalog', { diagnosis: cond.id });
+                          setSession(setDefinitiveDiagnosis(session, cond.id));
+                        }}
+                      >
+                        {isPrimary ? 'Primary' : 'Set primary'}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* SAMPLE History */}
       {session.phase === 'SECONDARY_SURVEY' && (
@@ -2380,8 +2503,8 @@ function PostPrimaryScreen({
             </div>
           ) : (
             <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
-              Select a <strong>primary diagnosis</strong> from the differential above so this case maps to a
-              fellowship micro-course condition.
+              Select a <strong>primary diagnosis</strong> in the differential diagnoses section above so this case
+              maps to a fellowship micro-course condition.
             </div>
           )}
 
