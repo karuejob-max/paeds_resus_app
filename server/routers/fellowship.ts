@@ -20,8 +20,51 @@ import {
   syncFellowshipProgressForUser,
 } from "../services/fellowship-progress.service";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
-import { getFellowshipMicrocourseResusConditionLabel } from "../../shared/fellowship-microcourse-resus-conditions";
+import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
+
+function extractInsertId(result: unknown): number {
+  if (Array.isArray(result)) {
+    return Number((result[0] as { insertId?: number })?.insertId ?? 0);
+  }
+  return Number((result as { insertId?: number })?.insertId ?? 0);
+}
+
+async function ensureCompletedResusSessionForCase(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+  sessionId: string,
+  diagnosis: string,
+  depthScore?: number
+) {
+  const [existing] = await db
+    .select()
+    .from(resusGPSSessions)
+    .where(eq(resusGPSSessions.sessionId, sessionId))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(resusGPSSessions).values({
+      userId,
+      sessionId,
+      primaryDiagnosis: diagnosis,
+      patientAgeMonths: 0,
+      patientWeightKg: "0",
+      status: "completed",
+      depthScore: depthScore ?? 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    return;
+  }
+
+  if (existing.status !== "completed") {
+    await db
+      .update(resusGPSSessions)
+      .set({ status: "completed", primaryDiagnosis: diagnosis, updatedAt: new Date() })
+      .where(eq(resusGPSSessions.sessionId, sessionId));
+  }
+}
 
 export const fellowshipRouter = router({
   /**
@@ -141,14 +184,18 @@ export const fellowshipRouter = router({
       // Check for existing session with this sessionId to ensure idempotency
       const existingSession = await db.select().from(resusGPSSessions).where(eq(resusGPSSessions.sessionId, sessionId)).limit(1);
       if (existingSession.length > 0) {
+        await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+          console.warn("[Fellowship] sync after existing session record failed:", e)
+        );
         return { success: true, sessionId: sessionId, alreadyExists: true };
       }
 
       // Create session with all required fields
+      const normalizedDiagnosis = normalizeToFellowshipResusConditionId(input.primaryDiagnosis);
       await db.insert(resusGPSSessions).values({
         userId: ctx.user.id,
         sessionId: sessionId,
-        primaryDiagnosis: input.primaryDiagnosis,
+        primaryDiagnosis: normalizedDiagnosis,
         patientAgeMonths: input.patientAgeMonths,
         patientWeightKg: input.patientWeightKg.toString(),
         isTrauma: input.isTrauma || false,
@@ -199,6 +246,17 @@ export const fellowshipRouter = router({
         throw new Error("Database connection failed");
       }
 
+      const fellowshipConditionId = normalizeToFellowshipResusConditionId(input.diagnosis);
+
+      // Ensure a completed session row exists so pillar credit can be calculated
+      await ensureCompletedResusSessionForCase(
+        db,
+        ctx.user.id,
+        input.sessionId,
+        fellowshipConditionId,
+        input.depthScore
+      );
+
       // Check for existing case with this sessionId and caseNumber to ensure idempotency
       const existingCase = await db
         .select()
@@ -206,22 +264,39 @@ export const fellowshipRouter = router({
         .where(and(eq(resusGPSCases.sessionId, input.sessionId), eq(resusGPSCases.caseNumber, input.caseNumber)))
         .limit(1);
 
+      const interventionsJson = input.interventions
+        ? JSON.stringify(input.interventions.slice(0, 50))
+        : null;
+      const reassessmentsJson = input.reassessments
+        ? JSON.stringify(input.reassessments.slice(0, 50))
+        : null;
+
       if (existingCase.length > 0) {
-        await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
-          console.warn("[Fellowship] sync after existing case record failed:", e)
-        );
-        return { success: true, caseId: existingCase[0].id, alreadyExists: true };
+        const syncResult = await syncFellowshipProgressForUser(ctx.user.id).catch((e) => {
+          console.warn("[Fellowship] sync after existing case record failed:", e);
+          return null;
+        });
+        const count = syncResult?.status.resusGPSPillar.casesByCondition[fellowshipConditionId] ?? 0;
+        return {
+          success: true,
+          caseId: existingCase[0].id,
+          alreadyExists: true,
+          creditedCondition: fellowshipConditionId,
+          creditedConditionLabel: getFellowshipMicrocourseResusConditionLabel(fellowshipConditionId),
+          conditionCaseCount: count,
+          casesByCondition: syncResult?.status.resusGPSPillar.casesByCondition ?? {},
+        };
       }
 
       // Create case with all required fields
       const result = await db.insert(resusGPSCases).values({
-        sessionId: input.sessionId, // String UUID
+        sessionId: input.sessionId,
         userId: ctx.user.id,
         caseNumber: input.caseNumber,
-        diagnosis: input.diagnosis,
+        diagnosis: fellowshipConditionId,
         abcdeCompleted: input.abcdeCompleted || false,
-        interventions: input.interventions ? JSON.stringify(input.interventions) : null,
-        reassessments: input.reassessments ? JSON.stringify(input.reassessments) : null,
+        interventions: interventionsJson,
+        reassessments: reassessmentsJson,
         outcome: input.outcome,
         depthScore: input.depthScore || 0,
         createdAt: new Date(),
@@ -234,17 +309,24 @@ export const fellowshipRouter = router({
         eventName: "ResusGPS case recorded",
         sessionId: input.sessionId,
         eventData: {
-          diagnosis: input.diagnosis,
+          diagnosis: fellowshipConditionId,
           caseNumber: input.caseNumber,
           source: "fellowship_api",
         },
       });
 
-      await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
-        console.warn("[Fellowship] sync after case record failed:", e)
-      );
+      const { status } = await syncFellowshipProgressForUser(ctx.user.id);
+      const count = status.resusGPSPillar.casesByCondition[fellowshipConditionId] ?? 0;
 
-      return { success: true, caseId: result[0].insertId };
+      return {
+        success: true,
+        caseId: extractInsertId(result),
+        alreadyExists: false,
+        creditedCondition: fellowshipConditionId,
+        creditedConditionLabel: getFellowshipMicrocourseResusConditionLabel(fellowshipConditionId),
+        conditionCaseCount: count,
+        casesByCondition: status.resusGPSPillar.casesByCondition,
+      };
     }),
 
   /**
