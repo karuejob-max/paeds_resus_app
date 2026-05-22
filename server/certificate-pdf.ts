@@ -45,8 +45,8 @@ const GAP_COURSE_TO_FOOTER = 10;
 const GAP_AHA_TO_FOOTER = 14;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
-/** Gap between participant name baseline and the orange divider. */
-const GAP_NAME_TO_DIVIDER = 0;
+/** Offset below participant name baseline for the orange divider (not full em height). */
+const ORANGE_BELOW_NAME_BASELINE = 4;
 /** Gap between the orange divider and the description baseline. */
 const GAP_ORANGE_TO_DESCRIPTION = 28;
 
@@ -326,7 +326,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     11 +
     GAP_CERTIFY_TO_NAME +
     nameSize +
-    GAP_NAME_TO_DIVIDER +
+    ORANGE_BELOW_NAME_BASELINE +
     GAP_ORANGE_TO_DESCRIPTION +
     descLines.length * (12 + 6) +
     20 +
@@ -337,9 +337,17 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   y = drawCenteredText(page, "CERTIFICATE OF COMPLETION", y, 15, fontBold, BRAND.orange, 14);
   y = drawCenteredText(page, "This is to certify that", y, 11, font, BRAND.inkMuted, GAP_CERTIFY_TO_NAME);
-  y = drawCenteredText(page, data.recipientName, y, nameSize, fontBold, BRAND.teal, GAP_NAME_TO_DIVIDER);
 
-  const orangeLineY = y;
+  const nameBaselineY = y;
+  const nameWidth = fontBold.widthOfTextAtSize(data.recipientName, nameSize);
+  page.drawText(data.recipientName, {
+    x: width / 2 - nameWidth / 2,
+    y: nameBaselineY,
+    size: nameSize,
+    font: fontBold,
+    color: BRAND.teal,
+  });
+  const orangeLineY = nameBaselineY - ORANGE_BELOW_NAME_BASELINE;
   page.drawLine({
     start: { x: width / 2 - 140, y: orangeLineY },
     end: { x: width / 2 + 140, y: orangeLineY },
