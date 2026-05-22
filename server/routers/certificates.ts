@@ -16,7 +16,10 @@ import {
 import { sendEmail } from "../email-service";
 import { getDb } from "../db";
 import { certificates } from "../../drizzle/schema";
-import { generateCertificatePDF as generateCertificatePDFBranded } from "../certificate-pdf";
+import {
+  generateCertificatePDF as generateCertificatePDFBranded,
+  getCertificateFilenameSlug,
+} from "../certificate-pdf";
 
 const certificateSchema = z.object({
   enrollmentId: z.number(),
@@ -319,11 +322,7 @@ export const certificateRouter = router({
           ...(courseDisplayName ? { courseDisplayName } : {}),
         });
         const pdfBase64 = pdfBuffer.toString("base64");
-        const slug =
-          (courseDisplayName || cert.programType || "certificate")
-            .replace(/[^a-z0-9]+/gi, "-")
-            .replace(/^-|-$/g, "")
-            .slice(0, 48) || "certificate";
+        const slug = getCertificateFilenameSlug(cert.programType, courseDisplayName);
         const filename = `${slug}-${cert.certificateNumber ?? "download"}.pdf`;
         return { success: true, pdfBase64, filename };
       } catch (error) {

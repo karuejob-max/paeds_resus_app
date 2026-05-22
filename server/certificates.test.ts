@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { generateCertificatePDF } from "./certificate-pdf";
+import { generateCertificatePDF, getCertificateFilenameSlug } from "./certificate-pdf";
 import { getCertificateStats } from "./certificates";
 
 async function expectValidBrandedPdf(buffer: Buffer) {
@@ -103,6 +103,27 @@ describe("Certificate Service", () => {
         })
       );
       await expectValidBrandedPdf(pdfBuffer);
+    });
+  });
+
+  describe("Certificate download filename", () => {
+    it("uses PALS program type instead of linked course title for AHA certs", () => {
+      expect(
+        getCertificateFilenameSlug(
+          "pals",
+          "The systematic approach to a seriously ill child"
+        )
+      ).toBe("pals");
+    });
+
+    it("uses pals for cognitive gatepass certs", () => {
+      expect(getCertificateFilenameSlug("pals_cognitive", null)).toBe("pals");
+    });
+
+    it("uses micro-course title for fellowship certs", () => {
+      expect(
+        getCertificateFilenameSlug("fellowship", "Paediatric Septic Shock I")
+      ).toBe("Paediatric-Septic-Shock-I");
     });
   });
 

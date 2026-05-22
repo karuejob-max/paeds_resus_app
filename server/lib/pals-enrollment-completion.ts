@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { enrollments, modules, userProgress } from "../../drizzle/schema";
-import { getSeriouslyIllChildCourseId } from "./ensure-pals-seriously-ill-catalog";
+import { getPalsAhaCourseId } from "./ensure-pals-aha-catalog";
 
 /**
- * True when every module in the enrollment's PALS course (or legacy seriously-ill default) is marked completed.
+ * True when every module in the enrollment's PALS course (AHA anchor or legacy septic E2E) is marked completed.
  */
 export async function isPalsEnrollmentModulesComplete(db: any, enrollmentId: number, userId: number): Promise<boolean> {
   const enr = await db
@@ -15,8 +15,9 @@ export async function isPalsEnrollmentModulesComplete(db: any, enrollmentId: num
 
   let courseId: number | null = enr[0].courseId ?? null;
   if (courseId == null) {
-    courseId = await getSeriouslyIllChildCourseId(db);
+    courseId = await getPalsAhaCourseId(db);
   }
+
   if (courseId == null) return false;
 
   const mods = await db.select({ id: modules.id }).from(modules).where(eq(modules.courseId, courseId));

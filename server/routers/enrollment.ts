@@ -14,11 +14,9 @@ import {
 import { enrollments, payments, courses, microCourseEnrollments } from "../../drizzle/schema";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
-import { ensurePalsSeriouslyIllCatalog, getSeriouslyIllChildCourseId } from "../lib/ensure-pals-seriously-ill-catalog";
-import {
-  ensurePaediatricSepticShockCatalog,
-  getPaediatricSepticShockCourseId,
-} from "../lib/ensure-paediatric-septic-shock-catalog";
+import { ensurePaediatricSepticShockCatalog, getPaediatricSepticShockCourseId } from "../lib/ensure-paediatric-septic-shock-catalog";
+import { ensurePalsAhaCatalog, getPalsAhaCourseId } from "../lib/ensure-pals-aha-catalog";
+import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -59,8 +57,8 @@ async function trackMicroCourseEnrollWithPayment(params: {
 const enrollmentSchema = z.object({
   programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver"]),
   trainingDate: z.date(),
-  /** PALS only: which micro-course SKU (sets enrollments.courseId). */
-  pricingSku: z.enum(["pals", "pals_septic"]).optional(),
+  /** PALS only: optional legacy E2E septic SKU (sets enrollments.courseId). */
+  pricingSku: z.enum(["pals_septic"]).optional(),
 });
 
 const paymentSchema = z.object({
@@ -81,12 +79,11 @@ export const enrollmentRouter = router({
 
       if (input.programType === "pals" && db) {
         await ensurePaediatricSepticShockCatalog(db);
-        await ensurePalsSeriouslyIllCatalog(db);
+        await ensurePalsAhaCatalog(db);
         if (input.pricingSku === "pals_septic") {
-          const id = await getPaediatricSepticShockCourseId(db);
-          courseId = id;
+          courseId = await getPaediatricSepticShockCourseId(db);
         } else {
-          courseId = await getSeriouslyIllChildCourseId(db);
+          courseId = await getPalsAhaCourseId(db);
         }
         if (courseId == null) {
           throw new TRPCError({

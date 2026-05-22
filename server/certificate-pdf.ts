@@ -63,6 +63,34 @@ interface CertificateTemplate {
   hours: number;
 }
 
+const AHA_CERTIFICATION_PROGRAM_TYPES = new Set([
+  "bls",
+  "acls",
+  "pals",
+  "heartsaver",
+  "bls_cognitive",
+  "acls_cognitive",
+  "pals_cognitive",
+  "heartsaver_cognitive",
+]);
+
+/** Slug for downloaded PDF filename — AHA certs use program type, not linked course title. */
+export function getCertificateFilenameSlug(
+  programType: string,
+  courseDisplayName?: string | null
+): string {
+  const label = AHA_CERTIFICATION_PROGRAM_TYPES.has(programType)
+    ? programType.replace(/_cognitive$/, "")
+    : courseDisplayName?.trim() || programType || "certificate";
+
+  return (
+    label
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48) || "certificate"
+  );
+}
+
 const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
   bls: {
     title: "Basic Life Support",
@@ -260,16 +288,10 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   drawCenteredText(page, CERTIFICATE_HEADER_TAGLINE, headerBottom, 8, font, BRAND.inkMuted, 12);
 
   const zoneTop = headerBottom - 22;
-  const showAhaLine = [
-    "bls", "acls", "pals", "heartsaver",
-    "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive",
-  ].includes(data.programType);
+  const showAhaLine = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
   const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? 22 : 14);
 
-  const isCertificationProgramme = [
-    "bls", "acls", "pals", "heartsaver",
-    "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive",
-  ].includes(data.programType);
+  const isCertificationProgramme = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
   const courseName = isCertificationProgramme
     ? template.title
     : data.courseDisplayName?.trim() || template.title;
