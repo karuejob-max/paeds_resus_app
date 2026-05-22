@@ -680,11 +680,23 @@ describe('Clinical Record Export', () => {
     s = answerQuickAssessment(s, 'sick');
     s = answer(s, 'avpu', 'alert');
     const record = exportClinicalRecord(s);
-    expect(record).toContain('Paeds Resus');
-    expect(record).toContain('Weight: 18 kg');
-    expect(record).toContain('Age: 5 years');
-    expect(record).toContain('FINDINGS');
-    expect(record).toContain('EVENT LOG');
+    expect(record).toContain('PAEDS RESUS');
+    expect(record).toContain('Weight 18 kg');
+    expect(record).toContain('Age 5 years');
+    expect(record).toContain('PRIMARY SURVEY');
+    expect(record).toContain('CLINICAL TIMELINE');
+  });
+
+  it('omits SAMPLE keystroke noise from clinical timeline', () => {
+    let s = createSession(18, '5 years');
+    s = startQuickAssessment(s);
+    s = answerQuickAssessment(s, 'sick');
+    s = updateSAMPLE(s, 'signs', 'C');
+    s = updateSAMPLE(s, 'signs', 'Co');
+    s = updateSAMPLE(s, 'signs', 'Cough');
+    const record = exportClinicalRecord(s);
+    expect(record).not.toContain('SAMPLE - signs: C');
+    expect(record).toContain('S (Signs/symptoms): Cough');
   });
 
   it('includes fluid tracker in export when boluses given', () => {
@@ -695,7 +707,7 @@ describe('Clinical Record Export', () => {
     s.fluidTracker.fluidType = "Ringer's Lactate";
     const record = exportClinicalRecord(s);
     expect(record).toContain('FLUID RESUSCITATION');
-    expect(record).toContain('Boluses given: 2');
+    expect(record).toContain('Boluses: 2');
     expect(record).toContain("Ringer's Lactate");
   });
 });
