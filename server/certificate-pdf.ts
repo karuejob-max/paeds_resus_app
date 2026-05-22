@@ -37,10 +37,10 @@ const SIGNATURE_PAD_HEIGHT = 54;
 const FOOTER_ROW_GAP = 13;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
-/** Gap between participant name baseline and the orange divider (half of name→description span). */
-const GAP_NAME_TO_DIVIDER = 14;
-/** Gap between the orange divider and the description baseline (half of name→description span). */
-const GAP_ORANGE_TO_DESCRIPTION = 14;
+/** Gap between participant name baseline and the orange divider. */
+const GAP_NAME_TO_DIVIDER = 6;
+/** Gap between the orange divider and the description baseline. */
+const GAP_ORANGE_TO_DESCRIPTION = 22;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
