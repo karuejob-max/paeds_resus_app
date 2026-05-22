@@ -21,6 +21,12 @@ import {
   monthKeyEAT,
 } from "../routers/fellowship-care-signal-streak";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
+import {
+  FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
+  getFellowshipMicrocourseResusConditionCount,
+  isFellowshipMicrocourseResusCondition,
+  normalizeToFellowshipResusConditionId,
+} from "../../shared/fellowship-microcourse-resus-conditions";
 
 export type FellowshipPillarStatus = Awaited<ReturnType<typeof calculateFellowshipStatus>>;
 
@@ -59,8 +65,9 @@ export async function calculateResusGPSPillar(userId: number) {
     return {
       casesCompleted: 0,
       conditionsWithThreshold: 0,
-      totalConditionsTaught: 0,
+      totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
+      casesByCondition: {} as Record<string, number>,
     };
   }
 
@@ -75,11 +82,14 @@ export async function calculateResusGPSPillar(userId: number) {
     const allCases = userCases.filter((c) => completedSessionIds.has(c.sessionId));
     const casesByCondition: Record<string, number> = {};
     allCases.forEach((c) => {
-      const condition = c.diagnosis || "unknown";
+      const condition = normalizeToFellowshipResusConditionId(c.diagnosis);
+      if (!isFellowshipMicrocourseResusCondition(condition)) return;
       casesByCondition[condition] = (casesByCondition[condition] || 0) + 1;
     });
-    const conditionsWithThreshold = Object.values(casesByCondition).filter((count) => count >= 3).length;
-    const totalConditionsTaught = 10;
+    const conditionsWithThreshold = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.filter(
+      (cond) => (casesByCondition[cond.id] ?? 0) >= 3
+    ).length;
+    const totalConditionsTaught = getFellowshipMicrocourseResusConditionCount();
     const percentage = Math.min(
       100,
       Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
@@ -89,14 +99,16 @@ export async function calculateResusGPSPillar(userId: number) {
       conditionsWithThreshold,
       totalConditionsTaught,
       percentage,
+      casesByCondition,
     };
   } catch (error) {
     console.error("[Fellowship] Error calculating ResusGPS pillar:", error);
     return {
       casesCompleted: 0,
       conditionsWithThreshold: 0,
-      totalConditionsTaught: 0,
+      totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
+      casesByCondition: {} as Record<string, number>,
     };
   }
 }

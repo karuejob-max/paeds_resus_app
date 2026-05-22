@@ -123,7 +123,15 @@ import {
   BookOpen,
   Layers,
   Users,
+  GraduationCap,
+  Loader2,
 } from 'lucide-react';
+import {
+  getFellowshipMicrocourseResusConditionCount,
+  getFellowshipMicrocourseResusConditionLabel,
+  normalizeToFellowshipResusConditionId,
+  resolveFellowshipDiagnosisFromSession,
+} from '@shared/fellowship-microcourse-resus-conditions';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
@@ -523,9 +531,13 @@ export default function ResusGPS() {
 
   const handleSaveSession = async () => {
     trackButtonClick('Save Session for Fellowship Credit');
-    const primaryDiagnosis = session.phase === 'CARDIAC_ARREST' 
-      ? 'cardiac_arrest_protocol'
-      : session.activeThreat?.id || 'general_resus';
+    const fellowshipDiagnosis = resolveFellowshipDiagnosisFromSession(session);
+    const primaryDiagnosis =
+      fellowshipDiagnosis !== 'unknown'
+        ? fellowshipDiagnosis
+        : session.phase === 'CARDIAC_ARREST'
+          ? 'cardiac_arrest_protocol'
+          : session.activeThreat?.id || 'general_resus';
     
     const interactionCount = session.events.filter(e => 
       e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
@@ -618,18 +630,22 @@ export default function ResusGPS() {
     // ── STEP 2: Fire-and-forget background sync for fellowship analytics.
     // Failures here are logged silently and never surface to the provider
     // during an active resuscitation.
-    const pathway = session.phase === 'CARDIAC_ARREST'
-      ? 'cardiac_arrest_protocol'
-      : session.activeThreat?.id || 'general_resus';
     const interactionCount = session.events.filter(e =>
       e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
     ).length;
 
     void (async () => {
       try {
+        const fellowshipDiagnosis = resolveFellowshipDiagnosisFromSession(session);
+        const exportPathway =
+          fellowshipDiagnosis !== 'unknown'
+            ? fellowshipDiagnosis
+            : session.phase === 'CARDIAC_ARREST'
+              ? 'cardiac_arrest_protocol'
+              : session.activeThreat?.id || 'general_resus';
         await recordSessionMutation.mutateAsync({
           sessionId: session.id,
-          primaryDiagnosis: pathway,
+          primaryDiagnosis: exportPathway,
           patientAgeMonths: approximateAgeMonths(session.patientAge),
           patientWeightKg: session.patientWeight || 0,
           isTrauma: session.isTrauma,
@@ -642,7 +658,7 @@ export default function ResusGPS() {
         await recordCaseMutation.mutateAsync({
           sessionId: session.id,
           caseNumber: 1,
-          diagnosis: pathway,
+          diagnosis: exportPathway,
           abcdeCompleted: session.phase !== 'QUICK_ASSESSMENT' && session.phase !== 'IDLE',
           interventions: session.events
             .filter(e => e.type === 'intervention_started' || e.type === 'intervention_completed')
@@ -688,15 +704,19 @@ export default function ResusGPS() {
     // Optionally record the previous session before starting new one
     // (only if it had significant activity)
     if (session.events.length > 5) {
-      const pathway = session.phase === 'CARDIAC_ARREST' 
-        ? 'cardiac_arrest_protocol'
-        : session.activeThreat?.id || 'general_resus';
-      
       const interactionCount = session.events.filter(e => 
         e.type === 'intervention_started' || e.type === 'intervention_completed' || e.type === 'reassessment'
       ).length;
       
       if (timer.elapsed > 60 && interactionCount >= 3) {
+        const fellowshipDiagnosis = resolveFellowshipDiagnosisFromSession(session);
+        const pathway =
+          fellowshipDiagnosis !== 'unknown'
+            ? fellowshipDiagnosis
+            : session.phase === 'CARDIAC_ARREST'
+              ? 'cardiac_arrest_protocol'
+              : session.activeThreat?.id || 'general_resus';
+
         void recordSessionMutation
           .mutateAsync({
             sessionId: session.id,
@@ -923,6 +943,8 @@ export default function ResusGPS() {
             session={session}
             setSession={setSession}
             diagnoses={diagnoses}
+            onSaveSession={handleSaveSession}
+            isSaving={recordSessionMutation.isPending || recordCaseMutation.isPending}
             onExport={handleExport}
             onCopySummary={handleCopySummary}
             onCopyOnePager={handleCopyOnePager}
@@ -2037,6 +2059,8 @@ function PostPrimaryScreen({
   session,
   setSession,
   diagnoses,
+  onSaveSession,
+  isSaving,
   onExport,
   onCopySummary,
   onCopyOnePager,
@@ -2047,6 +2071,8 @@ function PostPrimaryScreen({
   session: ResusSession;
   setSession: (s: ResusSession) => void;
   diagnoses: DiagnosisSuggestion[];
+  onSaveSession: () => void;
+  isSaving: boolean;
   onExport: () => void;
   onCopySummary: () => void;
   onCopyOnePager: () => void;
@@ -2056,6 +2082,37 @@ function PostPrimaryScreen({
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const resusAnalytics = useResusAnalytics();
+  const { data: fellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
+    staleTime: 30_000,
+  });
+
+  const casesByCondition = fellowshipProgress?.resusGPSPillar?.casesByCondition ?? {};
+  const fellowshipConditionTotal = getFellowshipMicrocourseResusConditionCount();
+  const resolvedThisCase = resolveFellowshipDiagnosisFromSession(session);
+
+  const workingDiagnosisLabels = useMemo(() => {
+    const raw = [
+      session.definitiveDiagnosis,
+      ...(session.concurrentDiagnoses ?? []),
+    ].filter(Boolean) as string[];
+    return raw.map((d) => ({
+      raw: d,
+      fellowshipId: normalizeToFellowshipResusConditionId(d),
+      label: getFellowshipMicrocourseResusConditionLabel(normalizeToFellowshipResusConditionId(d)),
+    }));
+  }, [session.definitiveDiagnosis, session.concurrentDiagnoses]);
+
+  const suggestedForFellowship = useMemo(
+    () =>
+      diagnoses.map((dx) => ({
+        ...dx,
+        fellowshipId: normalizeToFellowshipResusConditionId(dx.diagnosis),
+        fellowshipLabel: getFellowshipMicrocourseResusConditionLabel(
+          normalizeToFellowshipResusConditionId(dx.diagnosis)
+        ),
+      })),
+    [diagnoses]
+  );
 
   return (
     <div className="py-6 space-y-6">
@@ -2132,17 +2189,28 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {/* Suggested Diagnoses */}
+      {/* Suggested Diagnoses — set primary for fellowship credit */}
       {diagnoses.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-foreground flex items-center gap-2">
               <Stethoscope className="h-4 w-4" />
-              Suggested Diagnoses
+              Differential diagnoses
             </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Set a <strong className="font-medium text-foreground">primary diagnosis</strong> so this case counts toward
+              the matching fellowship micro-course condition (≥3 cases each).
+            </p>
           </CardHeader>
           <CardContent className="space-y-3">
             {diagnoses.map((dx, i) => (
+              <div key={i} className="space-y-1">
+                {suggestedForFellowship[i]?.fellowshipId && (
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                    Fellowship: {suggestedForFellowship[i].fellowshipLabel} ·{' '}
+                    {(casesByCondition[suggestedForFellowship[i].fellowshipId] ?? 0)}/3 cases logged
+                  </p>
+                )}
               <DiagnosisCard
                 key={i}
                 diagnosis={{
@@ -2177,6 +2245,7 @@ function PostPrimaryScreen({
                 }}
                 onRemove={() => {}}
               />
+              </div>
             ))}
           </CardContent>
         </Card>
@@ -2283,6 +2352,70 @@ function PostPrimaryScreen({
           </CardContent>
         </Card>
       )}
+
+      {/* Fellowship save — primary action on the last screen */}
+      <Card className="border-2 border-emerald-500/50 bg-emerald-50/80 dark:bg-emerald-950/30 shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 shrink-0" />
+            Save for Fellowship credit (Pillar B)
+          </CardTitle>
+          <p className="text-sm text-emerald-900/90 dark:text-emerald-100/90 leading-relaxed">
+            Paeds Resus Fellowship requires <strong>≥3 ResusGPS cases per condition</strong> covered in the
+            fellowship micro-course catalog ({fellowshipConditionTotal} conditions). Export alone does not
+            record fellowship progress — use Save below.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {resolvedThisCase !== 'unknown' ? (
+            <div className="rounded-lg border border-emerald-500/30 bg-white/70 dark:bg-emerald-950/40 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">This case will credit: </span>
+              <span className="font-semibold text-foreground">
+                {getFellowshipMicrocourseResusConditionLabel(resolvedThisCase)}
+              </span>
+              <span className="text-muted-foreground">
+                {' '}
+                ({(casesByCondition[resolvedThisCase] ?? 0)}/3 cases after save)
+              </span>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+              Select a <strong>primary diagnosis</strong> from the differential above so this case maps to a
+              fellowship micro-course condition.
+            </div>
+          )}
+
+          {workingDiagnosisLabels.length > 0 && (
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {workingDiagnosisLabels.map((d) => (
+                <li key={d.raw}>
+                  {d.label}: {(casesByCondition[d.fellowshipId] ?? 0)}/3 cases logged
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Button
+            type="button"
+            size="lg"
+            className="w-full py-6 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+            onClick={onSaveSession}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Saving for fellowship…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                Save for Fellowship credit
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Export / copy (HI-CLIN-1) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

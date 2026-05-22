@@ -53,7 +53,7 @@ export const fellowshipRouter = router({
       // Return default 0% progress on error
       return {
         coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
-        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0 },
+        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {} },
         careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 },
         isQualified: false,
         overallPercentage: 0,

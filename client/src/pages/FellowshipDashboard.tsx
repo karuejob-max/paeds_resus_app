@@ -337,7 +337,7 @@ export default function FellowshipDashboard() {
                     <Stethoscope className="h-5 w-5 text-green-600" />
                     Pillar 2: ResusGPS cases
                   </CardTitle>
-                  <CardDescription>Clinical cases</CardDescription>
+                  <CardDescription>≥3 ResusGPS cases per fellowship micro-course condition</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
