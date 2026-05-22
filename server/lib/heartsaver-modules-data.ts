@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Heartsaver module catalog — AHA Heartsaver CPR AED 2020 Guidelines.
  * Shared by seed-heartsaver.ts and runtime ensure-heartsaver-catalog.
  */
@@ -430,7 +430,7 @@ export const HEARTSAVER_MODULES = [
   <tbody>
     <tr><td>Most common cause</td><td>Primary cardiac (VF)</td><td>Respiratory failure</td><td>Respiratory failure (SIDS, sepsis)</td></tr>
     <tr><td>Compression depth</td><td>â‰¥5 cm</td><td>â‰¥5 cm (or 1/3 AP diameter)</td><td>â‰¥4 cm (or 1/3 AP diameter)</td></tr>
-    <tr><td>Compression technique</td><td>Two hands</td><td>One or two hands</td><td>Two fingers (1 rescuer) or two-thumb encircling (2 rescuers)</td></tr>
+    <tr><td>Compression technique</td><td>Two hands</td><td>One or two hands</td><td>Heel of 1 hand (1 rescuer) or two-thumb encircling (2 rescuers or when chest can be encircled)</td></tr>
     <tr><td>CPR ratio (1 rescuer)</td><td>30:2</td><td>30:2</td><td>30:2</td></tr>
     <tr><td>CPR ratio (2 rescuers)</td><td>30:2</td><td>15:2</td><td>15:2</td></tr>
     <tr><td>Airway opening</td><td>Head-tilt chin-lift</td><td>Head-tilt chin-lift (neutral-slight extension)</td><td>Neutral position (do not hyperextend)</td></tr>
@@ -479,16 +479,19 @@ export const HEARTSAVER_MODULES = [
   <li><strong>Give 2 rescue breaths:</strong> Cover both mouth and nose with your mouth; give small puffs â€” just enough to see the chest rise</li>
   <li><strong>Compressions:</strong>
     <ul>
-      <li><strong>1 rescuer:</strong> Two-finger technique â€” place 2 fingers on the lower half of the sternum (just below the nipple line)</li>
-      <li><strong>2 rescuers:</strong> Two-thumb encircling technique â€” encircle the chest with both hands; place thumbs on the lower half of the sternum</li>
+      <li><strong>1 rescuer:</strong> Heel of 1 hand on the lower half of the sternum</li>
+      <li><strong>2 rescuers (or when chest can be encircled):</strong> Two-thumb encircling technique â€” encircle the chest with both hands; place thumbs on the lower half of the sternum</li>
       <li>Compress at least 4 cm (or 1/3 AP diameter)</li>
       <li>Rate: 100â€“120 per minute</li>
     </ul>
   </li>
   <li><strong>Ratio:</strong> 30:2 (1 rescuer); 15:2 (2 rescuers)</li>
 </ol>
+<div class="warning-note">
+  <strong>2025 Update:</strong> The 2-finger technique for infant CPR has been eliminated from AHA guidelines because it produces insufficient compression depth.
+</div>
 <div class="clinical-note">
-  <strong>Two-thumb encircling technique:</strong> The two-thumb encircling technique generates higher peak aortic pressure and coronary perfusion pressure than the two-finger technique. Use it whenever 2 rescuers are available.
+  <strong>Two-thumb encircling technique:</strong> The two-thumb encircling technique generates higher peak aortic pressure and coronary perfusion pressure. Use it whenever 2 rescuers are available, or when a single rescuer can encircle the chest with both hands.
 </div>`
       },
       {
@@ -529,8 +532,8 @@ export const HEARTSAVER_MODULES = [
           order: 2,
           questionText: "What is the correct compression technique for a single rescuer performing infant CPR?",
           options: JSON.stringify(["Two-thumb encircling technique", "Heel of one hand on the sternum", "Two fingers on the lower half of the sternum", "Three fingers on the centre of the chest"]),
-          correctAnswer: "Two fingers on the lower half of the sternum",
-          explanation: "For a single rescuer performing infant CPR, use the two-finger technique: place 2 fingers on the lower half of the sternum (just below the nipple line). The two-thumb encircling technique is preferred when 2 rescuers are available as it generates higher coronary perfusion pressure."
+          correctAnswer: "Heel of one hand on the sternum",
+          explanation: "The 2025 AHA ECC Guidelines eliminate the 2-finger technique for infant CPR. For a single rescuer, use the heel of 1 hand on the sternum. The 2 thumb-encircling hands technique is preferred when 2 rescuers are available or when a single rescuer can encircle the chest."
         },
         {
           order: 3,
