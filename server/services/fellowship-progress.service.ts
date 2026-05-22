@@ -18,6 +18,7 @@ import {
 import {
   computeCareSignalStreak,
   computeCareSignalTimelineKeys,
+  enumerateMonthsEndingAt,
   monthKeyEAT,
 } from "../routers/fellowship-care-signal-streak";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
@@ -62,12 +63,23 @@ export async function calculateCoursesPillar(userId: number) {
 export async function calculateResusGPSPillar(userId: number) {
   const db = await getDb();
   if (!db) {
+    const emptyBreakdown = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => ({
+      id: cond.id,
+      label: cond.label,
+      count: 0,
+      required: 3,
+      remaining: 3,
+      complete: false,
+    }));
     return {
       casesCompleted: 0,
       conditionsWithThreshold: 0,
       totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
       casesByCondition: {} as Record<string, number>,
+      conditionBreakdown: emptyBreakdown,
+      casesStillNeeded: emptyBreakdown.reduce((sum, c) => sum + c.remaining, 0),
+      incompleteConditions: emptyBreakdown.length,
     };
   }
 
@@ -94,12 +106,30 @@ export async function calculateResusGPSPillar(userId: number) {
       100,
       Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
     );
+    const conditionBreakdown = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => {
+      const count = casesByCondition[cond.id] ?? 0;
+      const required = 3;
+      return {
+        id: cond.id,
+        label: cond.label,
+        count,
+        required,
+        remaining: Math.max(0, required - count),
+        complete: count >= required,
+      };
+    });
+    const casesStillNeeded = conditionBreakdown.reduce((sum, c) => sum + c.remaining, 0);
+    const incompleteConditions = conditionBreakdown.filter((c) => !c.complete).length;
+
     return {
       casesCompleted: allCases.length,
       conditionsWithThreshold,
       totalConditionsTaught,
       percentage,
       casesByCondition,
+      conditionBreakdown,
+      casesStillNeeded,
+      incompleteConditions,
     };
   } catch (error) {
     console.error("[Fellowship] Error calculating ResusGPS pillar:", error);
@@ -109,14 +139,46 @@ export async function calculateResusGPSPillar(userId: number) {
       totalConditionsTaught: getFellowshipMicrocourseResusConditionCount(),
       percentage: 0,
       casesByCondition: {} as Record<string, number>,
+      conditionBreakdown: [] as Array<{
+        id: string;
+        label: string;
+        count: number;
+        required: number;
+        remaining: number;
+        complete: boolean;
+      }>,
+      casesStillNeeded: getFellowshipMicrocourseResusConditionCount() * 3,
+      incompleteConditions: getFellowshipMicrocourseResusConditionCount(),
     };
   }
+}
+
+function formatCareSignalMonthLabel(monthKey: string): string {
+  const year = Number(monthKey.slice(0, 4));
+  const month = Number(monthKey.slice(5, 7));
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export async function calculateCareSignalPillar(userId: number) {
   const db = await getDb();
   if (!db) {
-    return { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 };
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      reportsThisMonth: 0,
+      percentage: 0,
+      monthsRemaining: 24,
+      monthlyTimeline: [] as Array<{
+        monthKey: string;
+        label: string;
+        reportCount: number;
+        isCurrentMonth: boolean;
+      }>,
+    };
   }
 
   try {
@@ -162,10 +224,36 @@ export async function calculateCareSignalPillar(userId: number) {
 
     const reportsThisMonth = eventsByMonth[currentMonthKey] ?? 0;
     const percentage = Math.min(100, Math.round((streak / 24) * 100));
-    return { streak, eventsSubmitted: allEvents.length, reportsThisMonth, percentage };
+    const monthsRemaining = Math.max(0, 24 - streak);
+    const displayTimelineKeys =
+      timelineKeys.length > 0
+        ? timelineKeys
+        : enumerateMonthsEndingAt(currentYear, currentMonth, 24);
+    const monthlyTimeline = displayTimelineKeys.map((monthKey) => ({
+      monthKey,
+      label: formatCareSignalMonthLabel(monthKey),
+      reportCount: eventsByMonth[monthKey] ?? 0,
+      isCurrentMonth: monthKey === currentMonthKey,
+    }));
+
+    return {
+      streak,
+      eventsSubmitted: allEvents.length,
+      reportsThisMonth,
+      percentage,
+      monthsRemaining,
+      monthlyTimeline,
+    };
   } catch (error) {
     console.error("[Fellowship] Error calculating Care Signal pillar:", error);
-    return { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 };
+    return {
+      streak: 0,
+      eventsSubmitted: 0,
+      reportsThisMonth: 0,
+      percentage: 0,
+      monthsRemaining: 24,
+      monthlyTimeline: [],
+    };
   }
 }
 

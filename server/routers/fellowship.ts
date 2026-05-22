@@ -12,7 +12,7 @@
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { resusGPSSessions, resusGPSCases, certificates, users } from "../../drizzle/schema";
 import { getResusGpsAccessForClient } from "../lib/resusgps-access";
 import {
@@ -20,6 +20,7 @@ import {
   syncFellowshipProgressForUser,
 } from "../services/fellowship-progress.service";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
+import { getFellowshipMicrocourseResusConditionLabel } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
 
 export const fellowshipRouter = router({
@@ -53,8 +54,8 @@ export const fellowshipRouter = router({
       // Return default 0% progress on error
       return {
         coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
-        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {} },
-        careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0 },
+        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {}, conditionBreakdown: [], casesStillNeeded: 0, incompleteConditions: 0 },
+        careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0, monthsRemaining: 24, monthlyTimeline: [] },
         isQualified: false,
         overallPercentage: 0,
         resusGpsAccessExpiresAt: null as Date | null,
@@ -66,6 +67,48 @@ export const fellowshipRouter = router({
   getResusGpsAccessStatus: protectedProcedure.query(async ({ ctx }) => {
     return getResusGpsAccessForClient(ctx.user.id);
   }),
+
+  /** Recent saved ResusGPS cases for fellowship activity tracking. */
+  getResusGPSCaseLog: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(100).default(30) }).optional())
+    .query(async ({ ctx, input }) => {
+      const limit = input?.limit ?? 30;
+      const db = await getDb();
+      if (!db) {
+        return { cases: [] as Array<{
+          id: number;
+          sessionId: string;
+          diagnosis: string;
+          diagnosisLabel: string;
+          outcome: string | null;
+          createdAt: Date;
+        }> };
+      }
+
+      const sessions = await db.query.resusGPSSessions.findMany({
+        where: (s) => and(eq(s.userId, ctx.user.id), eq(s.status, "completed")),
+      });
+      const completedSessionIds = new Set(sessions.map((s) => s.sessionId));
+      const userCases = await db
+        .select()
+        .from(resusGPSCases)
+        .where(eq(resusGPSCases.userId, ctx.user.id))
+        .orderBy(desc(resusGPSCases.createdAt));
+
+      const cases = userCases
+        .filter((c) => completedSessionIds.has(c.sessionId))
+        .slice(0, limit)
+        .map((c) => ({
+          id: c.id,
+          sessionId: c.sessionId,
+          diagnosis: c.diagnosis,
+          diagnosisLabel: getFellowshipMicrocourseResusConditionLabel(c.diagnosis),
+          outcome: c.outcome,
+          createdAt: c.createdAt,
+        }));
+
+      return { cases };
+    }),
 
   /**
    * Record a ResusGPS session
