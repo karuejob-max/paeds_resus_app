@@ -278,6 +278,8 @@ export default function ResusGPS() {
   const [protocolsUsed, setProtocolsUsed] = useState<Record<string, { completed: number; total: number }>>({});
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
   const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
+  const [fellowshipSavedSessionId, setFellowshipSavedSessionId] = useState<string | null>(null);
+  const [savedCasesByCondition, setSavedCasesByCondition] = useState<Record<string, number>>({});
   const timer = useTimer();
   const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
 
@@ -361,6 +363,8 @@ export default function ResusGPS() {
     const s = createSession(getWeightInKg(), demographics.age || null, isTrauma);
     const started = startQuickAssessment(s);
     setSession(started);
+    setFellowshipSavedSessionId(null);
+    setSavedCasesByCondition({});
     timer.reset();
     timer.start();
     // Track assessment start
@@ -507,8 +511,12 @@ export default function ResusGPS() {
     },
   });
   const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data.casesByCondition) {
+        setSavedCasesByCondition(data.casesByCondition);
+      }
       void utils.fellowship.getProgress.invalidate();
+      void utils.fellowship.getResusGPSCaseLog.invalidate();
     },
   });
 
@@ -584,14 +592,26 @@ export default function ResusGPS() {
         outcome: session.outcome ?? 'completed',
         depthScore: session.depthScore ?? 0,
       });
+
+      await utils.fellowship.getProgress.refetch();
+      setFellowshipSavedSessionId(session.id);
       
       if (sessionResult.success) {
         setShowFellowshipPillarBanner(true);
+        const creditedLabel = getFellowshipMicrocourseResusConditionLabel(
+          fellowshipDiagnosis !== 'unknown' ? fellowshipDiagnosis : primaryDiagnosis
+        );
+        const freshProgress = await utils.fellowship.getProgress.fetch();
+        const conditionId =
+          fellowshipDiagnosis !== 'unknown'
+            ? fellowshipDiagnosis
+            : normalizeToFellowshipResusConditionId(primaryDiagnosis);
+        const countAfterSave = freshProgress?.resusGPSPillar?.casesByCondition?.[conditionId] ?? 0;
         toast.success(
           sessionResult.alreadyExists 
-            ? '✅ Session already saved for fellowship credit' 
-            : '✅ Session saved for fellowship credit', 
-          { duration: 3000 }
+            ? `✅ Case already saved — ${creditedLabel}: ${countAfterSave}/3` 
+            : `✅ Saved for fellowship — ${creditedLabel}: ${countAfterSave}/3`, 
+          { duration: 4000 }
         );
         // Closed-loop accountability: invite Care Signal report after session save
         if (!sessionResult.alreadyExists) {
@@ -758,6 +778,8 @@ export default function ResusGPS() {
     }
 
     setSession(createSession(getWeightInKg(), demographics.age || null));
+    setFellowshipSavedSessionId(null);
+    setSavedCasesByCondition({});
     timer.reset();
     setNumberInput('');
     setNumberInput2('');
@@ -947,6 +969,8 @@ export default function ResusGPS() {
             diagnoses={diagnoses}
             onSaveSession={handleSaveSession}
             isSaving={recordSessionMutation.isPending || recordCaseMutation.isPending}
+            fellowshipSavedSessionId={fellowshipSavedSessionId}
+            savedCasesByCondition={savedCasesByCondition}
             onExport={handleExport}
             onCopySummary={handleCopySummary}
             onCopyOnePager={handleCopyOnePager}
@@ -2063,6 +2087,8 @@ function PostPrimaryScreen({
   diagnoses,
   onSaveSession,
   isSaving,
+  fellowshipSavedSessionId,
+  savedCasesByCondition,
   onExport,
   onCopySummary,
   onCopyOnePager,
@@ -2075,6 +2101,8 @@ function PostPrimaryScreen({
   diagnoses: DiagnosisSuggestion[];
   onSaveSession: () => void;
   isSaving: boolean;
+  fellowshipSavedSessionId: string | null;
+  savedCasesByCondition: Record<string, number>;
   onExport: () => void;
   onCopySummary: () => void;
   onCopyOnePager: () => void;
@@ -2084,11 +2112,15 @@ function PostPrimaryScreen({
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const resusAnalytics = useResusAnalytics();
-  const { data: fellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
-    staleTime: 30_000,
+  const { data: fellowshipProgress, refetch: refetchFellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
 
-  const casesByCondition = fellowshipProgress?.resusGPSPillar?.casesByCondition ?? {};
+  const liveCasesByCondition = fellowshipProgress?.resusGPSPillar?.casesByCondition ?? {};
+  const casesByCondition =
+    Object.keys(savedCasesByCondition).length > 0 ? savedCasesByCondition : liveCasesByCondition;
+  const isSavedThisSession = fellowshipSavedSessionId === session.id;
   const fellowshipConditionTotal = getFellowshipMicrocourseResusConditionCount();
   const resolvedThisCase = resolveFellowshipDiagnosisFromSession(session);
 
@@ -2492,14 +2524,32 @@ function PostPrimaryScreen({
         <CardContent className="space-y-4">
           {resolvedThisCase !== 'unknown' ? (
             <div className="rounded-lg border border-emerald-500/30 bg-white/70 dark:bg-emerald-950/40 px-3 py-2 text-sm">
-              <span className="text-muted-foreground">This case will credit: </span>
-              <span className="font-semibold text-foreground">
-                {getFellowshipMicrocourseResusConditionLabel(resolvedThisCase)}
-              </span>
-              <span className="text-muted-foreground">
-                {' '}
-                ({(casesByCondition[resolvedThisCase] ?? 0)}/3 cases after save)
-              </span>
+              {isSavedThisSession ? (
+                <>
+                  <CheckCircle2 className="inline h-4 w-4 text-emerald-600 mr-1 -mt-0.5" />
+                  <span className="font-semibold text-emerald-800 dark:text-emerald-200">Saved for fellowship</span>
+                  <span className="text-muted-foreground"> — </span>
+                  <span className="font-semibold text-foreground">
+                    {getFellowshipMicrocourseResusConditionLabel(resolvedThisCase)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    ({(casesByCondition[resolvedThisCase] ?? 0)}/3 cases logged)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">This case will credit: </span>
+                  <span className="font-semibold text-foreground">
+                    {getFellowshipMicrocourseResusConditionLabel(resolvedThisCase)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    (currently {(casesByCondition[resolvedThisCase] ?? 0)}/3 — will be{' '}
+                    {(casesByCondition[resolvedThisCase] ?? 0) + 1}/3 after save)
+                  </span>
+                </>
+              )}
             </div>
           ) : (
             <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
@@ -2522,13 +2572,21 @@ function PostPrimaryScreen({
             type="button"
             size="lg"
             className="w-full py-6 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
-            onClick={onSaveSession}
-            disabled={isSaving}
+            onClick={async () => {
+              await onSaveSession();
+              void refetchFellowshipProgress();
+            }}
+            disabled={isSaving || isSavedThisSession}
           >
             {isSaving ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 Saving for fellowship…
+              </>
+            ) : isSavedThisSession ? (
+              <>
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                Saved for Fellowship credit
               </>
             ) : (
               <>

@@ -84,20 +84,41 @@ export async function calculateResusGPSPillar(userId: number) {
   }
 
   try {
-    const sessions = await db.query.resusGPSSessions.findMany({
-      where: (sessions) => and(eq(sessions.userId, userId), eq(sessions.status, "completed")),
-    });
+    const sessions = await db
+      .select()
+      .from(resusGPSSessions)
+      .where(and(eq(resusGPSSessions.userId, userId), eq(resusGPSSessions.status, "completed")));
+
     const completedSessionIds = new Set(sessions.map((s) => s.sessionId));
-    const userCases = await db.query.resusGPSCases.findMany({
-      where: (cases) => eq(cases.userId, userId),
-    });
-    const allCases = userCases.filter((c) => completedSessionIds.has(c.sessionId));
-    const casesByCondition: Record<string, number> = {};
-    allCases.forEach((c) => {
+
+    const userCases = await db
+      .select()
+      .from(resusGPSCases)
+      .where(eq(resusGPSCases.userId, userId));
+
+    const casesInCompletedSessions = userCases.filter((c) => completedSessionIds.has(c.sessionId));
+
+    // One fellowship credit per completed session (case diagnosis overrides session primary)
+    const creditBySession = new Map<string, string>();
+    for (const s of sessions) {
+      const condition = normalizeToFellowshipResusConditionId(s.primaryDiagnosis);
+      if (isFellowshipMicrocourseResusCondition(condition)) {
+        creditBySession.set(s.sessionId, condition);
+      }
+    }
+    for (const c of casesInCompletedSessions) {
       const condition = normalizeToFellowshipResusConditionId(c.diagnosis);
-      if (!isFellowshipMicrocourseResusCondition(condition)) return;
+      if (isFellowshipMicrocourseResusCondition(condition)) {
+        creditBySession.set(c.sessionId, condition);
+      }
+    }
+
+    const casesByCondition: Record<string, number> = {};
+    for (const condition of creditBySession.values()) {
       casesByCondition[condition] = (casesByCondition[condition] || 0) + 1;
-    });
+    }
+
+    const casesCompleted = creditBySession.size;
     const conditionsWithThreshold = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.filter(
       (cond) => (casesByCondition[cond.id] ?? 0) >= 3
     ).length;
@@ -122,7 +143,7 @@ export async function calculateResusGPSPillar(userId: number) {
     const incompleteConditions = conditionBreakdown.filter((c) => !c.complete).length;
 
     return {
-      casesCompleted: allCases.length,
+      casesCompleted,
       conditionsWithThreshold,
       totalConditionsTaught,
       percentage,
