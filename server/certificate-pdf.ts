@@ -28,6 +28,9 @@ const CERTIFICATE_SIGNATORY_TITLE =
   process.env.CERTIFICATE_SIGNATORY_TITLE?.trim() || "Course Director";
 
 const PAGE = { width: 842, height: 595 };
+/** Hairline credential frame inset from page edge (~12.7 mm). */
+const FRAME_INSET = 36;
+const FRAME_STROKE = 0.75;
 const MARGIN_X = 52;
 const MARGIN_BOTTOM = 38;
 /** Horizontal rule above the signature pad and footer metadata row. */
@@ -218,6 +221,21 @@ function resolveAssetBytes(relativePath: string): Buffer | null {
   return null;
 }
 
+function drawInsetFrame(
+  page: ReturnType<PDFDocument["addPage"]>,
+  pageWidth: number,
+  pageHeight: number
+): void {
+  page.drawRectangle({
+    x: FRAME_INSET,
+    y: FRAME_INSET,
+    width: pageWidth - FRAME_INSET * 2,
+    height: pageHeight - FRAME_INSET * 2,
+    borderColor: BRAND.tealLight,
+    borderWidth: FRAME_STROKE,
+  });
+}
+
 function resolveLogoJpgBytes(): Buffer | null {
   return resolveAssetBytes(path.join("logos", "logo-landscape.jpg"));
 }
@@ -284,18 +302,19 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   const contentMaxWidth = width - MARGIN_X * 2;
 
   page.drawRectangle({ x: 0, y: 0, width, height, color: BRAND.paper });
+  drawInsetFrame(page, width, height);
 
   const topBarH = 10;
   page.drawRectangle({
-    x: 0,
-    y: height - topBarH,
-    width,
+    x: FRAME_INSET,
+    y: height - FRAME_INSET - topBarH,
+    width: width - FRAME_INSET * 2,
     height: topBarH,
     color: BRAND.teal,
   });
 
   // Header: logo + tagline (compact — less empty space at top)
-  let headerBottom = height - topBarH - 12;
+  let headerBottom = height - FRAME_INSET - topBarH - 12;
   const logoJpg = resolveLogoJpgBytes();
   if (logoJpg) {
     try {
