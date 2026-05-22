@@ -15,8 +15,9 @@ import { enrollments, payments, courses, microCourseEnrollments } from "../../dr
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { ensurePaediatricSepticShockCatalog, getPaediatricSepticShockCourseId } from "../lib/ensure-paediatric-septic-shock-catalog";
-import { ensurePalsAhaCatalog, getPalsAhaCourseId } from "../lib/ensure-pals-aha-catalog";
-import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
+import {
+  getSeriouslyIllChildFellowshipCourseId,
+} from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import {
   resolveAhaCourseAnchor,
   type AhaAnchorProgramType,
@@ -74,13 +75,12 @@ async function resolveTrainingCourseIdOnCreate(
   input: { programType: string; pricingSku?: "pals" | "pals_septic" }
 ): Promise<number | null> {
   if (input.programType === "pals") {
-    await ensurePaediatricSepticShockCatalog(db);
-    await ensurePalsSeriouslyIllCatalog(db);
     if (input.pricingSku === "pals_septic") {
+      await ensurePaediatricSepticShockCatalog(db);
       return getPaediatricSepticShockCourseId(db);
     }
     if (input.pricingSku === "pals") {
-      return getSeriouslyIllChildCourseId(db);
+      return getSeriouslyIllChildFellowshipCourseId(db);
     }
     const anchor = await resolveAhaCourseAnchor(db, "pals");
     return anchor?.id ?? null;
