@@ -30,9 +30,15 @@ const CERTIFICATE_SIGNATORY_TITLE =
 const PAGE = { width: 842, height: 595 };
 const MARGIN_X = 52;
 const MARGIN_BOTTOM = 38;
-/** Horizontal rule; date, signatory, and QR sit entirely below this line. */
-const FOOTER_DIVIDER_Y = 102;
+/** Horizontal rule above the signature pad and footer metadata row. */
+const FOOTER_DIVIDER_Y = 108;
+/** Empty band below the rule for a handwritten signature. */
+const SIGNATURE_PAD_HEIGHT = 44;
 const FOOTER_ROW_GAP = 13;
+/** Gap between “This is to certify that” and the participant name. */
+const GAP_CERTIFY_TO_NAME = 38;
+/** Gap between participant name and the orange divider. */
+const GAP_NAME_TO_DIVIDER = 8;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -289,7 +295,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   const zoneTop = headerBottom - 22;
   const showAhaLine = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
-  const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? 22 : 14);
+  const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? 24 : 16);
 
   const isCertificationProgramme = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
   const courseName = isCertificationProgramme
@@ -304,21 +310,33 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     contentMaxWidth - 48
   );
   const bodyBlockHeight =
-    12 + 15 + 8 + 11 + 24 + nameSize + 14 + 18 + descLines.length * (12 + 6) + 28 + 16 + 8;
+    12 +
+    15 +
+    8 +
+    11 +
+    GAP_CERTIFY_TO_NAME +
+    nameSize +
+    GAP_NAME_TO_DIVIDER +
+    18 +
+    descLines.length * (12 + 6) +
+    28 +
+    16 +
+    8;
   const available = zoneTop - zoneBottom;
   let y = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
 
   y = drawCenteredText(page, "CERTIFICATE OF COMPLETION", y, 15, fontBold, BRAND.orange, 14);
-  y = drawCenteredText(page, "This is to certify that", y, 11, font, BRAND.inkMuted, 24);
-  y = drawCenteredText(page, data.recipientName, y, nameSize, fontBold, BRAND.teal, 14);
+  y = drawCenteredText(page, "This is to certify that", y, 11, font, BRAND.inkMuted, GAP_CERTIFY_TO_NAME);
+  y = drawCenteredText(page, data.recipientName, y, nameSize, fontBold, BRAND.teal, GAP_NAME_TO_DIVIDER);
 
+  const orangeLineY = y;
   page.drawLine({
-    start: { x: width / 2 - 140, y },
-    end: { x: width / 2 + 140, y },
+    start: { x: width / 2 - 140, y: orangeLineY },
+    end: { x: width / 2 + 140, y: orangeLineY },
     color: BRAND.orange,
     thickness: 1,
   });
-  y -= 20;
+  y = orangeLineY - 20;
 
   y = drawWrappedCentered(page, template.description, y, 12, font, BRAND.ink, contentMaxWidth - 48);
   y -= 26;
@@ -344,39 +362,46 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     thickness: 0.5,
   });
 
+  // Signature pad (uniform space below the rule, above the metadata row)
+  const signatureGuideY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT / 2 - 4;
+  const sigGuideW = 220;
+  page.drawLine({
+    start: { x: width / 2 - sigGuideW / 2, y: signatureGuideY },
+    end: { x: width / 2 + sigGuideW / 2, y: signatureGuideY },
+    color: BRAND.inkMuted,
+    thickness: 0.35,
+  });
+
   const expiryDate = new Date(data.trainingDate);
   expiryDate.setFullYear(expiryDate.getFullYear() + 2);
   const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
 
-  const footerTopRow = FOOTER_DIVIDER_Y - 16;
+  const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - 14;
   const leftLines = [
     `Issued on: ${formatDate(data.trainingDate)}`,
     ...(showExpiry ? [`Valid until: ${formatDate(expiryDate)}`] : []),
     `Certificate No.: ${data.certificateNumber}`,
   ];
-  let leftY = footerTopRow;
-  for (const line of leftLines) {
-    page.drawText(line, { x: MARGIN_X, y: leftY, size: 9, font, color: BRAND.ink });
+  page.drawText(leftLines[0], {
+    x: MARGIN_X,
+    y: metadataRowY,
+    size: 9,
+    font,
+    color: BRAND.ink,
+  });
+  let leftY = metadataRowY - FOOTER_ROW_GAP;
+  for (let i = 1; i < leftLines.length; i++) {
+    page.drawText(leftLines[i], { x: MARGIN_X, y: leftY, size: 9, font, color: BRAND.ink });
     leftY -= FOOTER_ROW_GAP;
   }
 
-  const sigLineW = 200;
-  const sigX = width / 2 - sigLineW / 2;
-  const sigLineY = footerTopRow + 2;
-  page.drawLine({
-    start: { x: sigX, y: sigLineY },
-    end: { x: sigX + sigLineW, y: sigLineY },
-    color: BRAND.ink,
-    thickness: 0.6,
-  });
-  drawCenteredText(page, CERTIFICATE_SIGNATORY_NAME, sigLineY - 14, 11, fontBold, BRAND.teal, 6);
-  drawCenteredText(page, CERTIFICATE_SIGNATORY_TITLE, sigLineY - 28, 9, font, BRAND.inkMuted, 6);
-  drawCenteredText(page, "Paeds Resus", sigLineY - 40, 8, font, BRAND.inkMuted, 4);
+  drawCenteredText(page, CERTIFICATE_SIGNATORY_NAME, metadataRowY, 11, fontBold, BRAND.teal, 4);
+  drawCenteredText(page, CERTIFICATE_SIGNATORY_TITLE, metadataRowY - 13, 9, font, BRAND.inkMuted, 4);
 
   const verifyUrl = `${CERTIFICATE_VERIFY_SITE}/verify?code=${encodeURIComponent(data.verificationCode)}`;
-  const qrSize = 58;
+  const qrSize = 52;
   const qrX = width - MARGIN_X - qrSize;
-  const qrY = footerTopRow - qrSize + 2;
+  const qrY = metadataRowY - qrSize / 2 + 4;
   try {
     const qrPng = await QRCode.toBuffer(verifyUrl, {
       type: "png",
