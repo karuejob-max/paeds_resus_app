@@ -49,6 +49,9 @@ const GAP_CERTIFY_TO_NAME = 38;
 const ORANGE_BELOW_NAME_BASELINE = 4;
 /** Gap between the orange divider and the description baseline. */
 const GAP_ORANGE_TO_DESCRIPTION = 28;
+/** Minimum gap between description block and course title when computing vertical center. */
+const MIN_GAP_DESC_TO_COURSE = 8;
+const COURSE_TITLE_SIZE = 16;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -328,10 +331,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     nameSize +
     ORANGE_BELOW_NAME_BASELINE +
     GAP_ORANGE_TO_DESCRIPTION +
-    descLines.length * (12 + 6) +
-    20 +
-    12 +
-    6;
+    descLines.length * (12 + 6);
   const available = zoneTop - zoneBottom;
   let y = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
 
@@ -357,8 +357,16 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   y = orangeLineY - GAP_ORANGE_TO_DESCRIPTION;
 
   y = drawWrappedCentered(page, template.description, y, 12, font, BRAND.ink, contentMaxWidth - 48);
-  y -= 18;
-  drawCenteredText(page, courseName, y, 16, fontBold, BRAND.teal, 6);
+  const descBlockBottom = y;
+  const lastDescBaseline = descBlockBottom + 12 + 5;
+  const minGapAboveFooter = showAhaLine ? GAP_AHA_TO_FOOTER : GAP_COURSE_TO_FOOTER;
+  const courseTitleBandTop = lastDescBaseline - MIN_GAP_DESC_TO_COURSE;
+  const courseTitleBandBottom = FOOTER_DIVIDER_Y + minGapAboveFooter;
+  const courseTitleY =
+    courseTitleBandTop > courseTitleBandBottom
+      ? courseTitleBandBottom + (courseTitleBandTop - courseTitleBandBottom) / 2
+      : courseTitleBandBottom;
+  drawCenteredText(page, courseName, courseTitleY, COURSE_TITLE_SIZE, fontBold, BRAND.teal, 0);
 
   // Footer: rule on top; all metadata below the line
   if (showAhaLine) {
