@@ -31,16 +31,20 @@ const PAGE = { width: 842, height: 595 };
 const MARGIN_X = 52;
 const MARGIN_BOTTOM = 38;
 /** Horizontal rule above the signature pad and footer metadata row. */
-const FOOTER_DIVIDER_Y = 126;
+const FOOTER_DIVIDER_Y = 148;
 /** Empty band below the rule for a handwritten signature. */
 const SIGNATURE_PAD_HEIGHT = 54;
 const FOOTER_ROW_GAP = 13;
+/** Minimum gap between course title baseline and footer rule (non-AHA). */
+const GAP_COURSE_TO_FOOTER = 10;
+/** Minimum gap between AHA alignment line and footer rule. */
+const GAP_AHA_TO_FOOTER = 14;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
 /** Gap between participant name baseline and the orange divider. */
-const GAP_NAME_TO_DIVIDER = 2;
+const GAP_NAME_TO_DIVIDER = 0;
 /** Gap between the orange divider and the description baseline. */
-const GAP_ORANGE_TO_DESCRIPTION = 26;
+const GAP_ORANGE_TO_DESCRIPTION = 28;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -297,7 +301,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   const zoneTop = headerBottom - 22;
   const showAhaLine = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
-  const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? 24 : 16);
+  const zoneBottom = FOOTER_DIVIDER_Y + (showAhaLine ? GAP_AHA_TO_FOOTER : GAP_COURSE_TO_FOOTER);
 
   const isCertificationProgramme = AHA_CERTIFICATION_PROGRAM_TYPES.has(data.programType);
   const courseName = isCertificationProgramme
@@ -321,9 +325,9 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     GAP_NAME_TO_DIVIDER +
     GAP_ORANGE_TO_DESCRIPTION +
     descLines.length * (12 + 6) +
-    28 +
-    16 +
-    8;
+    20 +
+    12 +
+    6;
   const available = zoneTop - zoneBottom;
   let y = zoneTop - Math.max(0, (available - bodyBlockHeight) / 2);
 
@@ -341,15 +345,15 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   y = orangeLineY - GAP_ORANGE_TO_DESCRIPTION;
 
   y = drawWrappedCentered(page, template.description, y, 12, font, BRAND.ink, contentMaxWidth - 48);
-  y -= 26;
-  drawCenteredText(page, courseName, y, 16, fontBold, BRAND.teal, 8);
+  y -= 18;
+  drawCenteredText(page, courseName, y, 16, fontBold, BRAND.teal, 6);
 
   // Footer: rule on top; all metadata below the line
   if (showAhaLine) {
     drawCenteredText(
       page,
       "Aligned with 2025 American Heart Association Guidelines",
-      FOOTER_DIVIDER_Y + 14,
+      FOOTER_DIVIDER_Y + GAP_AHA_TO_FOOTER - 2,
       7,
       font,
       BRAND.inkMuted,
