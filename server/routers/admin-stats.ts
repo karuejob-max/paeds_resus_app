@@ -39,6 +39,7 @@ import {
 } from "../services/fellowship-progress.service";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
+import { buildTrainingEnrollmentLedgerView } from "../../shared/training-product-taxonomy";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -521,6 +522,12 @@ export const adminStatsRouter = router({
           else if (r.cognitiveModulesComplete) completionSummary = "Cognitive complete";
           else if (r.paymentStatus === "pending") completionSummary = "Pending payment";
 
+          const taxonomy = buildTrainingEnrollmentLedgerView({
+            programType: r.programType,
+            courseTitle: r.courseTitle,
+            courseId: r.courseId,
+          });
+
           return {
             kind: "training" as const,
             enrollmentId: r.enrollmentId,
@@ -529,6 +536,11 @@ export const adminStatsRouter = router({
             userName: r.userName,
             courseId: r.courseId,
             courseTitle: r.courseTitle,
+            productLine: taxonomy.productLine,
+            productLineLabel: taxonomy.productLineLabel,
+            offeringLabel: taxonomy.offeringLabel,
+            catalogTitle: taxonomy.catalogTitle,
+            nomenclatureNote: taxonomy.nomenclatureNote,
             programType: r.programType,
             paymentStatus: r.paymentStatus,
             amountPaidCents: r.amountPaid,

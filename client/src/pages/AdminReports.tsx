@@ -364,8 +364,10 @@ export default function AdminReports() {
           "userId",
           "userName",
           "userEmail",
+          "productLineLabel",
+          "offeringLabel",
           "courseId",
-          "courseTitle",
+          "catalogTitle",
           "programType",
           "paymentStatus",
           "amountPaidCents",
@@ -1835,8 +1837,8 @@ export default function AdminReports() {
                   Enrollment ledger
                 </CardTitle>
                 <CardDescription>
-                  Training enrollments (BLS/ACLS/PALS/Fellowship/Instructor/… catalog rows) and ADF micro-course enrollments.
-                  Filter by user ID or search name/email. Export includes up to 5000 matching rows.
+                  Training enrollments with product line (AHA, Fellowship, …), offering label (e.g. PALS), and LMS catalog row.
+                  Legacy PALS ADF rows may show catalog #3 “seriously ill child” — offering column clarifies the product. Export up to 5000 rows.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1954,8 +1956,10 @@ export default function AdminReports() {
                             <tr className="border-b">
                               <th className="text-left p-2 font-medium">Enrollment</th>
                               <th className="text-left p-2 font-medium">User</th>
-                              <th className="text-left p-2 font-medium">Course</th>
-                              <th className="text-left p-2 font-medium">Program</th>
+                              <th className="text-left p-2 font-medium">Product</th>
+                              <th className="text-left p-2 font-medium">Offering</th>
+                              <th className="text-left p-2 font-medium">Catalog (LMS)</th>
+                              <th className="text-left p-2 font-medium">programType</th>
                               <th className="text-left p-2 font-medium">Payment</th>
                               <th className="text-left p-2 font-medium">Progress</th>
                               <th className="text-left p-2 font-medium">Cert</th>
@@ -1971,15 +1975,24 @@ export default function AdminReports() {
                                   <div className="text-muted-foreground text-xs">{row.userEmail}</div>
                                   <div className="text-muted-foreground text-xs">id {row.userId}</div>
                                 </td>
+                                <td className="p-2">{row.productLineLabel ?? "—"}</td>
                                 <td className="p-2">
-                                  {row.courseTitle ?? "—"}
-                                  {row.courseId != null ? (
-                                    <span className="text-muted-foreground text-xs block">
-                                      catalog #{row.courseId}
+                                  <span className="font-medium">{row.offeringLabel ?? row.programType}</span>
+                                  {row.nomenclatureNote ? (
+                                    <span className="text-muted-foreground text-xs block" title={row.nomenclatureNote}>
+                                      Note: ADF vs AHA PALS
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="p-2">{row.programType}</td>
+                                <td className="p-2">
+                                  {row.catalogTitle ?? row.courseTitle ?? "—"}
+                                  {row.courseId != null ? (
+                                    <span className="text-muted-foreground text-xs block">
+                                      #{row.courseId}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="p-2 font-mono text-xs">{row.programType}</td>
                                 <td className="p-2">
                                   {row.paymentStatus}
                                   {row.amountPaidCents != null ? (
