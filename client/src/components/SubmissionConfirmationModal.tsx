@@ -87,6 +87,8 @@ export default function SubmissionConfirmationModal({
   });
 
   const streak = fellowshipData?.careSignalPillar?.streak ?? null;
+  const eventsSubmitted = fellowshipData?.careSignalPillar?.eventsSubmitted ?? null;
+  const reportsThisMonth = fellowshipData?.careSignalPillar?.reportsThisMonth ?? null;
   const recommendations: GapRecommendation[] = data.recommendations ?? [];
   const highPriorityRecs = recommendations.filter((r) => r.priority === "high");
   const otherRecs = recommendations.filter((r) => r.priority !== "high");
@@ -164,6 +166,16 @@ export default function SubmissionConfirmationModal({
                     Fellowship Pillar C — streak update
                   </h3>
                 </div>
+                {eventsSubmitted != null && eventsSubmitted > 0 && (
+                  <p className={cn(CARD_NOTE, "mb-3")}>
+                    <strong>{eventsSubmitted}</strong> Care Signal report{eventsSubmitted === 1 ? "" : "s"} on your
+                    fellowship record
+                    {reportsThisMonth != null && reportsThisMonth > 0
+                      ? ` · ${reportsThisMonth} qualifying this month (EAT)`
+                      : ""}
+                    .
+                  </p>
+                )}
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-violet-800 dark:text-violet-200">{streak}</div>
                   <div className="text-sm">

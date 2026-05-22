@@ -30,6 +30,23 @@ export function enumerateMonthsEndingAt(
 export type FellowshipGraceRow = { year: number; month: number };
 
 /**
+ * Fellowship streak timeline: full rolling window, trimmed to start at the user's first
+ * qualifying report month so pre-enrollment empty months do not consume grace/catch-up.
+ */
+export function computeCareSignalTimelineKeys(
+  eventsByMonth: Record<string, number>,
+  anchorYear: number,
+  anchorMonth: number,
+  windowMonths = 24
+): string[] {
+  const full = enumerateMonthsEndingAt(anchorYear, anchorMonth, windowMonths);
+  const eventKeys = Object.keys(eventsByMonth).filter((k) => (eventsByMonth[k] ?? 0) > 0);
+  if (eventKeys.length === 0) return full;
+  const startKey = eventKeys.sort()[0]!;
+  return full.filter((k) => k >= startKey);
+}
+
+/**
  * Current Care Signal streak: consecutive qualifying months at the end of the window,
  * capped at 24. Qualifying rules (PSoT §17.3 / FELLOWSHIP doc §7):
  * - Normal month: ≥1 eligible event.
@@ -44,6 +61,8 @@ export function computeCareSignalStreak(params: {
   anchorMonth: number;
   /** Default 24 (rolling fellowship window). Use a smaller value only in unit tests. */
   windowMonths?: number;
+  /** Override month keys (e.g. trimmed fellowship timeline). */
+  timelineKeys?: string[];
 }): number {
   const {
     eventsByMonth,
@@ -51,6 +70,7 @@ export function computeCareSignalStreak(params: {
     anchorYear,
     anchorMonth,
     windowMonths = 24,
+    timelineKeys,
   } = params;
 
   const recordedGraceKey = new Set(
@@ -61,7 +81,9 @@ export function computeCareSignalStreak(params: {
     dbGraceCountByYear[g.year] = (dbGraceCountByYear[g.year] ?? 0) + 1;
   }
 
-  const keys = enumerateMonthsEndingAt(anchorYear, anchorMonth, windowMonths);
+  const keys =
+    timelineKeys ??
+    enumerateMonthsEndingAt(anchorYear, anchorMonth, windowMonths);
   const implicitByYear: Record<number, number> = {};
 
   function gracesForYear(y: number): number {
