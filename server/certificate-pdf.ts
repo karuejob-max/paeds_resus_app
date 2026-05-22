@@ -31,14 +31,16 @@ const PAGE = { width: 842, height: 595 };
 const MARGIN_X = 52;
 const MARGIN_BOTTOM = 38;
 /** Horizontal rule above the signature pad and footer metadata row. */
-const FOOTER_DIVIDER_Y = 108;
+const FOOTER_DIVIDER_Y = 126;
 /** Empty band below the rule for a handwritten signature. */
-const SIGNATURE_PAD_HEIGHT = 44;
+const SIGNATURE_PAD_HEIGHT = 54;
 const FOOTER_ROW_GAP = 13;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
-/** Gap between participant name and the orange divider. */
-const GAP_NAME_TO_DIVIDER = 8;
+/** Gap between participant name baseline and the orange divider (half of name→description span). */
+const GAP_NAME_TO_DIVIDER = 14;
+/** Gap between the orange divider and the description baseline (half of name→description span). */
+const GAP_ORANGE_TO_DESCRIPTION = 14;
 
 /** Brand tokens aligned with client `index.css` / theme */
 const BRAND = {
@@ -317,7 +319,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     GAP_CERTIFY_TO_NAME +
     nameSize +
     GAP_NAME_TO_DIVIDER +
-    18 +
+    GAP_ORANGE_TO_DESCRIPTION +
     descLines.length * (12 + 6) +
     28 +
     16 +
@@ -336,7 +338,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     color: BRAND.orange,
     thickness: 1,
   });
-  y = orangeLineY - 20;
+  y = orangeLineY - GAP_ORANGE_TO_DESCRIPTION;
 
   y = drawWrappedCentered(page, template.description, y, 12, font, BRAND.ink, contentMaxWidth - 48);
   y -= 26;
