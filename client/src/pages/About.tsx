@@ -2,8 +2,16 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldCheck, Stethoscope, Users } from "lucide-react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function About() {
+  usePageMeta({
+    title: "About Paeds Resus — Paediatric emergency care platform",
+    description:
+      "Learn about Paeds Resus: training, ResusGPS bedside guidance, Care Signal reporting, Safe-Truth family resources, and institutional programmes for paediatric emergency care.",
+    path: "/about",
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-teal via-background to-card text-foreground py-16 px-4">
       <div className="max-w-4xl mx-auto space-y-8">

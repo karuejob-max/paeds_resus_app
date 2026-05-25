@@ -3,8 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LifeBuoy, ShieldCheck } from "lucide-react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function Help() {
+  usePageMeta({
+    title: "Help centre — Paeds Resus",
+    description:
+      "Paeds Resus support for providers, institutions, and families: course enrolment, certificates, ResusGPS, institutional onboarding, and account help.",
+    path: "/help",
+  });
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-2xl mx-auto space-y-6">

@@ -23,6 +23,7 @@ import { isMpesaCallbackIpAllowed } from "../lib/mpesa-callback-ip";
 import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callback-path";
 import { initializeScheduler } from "../scheduler";
 import { initializeDatabase, runMigrations } from "./initialize";
+import { registerCanonicalDomainRedirect } from "./canonical-domain";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -50,6 +51,7 @@ async function startServer() {
   if (process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1") {
     app.set("trust proxy", true);
   }
+  registerCanonicalDomainRedirect(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
