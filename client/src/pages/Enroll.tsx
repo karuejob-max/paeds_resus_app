@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { usePageMeta } from "@/hooks/usePageMeta";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,12 @@ import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/li
 
 export default function Enroll() {
   useScrollToTop();
+  usePageMeta({
+    title: "Enrol in courses — Paeds Resus",
+    description:
+      "Enrol in Paeds Resus BLS, ACLS, PALS, fellowship micro-courses, and certified training. Secure checkout and certificate verification included.",
+    path: "/enroll",
+  });
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const search = useSearch();

@@ -5,8 +5,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Search } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function VerifyCertificate() {
+  usePageMeta({
+    title: "Verify certificate — Paeds Resus",
+    description:
+      "Verify Paeds Resus training certificates online. Enter the certificate number and recipient name to confirm authenticity.",
+    path: "/verify",
+  });
+
   const [certificateNumber, setCertificateNumber] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [submitted, setSubmitted] = useState(false);

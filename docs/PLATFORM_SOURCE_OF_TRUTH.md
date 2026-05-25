@@ -146,7 +146,7 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 |-------|----------|
 | **Current** | **Single production** environment (e.g. Render + Aiven). **Target:** branch-based staging before production — see [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md), [STAGING_VERIFICATION_CHECKLIST.md](./STAGING_VERIFICATION_CHECKLIST.md), [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md). Until a dedicated staging URL is live, use the checklist discipline on pre-production verification. |
 | **When staging is live** | **Branch-based:** changes land on `develop` → **staging**; `main` → **production**. PRs verified on **staging** before production. |
-| **Domain** | **`paedsresus.com`** → **301 redirect** to **`www.paedsresus.com`** (canonical). |
+| **Domain** | **`paedsresus.com`** → **301 redirect** to **`www.paedsresus.com`** (canonical). Render/DNS may also enforce this at the edge; Express middleware in `server/_core/canonical-domain.ts` redirects apex host requests when traffic reaches the app (requires `TRUST_PROXY=true` behind a reverse proxy). |
 
 ---
 

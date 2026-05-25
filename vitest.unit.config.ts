@@ -27,6 +27,7 @@ export default defineConfig({
       "server/routers/events.trackEvent.test.ts",
       "client/src/lib/**/*.test.tsx",
       "server/lib/**/*.test.ts",
+      "server/_core/**/*.test.ts",
     ],
     exclude: [
       "client/src/lib/voice/**",
