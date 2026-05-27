@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
+import { LegalExternalLink } from "@/components/LegalExternalLink";
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
@@ -424,13 +425,13 @@ export default function InstitutionalOnboarding() {
                     <div className="text-sm text-foreground/90">
                       <p>
                         I agree to the{" "}
-                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        <LegalExternalLink href="/terms" className="text-primary underline">
                           Terms of Service
-                        </a>
+                        </LegalExternalLink>
                         ,{" "}
-                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        <LegalExternalLink href="/privacy" className="text-primary underline">
                           Privacy Policy
-                        </a>
+                        </LegalExternalLink>
                         , and Institutional B2B data processing terms (see docs/legal/INSTITUTIONAL_B2B_ADDENDUM.md).
                         I acknowledge our institution acts as data controller for staff data shared with Paeds Resus for
                         training and QI dashboards.
