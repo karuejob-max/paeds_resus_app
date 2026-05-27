@@ -34,6 +34,11 @@ import { getFacilityCareSignalDashboard } from "../services/facility-care-signal
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
+import {
+  isValidActionLogStatusTransition,
+  requiresSystemChangeOnResolve,
+  type ActionLogStatus,
+} from "../lib/institutional-action-log-status";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -1707,6 +1712,93 @@ export const institutionRouter = router({
       const insertId = (result as unknown as { insertId: number }).insertId;
 
       return { success: true, id: insertId };
+    }),
+
+  /** Update status on an existing action log entry (Care Signal closure workflow). */
+  updateActionLogStatus: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        institutionId: z.number(),
+        status: z.enum(["open", "in_progress", "completed"]),
+        systemChange: z.string().min(3).max(4000).optional(),
+        notes: z.string().max(4000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [existing] = await db
+        .select()
+        .from(institutionalActionLogs)
+        .where(
+          and(
+            eq(institutionalActionLogs.id, input.id),
+            eq(institutionalActionLogs.institutionalAccountId, input.institutionId)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Action log entry not found" });
+      }
+
+      const fromStatus = existing.status as ActionLogStatus;
+      const toStatus = input.status;
+
+      if (!isValidActionLogStatusTransition(fromStatus, toStatus)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot transition action log from "${fromStatus}" to "${toStatus}"`,
+        });
+      }
+
+      if (
+        requiresSystemChangeOnResolve(existing.systemChange, toStatus, input.systemChange)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Document the system change your hospital committed to before marking this action completed.",
+        });
+      }
+
+      const nextSystemChange = input.systemChange?.trim() ?? existing.systemChange;
+      const nextNotes =
+        input.notes !== undefined ? input.notes.trim() || null : existing.notes;
+
+      await db
+        .update(institutionalActionLogs)
+        .set({
+          status: toStatus,
+          systemChange: nextSystemChange,
+          notes: nextNotes,
+        })
+        .where(eq(institutionalActionLogs.id, input.id));
+
+      if (fromStatus !== "completed" && toStatus === "completed") {
+        await trackEvent({
+          userId: ctx.user.id,
+          eventType: "institutional_action_log_resolved",
+          eventName: "Institutional action log resolved",
+          eventData: {
+            actionLogId: input.id,
+            institutionId: input.institutionId,
+            careSignalEventId: existing.careSignalEventId,
+            previousStatus: fromStatus,
+          },
+          sessionId: `action_log_${input.id}`,
+        });
+      }
+
+      return { success: true, id: input.id, status: toStatus };
     }),
 
   /** Open action log entries auto-created from Care Signal submissions — for dashboard alerts. */

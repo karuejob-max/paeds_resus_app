@@ -18,14 +18,13 @@ import { CPRClockTeam } from '@/components/CPRClockTeam';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
-import { checkMedicationDuplicate } from '@/lib/resus/medication-deduplication';
+import { checkMedicationDuplicate, type DuplicateCheckResult } from '@/lib/resus/medication-deduplication';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
-import { suggestDiagnoses } from '@/lib/resus/multi-diagnosis';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
 import { DoseRationaleCard } from '@/components/DoseRationaleCard';
@@ -281,7 +280,7 @@ export default function ResusGPS() {
   const [fellowshipSavedSessionId, setFellowshipSavedSessionId] = useState<string | null>(null);
   const [savedCasesByCondition, setSavedCasesByCondition] = useState<Record<string, number>>({});
   const timer = useTimer();
-  const { canUndo, undo: handleUndo } = useUndo(session, (nextSession) => setSession(nextSession));
+  const { canUndo, canRedo, undo: handleUndo, redo: handleRedo } = useUndo(session, (nextSession) => setSession(nextSession));
 
   // Sync demographics
   useEffect(() => {
@@ -401,7 +400,10 @@ export default function ResusGPS() {
     }
   };
 
-  const [duplicateWarning, setDuplicateWarning] = useState<{ intervention: Intervention; duplicate: Intervention } | null>(null);
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    interventionId: string;
+    result: DuplicateCheckResult;
+  } | null>(null);
   const [showCareSignalPrompt, setShowCareSignalPrompt] = useState(false);
   const [careSignalPromptDiagnosis, setCareSignalPromptDiagnosis] = useState('');
   const [showFellowshipPillarBanner, setShowFellowshipPillarBanner] = useState(false);
@@ -414,7 +416,7 @@ export default function ResusGPS() {
     // Check for medication duplicates
     const duplicate = checkMedicationDuplicate(intervention, session);
     if (duplicate.isDuplicate && duplicate.existingIntervention) {
-      setDuplicateWarning({ intervention, duplicate: duplicate.existingIntervention });
+      setDuplicateCheck({ interventionId: id, result: duplicate });
       return;
     }
 
@@ -442,14 +444,21 @@ export default function ResusGPS() {
   };
 
   const handleConfirmDuplicateOverride = () => {
-    if (!duplicateWarning) return;
+    if (!duplicateCheck) return;
+    const intervention = session.threats
+      .flatMap((t) => t.interventions)
+      .find((i) => i.id === duplicateCheck.interventionId);
+    if (!intervention) {
+      setDuplicateCheck(null);
+      return;
+    }
     setSession(prev => {
-      const withUndo = pushToUndoStack(prev, `Override duplicate: ${duplicateWarning.intervention.action}`);
-      return startIntervention(withUndo, duplicateWarning.intervention.id);
+      const withUndo = pushToUndoStack(prev, `Override duplicate: ${intervention.action}`);
+      return startIntervention(withUndo, duplicateCheck.interventionId);
     });
-    analytics.trackInterventionStarted(duplicateWarning.intervention.action);
+    analytics.trackInterventionStarted(intervention.action);
     toast.warning('Duplicate intervention started - verify clinical decision');
-    setDuplicateWarning(null);
+    setDuplicateCheck(null);
   };
 
   const handleReturnToPrimarySurvey = () => {
@@ -857,7 +866,9 @@ export default function ResusGPS() {
         activeThreats={activeThreats}
         unackedAlerts={unackedAlerts}
         canUndo={canUndo}
+        canRedo={canRedo}
         onUndo={handleUndo}
+        onRedo={handleRedo}
         onOpenPatientInfo={() => {
           setTempWeight(session.patientWeight?.toString() || '');
           setTempAge(session.patientAge || '');
@@ -1179,6 +1190,16 @@ export default function ResusGPS() {
       {/* PWA install prompt — only shown on idle screen, never during active case */}
       {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
 
+      {/* Duplicate medication override dialog */}
+      {duplicateCheck?.result.isDuplicate && (
+        <DuplicateWarningDialog
+          open
+          result={duplicateCheck.result}
+          onContinue={handleConfirmDuplicateOverride}
+          onCancel={() => setDuplicateCheck(null)}
+        />
+      )}
+
       {/* Care Signal closed-loop prompt — shown after session save */}
       <CareSignalPostEventPrompt
         open={showCareSignalPrompt}
@@ -1209,7 +1230,9 @@ function TopBar({
   activeThreats,
   unackedAlerts,
   canUndo,
+  canRedo,
   onUndo,
+  onRedo,
   onOpenPatientInfo,
   onOpenInterventions,
   onCardiacArrest,
@@ -1228,7 +1251,9 @@ function TopBar({
   activeThreats: Threat[];
   unackedAlerts: typeof session.safetyAlerts;
   canUndo: boolean;
+  canRedo: boolean;
   onUndo: () => void;
+  onRedo: () => void;
   onOpenPatientInfo: () => void;
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
@@ -1339,6 +1364,25 @@ function TopBar({
           aria-label="Undo"
         >
           <Undo2 className="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8 w-8 p-0"
+          onClick={() => {
+            if (canRedo) {
+              onRedo();
+              toast.success('Redo: Action restored');
+            } else {
+              toast.info('Nothing to redo');
+            }
+          }}
+          disabled={!canRedo}
+          title="Redo last undone action (Cmd+Shift+Z)"
+          aria-label="Redo"
+        >
+          <Redo2 className="h-4 w-4" />
         </Button>
 
         {/* Multi-Patient Board */}

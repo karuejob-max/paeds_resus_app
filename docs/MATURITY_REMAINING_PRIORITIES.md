@@ -17,22 +17,24 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 | **3** | **Institutional pilot MOU** (one hospital, septic shock, 90-day process metrics) | CEO | **Template done** � [PILOT_HOSPITAL_MOU_TEMPLATE.md](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) + [PILOT_ONBOARDING_CHECKLIST.md](./PILOT_ONBOARDING_CHECKLIST.md); **CEO signs with hospital** |
 | **4** | **Holistic loop proof** — manual staging smoke: ResusGPS save → Care Signal → action log | CEO + champion nurse | Closes Blocker #1 (critical) |
 | **5** | **Keep `fellowTitleEnabled = false`** until §11 + counsel green | CEO (flag only) | Prevents credential misrepresentation |
-| **6** | **Full E2E provider creds in CI/staging** (`E2E_PROVIDER_*`, optional GitHub secrets) | Engineering | **Partial — `e2e:ensure-provider`, E2E_TEST_SETUP.md, CI optional job documented; creds = ops** |
+| **6** | **Full E2E provider creds in CI/staging** (`E2E_PROVIDER_*`, optional GitHub secrets) | Engineering | **Done (eng.)** — `e2e:ensure-provider` uses IPv4+SSL; E2E_TEST_SETUP.md; expanded holistic spec; CI optional job documented; **creds provisioning = ops** |
 | **7** | **Published retention + appeals** (Care Signal streak errors) | Counsel + CEO | **Partial — docs/legal published + `/care-signal/appeal`; counsel sign-off pending** |
 | **8** | **ResusGPS clinical governance memo** (SaMD-style intended use, LMIC fluid strategy) | CEO + counsel | **Draft shipped — `docs/legal/CLINICAL_INTENDED_USE_STATEMENT.md`; counsel confirm** |
-| **9** | **Care Signal intelligence maturity** (gap → institutional action workflow in product, not spreadsheet) | Engineering | **Partial — auto action log + hospital admin notification on facility-linked submit** |
+| **9** | **Care Signal intelligence maturity** (gap → institutional action workflow in product, not spreadsheet) | Engineering | **Done (eng.)** — auto action log + hospital admin notification; status transitions (`updateActionLogStatus`); resolve UI + analytics |
 | **10** | **Mission-aligned institutional GTM** (readiness systems, not seat bundles) | CEO / sales | Closes Blocker #5 and #10 |
 
 ---
 
 ## Engineering backlog (after CEO blockers)
 
-- ResusGPS v4 completion (undo, dedup, multi-diagnosis — largely shipped; polish remaining)
-- ~~Expand Playwright to full save-path when stable test hooks exist~~ — **Partial:** public + DSAR + authenticated prefill/consent; full ABCDE save = staging manual
-- ~~`db:migrate` SSL path verified on staging~~ — **Partial:** apply/verify scripts (`db:apply-0044`, `db:verify-0044`); network-dependent from dev machines
+- ~~ResusGPS v4 completion (undo, dedup, multi-diagnosis — largely shipped; polish remaining)~~ — **Done:** dedup dialog mounted, redo wired, EAC emergency numbers config
+- ~~Expand Playwright to full save-path when stable test hooks exist~~ — **Partial:** public legal routes + authenticated prefill/consent/home; full ABCDE save = staging manual
+- ~~`db:migrate` SSL path verified on staging~~ — **Done (eng.):** apply-0043/0044 use `db-connection-config.mjs` (IPv4+SSL); network-dependent from dev machines
 - ~~Safe-Truth guardian consent UI (parity with Care Signal)~~ — **shipped (`SafeTruthGuardianGate.tsx`)**
-- ~~DSAR deletion handler + retention cleanup cron (dry-run)~~ — **shipped:** `dsar:deletion`, `retention:cleanup`, admin tRPC stubs, monthly scheduler dry-run log
-- Second hospital LOI after first pilot evaluation (Phase 5)
+- ~~DSAR deletion handler + retention cleanup cron (dry-run)~~ — **shipped:** `dsar:deletion`, `retention:cleanup`, Care Signal 7y purge in plan, admin `previewRetentionCleanup`
+- ~~B2B MSA template (Phase 5)~~ — **shipped:** `docs/legal/B2B_MSA_TEMPLATE.md`
+- ~~EAC country config (P3)~~ — **shipped:** `shared/emergency-numbers.ts` in ClinicalUseDisclaimer
+- Second hospital LOI after first pilot evaluation (Phase 5) — **CEO/sales**
 
 ---
 
@@ -40,7 +42,7 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 
 - ODPC registration assessment
 - M-Pesa refund policy publication
-- B2B MSA template (Phase 5)
+- ~~B2B MSA template (Phase 5)~~ — **shipped** `docs/legal/B2B_MSA_TEMPLATE.md`
 - Public SEO / narrative coherence (Bronze/Silver/Gold removed — maintain discipline)
 
 ---

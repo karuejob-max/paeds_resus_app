@@ -28,18 +28,18 @@
 
 | Phase | Name | Eng. % | Notes |
 |-------|------|--------|-------|
-| **1** | Release & governance foundation | **~92%** | PR #52 + #59 legal hardening merged; counsel sign-off + ODPC = CEO |
-| **2** | ResusGPS v4 + instrumentation | **~75%** | v4 largely shipped; holistic loop KPIs in admin |
-| **3** | Care Signal truth + §11 gate | **~78%** | Rate limiting + anti-gaming tests; Playwright holistic E2E (partial); Fellow title still blocked |
-| **4** | Vertical slice (one hospital) | **~62%** | Care Signal → institutional action log auto-prompt + hospital admin alert; migration **0044 applied** 2026-05-27; pilot MOU template + onboarding checklist; CEO signs MOU |
-| **5** | Institutional systems + outcomes | **~35%** | Facility QI readiness dashboard; outcomes pilot flag; evaluation = CEO |
-| **6** | Growth + narrative maturity | **~65%** | `/start` SEO meta + hero polish; P2-LAND-1 role chooser |
+| **1** | Release & governance foundation | **~95%** | Legal hardening + B2B MSA template; counsel sign-off + ODPC = CEO |
+| **2** | ResusGPS v4 + instrumentation | **~88%** | v4 polish (dedup dialog, redo); holistic loop KPIs in admin |
+| **3** | Care Signal truth + §11 gate | **~85%** | Action log closure workflow; Playwright holistic E2E expanded; Fellow title still blocked |
+| **4** | Vertical slice (one hospital) | **~75%** | Action log resolve UI + status transitions; pilot MOU template; CEO signs MOU |
+| **5** | Institutional systems + outcomes | **~45%** | B2B MSA template; facility QI readiness; evaluation = CEO |
+| **6** | Growth + narrative maturity | **~68%** | EAC emergency numbers; `/start` SEO meta + hero polish |
 
 ---
 
 ## In progress
 
-*(No active engineering slice — see Done for legal links fix.)*
+*(No active engineering slice — engineering backlog complete 2026-05-27.)*
 
 ---
 
@@ -47,6 +47,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-27 | Cursor | **Engineering backlog complete:** Care Signal action log closure (`updateActionLogStatus`, hospital admin resolve UI, analytics); ResusGPS v4 polish (dedup dialog, redo); Care Signal 7y retention purge; E2E ensure-provider IPv4+SSL; expanded holistic Playwright; apply-0043 shared db-connection-config; `shared/emergency-numbers.ts`; `docs/legal/B2B_MSA_TEMPLATE.md`; docs sync. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `feat/engineering-backlog-complete` |
 | 2026-05-27 | Cursor | **Legal consent link fix:** `LegalReconsentGate` no longer unmounts routes when open; legal paths (`/terms`, `/privacy`, `/legal/*`) bypass blocking overlay so users can read full documents; shared `LegalExternalLink` (`target=_blank`, `stopPropagation`) on Register, Enroll, reconsent, Care Signal, Payment flows. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `fix/legal-links-persist` |
 | 2026-05-27 | Cursor | **DB migration 0044 (legal consent + DSAR):** pnpm run db:test-connection OK; pnpm run db:apply-0044 via scripts/db-connection-config.mjs (IPv4 + SSL); pnpm run db:verify-0044 **PASSED**. | PR #63 |
 | 2026-05-27 | Cursor | **Maturity ops eng slice:** Care Signal submit → auto `institutionalActionLogs` draft + in-app notification for linked facilities; hospital admin pending-action banner; DSAR deletion handler (`dsar:deletion`, `legal.processDeletionRequest`); retention cleanup (`retention:cleanup`, monthly scheduler dry-run); migration 0044 verify script (`db:verify-0044`) — **apply ETIMEDOUT** from dev network (Aiven). E2E: DSAR public form test + holistic loop expansion. Unit tests for institutional action, retention, DSAR. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`, `pnpm run test:e2e:holistic`. | PR TBD · `feat/maturity-ops-eng-slice` |

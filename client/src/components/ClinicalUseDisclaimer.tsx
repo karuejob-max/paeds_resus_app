@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Info } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { LEGAL_DOCUMENT_VERSIONS } from "@shared/legal-versions";
+import { formatEacEmergencyInline, formatKenyaEmergencyShort } from "@shared/emergency-numbers";
 
 const LOCAL_KEY = "paeds_resus_clinical_scope_ack";
 
@@ -42,8 +43,8 @@ export function ClinicalUseDisclaimer() {
         <div>
           <strong>ResusGPS intended use:</strong> structured paediatric emergency{" "}
           <strong>reference support</strong> for trained providers. Not medical advice. Not an emergency service — call{" "}
-          <strong>999 or 112</strong> in Kenya; use local emergency numbers in Uganda, Tanzania, Rwanda, Burundi, South
-          Sudan, and DRC. Your facility protocol and senior review always prevail.
+          <strong>{formatKenyaEmergencyShort()}</strong>; EAC: {formatEacEmergencyInline()}. Your facility protocol and
+          senior review always prevail.
         </div>
         <label className="flex items-start gap-2 cursor-pointer">
           <Checkbox checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} />

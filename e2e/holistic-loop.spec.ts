@@ -30,6 +30,20 @@ test.describe("Holistic loop — public entry (no auth)", () => {
     });
     await expect(page.getByLabel(/email/i)).toBeVisible();
   });
+
+  test("/legal/clinical-use loads intended-use statement", async ({ page }) => {
+    await page.goto("/legal/clinical-use");
+    await expect(
+      page.getByRole("heading", { level: 1, name: /clinical intended use/i })
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("/legal/cookies loads cookie notice", async ({ page }) => {
+    await page.goto("/legal/cookies");
+    await expect(page.getByRole("heading", { level: 1, name: /cookie and analytics/i })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
 });
 
 authTest.describe("Holistic loop — provider ResusGPS → Care Signal prefill", () => {
@@ -90,4 +104,28 @@ authTest.describe("Holistic loop — provider ResusGPS → Care Signal prefill",
       timeout: 20_000,
     });
   });
+
+  authTest("legal clinical-use page loads when authenticated", async ({ providerPage }) => {
+    await providerPage.goto("/legal/clinical-use");
+    await authExpect(
+      providerPage.getByRole("heading", { level: 1, name: /clinical intended use/i })
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  authTest(
+    "care-signal form or consent gate reachable when authenticated",
+    async ({ providerPage }) => {
+      await providerPage.goto("/care-signal");
+      const formVisible = await providerPage
+        .locator('[data-testid="care-signal-form"], form, [data-testid="care-signal-prefill-banner"]')
+        .first()
+        .isVisible({ timeout: 10_000 })
+        .catch(() => false);
+      const consentVisible = await providerPage
+        .getByText(/care signal consent/i)
+        .isVisible({ timeout: 3_000 })
+        .catch(() => false);
+      authExpect(formVisible || consentVisible).toBeTruthy();
+    }
+  );
 });
