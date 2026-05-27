@@ -22,7 +22,7 @@
 3. Security baseline (password, session, audit logging)
 4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale)
 
-**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12). **Platform maturity:** [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — Phases 1–6 engineering slices in progress (2026-05-27).
+**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12). **Platform maturity:** [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — code slices 1–3 merged (PRs #52–#56, `ca03c50`); no open engineering PRs. Ops: staging + pilot MOU remain CEO-led.
 
 ### Maturity phase completion (engineering % — May 2026)
 
@@ -31,7 +31,7 @@
 | **1** | Release & governance foundation | **~85%** | PR #52 merged; consent + audit scope this PR; staging = CEO |
 | **2** | ResusGPS v4 + instrumentation | **~75%** | v4 largely shipped; holistic loop KPIs in admin |
 | **3** | Care Signal truth + §11 gate | **~78%** | Rate limiting + anti-gaming tests; Playwright holistic E2E (partial); Fellow title still blocked |
-| **4** | Vertical slice (one hospital) | **~48%** | Institutional action log UI + migration; loop instrumentation; pilot MOU = CEO |
+| **4** | Vertical slice (one hospital) | **~52%** | Action log UI + **migration 0043 applied** on Aiven (`institutionalActionLogs` verified); loop instrumentation; pilot MOU = CEO |
 | **5** | Institutional systems + outcomes | **~35%** | Facility QI readiness dashboard; outcomes pilot flag; evaluation = CEO |
 | **6** | Growth + narrative maturity | **~65%** | `/start` SEO meta + hero polish; P2-LAND-1 role chooser |
 
@@ -39,7 +39,7 @@
 
 ## In progress
 
-*(Slice 3 PR pending merge — see Done when merged.)*
+*(No active engineering slice — see Done for PR #56.)*
 | Cursor | Governance closeout support: Phase 0/Week 1-4 execution complete with evidence pack prepared; awaiting Job-led P0-7 sync sign-off window for formal Go/No-Go recording. |
 | Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
 
@@ -49,7 +49,8 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-27 | Cursor | **MATURITY_ROADMAP code slice 3:** Playwright holistic loop E2E (`e2e/holistic-loop.spec.ts` — public `/`→`/start` + ResusGPS prefill when creds set); **institutional action log** tab + `institutionalActionLogs` migration + tRPC; Care Signal **rate limiting** (5/day EAT, 10-min duplicate guard) + unit tests; **P2-LAND-1** `/start` SEO meta + hero polish; Septic Shock I `/resus` links unchanged — CEO clinical review flagged. Verified: `pnpm run check`, `pnpm run test:unit` (123), `pnpm run build`, `pnpm run test:e2e:holistic` (2 pass, 2 skip without E2E creds). | PR TBD |
+| 2026-05-27 | Cursor | **DB migration 0043 (`institutionalActionLogs`):** `pnpm run db:test-connection` OK; `pnpm exec drizzle-kit migrate` **ETIMEDOUT** (mysql2 ignores `ssl-mode` in URL — use `scripts/test-db-connection.mjs` SSL pattern or `pnpm run db:apply-*` scripts). Applied `drizzle/0043_institutional_action_logs.sql` via mysql2 + Aiven SSL; verified table exists in `defaultdb`. **Operator note:** prefer `node scripts/apply-0043-...` if added, or manual SQL + SSL, until drizzle-kit URL SSL is fixed. | ops |
+| 2026-05-27 | Cursor | **MATURITY_ROADMAP code slice 3:** Playwright holistic loop E2E (`e2e/holistic-loop.spec.ts` — public `/`→`/start` + ResusGPS prefill when creds set); **institutional action log** tab + `institutionalActionLogs` migration + tRPC; Care Signal **rate limiting** (5/day EAT, 10-min duplicate guard) + unit tests; **P2-LAND-1** `/start` SEO meta + hero polish; Septic Shock I `/resus` links unchanged — CEO clinical review flagged. Verified: `pnpm run check`, `pnpm run test:unit` (123), `pnpm run build`, `pnpm run test:e2e:holistic` (2 pass, 2 skip without E2E creds). | PR #56 · `ca03c50` |
 | 2026-05-27 | Cursor | **MATURITY_ROADMAP Phases 2–6 (engineering slice):** Admin **Maturity KPIs** tab — mission impact (holistic loop, ResusGPS/Care Signal 30d), provider conversion funnel from `provider_conversion`, Fellowship §11 launch checklist dashboard; `getMissionImpactKpis` / `getProviderConversionFunnel` / `getFellowshipLaunchChecklist`; facility readiness metrics (reporting rate + ResusGPS adoption); Care Signal first-submission **consent gate**; removed deprecated `CareSignalLogger`; streak + KPI unit tests; `CLINICAL_OUTCOMES_PILOT_ENABLED` env; `RESUSGPS_DNA_DEPRECATION_NOTE.md`. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #53 |
 | 2026-05-27 | Cursor | **MATURITY_ROADMAP Phase 1 (engineering slice):** Fellowship §11 gate (`shared/fellowship-launch-gate.ts` — blocks Fellow title/graduation until CEO enables); deprecated Bronze/Silver/Gold from institutional catalog; ResusGPS post-case loop enhanced (Care Signal prompt analytics + Septic Shock I link); `active_paying_providers_30d` in admin reports; institutional readiness copy (Institutional + Hospital Admin); docs: `STAGING_GO_LIVE_CHECKLIST`, `LEGAL_COMPLIANCE_BASELINE`, `CLINICAL_OUTCOMES_PILOT`; PSOT §8/§12/§21 updates; `holistic_loop` event taxonomy. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #52 |
 | 2026-05-25 | Cursor | **Platform maturity roadmap:** Added [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — CEO-ready 6-phase plan (15–18 months) closing all 10 objective-gap blockers (holistic loop, Fellowship §11 gate, clinical outcomes pathway, staging, mission-aligned GTM, Care Signal intelligence, ResusGPS v4, legal/governance, narrative coherence, institutional systems value prop). Vertical-slice proof: one hospital, paediatric septic shock, closed loop. | PR TBD |
