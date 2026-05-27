@@ -44,6 +44,8 @@
     "db:apply-0042": "node scripts/apply-0042-care-signal-notifications.mjs",
     "db:apply-0043": "node scripts/apply-0043-institutional-action-logs.mjs",
     "db:apply-0044": "node scripts/apply-0044-legal-consent.mjs",
+    "db:apply-0045": "node scripts/apply-0045-nrp-program-type.mjs",
+    "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "db:verify-0044": "node scripts/verify-0044-migration.mjs",
     "retention:cleanup": "tsx --import dotenv/config scripts/run-retention-cleanup.ts",
     "dsar:deletion": "tsx --import dotenv/config scripts/process-dsar-deletion.ts",

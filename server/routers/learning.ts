@@ -128,7 +128,7 @@ export const learningRouter = router({
 
   /** Canonical AHA catalog row (most modules) for BLS / ACLS / PALS / Heartsaver. */
   getAhaCourseAnchor: publicProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]) }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]) }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
@@ -141,7 +141,7 @@ export const learningRouter = router({
       z.object({
         courseId: z.number(),
         /** When the URL has a stale numeric id (e.g. /micro-course/1), resolve the real row. */
-        programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional(),
+        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]).optional(),
       })
     )
     .query(async ({ input }) => {
@@ -189,6 +189,9 @@ export const learningRouter = router({
         await ensureHeartsaverCatalog(db);
       } else if (pt === "pals") {
         await ensurePalsAhaCatalog(db);
+      } else if (pt === "nrp") {
+        const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
+        await ensureNrpCatalog(db);
       }
 
       const courseModules = await (db as any)

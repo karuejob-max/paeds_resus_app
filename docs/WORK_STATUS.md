@@ -47,6 +47,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-03-28 | Cursor | **NRP AHA course:** 2025 AHA/AAP-aligned neonatal resuscitation catalog (6 modules), `programType=nrp`, migration 0045, enroll/hub/player/certificates. `docs/AHA_NRP_COURSE.md`. Verified: `pnpm run check`. | main |
 | 2026-05-27 | Cursor | **Engineering backlog complete:** Care Signal action log closure (`updateActionLogStatus`, hospital admin resolve UI, analytics); ResusGPS v4 polish (dedup dialog, redo); Care Signal 7y retention purge; E2E ensure-provider IPv4+SSL; expanded holistic Playwright; apply-0043 shared db-connection-config; `shared/emergency-numbers.ts`; `docs/legal/B2B_MSA_TEMPLATE.md`; docs sync. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `feat/engineering-backlog-complete` |
 | 2026-05-27 | Cursor | **Legal consent link fix:** `LegalReconsentGate` no longer unmounts routes when open; legal paths (`/terms`, `/privacy`, `/legal/*`) bypass blocking overlay so users can read full documents; shared `LegalExternalLink` (`target=_blank`, `stopPropagation`) on Register, Enroll, reconsent, Care Signal, Payment flows. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `fix/legal-links-persist` |
 | 2026-05-27 | Cursor | **DB migration 0044 (legal consent + DSAR):** pnpm run db:test-connection OK; pnpm run db:apply-0044 via scripts/db-connection-config.mjs (IPv4 + SSL); pnpm run db:verify-0044 **PASSED**. | PR #63 |

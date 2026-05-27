@@ -8,16 +8,17 @@
 
 export type TrainingProductLine = "aha" | "fellowship" | "instructor" | "paeds_resus_adf" | "other";
 
-export type AhaOfferingCode = "bls" | "acls" | "pals" | "heartsaver";
+export type AhaOfferingCode = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
 
 export const AHA_OFFERING_LABELS: Record<AhaOfferingCode, string> = {
   bls: "BLS (Basic Life Support)",
   acls: "ACLS (Advanced Cardiovascular Life Support)",
   pals: "PALS (Pediatric Advanced Life Support)",
   heartsaver: "Heartsaver CPR AED",
+  nrp: "NRP (Neonatal Resuscitation Program)",
 };
 
-const AHA_PROGRAM_TYPES = new Set<string>(["bls", "acls", "pals", "heartsaver"]);
+const AHA_PROGRAM_TYPES = new Set<string>(["bls", "acls", "pals", "heartsaver", "nrp"]);
 
 /** Legacy ADF / E2E PALS micro-courses stored under enrollments.programType = pals */
 export const PALS_ADF_CATALOG_TITLE_MARKERS = [

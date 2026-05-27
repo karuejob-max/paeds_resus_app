@@ -14,7 +14,8 @@ type AhaEnrollmentRow = {
     | "fellowship"
     | "instructor"
     | "fellowship_diploma"
-    | "heartsaver";
+    | "heartsaver"
+    | "nrp";
   paymentStatus: "pending" | "partial" | "completed" | null;
   createdAt: Date;
 };

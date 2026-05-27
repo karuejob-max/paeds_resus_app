@@ -78,7 +78,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp']))
         .orderBy(asc(courses.programType), asc(courses.order));
     } catch (error) {
       console.error('[courses.listAhaPrograms]', error);
@@ -93,7 +93,7 @@ export const coursesRouter = router({
     try {
       const database = await getDb();
       if (!database) return [];
-      const order = ['bls', 'acls', 'pals', 'heartsaver'] as const;
+      const order = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
       const anchors = await Promise.all(
         order.map((pt) => resolveAhaCourseAnchor(database, pt))
       );
@@ -113,7 +113,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver'])))
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp'])))
         .orderBy(desc(enrollments.createdAt));
     } catch (error) {
       console.error('[courses.getMyAhaEnrollments]', error);
@@ -604,7 +604,7 @@ export const coursesRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']),
+        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']),
         courseId: z.number().optional(),
       })
     )
@@ -691,7 +691,7 @@ export const coursesRouter = router({
   // AHA-SCHED-1: List upcoming public hands-on sessions available for booking.
   // ─────────────────────────────────────────────────────────────────────────
   listUpcomingHandsOnSessions: protectedProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional() }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
@@ -808,7 +808,7 @@ export const coursesRouter = router({
   // always has a valid enrollmentId even on a first visit.
   // ─────────────────────────────────────────────────────────────────────────
   ensureAhaEnrollment: protectedProcedure
-    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']) }))
+    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']) }))
     .mutation(async ({ ctx, input }) => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
       try {

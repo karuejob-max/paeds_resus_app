@@ -59,6 +59,17 @@ export const individualCourses: CoursePrice[] = [
     level: "Beginner",
   },
   {
+    id: "nrp",
+    name: "NRP (Neonatal Resuscitation Program)",
+    description:
+      "AHA/AAP 2025-aligned neonatal resuscitation — Newborn Chain of Care, ventilation, MR SOPA, compressions, and post-resuscitation stabilisation.",
+    price: 15000,
+    category: "individual",
+    providerTrack: "aha_certification",
+    duration: "6 hours (typical)",
+    level: "Advanced",
+  },
+  {
     id: "instructor",
     name: "Paeds Resus Instructor Course",
     description:
