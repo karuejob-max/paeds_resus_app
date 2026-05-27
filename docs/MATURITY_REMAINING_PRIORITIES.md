@@ -43,7 +43,7 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 - ODPC registration assessment
 - M-Pesa refund policy publication
 - ~~B2B MSA template (Phase 5)~~ — **shipped** `docs/legal/B2B_MSA_TEMPLATE.md`
-- Public SEO / narrative coherence (Bronze/Silver/Gold removed — maintain discipline)
+- Public SEO / narrative coherence (Bronze/Silver/Gold removed — maintain discipline) — **Done (eng.)** §23 compound home, `/training/*` landings, sitemap, JSON-LD; **CEO ops:** Search Console + GBP per [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md)
 
 ---
 

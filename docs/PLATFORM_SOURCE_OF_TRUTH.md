@@ -552,6 +552,7 @@ Every strategic and operational document in this repository is listed here with 
 | [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) | Active | 24-slot micro-course backlog — expands §3 |
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
+| [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
 
 ### 21.2 Technical and Operational Documents
 
@@ -652,4 +653,57 @@ The PSOT is a living document. It is only as useful as the discipline of the age
 
 ---
 
-**Last structural update:** 2026-05-01 — Added §19 (holistic ecosystem map), §20 (global surveillance vision), §21 (document registry), §22 (all-agents mandate). DB migrations 0037 (AHA completion gates) and 0038 (Care Signal facility/review) applied to live database.
+## 23. Public visibility & discovery
+
+**Mandate:** The platform must be **discoverable** by all stakeholders — healthcare providers, trainees, parents/guardians, and institutions — via **search engines**, **LLM-assisted discovery**, and **direct navigation**. Anonymous visitors must land on a **compound marketing home** (`/`) that explains the full Paeds Resus platform; they must **not** be dropped into ResusGPS-only experiences by default.
+
+**Operator guide:** [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md)
+
+### 23.1 Canonical public routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | **Public compound home** — all stakeholders, hero + section CTAs |
+| `/start` | **Alias → `/`** (301-style client redirect; canonical is `/`) |
+| `/training` | Training hub (BLS, ACLS, PALS, NRP, micro-courses mention) |
+| `/training/bls`, `/training/acls`, `/training/pals`, `/training/nrp` | **Course-intent SEO** landing pages |
+| `/aha-courses` | Public AHA overview; authenticated providers see enrollment hub |
+| `/for-providers`, `/for-institutions`, `/for-parents` | Stakeholder discovery pages |
+| `/institutional`, `/parent-safe-truth`, `/verify`, `/about`, `/help` | Existing public surfaces |
+| `/login`, `/register` | Auth entry (indexed for brand discovery) |
+| Legal: `/privacy`, `/terms`, `/legal/*` | Compliance pages |
+
+**Sitemap:** `client/public/sitemap.xml` — must list all routes above when public.
+
+### 23.2 Brand vs course-intent SEO rules
+
+| Search intent | Page brand | Copy rules |
+|---------------|------------|------------|
+| **Organisation / platform** (“Paeds Resus”, “paediatric emergency Kenya”) | **Paeds Resus** on `/`, `/about`, `/for-*` | One integrated platform; list all products |
+| **Course certification** (“PALS training Kenya”, “ACLS course Nairobi”) | **Paeds Resus Limited** on `/training/*` | AHA-**aligned** language only — never overclaim “AHA-certified” without counsel-approved wording |
+| **Bedside tool** (“paediatric resuscitation app”) | **ResusGPS** on provider pages | ResusGPS is one product, not the company |
+| **Families** | **Parent Safe-Truth** on `/for-parents`, `/parent-safe-truth` | Non-clinical tone; never mix with Care Signal |
+
+**Structured data:** `Organization` + `WebSite` on compound home; `Course` + `Organization` on training landings. Implemented via `client/src/lib/seo-schema.ts` and `usePageMeta`.
+
+### 23.3 Stakeholder entry points
+
+| Stakeholder | Primary public entry | Sign-in / register CTA target |
+|-------------|---------------------|-------------------------------|
+| Healthcare provider | `/for-providers`, `/` §providers | `/register` or `/login?next=/resus` |
+| Trainee / cert seeker | `/training/*`, `/aha-courses` | `/login?next=/enroll` |
+| Parent / caregiver | `/for-parents`, `/parent-safe-truth` | `/register` (parent account) |
+| Hospital / institution | `/for-institutions`, `/institutional` | `/register` + institutional quote |
+| Employer verifying cert | `/verify` | N/A (public tool) |
+
+### 23.4 Auth routing (unchanged)
+
+Logged-in users hitting `/` are redirected by **`userType`** to `/home`, `/parent-safe-truth`, or `/hospital-admin-dashboard` — **no change** to [§7](#7-auth-and-roles). Public SEO pages remain accessible when logged out; product workspaces remain gated.
+
+### 23.5 EAC expansion note
+
+Localized discovery pages (e.g. country-specific training landings, Swahili meta descriptions) may be added later as **separate canonical routes** under `/training` or `/eac/{country}` — register each in §23.1 and sitemap when shipped. Do not duplicate content without `hreflang` or canonical discipline.
+
+---
+
+**Last structural update:** 2026-05-27 — Added §23 (public visibility & discovery). Prior: 2026-05-01 — §19–§22.
