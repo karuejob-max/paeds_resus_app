@@ -19,9 +19,9 @@ export const cardiacArrestPathway: Pathway = {
           critical: true,
         },
         {
-          id: 'ca_rescue_breaths',
-          action: 'GIVE 5 RESCUE BREATHS',
-          detail: 'Use bag-valve-mask. Watch for chest rise. 1 second per breath.',
+          id: 'ca_initial_ventilations',
+          action: 'GIVE 5 INITIAL VENTILATIONS',
+          detail: 'Use bag-valve-mask. Watch for chest rise. ~1 second per breath.',
           critical: true,
         },
         {

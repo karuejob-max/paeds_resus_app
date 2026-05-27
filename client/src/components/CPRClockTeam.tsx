@@ -30,11 +30,24 @@ import {
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import {
+  calculateShockEnergy,
+  calculateCprMedicationDose,
+  evaluateMedicationEligibility,
+  type RhythmType as EngineRhythmType,
+} from '@/lib/resus/cpr-engine';
+import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
+import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
   onClose: () => void;
+  externalElapsed?: number;
+  externalRunning?: boolean;
+  autoStart?: boolean;
+  lifeSupportPack?: LifeSupportPackResult;
+  useSharedState?: boolean;
 }
 
 type ArrestPhase = 'compressions' | 'rhythm_check' | 'shock' | 'drug';
@@ -76,7 +89,30 @@ const ROLE_COLORS: Record<TeamRole, string> = {
   observer: 'bg-gray-400',
 };
 
-export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props) {
+function mapEngineRhythmToTeam(rhythm: EngineRhythmType | null): RhythmType {
+  if (rhythm === 'vf_pvt') return 'shockable';
+  if (rhythm === 'pea' || rhythm === 'asystole') return 'non_shockable';
+  return null;
+}
+
+function mapTeamRhythmToEngine(type: RhythmType): EngineRhythmType {
+  if (type === 'shockable') return 'vf_pvt';
+  return 'pea';
+}
+
+export function CPRClockTeam({
+  patientWeight,
+  patientAgeMonths,
+  onClose,
+  externalElapsed,
+  externalRunning,
+  autoStart,
+  useSharedState,
+}: Props) {
+  const shared = useCprClockShared();
+  const syncShared = Boolean(useSharedState && shared);
+  const autoStartApplied = useRef(false);
+  const lastRhythmPromptCycleRef = useRef(0);
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
@@ -114,6 +150,24 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
   const wallStartRef = useRef<number>(0);       // wall-clock ms at last (re)start
   const baseArrestRef = useRef<number>(0);       // accumulated seconds before last pause
   const baseCycleRef = useRef<number>(0);        // cycle seconds before last pause
+
+  const effectiveArrestDuration =
+    externalElapsed !== undefined
+      ? externalElapsed
+      : syncShared
+        ? shared!.arrestDuration
+        : arrestDuration;
+  const effectiveIsRunning = syncShared
+    ? shared!.isRunning
+    : externalRunning !== undefined
+      ? externalRunning
+      : isRunning;
+  const effectiveShockCount = syncShared ? shared!.engineState.shockCount : shockCount;
+  const effectiveEpiDoses = syncShared ? shared!.engineState.epiDoses : epiDoses;
+  const effectiveLastEpiTime = syncShared ? shared!.engineState.lastEpiTime : lastEpiTime;
+  const effectiveRhythmType = syncShared
+    ? mapEngineRhythmToTeam(shared!.rhythmType)
+    : rhythmType;
   
   // tRPC mutations and queries
   const createSession = trpc.cprSession.createSession.useMutation();
@@ -127,9 +181,10 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     { enabled: !!sessionId, refetchInterval: 2000 } // Poll every 2 seconds
   );
 
-  // Calculate doses
-  const epiDose = Math.round(patientWeight * 0.01 * 100) / 100;
-  const amiodaroneDose = Math.min(Math.round(patientWeight * 5), 300);
+  // Calculate doses via cpr-engine
+  const epiDoseMeta = calculateCprMedicationDose('epinephrine', patientWeight);
+  const epiDose = epiDoseMeta.dose;
+  const amiodaroneDose = calculateCprMedicationDose('amiodarone', patientWeight).dose;
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -172,9 +227,21 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     }
   }, []);
 
+  useEffect(() => {
+    if (externalElapsed === undefined) return;
+    if (syncShared && shared) {
+      shared.setArrestDuration(externalElapsed);
+    } else {
+      setArrestDuration(externalElapsed);
+    }
+    const cycleFromParent = externalElapsed % 120;
+    setCycleTime(cycleFromParent);
+    baseCycleRef.current = cycleFromParent;
+  }, [externalElapsed, syncShared, shared]);
+
   // Timer logic — wall-clock-anchored rAF (immune to browser background throttling)
   useEffect(() => {
-    if (!isRunning || roscAchieved) {
+    if (!effectiveIsRunning || roscAchieved) {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -189,24 +256,47 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
 
     const tick = () => {
       const wallSecs = Math.floor((Date.now() - wallStartRef.current) / 1000);
-      const newArrest = baseArrestRef.current + wallSecs;
+      const newArrest =
+        externalElapsed !== undefined
+          ? externalElapsed + wallSecs
+          : baseArrestRef.current + wallSecs;
       const rawCycle = baseCycleRef.current + wallSecs;
 
-      setArrestDuration(newArrest);
+      if (externalElapsed === undefined) {
+        if (syncShared && shared) {
+          shared.setArrestDuration(newArrest);
+        } else {
+          setArrestDuration(newArrest);
+        }
+      }
 
-      // Rhythm check every 2-minute cycle
       const newCycle = rawCycle % 120;
       setCycleTime(newCycle);
 
-      // Trigger rhythm check prompt at cycle boundary
-      if (rawCycle > 0 && rawCycle % 120 === 0 && newCycle === 0) {
+      const completedCycles = Math.floor(rawCycle / 120);
+      if (completedCycles > lastRhythmPromptCycleRef.current && rawCycle >= 120) {
+        lastRhythmPromptCycleRef.current = completedCycles;
         setShowRhythmCheck(true);
         speak('STOP. Rhythm check now.');
       }
 
-      // Epinephrine reminder (every 3-5 min after first dose)
-      if (lastEpiTime !== null && (newArrest - lastEpiTime) >= 180) {
-        speak('Consider epinephrine.');
+      const lastEpi = syncShared ? shared!.engineState.lastEpiTime : lastEpiTime;
+      if (lastEpi !== null && newArrest - lastEpi >= 180) {
+        const engineState = syncShared
+          ? shared!.engineState
+          : {
+              shockCount,
+              epiDoses,
+              lastEpiTime,
+              antiarrhythmicDoses: 0,
+              rhythmType: 'unknown' as EngineRhythmType,
+              phase: 'compressions' as const,
+            };
+        const isShockable = effectiveRhythmType === 'shockable';
+        const med = evaluateMedicationEligibility(newArrest, engineState, isShockable);
+        if (med.epiEligible && med.recommendation) {
+          speak(med.recommendation);
+        }
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -221,7 +311,7 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning, roscAchieved, lastEpiTime]);
+  }, [effectiveIsRunning, roscAchieved, lastEpiTime, externalElapsed, syncShared, shared, effectiveRhythmType, shockCount, epiDoses]);
 
   // Log event helper
   const addEvent = useCallback((action: string, details?: string) => {
@@ -248,8 +338,18 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     }
   }, [arrestDuration, sessionId, memberId]);
 
+  useEffect(() => {
+    if (!autoStart || autoStartApplied.current) return;
+    autoStartApplied.current = true;
+    if (syncShared && shared) shared.setIsRunning(true);
+    setIsRunning(true);
+    addEvent('CPR synced to ResusGPS', 'Begin compressions');
+    speak('CPR started. Begin compressions.');
+  }, [autoStart, syncShared, shared, addEvent, speak]);
+
   // Start arrest
   const startArrest = () => {
+    if (syncShared && shared) shared.setIsRunning(true);
     setIsRunning(true);
     addEvent('CPR Started', 'Begin compressions');
     speak('CPR started. Begin compressions.');
@@ -259,6 +359,13 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
   const handleRhythmCheck = (type: RhythmType) => {
     setRhythmType(type);
     setShowRhythmCheck(false);
+    if (syncShared && shared) {
+      shared.setRhythmType(mapTeamRhythmToEngine(type));
+      shared.setEngineState((s) => ({
+        ...s,
+        rhythmType: mapTeamRhythmToEngine(type),
+      }));
+    }
     
     if (type === 'shockable') {
       addEvent('Shockable rhythm detected');
@@ -266,51 +373,65 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
     } else {
       addEvent('Non-shockable rhythm');
       speak('Non-shockable rhythm. Resume CPR.');
+      const engineState = syncShared
+        ? shared!.engineState
+        : {
+            shockCount: effectiveShockCount,
+            epiDoses: effectiveEpiDoses,
+            lastEpiTime: effectiveLastEpiTime,
+            antiarrhythmicDoses: 0,
+            rhythmType: 'pea' as EngineRhythmType,
+            phase: 'compressions' as const,
+          };
+      const med = evaluateMedicationEligibility(effectiveArrestDuration, engineState, false);
+      if (med.epiEligible && med.recommendation) speak(med.recommendation);
     }
   };
 
-  /**
-   * AHA 2020 Pediatric Defibrillation Energy (PALS guidelines):
-   *   Shock 1:  2 J/kg
-   *   Shock 2:  4 J/kg
-   *   Shock 3+: ≥4 J/kg, max 10 J/kg (or adult maximum dose)
-   * Reference: AHA PALS 2020 — Pediatric Cardiac Arrest Algorithm
-   */
-  const getShockEnergyJPerKg = (shockNumber: number): number => {
-    if (shockNumber === 1) return 2;
-    if (shockNumber === 2) return 4;
-    return Math.min(4 + (shockNumber - 2), 10); // escalate up to 10 J/kg max
-  };
-
-  const getShockEnergyJoules = (shockNumber: number): number => {
-    const jPerKg = getShockEnergyJPerKg(shockNumber);
-    return Math.round(jPerKg * patientWeight);
-  };
-
-  // Deliver shock
+  // Deliver shock (energy via cpr-engine)
   const deliverShock = () => {
-    const newShockCount = shockCount + 1;
+    const newShockCount = effectiveShockCount + 1;
     setShockCount(newShockCount);
-    const jPerKg = getShockEnergyJPerKg(newShockCount);
-    const totalJoules = getShockEnergyJoules(newShockCount);
-    addEvent(
-      `Shock ${newShockCount} delivered`,
-      `${jPerKg} J/kg = ${totalJoules} J (AHA PALS 2020)`
-    );
-    speak(`Shock ${newShockCount} delivered at ${jPerKg} joules per kilogram. Resume CPR immediately.`);
+    if (syncShared && shared) {
+      shared.setEngineState((s) => ({ ...s, shockCount: newShockCount }));
+    }
+    const totalJoules = calculateShockEnergy(patientWeight, newShockCount - 1);
+    addEvent(`Shock ${newShockCount} delivered`, `${totalJoules} J`);
+    speak(`Shock ${newShockCount} delivered. Resume CPR immediately.`);
 
-    // Amiodarone after 3rd shock (AHA: give after 3rd shock for refractory VF/pVT)
-    if (newShockCount === 3 && !amiodaroneGiven) {
+    const engineState = syncShared
+      ? { ...shared!.engineState, shockCount: newShockCount }
+      : {
+          shockCount: newShockCount,
+          epiDoses: effectiveEpiDoses,
+          lastEpiTime: effectiveLastEpiTime,
+          antiarrhythmicDoses: 0,
+          rhythmType: 'vf_pvt' as EngineRhythmType,
+          phase: 'post_shock' as const,
+        };
+    const med = evaluateMedicationEligibility(effectiveArrestDuration, engineState, true);
+    if (med.epiEligible && med.recommendation) speak(med.recommendation);
+    if (med.antiarrhythmicEligible && newShockCount === 3 && !amiodaroneGiven) {
       speak(`Consider amiodarone ${amiodaroneDose} milligrams after third shock.`);
     }
   };
 
   // Give epinephrine
   const giveEpinephrine = () => {
-    const newEpiDoses = epiDoses + 1;
+    const newEpiDoses = effectiveEpiDoses + 1;
     setEpiDoses(newEpiDoses);
-    setLastEpiTime(arrestDuration);
-    addEvent(`Epinephrine dose ${newEpiDoses}`, `${epiDose} mg (0.01 mg/kg)`);
+    setLastEpiTime(effectiveArrestDuration);
+    if (syncShared && shared) {
+      shared.setEngineState((s) => ({
+        ...s,
+        epiDoses: newEpiDoses,
+        lastEpiTime: effectiveArrestDuration,
+      }));
+    }
+    addEvent(
+      `Epinephrine dose ${newEpiDoses}`,
+      `${epiDose} ${epiDoseMeta.unit}${epiDoseMeta.preparation ? ` (${epiDoseMeta.preparation})` : ''}`
+    );
     speak(`Epinephrine given.`);
   };
 
@@ -599,7 +720,7 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center p-8">
-        {!isRunning ? (
+        {!effectiveIsRunning && !autoStart ? (
           <div className="text-center space-y-8">
             <div>
               <div className="text-6xl font-bold mb-4">Ready to Start</div>
@@ -614,6 +735,8 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
               START CPR
             </Button>
           </div>
+        ) : !effectiveIsRunning && autoStart ? (
+          <div className="text-center text-2xl font-bold">Syncing CPR clock…</div>
         ) : (
           <div className="w-full max-w-4xl space-y-8">
             {/* Current action */}
@@ -661,7 +784,7 @@ export function CPRClockTeam({ patientWeight, patientAgeMonths, onClose }: Props
                 <Zap className="h-8 w-8 mb-2" />
                 <div className="text-sm">Shock #{shockCount + 1}</div>
                 <div className="text-xs opacity-80">
-                  {getShockEnergyJPerKg(shockCount + 1)} J/kg = {getShockEnergyJoules(shockCount + 1)} J
+                  {calculateShockEnergy(patientWeight, effectiveShockCount)} J (next shock)
                 </div>
               </Button>
               

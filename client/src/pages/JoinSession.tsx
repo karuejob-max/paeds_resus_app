@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLocation, useSearch } from 'wouter';
+import { useLocation, useSearch, useParams } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,8 +18,14 @@ export default function JoinSession() {
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
   const urlCode = new URLSearchParams(searchParams).get('code');
+  const params = useParams<{ code?: string }>();
+  const pathCode = params?.code?.trim().toUpperCase() ?? '';
 
-  const [sessionCode, setSessionCode] = useState(urlCode || '');
+  const [sessionCode, setSessionCode] = useState(pathCode || urlCode || '');
+
+  useEffect(() => {
+    if (pathCode) setSessionCode(pathCode);
+  }, [pathCode]);
   const [providerName, setProviderName] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [error, setError] = useState('');

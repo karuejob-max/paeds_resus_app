@@ -118,6 +118,35 @@ describe('CPR Engine - Medication Eligibility', () => {
     expect(result.epiEligible).toBe(true);
   });
 
+  it('should recommend early epinephrine when defibrillation is delayed in shockable rhythm', () => {
+    const state: CprEngineState = {
+      shockCount: 0,
+      epiDoses: 0,
+      lastEpiTime: null,
+      antiarrhythmicDoses: 0,
+      rhythmType: 'vf_pvt',
+      phase: 'compressions',
+    };
+
+    const result = evaluateMedicationEligibility(30, state, true, { defibDelayed: true });
+    expect(result.epiEligible).toBe(true);
+    expect(result.recommendation).toMatch(/delayed/i);
+  });
+
+  it('should NOT recommend early epinephrine in shockable rhythm without defib delay', () => {
+    const state: CprEngineState = {
+      shockCount: 0,
+      epiDoses: 0,
+      lastEpiTime: null,
+      antiarrhythmicDoses: 0,
+      rhythmType: 'vf_pvt',
+      phase: 'compressions',
+    };
+
+    const result = evaluateMedicationEligibility(30, state, true, { defibDelayed: false });
+    expect(result.epiEligible).toBe(false);
+  });
+
   it('should recommend repeat epinephrine every 3-5 minutes', () => {
     const state: CprEngineState = {
       shockCount: 2,

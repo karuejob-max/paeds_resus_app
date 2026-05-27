@@ -64,21 +64,35 @@ export function calculateShockEnergy(weightKg: number, shockCount: number): numb
 /**
  * Evaluates medication eligibility based on arrest duration and previous doses.
  */
+export interface MedicationEligibilityOptions {
+  /** Shockable rhythm but defibrillator unavailable or not yet attached — allow earlier epi per 2025 guidance. */
+  defibDelayed?: boolean;
+}
+
 export function evaluateMedicationEligibility(
   arrestDuration: number,
   state: CprEngineState,
-  isShockable: boolean
+  isShockable: boolean,
+  options: MedicationEligibilityOptions = {}
 ): { epiEligible: boolean; antiarrhythmicEligible: boolean; recommendation: string | null } {
   let epiEligible = false;
   let antiarrhythmicEligible = false;
   let recommendation: string | null = null;
 
+  const { defibDelayed = false } = options;
+
   // Epinephrine (every 3-5 min)
   if (state.lastEpiTime === null) {
-    // First dose: immediate if non-shockable, after 2nd shock if shockable
-    if (!isShockable || state.shockCount >= 2) {
+    // First dose: immediate if non-shockable; shockable after 2nd shock OR if defib delayed
+    const shockableFirstEpiOk =
+      state.shockCount >= 2 || (defibDelayed && state.shockCount >= 0);
+    if (!isShockable || shockableFirstEpiOk) {
       epiEligible = true;
-      recommendation = 'Prepare epinephrine.';
+      recommendation = !isShockable
+        ? 'Give epinephrine now (non-shockable rhythm).'
+        : defibDelayed && state.shockCount < 2
+          ? 'Prepare epinephrine (defibrillation delayed).'
+          : 'Prepare epinephrine.';
     }
   } else if (arrestDuration - state.lastEpiTime >= 180) { // 3 min = 180s
     epiEligible = true;

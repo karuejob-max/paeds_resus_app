@@ -16,7 +16,7 @@
 | RESUS-DOSE | Weight-based dosing display | `abcdeEngine.ts` `calcDose`, `dose-rationale.ts`, `InterventionDoseRationale` | Engineering + clinical lead / weight-band tables in repo | 2026-05-17 |
 | RESUS-UNDO | Session undo/redo | `undo-manager.ts`, `undo-manager.test.ts` | Engineering | 2026-05-17 |
 | RESUS-DEDUP | Duplicate medication warning | `medication-deduplication.ts`, `medication-deduplication.test.ts` | Engineering | 2026-05-17 |
-| CPR-CLOCK | CPR timing / team UI | `CPRClockTeam.tsx`, `cpr-engine.ts`, `cpr-engine.test.ts` | Engineering + clinical lead / AHA PALS timing norms | 2026-05-17 |
+| CPR-CLOCK | CPR timing / unified solo+team UI | `CPRClockUnified.tsx`, `CPRClockStreamlined.tsx`, `cpr-engine.ts`, `cpr-pack-resolver.ts`, `cpr-engine.test.ts`, `cpr-pack-resolver.test.ts` | Engineering + clinical lead / AHA PALS 2025 timing & post-ROSC norms | 2026-05-27 |
 
 ## Non–bedside training surfaces
 
