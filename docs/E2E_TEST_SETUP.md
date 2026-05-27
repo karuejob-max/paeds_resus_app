@@ -73,15 +73,9 @@ pnpm run test:e2e:holistic
 
 ## CI (optional)
 
-The `e2e-holistic` job in `.github/workflows/ci.yml` runs only when repository secrets are configured:
+Set repository **variable** `E2E_HOLISTIC_ENABLED=true` and **secrets** `E2E_PROVIDER_EMAIL`, `E2E_PROVIDER_PASSWORD` to run the optional `e2e-holistic` job in `.github/workflows/ci.yml`. (GitHub does not allow `secrets` in job `if` conditions.)
 
-| Secret | Required |
-|--------|----------|
-| `E2E_PROVIDER_EMAIL` | Yes |
-| `E2E_PROVIDER_PASSWORD` | Yes |
-| `E2E_DATABASE_URL` | No — only if future tests need DB seed in CI |
-
-If secrets are absent, the job is skipped (`if: secrets.E2E_PROVIDER_EMAIL != ''`).
+If not configured, the main CI gate runs without E2E; holistic tests skip authenticated cases locally when creds are unset.
 
 ---
 

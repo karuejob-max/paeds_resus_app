@@ -37,8 +37,10 @@ jobs:
       - name: Production build
         run: pnpm run build
 
+  # Optional: set repository variable E2E_HOLISTIC_ENABLED=true and secrets
+  # E2E_PROVIDER_EMAIL / E2E_PROVIDER_PASSWORD (secrets cannot be used in job `if`).
   e2e-holistic:
-    if: ${{ secrets.E2E_PROVIDER_EMAIL != '' && secrets.E2E_PROVIDER_PASSWORD != '' }}
+    if: vars.E2E_HOLISTIC_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
