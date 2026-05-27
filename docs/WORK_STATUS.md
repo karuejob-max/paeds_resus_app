@@ -22,7 +22,23 @@
 3. Security baseline (password, session, audit logging)
 4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale)
 
-**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12).
+**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12). **Platform maturity:** [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — Phase 1 in progress (2026-05-27).
+
+---
+
+## In progress
+
+| Who | What | Since |
+|-----|------|-------|
+| Cursor | **MATURITY_ROADMAP Phase 1** — PR open; live staging provisioning remains CEO/operator action | 2026-05-27 |
+
+*(Legacy in-progress rows below may be stale — confirm against git `main`.)*
+
+| Who | What |
+|-----|------|
+| Cursor | Best-way-forward execution tranche complete in code/docs and pushed; awaiting production redeploy smoke confirmation on the latest commit set. |
+| Cursor | Governance closeout support: Phase 0/Week 1-4 execution complete with evidence pack prepared; awaiting Job-led P0-7 sync sign-off window for formal Go/No-Go recording. |
+| Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
 
 ---
 
@@ -30,6 +46,8 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-27 | Cursor | **MATURITY_ROADMAP Phase 1 (engineering slice):** Fellowship §11 gate (`shared/fellowship-launch-gate.ts` — blocks Fellow title/graduation until CEO enables); deprecated Bronze/Silver/Gold from institutional catalog; ResusGPS post-case loop enhanced (Care Signal prompt analytics + Septic Shock I link); `active_paying_providers_30d` in admin reports; institutional readiness copy (Institutional + Hospital Admin); docs: `STAGING_GO_LIVE_CHECKLIST`, `LEGAL_COMPLIANCE_BASELINE`, `CLINICAL_OUTCOMES_PILOT`; PSOT §8/§12/§21 updates; `holistic_loop` event taxonomy. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD |
+| 2026-05-25 | Cursor | **Platform maturity roadmap:** Added [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — CEO-ready 6-phase plan (15–18 months) closing all 10 objective-gap blockers (holistic loop, Fellowship §11 gate, clinical outcomes pathway, staging, mission-aligned GTM, Care Signal intelligence, ResusGPS v4, legal/governance, narrative coherence, institutional systems value prop). Vertical-slice proof: one hospital, paediatric septic shock, closed loop. | PR TBD |
 | 2026-05-25 | Cursor | **Public SEO improvements:** Branded **`og-image.png`** (1200×630) + `og:image` / `twitter:image` / `og:url` in `client/index.html`; **`robots.txt`** + **`sitemap.xml`** for public routes; lightweight **`usePageMeta`** hook on About, Enroll, Verify, Help; Express **apex→www** redirect (`server/_core/canonical-domain.ts`); PSOT §10 domain note updated. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | — |
 | 2026-05-19 | Cursor | **Care Signal step-0 blocker fix:** `handleNext` validated step 1 (report type) while user was still on step 0 (facility/date). Aligned `validateCareSignalV2Step` to UI step index; added regression tests in `care-signal-v2.test.ts`. | `8a78bd2` · PR #9 |
 | 2026-05-17 | Cursor | **Codex reaudit follow-up:** `revenueGeneration` procedures → **admin-only**; removed lives-saved from `getImpactToRevenueCorrelation`; `automatedGrading` public → **protected**; `pnpm test` = gate suites (`test:all` = full Vitest); `SecurityService` in-memory logs documented as non-authoritative. | — |
@@ -229,13 +247,13 @@
 
 ---
 
-## In progress
+## In progress (legacy — see top of file)
+
+Stale rows kept for history; current Phase 1 tracking is at the top **In progress** section.
 
 | Who | What |
 |-----|------|
 | Cursor | Best-way-forward execution tranche complete in code/docs and pushed; awaiting production redeploy smoke confirmation on the latest commit set. |
-| Cursor | Governance closeout support: Phase 0/Week 1-4 execution complete with evidence pack prepared; awaiting Job-led P0-7 sync sign-off window for formal Go/No-Go recording. |
-| Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
 
 **Sprint 1 note:** Implementation + taxonomy freeze merged; optional **Verification** (Admin Reports / `analyticsEvents`) remains in [`SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](./SPRINT_1_IMPLEMENTATION_CHECKLIST.md).
 

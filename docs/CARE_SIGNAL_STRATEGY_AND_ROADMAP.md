@@ -425,7 +425,7 @@ Care Signal is not considered launched until all items in this checklist pass. T
 
 ### 12.1 Data and Automation
 
-- [ ] `getEventHistory` returns real data from `careSignalEvents`
+- [x] `getEventHistory` returns real data from `careSignalEvents` (2026-05-17+)
 - [ ] `getEventStats` returns real aggregated statistics
 - [ ] `getGapAnalysis` returns real gap counts from submitted data
 - [ ] `getRecommendations` returns context-aware, gap-specific recommendations
@@ -438,7 +438,8 @@ Care Signal is not considered launched until all items in this checklist pass. T
 
 ### 12.2 UX and Form
 
-- [ ] Single canonical form component (`CareSignalForm.tsx`) used everywhere
+- [x] Single canonical form component (`CareSignalFormV2.tsx`) used on `/care-signal` (legacy `CareSignalForm.tsx` retained for reference only)
+- [x] ResusGPS post-case → Care Signal prompt with pre-fill (`CareSignalPostEventPrompt`, 2026-05-27)
 - [ ] `CareSignalLogger.tsx` deprecated and removed from all routes
 - [ ] Submission confirmation shows streak update and fellowship progress
 - [ ] History view accessible from provider dashboard

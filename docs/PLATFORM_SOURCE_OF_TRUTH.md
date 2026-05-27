@@ -128,6 +128,7 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 | **Last 7 days** | **Rolling** 7×24 hours from “now” (not calendar week). |
 | **Safe-Truth usage (this month)** | Count of rows in **`parentSafeTruthSubmissions`** with `createdAt` in the report month (EAT). **One row = one submission.** |
 | **Product / app activity (last 7 days)** | Count of rows in **`analyticsEvents`** with `createdAt` in the last 7 days. **One row = one event.** Instrumentation must go through the **standard** analytics path—no parallel ad-hoc tables for the same KPI. |
+| **`active_paying_providers_30d`** | Count of **distinct** `users.id` where `userType = individual` and the user has at least one **completed** payment in the rolling last **30×24 hours** — union of `payments.status = completed` and `microCourseEnrollments.paymentStatus = completed`. **Growth KPI only** — never combine with Care Signal or Safe-Truth metrics ([§18.3](#183-locked-growth-kpi-model-provider-lane)). |
 
 ---
 
@@ -169,6 +170,8 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 2. **Staging:** `develop` → staging, `main` → production; PR verification on staging before production.
 3. **Security baseline:** Password complexity, session max age, audit logging for admin (as specified when locked).
 4. **ResusGPS v4:** Undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale.
+
+**Maturity sequencing:** Platform-wide gap closure (staging, fellowship §11 gate, holistic loop, institutional systems) is tracked in [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — six phases over 15–18 months; Phase 1 engineering/governance foundation runs in parallel with §12 items above where safe.
 
 ---
 
@@ -548,6 +551,7 @@ Every strategic and operational document in this repository is listed here with 
 | [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) | Active | Course catalog and ADF strategy — expands §3 |
 | [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) | Active | 24-slot micro-course backlog — expands §3 |
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
+| [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 
 ### 21.2 Technical and Operational Documents
 
@@ -559,6 +563,9 @@ Every strategic and operational document in this repository is listed here with 
 | [PLATFORM_RELIABILITY_PLAN.md](./PLATFORM_RELIABILITY_PLAN.md) | Active | Reliability and uptime requirements |
 | [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md) | Active | Deployment configuration — locked |
 | [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md) | Active | Staging environment setup |
+| [STAGING_GO_LIVE_CHECKLIST.md](./STAGING_GO_LIVE_CHECKLIST.md) | Active | Operator go-live checklist for live staging (MATURITY_ROADMAP Phase 1) |
+| [LEGAL_COMPLIANCE_BASELINE.md](./LEGAL_COMPLIANCE_BASELINE.md) | Draft | Legal/compliance baseline for counsel review (MATURITY_ROADMAP Issue #8) |
+| [CLINICAL_OUTCOMES_PILOT.md](./CLINICAL_OUTCOMES_PILOT.md) | Draft | Process-outcomes pilot framework (MATURITY_ROADMAP Issue #3) |
 | [MPESA_CONFIG_REFERENCE.md](./MPESA_CONFIG_REFERENCE.md) | Active | M-Pesa configuration reference |
 | [MPESA_CREDENTIALS_REFERENCE.md](./MPESA_CREDENTIALS_REFERENCE.md) | Active | M-Pesa credentials (do not commit secrets) |
 | [PR-DC_V1.0_Drug_Compendium.md](./PR-DC_V1.0_Drug_Compendium.md) | Active | Paediatric drug compendium — clinical reference |

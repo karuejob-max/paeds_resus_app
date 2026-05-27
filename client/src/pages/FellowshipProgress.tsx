@@ -16,6 +16,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Stethoscope, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { useLocation } from "wouter";
+import {
+  canDisplayFellowTitle,
+  FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL,
+} from "@shared/fellowship-launch-gate";
 
 export default function FellowshipProgress() {
   const { user, loading } = useAuth();
@@ -72,6 +76,7 @@ export default function FellowshipProgress() {
   }
 
   const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
+  const showFellowCredential = canDisplayFellowTitle(isQualified);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -80,32 +85,34 @@ export default function FellowshipProgress() {
         <div>
           <h1 className="text-3xl font-bold">Fellowship Qualification Progress</h1>
           <p className="text-muted-foreground mt-2">
-            Track your progress across the 3 pillars of the Paeds Resus Paeds Resus Fellowship.
+            Track your progress across the 3 pillars of the {FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL}.
           </p>
         </div>
 
         {/* Overall Status */}
-        <Card className={isQualified ? "border-green-200 bg-green-50" : ""}>
+        <Card className={showFellowCredential ? "border-green-200 bg-green-50" : ""}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  {isQualified ? (
+                  {showFellowCredential ? (
                     <>
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      Fellowship Qualified
+                      Paeds Resus Fellow
                     </>
                   ) : (
                     <>
                       <Clock className="h-5 w-5 text-amber-600" />
-                      In Progress
+                      Pathway in progress
                     </>
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {isQualified
-                    ? "Congratulations! You have completed all requirements for the Paeds Resus Paeds Resus Fellowship."
-                    : `Overall progress: ${overallPercentage}% complete`}
+                  {showFellowCredential
+                    ? "You have earned the title of Paeds Resus Fellow."
+                    : isQualified
+                      ? "All three pillars complete. Fellow credentials unlock after platform §11 launch readiness — your progress is saved."
+                      : `Overall progress: ${overallPercentage}% complete`}
                 </CardDescription>
               </div>
               <div className="text-right">
