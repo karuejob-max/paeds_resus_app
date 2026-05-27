@@ -1,7 +1,7 @@
 /**
- * CPR Clock with Team Coordination
+ * CPR-GPS Clock with Team Coordination
  * 
- * Full-screen, voice-guided, team-synchronized CPR timer.
+ * Full-screen, voice-guided, team-synchronized CPR-GPS timer.
  * Supports QR code session sharing and role assignments.
  */
 
@@ -598,7 +598,7 @@ export function CPRClockTeam({
             </div>
 
             <Button size="lg" className="w-full" onClick={onClose}>
-              Close CPR Clock
+              Close CPR-GPS
             </Button>
           </CardContent>
         </Card>
@@ -732,11 +732,11 @@ export function CPRClockTeam({
               onClick={startArrest}
             >
               <Play className="h-8 w-8 mr-4" />
-              START CPR
+              START CPR-GPS
             </Button>
           </div>
         ) : !effectiveIsRunning && autoStart ? (
-          <div className="text-center text-2xl font-bold">Syncing CPR clock…</div>
+          <div className="text-center text-2xl font-bold">Syncing CPR-GPS clock…</div>
         ) : (
           <div className="w-full max-w-4xl space-y-8">
             {/* Current action */}

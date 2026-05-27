@@ -5,6 +5,16 @@
 
 export type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
 export type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | 'rosc' | 'unknown';
+export type EpiTimingState = 'not_due' | 'almost_due' | 'overdue';
+export type RhythmWindowPhase = 'compressions' | 'precharge_alert' | 'rhythm_window';
+export type RhythmClassification = 'shockable' | 'non_shockable';
+export type ShockActionType = 'shock_delivered' | 'no_shock';
+
+export const CPR_CYCLE_SECONDS = 120;
+export const PRECHARGE_ALERT_SECONDS = 15;
+export const RHYTHM_WINDOW_SECONDS = 10;
+export const CYCLE_BLOCK_SECONDS = CPR_CYCLE_SECONDS + RHYTHM_WINDOW_SECONDS;
+export const VENTILATION_CUE_SECONDS = 6;
 
 export interface CprEngineState {
   shockCount: number;
@@ -13,6 +23,165 @@ export interface CprEngineState {
   antiarrhythmicDoses: number;
   rhythmType: RhythmType;
   phase: ArrestPhase;
+}
+
+export interface CycleWorkflowStatus {
+  cycleNumber: number;
+  elapsedInBlock: number;
+  countdownToRhythmCheck: number;
+  rhythmWindowRemaining: number;
+  phase: RhythmWindowPhase;
+  nextAction: string;
+}
+
+export interface RhythmWindowDocumentation {
+  rhythmClassification: RhythmClassification;
+  rhythmType?: RhythmType;
+  shockAction: ShockActionType;
+  noShockReason?: string;
+}
+
+export interface HyperkalemiaGuidanceInput {
+  weightKg: number;
+  potassiumMmolL: number;
+  hasEcgChanges: boolean;
+  prolongedArrest?: boolean;
+}
+
+export interface HyperkalemiaGuidance {
+  severity: 'mild' | 'moderate' | 'severe';
+  calciumGluconate: string;
+  insulinDextrose: string;
+  bicarbonate: string;
+  prompts: string[];
+}
+
+export function getCycleWorkflowStatus(totalElapsedSeconds: number): CycleWorkflowStatus {
+  const safeElapsed = Math.max(0, totalElapsedSeconds);
+  const elapsedInBlock = safeElapsed % CYCLE_BLOCK_SECONDS;
+  const cycleNumber = Math.floor(safeElapsed / CYCLE_BLOCK_SECONDS) + 1;
+  const inCompressionPhase = elapsedInBlock < CPR_CYCLE_SECONDS;
+  const countdownToRhythmCheck = inCompressionPhase ? CPR_CYCLE_SECONDS - elapsedInBlock : 0;
+  const rhythmWindowRemaining = inCompressionPhase ? 0 : CYCLE_BLOCK_SECONDS - elapsedInBlock;
+  const phase: RhythmWindowPhase = !inCompressionPhase
+    ? 'rhythm_window'
+    : countdownToRhythmCheck <= PRECHARGE_ALERT_SECONDS
+      ? 'precharge_alert'
+      : 'compressions';
+
+  const nextAction =
+    phase === 'rhythm_window'
+      ? 'Document rhythm and shock decision'
+      : phase === 'precharge_alert'
+        ? 'Pre-charge defibrillator'
+        : 'Continue high-quality compressions';
+
+  return {
+    cycleNumber,
+    elapsedInBlock,
+    countdownToRhythmCheck,
+    rhythmWindowRemaining,
+    phase,
+    nextAction,
+  };
+}
+
+export function validateRhythmWindowDocumentation(
+  doc: RhythmWindowDocumentation
+): { valid: boolean; missing: string[] } {
+  const missing: string[] = [];
+  if (!doc.rhythmClassification) {
+    missing.push('rhythmClassification');
+  }
+  if (!doc.shockAction) {
+    missing.push('shockAction');
+  }
+  if (doc.shockAction === 'no_shock' && !doc.noShockReason?.trim()) {
+    missing.push('noShockReason');
+  }
+  return { valid: missing.length === 0, missing };
+}
+
+export function applyRhythmWindowDecision(
+  shockCount: number,
+  doc: RhythmWindowDocumentation
+): { nextShockCount: number; actionSummary: string } {
+  const decision = validateRhythmWindowDocumentation(doc);
+  if (!decision.valid) {
+    throw new Error(`Incomplete rhythm window documentation: ${decision.missing.join(', ')}`);
+  }
+
+  if (doc.shockAction === 'shock_delivered') {
+    const nextShockCount = shockCount + 1;
+    return {
+      nextShockCount,
+      actionSummary: `Shock #${nextShockCount} delivered`,
+    };
+  }
+
+  return {
+    nextShockCount: shockCount,
+    actionSummary: `No shock delivered (${doc.noShockReason?.trim()})`,
+  };
+}
+
+export function getEpinephrineTimingState(
+  arrestDuration: number,
+  state: CprEngineState,
+  isShockable: boolean,
+  options: MedicationEligibilityOptions = {}
+): EpiTimingState {
+  const med = evaluateMedicationEligibility(arrestDuration, state, isShockable, options);
+  if (state.lastEpiTime === null) {
+    return med.epiEligible ? 'overdue' : 'not_due';
+  }
+
+  const elapsed = Math.max(0, arrestDuration - state.lastEpiTime);
+  if (elapsed >= 180) return 'overdue';
+  if (elapsed >= 150) return 'almost_due';
+  return 'not_due';
+}
+
+export function shouldTriggerIntubatedVentilationCue(
+  elapsedSinceIntubation: number,
+  advancedAirwayPlaced: boolean
+): boolean {
+  if (!advancedAirwayPlaced) return false;
+  if (elapsedSinceIntubation <= 0) return false;
+  return elapsedSinceIntubation % VENTILATION_CUE_SECONDS === 0;
+}
+
+export function getHyperkalemiaGuidance(input: HyperkalemiaGuidanceInput): HyperkalemiaGuidance {
+  const { weightKg, potassiumMmolL, hasEcgChanges, prolongedArrest = false } = input;
+  const severity: HyperkalemiaGuidance['severity'] =
+    potassiumMmolL >= 7 || hasEcgChanges ? 'severe' : potassiumMmolL >= 6 ? 'moderate' : 'mild';
+
+  const calciumMinMl = Math.max(1, Math.round(weightKg * 0.6 * 10) / 10);
+  const calciumMaxMl = Math.max(1, Math.round(weightKg * 1 * 10) / 10);
+  const insulinUnits = Math.max(1, Math.round(weightKg * 0.1 * 10) / 10);
+  const dextroseGrams = Math.max(2.5, Math.round(weightKg * 0.5 * 10) / 10);
+  const bicarbonateDose = Math.max(5, Math.round(weightKg));
+
+  const prompts = [
+    'Confirm potassium with blood gas/chemistry and trend ECG.',
+    'Prioritize membrane stabilization before intracellular shift therapy.',
+    'Recheck potassium and rhythm within 5-10 minutes.',
+  ];
+
+  if (severity === 'severe') {
+    prompts.unshift('Treat as immediate life-threatening hyperkalemia.');
+  }
+
+  return {
+    severity,
+    calciumGluconate: `Calcium gluconate 10% ${calciumMinMl}-${calciumMaxMl} mL IV/IO (60-100 mg/kg) over 5-10 minutes.`,
+    insulinDextrose: `Regular insulin ${insulinUnits} units IV with dextrose ${dextroseGrams} g (D10 5 mL/kg equivalent).`,
+    bicarbonate:
+      hasEcgChanges || prolongedArrest || potassiumMmolL >= 7
+        ? `Consider sodium bicarbonate ${bicarbonateDose} mEq IV (1 mEq/kg) for severe hyperkalemia/prolonged arrest with acidosis concern.`
+        : 'Bicarbonate not routine; reserve for severe hyperkalemia, prolonged arrest, or suspected significant metabolic acidosis.',
+    prompts,
+  };
 }
 
 /**

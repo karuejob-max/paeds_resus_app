@@ -1,5 +1,5 @@
 /**
- * Unified CPR Orchestrator — supports both Solo and Team modes.
+ * Unified CPR-GPS Orchestrator — supports both Solo and Team modes.
  * Switches modes without losing session continuity or patient context.
  */
 
