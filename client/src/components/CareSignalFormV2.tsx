@@ -61,6 +61,7 @@ export default function CareSignalFormV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submittedData, setSubmittedData] = useState<SubmissionData | null>(null);
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
+  const [submissionSource, setSubmissionSource] = useState<string | undefined>();
 
   const utils = trpc.useUtils();
   const submitMutation = trpc.careSignalEvents.logEvent.useMutation({
@@ -101,6 +102,7 @@ export default function CareSignalFormV2() {
       });
       if (prefillOutcome === "died") patch({ outcome: "died" });
       if (params.get("source") === "resusgps") {
+        setSubmissionSource("resusgps");
         setPrefillBanner("Pre-filled from ResusGPS. Complete timeline, delays, and system actions for QI.");
       }
     }
@@ -153,7 +155,7 @@ export default function CareSignalFormV2() {
       return;
     }
     try {
-      const payload = buildCareSignalV2SubmitPayload(form, facility);
+      const payload = buildCareSignalV2SubmitPayload(form, facility, submissionSource);
       const result = await submitMutation.mutateAsync(payload);
       trackProductActivity.mutate({
         eventType: "care_signal",

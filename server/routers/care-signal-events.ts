@@ -304,6 +304,13 @@ export const careSignalEventsRouter = router({
 
         const insertId = (insertResult as unknown as { insertId: number }).insertId;
 
+        const gapDetailsMeta = input.gapDetails as {
+          formVersion?: string;
+          submissionSource?: string | null;
+        };
+        const resusPrefillSource =
+          gapDetailsMeta.submissionSource === "resusgps" ? "resusgps" : undefined;
+
         await trackEvent({
           userId: ctx.user.id,
           eventType: "care_signal_submission_created",
@@ -318,8 +325,10 @@ export const careSignalEventsRouter = router({
             facilityName,
             facilityCounty,
             facilityCountry,
-            submissionVersion:
-              (input.gapDetails as { formVersion?: string })?.formVersion === "v2" ? "v2" : "v1",
+            submissionVersion: gapDetailsMeta.formVersion === "v2" ? "v2" : "v1",
+            ...(resusPrefillSource
+              ? { source: resusPrefillSource, prefillSource: resusPrefillSource }
+              : {}),
           },
         });
 
