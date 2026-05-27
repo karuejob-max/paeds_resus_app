@@ -296,7 +296,8 @@ export function mapEmergencyTypeToEventType(t: CareSignalEmergencyType): string 
 
 export function buildCareSignalV2SubmitPayload(
   form: CareSignalV2FormState,
-  facility: FacilitySelection
+  facility: FacilitySelection,
+  submissionSource?: string
 ) {
   const outcomeRow = OUTCOME_OPTIONS.find((o) => o.value === form.outcome);
   const apiOutcome = outcomeRow?.apiOutcome ?? "unknown";
@@ -310,6 +311,7 @@ export function buildCareSignalV2SubmitPayload(
 
   const gapDetailsV2 = {
     formVersion: CARE_SIGNAL_FORM_VERSION,
+    submissionSource: submissionSource ?? null,
     reportType: form.reportType,
     careLocation: form.careLocation,
     careLocationOther: form.careLocationOther || null,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialCareSignalV2State, validateCareSignalV2Step } from "./care-signal-v2";
+import { initialCareSignalV2State, validateCareSignalV2Step, buildCareSignalV2SubmitPayload } from "./care-signal-v2";
 
 describe("validateCareSignalV2Step", () => {
   it("step 0 only requires event date (not report type)", () => {
@@ -24,5 +24,13 @@ describe("validateCareSignalV2Step", () => {
       careLocation: "emergency_department" as const,
     };
     expect(validateCareSignalV2Step(1, form)).toBeNull();
+  });
+
+  it("buildCareSignalV2SubmitPayload records ResusGPS submission source for holistic loop KPIs", () => {
+    const form = initialCareSignalV2State();
+    const facility = { facilityId: 1, facilityName: "Test Hospital", facilityCounty: "Nairobi", facilityCountry: "Kenya" };
+    const payload = buildCareSignalV2SubmitPayload(form, facility, "resusgps");
+    const gapDetails = payload.gapDetails as { submissionSource?: string | null };
+    expect(gapDetails.submissionSource).toBe("resusgps");
   });
 });

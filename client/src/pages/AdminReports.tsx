@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buildMaturityKpiCsv, downloadMaturityKpiCsv } from "@/lib/maturityKpiCsv";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -359,6 +360,26 @@ export default function AdminReports() {
     a.download = `admin-audit-export-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadMaturityKpiCsvExport = () => {
+    if (!missionKpis?.ok || !missionKpis.missionImpact) {
+      toast.error("Mission impact KPIs are not loaded yet.");
+      return;
+    }
+    const csv = buildMaturityKpiCsv({
+      exportedAt: new Date(),
+      windowDays: missionKpis.lastDays ?? 30,
+      missionImpact: missionKpis.missionImpact,
+      activePayingProviders30d: missionKpis.activePayingProviders30d,
+      conversionFunnel: conversionFunnelData?.funnel,
+      fellowshipChecklist: fellowshipChecklist ?? undefined,
+    });
+    downloadMaturityKpiCsv(
+      `maturity-kpis-${new Date().toISOString().slice(0, 10)}.csv`,
+      csv
+    );
+    toast.success("Maturity KPIs exported");
   };
 
   const exportEnrollmentLedgerCsv = async () => {
@@ -1912,6 +1933,22 @@ export default function AdminReports() {
           </TabsContent>
 
           <TabsContent value="maturity" className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                Pilot weekly review — mission impact, holistic loop, conversion funnel, and §11 checklist (separate KPI trees).
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadMaturityKpiCsvExport}
+                disabled={!missionKpis?.ok}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export maturity KPIs (CSV)
+              </Button>
+            </div>
+
             <Card>
               <CardHeader>
                 <CardTitle>Provider conversion funnel (30d)</CardTitle>
