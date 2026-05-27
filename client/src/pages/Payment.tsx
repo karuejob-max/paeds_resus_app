@@ -15,6 +15,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { LegalExternalLink } from "@/components/LegalExternalLink";
 
 export default function Payment() {
   useScrollToTop();
@@ -429,9 +430,9 @@ export default function Payment() {
                   <p className="text-xs text-muted-foreground mb-3 rounded-md border border-border p-3">
                     M-Pesa STK push charges your Safaricom line per Safaricom terms. Amounts shown are in KES. By
                     proceeding you agree to our{" "}
-                    <a href="/terms#payments" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                    <LegalExternalLink href="/terms#payments" className="text-primary underline">
                       payment and refund policy
-                    </a>
+                    </LegalExternalLink>
                     . Paeds Resus Limited processes payment metadata for reconciliation only.
                   </p>
                   <MpesaPaymentForm

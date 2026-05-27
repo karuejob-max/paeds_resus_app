@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { LegalExternalLink } from "@/components/LegalExternalLink";
 
 export default function Enroll() {
   useScrollToTop();
@@ -387,30 +388,31 @@ export default function Enroll() {
               >
                 {/* Terms */}
                 <div className="space-y-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
+                  <div className="flex items-start gap-3">
                     <input
+                      id="enroll-terms"
                       type="checkbox"
                       checked={agreeToTerms}
                       onChange={(e) => setAgreeToTerms(e.target.checked)}
                       className="w-5 h-5 mt-0.5"
                     />
-                    <span className="text-sm text-foreground/90">
+                    <label htmlFor="enroll-terms" className="text-sm text-foreground/90 cursor-pointer">
                       I agree to the{" "}
-                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
+                      <LegalExternalLink href="/terms" className="text-primary font-medium hover:underline">
                         Terms of Service
-                      </a>{" "}
+                      </LegalExternalLink>{" "}
                       and{" "}
-                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
+                      <LegalExternalLink href="/privacy" className="text-primary font-medium hover:underline">
                         Privacy Policy
-                      </a>
+                      </LegalExternalLink>
                       . Training certificates attest course completion — AHA-aligned courses are issued by Paeds Resus
                       Limited where stated; see{" "}
-                      <a href="/terms#payments" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                      <LegalExternalLink href="/terms#payments" className="text-primary underline">
                         refund policy
-                      </a>
+                      </LegalExternalLink>
                       .
-                    </span>
-                  </label>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Submit Button */}

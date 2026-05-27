@@ -14,6 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
+import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
@@ -229,24 +230,32 @@ export default function Register() {
             </div>
 
             <div className="space-y-3 rounded-md border border-border p-3">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <Checkbox checked={acceptTerms} onCheckedChange={(v) => setAcceptTerms(v === true)} />
-                <span className="text-sm leading-snug">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="accept-terms"
+                  checked={acceptTerms}
+                  onCheckedChange={(v) => setAcceptTerms(v === true)}
+                />
+                <Label htmlFor="accept-terms" className="text-sm leading-snug cursor-pointer font-normal">
                   I agree to the{" "}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  <LegalExternalLink href="/terms" className="text-primary underline">
                     Terms of Use
-                  </a>
-                </span>
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <Checkbox checked={acceptPrivacy} onCheckedChange={(v) => setAcceptPrivacy(v === true)} />
-                <span className="text-sm leading-snug">
+                  </LegalExternalLink>
+                </Label>
+              </div>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="accept-privacy"
+                  checked={acceptPrivacy}
+                  onCheckedChange={(v) => setAcceptPrivacy(v === true)}
+                />
+                <Label htmlFor="accept-privacy" className="text-sm leading-snug cursor-pointer font-normal">
                   I agree to the{" "}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  <LegalExternalLink href="/privacy" className="text-primary underline">
                     Privacy Policy
-                  </a>
-                </span>
-              </label>
+                  </LegalExternalLink>
+                </Label>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={registerMutation.isPending || !acceptTerms || !acceptPrivacy}>

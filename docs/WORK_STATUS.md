@@ -39,7 +39,7 @@
 
 ## In progress
 
-*(No active engineering slice — see Done for maturity ops eng slice.)*
+*(No active engineering slice — see Done for legal links fix.)*
 
 ---
 
@@ -47,6 +47,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-27 | Cursor | **Legal consent link fix:** `LegalReconsentGate` no longer unmounts routes when open; legal paths (`/terms`, `/privacy`, `/legal/*`) bypass blocking overlay so users can read full documents; shared `LegalExternalLink` (`target=_blank`, `stopPropagation`) on Register, Enroll, reconsent, Care Signal, Payment flows. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `fix/legal-links-persist` |
 | 2026-05-27 | Cursor | **DB migration 0044 (legal consent + DSAR):** pnpm run db:test-connection OK; pnpm run db:apply-0044 via scripts/db-connection-config.mjs (IPv4 + SSL); pnpm run db:verify-0044 **PASSED**. | PR #63 |
 | 2026-05-27 | Cursor | **Maturity ops eng slice:** Care Signal submit → auto `institutionalActionLogs` draft + in-app notification for linked facilities; hospital admin pending-action banner; DSAR deletion handler (`dsar:deletion`, `legal.processDeletionRequest`); retention cleanup (`retention:cleanup`, monthly scheduler dry-run); migration 0044 verify script (`db:verify-0044`) — **apply ETIMEDOUT** from dev network (Aiven). E2E: DSAR public form test + holistic loop expansion. Unit tests for institutional action, retention, DSAR. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`, `pnpm run test:e2e:holistic`. | PR TBD · `feat/maturity-ops-eng-slice` |
 | 2026-05-27 | Cursor | **Comprehensive legal hardening merged:** `docs/legal/` (11 counsel-ready docs v1.0.0); production Privacy/Terms UI; registration Terms+Privacy click-wrap + migration `0044`; `LegalReconsentGate`, Care Signal/Safe-Truth/ResusGPS/institutional consent; DSAR; routes `/legal/*`, `/care-signal/appeal`; footer legal links; `shared/legal-consent.test.ts`. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #59 · `b0bcc1f` |
