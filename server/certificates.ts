@@ -21,7 +21,7 @@ import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certifi
 //   BLS / ACLS / PALS provider cards: 2 years (AHA standard)
 //   Fellowship / Instructor:          1 year  (Paeds Resus internal)
 // ─────────────────────────────────────────────────────────────────────────────
-const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver"]);
+const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver", "nrp"]);
 
 function getCertificateValidityMs(programType: string): number {
   if (AHA_PROGRAM_TYPES.has(programType)) {
@@ -545,7 +545,7 @@ export async function signOffPracticalSkills(
     return {
       success: false,
       certificateIssued: false,
-      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS).",
+      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS, Heartsaver, NRP).",
     };
   }
 
@@ -973,7 +973,7 @@ export async function saveAhaCognitiveCertificate(
   enrollmentId: number,
   userId: number,
   recipientName: string,
-  programType: "bls" | "acls" | "pals" | "heartsaver"
+  programType: "bls" | "acls" | "pals" | "heartsaver" | "nrp"
 ): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
   try {
     const db = await getDb();
@@ -983,7 +983,8 @@ export async function saveAhaCognitiveCertificate(
       | "bls_cognitive"
       | "acls_cognitive"
       | "pals_cognitive"
-      | "heartsaver_cognitive";
+      | "heartsaver_cognitive"
+      | "nrp_cognitive";
 
     // Idempotency: return existing cert if already issued for this enrollment
     const existing = await db

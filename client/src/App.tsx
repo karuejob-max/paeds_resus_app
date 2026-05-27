@@ -364,6 +364,11 @@ function Router() {
               <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
+          <Route path="/course/nrp">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
+            </RoleGate>
+          )}</Route>
           <Route path="/course/seriously-ill-child">{() => (
             <Redirect to="/micro-course/seriously-ill-child-i" />
           )}</Route>

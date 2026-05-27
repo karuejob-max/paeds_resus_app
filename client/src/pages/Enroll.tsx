@@ -378,7 +378,7 @@ export default function Enroll() {
                     alert("Please agree to terms and conditions");
                     return;
                   }
-                  const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "instructor";
+                  const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
                   createEnrollment.mutate({
                     programType,
                     trainingDate: new Date(),
