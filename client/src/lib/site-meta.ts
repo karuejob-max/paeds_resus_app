@@ -4,7 +4,7 @@ export const SITE_ORIGIN = "https://www.paedsresus.com";
 export const DEFAULT_PAGE_TITLE = "Paeds Resus — Paediatric emergency care platform";
 
 export const DEFAULT_PAGE_DESCRIPTION =
-  "Integrated paediatric emergency care platform: Fellowship training, ResusGPS bedside guidance, institutional tools, Care Signal reporting, and Safe-Truth family resources. Always follow your facility protocol.";
+  "Paeds Resus — paediatric emergency platform for Kenya & East Africa: AHA-aligned BLS, ACLS, PALS training, ResusGPS bedside guidance, Care Signal QI, Safe-Truth for families, and hospital readiness. Always follow your facility protocol.";
 
 export const OG_IMAGE_PATH = "/og-image.png";
 export const OG_IMAGE_WIDTH = 1200;
