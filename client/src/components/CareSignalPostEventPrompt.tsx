@@ -200,9 +200,9 @@ export function CareSignalPostEventPrompt({
           ) : null}
 
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Care Signal reports are anonymous and confidential. They help identify system gaps
-            across facilities — the data you submit contributes to national paediatric emergency
-            surveillance that no other system in Kenya is collecting.
+            Care Signal reports must not include patient names or identifiers. Submissions support
+            quality improvement, fellowship Pillar C progress, and aggregated facility and national
+            surveillance — as described in the Care Signal consent and Privacy Policy.
           </p>
         </div>
 
