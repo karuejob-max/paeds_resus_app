@@ -36,6 +36,9 @@ import { toast } from "sonner";
 import { EnrollmentModal } from "@/components/EnrollmentModal";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import {
+  canDisplayFellowTitle,
+} from "@shared/fellowship-launch-gate";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
@@ -246,6 +249,7 @@ export default function FellowshipDashboard() {
   }
 
   const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
+  const showFellowCredential = canDisplayFellowTitle(isQualified);
 
   // Prepare course data
   const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.course?.courseId) || []);
@@ -870,14 +874,22 @@ export default function FellowshipDashboard() {
           </TabsContent>
 
           {/* Qualification Status */}
-          {isQualified && (
+          {showFellowCredential ? (
             <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <AlertDescription className="text-emerald-800 dark:text-emerald-200">
-                🎉 Congratulations! You have achieved Paeds Resus Fellowship qualification!
+                Congratulations! You have earned the title of Paeds Resus Fellow.
               </AlertDescription>
             </Alert>
-          )}
+          ) : isQualified ? (
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-900 dark:text-amber-100">
+                You have met all three pillars. The Paeds Resus Fellow credential will appear here after platform launch
+                readiness checks (§11) are complete — your progress is saved.
+              </AlertDescription>
+            </Alert>
+          ) : null}
         </Tabs>
 
         {/* Enrollment Modal */}

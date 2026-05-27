@@ -12,14 +12,16 @@
  * - Does NOT duplicate the full CareSignalForm — it links to /care-signal
  *   with a query param so the form opens pre-filled
  * - Shows current Care Signal streak to reinforce motivation
+ * - Septic shock vertical slice: optional link to septic-shock-i micro-course
  */
 
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, ArrowRight, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ArrowRight, X, BookOpen } from "lucide-react";
 
 interface CareSignalPostEventPromptProps {
   open: boolean;
@@ -56,6 +58,19 @@ function eventTypeLabel(eventType: string): string {
   return labels[eventType] || "Paediatric Emergency";
 }
 
+function isSepticShockCase(diagnosis: string, eventType: string): boolean {
+  return eventType === "septic_shock" || /septic|sepsis/i.test(diagnosis);
+}
+
+function getAnalyticsSessionId(): string {
+  if (typeof window === "undefined") return "server";
+  const stored = sessionStorage.getItem("analytics_session_id");
+  if (stored) return stored;
+  const newId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  sessionStorage.setItem("analytics_session_id", newId);
+  return newId;
+}
+
 export function CareSignalPostEventPrompt({
   open,
   onClose,
@@ -63,6 +78,7 @@ export function CareSignalPostEventPrompt({
   outcome,
 }: CareSignalPostEventPromptProps) {
   const [, navigate] = useLocation();
+  const trackEventMutation = trpc.events.trackEvent.useMutation();
 
   const { data: eventStats } = trpc.careSignalEvents.getEventStats.useQuery(undefined, {
     enabled: open,
@@ -71,9 +87,37 @@ export function CareSignalPostEventPrompt({
 
   const eventType = diagnosisToEventType(diagnosis);
   const eventLabel = eventTypeLabel(eventType);
+  const showSepticCourseLink = isSepticShockCase(diagnosis, eventType);
+
+  const emitLoopEvent = (eventName: string, extra?: Record<string, unknown>) => {
+    void trackEventMutation.mutateAsync({
+      eventType: "holistic_loop",
+      eventName,
+      sessionId: getAnalyticsSessionId(),
+      pageUrl: "/resus",
+      eventData: {
+        diagnosis,
+        mappedEventType: eventType,
+        source: "resusgps_post_case",
+        ...extra,
+      },
+    });
+  };
+
+  useEffect(() => {
+    if (open) {
+      emitLoopEvent("care_signal_prompt_shown");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once when dialog opens
+  }, [open]);
+
+  const handleDismiss = () => {
+    emitLoopEvent("care_signal_prompt_dismissed");
+    onClose();
+  };
 
   const handleLogNow = () => {
-    // Navigate to Care Signal with pre-fill params
+    emitLoopEvent("care_signal_prompt_accepted", { destination: "/care-signal" });
     const params = new URLSearchParams({
       prefill_eventType: eventType,
       prefill_outcome: outcome || "survived",
@@ -83,11 +127,19 @@ export function CareSignalPostEventPrompt({
     onClose();
   };
 
+  const handleSepticCourse = () => {
+    emitLoopEvent("septic_shock_micro_course_clicked", {
+      destination: "/micro-course/septic-shock-i",
+    });
+    navigate("/micro-course/septic-shock-i?programType=pals&source=resusgps_loop");
+    onClose();
+  };
+
   const streakMonths = eventStats?.streakMonths ?? 0;
   const thisMonthDone = (eventStats?.thisMonthCount ?? 0) > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -101,7 +153,6 @@ export function CareSignalPostEventPrompt({
         </DialogHeader>
 
         <div className="space-y-3 py-2">
-          {/* Streak status */}
           <div className="rounded-lg border bg-muted/40 p-3 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Your Care Signal Streak</p>
@@ -121,7 +172,6 @@ export function CareSignalPostEventPrompt({
             )}
           </div>
 
-          {/* What will be pre-filled */}
           <div className="rounded-lg border p-3 space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Pre-filled from this case
@@ -136,7 +186,19 @@ export function CareSignalPostEventPrompt({
             )}
           </div>
 
-          {/* Why it matters */}
+          {showSepticCourseLink ? (
+            <div className="rounded-lg border border-brand-teal/30 bg-brand-teal/5 p-3 space-y-2">
+              <p className="text-sm font-medium">Close the learning loop</p>
+              <p className="text-xs text-muted-foreground">
+                Review recognition and fluid resuscitation in the Paediatric Septic Shock I micro-course.
+              </p>
+              <Button variant="outline" size="sm" className="w-full gap-1" onClick={handleSepticCourse}>
+                <BookOpen className="h-4 w-4" />
+                Open Septic Shock I module
+              </Button>
+            </div>
+          ) : null}
+
           <p className="text-xs text-muted-foreground leading-relaxed">
             Care Signal reports are anonymous and confidential. They help identify system gaps
             across facilities — the data you submit contributes to national paediatric emergency
@@ -145,7 +207,7 @@ export function CareSignalPostEventPrompt({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="ghost" onClick={onClose} className="flex items-center gap-1">
+          <Button variant="ghost" onClick={handleDismiss} className="flex items-center gap-1">
             <X className="h-4 w-4" />
             Skip for now
           </Button>

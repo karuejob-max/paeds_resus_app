@@ -1050,6 +1050,27 @@ export default function AdminReports() {
               </CardContent>
             </Card>
 
+            {/* Provider growth KPI (separate from mission impact — PSOT §18) */}
+            {"growthKpis" in report && report.growthKpis ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Provider growth (30d)
+                  </CardTitle>
+                  <CardDescription>
+                    North-star: active paying providers — distinct from Care Signal / ResusGPS mission metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{report.growthKpis.activePayingProviders30d}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Individual providers with completed payment in rolling last 30 days
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
+
             {/* Referrals this month */}
             <Card>
               <CardHeader>

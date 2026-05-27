@@ -50,6 +50,43 @@ function endOfMonthEAT(year: number, month: number): Date {
   return new Date(Date.UTC(year, month, 0, 20, 59, 59, 999));
 }
 
+/** PSOT §18.3 north-star: distinct individual providers with completed payment in rolling 30×24h. */
+async function countActivePayingProviders30d(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>
+): Promise<number> {
+  const since = rollingHoursAgo(30 * 24);
+
+  const [paymentRows, microRows] = await Promise.all([
+    db
+      .selectDistinct({ userId: payments.userId })
+      .from(payments)
+      .innerJoin(users, eq(payments.userId, users.id))
+      .where(
+        and(
+          eq(payments.status, "completed"),
+          gte(payments.createdAt, since),
+          eq(users.userType, "individual")
+        )
+      ),
+    db
+      .selectDistinct({ userId: microCourseEnrollments.userId })
+      .from(microCourseEnrollments)
+      .innerJoin(users, eq(microCourseEnrollments.userId, users.id))
+      .where(
+        and(
+          eq(microCourseEnrollments.paymentStatus, "completed"),
+          gte(microCourseEnrollments.updatedAt, since),
+          eq(users.userType, "individual")
+        )
+      ),
+  ]);
+
+  const ids = new Set<number>();
+  for (const row of paymentRows) ids.add(row.userId);
+  for (const row of microRows) ids.add(row.userId);
+  return ids.size;
+}
+
 export const adminStatsRouter = router({
   /**
    * Report for admin: registered users, BLS/ACLS applications and certifications this month,
@@ -87,6 +124,7 @@ export const adminStatsRouter = router({
             totalSessions: 0,
             totalCases: 0,
           },
+          growthKpis: { activePayingProviders30d: 0 },
         };
       }
 
@@ -253,6 +291,8 @@ export const adminStatsRouter = router({
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
+      const activePayingProviders30d = await countActivePayingProviders30d(db);
+
       return {
         ok: true,
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
@@ -293,6 +333,7 @@ export const adminStatsRouter = router({
         activeUsersLastDays,
         topProtocolsViewed,
         careSignalStats,
+        growthKpis: { activePayingProviders30d },
       };
     }),
 

@@ -16,6 +16,8 @@ export interface Course {
   targetAudience: string;
   prerequisites?: string;
   certification?: string;
+  /** Legacy SKUs — hidden from user-facing institutional/catalog surfaces (MATURITY_ROADMAP Issue #9). */
+  deprecated?: boolean;
 }
 
 export const COURSES: Record<string, Course> = {
@@ -89,6 +91,7 @@ export const COURSES: Record<string, Course> = {
 
   bronze: {
     id: "bronze",
+    deprecated: true,
     name: "Bronze Paeds Resus Fellowship",
     shortName: "Bronze Fellowship",
     category: "fellowship",
@@ -112,6 +115,7 @@ export const COURSES: Record<string, Course> = {
 
   silver: {
     id: "silver",
+    deprecated: true,
     name: "Silver Paeds Resus Fellowship",
     shortName: "Silver Fellowship",
     category: "fellowship",
@@ -135,6 +139,7 @@ export const COURSES: Record<string, Course> = {
 
   gold: {
     id: "gold",
+    deprecated: true,
     name: "Gold Paeds Resus Fellowship",
     shortName: "Gold Fellowship",
     category: "fellowship",
@@ -158,10 +163,15 @@ export const COURSES: Record<string, Course> = {
 };
 
 /**
- * Get all courses
+ * Get all courses (includes deprecated legacy SKUs — prefer getPublicInstitutionalCourses for UI).
  */
 export function getAllCourses(): Course[] {
   return Object.values(COURSES);
+}
+
+/** User-facing institutional catalog — excludes deprecated Bronze/Silver/Gold tiers. */
+export function getPublicInstitutionalCourses(): Course[] {
+  return Object.values(COURSES).filter((course) => !course.deprecated);
 }
 
 /**

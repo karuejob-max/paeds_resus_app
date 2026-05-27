@@ -22,6 +22,7 @@ import {
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
+import { canDisplayFellowTitle, FELLOWSHIP_LAUNCH_READINESS } from "../../shared/fellowship-launch-gate";
 
 function extractInsertId(result: unknown): number {
   if (Array.isArray(result)) {
@@ -91,6 +92,8 @@ export const fellowshipRouter = router({
         isQualified: status.isQualified,
         overallPercentage: status.overallPercentage,
         resusGpsAccessExpiresAt,
+        fellowTitleEnabled: FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+        canDisplayFellowTitle: canDisplayFellowTitle(status.isQualified),
       };
     } catch (error) {
       console.error("[Fellowship] Error in getProgress:", error);
@@ -102,6 +105,8 @@ export const fellowshipRouter = router({
         isQualified: false,
         overallPercentage: 0,
         resusGpsAccessExpiresAt: null as Date | null,
+        fellowTitleEnabled: FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+        canDisplayFellowTitle: false,
       };
     }
   }),
@@ -338,6 +343,12 @@ export const fellowshipRouter = router({
 
     if (!status.isQualified) {
       throw new Error("You have not yet met all the requirements for Fellowship graduation.");
+    }
+
+    if (!FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled) {
+      throw new Error(
+        "Paeds Resus Fellow credentials are not yet available — platform launch readiness (§11) is in progress. Your progress is saved."
+      );
     }
 
     const db = await getDb();

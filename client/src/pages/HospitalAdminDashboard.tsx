@@ -485,14 +485,19 @@ export default function HospitalAdminDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Institutional dashboard</h1>
-          <p className="text-lg text-muted-foreground">Training metrics, staff roster, quotations, and bulk enrollment</p>
+          <p className="text-lg text-muted-foreground">
+            Paediatric emergency readiness — staff roster, Care Signal QI, ResusGPS adoption, and training coverage
+          </p>
         </div>
 
         {showWelcome && (
           <Alert className="mb-6 border-green-600/50 bg-green-50 text-green-900 dark:bg-green-950/40 dark:text-green-100 dark:border-green-700/50">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertDescription className="flex items-center justify-between gap-4">
-              <span>Welcome! Your institution is set up. Add staff, run bulk enrollment, and track progress from here.</span>
+              <span>
+                Welcome! Your institution is set up for readiness tracking. Add staff, review Care Signal facility
+                gaps, and monitor training coverage from here.
+              </span>
               <Button variant="ghost" size="sm" onClick={() => setShowWelcome(false)} className="text-green-700 shrink-0">
                 Dismiss
               </Button>

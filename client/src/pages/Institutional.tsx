@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import CourseCalculator from "@/components/CourseCalculator";
-import { COURSES, getAllCourses } from "@/lib/courseData";
+import { COURSES, getPublicInstitutionalCourses } from "@/lib/courseData";
 import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
 import { getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
 
@@ -52,8 +52,8 @@ export default function Institutional() {
         <div className="max-w-6xl mx-auto space-y-4">
           <h1 className="text-4xl md:text-5xl font-bold">Paeds Resus for Institutions</h1>
           <p className="text-lg md:text-xl text-orange-100 max-w-3xl">
-            Equip your teams with structured paediatric emergency training, role-appropriate tools, and operational
-            dashboards that support improvement planning.
+            Paediatric emergency readiness systems — ResusGPS bedside guidance, Care Signal quality improvement, and
+            training aligned to your facility&apos;s gaps—not seat-count alone.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
             We publish only supportable claims. Clinical outcomes depend on facility context, staffing, and adherence
@@ -138,12 +138,12 @@ export default function Institutional() {
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-2 text-base">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                Operational visibility
+                Readiness & QI visibility
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Institutional dashboards help track participation and learning operations so leadership can prioritize
-              improvements and follow-through.
+              Command-centre views surface Care Signal reporting, ResusGPS adoption, and training coverage so leadership
+              can act on system gaps—not just enrollment counts.
             </CardContent>
           </Card>
         </div>
@@ -156,7 +156,7 @@ export default function Institutional() {
             Select a programme to preview content and planning costs.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            {getAllCourses().map((course) => (
+            {getPublicInstitutionalCourses().map((course) => (
               <Card
                 key={course.id}
                 className="border-t-4 border-[#ff6633] hover:shadow-lg transition cursor-pointer"
