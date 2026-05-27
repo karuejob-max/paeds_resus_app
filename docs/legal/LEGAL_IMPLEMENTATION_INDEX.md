@@ -16,9 +16,9 @@
 |---|----------------------------------|-------------|-------------------|
 | 1 | PRIVACY_POLICY_FULL.md | `privacyPolicy` | Public → `/privacy` |
 | 2 | TERMS_OF_USE_FULL.md | `termsOfUse` | Public → `/terms` |
-| 3 | CARE_SIGNAL_DATA_PROCESSING_NOTICE.md | `careSignalNotice` | Public (consent gate + future route) |
+| 3 | CARE_SIGNAL_DATA_PROCESSING_NOTICE.md | `careSignalNotice` | Public → `/legal/care-signal` |
 | 4 | INSTITUTIONAL_B2B_ADDENDUM.md | `institutionalB2bAddendum` | B2B + onboarding reference |
-| 5 | CLINICAL_INTENDED_USE_STATEMENT.md | `clinicalIntendedUse` | Public (future `/legal/clinical-use`) |
+| 5 | CLINICAL_INTENDED_USE_STATEMENT.md | `clinicalIntendedUse` | Public → `/legal/clinical-use` |
 | 6 | COOKIE_AND_ANALYTICS_NOTICE.md | `cookieNotice` | Public → `/legal/cookies` |
 | 7 | DATA_RETENTION_SCHEDULE.md | — | Internal + Privacy link |
 | 8 | INCIDENT_RESPONSE_AND_BREACH_PLAYBOOK.md | — | Internal ops |
@@ -62,6 +62,8 @@
 | `/terms` | `pages/TermsOfUse.tsx` | TERMS_OF_USE_FULL.md |
 | `/terms#payments` | Terms anchor | TERMS_OF_USE_FULL.md §6 |
 | `/legal/cookies` | `pages/legal/CookieNotice.tsx` | COOKIE_AND_ANALYTICS_NOTICE.md |
+| `/legal/care-signal` | `pages/legal/CareSignalNotice.tsx` | CARE_SIGNAL_DATA_PROCESSING_NOTICE.md |
+| `/legal/clinical-use` | `pages/legal/ClinicalIntendedUse.tsx` | CLINICAL_INTENDED_USE_STATEMENT.md |
 | `/legal/subprocessors` | `pages/legal/Subprocessors.tsx` | Privacy §8 + cookie-notice subprocessors |
 | `/legal/data-request` | `pages/legal/DataRequest.tsx` | DSAR_PROCEDURE.md + Privacy §13 |
 | `/care-signal/appeal` | `pages/legal/CareSignalAppeal.tsx` | TERMS §5.2 / Fellowship §11.3 |
@@ -78,8 +80,6 @@
 
 | Route | Doc |
 |-------|-----|
-| `/legal/clinical-use` | CLINICAL_INTENDED_USE_STATEMENT.md |
-| `/legal/care-signal` | CARE_SIGNAL_DATA_PROCESSING_NOTICE.md |
 | `/legal/retention` | DATA_RETENTION_SCHEDULE.md (summary public) |
 
 ---
@@ -95,7 +95,7 @@
 | `InstitutionalOnboarding.tsx` | Institution signup | `legal.acceptInstitutionalB2b` | `institutionalB2bAddendum` |
 | `Footer.tsx` | Global links | — | `/privacy`, `/terms`, `/legal/*` |
 
-**Register.tsx:** Links to Terms/Privacy — **no server consent yet** (gap per LEGAL_PLATFORM_STRUCTURES.md §3.1).
+**Register.tsx:** Links to Terms/Privacy + server consent via `recordRegistrationConsent` on `auth.register`.
 
 ---
 
@@ -150,9 +150,9 @@
 |----------|------|-----|
 | P0 | Sync `privacy-policy.ts` / `terms-of-use.ts` body from counsel-approved FULL markdown | 1, 2 |
 | P0 | Insert ODPC number in `legal-versions.ts` after registration | 1 |
-| P1 | Register click-wrap on `Register.tsx` → `acceptTermsAndPrivacy` | 2 |
-| P1 | Public `/legal/care-signal` page | 3 |
-| P1 | Public `/legal/clinical-use` page | 5 |
+| ~~P1~~ | ~~Register click-wrap on `Register.tsx`~~ | **Done** — `recordRegistrationConsent` |
+| ~~P1~~ | ~~Public `/legal/care-signal` page~~ | **Done** |
+| ~~P1~~ | ~~Public `/legal/clinical-use` page~~ | **Done** |
 | P2 | Automated retention cron per DATA_RETENTION_SCHEDULE | 7 |
 | P2 | Account deletion job per DSAR_PROCEDURE §6 | 9 |
 | P3 | Country config for EAC emergency numbers | 10 |

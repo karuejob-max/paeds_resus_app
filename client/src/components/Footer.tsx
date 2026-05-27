@@ -121,6 +121,21 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/legal/care-signal" className="text-white/70 hover:text-brand-orange transition">
+                  Care Signal notice
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/clinical-use" className="text-white/70 hover:text-brand-orange transition">
+                  ResusGPS intended use
+                </Link>
+              </li>
+              <li>
+                <Link href="/care-signal/appeal" className="text-white/70 hover:text-brand-orange transition">
+                  Care Signal appeals
+                </Link>
+              </li>
+              <li>
                 <a href="mailto:privacy@paeds-resus.com" className="text-white/70 hover:text-brand-orange transition">
                   Contact (privacy)
                 </a>

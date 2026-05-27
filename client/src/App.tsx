@@ -35,6 +35,8 @@ const CookieNotice = lazy(() => import("./pages/legal/CookieNotice"));
 const Subprocessors = lazy(() => import("./pages/legal/Subprocessors"));
 const DataRequest = lazy(() => import("./pages/legal/DataRequest"));
 const CareSignalAppeal = lazy(() => import("./pages/legal/CareSignalAppeal"));
+const CareSignalNotice = lazy(() => import("./pages/legal/CareSignalNotice"));
+const ClinicalIntendedUse = lazy(() => import("./pages/legal/ClinicalIntendedUse"));
 const About = lazy(() => import("./pages/About"));
 const Start = lazy(() => import("./pages/Start"));
 const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
@@ -208,6 +210,8 @@ function Router() {
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
           <Route path="/legal/cookies" component={CookieNotice} />
+          <Route path="/legal/care-signal" component={CareSignalNotice} />
+          <Route path="/legal/clinical-use" component={ClinicalIntendedUse} />
           <Route path="/legal/subprocessors" component={Subprocessors} />
           <Route path="/legal/data-request" component={DataRequest} />
           <Route path="/care-signal/appeal" component={CareSignalAppeal} />
