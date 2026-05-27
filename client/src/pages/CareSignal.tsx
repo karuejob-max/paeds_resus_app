@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const CS_PAGE_MUTED = "text-slate-700 dark:text-slate-300";
 const CS_SECTION_KICKER = "text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400";
 import CareSignalFormV2 from "@/components/CareSignalFormV2";
+import { CareSignalConsentGate } from "@/components/CareSignalConsentGate";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { CARE_SIGNAL_V2_STEP_GUIDE } from "@/lib/care-signal-v2";
@@ -94,7 +95,9 @@ export default function CareSignal() {
 
         {/* Event Logger */}
         <div className="mb-12" ref={loggerRef}>
-          <CareSignalFormV2 />
+          <CareSignalConsentGate>
+            <CareSignalFormV2 />
+          </CareSignalConsentGate>
         </div>
 
         {/* Resource Gap Trends — sourced from ResusGPS sessions, NOT from Care Signal events */}

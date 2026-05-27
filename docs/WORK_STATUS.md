@@ -22,7 +22,18 @@
 3. Security baseline (password, session, audit logging)
 4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale)
 
-**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12). **Platform maturity:** [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — Phase 1 in progress (2026-05-27).
+**Phased execution (exit criteria, trade-offs):** [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md) (aligns with [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md) §12). **Platform maturity:** [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — Phases 1–6 engineering slices in progress (2026-05-27).
+
+### Maturity phase completion (engineering % — May 2026)
+
+| Phase | Name | Eng. % | Notes |
+|-------|------|--------|-------|
+| **1** | Release & governance foundation | **~85%** | PR #52 merged; consent + audit scope this PR; staging = CEO |
+| **2** | ResusGPS v4 + instrumentation | **~75%** | v4 largely shipped; holistic loop KPIs in admin |
+| **3** | Care Signal truth + §11 gate | **~70%** | Real analytics backend; consent gate; §11 admin checklist; Fellow title still blocked |
+| **4** | Vertical slice (one hospital) | **~40%** | Loop instrumentation + facility readiness metrics; pilot MOU = CEO |
+| **5** | Institutional systems + outcomes | **~35%** | Facility QI readiness dashboard; outcomes pilot flag; evaluation = CEO |
+| **6** | Growth + narrative maturity | **~55%** | Conversion funnel admin; DNA deprecation note; legacy logger removed |
 
 ---
 
@@ -30,7 +41,7 @@
 
 | Who | What | Since |
 |-----|------|-------|
-| Cursor | **MATURITY_ROADMAP Phase 1** — PR open; live staging provisioning remains CEO/operator action | 2026-05-27 |
+| Cursor | **MATURITY_ROADMAP Phases 2–6** — PR `feat/maturity-phases-2-6` | 2026-05-27 |
 
 *(Legacy in-progress rows below may be stale — confirm against git `main`.)*
 
@@ -46,7 +57,8 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-27 | Cursor | **MATURITY_ROADMAP Phase 1 (engineering slice):** Fellowship §11 gate (`shared/fellowship-launch-gate.ts` — blocks Fellow title/graduation until CEO enables); deprecated Bronze/Silver/Gold from institutional catalog; ResusGPS post-case loop enhanced (Care Signal prompt analytics + Septic Shock I link); `active_paying_providers_30d` in admin reports; institutional readiness copy (Institutional + Hospital Admin); docs: `STAGING_GO_LIVE_CHECKLIST`, `LEGAL_COMPLIANCE_BASELINE`, `CLINICAL_OUTCOMES_PILOT`; PSOT §8/§12/§21 updates; `holistic_loop` event taxonomy. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD |
+| 2026-05-27 | Cursor | **MATURITY_ROADMAP Phases 2–6 (engineering slice):** Admin **Maturity KPIs** tab — mission impact (holistic loop, ResusGPS/Care Signal 30d), provider conversion funnel from `provider_conversion`, Fellowship §11 launch checklist dashboard; `getMissionImpactKpis` / `getProviderConversionFunnel` / `getFellowshipLaunchChecklist`; facility readiness metrics (reporting rate + ResusGPS adoption); Care Signal first-submission **consent gate**; removed deprecated `CareSignalLogger`; streak + KPI unit tests; `CLINICAL_OUTCOMES_PILOT_ENABLED` env; `RESUSGPS_DNA_DEPRECATION_NOTE.md`. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD |
+| 2026-05-27 | Cursor | **MATURITY_ROADMAP Phase 1 (engineering slice):** Fellowship §11 gate (`shared/fellowship-launch-gate.ts` — blocks Fellow title/graduation until CEO enables); deprecated Bronze/Silver/Gold from institutional catalog; ResusGPS post-case loop enhanced (Care Signal prompt analytics + Septic Shock I link); `active_paying_providers_30d` in admin reports; institutional readiness copy (Institutional + Hospital Admin); docs: `STAGING_GO_LIVE_CHECKLIST`, `LEGAL_COMPLIANCE_BASELINE`, `CLINICAL_OUTCOMES_PILOT`; PSOT §8/§12/§21 updates; `holistic_loop` event taxonomy. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #52 |
 | 2026-05-25 | Cursor | **Platform maturity roadmap:** Added [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — CEO-ready 6-phase plan (15–18 months) closing all 10 objective-gap blockers (holistic loop, Fellowship §11 gate, clinical outcomes pathway, staging, mission-aligned GTM, Care Signal intelligence, ResusGPS v4, legal/governance, narrative coherence, institutional systems value prop). Vertical-slice proof: one hospital, paediatric septic shock, closed loop. | PR TBD |
 | 2026-05-25 | Cursor | **Public SEO improvements:** Branded **`og-image.png`** (1200×630) + `og:image` / `twitter:image` / `og:url` in `client/index.html`; **`robots.txt`** + **`sitemap.xml`** for public routes; lightweight **`usePageMeta`** hook on About, Enroll, Verify, Help; Express **apex→www** redirect (`server/_core/canonical-domain.ts`); PSOT §10 domain note updated. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | — |
 | 2026-05-19 | Cursor | **Care Signal step-0 blocker fix:** `handleNext` validated step 1 (report type) while user was still on step 0 (facility/date). Aligned `validateCareSignalV2Step` to UI step index; added regression tests in `care-signal-v2.test.ts`. | `8a78bd2` · PR #9 |

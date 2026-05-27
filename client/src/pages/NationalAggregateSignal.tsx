@@ -144,8 +144,11 @@ export default function NationalAggregateSignal() {
               </div>
               <p className="text-sm text-muted-foreground max-w-xl">
                 Anonymised, provider-sourced surveillance of paediatric emergency patterns across
-                Kenya. This data is collected in real time from frontline providers — it is not
-                retrospective audit data.
+                Kenya. Process and reporting metrics only — not mortality claims or national prevalence estimates.
+              </p>
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-3 max-w-xl">
+                Read-only aggregate view for platform admins. MOH conversations require clinical governance sign-off
+                and the Phase 5 evaluation package (see CLINICAL_OUTCOMES_PILOT.md).
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">

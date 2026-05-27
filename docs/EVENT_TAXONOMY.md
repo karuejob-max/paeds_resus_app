@@ -48,6 +48,7 @@
 | `care_signal_submission_created` | Care Signal row persisted (server) | `server/routers/care-signal-events.ts` → `trackEvent` | careSignalEventId, eventType, isAnonymous, outcome, systemGaps, facilityId, facilityName, facilityCounty, facilityCountry | Distinct from `safetruth_submission` (parent). Feeds **last 7 days** when emitted. DB row **`submissionVersion`**: `v1` (legacy form) or **`v2`** (QI form; `gapDetails.formVersion === "v2"`). Client may also emit `care_signal_submission_created` with `eventData.formVersion: "v2"` after submit. |
 | `provider_conversion` | Provider funnel and progression steps | `client/src/hooks/useProviderConversionAnalytics.ts`, `client/src/pages/Home.tsx`, `client/src/pages/ProviderDashboard.tsx`, `client/src/components/EnrollmentModal.tsx`, `client/src/components/LearningPath.tsx`, `server/routers.ts` (`auth.updateUserType`) | role, source, courseId, moduleId, amountCents, reason | Added for conversion roadmap execution; complements (does not replace) `enrollment_started`, `payment_initiation`, `course_enrollment`. |
 | `admin_ops` | Admin/operator execution telemetry | `server/routers/notifications.ts` (lifecycle batch dispatch) | dryRun, limitUsers, processedUsers, sent, skipped | Used to monitor operational batch execution and dispatch outcomes from admin tools. |
+| `care_signal` | Care Signal product events | `CareSignalConsentGate.tsx`, form submit | version, purposes | Includes `care_signal_consent_granted` at first submission. |
 | `holistic_loop` | ResusGPS → Care Signal → learning closed-loop steps | `client/src/components/CareSignalPostEventPrompt.tsx` | diagnosis, mappedEventType, source, destination | Event names: `care_signal_prompt_shown`, `care_signal_prompt_dismissed`, `care_signal_prompt_accepted`, `septic_shock_micro_course_clicked`. Mission KPI — separate from `provider_conversion`. |
 
 ### Care Signal — further `care_signal_*` types
@@ -62,6 +63,7 @@ Additional fellowship/QI events may use the same prefix (e.g. streak milestones)
 
 | Date | Change |
 |------|--------|
+| 2026-05-27 | **`care_signal_consent_granted`** at first Care Signal submission; admin **Maturity KPIs** tab (mission impact, conversion funnel, §11 checklist). |
 | 2026-05-27 | **`holistic_loop`** events for ResusGPS post-case Care Signal prompt and septic shock micro-course CTA (MATURITY_ROADMAP Phase 1 vertical slice). |
 | 2026-05-17 | **Care Signal form v2:** `submissionVersion` v1/v2 on insert; `gapDetails.formVersion === "v2"`; analytics + facility QI rollups documented above. |
 | 2026-05-17 | ResusGPS analytics wired: letter/threat/diagnosis/resource-gap/export in `ResusGPS.tsx`; server `resus_session` / `resus_assessment` on fellowship session/case record. Removed orphan aspirational routers from repo. |
