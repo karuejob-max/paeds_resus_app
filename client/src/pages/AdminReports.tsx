@@ -157,6 +157,10 @@ export default function AdminReports() {
     { enabled: adminRoleOk && reportTab === "maturity" }
   );
 
+  const { data: clinicalPilotStatus } = trpc.adminStats.getClinicalPilotStatus.useQuery(undefined, {
+    enabled: adminRoleOk && reportTab === "maturity",
+  });
+
   const { data: usersData } = trpc.adminStats.getUsers.useQuery(
     { limit: 200, search: userSearch.trim() || undefined },
     { enabled: showUsers && isAuthenticated && (user as { role?: string })?.role === "admin" }
@@ -1948,6 +1952,18 @@ export default function AdminReports() {
                 Export maturity KPIs (CSV)
               </Button>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Clinical outcomes pilot (read-only)</CardTitle>
+                <CardDescription>CEO-gated env: CLINICAL_OUTCOMES_PILOT_ENABLED, PILOT_FACILITY_IDS</CardDescription>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <p>Flag: <span className="font-semibold">{clinicalPilotStatus?.enabled ? "enabled" : "disabled"}</span></p>
+                <p>Pilot facility IDs: {clinicalPilotStatus?.pilotFacilityIds?.length ? clinicalPilotStatus.pilotFacilityIds.join(", ") : "(none)"}</p>
+                <p className="text-muted-foreground">docs/PILOT_ONBOARDING_CHECKLIST.md � docs/legal/PILOT_HOSPITAL_MOU_TEMPLATE.md</p>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

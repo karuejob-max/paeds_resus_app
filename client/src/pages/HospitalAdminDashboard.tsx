@@ -223,6 +223,10 @@ export default function HospitalAdminDashboard() {
     }
   }, []);
 
+  const { data: pilotProgramStatus } = trpc.institution.getPilotProgramStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+
   const { data: myInstitution, isLoading: myInstitutionLoading } = trpc.institution.getMyInstitution.useQuery(
     undefined,
     { enabled: isAuthenticated }
@@ -512,7 +516,12 @@ export default function HospitalAdminDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Institutional dashboard</h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-4xl font-bold text-foreground">Institutional dashboard</h1>
+            {pilotProgramStatus?.showPilotBadge ? (
+              <Badge className="bg-primary/10 text-primary border-primary/30">Pilot program</Badge>
+            ) : null}
+          </div>
           <p className="text-lg text-muted-foreground">
             Paediatric emergency readiness — staff roster, Care Signal QI, ResusGPS adoption, and training coverage
           </p>

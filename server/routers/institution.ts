@@ -32,6 +32,8 @@ import {
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
+import { ENV } from "../_core/env";
+import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -172,6 +174,36 @@ export const institutionRouter = router({
   }),
 
   /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
+
+  /** Whether this institution is in the CEO-gated clinical outcomes pilot. */
+  getPilotProgramStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      return {
+        pilotFlagEnabled: ENV.clinicalOutcomesPilotEnabled,
+        institutionInPilotList: false,
+        showPilotBadge: false,
+      };
+    }
+    const rows = await db
+      .select({ id: institutionalAccounts.id })
+      .from(institutionalAccounts)
+      .where(eq(institutionalAccounts.userId, ctx.user.id))
+      .orderBy(desc(institutionalAccounts.id))
+      .limit(1);
+    const institutionId = rows[0]?.id ?? null;
+    const institutionInPilotList = isInstitutionInPilotProgram(
+      institutionId,
+      ENV.pilotFacilityIds
+    );
+    return {
+      pilotFlagEnabled: ENV.clinicalOutcomesPilotEnabled,
+      institutionId,
+      institutionInPilotList,
+      showPilotBadge: ENV.clinicalOutcomesPilotEnabled && institutionInPilotList,
+    };
+  }),
+
   getCareSignalFacilityDashboard: protectedProcedure
     .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
     .query(async ({ ctx, input }) => {

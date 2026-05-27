@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import mysql from "mysql2/promise";
+import { createMysqlConnection } from "./db-connection-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -53,7 +54,7 @@ async function main() {
   }
 
   const dbName = new URL(databaseUrl).pathname.replace(/^\//, "");
-  const conn = await mysql.createConnection(getConnectionConfig(databaseUrl));
+  const conn = await createMysqlConnection(databaseUrl, mysql);
 
   const userColumns = [
     "termsAcceptedAt",
