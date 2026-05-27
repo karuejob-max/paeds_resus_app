@@ -47,6 +47,25 @@ The platform has **substantial surface area**: ResusGPS bedside guidance, micro-
 | 9 | Product narrative fragmentation (Bronze/Silver/Gold, aspirational DNA, etc.) | Medium |
 | 10 | Institutional value prop built for "seats" vs "systems" | High |
 
+---
+
+## Progress as of May 2026
+
+**Engineering (merged on `main`, `ca03c50`):**
+
+| Slice | PR | Highlights |
+|-------|-----|------------|
+| Phase 1 foundation | #52 | Fellowship §11 launch gate, legal/staging checklists, institutional readiness copy, holistic_loop taxonomy |
+| Phases 2–6 KPIs | #53 | Admin Maturity KPIs, mission impact + conversion funnel, Care Signal consent gate |
+| Phase 3–4 loop | #54–#55 | (intermediate merges per WORK_STATUS) |
+| Holistic loop + action log | #56 | Playwright holistic E2E (partial), Care Signal rate limits, Hospital Admin **institutional action log**, migration `0043` |
+
+**Database:** Migration **0043** (`institutionalActionLogs`) **applied** to Aiven production (`defaultdb`) on 2026-05-27; verified via `information_schema` / `SHOW TABLES`. `drizzle-kit migrate` may still timeout from some networks without explicit SSL — use repo `db:test-connection` / apply scripts pattern documented in [WORK_STATUS.md](./WORK_STATUS.md).
+
+**Still CEO / ops (not code blockers):** live staging URL ([STAGING_GO_LIVE_CHECKLIST](./STAGING_GO_LIVE_CHECKLIST.md)), institutional pilot MOU, Fellowship §11 CEO enable, full holistic browser E2E with provider creds, Septic Shock I ↔ ResusGPS clinical copy review.
+
+**No open engineering PRs** for maturity slices 1–3 as of this update.
+
 **Honest assessment:** We have built **parts of every lever** but not **one complete proof** that the theory of change works end-to-end. That is the maturity gap.
 
 ### Target mature state (18-month horizon)
