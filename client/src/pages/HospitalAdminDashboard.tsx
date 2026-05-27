@@ -44,6 +44,7 @@ import {
   Trash2,
   Ban,
   Loader2,
+  ClipboardList,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { buildIncidentsGovernanceCsv, downloadCsv } from "@/lib/incidentsCsv";
@@ -206,6 +207,12 @@ export default function HospitalAdminDashboard() {
       | "other",
     department: "",
   });
+  const [actionLogForm, setActionLogForm] = useState({
+    gapIdentified: "",
+    systemChange: "",
+    status: "open" as "open" | "in_progress" | "completed",
+    notes: "",
+  });
 
   const utils = trpc.useUtils();
 
@@ -276,6 +283,11 @@ export default function HospitalAdminDashboard() {
     { enabled: !!institutionId }
   );
 
+  const { data: actionLogs, isLoading: actionLogsLoading } = trpc.institution.getActionLogs.useQuery(
+    { institutionId: institutionId!, limit: 100 },
+    { enabled: !!institutionId }
+  );
+
   const bulkEnrollMutation = trpc.institution.bulkEnrollFromStaffRoster.useMutation({
     onSuccess: () => {
       if (institutionId) {
@@ -292,6 +304,17 @@ export default function HospitalAdminDashboard() {
         void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
       }
     },
+  });
+
+  const createActionLogMutation = trpc.institution.createActionLog.useMutation({
+    onSuccess: () => {
+      toast.success("Action logged for facility QI follow-up.");
+      setActionLogForm({ gapIdentified: "", systemChange: "", status: "open", notes: "" });
+      if (institutionId) {
+        void utils.institution.getActionLogs.invalidate({ institutionId });
+      }
+    },
+    onError: (e) => toast.error(e.message || "Could not save action log entry."),
   });
 
   const createTrainingScheduleMutation = trpc.institution.createTrainingSchedule.useMutation({
@@ -575,11 +598,12 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="incidents">Incidents</TabsTrigger>
+            <TabsTrigger value="action-log">Action log</TabsTrigger>
             <TabsTrigger value="quotations">Quotations</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -2025,6 +2049,173 @@ export default function HospitalAdminDashboard() {
                 Institution data not available. Please refresh.
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="action-log" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  Facility action log
+                </CardTitle>
+                <CardDescription>
+                  Document gaps identified from Care Signal or incident review and the system changes your
+                  hospital commits to — supports Phase 4 vertical-slice QI cadence.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="action-gap">Gap identified</Label>
+                    <Textarea
+                      id="action-gap"
+                      rows={3}
+                      placeholder="e.g. Delayed first fluid bolus — no paediatric giving set on crash cart"
+                      value={actionLogForm.gapIdentified}
+                      onChange={(e) =>
+                        setActionLogForm((f) => ({ ...f, gapIdentified: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="action-change">Documented system change</Label>
+                    <Textarea
+                      id="action-change"
+                      rows={3}
+                      placeholder="e.g. Added 20 mL syringe + three-way tap to paediatric resus tray; charge nurse sign-off weekly"
+                      value={actionLogForm.systemChange}
+                      onChange={(e) =>
+                        setActionLogForm((f) => ({ ...f, systemChange: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={actionLogForm.status}
+                      onValueChange={(v) =>
+                        setActionLogForm((f) => ({
+                          ...f,
+                          status: v as "open" | "in_progress" | "completed",
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="action-notes">Notes (optional)</Label>
+                    <Input
+                      id="action-notes"
+                      placeholder="Owner, target date, or link to Care Signal event ID"
+                      value={actionLogForm.notes}
+                      onChange={(e) => setActionLogForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+                  disabled={
+                    !institutionId ||
+                    createActionLogMutation.isPending ||
+                    actionLogForm.gapIdentified.trim().length < 3 ||
+                    actionLogForm.systemChange.trim().length < 3
+                  }
+                  onClick={() => {
+                    if (!institutionId) return;
+                    createActionLogMutation.mutate({
+                      institutionId,
+                      gapIdentified: actionLogForm.gapIdentified.trim(),
+                      systemChange: actionLogForm.systemChange.trim(),
+                      status: actionLogForm.status,
+                      notes: actionLogForm.notes.trim() || undefined,
+                    });
+                  }}
+                >
+                  {createActionLogMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Add action log entry"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent actions</CardTitle>
+                <CardDescription>Gap → system change trail for monthly QI review</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {actionLogsLoading ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading action log…
+                  </p>
+                ) : !actionLogs?.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    No actions logged yet. Add an entry when your team documents a system change from a
+                    Care Signal gap or incident debrief.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="py-2 pr-4 font-medium">Date</th>
+                          <th className="py-2 pr-4 font-medium">Gap</th>
+                          <th className="py-2 pr-4 font-medium">System change</th>
+                          <th className="py-2 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {actionLogs.map((row) => (
+                          <tr key={row.id} className="border-b border-border/60 align-top">
+                            <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
+                              {row.createdAt
+                                ? new Date(row.createdAt).toLocaleDateString("en-KE", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "—"}
+                            </td>
+                            <td className="py-3 pr-4 max-w-xs">{row.gapIdentified}</td>
+                            <td className="py-3 pr-4 max-w-md">{row.systemChange}</td>
+                            <td className="py-3">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  row.status === "completed"
+                                    ? "border-green-500 text-green-700"
+                                    : row.status === "in_progress"
+                                      ? "border-amber-500 text-amber-700"
+                                      : ""
+                                }
+                              >
+                                {row.status.replace(/_/g, " ")}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="care-signal" className="space-y-6">

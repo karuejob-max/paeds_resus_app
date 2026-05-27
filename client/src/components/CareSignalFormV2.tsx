@@ -218,7 +218,7 @@ export default function CareSignalFormV2() {
 
         <CardContent className="pt-6 space-y-6 text-slate-800">
           {prefillBanner ? (
-            <Alert className="border-blue-200 bg-blue-50">
+            <Alert className="border-blue-200 bg-blue-50" data-testid="care-signal-prefill-banner">
               <AlertCircle className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800 text-sm">{prefillBanner}</AlertDescription>
             </Alert>
