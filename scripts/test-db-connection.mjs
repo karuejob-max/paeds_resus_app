@@ -4,6 +4,7 @@
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
+import { createMysqlConnection } from "./db-connection-config.mjs";
 
 function getConnectionConfig(databaseUrl) {
   const url = new URL(databaseUrl);
@@ -41,7 +42,7 @@ async function main() {
     `Connecting: user=${decodeURIComponent(u.username)} host=${u.hostname} port=${u.port || 3306} db=${(u.pathname || "").replace(/^\//, "") || "(none)"} passwordLen=${decodeURIComponent(u.password || "").length}`
   );
   try {
-    const conn = await mysql.createConnection(getConnectionConfig(url));
+    const conn = await createMysqlConnection(url, mysql);
     await conn.query("SELECT 1");
     await conn.end();
     console.log("OK — database accepts this DATABASE_URL.");

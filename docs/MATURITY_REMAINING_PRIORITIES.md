@@ -14,7 +14,7 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 |------|----------|-------|--------|
 | **1** | **Live staging** (`develop` → staging URL, separate Aiven DB) | CEO / ops | Blocks safe QA of payments, migrations, E2E before production |
 | **2** | **Counsel sign-off on legal suite** (`docs/legal/`, consent flows shipped) | CEO + counsel | Blocks public claims, Fellow title, institutional data-sharing |
-| **3** | **Institutional pilot MOU** (one hospital, septic shock, 90-day process metrics) | CEO | Blocks provable theory-of-change proof ([CLINICAL_OUTCOMES_PILOT.md](./CLINICAL_OUTCOMES_PILOT.md)) |
+| **3** | **Institutional pilot MOU** (one hospital, septic shock, 90-day process metrics) | CEO | **Template done** � [PILOT_HOSPITAL_MOU_TEMPLATE.md](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) + [PILOT_ONBOARDING_CHECKLIST.md](./PILOT_ONBOARDING_CHECKLIST.md); **CEO signs with hospital** |
 | **4** | **Holistic loop proof** — manual staging smoke: ResusGPS save → Care Signal → action log | CEO + champion nurse | Closes Blocker #1 (critical) |
 | **5** | **Keep `fellowTitleEnabled = false`** until §11 + counsel green | CEO (flag only) | Prevents credential misrepresentation |
 | **6** | **Full E2E provider creds in CI/staging** (`E2E_PROVIDER_*`, optional GitHub secrets) | Engineering | **Partial — `e2e:ensure-provider`, E2E_TEST_SETUP.md, CI optional job documented; creds = ops** |

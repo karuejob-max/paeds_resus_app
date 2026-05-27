@@ -31,7 +31,7 @@
 | **1** | Release & governance foundation | **~92%** | PR #52 + #59 legal hardening merged; counsel sign-off + ODPC = CEO |
 | **2** | ResusGPS v4 + instrumentation | **~75%** | v4 largely shipped; holistic loop KPIs in admin |
 | **3** | Care Signal truth + §11 gate | **~78%** | Rate limiting + anti-gaming tests; Playwright holistic E2E (partial); Fellow title still blocked |
-| **4** | Vertical slice (one hospital) | **~58%** | Care Signal → institutional action log auto-prompt + hospital admin alert; migration 0044 apply blocked by network ETIMEDOUT from dev |
+| **4** | Vertical slice (one hospital) | **~62%** | Care Signal → institutional action log auto-prompt + hospital admin alert; migration **0044 applied** 2026-05-27; pilot MOU template + onboarding checklist; CEO signs MOU |
 | **5** | Institutional systems + outcomes | **~35%** | Facility QI readiness dashboard; outcomes pilot flag; evaluation = CEO |
 | **6** | Growth + narrative maturity | **~65%** | `/start` SEO meta + hero polish; P2-LAND-1 role chooser |
 

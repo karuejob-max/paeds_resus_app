@@ -5,6 +5,7 @@
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
+import { createMysqlConnection } from "./db-connection-config.mjs";
 
 function getConnectionConfig(databaseUrl) {
   const url = new URL(databaseUrl);
@@ -65,7 +66,7 @@ async function main() {
   }
 
   const dbName = new URL(databaseUrl).pathname.replace(/^\//, "");
-  const conn = await mysql.createConnection(getConnectionConfig(databaseUrl));
+  const conn = await createMysqlConnection(databaseUrl, mysql);
 
   let missing = 0;
 

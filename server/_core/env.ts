@@ -22,4 +22,11 @@ export const ENV = {
     process.env.NODE_ENV !== "production" || process.env.ENABLE_ASPIRATIONAL_APIS === "true",
   /** When true, surfaces clinical outcomes pilot metrics in institutional dashboards (CEO-gated). */
   clinicalOutcomesPilotEnabled: process.env.CLINICAL_OUTCOMES_PILOT_ENABLED === "true",
+  /** Comma-separated institutionalAccounts.id values in the 90-day outcomes pilot. */
+  pilotFacilityIds: (process.env.PILOT_FACILITY_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number.parseInt(s, 10))
+    .filter((n) => Number.isFinite(n) && n > 0),
 };

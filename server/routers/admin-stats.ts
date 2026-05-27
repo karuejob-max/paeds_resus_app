@@ -1162,4 +1162,13 @@ export const adminStatsRouter = router({
       fellowTitleEnabled: FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
     };
   }),
+  /** Read-only clinical outcomes pilot config (CEO-gated env). */
+  getClinicalPilotStatus: adminProcedure.query(() => {
+    return {
+      enabled: ENV.clinicalOutcomesPilotEnabled,
+      pilotFacilityIds: ENV.pilotFacilityIds,
+      onboardingDoc: "docs/PILOT_ONBOARDING_CHECKLIST.md",
+      mouTemplateDoc: "docs/legal/PILOT_HOSPITAL_MOU_TEMPLATE.md",
+    };
+  }),
 });
