@@ -1676,4 +1676,51 @@ export const institutionRouter = router({
 
       return { success: true, id: insertId };
     }),
+
+  /** Open action log entries auto-created from Care Signal submissions — for dashboard alerts. */
+  getPendingCareSignalActions: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Database connection failed",
+      });
+    }
+
+    const rows = await db
+      .select({ id: institutionalAccounts.id })
+      .from(institutionalAccounts)
+      .where(eq(institutionalAccounts.userId, ctx.user.id))
+      .orderBy(desc(institutionalAccounts.id))
+      .limit(1);
+
+    const institutionId = rows[0]?.id;
+    if (!institutionId) {
+      return { count: 0, items: [] as { id: number; gapIdentified: string; careSignalEventId: number | null; createdAt: Date }[] };
+    }
+
+    const pending = await db
+      .select({
+        id: institutionalActionLogs.id,
+        gapIdentified: institutionalActionLogs.gapIdentified,
+        careSignalEventId: institutionalActionLogs.careSignalEventId,
+        createdAt: institutionalActionLogs.createdAt,
+      })
+      .from(institutionalActionLogs)
+      .where(
+        and(
+          eq(institutionalActionLogs.institutionalAccountId, institutionId),
+          eq(institutionalActionLogs.status, "open")
+        )
+      )
+      .orderBy(desc(institutionalActionLogs.createdAt))
+      .limit(20);
+
+    const fromCareSignal = pending.filter((p) => p.careSignalEventId != null);
+
+    return {
+      count: fromCareSignal.length,
+      items: fromCareSignal,
+    };
+  }),
 });

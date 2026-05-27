@@ -111,6 +111,10 @@
 | `acceptInstitutionalB2b` | protected mutation | Hospital | B2B ADDENDUM |
 | `acceptSafeTruthGuardian` | protected mutation | Parent gate | Privacy §10 |
 | `submitDataRequest` | public mutation | DSAR intake | DSAR_PROCEDURE |
+| `listDataRequests` | admin query | DSAR ops queue | DSAR_PROCEDURE |
+| `previewDeletion` | admin query | Deletion checklist dry-run | DSAR_PROCEDURE §6 |
+| `processDeletionRequest` | admin mutation | Execute approved erasure | DSAR_PROCEDURE §6 |
+| `previewRetentionCleanup` | admin query | Retention dry-run summary | DATA_RETENTION_SCHEDULE |
 
 **DB layer:** `server/lib/legal-consent.ts` — `recordTermsReconsent`, `recordCareSignalConsent`, `createLegalDataRequest`, etc.
 
@@ -153,8 +157,8 @@
 | ~~P1~~ | ~~Register click-wrap on `Register.tsx`~~ | **Done** — `recordRegistrationConsent` |
 | ~~P1~~ | ~~Public `/legal/care-signal` page~~ | **Done** |
 | ~~P1~~ | ~~Public `/legal/clinical-use` page~~ | **Done** |
-| P2 | Automated retention cron per DATA_RETENTION_SCHEDULE | 7 |
-| P2 | Account deletion job per DSAR_PROCEDURE §6 | 9 |
+| P2 | ~~Automated retention cron per DATA_RETENTION_SCHEDULE~~ | **Partial — `retention:cleanup` script + monthly scheduler dry-run; `--execute` = ops after review** | 7 |
+| P2 | ~~Account deletion job per DSAR_PROCEDURE §6~~ | **Partial — `dsar:deletion` CLI + `legal.processDeletionRequest` admin mutation** | 9 |
 | P3 | Country config for EAC emergency numbers | 10 |
 
 ---

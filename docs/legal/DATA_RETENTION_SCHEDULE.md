@@ -91,7 +91,7 @@ This schedule defines **how long** Paeds Resus Limited retains categories of per
 | User DSAR erasure | DSAR_PROCEDURE.md — verify identity, check exceptions |
 | Account closure request | support@paeds-resus.com → manual checklist |
 | Institutional exit | INSTITUTIONAL_B2B_ADDENDUM Part B.8 |
-| Automated purge jobs | **TBD engineering** — cron documented in LEGAL_IMPLEMENTATION_INDEX |
+| Automated purge jobs | **Engineering — `pnpm run retention:cleanup` (dry-run default); monthly scheduler dry-run log; `--execute` after ops review** |
 
 **Exceptions to erasure:** Legal obligation, tax, fraud investigation, fellowship dispute resolution, anonymous aggregates.
 

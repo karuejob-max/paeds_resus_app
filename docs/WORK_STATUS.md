@@ -31,7 +31,7 @@
 | **1** | Release & governance foundation | **~92%** | PR #52 + #59 legal hardening merged; counsel sign-off + ODPC = CEO |
 | **2** | ResusGPS v4 + instrumentation | **~75%** | v4 largely shipped; holistic loop KPIs in admin |
 | **3** | Care Signal truth + §11 gate | **~78%** | Rate limiting + anti-gaming tests; Playwright holistic E2E (partial); Fellow title still blocked |
-| **4** | Vertical slice (one hospital) | **~52%** | Action log UI + **migration 0043 applied** on Aiven (`institutionalActionLogs` verified); loop instrumentation; pilot MOU = CEO |
+| **4** | Vertical slice (one hospital) | **~58%** | Care Signal → institutional action log auto-prompt + hospital admin alert; migration 0044 apply blocked by network ETIMEDOUT from dev |
 | **5** | Institutional systems + outcomes | **~35%** | Facility QI readiness dashboard; outcomes pilot flag; evaluation = CEO |
 | **6** | Growth + narrative maturity | **~65%** | `/start` SEO meta + hero polish; P2-LAND-1 role chooser |
 
@@ -39,9 +39,7 @@
 
 ## In progress
 
-*(No active engineering slice — see Done for PR #56.)*
-| Cursor | Governance closeout support: Phase 0/Week 1-4 execution complete with evidence pack prepared; awaiting Job-led P0-7 sync sign-off window for formal Go/No-Go recording. |
-| Manus | Phase 4: ResusGPS v4 clinical upgrades (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale). **Note:** CEO priority order puts analytics baseline before v4; align v4 timing with [`PLATFORM_SOURCE_OF_TRUTH.md`](./PLATFORM_SOURCE_OF_TRUTH.md) §12. |
+*(No active engineering slice — see Done for maturity ops eng slice.)*
 
 ---
 
@@ -49,7 +47,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-27 | Cursor | **Legal parity pages (P1):** Public `/legal/care-signal` + `/legal/clinical-use` routes with `LegalDocumentLayout`; footer links + Care Signal appeals; LEGAL_IMPLEMENTATION_INDEX P1 gaps closed. **Migration 0044:** `pnpm run db:apply-0044` **ETIMEDOUT** (Aiven SSL — apply on staging when connected). **E2E:** `e2e:ensure-provider` requires `E2E_PROVIDER_*` in `.env` (see E2E_TEST_SETUP.md). Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #60 · `5b78553` |
+| 2026-05-27 | Cursor | **Maturity ops eng slice:** Care Signal submit → auto `institutionalActionLogs` draft + in-app notification for linked facilities; hospital admin pending-action banner; DSAR deletion handler (`dsar:deletion`, `legal.processDeletionRequest`); retention cleanup (`retention:cleanup`, monthly scheduler dry-run); migration 0044 verify script (`db:verify-0044`) — **apply ETIMEDOUT** from dev network (Aiven). E2E: DSAR public form test + holistic loop expansion. Unit tests for institutional action, retention, DSAR. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`, `pnpm run test:e2e:holistic`. | PR TBD · `feat/maturity-ops-eng-slice` |
 | 2026-05-27 | Cursor | **Comprehensive legal hardening merged:** `docs/legal/` (11 counsel-ready docs v1.0.0); production Privacy/Terms UI; registration Terms+Privacy click-wrap + migration `0044`; `LegalReconsentGate`, Care Signal/Safe-Truth/ResusGPS/institutional consent; DSAR; routes `/legal/*`, `/care-signal/appeal`; footer legal links; `shared/legal-consent.test.ts`. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #59 · `b0bcc1f` |
 | 2026-05-27 | Cursor | **DB migration 0043 (`institutionalActionLogs`):** `pnpm run db:test-connection` OK; `pnpm exec drizzle-kit migrate` **ETIMEDOUT** (mysql2 ignores `ssl-mode` in URL — use `scripts/test-db-connection.mjs` SSL pattern or `pnpm run db:apply-*` scripts). Applied `drizzle/0043_institutional_action_logs.sql` via mysql2 + Aiven SSL; verified table exists in `defaultdb`. **Operator note:** prefer `node scripts/apply-0043-...` if added, or manual SQL + SSL, until drizzle-kit URL SSL is fixed. | ops |
 | 2026-05-27 | Cursor | **MATURITY_ROADMAP code slice 3:** Playwright holistic loop E2E (`e2e/holistic-loop.spec.ts` — public `/`→`/start` + ResusGPS prefill when creds set); **institutional action log** tab + `institutionalActionLogs` migration + tRPC; Care Signal **rate limiting** (5/day EAT, 10-min duplicate guard) + unit tests; **P2-LAND-1** `/start` SEO meta + hero polish; Septic Shock I `/resus` links unchanged — CEO clinical review flagged. Verified: `pnpm run check`, `pnpm run test:unit` (123), `pnpm run build`, `pnpm run test:e2e:holistic` (2 pass, 2 skip without E2E creds). | PR #56 · `ca03c50` |
