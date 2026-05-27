@@ -106,9 +106,24 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="text-white/70 hover:text-brand-orange transition">
-                  About
+                <Link href="/legal/cookies" className="text-white/70 hover:text-brand-orange transition">
+                  Cookie notice
                 </Link>
+              </li>
+              <li>
+                <Link href="/legal/data-request" className="text-white/70 hover:text-brand-orange transition">
+                  Data requests
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/subprocessors" className="text-white/70 hover:text-brand-orange transition">
+                  Subprocessors
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:privacy@paeds-resus.com" className="text-white/70 hover:text-brand-orange transition">
+                  Contact (privacy)
+                </a>
               </li>
             </ul>
           </div>

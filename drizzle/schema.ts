@@ -32,6 +32,24 @@ export const users = mysqlTable("users", {
   instructorCertifiedAt: timestamp("instructorCertifiedAt"),
   /** Rolling ResusGPS access window: extended by 30 days when a fellowship micro-course is completed (null = unrestricted legacy). */
   resusGpsAccessExpiresAt: timestamp("resusGpsAccessExpiresAt"),
+  /** Legal consent — Terms of Use click-wrap (migration 0044) */
+  termsAcceptedAt: timestamp("termsAcceptedAt"),
+  termsVersion: varchar("termsVersion", { length: 16 }),
+  /** Legal consent — Privacy Policy click-wrap (migration 0044) */
+  privacyAcceptedAt: timestamp("privacyAcceptedAt"),
+  privacyVersion: varchar("privacyVersion", { length: 16 }),
+  /** Care Signal QI processing consent (migration 0044) */
+  careSignalConsentAt: timestamp("careSignalConsentAt"),
+  careSignalConsentVersion: varchar("careSignalConsentVersion", { length: 16 }),
+  /** Institutional B2B addendum acceptance (migration 0044) */
+  institutionalB2bAcceptedAt: timestamp("institutionalB2bAcceptedAt"),
+  institutionalB2bVersion: varchar("institutionalB2bVersion", { length: 16 }),
+  /** ResusGPS clinical disclaimer session acknowledgment (migration 0044) */
+  resusGpsAckAt: timestamp("resusGpsAckAt"),
+  resusGpsAckVersion: varchar("resusGpsAckVersion", { length: 16 }),
+  /** Parent Safe-Truth guardian acknowledgment (migration 0044) */
+  safeTruthGuardianAckAt: timestamp("safeTruthGuardianAckAt"),
+  safeTruthGuardianAckVersion: varchar("safeTruthGuardianAckVersion", { length: 16 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -2676,3 +2694,48 @@ export const careFacilities = mysqlTable("careFacilities", {
 
 export type CareFacility = typeof careFacilities.$inferSelect;
 export type InsertCareFacility = typeof careFacilities.$inferInsert;
+
+/** Published legal document version registry (migration 0044) */
+export const legalDocumentVersions = mysqlTable("legalDocumentVersions", {
+  id: int("id").autoincrement().primaryKey(),
+  documentKey: varchar("documentKey", { length: 64 }).notNull().unique(),
+  version: varchar("version", { length: 16 }).notNull(),
+  effectiveAt: timestamp("effectiveAt").notNull(),
+  summary: text("summary"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type LegalDocumentVersion = typeof legalDocumentVersions.$inferSelect;
+export type InsertLegalDocumentVersion = typeof legalDocumentVersions.$inferInsert;
+
+/** Data subject access / deletion / correction requests (migration 0044) */
+export const legalDataRequests = mysqlTable("legalDataRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  requesterEmail: varchar("requesterEmail", { length: 320 }).notNull(),
+  requesterName: varchar("requesterName", { length: 255 }),
+  requestType: mysqlEnum("requestType", ["access", "correction", "deletion", "objection", "portability"]).notNull(),
+  details: text("details"),
+  status: mysqlEnum("status", ["received", "in_progress", "completed", "rejected"]).default("received").notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type LegalDataRequest = typeof legalDataRequests.$inferSelect;
+export type InsertLegalDataRequest = typeof legalDataRequests.$inferInsert;
+
+/** Audit trail for consent events (migration 0044) */
+export const userConsentEvents = mysqlTable("userConsentEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  consentType: varchar("consentType", { length: 64 }).notNull(),
+  documentVersion: varchar("documentVersion", { length: 16 }),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  userAgent: text("userAgent"),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type UserConsentEvent = typeof userConsentEvents.$inferSelect;
+export type InsertUserConsentEvent = typeof userConsentEvents.$inferInsert;

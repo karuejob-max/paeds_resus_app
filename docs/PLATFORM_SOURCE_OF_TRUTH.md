@@ -158,7 +158,7 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 | **Password** | Minimum **8 characters** (enforced). Further complexity rules **TBD**. |
 | **Session** | Configurable via **`SESSION_MAX_AGE_MS`** (`.env.example` recommends **30 minutes** for new production). If unset, legacy default ~**1 year**; sliding expiry / refresh **TBD**. |
 | **Audit** | Admin audit logging is part of the **security baseline** direction; scope **TBD** beyond current implementation. |
-| **Compliance** | Data retention, PHI handling, and full compliance posture **not** fully defined; ship **minimal** baseline as agreed and document here when locked. |
+| **Compliance** | **Legal suite v1.0.0** shipped (`docs/legal/`, consent flows, `/privacy`, `/terms`, DSAR). Kenya DPA alignment draft — **counsel sign-off pending** (ODPC registration placeholder). See [LEGAL_IMPLEMENTATION_INDEX.md](./legal/LEGAL_IMPLEMENTATION_INDEX.md), [LEGAL_PLATFORM_STRUCTURES.md](./LEGAL_PLATFORM_STRUCTURES.md). |
 
 ---
 
@@ -565,6 +565,7 @@ Every strategic and operational document in this repository is listed here with 
 | [STAGING_DEPLOYMENT.md](./STAGING_DEPLOYMENT.md) | Active | Staging environment setup |
 | [STAGING_GO_LIVE_CHECKLIST.md](./STAGING_GO_LIVE_CHECKLIST.md) | Active | Operator go-live checklist for live staging (MATURITY_ROADMAP Phase 1) |
 | [LEGAL_COMPLIANCE_BASELINE.md](./LEGAL_COMPLIANCE_BASELINE.md) | Draft | Legal/compliance baseline for counsel review (MATURITY_ROADMAP Issue #8) |
+| [legal/LEGAL_IMPLEMENTATION_INDEX.md](./legal/LEGAL_IMPLEMENTATION_INDEX.md) | v1.0.0 | Counsel-ready legal docs + engineering map (Privacy, Terms, consent, DSAR) |
 | [CLINICAL_OUTCOMES_PILOT.md](./CLINICAL_OUTCOMES_PILOT.md) | Draft | Process-outcomes pilot framework (MATURITY_ROADMAP Issue #3) |
 | [MPESA_CONFIG_REFERENCE.md](./MPESA_CONFIG_REFERENCE.md) | Active | M-Pesa configuration reference |
 | [MPESA_CREDENTIALS_REFERENCE.md](./MPESA_CREDENTIALS_REFERENCE.md) | Active | M-Pesa credentials (do not commit secrets) |

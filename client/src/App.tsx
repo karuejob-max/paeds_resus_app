@@ -12,6 +12,7 @@ import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -30,6 +31,10 @@ const AdminFacilityCareSignal = lazy(() => import("./pages/AdminFacilityCareSign
 const Help = lazy(() => import("./pages/Help"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
+const CookieNotice = lazy(() => import("./pages/legal/CookieNotice"));
+const Subprocessors = lazy(() => import("./pages/legal/Subprocessors"));
+const DataRequest = lazy(() => import("./pages/legal/DataRequest"));
+const CareSignalAppeal = lazy(() => import("./pages/legal/CareSignalAppeal"));
 const About = lazy(() => import("./pages/About"));
 const Start = lazy(() => import("./pages/Start"));
 const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
@@ -127,6 +132,7 @@ function Router() {
       </a>
       <Header />
       <main id="main-content" className="flex-1" role="main">
+        <LegalReconsentGate>
         <Suspense
           fallback={
             <SuspenseRouteFallback />
@@ -201,6 +207,10 @@ function Router() {
           <Route path="/help" component={Help} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
+          <Route path="/legal/cookies" component={CookieNotice} />
+          <Route path="/legal/subprocessors" component={Subprocessors} />
+          <Route path="/legal/data-request" component={DataRequest} />
+          <Route path="/care-signal/appeal" component={CareSignalAppeal} />
           <Route path="/about" component={About} />
           <Route path="/start" component={Start} />
           <Route path="/hospital-admin-dashboard">{() => (
@@ -436,6 +446,7 @@ function Router() {
             <Route component={RootEntry} />
           </Switch>
         </Suspense>
+        </LegalReconsentGate>
       </main>
     </div>
   );

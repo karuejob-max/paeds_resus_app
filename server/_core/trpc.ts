@@ -1,4 +1,5 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { isTermsConsentStale } from '@shared/legal-versions';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import * as db from "../db";
@@ -27,6 +28,23 @@ const requireUser = t.middleware(async opts => {
 });
 
 export const protectedProcedure = t.procedure.use(requireUser);
+
+/** Rejects protected mutations when Terms/Privacy versions are stale — prompts client re-consent modal. */
+const requireCurrentTermsConsent = t.middleware(async (opts) => {
+  const { ctx, next } = opts;
+  if (!ctx.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+  }
+  if (isTermsConsentStale(ctx.user)) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "TERMS_RECONSENT_REQUIRED",
+    });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+export const consentProtectedProcedure = t.procedure.use(requireUser).use(requireCurrentTermsConsent);
 
 /** Parsed procedure input (tRPC v11); fallback for tests / edge cases. */
 export function summarizeAdminProcedureInput(opts: {

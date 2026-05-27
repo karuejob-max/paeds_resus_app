@@ -396,13 +396,19 @@ export default function Enroll() {
                     />
                     <span className="text-sm text-foreground/90">
                       I agree to the{" "}
-                      <a href="/terms" className="text-primary font-medium hover:underline">
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
                         Terms of Service
                       </a>{" "}
                       and{" "}
-                      <a href="/privacy" className="text-primary font-medium hover:underline">
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
                         Privacy Policy
                       </a>
+                      . Training certificates attest course completion — AHA-aligned courses are issued by Paeds Resus
+                      Limited where stated; see{" "}
+                      <a href="/terms#payments" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        refund policy
+                      </a>
+                      .
                     </span>
                   </label>
                 </div>

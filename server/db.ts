@@ -164,6 +164,18 @@ export async function getUserByOpenId(openId: string) {
       instructorNumber: null,
       instructorCertifiedAt: null,
       resusGpsAccessExpiresAt: null,
+      termsAcceptedAt: null,
+      termsVersion: null,
+      privacyAcceptedAt: null,
+      privacyVersion: null,
+      careSignalConsentAt: null,
+      careSignalConsentVersion: null,
+      institutionalB2bAcceptedAt: null,
+      institutionalB2bVersion: null,
+      resusGpsAckAt: null,
+      resusGpsAckVersion: null,
+      safeTruthGuardianAckAt: null,
+      safeTruthGuardianAckVersion: null,
     };
   }
 }
@@ -206,6 +218,18 @@ export async function getUserById(userId: number) {
       instructorNumber: null,
       instructorCertifiedAt: null,
       resusGpsAccessExpiresAt: null,
+      termsAcceptedAt: null,
+      termsVersion: null,
+      privacyAcceptedAt: null,
+      privacyVersion: null,
+      careSignalConsentAt: null,
+      careSignalConsentVersion: null,
+      institutionalB2bAcceptedAt: null,
+      institutionalB2bVersion: null,
+      resusGpsAckAt: null,
+      resusGpsAckVersion: null,
+      safeTruthGuardianAckAt: null,
+      safeTruthGuardianAckVersion: null,
     };
   }
 }
@@ -254,6 +278,18 @@ export async function getUserByEmail(email: string) {
         instructorNumber: null,
         instructorCertifiedAt: null,
         resusGpsAccessExpiresAt: null,
+        termsAcceptedAt: null,
+        termsVersion: null,
+        privacyAcceptedAt: null,
+        privacyVersion: null,
+        careSignalConsentAt: null,
+        careSignalConsentVersion: null,
+        institutionalB2bAcceptedAt: null,
+        institutionalB2bVersion: null,
+        resusGpsAckAt: null,
+        resusGpsAckVersion: null,
+        safeTruthGuardianAckAt: null,
+        safeTruthGuardianAckVersion: null,
       };
     }
     throw err;
@@ -267,10 +303,10 @@ export async function createUserWithPassword(data: {
   passwordHash: string;
   userType?: "individual" | "institutional" | "parent";
   phone?: string | null;
-}) {
+}): Promise<{ id: number }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.insert(users).values({
+  const result = await db.insert(users).values({
     openId: data.openId,
     email: data.email.trim().toLowerCase(),
     name: data.name,
@@ -279,6 +315,7 @@ export async function createUserWithPassword(data: {
     passwordHash: data.passwordHash,
     userType: data.userType ?? "individual",
   });
+  return { id: Number(result[0].insertId) };
 }
 
 export async function updateUserContactInfo(

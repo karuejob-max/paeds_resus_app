@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
@@ -35,6 +36,8 @@ export default function Register() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const nextPath = useMemo(() => readSafeNextPathFromSearch(search, "/home"), [search]);
 
   const registerMutation = trpc.auth.register.useMutation({
@@ -68,6 +71,10 @@ export default function Register() {
       setError("Passwords do not match.");
       return;
     }
+    if (!acceptTerms || !acceptPrivacy) {
+      setError("You must accept the Terms of Use and Privacy Policy.");
+      return;
+    }
     if (phoneValue.trim()) {
       const n = normalizeUserPhone({ mode: phoneMode, value: phoneValue });
       if (!n) {
@@ -86,6 +93,8 @@ export default function Register() {
       userType,
       phoneMode,
       phoneValue: phoneValue.trim() === "" ? undefined : phoneValue,
+      acceptTerms: true,
+      acceptPrivacy: true,
     });
   };
 
@@ -219,7 +228,28 @@ export default function Register() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox checked={acceptTerms} onCheckedChange={(v) => setAcceptTerms(v === true)} />
+                <span className="text-sm leading-snug">
+                  I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                    Terms of Use
+                  </a>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox checked={acceptPrivacy} onCheckedChange={(v) => setAcceptPrivacy(v === true)} />
+                <span className="text-sm leading-snug">
+                  I agree to the{" "}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                    Privacy Policy
+                  </a>
+                </span>
+              </label>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={registerMutation.isPending || !acceptTerms || !acceptPrivacy}>
               {registerMutation.isPending ? "Creating account…" : "Create account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

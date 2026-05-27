@@ -197,7 +197,16 @@ export default function VerifyCertificate() {
         )}
 
         {/* Footer Info */}
-        <div className="mt-12 text-center text-sm text-gray-600">
+        <div className="mt-12 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 text-sm text-amber-950 dark:text-amber-100">
+          <p className="font-medium">Credential limitations</p>
+          <p className="mt-2">
+            Verification confirms that Paeds Resus Limited issued a certificate for the stated course completion. It does
+            not attest medical licensure, clinical competence, MOH specialist registration, or AHA Fellow status unless
+            explicitly stated on the certificate. &quot;Paeds Resus Fellow&quot; is a separate platform credential when
+            enabled — not a government or AHA credential.
+          </p>
+        </div>
+        <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
           <p>This verification tool is provided by Paeds Resus Limited</p>
           <p className="mt-2">
             For questions about certificate authenticity, contact{" "}

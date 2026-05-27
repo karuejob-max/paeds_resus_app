@@ -13,13 +13,13 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 | Rank | Priority | Owner | Impact |
 |------|----------|-------|--------|
 | **1** | **Live staging** (`develop` → staging URL, separate Aiven DB) | CEO / ops | Blocks safe QA of payments, migrations, E2E before production |
-| **2** | **Counsel engagement + Privacy/ToS rewrite** (all products, Kenya DPA) | CEO + counsel | Blocks public claims, Fellow title, institutional data-sharing |
+| **2** | **Counsel sign-off on legal suite** (`docs/legal/`, consent flows shipped) | CEO + counsel | Blocks public claims, Fellow title, institutional data-sharing |
 | **3** | **Institutional pilot MOU** (one hospital, septic shock, 90-day process metrics) | CEO | Blocks provable theory-of-change proof ([CLINICAL_OUTCOMES_PILOT.md](./CLINICAL_OUTCOMES_PILOT.md)) |
 | **4** | **Holistic loop proof** — manual staging smoke: ResusGPS save → Care Signal → action log | CEO + champion nurse | Closes Blocker #1 (critical) |
 | **5** | **Keep `fellowTitleEnabled = false`** until §11 + counsel green | CEO (flag only) | Prevents credential misrepresentation |
 | **6** | **Full E2E provider creds in CI/staging** (`E2E_PROVIDER_*`, optional GitHub secrets) | Engineering | Automates regression on authenticated loop entry |
-| **7** | **Published retention + appeals** (Care Signal streak errors) | Counsel + CEO | Closes governance Blocker #8 |
-| **8** | **ResusGPS clinical governance memo** (SaMD-style intended use, LMIC fluid strategy) | CEO + counsel | Reduces bedside liability exposure |
+| **7** | **Published retention + appeals** (Care Signal streak errors) | Counsel + CEO | **Partial — docs/legal published + `/care-signal/appeal`; counsel sign-off pending** |
+| **8** | **ResusGPS clinical governance memo** (SaMD-style intended use, LMIC fluid strategy) | CEO + counsel | **Draft shipped — `docs/legal/CLINICAL_INTENDED_USE_STATEMENT.md`; counsel confirm** |
 | **9** | **Care Signal intelligence maturity** (gap → institutional action workflow in product, not spreadsheet) | Engineering | Closes Blocker #6 |
 | **10** | **Mission-aligned institutional GTM** (readiness systems, not seat bundles) | CEO / sales | Closes Blocker #5 and #10 |
 
@@ -30,7 +30,7 @@ Ranked by impact on delivering a **mature, mandate-fulfilling product** (one clo
 - ResusGPS v4 completion (undo, dedup, multi-diagnosis — largely shipped; polish remaining)
 - Expand Playwright to full save-path when stable test hooks exist
 - `db:migrate` SSL path verified on staging ([STAGING_GO_LIVE_CHECKLIST.md](./STAGING_GO_LIVE_CHECKLIST.md))
-- Safe-Truth guardian consent UI (parity with Care Signal)
+- Safe-Truth guardian consent UI (parity with Care Signal) — **shipped (`SafeTruthGuardianGate.tsx`)**
 - Second hospital LOI after first pilot evaluation (Phase 5)
 
 ---

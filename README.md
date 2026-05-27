@@ -409,10 +409,9 @@ See `DEPLOYMENT.md` for detailed deployment instructions.
 
 ### Compliance
 
-- ✅ **GDPR** - Data privacy and consent management
-- ✅ **HIPAA** - Healthcare data protection
-- ✅ **PCI DSS** - Payment card industry standards
-- ✅ **ISO 27001** - Information security management
+- **Kenya Data Protection Act 2019** — Privacy Policy v1.0.0, consent flows, DSAR (`/legal/data-request`). Counsel review pending.
+- **Legal documentation** — Full suite in [`docs/legal/`](docs/legal/); implementation index maps docs → code → UI.
+- OAuth 2.0 authentication, TLS, audit logging, rate limiting (see Security Features below).
 
 ### Security Features
 
