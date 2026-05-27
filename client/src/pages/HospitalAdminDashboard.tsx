@@ -213,6 +213,14 @@ export default function HospitalAdminDashboard() {
     status: "open" as "open" | "in_progress" | "completed",
     notes: "",
   });
+  const [resolveActionLog, setResolveActionLog] = useState<{
+    id: number;
+    gapIdentified: string;
+    systemChange: string;
+    status: "open" | "in_progress" | "completed";
+    notes: string;
+    careSignalEventId: number | null;
+  } | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -324,6 +332,18 @@ export default function HospitalAdminDashboard() {
       }
     },
     onError: (e) => toast.error(e.message || "Could not save action log entry."),
+  });
+
+  const updateActionLogStatusMutation = trpc.institution.updateActionLogStatus.useMutation({
+    onSuccess: () => {
+      toast.success("Action log updated.");
+      setResolveActionLog(null);
+      if (institutionId) {
+        void utils.institution.getActionLogs.invalidate({ institutionId });
+        void utils.institution.getPendingCareSignalActions.invalidate();
+      }
+    },
+    onError: (e) => toast.error(e.message || "Could not update action log."),
   });
 
   const createTrainingScheduleMutation = trpc.institution.createTrainingSchedule.useMutation({
@@ -2212,7 +2232,8 @@ export default function HospitalAdminDashboard() {
                           <th className="py-2 pr-4 font-medium">Date</th>
                           <th className="py-2 pr-4 font-medium">Gap</th>
                           <th className="py-2 pr-4 font-medium">System change</th>
-                          <th className="py-2 font-medium">Status</th>
+                          <th className="py-2 pr-4 font-medium">Status</th>
+                          <th className="py-2 font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2227,9 +2248,16 @@ export default function HospitalAdminDashboard() {
                                   })
                                 : "—"}
                             </td>
-                            <td className="py-3 pr-4 max-w-xs">{row.gapIdentified}</td>
+                            <td className="py-3 pr-4 max-w-xs">
+                              {row.gapIdentified}
+                              {row.careSignalEventId ? (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Care Signal #{row.careSignalEventId}
+                                </p>
+                              ) : null}
+                            </td>
                             <td className="py-3 pr-4 max-w-md">{row.systemChange}</td>
-                            <td className="py-3">
+                            <td className="py-3 pr-4">
                               <Badge
                                 variant="outline"
                                 className={
@@ -2242,6 +2270,29 @@ export default function HospitalAdminDashboard() {
                               >
                                 {row.status.replace(/_/g, " ")}
                               </Badge>
+                            </td>
+                            <td className="py-3">
+                              {row.status !== "completed" ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setResolveActionLog({
+                                      id: row.id,
+                                      gapIdentified: row.gapIdentified,
+                                      systemChange: row.systemChange,
+                                      status: row.status as "open" | "in_progress" | "completed",
+                                      notes: row.notes ?? "",
+                                      careSignalEventId: row.careSignalEventId,
+                                    })
+                                  }
+                                >
+                                  Update
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Resolved</span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -2276,6 +2327,108 @@ export default function HospitalAdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={resolveActionLog != null} onOpenChange={(open) => !open && setResolveActionLog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update action log entry</DialogTitle>
+            <DialogDescription>
+              Document your hospital&apos;s system change and mark progress on this gap
+              {resolveActionLog?.careSignalEventId
+                ? ` (from Care Signal #${resolveActionLog.careSignalEventId})`
+                : ""}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          {resolveActionLog ? (
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-muted-foreground">Gap identified</Label>
+                <p className="text-sm mt-1">{resolveActionLog.gapIdentified}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="resolve-system-change">Documented system change</Label>
+                <Textarea
+                  id="resolve-system-change"
+                  rows={3}
+                  value={resolveActionLog.systemChange}
+                  onChange={(e) =>
+                    setResolveActionLog((cur) =>
+                      cur ? { ...cur, systemChange: e.target.value } : cur
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={resolveActionLog.status}
+                  onValueChange={(v) =>
+                    setResolveActionLog((cur) =>
+                      cur
+                        ? { ...cur, status: v as "open" | "in_progress" | "completed" }
+                        : cur
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="resolve-notes">Notes (optional)</Label>
+                <Input
+                  id="resolve-notes"
+                  value={resolveActionLog.notes}
+                  onChange={(e) =>
+                    setResolveActionLog((cur) => (cur ? { ...cur, notes: e.target.value } : cur))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setResolveActionLog(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#1a4d4d] hover:bg-[#0d3333]"
+              disabled={
+                !institutionId ||
+                !resolveActionLog ||
+                updateActionLogStatusMutation.isPending ||
+                resolveActionLog.systemChange.trim().length < 3
+              }
+              onClick={() => {
+                if (!institutionId || !resolveActionLog) return;
+                updateActionLogStatusMutation.mutate({
+                  id: resolveActionLog.id,
+                  institutionId,
+                  status: resolveActionLog.status,
+                  systemChange: resolveActionLog.systemChange.trim(),
+                  notes: resolveActionLog.notes.trim() || undefined,
+                });
+              }}
+            >
+              {updateActionLogStatusMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save update"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

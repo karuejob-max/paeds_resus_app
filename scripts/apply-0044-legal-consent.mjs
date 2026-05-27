@@ -12,24 +12,6 @@ import { createMysqlConnection } from "./db-connection-config.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function getConnectionConfig(databaseUrl) {
-  const url = new URL(databaseUrl);
-  const needsSsl =
-    /ssl-mode=REQUIRED|ssl=true/i.test(databaseUrl) || url.hostname.endsWith(".aivencloud.com");
-  const database = url.pathname.replace(/^\//, "") || undefined;
-  const config = {
-    host: url.hostname,
-    port: url.port ? parseInt(url.port, 10) : 3306,
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
-    database: database || undefined,
-  };
-  if (needsSsl) {
-    config.ssl = { rejectUnauthorized: false };
-  }
-  return config;
-}
-
 async function columnExists(conn, dbName, table, column) {
   const [rows] = await conn.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,

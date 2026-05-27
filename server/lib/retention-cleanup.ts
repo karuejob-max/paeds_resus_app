@@ -2,6 +2,7 @@ import { and, eq, lt, lte } from "drizzle-orm";
 import {
   adminAuditLog,
   analyticsEvents,
+  careSignalEvents,
   legalDataRequests,
   resusGPSCases,
 } from "../../drizzle/schema";
@@ -13,6 +14,8 @@ export const RETENTION_WINDOWS = {
   adminAuditLogDays: 90,
   dsarTicketsYears: 3,
   resusGpsCasesMonths: 24,
+  /** Care Signal QI records — DATA_RETENTION_SCHEDULE.md § clinical data */
+  careSignalEventsYears: 7,
 } as const;
 
 export type RetentionCategory = {
@@ -50,8 +53,9 @@ export async function buildRetentionCleanupPlan(db: DbClient): Promise<Retention
   const auditCutoff = daysAgo(RETENTION_WINDOWS.adminAuditLogDays);
   const dsarCutoff = yearsAgo(RETENTION_WINDOWS.dsarTicketsYears);
   const resusCutoff = monthsAgo(RETENTION_WINDOWS.resusGpsCasesMonths);
+  const careSignalCutoff = yearsAgo(RETENTION_WINDOWS.careSignalEventsYears);
 
-  const [analyticsRows, auditRows, dsarRows, resusRows] = await Promise.all([
+  const [analyticsRows, auditRows, dsarRows, resusRows, careSignalRows] = await Promise.all([
     db.select({ id: analyticsEvents.id }).from(analyticsEvents).where(lt(analyticsEvents.createdAt, analyticsCutoff)),
     db.select({ id: adminAuditLog.id }).from(adminAuditLog).where(lt(adminAuditLog.createdAt, auditCutoff)),
     db
@@ -61,6 +65,10 @@ export async function buildRetentionCleanupPlan(db: DbClient): Promise<Retention
         and(eq(legalDataRequests.status, "completed"), lte(legalDataRequests.resolvedAt, dsarCutoff))
       ),
     db.select({ id: resusGPSCases.id }).from(resusGPSCases).where(lt(resusGPSCases.createdAt, resusCutoff)),
+    db
+      .select({ id: careSignalEvents.id })
+      .from(careSignalEvents)
+      .where(lt(careSignalEvents.createdAt, careSignalCutoff)),
   ]);
 
   const categories: RetentionCategory[] = [
@@ -91,6 +99,13 @@ export async function buildRetentionCleanupPlan(db: DbClient): Promise<Retention
       cutoff: resusCutoff,
       eligibleCount: resusRows.length,
       action: "delete cases older than 24 months",
+    },
+    {
+      category: "Care Signal events",
+      table: "careSignalEvents",
+      cutoff: careSignalCutoff,
+      eligibleCount: careSignalRows.length,
+      action: "delete Care Signal submissions older than 7 years",
     },
   ];
 
@@ -138,6 +153,8 @@ export async function runRetentionCleanup(
         );
     } else if (cat.table === "resusGPSCases") {
       await db.delete(resusGPSCases).where(lt(resusGPSCases.createdAt, cat.cutoff));
+    } else if (cat.table === "careSignalEvents") {
+      await db.delete(careSignalEvents).where(lt(careSignalEvents.createdAt, cat.cutoff));
     }
 
     deleted[cat.table] = cat.eligibleCount;

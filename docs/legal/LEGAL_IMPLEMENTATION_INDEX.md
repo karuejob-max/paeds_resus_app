@@ -18,6 +18,7 @@
 | 2 | TERMS_OF_USE_FULL.md | `termsOfUse` | Public → `/terms` |
 | 3 | CARE_SIGNAL_DATA_PROCESSING_NOTICE.md | `careSignalNotice` | Public → `/legal/care-signal` |
 | 4 | INSTITUTIONAL_B2B_ADDENDUM.md | `institutionalB2bAddendum` | B2B + onboarding reference |
+| 4b | B2B_MSA_TEMPLATE.md | — | Counsel-ready Master Services Agreement (Phase 5) |
 | 5 | CLINICAL_INTENDED_USE_STATEMENT.md | `clinicalIntendedUse` | Public → `/legal/clinical-use` |
 | 6 | COOKIE_AND_ANALYTICS_NOTICE.md | `cookieNotice` | Public → `/legal/cookies` |
 | 7 | DATA_RETENTION_SCHEDULE.md | — | Internal + Privacy link |
@@ -33,6 +34,7 @@
 | File | Role |
 |------|------|
 | `shared/legal-versions.ts` | `LEGAL_DOCUMENT_VERSIONS`, `LEGAL_LAST_UPDATED`, `LEGAL_CONTACT`, `odpcRegistrationPlaceholder` |
+| `shared/emergency-numbers.ts` | EAC emergency numbers for ClinicalUseDisclaimer |
 | `shared/legal-consent.test.ts` | Consent staleness unit tests |
 | `drizzle/0044_legal_consent.sql` | DB columns for consent versions |
 | `scripts/apply-0044-legal-consent.mjs` | Migration apply script |
@@ -157,9 +159,9 @@
 | ~~P1~~ | ~~Register click-wrap on `Register.tsx`~~ | **Done** — `recordRegistrationConsent` |
 | ~~P1~~ | ~~Public `/legal/care-signal` page~~ | **Done** |
 | ~~P1~~ | ~~Public `/legal/clinical-use` page~~ | **Done** |
-| P2 | ~~Automated retention cron per DATA_RETENTION_SCHEDULE~~ | **Partial — `retention:cleanup` script + monthly scheduler dry-run; `--execute` = ops after review** | 7 |
+| P2 | ~~Automated retention cron per DATA_RETENTION_SCHEDULE~~ | **Partial — `retention:cleanup` includes Care Signal 7y purge; monthly scheduler dry-run; `--execute` = ops** | 7 |
 | P2 | ~~Account deletion job per DSAR_PROCEDURE §6~~ | **Partial — `dsar:deletion` CLI + `legal.processDeletionRequest` admin mutation** | 9 |
-| P3 | Country config for EAC emergency numbers | 10 |
+| ~~P3~~ | ~~Country config for EAC emergency numbers~~ | **Done — `shared/emergency-numbers.ts`** | 10 |
 
 ---
 
@@ -169,7 +171,7 @@
 |------|------|
 | Consent staleness | `shared/legal-consent.test.ts` |
 | Role boundaries | `server/routers/role-boundary-provider-api.test.ts` |
-| E2E legal flows | Playwright (TBD) — register, Care Signal consent |
+| E2E legal flows | `e2e/holistic-loop.spec.ts` — DSAR, clinical-use, cookies (public); auth legal routes when creds set |
 
 ---
 

@@ -7,6 +7,7 @@ describe("RETENTION_WINDOWS", () => {
     expect(RETENTION_WINDOWS.adminAuditLogDays).toBe(90);
     expect(RETENTION_WINDOWS.dsarTicketsYears).toBe(3);
     expect(RETENTION_WINDOWS.resusGpsCasesMonths).toBe(24);
+    expect(RETENTION_WINDOWS.careSignalEventsYears).toBe(7);
   });
 });
 
