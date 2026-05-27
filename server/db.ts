@@ -11,6 +11,9 @@ function createDrizzle(pool: mysql.Pool) {
 
 type Database = ReturnType<typeof createDrizzle>;
 
+/** Drizzle client returned by `getDb()` when connected. */
+export type DbClient = Database;
+
 let _db: Database | null = null;
 
 // mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.

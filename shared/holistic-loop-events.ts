@@ -15,6 +15,7 @@ export type HolisticLoopStep =
   | "care_signal_prompt_shown"
   | "care_signal_prompt_accepted"
   | "care_signal_prompt_dismissed"
+  | "care_signal_institutional_action_prompted"
   | "septic_shock_micro_course_clicked"
   | "care_signal_submitted";
 
@@ -80,6 +81,19 @@ export function simulateHolisticLoopEvents(options: SimulateHolisticLoopOptions)
           eventName: "care_signal_prompt_dismissed",
           userId,
           eventData: JSON.stringify(loopMeta),
+        });
+        break;
+      case "care_signal_institutional_action_prompted":
+        rows.push({
+          eventType: "holistic_loop",
+          eventName: "care_signal_institutional_action_prompted",
+          userId,
+          eventData: JSON.stringify({
+            ...loopMeta,
+            careSignalEventId: 1,
+            actionLogId: 1,
+            institutionalAccountId: 1,
+          }),
         });
         break;
       case "septic_shock_micro_course_clicked":

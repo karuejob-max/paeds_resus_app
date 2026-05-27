@@ -288,6 +288,10 @@ export default function HospitalAdminDashboard() {
     { enabled: !!institutionId }
   );
 
+  const { data: pendingCareSignalActions } = trpc.institution.getPendingCareSignalActions.useQuery(undefined, {
+    enabled: !!institutionId,
+  });
+
   const bulkEnrollMutation = trpc.institution.bulkEnrollFromStaffRoster.useMutation({
     onSuccess: () => {
       if (institutionId) {
@@ -312,6 +316,7 @@ export default function HospitalAdminDashboard() {
       setActionLogForm({ gapIdentified: "", systemChange: "", status: "open", notes: "" });
       if (institutionId) {
         void utils.institution.getActionLogs.invalidate({ institutionId });
+        void utils.institution.getPendingCareSignalActions.invalidate();
       }
     },
     onError: (e) => toast.error(e.message || "Could not save action log entry."),
@@ -527,6 +532,27 @@ export default function HospitalAdminDashboard() {
             </AlertDescription>
           </Alert>
         )}
+
+        {(pendingCareSignalActions?.count ?? 0) > 0 ? (
+          <Alert className="mb-6 border-amber-500/50 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>
+                {pendingCareSignalActions?.count} Care Signal report
+                {(pendingCareSignalActions?.count ?? 0) === 1 ? "" : "s"} need a documented system change in your
+                Action Log.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-amber-600/40"
+                onClick={() => setActiveTab("action-log")}
+              >
+                Open action log
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {/* KPI Cards */}
         <div className="grid md:grid-cols-5 gap-4 mb-8">

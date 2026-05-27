@@ -16,6 +16,7 @@ import {
   syncProviderProfileFacility,
 } from "../services/facility-registry.service";
 import { evaluateCareSignalSubmissionGuard } from "../lib/care-signal-rate-limit";
+import { handleCareSignalInstitutionalFollowUp } from "../lib/care-signal-institutional-action";
 
 /**
  * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
@@ -383,6 +384,31 @@ export const careSignalEventsRouter = router({
           await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
             console.warn("[Fellowship] sync after Care Signal submit failed:", e)
           );
+
+          const institutionalFollowUp = await handleCareSignalInstitutionalFollowUp(db, {
+            careSignalEventId: insertId,
+            facilityId: resolvedFacilityId,
+            systemGaps: input.systemGaps,
+            eventType: input.eventType,
+            facilityName: facilityName ?? undefined,
+          }).catch((e) => {
+            console.warn("[Care Signal] institutional follow-up failed:", e);
+            return null;
+          });
+
+          if (institutionalFollowUp?.actionLogId) {
+            await trackEvent({
+              userId: ctx.user.id,
+              eventType: "holistic_loop",
+              eventName: "care_signal_institutional_action_prompted",
+              eventData: {
+                careSignalEventId: insertId,
+                institutionalAccountId: institutionalFollowUp.institutionalAccountId,
+                actionLogId: institutionalFollowUp.actionLogId,
+                facilityId: resolvedFacilityId,
+              },
+            }).catch(() => undefined);
+          }
         }
 
         return {

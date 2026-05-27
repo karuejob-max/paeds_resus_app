@@ -22,6 +22,14 @@ test.describe("Holistic loop — public entry (no auth)", () => {
     await expect(page.getByText(/training & courses/i).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /browse courses/i })).toBeVisible();
   });
+
+  test("/legal/data-request DSAR form loads for anonymous visitors", async ({ page }) => {
+    await page.goto("/legal/data-request");
+    await expect(page.getByRole("heading", { name: /data subject request/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByLabel(/email/i)).toBeVisible();
+  });
 });
 
 authTest.describe("Holistic loop — provider ResusGPS → Care Signal prefill", () => {

@@ -138,7 +138,7 @@ When deletion approved:
 - [ ] Export to backup archive if litigation hold **not** active  
 - [ ] Log completion in DSAR ticket  
 
-**Automation status:** Manual until engineering ships account deletion job (LEGAL_IMPLEMENTATION_INDEX.md).
+**Automation status:** CLI + admin tRPC (`legal.processDeletionRequest`, `legal.previewDeletion`); operator script `pnpm run dsar:deletion`. Counsel review still required before production `--execute`.
 
 ---
 

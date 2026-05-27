@@ -58,6 +58,9 @@ export function initializeScheduler() {
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
 
+  // Legal ops: monthly retention dry-run log (execute via `pnpm run retention:cleanup -- --execute`)
+  scheduleRetentionCleanupDryRun();
+
   console.log("[Scheduler] All scheduled tasks initialized");
 }
 
@@ -73,6 +76,23 @@ function scheduleAdminOpsAlerts() {
       }
     } catch (error) {
       console.error("[Scheduler] admin ops alerts failed:", error);
+    }
+  });
+}
+
+/** Log retention eligibility monthly — operator runs `pnpm run retention:cleanup -- --execute` after review. */
+function scheduleRetentionCleanupDryRun() {
+  cron.schedule("0 5 1 * *", async () => {
+    try {
+      const db = await getDb();
+      if (!db) return;
+      const { buildRetentionCleanupPlan } = await import("./lib/retention-cleanup");
+      const plan = await buildRetentionCleanupPlan(db);
+      console.log(
+        `[Scheduler] retention dry-run: ${plan.totalEligible} row(s) eligible across ${plan.categories.length} categories`
+      );
+    } catch (error) {
+      console.error("[Scheduler] retention dry-run failed:", error);
     }
   });
 }
