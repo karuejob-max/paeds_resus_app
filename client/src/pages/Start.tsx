@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Siren, Stethoscope, Heart, Building2, BookOpen, GraduationCap, ArrowRight } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { usePageMeta } from "@/hooks/usePageMeta";
 import { BottomNav } from "@/components/BottomNav";
 
 const rolePaths = [
@@ -51,6 +52,12 @@ const rolePaths = [
 
 export default function Start() {
   useScrollToTop();
+  usePageMeta({
+    title: "Paeds Resus — Paediatric emergency care platform",
+    description:
+      "Choose your path: ResusGPS bedside guidance for providers, AHA-aligned training, Parent Safe-Truth for families, or institutional readiness tools for hospitals in Kenya and LMICs.",
+    path: "/start",
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-brand-surface/80 pb-24 md:pb-8">
@@ -63,6 +70,10 @@ export default function Start() {
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             One integrated platform for bedside guidance, quality improvement, training, and family safety.
             Pick your path — ResusGPS is one product, not the whole platform.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto mt-4">
+            Trusted by paediatric emergency teams across Kenya — fellowship pathway, ResusGPS clinical support,
+            Care Signal QI reporting, and hospital readiness in one place.
           </p>
         </div>
 

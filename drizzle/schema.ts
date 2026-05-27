@@ -1078,6 +1078,23 @@ export const incidents = mysqlTable("incidents", {
 export type Incident = typeof incidents.$inferSelect;
 export type InsertIncident = typeof incidents.$inferInsert;
 
+/** Facility-level QI action log: gap identified → documented system change (Phase 4 pilot). */
+export const institutionalActionLogs = mysqlTable("institutionalActionLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  createdByUserId: int("createdByUserId"),
+  gapIdentified: text("gapIdentified").notNull(),
+  systemChange: text("systemChange").notNull(),
+  status: mysqlEnum("status", ["open", "in_progress", "completed"]).default("open").notNull(),
+  careSignalEventId: int("careSignalEventId"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InstitutionalActionLog = typeof institutionalActionLogs.$inferSelect;
+export type InsertInstitutionalActionLog = typeof institutionalActionLogs.$inferInsert;
+
 // Institutional Analytics (Aggregated metrics)
 export const institutionalAnalytics = mysqlTable("institutionalAnalytics", {
   id: int("id").autoincrement().primaryKey(),

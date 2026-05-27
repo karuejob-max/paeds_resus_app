@@ -15,6 +15,7 @@ import {
   resolveCanonicalFacilityId,
   syncProviderProfileFacility,
 } from "../services/facility-registry.service";
+import { evaluateCareSignalSubmissionGuard } from "../lib/care-signal-rate-limit";
 
 /**
  * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
@@ -274,6 +275,34 @@ export const careSignalEventsRouter = router({
           if (!input.isAnonymous) {
             await syncProviderProfileFacility(ctx.user.id, resolvedFacilityId);
           }
+
+          const recentSubmissions = await db
+            .select({
+              eventDate: careSignalEvents.eventDate,
+              eventType: careSignalEvents.eventType,
+              childAge: careSignalEvents.childAge,
+              createdAt: careSignalEvents.createdAt,
+            })
+            .from(careSignalEvents)
+            .where(eq(careSignalEvents.userId, ctx.user.id))
+            .orderBy(desc(careSignalEvents.createdAt))
+            .limit(20);
+
+          const guard = evaluateCareSignalSubmissionGuard(recentSubmissions, {
+            eventDate: input.eventDate,
+            eventType: input.eventType,
+            childAge: input.childAge,
+          });
+
+          if (!guard.allowed) {
+            throw new TRPCError({
+              code: guard.reason === "rate_limit" ? "TOO_MANY_REQUESTS" : "BAD_REQUEST",
+              message:
+                guard.reason === "rate_limit"
+                  ? "Care Signal limit: maximum 5 reports per day (EAT). Try again tomorrow."
+                  : "A very similar report was submitted in the last 10 minutes. Wait briefly or adjust event details if this is a distinct case.",
+            });
+          }
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
@@ -366,6 +395,7 @@ export const careSignalEventsRouter = router({
           outcome: input.outcome,
         };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error("[Care Signal Event Error]", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

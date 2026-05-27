@@ -12,6 +12,7 @@ import {
   trainingAttendance,
   courses,
   incidents,
+  institutionalActionLogs,
   institutionalAnalytics,
   users,
   payments,
@@ -1613,5 +1614,66 @@ export const institutionRouter = router({
         totalAmountKes,
         message: `STK push sent to ${input.phoneNumber}. Enter your M-Pesa PIN to confirm payment for ${enrollmentResult.enrolledCount} staff.`,
       };
+    }),
+
+  /** Phase 4 pilot: facility action log — gap identified → documented system change. */
+  getActionLogs: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        limit: z.number().min(1).max(200).default(100),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return await db
+        .select()
+        .from(institutionalActionLogs)
+        .where(eq(institutionalActionLogs.institutionalAccountId, input.institutionId))
+        .orderBy(desc(institutionalActionLogs.createdAt))
+        .limit(input.limit);
+    }),
+
+  createActionLog: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        gapIdentified: z.string().min(3).max(2000),
+        systemChange: z.string().min(3).max(4000),
+        status: z.enum(["open", "in_progress", "completed"]).default("open"),
+        careSignalEventId: z.number().int().positive().optional(),
+        notes: z.string().max(4000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const result = await db.insert(institutionalActionLogs).values({
+        institutionalAccountId: input.institutionId,
+        createdByUserId: ctx.user.id,
+        gapIdentified: input.gapIdentified.trim(),
+        systemChange: input.systemChange.trim(),
+        status: input.status,
+        careSignalEventId: input.careSignalEventId ?? null,
+        notes: input.notes?.trim() ?? null,
+      });
+
+      const insertId = (result as unknown as { insertId: number }).insertId;
+
+      return { success: true, id: insertId };
     }),
 });
