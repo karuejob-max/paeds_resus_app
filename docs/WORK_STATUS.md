@@ -39,11 +39,7 @@
 
 ## In progress
 
-| Who | What | Since |
-|-----|------|-------|
-| Cursor | **MATURITY_ROADMAP code slice 2** — PR `feat/maturity-code-slice-2` | 2026-05-27 |
-
-*(Legacy in-progress rows below may be stale — confirm against git `main`.)*
+*(No active engineering slice — see Done for PR #54.)*
 
 | Who | What |
 |-----|------|
@@ -57,7 +53,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-27 | Cursor | **MATURITY_ROADMAP code slice 2:** Holistic loop integration tests (`shared/holistic-loop-events` + rollup verification); ResusGPS→Care Signal `submissionSource` on server analytics for loop KPI accuracy; Admin **Maturity KPIs CSV export**; **P2-LAND-1** `/start` role paths (Provider / Training / Parent / Institution). Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD |
+| 2026-05-27 | Cursor | **MATURITY_ROADMAP code slice 2:** Holistic loop integration tests (`shared/holistic-loop-events` + rollup verification); ResusGPS→Care Signal `submissionSource` on server analytics for loop KPI accuracy; Admin **Maturity KPIs CSV export**; **P2-LAND-1** `/start` role paths (Provider / Training / Parent / Institution). Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #54 · `21796fa` |
 | 2026-05-27 | Cursor | **MATURITY_ROADMAP Phases 2–6 (engineering slice):** Admin **Maturity KPIs** tab — mission impact (holistic loop, ResusGPS/Care Signal 30d), provider conversion funnel from `provider_conversion`, Fellowship §11 launch checklist dashboard; `getMissionImpactKpis` / `getProviderConversionFunnel` / `getFellowshipLaunchChecklist`; facility readiness metrics (reporting rate + ResusGPS adoption); Care Signal first-submission **consent gate**; removed deprecated `CareSignalLogger`; streak + KPI unit tests; `CLINICAL_OUTCOMES_PILOT_ENABLED` env; `RESUSGPS_DNA_DEPRECATION_NOTE.md`. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #53 |
 | 2026-05-27 | Cursor | **MATURITY_ROADMAP Phase 1 (engineering slice):** Fellowship §11 gate (`shared/fellowship-launch-gate.ts` — blocks Fellow title/graduation until CEO enables); deprecated Bronze/Silver/Gold from institutional catalog; ResusGPS post-case loop enhanced (Care Signal prompt analytics + Septic Shock I link); `active_paying_providers_30d` in admin reports; institutional readiness copy (Institutional + Hospital Admin); docs: `STAGING_GO_LIVE_CHECKLIST`, `LEGAL_COMPLIANCE_BASELINE`, `CLINICAL_OUTCOMES_PILOT`; PSOT §8/§12/§21 updates; `holistic_loop` event taxonomy. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR #52 |
 | 2026-05-25 | Cursor | **Platform maturity roadmap:** Added [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — CEO-ready 6-phase plan (15–18 months) closing all 10 objective-gap blockers (holistic loop, Fellowship §11 gate, clinical outcomes pathway, staging, mission-aligned GTM, Care Signal intelligence, ResusGPS v4, legal/governance, narrative coherence, institutional systems value prop). Vertical-slice proof: one hospital, paediatric septic shock, closed loop. | PR TBD |
