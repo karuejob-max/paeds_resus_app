@@ -49,11 +49,18 @@ import {
   type CprEngineState,
   type RhythmType,
 } from '@/lib/resus/cpr-engine';
+import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
+import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
   onClose: () => void;
+  externalElapsed?: number;
+  externalRunning?: boolean;
+  autoStart?: boolean;
+  lifeSupportPack?: LifeSupportPackResult;
+  useSharedState?: boolean;
 }
 
 type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
@@ -95,7 +102,20 @@ const ROLE_COLORS: Record<TeamRole, string> = {
   observer: 'bg-gray-400',
 };
 
-export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }: Props) {
+export function CPRClockStreamlined({
+  patientWeight,
+  patientAgeMonths,
+  onClose,
+  externalElapsed,
+  externalRunning,
+  autoStart,
+  lifeSupportPack,
+  useSharedState,
+}: Props) {
+  const shared = useCprClockShared();
+  const syncShared = Boolean(useSharedState && shared);
+  const autoStartApplied = useRef(false);
+
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
@@ -152,6 +172,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
   const [postRoscChecklist, setPostRoscChecklist] = useState({
     ttm_initiated: false,
+    fever_prevention_72h: false,
     glucose_checked: false,
     ventilation_optimized: false,
     blood_pressure_stable: false,
@@ -183,11 +204,33 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     { enabled: !!sessionId, refetchInterval: 2000 }
   );
 
+  const effectiveArrestDuration =
+    externalElapsed !== undefined
+      ? externalElapsed
+      : syncShared
+        ? shared!.arrestDuration
+        : arrestDuration;
+
+  const effectiveIsRunning = syncShared
+    ? shared!.isRunning
+    : externalRunning !== undefined
+      ? externalRunning
+      : isRunning;
+
+  const effectiveShockCount = syncShared ? shared!.engineState.shockCount : shockCount;
+  const effectiveEpiDoses = syncShared ? shared!.engineState.epiDoses : epiDoses;
+  const effectiveLastEpiTime = syncShared ? shared!.engineState.lastEpiTime : lastEpiTime;
+  const effectiveAntiarrhythmicDoses = syncShared
+    ? shared!.engineState.antiarrhythmicDoses
+    : antiarrhythmicDoses;
+  const effectiveRhythmType = syncShared ? shared!.rhythmType ?? rhythmType : rhythmType;
+  const effectiveRoscAchieved = syncShared ? shared!.roscAchieved : roscAchieved;
+
   // Calculate doses
   const epiDose = Math.round(patientWeight * 0.01 * 100) / 100;
   const amiodaroneDose = Math.min(Math.round(patientWeight * 5), 300);
   const lidocaineDose = Math.min(Math.round(patientWeight * 1), 100);
-  const shockEnergy = Math.min(Math.round(patientWeight * (2 + Math.min(shockCount, 8))), 200);
+  const shockEnergy = calculateShockEnergy(patientWeight, effectiveShockCount);
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -244,6 +287,17 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     };
   }, [isRunning, metronomeEnabled, phase, playMetronomeBeep]);
 
+  // Sync parent ResusGPS timer into shared/local arrest clock
+  useEffect(() => {
+    if (externalElapsed === undefined) return;
+    if (syncShared && shared) {
+      shared.setArrestDuration(externalElapsed);
+    } else {
+      setArrestDuration(externalElapsed);
+    }
+    setCycleTime(externalElapsed % 120);
+  }, [externalElapsed, syncShared, shared]);
+
   // Create session on mount
   useEffect(() => {
     if (!sessionId) {
@@ -268,16 +322,22 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     }
   }, []);
 
-  // Timer logic
+  // Timer logic (skip arrest duration tick when parent timer is authoritative)
   useEffect(() => {
-    if (isRunning && !roscAchieved) {
+    if (effectiveIsRunning && !effectiveRoscAchieved) {
       timerRef.current = setInterval(() => {
-        setArrestDuration(prev => prev + 1);
-        setCycleTime(prev => {
+        if (externalElapsed === undefined) {
+          if (syncShared && shared) {
+            shared.setArrestDuration((prev) => prev + 1);
+          } else {
+            setArrestDuration((prev) => prev + 1);
+          }
+        }
+        setCycleTime((prev) => {
           const newCycleTime = prev + 1;
           
           // Prompt to charge defib at 1:45 (15s before 2-min cycle ends)
-          if (newCycleTime === 105 && rhythmType === 'vf_pvt' && !defibCharging) {
+          if (newCycleTime === 105 && effectiveRhythmType === 'vf_pvt' && !defibCharging) {
             setShowChargePrompt(true);
             speak('Charge the defibrillator now.');
           }
@@ -292,12 +352,16 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
           }
           
           // Epinephrine reminder (every 3-5 min after first dose)
-          if (lastEpiTime !== null && (arrestDuration - lastEpiTime) >= 180 && (arrestDuration - lastEpiTime) % 60 === 0) {
+          if (
+            effectiveLastEpiTime !== null &&
+            (effectiveArrestDuration - effectiveLastEpiTime) >= 180 &&
+            (effectiveArrestDuration - effectiveLastEpiTime) % 60 === 0
+          ) {
             speak('Consider epinephrine.');
           }
           
           // Reversible causes reminder at 2-minute mark during compressions (audio only, no auto-popup)
-          if (newCycleTime === 120 && arrestDuration > 0 && arrestDuration % 240 === 0) {
+          if (newCycleTime === 120 && effectiveArrestDuration > 0 && effectiveArrestDuration % 240 === 0) {
             speak('Review reversible causes.');
           }
           
@@ -315,7 +379,17 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRunning, roscAchieved, lastEpiTime, arrestDuration, rhythmType, advancedAirwayPlaced]);
+  }, [
+    effectiveIsRunning,
+    effectiveRoscAchieved,
+    effectiveLastEpiTime,
+    effectiveArrestDuration,
+    effectiveRhythmType,
+    advancedAirwayPlaced,
+    externalElapsed,
+    syncShared,
+    shared,
+  ]);
 
   // Reassessment countdown timer
   useEffect(() => {
@@ -367,10 +441,24 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
         value: details,
       });
     }
-  }, [arrestDuration, sessionId, memberId]);
+  }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed]);
+
+  // Auto-start when ResusGPS already began the arrest timer
+  useEffect(() => {
+    if (!autoStart || autoStartApplied.current) return;
+    autoStartApplied.current = true;
+    if (syncShared && shared) {
+      shared.setIsRunning(true);
+    }
+    setIsRunning(true);
+    setPhase('initial_assessment');
+    addEvent('Cardiac arrest recognized — CPR clock synced to ResusGPS');
+    speak('Cardiac arrest recognized. Start CPR with chest compressions. Attach pads now.');
+  }, [autoStart, addEvent, speak, syncShared, shared]);
 
   // Start arrest - IMMEDIATE rhythm assessment workflow
   const startArrest = () => {
+    if (syncShared && shared) shared.setIsRunning(true);
     setIsRunning(true);
     setPhase('initial_assessment');
     addEvent('Cardiac arrest recognized');
@@ -391,17 +479,26 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     
     // Use pure engine logic to determine next phase
     const engineState: CprEngineState = {
-      shockCount,
-      epiDoses,
-      lastEpiTime,
-      antiarrhythmicDoses,
+      shockCount: effectiveShockCount,
+      epiDoses: effectiveEpiDoses,
+      lastEpiTime: effectiveLastEpiTime,
+      antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
       rhythmType: type,
       phase: 'rhythm_check',
     };
     
     const rhythmResult = evaluateRhythmTransition(type, engineState);
     const isShockable = type === 'vf_pvt';
-    const medResult = evaluateMedicationEligibility(arrestDuration, engineState, isShockable);
+    const medResult = evaluateMedicationEligibility(
+      effectiveArrestDuration,
+      engineState,
+      isShockable,
+      { defibDelayed: !sessionId }
+    );
+    if (syncShared && shared) {
+      shared.setRhythmType(type);
+      shared.setEngineState((s) => ({ ...s, rhythmType: type, phase: rhythmResult.nextPhase }));
+    }
     
     // Apply phase transition
     setPhase(rhythmResult.nextPhase as ArrestPhase);
@@ -411,7 +508,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     if (rhythmResult.shockRequired) {
       // Shockable rhythm: charge defib
       setDefibCharging(true);
-      const energy = calculateShockEnergy(patientWeight, shockCount);
+      const energy = calculateShockEnergy(patientWeight, effectiveShockCount);
       speak(`Shockable rhythm. Charging to ${energy} joules. Clear the patient.`);
       
       // Simulate charging time (3 seconds)
@@ -435,8 +532,11 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   // Deliver shock using cpr-engine
   const deliverShock = () => {
     triggerHaptic('critical'); // Haptic feedback for shock
-    const newShockCount = shockCount + 1;
+    const newShockCount = effectiveShockCount + 1;
     setShockCount(newShockCount);
+    if (syncShared && shared) {
+      shared.setEngineState((s) => ({ ...s, shockCount: newShockCount, phase: 'post_shock' }));
+    }
     setPhase('post_shock');
     
     // Use engine to calculate energy
@@ -452,14 +552,14 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
     // Check medication eligibility using engine
     const engineState: CprEngineState = {
       shockCount: newShockCount,
-      epiDoses,
-      lastEpiTime,
-      antiarrhythmicDoses,
-      rhythmType: rhythmType || 'unknown',
+      epiDoses: effectiveEpiDoses,
+      lastEpiTime: effectiveLastEpiTime,
+      antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
+      rhythmType: effectiveRhythmType || 'unknown',
       phase: 'post_shock',
     };
     
-    const medResult = evaluateMedicationEligibility(arrestDuration, engineState, true);
+    const medResult = evaluateMedicationEligibility(effectiveArrestDuration, engineState, true);
     
     if (medResult.epiEligible && medResult.recommendation) {
       speak(medResult.recommendation);
@@ -482,9 +582,16 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
   // Give epinephrine using cpr-engine
   const giveEpinephrine = () => {
     triggerHaptic('critical'); // Haptic feedback for epinephrine
-    const newEpiDoses = epiDoses + 1;
+    const newEpiDoses = effectiveEpiDoses + 1;
     setEpiDoses(newEpiDoses);
-    setLastEpiTime(arrestDuration);
+    setLastEpiTime(effectiveArrestDuration);
+    if (syncShared && shared) {
+      shared.setEngineState((s) => ({
+        ...s,
+        epiDoses: newEpiDoses,
+        lastEpiTime: effectiveArrestDuration,
+      }));
+    }
     
     // Use engine to calculate dose
     const doseMeta = calculateCprMedicationDose('epinephrine', patientWeight);
@@ -698,7 +805,7 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center p-8">
-        {!isRunning && !roscAchieved ? (
+        {!effectiveIsRunning && !effectiveRoscAchieved && !autoStart ? (
           // Start screen
           <div className="text-center space-y-6">
             <div className="text-6xl font-bold text-white mb-4">READY</div>
@@ -710,6 +817,10 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               <Play className="h-8 w-8 mr-4" />
               START CPR
             </Button>
+          </div>
+        ) : !effectiveIsRunning && !effectiveRoscAchieved && autoStart ? (
+          <div className="text-center space-y-4">
+            <div className="text-2xl font-bold text-white">Syncing CPR clock…</div>
           </div>
         ) : phase === 'initial_assessment' ? (
           // Initial assessment - attach pads
@@ -725,14 +836,14 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
               Pads Attached - Assess Rhythm
             </Button>
           </div>
-        ) : roscAchieved ? (
+        ) : effectiveRoscAchieved ? (
           // ROSC achieved
           <div className="text-center space-y-6">
             <CheckCircle2 className="h-24 w-24 text-green-500 mx-auto" />
             <div className="text-5xl font-bold text-green-500">ROSC ACHIEVED</div>
-            <div className="text-xl text-gray-300">Total duration: {formatTime(arrestDuration)}</div>
+            <div className="text-xl text-gray-300">Total duration: {formatTime(effectiveArrestDuration)}</div>
             <div className="text-lg text-gray-400">
-              {shockCount} shocks • {epiDoses} epi doses
+              {effectiveShockCount} shocks • {effectiveEpiDoses} epi doses
             </div>
           </div>
         ) : (
@@ -1580,7 +1691,37 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                   />
                   <div className="flex-1">
                     <div className="font-bold">Targeted Temperature Management (TTM)</div>
-                    <div className="text-sm text-gray-400">Target 32-36°C for neuroprotection</div>
+                    <div className="text-sm text-gray-400">
+                      Target 32–37.5°C; avoid fever for 72 hours post-ROSC
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fever prevention 72h */}
+                <div
+                  className="flex items-start gap-3 p-3 bg-gray-700 rounded cursor-pointer hover:bg-gray-600"
+                  onClick={() => {
+                    setPostRoscChecklist((prev) => ({
+                      ...prev,
+                      fever_prevention_72h: !prev.fever_prevention_72h,
+                    }));
+                    if (!postRoscChecklist.fever_prevention_72h) {
+                      addEvent('Fever prevention plan (72h post-ROSC)');
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={postRoscChecklist.fever_prevention_72h}
+                    onChange={() => {}}
+                    className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1">
+                    <div className="font-bold">Fever prevention (72 hours)</div>
+                    <div className="text-sm text-gray-400">
+                      Treat temperature &gt;37.5°C; maintain normothermia after ROSC
+                    </div>
                   </div>
                 </div>
 
@@ -1648,8 +1789,10 @@ export function CPRClockStreamlined({ patientWeight, patientAgeMonths, onClose }
                     onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1">
-                    <div className="font-bold">Hemodynamic Stability</div>
-                    <div className="text-sm text-gray-400">Maintain age-appropriate MAP, consider vasopressors</div>
+                    <div className="font-bold">Blood pressure targets</div>
+                    <div className="text-sm text-gray-400">
+                      Maintain age-appropriate MAP/SBP; treat hypotension — consider vasopressors and fluid
+                    </div>
                   </div>
                 </div>
 

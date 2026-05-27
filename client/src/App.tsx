@@ -84,6 +84,7 @@ const AHACourses = lazy(() => import("./pages/AHACourses"));
 const AHABookSession = lazy(() => import("./pages/AHABookSession"));
 const KaizenDashboard = lazy(() => import("./pages/KaizenDashboard"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
+const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
 
@@ -413,6 +414,7 @@ function Router() {
               <ResusGated />
             </RoleGate>
           )}</Route>
+          <Route path="/join-cpr/:code" component={JoinSession} />
           <Route path="/admin/capstone-grading">{() => (
             <AdminGate>
               <CapstoneGradingPanel />

@@ -14,7 +14,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
-import { CPRClockTeam } from '@/components/CPRClockTeam';
+import { CPRClockUnified } from '@/components/CPRClockUnified';
+import { resolveLifeSupportPack } from '@/lib/resus/cpr-pack-resolver';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
@@ -482,13 +483,23 @@ export default function ResusGPS() {
       const withUndo = pushToUndoStack(prev, 'Cardiac arrest triggered');
       return triggerCardiacArrest(withUndo);
     });
-    timer.reset();
-    timer.start();
-    // Show CPR Clock for ACLS-aligned guidance
+    if (!timer.running) {
+      timer.start();
+    }
     setShowCPRClock(true);
-    // Track cardiac arrest triggered
     analytics.trackCardiacArrestTriggered();
   };
+
+  const patientAgeMonthsForCpr = session.patientAge
+    ? approximateAgeMonths(session.patientAge)
+    : demographics.age
+      ? approximateAgeMonths(demographics.age)
+      : null;
+  const cprDemographicsReady =
+    weight != null && weight > 0 && patientAgeMonthsForCpr != null && patientAgeMonthsForCpr >= 0;
+  const lifeSupportPack = cprDemographicsReady
+    ? resolveLifeSupportPack(patientAgeMonthsForCpr)
+    : null;
 
   const handleROSC = () => {
     setSession(prev => {
@@ -955,12 +966,33 @@ export default function ResusGPS() {
           />
         )}
 
-        {session.phase === 'CARDIAC_ARREST' && showCPRClock ? (
-          <CPRClockTeam
-            patientWeight={weight ?? 10}
-            patientAgeMonths={
-              session.patientAge ? approximateAgeMonths(session.patientAge) || undefined : undefined
-            }
+        {session.phase === 'CARDIAC_ARREST' && showCPRClock && !cprDemographicsReady ? (
+          <Card className="border-amber-500/40 bg-amber-500/10">
+            <CardContent className="pt-6 pb-6 space-y-4">
+              <p className="font-semibold text-foreground">Patient weight and age required</p>
+              <p className="text-sm text-muted-foreground">
+                CPR dosing and defibrillation energy need an actual weight and age band. Enter patient
+                details before using the CPR clock (no default weight is applied).
+              </p>
+              <Button
+                onClick={() => {
+                  setTempWeight(demographics.weight || '');
+                  setTempAge(demographics.age || session.patientAge || '');
+                  setPatientInfoOpen(true);
+                }}
+              >
+                Enter weight &amp; age
+              </Button>
+            </CardContent>
+          </Card>
+        ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && cprDemographicsReady ? (
+          <CPRClockUnified
+            patientWeight={weight!}
+            patientAgeMonths={patientAgeMonthsForCpr ?? undefined}
+            lifeSupportPack={lifeSupportPack ?? undefined}
+            externalElapsed={timer.elapsed}
+            externalRunning={timer.running}
+            autoStart
             onClose={() => setShowCPRClock(false)}
           />
         ) : session.phase === 'CARDIAC_ARREST' ? (
