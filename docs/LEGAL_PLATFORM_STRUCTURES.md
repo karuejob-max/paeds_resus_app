@@ -242,22 +242,27 @@ From [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) §4:
 
 ## 11. What EXISTS today (inventory)
 
-| Area | Artifact | Path |
-|------|----------|------|
-| Privacy Policy (stub) | Web page | `client/src/pages/PrivacyPolicy.tsx` |
-| Terms of Use (stub) | Web page | `client/src/pages/TermsOfUse.tsx` |
-| Legal baseline draft | Internal | `docs/LEGAL_COMPLIANCE_BASELINE.md` |
-| Security / retention draft | Internal | `docs/SECURITY_BASELINE.md` |
-| Care Signal consent gate | UI + analytics | `client/src/components/CareSignalConsentGate.tsx` |
-| Clinical bedside disclaimer | UI | `client/src/components/ClinicalUseDisclaimer.tsx` |
-| Fellowship §11 gate | Code flag | `shared/fellowship-launch-gate.ts` |
-| Outcomes pilot framework | Internal | `docs/CLINICAL_OUTCOMES_PILOT.md` |
-| M-Pesa webhook audit | DB + admin | `drizzle/0040_*`, `/admin/mpesa-webhooks` |
-| Certificate verification | Public | `/verify-certificate` |
-| Admin audit logging | DB | `adminAuditLog`, `server/_core/trpc.ts` |
-| Role API boundaries | Tests | `server/routers/role-boundary-provider-api.test.ts` |
-| Staging checklist | Ops | `docs/STAGING_GO_LIVE_CHECKLIST.md` |
-| PSOT security §11 | Canonical (TBD fields) | `docs/PLATFORM_SOURCE_OF_TRUTH.md` §11 |
+| Area | Artifact | Path | Status |
+|------|----------|------|--------|
+| Privacy Policy (production UI) | Web page + counsel draft | `client/src/pages/PrivacyPolicy.tsx`, `docs/legal/PRIVACY_POLICY_FULL.md` | **Implemented v1.0.0 — counsel review pending** |
+| Terms of Use (production UI) | Web page + counsel draft | `client/src/pages/TermsOfUse.tsx`, `docs/legal/TERMS_OF_USE_FULL.md` | **Implemented v1.0.0 — counsel review pending** |
+| Legal doc suite | `docs/legal/` (11 documents) | See `LEGAL_IMPLEMENTATION_INDEX.md` | **Implemented — counsel sign-off pending** |
+| Registration click-wrap | Terms + Privacy checkboxes + DB consent | `Register.tsx`, migration `0044`, `server/lib/legal-consent.ts` | **Implemented** |
+| Re-consent modal | Stale version gate | `LegalReconsentGate.tsx`, `consentProtectedProcedure` | **Implemented** |
+| Care Signal consent gate | Enhanced QI + server record | `CareSignalConsentGate.tsx` | **Implemented** |
+| Safe-Truth guardian gate | Parent acknowledgment | `SafeTruthGuardianGate.tsx` | **Implemented** |
+| Clinical bedside disclaimer | ResusGPS ack + EAC emergency numbers | `ClinicalUseDisclaimer.tsx` | **Implemented** |
+| DSAR endpoint | `legal.submitDataRequest` | `/legal/data-request` | **Implemented** |
+| Subprocessors page | Public list | `/legal/subprocessors` | **Implemented** |
+| Care Signal appeals stub | System errors only | `/care-signal/appeal` | **Implemented** |
+| Institutional B2B acceptance | Onboarding checkbox + server record | `InstitutionalOnboarding.tsx` | **Implemented** |
+| Certificate verify disclaimer | Credential limitations | `VerifyCertificate.tsx` | **Implemented** |
+| Footer legal links | Privacy, Terms, Cookies, DSAR, Subprocessors | `Footer.tsx` | **Implemented** |
+| Legal baseline draft | Internal | `docs/LEGAL_COMPLIANCE_BASELINE.md` | Draft |
+| Security / retention draft | Internal + published schedule | `docs/SECURITY_BASELINE.md`, `docs/legal/DATA_RETENTION_SCHEDULE.md` | **Schedule published — counsel review pending** |
+| Fellowship §11 gate | Code flag | `shared/fellowship-launch-gate.ts` | Implemented |
+| M-Pesa webhook audit | DB + admin | `drizzle/0040_*`, `/admin/mpesa-webhooks` | Implemented |
+| Admin audit logging | DB + consent events | `adminAuditLog`, `userConsentEvents` | **Implemented** |
 
 ---
 
@@ -265,9 +270,9 @@ From [SECURITY_BASELINE.md](./SECURITY_BASELINE.md) §4:
 
 ### Critical
 
-1. **Counsel-reviewed Privacy Policy & ToS** covering all products, Kenya DPA lawful bases, subprocessors, cross-border transfer, retention, and Care Signal / Fellowship / Safe-Truth scopes.
-2. **Clinical governance & SaMD-style classification memo** for ResusGPS (intended use, limitations, LMIC fluid-strategy disclaimers).
-3. **Institutional pilot MOU + B2B MSA template** before facility data-sharing or outcome pilot ([CLINICAL_OUTCOMES_PILOT.md](./CLINICAL_OUTCOMES_PILOT.md)).
+1. ~~**Counsel-reviewed Privacy Policy & ToS**~~ → **Draft complete in `docs/legal/` + UI wired — requires Kenya counsel sign-off only** (ODPC number, retention day tweaks).
+2. ~~**Clinical governance & SaMD-style classification memo**~~ → **Draft: `docs/legal/CLINICAL_INTENDED_USE_STATEMENT.md` — counsel to confirm regulatory classification.**
+3. **Institutional pilot MOU + B2B MSA template** → Draft in `docs/legal/INSTITUTIONAL_B2B_ADDENDUM.md`; **signed hospital MOU still required before pilot.**
 
 ### High
 

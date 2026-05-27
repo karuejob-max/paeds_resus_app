@@ -121,6 +121,7 @@ import { facilityBenchmarking } from "./routers/facility-benchmarking";
 import { coursesRouter } from "./routers/courses";
 import { fellowshipRouter } from "./routers/fellowship";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
+import { legalRouter } from "./routers/legal";
 
 export const appRouter = router({
   system: systemRouter,
@@ -152,8 +153,10 @@ export const appRouter = router({
         userType: z.enum(["individual", "parent", "institutional"]),
         phoneMode: z.enum(["ke", "intl"]).optional(),
         phoneValue: z.string().max(64).optional(),
+        acceptTerms: z.literal(true, { message: "You must accept the Terms of Use" }),
+        acceptPrivacy: z.literal(true, { message: "You must accept the Privacy Policy" }),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const email = normalizeEmailForAuth(input.email);
         const existing = await getUserByEmail(email);
         if (existing) throw new Error("Email already registered");
@@ -172,13 +175,22 @@ export const appRouter = router({
         }
         const openId = `email:${email}`;
         const passwordHash = await bcrypt.hash(input.password, 10);
-        await createUserWithPassword({
+        const { id: userId } = await createUserWithPassword({
           openId,
           email,
           name: input.name.trim(),
           passwordHash,
           userType: input.userType,
           phone,
+        });
+        const { LEGAL_DOCUMENT_VERSIONS } = await import("@shared/legal-versions");
+        const { recordRegistrationConsent } = await import("./lib/legal-consent");
+        const ua = ctx.req.headers?.["user-agent"];
+        await recordRegistrationConsent(userId, {
+          termsVersion: LEGAL_DOCUMENT_VERSIONS.termsOfUse,
+          privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+          ipAddress: ctx.req.ip,
+          userAgent: typeof ua === "string" ? ua : undefined,
         });
         return { success: true };
       }),
@@ -486,6 +498,7 @@ export const appRouter = router({
   microCourses: microCoursesRouter,
   courses: coursesRouter,
   fellowship: fellowshipRouter,
+  legal: legalRouter,
 });
 
 export type AppRouter = typeof appRouter;

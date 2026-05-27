@@ -20,6 +20,8 @@ export default function InstitutionalOnboarding() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  const acceptB2b = trpc.legal.acceptInstitutionalB2b.useMutation();
+
   const completeOnboarding = trpc.institution.completeOnboarding.useMutation({
     onSuccess: () => {
       setSuccess(true);
@@ -98,6 +100,7 @@ export default function InstitutionalOnboarding() {
     }
 
     try {
+      await acceptB2b.mutateAsync();
       await completeOnboarding.mutateAsync({
         institutionName: formData.institutionName,
         institutionType: formData.institutionType,
@@ -420,8 +423,17 @@ export default function InstitutionalOnboarding() {
                     />
                     <div className="text-sm text-foreground/90">
                       <p>
-                        I agree to the Paeds Resus Terms of Service and Privacy Policy. I understand that my institution
-                        will be responsible for ensuring all participants complete the required training and assessments.
+                        I agree to the{" "}
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                          Terms of Service
+                        </a>
+                        ,{" "}
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                          Privacy Policy
+                        </a>
+                        , and Institutional B2B data processing terms (see docs/legal/INSTITUTIONAL_B2B_ADDENDUM.md).
+                        I acknowledge our institution acts as data controller for staff data shared with Paeds Resus for
+                        training and QI dashboards.
                       </p>
                     </div>
                   </div>

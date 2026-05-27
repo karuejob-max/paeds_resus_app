@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Heart, Shield, MessageCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ParentSafeTruthForm from "@/components/ParentSafeTruthForm";
+import { SafeTruthGuardianGate } from "@/components/SafeTruthGuardianGate";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { ALERT_EMERALD_SOLID, HERO_BADGE, HERO_SUBTITLE } from "@/lib/readable-surfaces";
@@ -170,7 +171,9 @@ export default function ParentSafeTruth() {
         </Card>
 
         <div ref={formRef} className="scroll-mt-24">
+          <SafeTruthGuardianGate>
           <ParentSafeTruthForm />
+          </SafeTruthGuardianGate>
         </div>
       </div>
     </div>

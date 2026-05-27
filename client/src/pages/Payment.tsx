@@ -425,6 +425,15 @@ export default function Payment() {
                   !enrollmentQueryError &&
                   (enrollmentIdFromEnroll === undefined || enrollmentRow) &&
                   !enrollmentMissing && (
+                  <>
+                  <p className="text-xs text-muted-foreground mb-3 rounded-md border border-border p-3">
+                    M-Pesa STK push charges your Safaricom line per Safaricom terms. Amounts shown are in KES. By
+                    proceeding you agree to our{" "}
+                    <a href="/terms#payments" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                      payment and refund policy
+                    </a>
+                    . Paeds Resus Limited processes payment metadata for reconciliation only.
+                  </p>
                   <MpesaPaymentForm
                     courseId={selectedCourseData.id}
                     courseName={selectedCourseData.name}
@@ -448,6 +457,7 @@ export default function Payment() {
                       }
                     }}
                   />
+                  </>
                 )}
 
                 {paymentMethod === "bank" && (
