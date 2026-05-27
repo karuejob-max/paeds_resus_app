@@ -39,6 +39,15 @@ import {
 } from "../services/fellowship-progress.service";
 import { rollingHoursAgo } from "../lib/report-time-windows";
 import { rollupAnalyticsLastDays, rollupResusGpsLastDays } from "../lib/admin-analytics-rollup";
+import {
+  rollupMissionImpact,
+  rollupProviderConversionFunnel,
+} from "../lib/maturity-kpi-rollups";
+import {
+  checklistSummary,
+  evaluateFellowshipLaunchChecklist,
+} from "../../shared/fellowship-launch-checklist";
+import { FELLOWSHIP_LAUNCH_READINESS } from "../../shared/fellowship-launch-gate";
 import { buildTrainingEnrollmentLedgerView } from "../../shared/training-product-taxonomy";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
@@ -1036,5 +1045,121 @@ export const adminStatsRouter = router({
       }
     }
     return { success: true, updated, message: `Migrated ${updated} sections to self-hosted images` };
+  }),
+
+  /** Mission impact KPIs — separate from provider growth (MATURITY_ROADMAP / PSOT §18). */
+  getMissionImpactKpis: adminProcedure
+    .input(z.object({ lastDays: z.number().min(7).max(90).default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const lastDays = input?.lastDays ?? 30;
+      if (!db) {
+        return {
+          ok: false,
+          lastDays,
+          missionImpact: rollupMissionImpact([]),
+          activePayingProviders30d: 0,
+        };
+      }
+
+      const since = rollingHoursAgo(lastDays * 24);
+      const rows = await db
+        .select({
+          eventType: analyticsEvents.eventType,
+          eventName: analyticsEvents.eventName,
+          userId: analyticsEvents.userId,
+          eventData: analyticsEvents.eventData,
+        })
+        .from(analyticsEvents)
+        .where(gte(analyticsEvents.createdAt, since));
+
+      const [activePayingProviders30d, careSignalDbReporters] = await Promise.all([
+        countActivePayingProviders30d(db),
+        db
+          .selectDistinct({ userId: careSignalEvents.userId })
+          .from(careSignalEvents)
+          .where(gte(careSignalEvents.createdAt, since)),
+      ]);
+
+      const missionImpact = rollupMissionImpact(rows);
+      missionImpact.careSignalActiveReporters30d = Math.max(
+        missionImpact.careSignalActiveReporters30d,
+        careSignalDbReporters.length
+      );
+
+      return {
+        ok: true,
+        lastDays,
+        missionImpact,
+        activePayingProviders30d,
+      };
+    }),
+
+  /** Provider conversion funnel from provider_conversion events (CONVERSION plan). */
+  getProviderConversionFunnel: adminProcedure
+    .input(z.object({ lastDays: z.number().min(7).max(90).default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const lastDays = input?.lastDays ?? 30;
+      if (!db) {
+        return { ok: false, funnel: rollupProviderConversionFunnel([], lastDays) };
+      }
+
+      const since = rollingHoursAgo(lastDays * 24);
+      const rows = await db
+        .select({
+          eventType: analyticsEvents.eventType,
+          eventName: analyticsEvents.eventName,
+          userId: analyticsEvents.userId,
+          eventData: analyticsEvents.eventData,
+        })
+        .from(analyticsEvents)
+        .where(
+          and(
+            gte(analyticsEvents.createdAt, since),
+            eq(analyticsEvents.eventType, "provider_conversion")
+          )
+        );
+
+      return {
+        ok: true,
+        funnel: rollupProviderConversionFunnel(rows, lastDays),
+      };
+    }),
+
+  /** Fellowship §11 launch checklist — engineering automation + manual rows. */
+  getFellowshipLaunchChecklist: adminProcedure.query(async () => {
+    const db = await getDb();
+    let careSignalEventsTableReady = false;
+    if (db) {
+      try {
+        await db.select({ id: careSignalEvents.id }).from(careSignalEvents).limit(1);
+        careSignalEventsTableReady = true;
+      } catch {
+        careSignalEventsTableReady = false;
+      }
+    }
+
+    const items = evaluateFellowshipLaunchChecklist({
+      careSignalEventsTableReady,
+      careSignalEatBucketingTested: true,
+      fellowTitleAutomationOnly: !FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+      resusGpsDepthRulesImplemented: true,
+      microCourseCompletionPipelineReady: true,
+      streakGraceCatchUpTested: true,
+      singleFellowshipDashboard: true,
+      fellowBadgeGated: !FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+      safeTruthNamingCorrect: true,
+      privacyPolicyPublished: false,
+      careSignalConsentImplemented: true,
+      appealsProcessDocumented: true,
+      accreditedListReady: false,
+    });
+
+    return {
+      items,
+      summary: checklistSummary(items),
+      fellowTitleEnabled: FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+    };
   }),
 });

@@ -67,6 +67,37 @@ export function FacilityCareSignalDashboard({
         </Card>
         <Card>
           <CardHeader className="pb-2">
+            <CardDescription>Care Signal reporting rate</CardDescription>
+            <CardTitle className="text-2xl">
+              {data.readinessMetrics?.reportingRatePercent ?? reporterRate}%
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Progress value={data.readinessMetrics?.reportingRatePercent ?? reporterRate} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-1">
+              {data.uniqueReporters}/{data.providersRegistered} roster reporters
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>ResusGPS adoption ({data.lastDays}d)</CardDescription>
+            <CardTitle className="text-2xl">
+              {data.readinessMetrics?.resusAdoptionPercent ?? 0}%
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              {data.readinessMetrics?.resusGpsActiveUsers ?? 0} providers ·{" "}
+              {data.readinessMetrics?.resusGpsCasesInPeriod ?? 0} cases saved
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardDescription>Under review</CardDescription>
             <CardTitle className="text-2xl flex items-center gap-2">
               {data.underReviewCount}
@@ -75,18 +106,6 @@ export function FacilityCareSignalDashboard({
               ) : null}
             </CardTitle>
           </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Reporter coverage</CardDescription>
-            <CardTitle className="text-2xl">
-              {data.uniqueReporters}/{data.providersRegistered}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Progress value={reporterRate} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-1">{reporterRate}% of roster submitted</p>
-          </CardContent>
         </Card>
       </div>
 

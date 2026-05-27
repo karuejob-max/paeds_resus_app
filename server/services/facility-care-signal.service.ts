@@ -8,6 +8,7 @@ import {
   providerProfiles,
   users,
   careFacilities,
+  resusGPSCases,
 } from "../../drizzle/schema";
 import { getFacilityById, resolveCanonicalFacilityId } from "./facility-registry.service";
 
@@ -228,6 +229,32 @@ export async function getFacilityCareSignalDashboard(input: {
 
   const underReview = events.filter((e) => e.status === "under_review").length;
 
+  const facilityUserIds = providersAtFacility.map((p) => p.userId);
+  let resusGpsActiveUsers = 0;
+  let resusGpsCasesInPeriod = 0;
+  if (facilityUserIds.length > 0) {
+    const resusCases = await db
+      .select({ userId: resusGPSCases.userId })
+      .from(resusGPSCases)
+      .where(
+        and(
+          inArray(resusGPSCases.userId, facilityUserIds),
+          gte(resusGPSCases.createdAt, since)
+        )
+      );
+    resusGpsCasesInPeriod = resusCases.length;
+    resusGpsActiveUsers = new Set(resusCases.map((r) => r.userId)).size;
+  }
+
+  const reportingRatePercent =
+    providersAtFacility.length > 0
+      ? Math.round((reporterIds.size / providersAtFacility.length) * 100)
+      : 0;
+  const resusAdoptionPercent =
+    providersAtFacility.length > 0
+      ? Math.round((resusGpsActiveUsers / providersAtFacility.length) * 100)
+      : 0;
+
   return {
     facilityId,
     facilityName,
@@ -265,6 +292,12 @@ export async function getFacilityCareSignalDashboard(input: {
       preventableBreakdown: preventableCounts,
       topContributingFactors,
       topEquipmentGaps,
+    },
+    readinessMetrics: {
+      reportingRatePercent,
+      resusAdoptionPercent,
+      resusGpsActiveUsers,
+      resusGpsCasesInPeriod,
     },
   };
 }
@@ -315,6 +348,12 @@ function emptyDashboard(
       preventableBreakdown: {} as Record<string, number>,
       topContributingFactors: [] as Array<{ factor: string; count: number }>,
       topEquipmentGaps: [] as Array<{ item: string; count: number }>,
+    },
+    readinessMetrics: {
+      reportingRatePercent: 0,
+      resusAdoptionPercent: 0,
+      resusGpsActiveUsers: 0,
+      resusGpsCasesInPeriod: 0,
     },
   };
 }

@@ -134,9 +134,26 @@ export default function AdminReports() {
   const [lifecycleBatchResult, setLifecycleBatchResult] = useState<LifecycleBatchResult | null>(null);
   const [lifecycleBatchHistory, setLifecycleBatchHistory] = useState<LifecycleBatchHistoryItem[]>([]);
 
+  const adminRoleOk = Boolean(isAuthenticated && (user as { role?: string })?.role === "admin");
+
   const { data: report, isLoading: reportLoading } = trpc.adminStats.getReport.useQuery(
     { lastDays: 7 },
-    { enabled: isAuthenticated && (user as { role?: string })?.role === "admin" }
+    { enabled: adminRoleOk }
+  );
+
+  const { data: missionKpis } = trpc.adminStats.getMissionImpactKpis.useQuery(
+    { lastDays: 30 },
+    { enabled: adminRoleOk && (reportTab === "overview" || reportTab === "maturity") }
+  );
+
+  const { data: conversionFunnelData } = trpc.adminStats.getProviderConversionFunnel.useQuery(
+    { lastDays: 30 },
+    { enabled: adminRoleOk && (reportTab === "overview" || reportTab === "maturity") }
+  );
+
+  const { data: fellowshipChecklist } = trpc.adminStats.getFellowshipLaunchChecklist.useQuery(
+    undefined,
+    { enabled: adminRoleOk && reportTab === "maturity" }
   );
 
   const { data: usersData } = trpc.adminStats.getUsers.useQuery(
@@ -154,7 +171,6 @@ export default function AdminReports() {
   const institutionId = (userData as { institutionId?: string })?.institutionId;
 
   const utils = trpc.useUtils();
-  const adminRoleOk = Boolean(isAuthenticated && (user as { role?: string })?.role === "admin");
 
   const ledgerQueryInput = useMemo(() => {
     const programType: LedgerProgramFilter | undefined =
@@ -763,9 +779,12 @@ export default function AdminReports() {
 
         {/* Tabs for different report sections */}
         <Tabs value={reportTab} onValueChange={setReportTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto min-h-10">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-1 h-auto min-h-10">
             <TabsTrigger value="overview" className="text-xs sm:text-sm">
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="maturity" className="text-xs sm:text-sm">
+              Maturity KPIs
             </TabsTrigger>
             <TabsTrigger value="enrollment-ledger" className="text-xs sm:text-sm">
               Enrollment ledger
@@ -1067,6 +1086,48 @@ export default function AdminReports() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Individual providers with completed payment in rolling last 30 days
                   </p>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {/* Mission impact snapshot (30d) — separate KPI tree from growth */}
+            {missionKpis?.ok && missionKpis.missionImpact ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Mission impact (30d)
+                  </CardTitle>
+                  <CardDescription>
+                    ResusGPS, Care Signal, and closed-loop metrics — not combined with provider revenue KPIs
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-2xl font-bold">{missionKpis.missionImpact.resusSessions30d}</p>
+                    <p className="text-sm text-muted-foreground">ResusGPS active providers</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-2xl font-bold">
+                      {missionKpis.missionImpact.careSignalActiveReporters30d}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Care Signal reporters</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-2xl font-bold">
+                      {missionKpis.missionImpact.holisticLoop.acceptanceRate}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Post-case prompt → Care Signal ({missionKpis.missionImpact.holisticLoop.promptsAccepted}/
+                      {missionKpis.missionImpact.holisticLoop.promptsShown})
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-2xl font-bold">
+                      {missionKpis.missionImpact.holisticLoop.septicCourseClicks}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Septic Shock I loop clicks</p>
+                  </div>
                 </CardContent>
               </Card>
             ) : null}
@@ -1848,6 +1909,104 @@ export default function AdminReports() {
             </Card>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="maturity" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Provider conversion funnel (30d)</CardTitle>
+                <CardDescription>
+                  From provider_conversion events — visitor→signup→pay→repeat (PSOT §18, CONVERSION plan)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {conversionFunnelData?.funnel ? (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-2xl font-bold">{conversionFunnelData.funnel.roleSelected}</p>
+                      <p className="text-muted-foreground">Provider role selected</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-2xl font-bold">{conversionFunnelData.funnel.enrollmentStarted}</p>
+                      <p className="text-muted-foreground">Enrollment started</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-2xl font-bold">{conversionFunnelData.funnel.paymentCompleted}</p>
+                      <p className="text-muted-foreground">Payment completed events</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-2xl font-bold">{conversionFunnelData.funnel.secondPurchaseRate}%</p>
+                      <p className="text-muted-foreground">
+                        Repeat payers ({conversionFunnelData.funnel.repeatPayers}/
+                        {conversionFunnelData.funnel.distinctPayers})
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading funnel…</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {missionKpis?.ok && missionKpis.missionImpact ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Holistic loop (30d)</CardTitle>
+                  <CardDescription>ResusGPS post-case → Care Signal → learning (MATURITY_ROADMAP Issue #1)</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+                  <p>Prompts shown: <strong>{missionKpis.missionImpact.holisticLoop.promptsShown}</strong></p>
+                  <p>Accepted: <strong>{missionKpis.missionImpact.holisticLoop.promptsAccepted}</strong></p>
+                  <p>Dismissed: <strong>{missionKpis.missionImpact.holisticLoop.promptsDismissed}</strong></p>
+                  <p>Septic course clicks: <strong>{missionKpis.missionImpact.holisticLoop.septicCourseClicks}</strong></p>
+                  <p>ResusGPS-sourced submissions: <strong>{missionKpis.missionImpact.holisticLoop.careSignalSubmissionsAfterPrompt7d}</strong></p>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Fellowship §11 launch checklist</CardTitle>
+                <CardDescription>
+                  Engineering automation status — fellowTitleEnabled remains blocked until CEO sign-off
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {fellowshipChecklist ? (
+                  <>
+                    <p className="text-sm">
+                      Pass: {fellowshipChecklist.summary.pass} · Fail: {fellowshipChecklist.summary.fail} · Manual:{" "}
+                      {fellowshipChecklist.summary.manual} · Blocked: {fellowshipChecklist.summary.blocked}
+                    </p>
+                    <ul className="space-y-2 text-sm">
+                      {fellowshipChecklist.items.map((item) => (
+                        <li key={item.id} className="flex gap-2 items-start border-b pb-2">
+                          <span
+                            className={
+                              item.status === "pass"
+                                ? "text-emerald-600 font-medium shrink-0"
+                                : item.status === "fail"
+                                  ? "text-red-600 font-medium shrink-0"
+                                  : "text-amber-600 font-medium shrink-0"
+                            }
+                          >
+                            [{item.status}]
+                          </span>
+                          <span>
+                            <strong>{item.section}</strong> — {item.label}
+                            {item.detail ? (
+                              <span className="block text-muted-foreground text-xs mt-0.5">{item.detail}</span>
+                            ) : null}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading checklist…</p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="enrollment-ledger" className="space-y-6">

@@ -90,7 +90,7 @@ export default function HealthcareWorkerApp() {
 
               <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader>
-                  <CardTitle className="text-lg">Fellowship Elite</CardTitle>
+                  <CardTitle className="text-lg">Paeds Resus Fellowship pathway</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 mb-4">200 hours • 150 lessons</p>

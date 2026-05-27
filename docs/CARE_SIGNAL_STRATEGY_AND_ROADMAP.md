@@ -440,7 +440,7 @@ Care Signal is not considered launched until all items in this checklist pass. T
 
 - [x] Single canonical form component (`CareSignalFormV2.tsx`) used on `/care-signal` (legacy `CareSignalForm.tsx` retained for reference only)
 - [x] ResusGPS post-case → Care Signal prompt with pre-fill (`CareSignalPostEventPrompt`, 2026-05-27)
-- [ ] `CareSignalLogger.tsx` deprecated and removed from all routes
+- [x] `CareSignalLogger.tsx` deprecated and removed from all routes (2026-05-27)
 - [ ] Submission confirmation shows streak update and fellowship progress
 - [ ] History view accessible from provider dashboard
 - [ ] Personal gap analysis chart displays real data

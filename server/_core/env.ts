@@ -20,4 +20,6 @@ export const ENV = {
    */
   exposeAspirationalApis:
     process.env.NODE_ENV !== "production" || process.env.ENABLE_ASPIRATIONAL_APIS === "true",
+  /** When true, surfaces clinical outcomes pilot metrics in institutional dashboards (CEO-gated). */
+  clinicalOutcomesPilotEnabled: process.env.CLINICAL_OUTCOMES_PILOT_ENABLED === "true",
 };
