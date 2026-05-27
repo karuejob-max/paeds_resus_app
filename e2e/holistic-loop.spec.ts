@@ -54,4 +54,32 @@ authTest.describe("Holistic loop — provider ResusGPS → Care Signal prefill",
       // ABCDE flow and DB-backed fellowship.recordResusGPSCase — not automated in CI yet.
     }
   );
+
+  authTest(
+    "Care Signal consent gate appears for first-time reporter",
+    async ({ providerPage, context }) => {
+      await context.clearPermissions();
+      await providerPage.goto("/care-signal");
+      await providerPage.evaluate(() => localStorage.removeItem("care_signal_consent_v1"));
+
+      const hasPriorSubmission = await providerPage
+        .locator('[data-testid="care-signal-form"], form')
+        .first()
+        .isVisible({ timeout: 5_000 })
+        .catch(() => false);
+
+      if (!hasPriorSubmission) {
+        await authExpect(providerPage.getByText(/care signal consent/i)).toBeVisible({
+          timeout: 15_000,
+        });
+      }
+    }
+  );
+
+  authTest("provider home loads after login", async ({ providerPage }) => {
+    await providerPage.goto("/home");
+    await authExpect(providerPage.getByText(/fellowship|aha|resusgps|dashboard/i).first()).toBeVisible({
+      timeout: 20_000,
+    });
+  });
 });

@@ -138,8 +138,10 @@ pnpm install
 cp .env.example .env
 # Edit .env with your configuration
 
-# Run database migrations
-pnpm db:push
+# Run database migrations (Aiven/cloud: use SSL-aware migrate)
+pnpm run db:migrate
+# Or generate + push in dev: pnpm db:push
+# One-off SQL: pnpm run db:apply-0043 (see docs/STAGING_GO_LIVE_CHECKLIST.md)
 
 # Start development server
 pnpm run dev

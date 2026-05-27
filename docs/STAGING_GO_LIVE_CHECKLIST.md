@@ -19,7 +19,7 @@
 - [ ] Create staging MySQL instance (not production `DATABASE_URL`)
 - [ ] Copy connection string to Render staging env only (never commit)
 - [ ] Local smoke: `pnpm run db:test-connection` with staging URL in `.env.staging` (gitignored)
-- [ ] Apply migrations per [RENDER_PREDEPLOY_LOCKED.md](./RENDER_PREDEPLOY_LOCKED.md)
+- [ ] Apply migrations: `pnpm run db:migrate` (SSL-aware wrapper) or per-migration `pnpm run db:apply-0043` etc. — see [WORK_STATUS.md](./WORK_STATUS.md) if `drizzle-kit migrate` times out
 - [ ] Run `pnpm run verify:analytics` against staging DB (optional but recommended)
 
 ---
