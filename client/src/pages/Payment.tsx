@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
 import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } from "lucide-react";
 import { getIndividualCoursesByTrack, individualCourses } from "@/const/pricing";
-import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
+import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { trpc } from "@/lib/trpc";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { toast } from "sonner";
@@ -123,9 +123,7 @@ export default function Payment() {
     name: c.name,
     description: c.description,
     price: c.price,
-    duration: isAhaProgramSlug(c.id)
-      ? formatAhaDurationLabel(c.id as AhaProgramType)
-      : (c.duration ?? ""),
+    duration: c.duration ?? "",
     icon: courseIcons[c.id] ?? "📋",
   }));
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
@@ -346,7 +344,14 @@ export default function Payment() {
                         <p className="text-2xl font-bold text-brand-orange tabular-nums">
                           KES {course.price.toLocaleString()}
                         </p>
-                        <p className="text-sm text-muted-foreground">{course.duration}</p>
+                        {isAhaProgramSlug(course.id) ? (
+                          <AhaCourseDurationLines
+                            programType={course.id as AhaProgramType}
+                            className="text-right text-xs mt-1 max-w-[11rem] ml-auto"
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">{course.duration}</p>
+                        )}
                       </div>
                     </div>
                   </CardContent>

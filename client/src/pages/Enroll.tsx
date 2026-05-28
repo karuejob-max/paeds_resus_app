@@ -10,7 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
-import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
+import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { AhaEnrollCertificationPreview } from "@/components/AhaEnrollCertificationPreview";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
@@ -73,9 +73,7 @@ export default function Enroll() {
     name: c.name,
     description: c.description,
     price: c.price,
-    duration: isAhaProgramSlug(c.id)
-      ? formatAhaDurationLabel(c.id as AhaProgramType)
-      : (c.duration ?? ""),
+    duration: c.duration ?? "",
     features:
       c.id === "instructor"
         ? ["Instructor certificate path", "Teaching assignment eligibility after approval"]
@@ -176,10 +174,10 @@ export default function Enroll() {
                           <div className="text-4xl font-bold text-brand-orange tabular-nums">
                             KES {course.price.toLocaleString()}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                            <Clock className="w-4 h-4 shrink-0" />
-                            {course.duration}
-                          </div>
+                          <AhaCourseDurationLines
+                            programType={course.id as AhaProgramType}
+                            className="mt-2"
+                          />
                         </div>
                         {isAhaProgramSlug(course.id) && (
                           <AhaEnrollCertificationPreview programType={course.id as AhaProgramType} />
@@ -343,10 +341,10 @@ export default function Enroll() {
                   </span>
                 </div>
                 {isAhaProgramSlug(selectedCourse) && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4 shrink-0" />
-                    {formatAhaDurationLabel(selectedCourse as AhaProgramType)}
-                  </div>
+                  <AhaCourseDurationLines
+                    programType={selectedCourse as AhaProgramType}
+                    className="text-sm"
+                  />
                 )}
                 {selectedCourse === "heartsaver" && course.price > 0 ? (
                   <>

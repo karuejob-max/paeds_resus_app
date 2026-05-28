@@ -8,9 +8,9 @@ import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
 import { TRAINING_LANDING_CONFIGS, getTrainingPrice } from "@/lib/training-landing-content";
 import { formatPrice } from "@/const/pricing";
-import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
+import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
-import { ArrowRight, GraduationCap, Clock } from "lucide-react";
+import { ArrowRight, GraduationCap } from "lucide-react";
 
 const MICRO_COURSE_NOTE =
   "Condition-focused micro-courses (e.g. Septic Shock, Seriously Ill Child) complement AHA certification and support the Paeds Resus Fellowship Pillar A — browse the full catalog after signing in.";
@@ -54,10 +54,7 @@ export default function TrainingHub() {
                   <CardTitle className="text-lg">{course.courseCode}</CardTitle>
                   <CardDescription>
                     {course.subtitle.slice(0, 100)}…
-                    <span className="flex items-center gap-1.5 mt-2 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      {formatAhaDurationLabel(course.slug)}
-                    </span>
+                    <AhaCourseDurationLines programType={course.slug} className="mt-2" />
                     {price != null && price > 0 && (
                       <span className="block mt-2 font-medium text-foreground">
                         From {formatPrice(price)}
@@ -83,10 +80,7 @@ export default function TrainingHub() {
               <CardTitle className="text-lg">Heartsaver CPR AED</CardTitle>
               <CardDescription>
                 For lay rescuers and non-clinical staff
-                <span className="flex items-center gap-1.5 mt-2 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {formatAhaDurationLabel("heartsaver")}
-                </span>
+                <AhaCourseDurationLines programType="heartsaver" className="mt-2" />
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

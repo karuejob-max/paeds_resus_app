@@ -1,12 +1,9 @@
 import { memo, type ReactNode } from "react";
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
-import {
-  formatAhaDurationLabel,
-  getAhaCourseMetadata,
-} from "@/const/aha-course-metadata";
+import { getAhaCourseMetadata } from "@/const/aha-course-metadata";
+import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const BADGE_COLORS: Record<AhaProgramType, string> = {
@@ -63,10 +60,7 @@ export const AhaHubCourseCard = memo(function AhaHubCourseCard({
               <CardTitle className="text-lg leading-snug">{meta.title}</CardTitle>
               {titleAdornment}
             </div>
-            <CardDescription className="flex items-center gap-1.5 mt-1.5">
-              <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {formatAhaDurationLabel(programType)}
-            </CardDescription>
+            <AhaCourseDurationLines programType={programType} className="mt-1.5" />
           </div>
         </div>
       </CardHeader>
@@ -93,6 +87,7 @@ export function AhaHubCourseCardSkeleton() {
           <div className="flex-1 space-y-2">
             <div className="h-5 w-3/4 rounded bg-accent animate-pulse" />
             <div className="h-4 w-1/2 rounded bg-accent animate-pulse" />
+            <div className="h-4 w-2/5 rounded bg-accent animate-pulse" />
           </div>
         </div>
       </CardHeader>

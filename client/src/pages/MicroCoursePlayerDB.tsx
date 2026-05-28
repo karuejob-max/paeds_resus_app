@@ -20,7 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import { formatAhaDuration } from "@/const/aha-course-metadata";
+import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -1107,7 +1107,9 @@ function SummativeQuizView({
   ahaProgramType?: AhaProgramType | null;
 }) {
   const completedLabel =
-    isAhaCourse && ahaProgramType ? formatAhaDuration(ahaProgramType) : `${course.duration ?? 0}m`;
+    isAhaCourse && ahaProgramType
+      ? formatCognitiveCourseworkDuration(ahaProgramType)
+      : `${course.duration ?? 0}m`;
   return (
     <Card className="border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
       <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-12 text-center text-white relative overflow-hidden">
