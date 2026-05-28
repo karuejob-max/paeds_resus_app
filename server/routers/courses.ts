@@ -12,7 +12,7 @@ import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
@@ -78,7 +78,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver']))
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp']))
         .orderBy(asc(courses.programType), asc(courses.order));
     } catch (error) {
       console.error('[courses.listAhaPrograms]', error);
@@ -93,7 +93,7 @@ export const coursesRouter = router({
     try {
       const database = await getDb();
       if (!database) return [];
-      const order = ['bls', 'acls', 'pals', 'heartsaver'] as const;
+      const order = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
       const anchors = await Promise.all(
         order.map((pt) => resolveAhaCourseAnchor(database, pt))
       );
@@ -113,7 +113,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver'])))
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp'])))
         .orderBy(desc(enrollments.createdAt));
     } catch (error) {
       console.error('[courses.getMyAhaEnrollments]', error);
@@ -604,7 +604,7 @@ export const coursesRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']),
+        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']),
         courseId: z.number().optional(),
       })
     )
@@ -653,6 +653,39 @@ export const coursesRouter = router({
           enrolRow = { id: newId, cognitiveModulesComplete: false };
         }
 
+        // Verify all cognitive modules for this program are complete in this enrollment.
+        const anchor = await resolveAhaCourseAnchor(database, input.programType);
+        if (!anchor?.id) {
+          return { success: false, error: "Course catalog is not ready. Please refresh and try again." };
+        }
+        const moduleRows = await database
+          .select({ id: modules.id })
+          .from(modules)
+          .where(eq(modules.courseId, anchor.id));
+        const moduleIds = moduleRows.map((m) => m.id);
+        if (moduleIds.length === 0) {
+          return { success: false, error: "Course modules are not available yet. Please try again shortly." };
+        }
+        const progressRows = await database
+          .select({ moduleId: userProgress.moduleId })
+          .from(userProgress)
+          .where(
+            and(
+              eq(userProgress.enrollmentId, enrolRow.id),
+              eq(userProgress.status, "completed"),
+              inArray(userProgress.moduleId, moduleIds)
+            )
+          );
+        const done = new Set(progressRows.map((r) => r.moduleId));
+        const allComplete = moduleIds.every((id) => done.has(id));
+        if (!allComplete) {
+          return {
+            success: false,
+            cognitiveComplete: false,
+            error: `Complete all modules before final submission (${done.size}/${moduleIds.length} complete).`,
+          };
+        }
+
         // Mark cognitive modules complete (idempotent)
         if (!enrolRow.cognitiveModulesComplete) {
           await database
@@ -691,7 +724,7 @@ export const coursesRouter = router({
   // AHA-SCHED-1: List upcoming public hands-on sessions available for booking.
   // ─────────────────────────────────────────────────────────────────────────
   listUpcomingHandsOnSessions: protectedProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]).optional() }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
@@ -808,7 +841,7 @@ export const coursesRouter = router({
   // always has a valid enrollmentId even on a first visit.
   // ─────────────────────────────────────────────────────────────────────────
   ensureAhaEnrollment: protectedProcedure
-    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver']) }))
+    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']) }))
     .mutation(async ({ ctx, input }) => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
       try {

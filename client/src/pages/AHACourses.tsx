@@ -9,7 +9,7 @@ import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAna
 import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { toast } from "sonner";
 
-const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver", { title: string; description: string }> = {
+const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver" | "nrp", { title: string; description: string }> = {
   bls: {
     title: "BLS (Basic Life Support)",
     description: "Core life support skills for rapid recognition, CPR, and team response.",
@@ -25,6 +25,11 @@ const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver", { title: 
   heartsaver: {
     title: "Heartsaver CPR AED",
     description: "CPR and AED skills for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR.",
+  },
+  nrp: {
+    title: "NRP (Neonatal Resuscitation Program)",
+    description:
+      "2025 AHA/AAP neonatal resuscitation — anticipation, initial steps, PPV, chest compressions, medications, and post-resuscitation care.",
   },
 };
 
@@ -129,7 +134,7 @@ export default function AHACourses() {
   // Primary action: guide user to the next unenrolled course, or continue an in-progress one
   const primaryAction = useMemo(() => {
     // First: find a course that is enrolled but cognitive not yet complete
-    for (const pt of ["bls", "acls", "pals", "heartsaver"] as const) {
+    for (const pt of ["bls", "acls", "pals", "heartsaver", "nrp"] as const) {
       const enrol = latestAhaByProgram.get(pt);
       if (enrol && !(enrol as any)?.cognitiveModulesComplete) {
         return {
@@ -146,7 +151,7 @@ export default function AHACourses() {
       }
     }
     // Second: find a course not yet enrolled
-    for (const pt of ["bls", "acls", "pals", "heartsaver"] as const) {
+    for (const pt of ["bls", "acls", "pals", "heartsaver", "nrp"] as const) {
       if (!latestAhaByProgram.get(pt)) {
         return {
           label: `Start ${pt.toUpperCase()} enrollment`,
@@ -187,7 +192,7 @@ export default function AHACourses() {
               <BookOpen className="h-8 w-8" />
               AHA Certification
             </h1>
-            <p className="text-muted-foreground mt-2">BLS, ACLS, PALS, and Heartsaver. Fellowship micro-courses are managed in the Fellowship section.</p>
+            <p className="text-muted-foreground mt-2">BLS, ACLS, PALS, Heartsaver, and NRP. Fellowship micro-courses are managed in the Fellowship section.</p>
           </div>
         </div>
 
@@ -237,7 +242,7 @@ export default function AHACourses() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {(ahaCourses ?? []).map((course) => {
             const pt = course.programType;
-            const programCopy = AHA_PROGRAM_COPY[pt as "bls" | "acls" | "pals" | "heartsaver"];
+            const programCopy = AHA_PROGRAM_COPY[pt as keyof typeof AHA_PROGRAM_COPY];
             const enrol = latestAhaByProgram.get(pt);
             const isEnrolled = !!enrol;
             const hours = Math.max(1, Math.round((course.duration ?? 360) / 60));

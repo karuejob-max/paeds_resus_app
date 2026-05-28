@@ -73,7 +73,7 @@ export const enrollments = mysqlTable("enrollments", {
   userId: int("userId").notNull(),
   /** When set, PALS learning path is limited to this catalog course (micro-course SKU). */
   courseId: int("courseId"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"]).notNull(), // heartsaver added in DB migration fix_cert_enum.py
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),
   amountPaid: int("amountPaid").default(0), // in cents (KES)
@@ -121,7 +121,7 @@ export const certificates = mysqlTable("certificates", {
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
   certificateNumber: varchar("certificateNumber", { length: 255 }).unique(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive"]).notNull(),
   issueDate: timestamp("issueDate").notNull(),
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
@@ -754,7 +754,7 @@ export const courses = mysqlTable("courses", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
   duration: int("duration"), // in minutes
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default("beginner"),
   order: int("order").default(0),

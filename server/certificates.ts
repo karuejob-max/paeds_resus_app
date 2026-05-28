@@ -14,6 +14,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
+import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certifi
 //   BLS / ACLS / PALS provider cards: 2 years (AHA standard)
 //   Fellowship / Instructor:          1 year  (Paeds Resus internal)
 // ─────────────────────────────────────────────────────────────────────────────
-const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver"]);
+const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver", "nrp"]);
 
 function getCertificateValidityMs(programType: string): number {
   if (AHA_PROGRAM_TYPES.has(programType)) {
@@ -104,7 +105,7 @@ export async function instructorEnrollmentModulesComplete(
 export async function isAhaCognitiveComplete(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   enrollmentId: number,
-  programType: "bls" | "acls"
+  programType: "bls" | "acls" | "heartsaver" | "nrp"
 ): Promise<boolean> {
   // Find the course for this program type
   const courseRows = await db
@@ -421,48 +422,24 @@ export async function issueCertificateForEnrollmentIfEligible(
       }
     }
 
-    // ── BLS path ─────────────────────────────────────────────────────────────
-    if (enrollment.programType === "bls") {
-      // Gate 2a: Cognitive modules
-      const blsOk = await isAhaCognitiveComplete(db, enrollmentId, "bls");
-      if (!blsOk) {
+    // ── Remaining AHA paths with standard two-gate model ────────────────────
+    if (["bls", "acls", "heartsaver", "nrp"].includes(enrollment.programType)) {
+      const pt = enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp";
+      const cognitiveOk = await isAhaCognitiveComplete(db, enrollmentId, pt);
+      if (!cognitiveOk) {
         return {
           issued: false,
           pendingStep: "cognitive",
-          error: "Complete all BLS modules and knowledge checks first. Open your course from the learner dashboard.",
+          error: `Complete all ${pt.toUpperCase()} modules and knowledge checks first. Open your course from the learner dashboard.`,
         };
       }
-      // Gate 2b: Practical skills sign-off by instructor
       if (!enrollment.practicalSkillsSignedOff) {
         return {
           issued: false,
           pendingStep: "practical",
           error:
-            "Your BLS certificate requires a hands-on skills assessment sign-off by an approved instructor. " +
-            "Attend a scheduled BLS skills session and ask your instructor to sign off your skills.",
-        };
-      }
-    }
-
-    // ── ACLS path ────────────────────────────────────────────────────────────
-    if (enrollment.programType === "acls") {
-      // Gate 2a: Cognitive modules
-      const aclsOk = await isAhaCognitiveComplete(db, enrollmentId, "acls");
-      if (!aclsOk) {
-        return {
-          issued: false,
-          pendingStep: "cognitive",
-          error: "Complete all ACLS modules and knowledge checks first. Open your course from the learner dashboard.",
-        };
-      }
-      // Gate 2b: Practical skills sign-off by instructor
-      if (!enrollment.practicalSkillsSignedOff) {
-        return {
-          issued: false,
-          pendingStep: "practical",
-          error:
-            "Your ACLS certificate requires a hands-on skills assessment sign-off by an approved instructor. " +
-            "Attend a scheduled ACLS skills session and ask your instructor to sign off your skills.",
+            `Your ${pt.toUpperCase()} certificate requires a hands-on skills assessment sign-off by an approved instructor. ` +
+            `Attend a scheduled ${pt.toUpperCase()} skills session and ask your instructor to sign off your skills.`,
         };
       }
     }
@@ -497,6 +474,40 @@ export async function issueCertificateForEnrollmentIfEligible(
 export async function markAhaCognitiveComplete(enrollmentId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
+  const rows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const enrollment = rows[0];
+  if (!enrollment) return;
+  if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) return;
+
+  let complete = false;
+  if (enrollment.programType === "pals") {
+    complete = await isPalsEnrollmentModulesComplete(db, enrollmentId, enrollment.userId);
+  } else {
+    const anchor = await resolveAhaCourseAnchor(db, enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp" | "pals");
+    if (anchor?.id) {
+      const modRows = await db
+        .select({ id: modules.id })
+        .from(modules)
+        .where(eq(modules.courseId, anchor.id));
+      const moduleIds = modRows.map((m) => m.id);
+      if (moduleIds.length > 0) {
+        const progressRows = await db
+          .select({ moduleId: userProgress.moduleId })
+          .from(userProgress)
+          .where(
+            and(
+              eq(userProgress.enrollmentId, enrollmentId),
+              eq(userProgress.status, "completed"),
+              inArray(userProgress.moduleId, moduleIds)
+            )
+          );
+        const done = new Set(progressRows.map((p) => p.moduleId));
+        complete = moduleIds.every((id) => done.has(id));
+      }
+    }
+  }
+  if (!complete) return;
+
   await db
     .update(enrollments)
     .set({ cognitiveModulesComplete: true })
@@ -545,7 +556,7 @@ export async function signOffPracticalSkills(
     return {
       success: false,
       certificateIssued: false,
-      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS).",
+      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS, Heartsaver, NRP).",
     };
   }
 
@@ -973,7 +984,7 @@ export async function saveAhaCognitiveCertificate(
   enrollmentId: number,
   userId: number,
   recipientName: string,
-  programType: "bls" | "acls" | "pals" | "heartsaver"
+  programType: "bls" | "acls" | "pals" | "heartsaver" | "nrp"
 ): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
   try {
     const db = await getDb();
@@ -983,7 +994,8 @@ export async function saveAhaCognitiveCertificate(
       | "bls_cognitive"
       | "acls_cognitive"
       | "pals_cognitive"
-      | "heartsaver_cognitive";
+      | "heartsaver_cognitive"
+      | "nrp_cognitive";
 
     // Idempotency: return existing cert if already issued for this enrollment
     const existing = await db

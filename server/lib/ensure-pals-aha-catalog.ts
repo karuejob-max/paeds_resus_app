@@ -76,64 +76,139 @@ export async function ensurePalsAhaCatalog(db: any): Promise<void> {
     courseId = row[0]!.id;
   }
 
-  const modExisting = await db
-    .select({ id: modules.id })
-    .from(modules)
-    .where(eq(modules.courseId, courseId))
-    .limit(1);
+  const moduleBlueprint = [
+    {
+      order: 1,
+      title: "Module 1: PALS systematic approach and initial stabilization",
+      description: "Primary survey (ABCDE), shock recognition, and immediate interventions.",
+      content: "<h2>PALS systematic approach</h2><p>Use initial impression, ABCDE, and rapid reassessment to identify and treat life threats.</p>",
+      quizTitle: "Check: PALS systematic approach",
+      question: "In PALS, the primary assessment follows which sequence?",
+      options: ["Airway → Breathing → Circulation → Disability → Exposure", "Exposure → Disability → Circulation → Breathing → Airway", "Labs before stabilization", "Disposition first"],
+      answer: "Airway → Breathing → Circulation → Disability → Exposure",
+      explanation: "Life-threatening problems are addressed in ABCDE order.",
+    },
+    {
+      order: 2,
+      title: "Module 2: Respiratory failure and airway management",
+      description: "Recognize impending respiratory failure and escalate oxygen/ventilation support.",
+      content: "<h2>Respiratory emergencies</h2><p>Identify respiratory distress, failure, and indications for advanced airway support.</p>",
+      quizTitle: "Check: Respiratory management",
+      question: "Which sign suggests impending respiratory failure?",
+      options: ["Normal mental status with mild tachypnea", "Decreasing respiratory effort with altered consciousness", "Isolated fever", "Mild cough only"],
+      answer: "Decreasing respiratory effort with altered consciousness",
+      explanation: "Fatigue with altered mental status indicates failure and need for urgent support.",
+    },
+    {
+      order: 3,
+      title: "Module 3: Shock and fluid-resuscitation pathways",
+      description: "Differentiate hypovolemic, distributive, cardiogenic, and obstructive shock in children.",
+      content: "<h2>Pediatric shock</h2><p>Apply shock classification, tailored fluids, vasoactive support, and frequent reassessment.</p>",
+      quizTitle: "Check: Shock pathways",
+      question: "What is the key first treatment goal in pediatric shock?",
+      options: ["Delay intervention until labs return", "Restore perfusion and oxygen delivery", "Only treat blood pressure", "Avoid reassessment"],
+      answer: "Restore perfusion and oxygen delivery",
+      explanation: "Early restoration of perfusion is the central target in shock management.",
+    },
+    {
+      order: 4,
+      title: "Module 4: Bradycardia and tachycardia algorithms",
+      description: "Use PALS rhythm algorithms to manage unstable bradycardia and tachycardia.",
+      content: "<h2>Rhythm management</h2><p>Follow pediatric bradycardia and tachycardia algorithms with synchronized cardioversion when indicated.</p>",
+      quizTitle: "Check: Rhythm algorithms",
+      question: "Unstable supraventricular tachycardia should be managed with:",
+      options: ["Observation only", "Synchronized cardioversion", "Routine discharge", "Antibiotics"],
+      answer: "Synchronized cardioversion",
+      explanation: "Unstable tachyarrhythmias require immediate synchronized cardioversion.",
+    },
+    {
+      order: 5,
+      title: "Module 5: Cardiac arrest and post-ROSC care",
+      description: "Apply pediatric cardiac arrest sequence and optimize post-resuscitation stabilization.",
+      content: "<h2>Cardiac arrest and ROSC</h2><p>Deliver high-quality CPR, timely defibrillation, and post-ROSC hemodynamic and neurologic care.</p>",
+      quizTitle: "Check: Arrest and ROSC",
+      question: "After ROSC, which is a priority?",
+      options: ["Ignore blood pressure", "Optimize oxygenation, ventilation, and perfusion", "Stop monitoring", "Delay reassessment"],
+      answer: "Optimize oxygenation, ventilation, and perfusion",
+      explanation: "Post-ROSC care focuses on physiologic stabilization and preventing secondary injury.",
+    },
+    {
+      order: 6,
+      title: "Module 6: Team dynamics, communication, and special circumstances",
+      description: "Crisis resource management, role clarity, debriefing, and pediatric special situations.",
+      content: "<h2>Team performance</h2><p>Use closed-loop communication, role delegation, and post-event debriefs to improve outcomes.</p>",
+      quizTitle: "Check: Team dynamics",
+      question: "Closed-loop communication means:",
+      options: ["No verbal confirmation", "Orders are repeated back and confirmed", "Only leader speaks", "Debriefs are skipped"],
+      answer: "Orders are repeated back and confirmed",
+      explanation: "Closed-loop communication reduces errors during high-acuity resuscitation.",
+    },
+  ] as const;
 
-  if (modExisting.length > 0) return;
+  for (const mod of moduleBlueprint) {
+    const modRow = await db
+      .select({ id: modules.id })
+      .from(modules)
+      .where(and(eq(modules.courseId, courseId), eq(modules.order, mod.order)))
+      .orderBy(desc(modules.id))
+      .limit(1);
+    let moduleId = modRow[0]?.id;
+    if (!moduleId) {
+      await db.insert(modules).values({
+        courseId,
+        title: mod.title,
+        description: mod.description,
+        content: mod.content,
+        duration: 60,
+        order: mod.order,
+      });
+      const insertedRow = await db
+        .select({ id: modules.id })
+        .from(modules)
+        .where(and(eq(modules.courseId, courseId), eq(modules.order, mod.order)))
+        .orderBy(desc(modules.id))
+        .limit(1);
+      moduleId = insertedRow[0]!.id;
+    }
 
-  await db.insert(modules).values({
-    courseId,
-    title: "Module 1: PALS systematic approach overview",
-    description: "Apply the PALS systematic approach to rapidly identify and manage paediatric emergencies.",
-    content: `<h2>PALS systematic approach</h2>
-<p>The PALS systematic approach provides a structured framework for evaluating and managing seriously ill children in any clinical setting.</p>
-<ul>
-  <li>Initial impression and primary assessment (ABCDE).</li>
-  <li>Secondary assessment and targeted interventions.</li>
-  <li>Team communication and escalation when the child is not improving.</li>
-</ul>`,
-    duration: 45,
-    order: 1,
-  });
+    const quizRow = await db
+      .select({ id: quizzes.id })
+      .from(quizzes)
+      .where(eq(quizzes.moduleId, moduleId))
+      .orderBy(desc(quizzes.id))
+      .limit(1);
+    let quizId = quizRow[0]?.id;
+    if (!quizId) {
+      await db.insert(quizzes).values({
+        moduleId,
+        title: mod.quizTitle,
+        description: "Knowledge check",
+        passingScore: 80,
+        order: 1,
+      });
+      const insertedQuiz = await db
+        .select({ id: quizzes.id })
+        .from(quizzes)
+        .where(eq(quizzes.moduleId, moduleId))
+        .orderBy(desc(quizzes.id))
+        .limit(1);
+      quizId = insertedQuiz[0]!.id;
+    }
+    const qExisting = await db
+      .select({ id: quizQuestions.id })
+      .from(quizQuestions)
+      .where(eq(quizQuestions.quizId, quizId))
+      .limit(1);
+    if (qExisting.length > 0) continue;
 
-  const modRow = await db
-    .select({ id: modules.id })
-    .from(modules)
-    .where(eq(modules.courseId, courseId))
-    .orderBy(desc(modules.id))
-    .limit(1);
-  const moduleId = modRow[0]!.id;
-
-  await db.insert(quizzes).values({
-    moduleId,
-    title: "Check: PALS systematic approach",
-    description: "Knowledge check",
-    passingScore: 70,
-    order: 1,
-  });
-
-  const quizRow = await db
-    .select({ id: quizzes.id })
-    .from(quizzes)
-    .where(eq(quizzes.moduleId, moduleId))
-    .orderBy(desc(quizzes.id))
-    .limit(1);
-
-  await db.insert(quizQuestions).values({
-    quizId: quizRow[0]!.id,
-    question: "In PALS, the primary assessment follows which sequence?",
-    questionType: "multiple_choice",
-    options: JSON.stringify([
-      "Airway → Breathing → Circulation → Disability → Exposure",
-      "Exposure → Disability → Circulation → Breathing → Airway",
-      "Labs before any stabilisation",
-      "Disposition before treatment",
-    ]),
-    correctAnswer: JSON.stringify("Airway → Breathing → Circulation → Disability → Exposure"),
-    explanation: "Treat life-threatening problems in ABCDE order before moving on.",
-    order: 1,
-  });
+    await db.insert(quizQuestions).values({
+      quizId,
+      question: mod.question,
+      questionType: "multiple_choice",
+      options: JSON.stringify(mod.options),
+      correctAnswer: JSON.stringify(mod.answer),
+      explanation: mod.explanation,
+      order: 1,
+    });
+  }
 }
