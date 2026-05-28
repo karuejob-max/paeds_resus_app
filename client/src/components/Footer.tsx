@@ -63,18 +63,38 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/institutional" className="text-white/70 hover:text-brand-orange transition">
+                <Link href="/training" className="text-white/70 hover:text-brand-orange transition">
+                  Training (BLS, ACLS, PALS)
+                </Link>
+              </li>
+              <li>
+                <Link href="/for-providers" className="text-white/70 hover:text-brand-orange transition">
+                  For Providers
+                </Link>
+              </li>
+              <li>
+                <Link href="/for-institutions" className="text-white/70 hover:text-brand-orange transition">
                   For Institutions
                 </Link>
               </li>
               <li>
-                <Link href="/care-signal" className="text-white/70 hover:text-brand-orange transition">
-                  Care Signal
+                <Link href="/for-parents" className="text-white/70 hover:text-brand-orange transition">
+                  For Parents
+                </Link>
+              </li>
+              <li>
+                <Link href="/institutional" className="text-white/70 hover:text-brand-orange transition">
+                  Institutional portal
                 </Link>
               </li>
               <li>
                 <Link href="/parent-safe-truth" className="text-white/70 hover:text-brand-orange transition">
-                  For Parents
+                  Parent Safe-Truth
+                </Link>
+              </li>
+              <li>
+                <Link href="/verify" className="text-white/70 hover:text-brand-orange transition">
+                  Verify certificate
                 </Link>
               </li>
               <li>
@@ -147,7 +167,7 @@ export default function Footer() {
         {/* Social Media & Copyright */}
         <div className="border-t border-white/20 pt-6 flex flex-col md:flex-row items-center justify-between">
           <p className="text-sm text-white/70 mb-4 md:mb-0">
-            © {currentYear} Paeds Resus. All rights reserved.
+            © {currentYear} Paeds Resus. All rights reserved. · Kenya & East African Community
           </p>
           <div className="flex gap-4">
             {socialLinks.map((social) => (

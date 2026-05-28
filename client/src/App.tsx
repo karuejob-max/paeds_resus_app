@@ -38,7 +38,13 @@ const CareSignalAppeal = lazy(() => import("./pages/legal/CareSignalAppeal"));
 const CareSignalNotice = lazy(() => import("./pages/legal/CareSignalNotice"));
 const ClinicalIntendedUse = lazy(() => import("./pages/legal/ClinicalIntendedUse"));
 const About = lazy(() => import("./pages/About"));
-const Start = lazy(() => import("./pages/Start"));
+const PublicHome = lazy(() => import("./pages/PublicHome"));
+const TrainingHub = lazy(() => import("./pages/TrainingHub"));
+const TrainingCourseLanding = lazy(() => import("./pages/TrainingCourseLanding"));
+const ForProviders = lazy(() => import("./pages/ForProviders"));
+const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
+const ForParents = lazy(() => import("./pages/ForParents"));
+const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
 const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const Enroll = lazy(() => import("./pages/Enroll"));
@@ -217,7 +223,15 @@ function Router() {
           <Route path="/legal/data-request" component={DataRequest} />
           <Route path="/care-signal/appeal" component={CareSignalAppeal} />
           <Route path="/about" component={About} />
-          <Route path="/start" component={Start} />
+          <Route path="/start">{() => <Redirect to="/" />}</Route>
+          <Route path="/training/pals">{() => <TrainingCourseLanding slug="pals" />}</Route>
+          <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>
+          <Route path="/training/bls">{() => <TrainingCourseLanding slug="bls" />}</Route>
+          <Route path="/training/nrp">{() => <TrainingCourseLanding slug="nrp" />}</Route>
+          <Route path="/training" component={TrainingHub} />
+          <Route path="/for-providers" component={ForProviders} />
+          <Route path="/for-institutions" component={ForInstitutions} />
+          <Route path="/for-parents" component={ForParents} />
           <Route path="/hospital-admin-dashboard">{() => (
             <RoleGate allowed={["institution"]}>
               <HospitalAdminDashboard />
@@ -404,11 +418,7 @@ function Router() {
               <CourseGenericMicro />
             </RoleGate>
           )}</Route>
-          <Route path="/aha-courses">{() => (
-            <RoleGate allowed={["provider"]}>
-              <AHACourses />
-            </RoleGate>
-          )}</Route>
+          <Route path="/aha-courses" component={AHACoursesRoute} />
           <Route path="/aha-book-session">{() => (
             <RoleGate allowed={["provider"]}>
               <AHABookSession />
@@ -451,10 +461,10 @@ function Router() {
           <Route path="/faq">{() => <Redirect to="/help" />}</Route>
           <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/fellowship" />}</Route>
-          {/* / : route by auth state */}
-          <Route path="/" component={RootEntry} />
-          {/* Catch-all → role-aware root entry */}
-            <Route component={RootEntry} />
+          {/* / : public compound for anonymous; role home for authenticated */}
+          <Route path="/" component={HomeEntry} />
+          {/* Catch-all → role-aware redirect or public home */}
+            <Route component={FallbackEntry} />
           </Switch>
         </Suspense>
         </LegalReconsentGate>
@@ -629,26 +639,82 @@ function AdminGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RootEntry() {
+function HomeEntry() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
   const roleForHome = mapUserTypeToRole(user?.userType);
 
   useEffect(() => {
-    if (loading) return;
-    const dest = isAuthenticated ? getRoleHomePath(roleForHome) : "/start";
+    if (loading || !isAuthenticated) return;
+    const dest = getRoleHomePath(roleForHome);
     if (dest === "/home") void import("./pages/Home");
     else if (dest === "/parent-safe-truth") void import("./pages/ParentSafeTruth");
     else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
     setLocation(dest);
   }, [isAuthenticated, loading, roleForHome, setLocation]);
 
-  if (!loading) return null;
+  if (loading) {
+    return (
+      <RouteLoadingState
+        title="Opening Paeds Resus…"
+        description="Routing you to the right workspace."
+      />
+    );
+  }
+
+  if (isAuthenticated) return null;
 
   return (
-    <RouteLoadingState
-      title="Opening Paeds Resus…"
-      description="Routing you to the right workspace."
-    />
+    <Suspense fallback={<SuspenseRouteFallback />}>
+      <PublicHome />
+    </Suspense>
+  );
+}
+
+function FallbackEntry() {
+  const { user, isAuthenticated, loading } = useAuth();
+  const [, setLocation] = useLocation();
+  const roleForHome = mapUserTypeToRole(user?.userType);
+
+  useEffect(() => {
+    if (loading) return;
+    setLocation(isAuthenticated ? getRoleHomePath(roleForHome) : "/");
+  }, [isAuthenticated, loading, roleForHome, setLocation]);
+
+  if (loading) {
+    return (
+      <RouteLoadingState
+        title="Opening Paeds Resus…"
+        description="Routing you to the right workspace."
+      />
+    );
+  }
+
+  return null;
+}
+
+/** Public marketing at /aha-courses; authenticated provider hub when signed in. */
+function AHACoursesRoute() {
+  const { user, isAuthenticated, loading } = useAuth();
+  const { role } = useUserRole();
+  const effectiveRole = role ?? mapUserTypeToRole(user?.userType);
+
+  if (loading) {
+    return (
+      <RouteLoadingState
+        title="Loading AHA courses…"
+        description="Preparing certification information."
+      />
+    );
+  }
+
+  if (!isAuthenticated || effectiveRole !== "provider") {
+    return <AHACoursesPublic />;
+  }
+
+  return (
+    <RoleGate allowed={["provider"]}>
+      <AHACourses />
+    </RoleGate>
   );
 }

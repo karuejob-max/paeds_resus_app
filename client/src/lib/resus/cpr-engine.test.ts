@@ -9,6 +9,11 @@ import {
   evaluateMedicationEligibility,
   calculateShockEnergy,
   calculateCprMedicationDose,
+  getCycleWorkflowStatus,
+  applyRhythmWindowDecision,
+  getEpinephrineTimingState,
+  shouldTriggerIntubatedVentilationCue,
+  getHyperkalemiaGuidance,
   type CprEngineState,
 } from './cpr-engine';
 
@@ -246,5 +251,97 @@ describe('CPR Engine - Medication Dose Calculation', () => {
     const dose = calculateCprMedicationDose('epinephrine', 20);
     expect(dose.preparation).toBeDefined();
     expect(dose.preparation).toContain('1:10,000');
+  });
+});
+
+describe('CPR Engine - CPR-GPS Cycle Workflow', () => {
+  it('should trigger pre-charge alert at T-15 seconds', () => {
+    const status = getCycleWorkflowStatus(105);
+    expect(status.phase).toBe('precharge_alert');
+    expect(status.countdownToRhythmCheck).toBe(15);
+  });
+
+  it('should enter 10-second rhythm/shock reassessment window', () => {
+    const status = getCycleWorkflowStatus(123);
+    expect(status.phase).toBe('rhythm_window');
+    expect(status.rhythmWindowRemaining).toBe(7);
+  });
+
+  it('should roll into next cycle after rhythm window', () => {
+    const status = getCycleWorkflowStatus(130);
+    expect(status.cycleNumber).toBe(2);
+    expect(status.phase).toBe('compressions');
+  });
+});
+
+describe('CPR Engine - Rhythm Window Documentation and Shock Capture', () => {
+  it('should increment shock number when shock delivered is documented', () => {
+    const result = applyRhythmWindowDecision(2, {
+      rhythmClassification: 'shockable',
+      rhythmType: 'vf_pvt',
+      shockAction: 'shock_delivered',
+    });
+    expect(result.nextShockCount).toBe(3);
+    expect(result.actionSummary).toContain('Shock #3');
+  });
+
+  it('should enforce reason when no shock is delivered', () => {
+    expect(() =>
+      applyRhythmWindowDecision(2, {
+        rhythmClassification: 'non_shockable',
+        rhythmType: 'pea',
+        shockAction: 'no_shock',
+      })
+    ).toThrow(/noShockReason/i);
+  });
+});
+
+describe('CPR Engine - Epinephrine Timer Color State', () => {
+  const shockableState: CprEngineState = {
+    shockCount: 2,
+    epiDoses: 1,
+    lastEpiTime: 60,
+    antiarrhythmicDoses: 0,
+    rhythmType: 'vf_pvt',
+    phase: 'compressions',
+  };
+
+  it('should be not_due before threshold', () => {
+    expect(getEpinephrineTimingState(180, shockableState, true)).toBe('not_due');
+  });
+
+  it('should be almost_due near 3-minute mark', () => {
+    expect(getEpinephrineTimingState(215, shockableState, true)).toBe('almost_due');
+  });
+
+  it('should be overdue at 3 minutes', () => {
+    expect(getEpinephrineTimingState(240, shockableState, true)).toBe('overdue');
+  });
+});
+
+describe('CPR Engine - Intubated Ventilation Cue Cadence', () => {
+  it('should trigger cue every 6 seconds when intubated', () => {
+    expect(shouldTriggerIntubatedVentilationCue(6, true)).toBe(true);
+    expect(shouldTriggerIntubatedVentilationCue(12, true)).toBe(true);
+    expect(shouldTriggerIntubatedVentilationCue(7, true)).toBe(false);
+  });
+
+  it('should not trigger cue without advanced airway', () => {
+    expect(shouldTriggerIntubatedVentilationCue(6, false)).toBe(false);
+  });
+});
+
+describe('CPR Engine - Hyperkalemia Reversible Cause Guidance', () => {
+  it('should provide severe hyperkalemia recommendations with bicarbonate indication', () => {
+    const guidance = getHyperkalemiaGuidance({
+      weightKg: 20,
+      potassiumMmolL: 7.2,
+      hasEcgChanges: true,
+      prolongedArrest: true,
+    });
+    expect(guidance.severity).toBe('severe');
+    expect(guidance.calciumGluconate).toMatch(/Calcium gluconate/i);
+    expect(guidance.insulinDextrose).toMatch(/insulin/i);
+    expect(guidance.bicarbonate).toMatch(/Consider sodium bicarbonate/i);
   });
 });

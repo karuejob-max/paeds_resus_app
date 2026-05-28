@@ -68,8 +68,8 @@ export default function About() {
           <Link href="/institutional">
             <Button variant="cta">For institutions</Button>
           </Link>
-          <Link href="/start">
-            <Button variant="outline">Start page</Button>
+          <Link href="/">
+            <Button variant="outline">Platform home</Button>
           </Link>
           <Link href="/enroll">
             <Button variant="outline">Enrol</Button>

@@ -236,26 +236,26 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Anonymous quick paths (P2-LAND-1 light touch) */}
+          {/* Anonymous quick paths — compound-first, not ResusGPS-only */}
           {!isAuthenticated && (
             <nav
               className="hidden md:flex items-center gap-1 text-sm text-muted-foreground mr-2"
               aria-label="Explore by audience"
             >
-              <a href={getLoginUrl("/resus")}>
+              <Link href="/training">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
-                  ResusGPS
-                </span>
-              </a>
-              <Link href="/start">
-                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
-                  Start
+                  Training
                 </span>
               </Link>
-              <Link href="/parent-safe-truth">
+              <Link href="/for-providers">
+                <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer font-medium text-foreground">
+                  Providers
+                </span>
+              </Link>
+              <Link href="/for-parents">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer">Parents</span>
               </Link>
-              <Link href="/institutional">
+              <Link href="/for-institutions">
                 <span className="px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer">Institutions</span>
               </Link>
               <Link href="/help">
@@ -376,7 +376,7 @@ export default function Header() {
                     Sign In
                   </Button>
                 </a>
-                <Link href="/start" className="hidden sm:block">
+                <Link href="/register" className="hidden sm:block">
                   <Button variant="cta" size="sm">
                     Get started
                   </Button>
@@ -403,16 +403,16 @@ export default function Header() {
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
-                <a href={getLoginUrl("/resus")} onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-foreground font-medium">ResusGPS</span>
-                </a>
-                <Link href="/start" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-foreground font-medium">Start</span>
+                <Link href="/training" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-foreground font-medium">Training</span>
                 </Link>
-                <Link href="/parent-safe-truth" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/for-providers" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-foreground font-medium">Providers</span>
+                </Link>
+                <Link href="/for-parents" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground/90">Parents</span>
                 </Link>
-                <Link href="/institutional" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/for-institutions" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground/90">Institutions</span>
                 </Link>
                 <Link href="/help" onClick={() => setMobileMenuOpen(false)}>

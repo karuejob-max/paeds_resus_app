@@ -41,11 +41,22 @@ export const individualCourses: CoursePrice[] = [
     name: "PALS (Pediatric Advanced Life Support)",
     description:
       "Advanced pediatric emergency assessment and stabilization for critically ill children.",
-    price: 100,
+    price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
     duration: "Self-paced",
     level: "Advanced",
+  },
+  {
+    id: "nrp",
+    name: "NRP (Neonatal Resuscitation Program)",
+    description:
+      "Neonatal resuscitation training for delivery suites, NICUs, and maternity teams — newborn transition at birth.",
+    price: 10000,
+    category: "individual",
+    providerTrack: "aha_certification",
+    duration: "Self-paced + practical",
+    level: "Intermediate",
   },
   {
     id: "heartsaver",
@@ -109,6 +120,17 @@ export const institutionalPricing = {
   pals: {
     name: "PALS - Institutional",
     basePricePerSeat: 16000, // 20% discount from individual
+    minimumSeats: 10,
+    bulkDiscounts: [
+      { seats: 10, discount: 20 },
+      { seats: 25, discount: 30 },
+      { seats: 50, discount: 40 },
+      { seats: 100, discount: 50 },
+    ],
+  },
+  nrp: {
+    name: "NRP - Institutional",
+    basePricePerSeat: 8000, // 20% discount from individual
     minimumSeats: 10,
     bulkDiscounts: [
       { seats: 10, discount: 20 },
