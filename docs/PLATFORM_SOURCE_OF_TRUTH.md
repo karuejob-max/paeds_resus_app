@@ -41,7 +41,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
+| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours), Heartsaver CPR AED, and NRP (Neonatal Resuscitation Program)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Paeds Resus Fellowship** | The canonical name for the **narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall—learners pay per course/SKU. Completion of the three pillars (Courses, ResusGPS, Care Signal) earns the title **Paeds Resus Fellow**. |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. |
 | **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives the **automated** **Paeds Resus Fellowship** **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
@@ -134,9 +134,9 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 ## 9. Course funnel (data meaning)
 
-- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `fellowship` \| `instructor`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
+- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `heartsaver` \| `nrp` \| `fellowship` \| `instructor`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
 - **Certified:** A row in **`certificates`** = one certificate. Authoritative fields include `issueDate`, `programType`.
-- **Certification Strategy (Incentives):** To maintain high learner motivation and clinical rigor, certificates are issued for **every** successfully completed micro-course, every AHA course (BLS, ACLS, PALS), and finally the **Fellowship Diploma** upon graduation. Certificates must be verifiable and downloadable on-demand from the provider dashboard.
+- **Certification Strategy (Incentives):** To maintain high learner motivation and clinical rigor, certificates are issued for **every** successfully completed micro-course, every AHA course (BLS, ACLS, PALS, Heartsaver, NRP), and finally the **Fellowship Diploma** upon graduation. Certificates must be verifiable and downloadable on-demand from the provider dashboard.
 - **Instructor journey:** Completing the **Instructor Course** (`programType` = `instructor`) issues a certificate and sets **`users.instructorNumber`** + **`users.instructorCertifiedAt`**. **B2B teaching** on institutional schedules still requires **`users.instructorApprovedAt`** (platform admin under Admin → Reports) so hospitals only assign certified, approved instructors.
 
 ---
@@ -454,7 +454,7 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Integration gap (current):** Micro-course recommendations are not yet dynamically triggered by Care Signal gap reports or ResusGPS case patterns
 - **Canonical docs:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md), [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md), [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)
 
-#### AHA Courses (BLS / ACLS / PALS)
+#### AHA Courses (BLS / ACLS / PALS / Heartsaver / NRP)
 - **Feeds:** Provider certification (standalone), institutional compliance reporting
 - **Receives from:** None (standalone track — not part of Fellowship pathway)
 - **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
@@ -620,7 +620,7 @@ This section is **binding for every AI agent, developer, designer, and contribut
 - **Never combine** Fellowship pillar data across pillars in a single metric
 - **Never add** patient identifiers to any Care Signal submission schema
 - **Never grant** employer-visible individual Care Signal data without explicit provider consent
-- **Never treat** AHA courses (BLS/ACLS/PALS) as part of the Fellowship pathway
+- **Never treat** AHA courses (BLS/ACLS/PALS/Heartsaver/NRP) as part of the Fellowship pathway
 - **Never create** a new canonical document without linking it in §21
 - **Never make** a canonical decision in WORK_STATUS.md — that file is for execution updates only
 
