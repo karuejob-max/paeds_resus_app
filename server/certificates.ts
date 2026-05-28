@@ -16,20 +16,14 @@ import {
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
+import {
+  AHA_CERTIFICATION_PROGRAM_TYPES,
+  computeCertificateExpiryDate,
+  getCertificateExpiryStatus,
+  type CertificateExpiryStatus,
+} from "./lib/certificate-expiry";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AHA-CERT-1: Certificate validity periods
-//   BLS / ACLS / PALS provider cards: 2 years (AHA standard)
-//   Fellowship / Instructor:          1 year  (Paeds Resus internal)
-// ─────────────────────────────────────────────────────────────────────────────
-const AHA_PROGRAM_TYPES = new Set(["bls", "acls", "pals", "heartsaver", "nrp"]);
-
-function getCertificateValidityMs(programType: string): number {
-  if (AHA_PROGRAM_TYPES.has(programType)) {
-    return 730 * 24 * 60 * 60 * 1000; // 2 years
-  }
-  return 365 * 24 * 60 * 60 * 1000; // 1 year
-}
+const AHA_PROGRAM_TYPES = AHA_CERTIFICATION_PROGRAM_TYPES;
 
 async function getCourseDisplayNameForEnrollment(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -187,8 +181,7 @@ export async function saveCertificate(
     const certificateNumber = generateCertificateNumber();
     const verificationHash = generateCertificateHash(certificateNumber, recipientName);
     const issueDate = new Date();
-    // AHA-CERT-1: Use 2-year validity for BLS/ACLS/PALS, 1-year for others
-    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs(programType));
+    const expiryDate = computeCertificateExpiryDate(issueDate, programType);
 
     const courseDisplayName = await getCourseDisplayNameForEnrollment(db, enrollmentId);
 
@@ -196,6 +189,8 @@ export async function saveCertificate(
       recipientName,
       programType: programType as any,
       trainingDate,
+      issueDate,
+      expiryDate,
       instructorName: instructorName || "Paeds Resus",
       certificateNumber,
       verificationCode: verificationHash,
@@ -238,6 +233,7 @@ export async function saveCertificate(
  */
 export async function verifyCertificateByVerificationCode(code: string): Promise<{
   valid: boolean;
+  status?: CertificateExpiryStatus;
   error?: string;
   certificate?: {
     certificateNumber: string;
@@ -268,16 +264,11 @@ export async function verifyCertificateByVerificationCode(code: string): Promise
     }
 
     const cert = result[0];
-
-    if (cert.expiryDate && cert.expiryDate < new Date()) {
-      return {
-        valid: false,
-        error: "Certificate has expired",
-      };
-    }
+    const status = getCertificateExpiryStatus(cert.expiryDate);
 
     return {
       valid: true,
+      status,
       certificate: {
         certificateNumber: cert.certificateNumber ?? "",
         programType: cert.programType,
@@ -302,6 +293,7 @@ export async function verifyCertificate(
   recipientName: string
 ): Promise<{
   valid: boolean;
+  status?: CertificateExpiryStatus;
   certificate?: (typeof certificates.$inferSelect) | null;
   error?: string;
 }> {
@@ -334,16 +326,11 @@ export async function verifyCertificate(
       };
     }
 
-    // Check if certificate has expired
-    if (cert.expiryDate && cert.expiryDate < new Date()) {
-      return {
-        valid: false,
-        error: "Certificate has expired",
-      };
-    }
+    const status = getCertificateExpiryStatus(cert.expiryDate);
 
     return {
       valid: true,
+      status,
       certificate: cert,
     };
   } catch (error) {
@@ -899,13 +886,14 @@ export async function saveMicroCourseCertificate(
     const certificateNumber = generateCertificateNumber();
     const verificationHash = generateCertificateHash(certificateNumber, recipientName);
     const issueDate = new Date();
-    // Fellowship micro-course certificates: 1-year validity
-    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs("fellowship"));
+    const expiryDate = computeCertificateExpiryDate(issueDate, "fellowship");
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
       programType: "fellowship",
       trainingDate: issueDate,
+      issueDate,
+      expiryDate,
       instructorName: "Paeds Resus",
       certificateNumber,
       verificationCode: verificationHash,
@@ -1017,13 +1005,14 @@ export async function saveAhaCognitiveCertificate(
     const certificateNumber = generateCertificateNumber();
     const verificationHash = generateCertificateHash(certificateNumber, recipientName);
     const issueDate = new Date();
-    // Cognitive gatepass certificates are valid for 1 year
-    const expiryDate = new Date(issueDate.getTime() + getCertificateValidityMs("fellowship"));
+    const expiryDate = computeCertificateExpiryDate(issueDate, cognitiveProgramType);
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
       programType: cognitiveProgramType,
       trainingDate: issueDate,
+      issueDate,
+      expiryDate,
       instructorName: "Paeds Resus",
       certificateNumber,
       verificationCode: verificationHash,

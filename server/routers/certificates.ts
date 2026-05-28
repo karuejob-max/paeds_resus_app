@@ -20,6 +20,7 @@ import {
   generateCertificatePDF as generateCertificatePDFBranded,
   getCertificateFilenameSlug,
 } from "../certificate-pdf";
+import { computeCertificateExpiryDate } from "../lib/certificate-expiry";
 
 const certificateSchema = z.object({
   enrollmentId: z.number(),
@@ -81,6 +82,7 @@ export const certificateRouter = router({
 
         return {
           valid: result.valid,
+          status: result.status ?? null,
           error: result.error,
           certificate: result.certificate
             ? {
@@ -312,10 +314,15 @@ export const certificateRouter = router({
         }
         const { cert, trainingDate, recipientName, courseDisplayName } = data;
         const verificationCode = cert.verificationCode ?? cert.certificateNumber ?? "";
+        const issueDate = cert.issueDate ?? trainingDate;
+        const expiryDate =
+          cert.expiryDate ?? computeCertificateExpiryDate(issueDate, cert.programType);
         const pdfBuffer = await generateCertificatePDFBranded({
           recipientName,
           programType: cert.programType,
           trainingDate,
+          issueDate,
+          expiryDate,
           instructorName: "Paeds Resus",
           certificateNumber: cert.certificateNumber ?? "",
           verificationCode,

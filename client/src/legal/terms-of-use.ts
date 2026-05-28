@@ -73,7 +73,7 @@ export const termsOfUseDocument: LegalDocumentMeta = {
       title: "8. Fellowship and credentials",
       paragraphs: [
         "Paeds Resus Fellow is an automated platform credential when enabled — not a medical licence, MOH specialist registration, or AHA Fellow credential unless explicitly stated on a specific certificate.",
-        "AHA-aligned BLS/ACLS/PALS certificates are issued by Paeds Resus Limited as an AHA-Aligned Training Provider where stated on the certificate. Fellowship micro-course certificates attest course completion, not clinical competence or licensure.",
+        "AHA-aligned BLS/ACLS/PALS/Heartsaver/NRP and fellowship micro-course certificates are valid for two years from the issue date unless otherwise stated on the certificate. Fellowship micro-course certificates attest course completion, not clinical competence or licensure.",
         "We may revoke certificates obtained by fraud or policy violation. Public verification at /verify reflects current status.",
       ],
     },
