@@ -3,6 +3,9 @@
  * All course pricing in KES (Kenyan Shillings)
  */
 
+import { formatAhaDuration } from "./aha-course-metadata";
+import type { AhaProgramType } from "@/lib/providerCourseRoutes";
+
 export interface CoursePrice {
   id: string;
   name: string;
@@ -23,7 +26,7 @@ export const individualCourses: CoursePrice[] = [
     price: 10000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: "2 days",
+    duration: formatAhaDuration("bls" as AhaProgramType),
     level: "Beginner",
   },
   {
@@ -33,7 +36,7 @@ export const individualCourses: CoursePrice[] = [
     price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: "3 days",
+    duration: formatAhaDuration("acls" as AhaProgramType),
     level: "Intermediate",
   },
   {
@@ -44,19 +47,8 @@ export const individualCourses: CoursePrice[] = [
     price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: "Self-paced",
+    duration: formatAhaDuration("pals" as AhaProgramType),
     level: "Advanced",
-  },
-  {
-    id: "nrp",
-    name: "NRP (Neonatal Resuscitation Program)",
-    description:
-      "Neonatal resuscitation training for delivery suites, NICUs, and maternity teams — newborn transition at birth.",
-    price: 10000,
-    category: "individual",
-    providerTrack: "aha_certification",
-    duration: "Self-paced + practical",
-    level: "Intermediate",
   },
   {
     id: "heartsaver",
@@ -66,7 +58,7 @@ export const individualCourses: CoursePrice[] = [
     price: 5000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: "Self-paced",
+    duration: formatAhaDuration("heartsaver" as AhaProgramType),
     level: "Beginner",
   },
   {
@@ -74,10 +66,10 @@ export const individualCourses: CoursePrice[] = [
     name: "NRP (Neonatal Resuscitation Program)",
     description:
       "AHA/AAP 2025-aligned neonatal resuscitation — Newborn Chain of Care, ventilation, MR SOPA, compressions, and post-resuscitation stabilisation.",
-    price: 15000,
+    price: 10000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: "6 hours (typical)",
+    duration: formatAhaDuration("nrp" as AhaProgramType),
     level: "Advanced",
   },
   {
