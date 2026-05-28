@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
+import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -83,6 +84,12 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
 
   const downloadCert = trpc.certificates.download.useMutation();
   const utils = trpc.useUtils();
+  const prefetchAhaHub = usePrefetchAhaHub();
+
+  useEffect(() => {
+    if (isAuthenticated) prefetchAhaHub();
+  }, [isAuthenticated, prefetchAhaHub]);
+
   const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
   const [feedbackDialog, setFeedbackDialog] = useState<{
     certificateId: number;

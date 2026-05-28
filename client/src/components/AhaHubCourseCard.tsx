@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
 import {
   formatAhaDurationLabel,
@@ -29,7 +29,7 @@ type AhaHubCourseCardProps = {
   price?: number | null;
 };
 
-export function AhaHubCourseCard({
+export const AhaHubCourseCard = memo(function AhaHubCourseCard({
   programType,
   titleAdornment,
   middle,
@@ -82,7 +82,7 @@ export function AhaHubCourseCard({
       </CardContent>
     </Card>
   );
-}
+});
 
 export function AhaHubCourseCardSkeleton() {
   return (

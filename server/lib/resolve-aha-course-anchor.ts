@@ -28,6 +28,24 @@ export async function ensureAhaProgramCatalog(
   }
 }
 
+const ANCHOR_CACHE_TTL_MS = 5 * 60 * 1000;
+const anchorCache = new Map<
+  AhaAnchorProgramType,
+  { anchor: (typeof courses.$inferSelect) | null; expiresAt: number }
+>();
+
+/** Cached wrapper — catalog anchors change rarely; avoids repeat ensure + module counts per request. */
+export async function resolveAhaCourseAnchorCached(
+  db: any,
+  programType: AhaAnchorProgramType
+): Promise<(typeof courses.$inferSelect) | null> {
+  const hit = anchorCache.get(programType);
+  if (hit && hit.expiresAt > Date.now()) return hit.anchor;
+  const anchor = await resolveAhaCourseAnchor(db, programType);
+  anchorCache.set(programType, { anchor, expiresAt: Date.now() + ANCHOR_CACHE_TTL_MS });
+  return anchor;
+}
+
 export async function resolveAhaCourseAnchor(
   db: any,
   programType: AhaAnchorProgramType

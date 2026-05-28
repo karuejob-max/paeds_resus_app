@@ -13,6 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
+import { trpc } from "@/lib/trpc";
+import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
+import AHACourses from "./pages/AHACourses";
 
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -86,7 +89,6 @@ const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
 const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
 const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
-const AHACourses = lazy(() => import("./pages/AHACourses"));
 const AHABookSession = lazy(() => import("./pages/AHABookSession"));
 const KaizenDashboard = lazy(() => import("./pages/KaizenDashboard"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
@@ -698,6 +700,12 @@ function AHACoursesRoute() {
   const { user, isAuthenticated, loading } = useAuth();
   const { role } = useUserRole();
   const effectiveRole = role ?? mapUserTypeToRole(user?.userType);
+  const utils = trpc.useUtils();
+
+  useEffect(() => {
+    if (loading || !isAuthenticated || effectiveRole !== "provider") return;
+    void utils.courses.getAhaHubDashboard.prefetch(undefined, { staleTime: AHA_HUB_STALE_MS });
+  }, [loading, isAuthenticated, effectiveRole, utils]);
 
   if (loading) {
     return (
