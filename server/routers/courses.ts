@@ -120,11 +120,30 @@ export const coursesRouter = router({
     try {
       const database = await getDb();
       if (!database) return [];
-      return await database
-        .select()
+      const rows = await database
+        .select({
+          id: enrollments.id,
+          userId: enrollments.userId,
+          programType: enrollments.programType,
+          courseId: enrollments.courseId,
+          trainingDate: enrollments.trainingDate,
+          paymentStatus: enrollments.paymentStatus,
+          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+          createdAt: enrollments.createdAt,
+          updatedAt: enrollments.updatedAt,
+          courseTitle: courses.title,
+        })
         .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp'])))
+        .leftJoin(courses, eq(enrollments.courseId, courses.id))
+        .where(
+          and(
+            eq(enrollments.userId, ctx.user.id),
+            inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp'])
+          )
+        )
         .orderBy(desc(enrollments.createdAt));
+      return rows;
     } catch (error) {
       console.error('[courses.getMyAhaEnrollments]', error);
       return [];

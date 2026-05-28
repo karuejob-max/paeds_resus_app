@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
+import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 
@@ -71,7 +72,9 @@ export default function Enroll() {
     name: c.name,
     description: c.description,
     price: c.price,
-    duration: c.duration ?? "",
+    duration: isAhaProgramSlug(c.id)
+      ? formatAhaDurationLabel(c.id as AhaProgramType)
+      : (c.duration ?? ""),
     features:
       c.id === "instructor"
         ? ["Instructor certificate path", "Teaching assignment eligibility after approval"]

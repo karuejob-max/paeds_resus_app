@@ -35,4 +35,10 @@ describe("AHA course metadata (CEO durations)", () => {
     expect(pals.title).toMatch(/PALS/i);
     expect(pals.shortDescription.length).toBeGreaterThan(40);
   });
+
+  it("uses consistent Duration label prefix for every hub program", () => {
+    for (const programType of AHA_COURSE_ORDER) {
+      expect(formatAhaDurationLabel(programType)).toMatch(/^Duration: \d+ hour/);
+    }
+  });
 });
