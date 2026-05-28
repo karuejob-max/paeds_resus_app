@@ -17,6 +17,9 @@
 
 ## Current priorities (from CEO)
 
+| 2026-05-29 | Cursor | **Google Ads payment success page:** `/payment/success` thank-you route with server-paid validation, M-Pesa redirect from `Payment.tsx`, `payment_success_page_view` + chained `payment_completed_redirect`, `noindex` meta, PSOT §23 + SEO docs. Branch `feat/payment-success-page`. | PR TBD |
+
+
 1. Analytics instrumentation (ResusGPS and others to analyticsEvents; admin reports show real activity)
 2. Staging (develop to staging, main to production)
 3. Security baseline (password, session, audit logging)

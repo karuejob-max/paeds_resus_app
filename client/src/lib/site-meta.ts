@@ -44,6 +44,8 @@ export function applyPageMeta(options: {
   title: string;
   description: string;
   path?: string;
+  /** e.g. `noindex, nofollow` for thin conversion/thank-you pages. */
+  robots?: string;
 }) {
   const path = options.path ?? window.location.pathname;
   const url = `${SITE_ORIGIN}${path}`;
@@ -51,6 +53,9 @@ export function applyPageMeta(options: {
 
   document.title = options.title;
   setNamedMeta("description", options.description);
+  if (options.robots) {
+    setNamedMeta("robots", options.robots);
+  }
   setPropertyMeta("og:title", options.title);
   setPropertyMeta("og:description", options.description);
   setPropertyMeta("og:url", url);
@@ -66,5 +71,6 @@ export function restoreDefaultPageMeta() {
     title: DEFAULT_PAGE_TITLE,
     description: DEFAULT_PAGE_DESCRIPTION,
     path: "/",
+    robots: "index, follow",
   });
 }

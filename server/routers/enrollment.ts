@@ -23,6 +23,7 @@ import {
   type AhaAnchorProgramType,
 } from "../lib/resolve-aha-course-anchor";
 import { isAhaProgramType } from "../../shared/training-product-taxonomy";
+import { isPaidEnrollmentStatus } from "../../shared/payment-success";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -206,6 +207,60 @@ export const enrollmentRouter = router({
         courseTitle = ct[0]?.title ?? null;
       }
       return { ...row, courseTitle };
+    }),
+
+  /**
+   * Validates paid enrollment for Google Ads conversion thank-you page.
+   * Bank transfer: do not link here until webhook/admin marks payment completed.
+   */
+  getPaymentSuccessView: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        courseId: z.string().optional(),
+        programType: z.string().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      }
+      const rows = await db
+        .select()
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      const row = rows[0];
+      if (!row) {
+        return { ok: false as const, reason: "not_found" as const };
+      }
+      if (!isPaidEnrollmentStatus(row.paymentStatus)) {
+        return {
+          ok: false as const,
+          reason: "unpaid" as const,
+          paymentStatus: row.paymentStatus,
+        };
+      }
+      let courseTitle: string | null = null;
+      if (row.courseId != null) {
+        const ct = await db
+          .select({ title: courses.title })
+          .from(courses)
+          .where(eq(courses.id, row.courseId))
+          .limit(1);
+        courseTitle = ct[0]?.title ?? null;
+      }
+      const courseSlug = input.courseId ?? input.programType ?? row.programType;
+      return {
+        ok: true as const,
+        enrollmentId: row.id,
+        programType: row.programType,
+        courseId: courseSlug,
+        courseDbId: row.courseId,
+        courseTitle,
+        amountPaidCents: row.amountPaid ?? 0,
+      };
     }),
 
   // Record a payment

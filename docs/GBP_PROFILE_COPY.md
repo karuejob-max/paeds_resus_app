@@ -8,7 +8,7 @@
 
 **SEO operator guide:** [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md)  
 
-**Last updated:** 2026-05-28
+**Last updated:** 2026-05-29
 
 
 
@@ -167,6 +167,8 @@ Rotate themes:
 
 
 Full operator checklist: [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md).
+
+**Google Ads (paid enrollments):** conversion thank-you URL `https://www.paedsresus.com/payment/success` — see [PUBLIC_VISIBILITY_AND_SEO.md § Google Ads](./PUBLIC_VISIBILITY_AND_SEO.md#google-ads-conversion-tracking).
 
 
 

@@ -17,6 +17,7 @@ import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoute
 import { toast } from "sonner";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { buildPaymentSuccessUrl } from "@shared/payment-success";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 
 export default function Payment() {
@@ -449,14 +450,13 @@ export default function Payment() {
                     amount={selectedCourseData.price}
                     enrollmentId={mpesaEnrollmentId}
                     onPaymentComplete={() => {
-                      track("provider_conversion", "payment_completed_redirect", {
-                        paymentMethod: "mpesa",
-                        courseId: selectedCourseData.id,
-                        enrollmentId: mpesaEnrollmentId ?? null,
-                      });
-                      window.location.href = getProviderCourseDestination(
-                        selectedCourseData.id,
-                        mpesaEnrollmentId
+                      if (mpesaEnrollmentId == null) return;
+                      setLocation(
+                        buildPaymentSuccessUrl({
+                          enrollmentId: mpesaEnrollmentId,
+                          courseId: selectedCourseData.id,
+                          programType: selectedProgramType ?? selectedCourseData.id,
+                        })
                       );
                     }}
                     onPaymentError={(message) => {
