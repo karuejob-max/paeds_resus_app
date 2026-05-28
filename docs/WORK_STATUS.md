@@ -1,4 +1,4 @@
-# Work status - single place for done, in progress, critique
+﻿# Work status - single place for done, in progress, critique
 
 **Purpose:** One file that Manus, Codex, and Cursor read and update. No pasting of responses; sync via git.  
 **Workflow:** See AI_TEAM_WORKFLOW.md in this folder.
@@ -52,6 +52,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-29 | Cursor | **M-Pesa stale pending closure (admin reconcile):** Close stale pending payments during admin reconciliation; scheduler hook; admin Mpesa UI updates. Verified: `pnpm run check`, `server/mpesa-reconciliation.test.ts` (4). | PR #94 � merge `c6ead0c` � `4f85683` |
 | 2026-05-29 | Cursor | **PSOT §24 Institutional ERS (canonical):** Added §24 (Hospital ERS name/scope, staffing reality, hospital vs staff buyer split, geography, AHA rules, anti-patterns); expanded §3, §12, §15.3, §19, §21 (MOU + B2B addendum registry), §22.3, §23.6. Encodes CEO direction from PRs #88–#91 so contributors need not retell the institutional story. | PR TBD · `docs/psot-institutional-ers` |
 | 2026-05-28 | Cursor | **GBP short description (CEO-approved):** Updated `docs/GBP_PROFILE_COPY.md` short variant to exact CEO text (formatted + single-paragraph paste); added paediatric emergency micro-courses to full description for consistency. | PR TBD |
 | 2026-05-28 | Cursor | **Soften institutional ERS copy (CEO feedback):** ~2 nurses/dept staffing reality; one responds + colleague holds department + hospital-wide Code Blue coordination; removed Mathari from public copy; softened bulk-cert contrast (working ERS vs generic seat bundles, no anti-AHA); updated `GBP_PROFILE_COPY.md`, `INSTITUTIONAL_ERS_NARRATIVE.md`, `/institutional`, `/for-institutions`, PublicHome, PSOT §19. Verified: `pnpm run check`, `pnpm run test:unit` (204), `pnpm run build`. | PR #90 · `cb7b70e` |
