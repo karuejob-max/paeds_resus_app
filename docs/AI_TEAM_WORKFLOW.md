@@ -3,6 +3,13 @@
 **For:** Manus, Codex, Cursor (and any developer).  
 **Goal:** Everyone sees what should be done, what others have done, and can critique and build on it **without Job pasting responses between tools**. The repo is the single source of truth; sync is via **git** (pull before work, commit after).
 
+> ## Sandbox is not production
+>
+> **Manus, Codex, and Cursor** must not mark work **Done** when changes exist only locally or in an isolated sandbox. **Done** requires artifacts on **`origin/main`** (merge commit), verification command output, and a WORK_STATUS entry with PR link — see [AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md) §2–3.  
+> **Manus:** if you cannot push or merge, status = **Handoff** with branch + PR URL + Kolb reflection — [MANUS_AGENT_RULES.md](./MANUS_AGENT_RULES.md).
+
+**Governance (all agents):** [AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md) · [CRITICAL_FIX_PLAYBOOK.md](./CRITICAL_FIX_PLAYBOOK.md)
+
 ---
 
 ## How "realtime" works
@@ -18,16 +25,37 @@ That way Manus, Codex, Cursor, and future team players all read and write the sa
 
 ---
 
-## Commit and push (mandatory for everyone)
+## Commit, push, PR, merge (mandatory for everyone)
 
-This is part of our DNA. Every team player (Manus, Codex, Cursor, and any future agent or developer) must follow this so the repo stays the single source of truth and everyone can see what was done.
+This is part of our DNA. Every team player (**Manus, Codex, Cursor**, and any future agent) must follow this so the repo stays the single source of truth.
+
+| Agent | MUST |
+|-------|------|
+| **Manus** | Push branch when possible; open PR; merge or **Handoff** with PR URL — never **Done** with sandbox-only work ([MANUS_AGENT_RULES.md](./MANUS_AGENT_RULES.md)) |
+| **Codex** | Same as Manus: branch → PR → merge `main` or Handoff with PR URL + verify commands |
+| **Cursor** | Same loop; update WORK_STATUS with merge commit after merge |
 
 - **Always commit** your changes (code + doc updates) when you finish a slice of work. Use a clear commit message (e.g. what you did and, if useful, your name/tool).
-- **Push when you can:** If your environment has access to the remote (e.g. you can run `git push`), **push after you commit**. Then add the commit hash (or short description) in WORK_STATUS under **Done** so others know it is on the remote. That way Job and other agents see your work when they pull; no one has to guess whether you pushed.
-- **If you cannot push:** Some environments only edit files and cannot push. In that case:
-  - **Say so clearly** in your response or in the WORK_STATUS entry (e.g. "Committed locally; cannot push — Job please push").
-  - **List exactly what you changed** (files and a one-line summary per file) so Job (or another human with push access) can commit and push on your behalf.
-- **How to know if someone else pushed:** Run `git pull` (or refresh the repo). Check the commit history on the host (e.g. GitHub/GitLab). New commits you did not make = someone else pushed. WORK_STATUS **Done** entries with a commit ref help confirm who did what.
+- **Push when you can:** If your environment has access to the remote (e.g. you can run `git push`), **push after you commit**. Open a PR with `gh pr create`. Merge when CI is green unless CEO-only blocked.
+- **Done requires merge on `main`:** WORK_STATUS **Done** entries need PR link + merge commit hash + verify output (`pnpm run check`, `test:unit`, or targeted script). See [AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md).
+- **If you cannot push or merge:** Status = **Handoff**, not Done:
+  - **Say so clearly** in your response and WORK_STATUS.
+  - **List exactly what you changed** (files and a one-line summary per file).
+  - Include **Kolb reflection** for non-trivial fixes (see handoff template below).
+- **How to know if someone else pushed:** Run `git pull`. Check GitHub commit history. WORK_STATUS **Done** entries with merge commit refs confirm who shipped what.
+
+### Handoff template (Manus / Codex / Cursor)
+
+Use when PR is open but not merged, or when push access is missing. Full template: **[MANUS_AGENT_RULES.md](./MANUS_AGENT_RULES.md)**.
+
+```markdown
+**Status:** Handoff | Done (merge: `<hash>`) | Blocked (CEO: …)
+**PR:** <url or "need push access">
+**Branch:** `<name>` @ `<short-hash>`
+**Verify:** check / test:unit / build — pass/fail (+ targeted scripts)
+**On main vs blocked:** …
+**Kolb:** reproduce → root cause → playbook → runtime patch + merge plan
+```
 
 ---
 
@@ -60,6 +88,9 @@ Current initiatives using this format: Hidden Opportunities (see EXECUTION_PLAN_
 
 | File | When to read | When to update |
 |------|--------------|----------------|
+| **docs/AGENT_AUTONOMY.md** | Start of every session | When governance / Definition of Done changes |
+| **docs/MANUS_AGENT_RULES.md** | Manus: before closing any task | When Manus handoff rules change |
+| **docs/CRITICAL_FIX_PLAYBOOK.md** | Before any production/learner bug fix | When a new fix category is added |
 | **docs/PLATFORM_SOURCE_OF_TRUTH.md** | Start of every session / before any change | When you change a platform decision (and note it in WORK_STATUS) |
 | **docs/WORK_STATUS.md** | Start of every session; before claiming something is done | When you complete work, start work, are blocked, or add critique |
 | **docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md** | Before marking work done or before merge | Only if we agree to change the checklist |
