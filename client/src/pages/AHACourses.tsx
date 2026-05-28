@@ -7,31 +7,11 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, CheckCircle2, ArrowLeft, XCircle, Clock, ClipboardCheck, CalendarPlus, Award } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
+import { AhaHubCourseCard, AhaHubCourseCardSkeleton } from "@/components/AhaHubCourseCard";
 import { toast } from "sonner";
 
-const AHA_PROGRAM_COPY: Record<"bls" | "acls" | "pals" | "heartsaver" | "nrp", { title: string; description: string }> = {
-  bls: {
-    title: "BLS (Basic Life Support)",
-    description: "Core life support skills for rapid recognition, CPR, and team response.",
-  },
-  acls: {
-    title: "ACLS (Advanced Cardiovascular Life Support)",
-    description: "Advanced cardiac emergency assessment, algorithms, and post-event management.",
-  },
-  pals: {
-    title: "PALS (Pediatric Advanced Life Support)",
-    description: "Pediatric emergency assessment and stabilization for critically ill children.",
-  },
-  heartsaver: {
-    title: "Heartsaver CPR AED",
-    description: "CPR and AED skills for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR.",
-  },
-  nrp: {
-    title: "NRP (Neonatal Resuscitation Program)",
-    description:
-      "2025 AHA/AAP neonatal resuscitation — anticipation, initial steps, PPV, chest compressions, medications, and post-resuscitation care.",
-  },
-};
+const AHA_QUERY_STALE_MS = 5 * 60 * 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Certification progress indicator
@@ -101,19 +81,35 @@ function CertProgressBar({
 }
 
 export default function AHACourses() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/aha-courses");
 
   useEffect(() => {
-    if (!loading && !user) setLocation("/login");
-  }, [loading, user, setLocation]);
+    if (!authLoading && !user) setLocation("/login");
+  }, [authLoading, user, setLocation]);
 
-  const { data: ahaCourses } = trpc.courses.listAhaHubPrograms.useQuery();
-  const { data: ahaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, { enabled: !!user });
+  const {
+    data: ahaCourses,
+    isLoading: coursesLoading,
+  } = trpc.courses.listAhaHubPrograms.useQuery(undefined, {
+    staleTime: AHA_QUERY_STALE_MS,
+  });
+  const { data: ahaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
+    enabled: !!user,
+    staleTime: AHA_QUERY_STALE_MS,
+  });
+
+  const hubCourseByProgram = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof ahaCourses>[number]>();
+    for (const c of ahaCourses ?? []) {
+      m.set(c.programType, c);
+    }
+    return m;
+  }, [ahaCourses]);
 
   const openAhaPlayer = (pt: AhaProgramType, enrollmentId: number) => {
-    const hubCourse = (ahaCourses ?? []).find((c) => c.programType === pt);
+    const hubCourse = hubCourseByProgram.get(pt);
     if (!hubCourse?.id) {
       toast.error(`${pt.toUpperCase()} course content is not ready yet. Please refresh in a moment.`);
       return;
@@ -134,7 +130,7 @@ export default function AHACourses() {
   // Primary action: guide user to the next unenrolled course, or continue an in-progress one
   const primaryAction = useMemo(() => {
     // First: find a course that is enrolled but cognitive not yet complete
-    for (const pt of ["bls", "acls", "pals", "heartsaver", "nrp"] as const) {
+    for (const pt of AHA_COURSE_ORDER) {
       const enrol = latestAhaByProgram.get(pt);
       if (enrol && !(enrol as any)?.cognitiveModulesComplete) {
         return {
@@ -151,7 +147,7 @@ export default function AHACourses() {
       }
     }
     // Second: find a course not yet enrolled
-    for (const pt of ["bls", "acls", "pals", "heartsaver", "nrp"] as const) {
+    for (const pt of AHA_COURSE_ORDER) {
       if (!latestAhaByProgram.get(pt)) {
         return {
           label: `Start ${pt.toUpperCase()} enrollment`,
@@ -166,12 +162,12 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [latestAhaByProgram, setLocation, track, ahaCourses]);
+  }, [latestAhaByProgram, setLocation, track, hubCourseByProgram]);
 
   const anyEnrolled = [...latestAhaByProgram.values()].length > 0;
   const anyCognitiveComplete = [...latestAhaByProgram.values()].some((e) => (e as any)?.cognitiveModulesComplete);
 
-  if (loading || !user) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Loading…</p>
@@ -240,109 +236,100 @@ export default function AHACourses() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          {(ahaCourses ?? []).map((course) => {
-            const pt = course.programType;
-            const programCopy = AHA_PROGRAM_COPY[pt as keyof typeof AHA_PROGRAM_COPY];
-            const enrol = latestAhaByProgram.get(pt);
-            const isEnrolled = !!enrol;
-            const hours = Math.max(1, Math.round((course.duration ?? 360) / 60));
+          {coursesLoading
+            ? AHA_COURSE_ORDER.map((pt) => <AhaHubCourseCardSkeleton key={pt} />)
+            : AHA_COURSE_ORDER.map((pt) => {
+                const enrol = latestAhaByProgram.get(pt);
+                const isEnrolled = !!enrol;
+                const cognitiveComplete = (enrol as any)?.cognitiveModulesComplete ?? false;
+                const practicalSignedOff = (enrol as any)?.practicalSkillsSignedOff ?? false;
+                const certIssued = cognitiveComplete && practicalSignedOff;
 
-            // Completion gates — no payment required
-            const cognitiveComplete = (enrol as any)?.cognitiveModulesComplete ?? false;
-            const practicalSignedOff = (enrol as any)?.practicalSkillsSignedOff ?? false;
-            const certIssued = cognitiveComplete && practicalSignedOff;
+                const titleAdornment = certIssued ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                ) : cognitiveComplete && !certIssued ? (
+                  <Award className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                ) : null;
 
-            return (
-              <Card
-                key={course.id}
-                className={`hover:border-primary/50 transition-colors flex flex-col ${
-                  certIssued ? "border-emerald-300 dark:border-emerald-700" : ""
-                }`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg leading-snug">{programCopy?.title ?? course.title}</CardTitle>
-                    {certIssued && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
-                    {cognitiveComplete && !certIssued && <Award className="h-5 w-5 text-blue-500 flex-shrink-0" />}
-                  </div>
-                  <CardDescription>{hours} hours (typical)</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-between space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    {programCopy?.description ?? (course.description || "Structured certification path with assessment.")}
-                  </p>
-
-                  {/* Progress tracker — shown when enrolled */}
-                  {isEnrolled && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-3">
-                      <CertProgressBar
-                        cognitiveComplete={cognitiveComplete}
-                        practicalSignedOff={practicalSignedOff}
-                        certificateIssued={certIssued}
-                      />
-                    </div>
-                  )}
-
-                  {/* CTA buttons */}
-                  {isEnrolled && !certIssued && (
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        track("provider_conversion", "aha_continue_learning_clicked", {
-                          programType: pt,
-                          enrollmentId: enrol?.id ?? null,
-                          source: "aha_courses_page",
-                        });
-                        if (enrol?.id) {
-                          openAhaPlayer(pt as AhaProgramType, enrol.id);
-                          return;
-                        }
-                        setLocation("/home");
-                      }}
-                    >
-                      {enrol?.id ? "Start course" : "Open learner dashboard"}
-                    </Button>
-                  )}
-                  {isEnrolled && cognitiveComplete && !certIssued && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setLocation("/certificates")}
-                    >
-                      Download gatepass certificate
-                    </Button>
-                  )}
-                  {isEnrolled && certIssued && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
-                      onClick={() => setLocation("/certificates")}
-                    >
-                      View full certificate
-                    </Button>
-                  )}
-                  {!isEnrolled && (
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        track("enrollment_started", "aha_enrollment_started", {
-                          programType: pt,
-                          source: "aha_courses_page",
-                        });
-                        setLocation(`/enroll?courseId=${pt}`);
-                      }}
-                    >
-                      Start enrollment
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                return (
+                  <AhaHubCourseCard
+                    key={pt}
+                    programType={pt}
+                    titleAdornment={titleAdornment}
+                    className={certIssued ? "border-emerald-300 dark:border-emerald-700" : undefined}
+                    middle={
+                      isEnrolled ? (
+                        <div className="rounded-lg border border-border bg-muted/30 p-3">
+                          <CertProgressBar
+                            cognitiveComplete={cognitiveComplete}
+                            practicalSignedOff={practicalSignedOff}
+                            certificateIssued={certIssued}
+                          />
+                        </div>
+                      ) : undefined
+                    }
+                    footer={
+                      <div className="space-y-2">
+                        {isEnrolled && !certIssued && (
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              track("provider_conversion", "aha_continue_learning_clicked", {
+                                programType: pt,
+                                enrollmentId: enrol?.id ?? null,
+                                source: "aha_courses_page",
+                              });
+                              if (enrol?.id) {
+                                openAhaPlayer(pt, enrol.id);
+                                return;
+                              }
+                              setLocation("/home");
+                            }}
+                          >
+                            {enrol?.id ? "Start course" : "Open learner dashboard"}
+                          </Button>
+                        )}
+                        {isEnrolled && cognitiveComplete && !certIssued && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setLocation("/certificates")}
+                          >
+                            Download gatepass certificate
+                          </Button>
+                        )}
+                        {isEnrolled && certIssued && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                            onClick={() => setLocation("/certificates")}
+                          >
+                            View full certificate
+                          </Button>
+                        )}
+                        {!isEnrolled && (
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              track("enrollment_started", "aha_enrollment_started", {
+                                programType: pt,
+                                source: "aha_courses_page",
+                              });
+                              setLocation(`/enroll?courseId=${pt}`);
+                            }}
+                          >
+                            Start enrollment
+                          </Button>
+                        )}
+                      </div>
+                    }
+                  />
+                );
+              })}
         </div>
 
         {/* Primary next action */}
@@ -379,13 +366,6 @@ export default function AHACourses() {
                 Book a session
               </Button>
             </CardContent>
-          </Card>
-        )}
-
-        {(!ahaCourses || ahaCourses.length === 0) && (
-          <Card className="text-center p-12">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No AHA programs are available right now. Please try again shortly.</p>
           </Card>
         )}
       </div>

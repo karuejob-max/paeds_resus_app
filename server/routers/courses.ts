@@ -94,17 +94,20 @@ export const coursesRouter = router({
       const database = await getDb();
       if (!database) return [];
       const order = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
-      const anchors: NonNullable<Awaited<ReturnType<typeof resolveAhaCourseAnchor>>>[] = [];
-      for (const pt of order) {
-        try {
-          const anchor = await resolveAhaCourseAnchor(database, pt);
-          if (anchor) anchors.push(anchor);
-        } catch (programErr) {
-          // Do not blank the whole AHA hub if one catalog fails (e.g. NRP enum not yet migrated).
-          console.warn(`[courses.listAhaHubPrograms] skipping ${pt}:`, programErr);
-        }
-      }
-      return anchors;
+      const resolved = await Promise.all(
+        order.map(async (pt) => {
+          try {
+            return await resolveAhaCourseAnchor(database, pt);
+          } catch (programErr) {
+            // Do not blank the whole AHA hub if one catalog fails (e.g. NRP enum not yet migrated).
+            console.warn(`[courses.listAhaHubPrograms] skipping ${pt}:`, programErr);
+            return null;
+          }
+        })
+      );
+      return resolved.filter(
+        (anchor): anchor is NonNullable<Awaited<ReturnType<typeof resolveAhaCourseAnchor>>> => anchor != null
+      );
     } catch (error) {
       console.error('[courses.listAhaHubPrograms]', error);
       return [];
