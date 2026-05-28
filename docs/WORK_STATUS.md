@@ -41,7 +41,7 @@
 
 | Who | What | Notes |
 |-----|------|-------|
-| Cursor | Public visibility & SEO slice | Branch `feat/public-compound-seo` — compound `/`, training landings, PSOT §23 |
+| Cursor | Institutional ERS narrative slice | Branch `feat/institutional-ers-narrative` — CEO narrative, institutional pages, GBP copy, PSOT §19/§21 |
 
 ---
 
@@ -49,7 +49,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-28 | Cursor | **Multi-agent autonomy v2 (Kolb + Distance):** `AGENT_AUTONOMY.md` v2, `CRITICAL_FIX_PLAYBOOK.md`, `MANUS_AGENT_RULES.md`, `CONTENT_HOTFIX` appendix, `AI_TEAM_WORKFLOW` Handoff rules, `.cursor/rules/agent-autonomy.mdc`, `AGENTS.md` Definition of Done, PSOT §21; DKA safeguards (`quiz-answer-contract`, `quiz:verify-answer`, `quiz:fix-dka-fluid-bolus`, seed contract). Verified: `pnpm run check`, `pnpm run test:unit` (204), `pnpm run build`. | PR #85 · `7319ee6` |
+| 2026-05-28 | Cursor | **Institutional ERS narrative (CEO direction):** `docs/INSTITUTIONAL_ERS_NARRATIVE.md`; institutional copy on `/institutional`, `/for-institutions`, PublicHome institutions section; `docs/GBP_PROFILE_COPY.md` + PUBLIC_VISIBILITY_AND_SEO cross-link; PSOT §19 Institutional OS + §21 registry. Honest Mathari ROSC signal; no mortality claims. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `feat/institutional-ers-narrative` |
 | 2026-05-28 | Cursor | **AHA dual duration display:** CEO total + cognitive coursework lines on hub cards, Enroll, Payment, TrainingHub, training landings; `AHA_RECOMMENDED_TOTAL_HOURS` + `AHA_COGNITIVE_COURSEWORK_HOURS` in `aha-course-metadata.ts`; shared `AhaCourseDurationLines`. `check` + `test:unit` + `build`. | PR TBD · `fix/aha-dual-duration-display` |
 | 2026-05-28 | Cursor | **PALS hub cert path regression fix:** PR #78 re-gated `AhaCertificationPath` on `isEnrolled` in `AhaHubProviderCourseCard`; restored always-on path (matches PR #76). Regression test for unenrolled PALS. `check` + `test:unit` + `build`. | PR TBD · `fix/pals-hub-cert-path-always` |
 | 2026-05-28 | Cursor | **Certificate 2-year expiry:** Shared `certificate-expiry` helper (calendar years via date-fns); AHA + micro-course certs expire 2 years from issue; PDF "Valid until" footer; verify page shows Valid/Expired with authentic messaging; migration 0046 backfill; terms updated. | PR TBD · `feat/certificate-2yr-expiry` |

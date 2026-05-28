@@ -250,14 +250,16 @@ export default function PublicHome() {
                 <h2 id="institutions-heading" className="text-2xl md:text-3xl font-bold">
                   Hospitals & institutions
                 </h2>
-                <p className="text-muted-foreground">Readiness systems · staff training · ERT visibility</p>
+                <p className="text-muted-foreground">Hospital ERS · nurse-led ERT · readiness systems</p>
               </div>
             </div>
             <Card>
               <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <p className="text-muted-foreground max-w-2xl">
-                  Deploy ResusGPS, coordinate AHA-aligned cohorts, review Care Signal at facility level, and
-                  manage emergency response teams — mission-aligned readiness, not seat bundles alone.
+                  Build a hospital-wide Emergency Readiness System with paediatric priority — nurse-led 24/7 ERT,
+                  cross-unit support when one peds nurse covers the ward, ResusGPS, Care Signal QI, training mesh, and
+                  readiness audits. Serving Nyeri, Embu, Murang&apos;a, Meru, and central Kenya — give-before-you-take,
+                  not seat bundles.
                 </p>
                 <div className="flex flex-wrap gap-2 shrink-0">
                   <Link href="/institutional">
