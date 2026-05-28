@@ -838,8 +838,8 @@ export const microCoursesBatch1To5 = [
         {
           question: 'Initial fluid bolus for DKA in a 20 kg child:',
           options: ['200 mL', '400 mL', '800 mL', '1200 mL'],
-          correct: 2,
-          explanation: '10-20 mL/kg = 10-20 × 20 = 200-400 mL. Use 10 mL/kg initially (200 mL).'
+          correct: 0,
+          explanation: 'Initial DKA bolus is 10 mL/kg when haemodynamic compromise is present: 10 × 20 = 200 mL (not 800 mL).'
         },
         {
           question: 'Insulin infusion rate for DKA:',
