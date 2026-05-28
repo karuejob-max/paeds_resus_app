@@ -6,7 +6,7 @@ import {
   buildOrganizationJsonLd,
   buildWebsiteJsonLd,
 } from "./seo-schema";
-import { TRAINING_LANDING_CONFIGS } from "./training-landing-content";
+import { TRAINING_LANDING_CONFIGS, getTrainingPrice } from "./training-landing-content";
 
 describe("buildOrganizationJsonLd", () => {
   it("includes legal name and Kenya area served", () => {
@@ -25,12 +25,26 @@ describe("buildCourseJsonLd", () => {
       path: "/training/pals",
       courseCode: "PALS",
       duration: "PT16H",
-      priceKes: 100,
+      priceKes: 20000,
     });
     expect(course["@type"]).toBe("Course");
     expect(course.courseCode).toBe("PALS");
     expect(course.url).toBe("https://www.paedsresus.com/training/pals");
-    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 100 });
+    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 20000 });
+  });
+
+  it("builds NRP course schema with offer when price provided", () => {
+    const course = buildCourseJsonLd({
+      name: "NRP Training",
+      description: "Neonatal resuscitation",
+      path: "/training/nrp",
+      courseCode: "NRP",
+      duration: "PT8H",
+      priceKes: 10000,
+    });
+    expect(course.courseCode).toBe("NRP");
+    expect(course.url).toBe("https://www.paedsresus.com/training/nrp");
+    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 10000 });
   });
 
   it("omits offers when price is null", () => {
@@ -41,6 +55,21 @@ describe("buildCourseJsonLd", () => {
       courseCode: "NRP",
     });
     expect(course.offers).toBeUndefined();
+  });
+
+  it("NRP landing price matches pricing source of truth for JSON-LD", () => {
+    const config = TRAINING_LANDING_CONFIGS.nrp;
+    const price = getTrainingPrice("nrp");
+    const course = buildCourseJsonLd({
+      name: config.h1,
+      description: config.metaDescription,
+      path: config.path,
+      courseCode: config.courseCode,
+      duration: config.duration,
+      priceKes: price,
+    });
+    expect(price).toBe(10000);
+    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 10000 });
   });
 });
 

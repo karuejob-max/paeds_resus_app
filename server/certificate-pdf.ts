@@ -72,7 +72,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive";
   trainingDate: Date;
   instructorName: string;
   certificateNumber: string;
@@ -94,10 +94,12 @@ const AHA_CERTIFICATION_PROGRAM_TYPES = new Set([
   "acls",
   "pals",
   "heartsaver",
+  "nrp",
   "bls_cognitive",
   "acls_cognitive",
   "pals_cognitive",
   "heartsaver_cognitive",
+  "nrp_cognitive",
 ]);
 
 /** Slug for downloaded PDF filename — AHA certs use program type, not linked course title. */
@@ -194,6 +196,20 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     description:
       "has successfully completed all cognitive modules of the Heartsaver CPR AED programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full Heartsaver certification will be issued.",
     hours: 3,
+  },
+  nrp: {
+    title: "Neonatal Resuscitation Program",
+    subtitle: "NRP Certification",
+    description:
+      "has successfully completed the Neonatal Resuscitation Program training aligned with 2025 AHA/AAP Guidelines and meets Paeds Resus standards for neonatal emergency care.",
+    hours: 6,
+  },
+  nrp_cognitive: {
+    title: "Neonatal Resuscitation Program — Cognitive Completion",
+    subtitle: "NRP Cognitive Gatepass Certificate",
+    description:
+      "has successfully completed all cognitive modules of the Neonatal Resuscitation Program. This certificate serves as a gatepass for the practical skills session, upon completion of which the full NRP certification will be issued.",
+    hours: 4,
   },
 };
 
@@ -448,7 +464,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
 
   const expiryDate = new Date(data.trainingDate);
   expiryDate.setFullYear(expiryDate.getFullYear() + 2);
-  const showExpiry = ["bls", "acls", "pals", "heartsaver"].includes(data.programType);
+  const showExpiry = ["bls", "acls", "pals", "heartsaver", "nrp"].includes(data.programType);
 
   const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - FOOTER_METADATA_BELOW_PAD;
   const signatureGuideY = metadataRowY + SIGNATURE_GUIDE_ABOVE_NAME;

@@ -2,6 +2,11 @@ import { getIndividualCoursePrice } from "@/const/pricing";
 
 export type TrainingFaq = { question: string; answer: string };
 
+/** Counsel-aligned AHA certification FAQ — starts with "Yes." per PSOT. */
+export function ahaCertificationFaqAnswer(courseCode: string): string {
+  return `Yes. Paeds Resus Limited is an American Heart Association (AHA)-aligned training provider. After you complete cognitive modules and instructor-led practical skills, your ${courseCode} certificate is issued by the American Heart Association. Confirm certificate wording and local recognition with your employer or licensing body.`;
+}
+
 export type TrainingLandingConfig = {
   slug: "bls" | "acls" | "pals" | "nrp";
   path: string;
@@ -47,7 +52,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       {
         heading: "What you will learn",
         paragraphs: [
-          "PALS covers systematic paediatric assessment, respiratory and shock algorithms, arrhythmia recognition, post–cardiac arrest care, and effective team communication during paemergencies. Content follows American Heart Association science while emphasising adaptation to resource-limited settings: clear roles, early escalation, and alignment with your facility protocol.",
+          "PALS covers systematic paediatric assessment, respiratory and shock algorithms, arrhythmia recognition, post–cardiac arrest care, and effective team communication during paediatric emergencies. Content follows American Heart Association science while emphasising adaptation to resource-limited settings: clear roles, early escalation, and alignment with your facility protocol.",
           "Typical PALS certification involves approximately sixteen hours of structured learning, split between self-paced cognitive modules and instructor-led practical skills. Paeds Resus tracks your progress so you always know whether you need to continue online learning or book a practical session.",
         ],
       },
@@ -67,8 +72,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       },
       {
         question: "Is PALS AHA-certified through Paeds Resus?",
-        answer:
-          "Paeds Resus Limited is an AHA-aligned training provider. Courses follow AHA science and use a cognitive-plus-practical certification path. Always confirm certificate wording and local recognition with your employer or licensing body.",
+        answer: ahaCertificationFaqAnswer("PALS"),
       },
       {
         question: "How long does PALS take?",
@@ -128,9 +132,8 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
           "Individual ACLS pricing is listed on this page when available. Institutional cohorts may receive volume discounts — contact us through the institutional page for a quote.",
       },
       {
-        question: "Is this the same as AHA ACLS?",
-        answer:
-          "Content is AHA-aligned and delivered by Paeds Resus Limited, an AHA-aligned training provider. Certification requires both cognitive completion and instructor practical sign-off.",
+        question: "Is ACLS AHA-certified through Paeds Resus?",
+        answer: ahaCertificationFaqAnswer("ACLS"),
       },
       {
         question: "Do I need BLS before ACLS?",
@@ -195,6 +198,10 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
           "Start at www.paedsresus.com/training/bls — create a provider account, enroll, complete cognitive modules, and attend your practical session with Paeds Resus Limited.",
       },
       {
+        question: "Is BLS AHA-certified through Paeds Resus?",
+        answer: ahaCertificationFaqAnswer("BLS"),
+      },
+      {
         question: "How long is BLS certification valid?",
         answer:
           "Full AHA-aligned certificates issued after practical sign-off are typically valid for two years from issuance. Confirm renewal requirements with your employer.",
@@ -222,6 +229,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       "Newborn resuscitation readiness for delivery suites, NICUs, and maternity teams — aligned with best practice and local protocol.",
     courseCode: "NRP",
     duration: "PT8H",
+    priceCourseId: "nrp",
     keywords: ["NRP neonatal resuscitation Kenya", "neonatal resuscitation training", "newborn resuscitation course", "NRP Kenya"],
     sections: [
       {
@@ -257,9 +265,18 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
     ],
     faqs: [
       {
+        question: "How much does NRP cost in Kenya through Paeds Resus?",
+        answer:
+          "Individual NRP pricing is listed on this page when available. Institutional maternity and NICU cohorts may receive volume discounts — contact us through the institutional page for a quote.",
+      },
+      {
         question: "Does Paeds Resus offer NRP certification in Kenya?",
         answer:
-          "Paeds Resus Limited coordinates neonatal resuscitation training aligned with international best practice. Contact us or enroll to join the next scheduled NRP cohort in your region.",
+          "Yes. Paeds Resus Limited is an AHA-aligned training provider and coordinates neonatal resuscitation training aligned with international best practice. When your cohort includes AHA-recognized certification, your certificate is issued by the American Heart Association after cognitive and practical requirements are met. Contact us or enroll to join the next scheduled NRP cohort in your region.",
+      },
+      {
+        question: "Is NRP AHA-certified through Paeds Resus?",
+        answer: ahaCertificationFaqAnswer("NRP"),
       },
       {
         question: "Is NRP the same as PALS?",

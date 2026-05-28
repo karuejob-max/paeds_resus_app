@@ -1,16 +1,14 @@
 /**
- * Idempotent: ensures Heartsaver course catalog exists with modules, sections,
- * and knowledge-check quizzes aligned to AHA Heartsaver CPR AED 2025 guideline updates.
+ * Idempotent: canonical NRP (Neonatal Resuscitation Program) catalog — AHA/AAP 2025 Guidelines.
  */
 import { asc, desc, eq, and } from "drizzle-orm";
 import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
-import { HEARTSAVER_MODULES, type HeartsaverModuleDef } from "./heartsaver-modules-data";
+import { NRP_COURSE_TITLE, NRP_MODULES, type NrpModuleDef } from "./nrp-modules-data";
 
-async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
-  const programType = "heartsaver" as const;
-  const courseTitle = "Heartsaver CPR AED — AHA 2025 Guidelines";
+export async function ensureNrpCatalog(db: any): Promise<void> {
+  const programType = "nrp" as const;
   const courseDescription =
-    "American Heart Association Heartsaver CPR AED course for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR, AED use, and choking relief.";
+    "American Heart Association and American Academy of Pediatrics aligned Neonatal Resuscitation Program — anticipation, initial steps, ventilation, compressions, medications, and post-resuscitation care per 2025 Guidelines.";
 
   const existing = await db
     .select({ id: courses.id })
@@ -36,12 +34,12 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
 
   if (courseId == null) {
     await db.insert(courses).values({
-      title: courseTitle,
+      title: NRP_COURSE_TITLE,
       description: courseDescription,
       programType,
-      duration: 60,
-      level: "beginner",
-      order: 4,
+      duration: 360,
+      level: "advanced",
+      order: 5,
     });
     const row = await db
       .select({ id: courses.id })
@@ -50,14 +48,25 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
       .orderBy(desc(courses.id))
       .limit(1);
     courseId = row[0]!.id;
-    console.log(`[Catalog] Created Heartsaver course (id=${courseId})`);
+    console.log(`[Catalog] Created NRP course (id=${courseId})`);
+  } else {
+    await db
+      .update(courses)
+      .set({
+        title: NRP_COURSE_TITLE,
+        description: courseDescription,
+        duration: 360,
+        level: "advanced",
+        order: 5,
+      })
+      .where(eq(courses.id, courseId));
   }
 
   if (courseId == null) {
-    throw new Error("Failed to resolve Heartsaver course catalog row");
+    throw new Error("Failed to resolve NRP course catalog row");
   }
 
-  for (const modDef of HEARTSAVER_MODULES as readonly HeartsaverModuleDef[]) {
+  for (const modDef of NRP_MODULES as readonly NrpModuleDef[]) {
     const modExisting = await db
       .select({ id: modules.id })
       .from(modules)
@@ -83,7 +92,7 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
         .orderBy(desc(modules.id))
         .limit(1);
       moduleId = m[0]!.id;
-      console.log(`[Catalog] Created Heartsaver module: ${modDef.title} (id=${moduleId})`);
+      console.log(`[Catalog] Created NRP module: ${modDef.title} (id=${moduleId})`);
     }
 
     const sectionCount = await db
@@ -101,7 +110,6 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
           order: section.order,
         });
       }
-      console.log(`[Catalog] Seeded ${modDef.sections.length} sections for ${modDef.title}`);
     }
 
     const quizExisting = await db
@@ -138,25 +146,16 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
 
     if (qCount.length === 0) {
       for (const q of modDef.quiz.questions) {
-        const options =
-          typeof q.options === "string" && q.options.startsWith("[")
-            ? q.options
-            : JSON.stringify(q.options);
         await db.insert(quizQuestions).values({
           quizId,
           question: q.questionText,
           questionType: "multiple_choice",
-          options,
+          options: q.options,
           correctAnswer: JSON.stringify(q.correctAnswer),
           explanation: q.explanation,
           order: q.order,
         });
       }
-      console.log(`[Catalog] Seeded ${modDef.quiz.questions.length} questions for ${modDef.quiz.title}`);
     }
   }
-}
-
-export async function ensureHeartsaverCatalog(db: any): Promise<void> {
-  await ensureHeartsaverCatalogInner(db);
 }

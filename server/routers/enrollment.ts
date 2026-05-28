@@ -61,7 +61,7 @@ async function trackMicroCourseEnrollWithPayment(params: {
 }
 
 const enrollmentSchema = z.object({
-  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver"]),
+  programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "heartsaver", "nrp"]),
   trainingDate: z.date(),
   /**
    * PALS only — ADF catalog SKUs (legacy Paeds Resus micro-courses under programType=pals).

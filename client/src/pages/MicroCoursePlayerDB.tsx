@@ -36,7 +36,7 @@ export default function MicroCoursePlayerDB() {
   const slug = useMemo(() => {
     if (routeSlug) return routeSlug;
     const pathOnly = location.split("?")[0] ?? "";
-    const legacy = pathOnly.match(/\/course\/(bls|acls|pals|heartsaver)$/);
+    const legacy = pathOnly.match(/\/course\/(bls|acls|pals|heartsaver|nrp)$/);
     return legacy?.[1] ?? routeSlug;
   }, [routeSlug, location]);
 

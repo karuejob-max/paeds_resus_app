@@ -27,9 +27,9 @@ export type ProviderCourseProgram =
   | "burns-i"
   | "burns-ii";
 
-export type AhaProgramType = "bls" | "acls" | "pals" | "heartsaver";
+export type AhaProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
 
-export const AHA_PROGRAM_TYPES: readonly AhaProgramType[] = ["bls", "acls", "pals", "heartsaver"];
+export const AHA_PROGRAM_TYPES: readonly AhaProgramType[] = ["bls", "acls", "pals", "heartsaver", "nrp"];
 
 export type ContinueRouteConfig = {
   destination: string;

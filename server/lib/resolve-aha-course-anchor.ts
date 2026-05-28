@@ -7,8 +7,9 @@ import { courses, modules } from "../../drizzle/schema";
 import { ensureBlsCatalog, ensureAclsCatalog } from "./ensure-bls-acls-catalog";
 import { ensureHeartsaverCatalog } from "./ensure-heartsaver-catalog";
 import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
+import { ensureNrpCatalog } from "./ensure-nrp-catalog";
 
-export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver";
+export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
 
 export async function ensureAhaProgramCatalog(
   db: any,
@@ -22,6 +23,8 @@ export async function ensureAhaProgramCatalog(
     await ensurePalsAhaCatalog(db);
   } else if (programType === "heartsaver") {
     await ensureHeartsaverCatalog(db);
+  } else if (programType === "nrp") {
+    await ensureNrpCatalog(db);
   }
 }
 

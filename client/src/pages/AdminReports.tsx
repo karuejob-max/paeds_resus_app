@@ -100,7 +100,8 @@ type LedgerProgramFilter =
   | "fellowship"
   | "instructor"
   | "fellowship_diploma"
-  | "heartsaver";
+  | "heartsaver"
+  | "nrp";
 
 function csvEscapeCell(value: unknown): string {
   if (value === null || value === undefined) return '""';
@@ -2116,6 +2117,7 @@ export default function AdminReports() {
                           <SelectItem value="instructor">Instructor</SelectItem>
                           <SelectItem value="fellowship_diploma">Fellowship diploma</SelectItem>
                           <SelectItem value="heartsaver">Heartsaver</SelectItem>
+                          <SelectItem value="nrp">NRP</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
