@@ -229,6 +229,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       "Newborn resuscitation readiness for delivery suites, NICUs, and maternity teams — aligned with best practice and local protocol.",
     courseCode: "NRP",
     duration: "PT8H",
+    priceCourseId: "nrp",
     keywords: ["NRP neonatal resuscitation Kenya", "neonatal resuscitation training", "newborn resuscitation course", "NRP Kenya"],
     sections: [
       {
@@ -263,6 +264,11 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       },
     ],
     faqs: [
+      {
+        question: "How much does NRP cost in Kenya through Paeds Resus?",
+        answer:
+          "Individual NRP pricing is listed on this page when available. Institutional maternity and NICU cohorts may receive volume discounts — contact us through the institutional page for a quote.",
+      },
       {
         question: "Does Paeds Resus offer NRP certification in Kenya?",
         answer:
