@@ -25,12 +25,12 @@ describe("buildCourseJsonLd", () => {
       path: "/training/pals",
       courseCode: "PALS",
       duration: "PT16H",
-      priceKes: 100,
+      priceKes: 20000,
     });
     expect(course["@type"]).toBe("Course");
     expect(course.courseCode).toBe("PALS");
     expect(course.url).toBe("https://www.paedsresus.com/training/pals");
-    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 100 });
+    expect(course.offers).toMatchObject({ priceCurrency: "KES", price: 20000 });
   });
 
   it("omits offers when price is null", () => {

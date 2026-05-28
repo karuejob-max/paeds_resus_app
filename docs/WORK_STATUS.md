@@ -49,6 +49,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-28 | Cursor | **Production copy fixes:** PALS 20,000 KES; typo `paemergencies`; AHA FAQ answers (Yes + AHA certificate); registration/reconsent ResusGPS intended use. `check` + `test:unit` + `build`. | PR TBD · `fix/pals-pricing-typos-consent` |
 | 2026-05-27 | Cursor | **Public visibility & SEO:** compound home `/`, training landings (`/training/*`), stakeholder pages (`/for-*`), public `/aha-courses`, sitemap + JSON-LD, PSOT §23, operator guide. | PR TBD · `feat/public-compound-seo` |
 | 2026-05-27 | Cursor | **Legal consent link fix:** `LegalReconsentGate` no longer unmounts routes when open; legal paths (`/terms`, `/privacy`, `/legal/*`) bypass blocking overlay so users can read full documents; shared `LegalExternalLink` (`target=_blank`, `stopPropagation`) on Register, Enroll, reconsent, Care Signal, Payment flows. Verified: `pnpm run check`, `pnpm run test:unit`, `pnpm run build`. | PR TBD · `fix/legal-links-persist` |
 | 2026-05-27 | Cursor | **DB migration 0044 (legal consent + DSAR):** pnpm run db:test-connection OK; pnpm run db:apply-0044 via scripts/db-connection-config.mjs (IPv4 + SSL); pnpm run db:verify-0044 **PASSED**. | PR #63 |

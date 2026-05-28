@@ -39,6 +39,7 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [acceptResusGpsIntendedUse, setAcceptResusGpsIntendedUse] = useState(false);
   const nextPath = useMemo(() => readSafeNextPathFromSearch(search, "/home"), [search]);
 
   const registerMutation = trpc.auth.register.useMutation({
@@ -72,8 +73,8 @@ export default function Register() {
       setError("Passwords do not match.");
       return;
     }
-    if (!acceptTerms || !acceptPrivacy) {
-      setError("You must accept the Terms of Use and Privacy Policy.");
+    if (!acceptTerms || !acceptPrivacy || !acceptResusGpsIntendedUse) {
+      setError("You must accept the Terms of Use, Privacy Policy, and ResusGPS intended use.");
       return;
     }
     if (phoneValue.trim()) {
@@ -96,6 +97,7 @@ export default function Register() {
       phoneValue: phoneValue.trim() === "" ? undefined : phoneValue,
       acceptTerms: true,
       acceptPrivacy: true,
+      acceptResusGpsIntendedUse: true,
     });
   };
 
@@ -256,9 +258,36 @@ export default function Register() {
                   </LegalExternalLink>
                 </Label>
               </div>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="accept-resusgps-intended-use"
+                  checked={acceptResusGpsIntendedUse}
+                  onCheckedChange={(v) => setAcceptResusGpsIntendedUse(v === true)}
+                />
+                <Label
+                  htmlFor="accept-resusgps-intended-use"
+                  className="text-sm leading-snug cursor-pointer font-normal"
+                >
+                  I understand that ResusGPS provides bedside reference support (not a substitute for
+                  clinical judgment) and have read the{" "}
+                  <LegalExternalLink href="/legal/clinical-use" className="text-primary underline">
+                    ResusGPS intended use
+                  </LegalExternalLink>
+                  .
+                </Label>
+              </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={registerMutation.isPending || !acceptTerms || !acceptPrivacy}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={
+                registerMutation.isPending ||
+                !acceptTerms ||
+                !acceptPrivacy ||
+                !acceptResusGpsIntendedUse
+              }
+            >
               {registerMutation.isPending ? "Creating account…" : "Create account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

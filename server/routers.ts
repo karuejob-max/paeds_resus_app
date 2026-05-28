@@ -155,6 +155,9 @@ export const appRouter = router({
         phoneValue: z.string().max(64).optional(),
         acceptTerms: z.literal(true, { message: "You must accept the Terms of Use" }),
         acceptPrivacy: z.literal(true, { message: "You must accept the Privacy Policy" }),
+        acceptResusGpsIntendedUse: z.literal(true, {
+          message: "You must acknowledge ResusGPS intended use",
+        }),
       }))
       .mutation(async ({ input, ctx }) => {
         const email = normalizeEmailForAuth(input.email);
@@ -184,14 +187,20 @@ export const appRouter = router({
           phone,
         });
         const { LEGAL_DOCUMENT_VERSIONS } = await import("@shared/legal-versions");
-        const { recordRegistrationConsent } = await import("./lib/legal-consent");
+        const { recordRegistrationConsent, recordResusGpsAck } = await import("./lib/legal-consent");
         const ua = ctx.req.headers?.["user-agent"];
+        const consentMeta = {
+          ipAddress: ctx.req.ip,
+          userAgent: typeof ua === "string" ? ua : undefined,
+        };
         await recordRegistrationConsent(userId, {
           termsVersion: LEGAL_DOCUMENT_VERSIONS.termsOfUse,
           privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
-          ipAddress: ctx.req.ip,
-          userAgent: typeof ua === "string" ? ua : undefined,
+          ...consentMeta,
         });
+        if (input.acceptResusGpsIntendedUse) {
+          await recordResusGpsAck(userId, LEGAL_DOCUMENT_VERSIONS.resusGpsDisclaimer, consentMeta);
+        }
         return { success: true };
       }),
     loginWithPassword: publicProcedure
