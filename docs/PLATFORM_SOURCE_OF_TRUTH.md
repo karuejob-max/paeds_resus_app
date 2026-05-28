@@ -45,7 +45,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | **Paeds Resus Fellowship** | The canonical name for the **narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall—learners pay per course/SKU. Completion of the three pillars (Courses, ResusGPS, Care Signal) earns the title **Paeds Resus Fellow**. |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. |
 | **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives the **automated** **Paeds Resus Fellowship** **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
-| **Institutional** | **Hospitals and training organisations**: staff, schedules, metrics, and management surfaces (e.g. institutional portal, hospital admin). |
+| **Institutional (Hospital ERS)** | **Hospital Emergency Readiness System (ERS)** with **paediatric priority** — hospital-wide nurse-led ERT 24/7, ResusGPS, Care Signal QI, institutional dashboard, readiness audits, and AHA-aligned training mesh. **Not** generic bulk certification. Canonical definition: [§24](#24-institutional-emergency-readiness-ers). |
 | **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Care Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
 
 **Future products** may be added; they should follow the same pattern: named explicitly, integrated into auth and analytics—not bolted on as unnamed “other.”
@@ -173,6 +173,8 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 
 **Maturity sequencing:** Platform-wide gap closure (staging, fellowship §11 gate, holistic loop, institutional systems) is tracked in [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — six phases over 15–18 months; Phase 1 engineering/governance foundation runs in parallel with §12 items above where safe.
 
+**Institutional lane (parallel, CEO-led):** Hospital **ERS** pilots, MOU signing, and institutional GTM are **not** blocked on §12 item 4 but must align with [§24](#24-institutional-emergency-readiness-ers) — readiness systems first, not bulk PALS seats. Engineering surfaces (institutional dashboard, facility QI) follow [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) Phase 4–5.
+
 ---
 
 ## 13. How developers should work (guardrails)
@@ -218,7 +220,7 @@ These constraints are **environmental**, not a failure of clinical education—t
 |------|------|--------|
 | **ResusGPS + micro-courses** | **Primary scale path for individuals** | Condition-focused courses as SKUs; ResusGPS as the ongoing tool. Pricing and catalog evolve; `programType` / course metadata in data should distinguish **short modules** from legacy **BLS/ACLS/PALS** where needed. |
 | **Legacy professional courses** (BLS, ACLS, PALS, Instructor, fellowship) | **Retained** | Still first-class; not deprecated. They serve employers, careers, and pathways that require them. |
-| **Institutions** | **Systems and capability**, not only “sell PALS seats” | Near-term value: **paediatric emergency readiness**, response teams, **consultancy**, **monitoring, evaluation, and learning**—helping hospitals **improve systems**. Teaching staff may be **one** lever, not the whole proposition. |
+| **Institutions (Hospital ERS)** | **Readiness systems first** — not bulk PALS seats | Hospitals buy **ERS design**, ERT workflows, ResusGPS + Care Signal deployment, readiness audits, and institutional dashboard — with **AHA-aligned training mesh** as a **supporting layer**. Staff may still buy individual courses for employment; the **hospital** must receive **system value**, not only portable certs. Full framing: [§24](#24-institutional-emergency-readiness-ers). |
 | **Long-range institutional signal** | **Aspirational, governed** | A credible **readiness or quality signal** (for parents, insurers, partners) requires **governance**, methodology, and honest metrics—not marketing claims. Document as future when criteria exist. |
 
 ### 15.4 What this implies for builders
@@ -466,15 +468,13 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Integration note:** Safe-Truth data is **never** combined with provider-facing KPIs. Separate audience, separate data table, separate analytics stream. The only integration point is the admin report (§8), where Safe-Truth usage is reported separately from all provider metrics.
 - **Canonical doc:** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) §9
 
-#### Institutional OS
-- **Institutional offering (canonical):** **Hospital Emergency Readiness System (ERS)** — hospital-wide Emergency Response Team (ERT) model with **paediatric priority framing**; nurse-led 24/7 hospital-wide coordination across units; ResusGPS, Care Signal, AHA-aligned training mesh (Paeds Resus Limited), equipment/readiness audit, and institutional dashboard. **Not** a generic ACLS vendor or seat-bundle catalogue. Narrative: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md).
+#### Institutional OS (Hospital ERS)
+- **Canonical definition:** [§24](#24-institutional-emergency-readiness-ers) — **Hospital Emergency Readiness System (ERS)** with **paediatric priority**; nurse-led hospital-wide ERT 24/7; ResusGPS, Care Signal, training mesh, readiness audits, institutional dashboard. **Not** bulk AHA seat bundles.
 - **Feeds:** Facility-level analytics, MOH reporting, procurement intelligence, ERT activation metrics
 - **Receives from:** Care Signal (facility gap data), ResusGPS (case load by facility), Course completions (staff training status)
 - **Integration gap (current):** Facility-level Care Signal dashboard not yet built; institutional admin sees only enrollment/payment data
-- **Pilot:** Early facility pilots — process metrics only; mortality impact **not claimed** until governed evaluation
-- **Service region:** Central and upper Eastern Kenya (Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, Marsabit)
+- **CEO narrative (sales-ready detail):** [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md)
 - **Legal templates:** [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md), [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md)
-- **Canonical docs:** [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md), [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md)
 
 ---
 
@@ -557,8 +557,10 @@ Every strategic and operational document in this repository is listed here with 
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
-| [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, ERS-first strategy, 90-day metrics — expands §19 Institutional OS |
+| [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, ERS-first strategy, 90-day metrics — expands [§24](#24-institutional-emergency-readiness-ers) |
 | [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md) | Active | Paste-ready Google Business Profile description (no URLs in body) — expands §23 |
+| [legal/PILOT_HOSPITAL_MOU_TEMPLATE.md](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) | Active | Pilot hospital MOU + 90-day QI metrics schedule — expands [§24.7](#247-partnership-and-pilot-governance) |
+| [legal/INSTITUTIONAL_B2B_ADDENDUM.md](./legal/INSTITUTIONAL_B2B_ADDENDUM.md) | Active | B2B institutional contract addendum — expands [§24.7](#247-partnership-and-pilot-governance) |
 
 ### 21.2 Technical and Operational Documents
 
@@ -622,7 +624,8 @@ This section is **binding for every AI agent, developer, designer, and contribut
 | New data table or significant schema change | Update §19.2 (shared data spine) and log in WORK_STATUS.md |
 | New strategic document created | Add it to §21 (document registry) |
 | KPI definition changed | Update §8 (admin reports) and log in WORK_STATUS.md |
-| New institutional or government partnership | Update §20.4 (MOH partnership pathway) |
+| New institutional or government partnership | Update [§24](#24-institutional-emergency-readiness-ers) and §20.4 (MOH partnership pathway) |
+| Institutional ERS scope, geography, or marketing rule changed | Update [§24](#24-institutional-emergency-readiness-ers); cross-check §15.3, §23 |
 | New migration applied to live database | Log in WORK_STATUS.md with migration number, date, and what changed |
 
 ### 22.3 What You Must Never Do
@@ -634,6 +637,10 @@ This section is **binding for every AI agent, developer, designer, and contribut
 - **Never treat** AHA courses (BLS/ACLS/PALS) as part of the Fellowship pathway
 - **Never create** a new canonical document without linking it in §21
 - **Never make** a canonical decision in WORK_STATUS.md — that file is for execution updates only
+- **Never say** “one paediatric nurse covers all wards” — departments run with **~2 nurses per shift**; during Code Blue one responds while a colleague holds the department ([§24.3](#243-staffing-reality-during-code-blue))
+- **Never lead** institutional GTM with bulk PALS/ACLS seat bundles — lead with **Hospital ERS** readiness ([§24.2](#242-canonical-name-and-scope))
+- **Never name** pilot hospitals in public copy without **CEO approval** — pilot sites are confidential until MOU ([§24.6](#246-geography-and-pilot-confidentiality))
+- **Never claim** mortality reduction or “Paeds Resus replaces AHA” in public marketing — AHA-aligned training **supports** ERS; outcome claims require governed evaluation ([§24.5](#245-aha-relationship-and-public-marketing-rules))
 
 ### 22.4 The Global Ambition Mandate
 
@@ -654,7 +661,8 @@ The path to that recognition runs through:
 If you are an agent assigned to ResusGPS, Fellowship, Safe-Truth, AHA Courses, Institutional OS, or any other product:
 
 1. **Read §19** (ecosystem map) to understand how your product connects to all others
-2. **Read §20** (global surveillance vision) to understand the long-range architecture your product must support
+2. **Read §24** (Institutional ERS) if working on institutional copy, sales, partnerships, or hospital admin — **before** drafting new narrative
+3. **Read §20** (global surveillance vision) to understand the long-range architecture your product must support
 3. **Read §21** (document registry) to find the canonical docs for your product
 4. **Update §21** when you create a new strategic document
 5. **Update §19** when you add a new integration point between products
@@ -715,6 +723,119 @@ Logged-in users hitting `/` are redirected by **`userType`** to `/home`, `/paren
 
 Localized discovery pages (e.g. country-specific training landings, Swahili meta descriptions) may be added later as **separate canonical routes** under `/training` or `/eac/{country}` — register each in §23.1 and sitemap when shipped. Do not duplicate content without `hreflang` or canonical discipline.
 
+### 23.6 Institutional / ERS SEO keywords
+
+| Priority | Keywords (examples) | Canonical pages |
+|----------|---------------------|-----------------|
+| **P2** | hospital emergency response system Kenya, paediatric emergency readiness Nyeri, hospital ERT Kenya | `/institutional`, `/for-institutions` |
+| **P2** | paediatric resuscitation training hospital, nurse-led emergency response Kenya | `/institutional`, `/for-institutions` |
+| **P3** | paediatric emergency micro-courses, ResusGPS bedside guidance | `/for-providers`, `/training` |
+
+**Copy rules for institutional SEO:** Lead with **Hospital Emergency Readiness System (ERS)** and **paediatric priority** — not “bulk PALS seats” or “ACLS vendor.” Use **AHA-aligned training plus institutional readiness** language ([§24.5](#245-aha-relationship-and-public-marketing-rules)). Paste-ready GBP copy: [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md). Operator checklist: [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md).
+
 ---
 
-**Last structural update:** 2026-05-28 — Institutional ERS narrative (§19 Institutional OS, §21 registry). Prior: 2026-05-27 — Added §23 (public visibility & discovery). Prior: 2026-05-01 — §19–§22.
+## 24. Institutional Emergency Readiness (ERS)
+
+**PSoT short title:** *Hospital ERS — canonical name, scope, geography, buyer split, and contributor guardrails.*
+
+**Purpose:** Contributors working on institutional copy, sales materials, engineering, or partnerships must **not** need the full CEO narrative retold. This section is the **single canonical place** for institutional platform decisions. CEO-ready sales detail: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md). Ecosystem integration map: [§19](#19-the-holistic-product-ecosystem--how-everything-connects) Institutional OS.
+
+### 24.1 Mission link
+
+Paeds Resus exists to reduce **preventable paediatric death and harm** in **LMIC** settings — especially Kenya's public and faith-based hospitals where staffing and equipment constraints are real. Institutional work is not a separate business line; it is how the platform improves **hospital-wide systems** so children receive standardised emergency care regardless of who is on shift. Mission framing: [§2](#2-why-we-exist-mission), [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md).
+
+### 24.2 Canonical name and scope
+
+| Term | Meaning |
+|------|---------|
+| **Hospital Emergency Readiness System (ERS)** | The **canonical institutional offering** — hospital-wide emergency readiness infrastructure with **paediatric priority framing** |
+| **ERT (Emergency Response Team)** | Nurse-led, **24/7**, hospital-wide coordination model — teams across units (adult, paediatric, neonatal literacy via training mesh) respond together |
+| **Training mesh** | AHA-aligned BLS, ACLS, PALS, NRP cohorts mapped to role and identified gaps — delivered by **Paeds Resus Limited** as a **supporting layer**, not the product headline |
+
+**ERS components (what hospitals get):**
+
+1. **ERT structure and workflows** — roster, activation pathways, hospital-wide coordination
+2. **ResusGPS** — bedside structured guidance (ABCDE, dosing, CPR Clock)
+3. **Care Signal** — facility-level QI, near-miss reporting, action logs
+4. **Institutional dashboard** — activations, training coverage, equipment readiness, improvement actions
+5. **Readiness / equipment audits** — oxygen, defibrillator pads, paediatric sizes, crash cart, activation pathways
+6. **Training mesh** — AHA-aligned courses mapped to gaps (adult, paediatric, neonatal literacy)
+7. **Paediatric emergency micro-courses** — condition-focused modules aligned with ResusGPS
+
+**What ERS is NOT:** Generic bulk AHA certification, seat bundles, or an ACLS vendor catalogue. Contrast: working **Emergency Response Systems** plus training that **supports** the system.
+
+### 24.3 Staffing reality during Code Blue
+
+**Honest baseline:** Many departments run with **roughly two nurses per shift** — enough to keep the ward running, **not** enough for one responder to leave every bedside unattended during a code. **Do not exaggerate** to “one nurse covers all wards.”
+
+**During Code Blue (canonical model):**
+
+1. **One nurse responds** to the arrest/decompensation
+2. **Colleague holds the department** — continuous ward coverage
+3. **Second responder activates hospital-wide coordination** — e.g. notify other departments of Code Blue in Ward X so ERT members from other units can respond
+
+ERS coordinates **teams across units** rather than implying a single nurse can abandon an entire hospital's coverage.
+
+### 24.4 What hospitals buy vs what staff buy
+
+| Buyer | Value proposition | Risk if mis-sold |
+|-------|-------------------|------------------|
+| **Hospital / institution** | **Readiness systems** — ERS design, ERT workflows, ResusGPS + Care Signal deployment, audits, dashboard, institutional engagement | Hospital pays for certs; staff leave with portable credentials and **no lasting system improvement** |
+| **Individual staff** | **Courses and certifications** for employment and professional development — different lane ([§15.3](#153-offerings-and-revenue-emphasis-near-term)) | Treating institutional sales as “sell PALS seats to everyone” |
+
+**Non-negotiable:** Institutional contracts must deliver **ERS value** — activation metrics, QI culture, equipment fixes, training mapped to gaps — not only certificate volume.
+
+### 24.5 AHA relationship and public marketing rules
+
+| Rule | Detail |
+|------|--------|
+| **AHA as ally (public)** | Ride on the AHA name: “**AHA-aligned training plus** institutional ERS/readiness.” Training supports the system |
+| **Do not attack AHA** | No public criticism of AHA or cert-mill framing in marketing |
+| **Do not claim replacement** | Never say publicly that Paeds Resus **replaces** AHA |
+| **Do not claim ERS without AHA** | Public copy must not present ERS as standalone without acknowledging AHA-aligned training layer |
+| **Outcome claims** | Process metrics only (activations, time to response, ROSC where documented) until **governed evaluation** — no mortality reduction claims |
+
+### 24.6 Geography and pilot confidentiality
+
+| Topic | Decision |
+|-------|----------|
+| **Base** | Nyeri |
+| **Service region** | Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, Marsabit — and surrounding referral facilities |
+| **Pilot sites** | **Confidential until MOU signed and CEO approves public naming** — do **not** name specific pilot hospitals (e.g. Mathari) in public PSOT copy, marketing pages, or GBP |
+
+### 24.7 Partnership and pilot governance
+
+1. **Readiness conversation** — scope, staffing reality, current ERT (if any)
+2. **Pilot or phased MOU** — 90-day QI framework; process metrics only
+3. **Implementation** — ERT roster, ResusGPS + Care Signal rollout, training mesh
+4. **Review** — dashboard metrics, equipment fixes, next-phase scope
+
+**Legal templates:** [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) · [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md)
+
+**90-day metrics (process, not mortality):** ERT activation count, time to first responder, paediatric activations, Care Signal submissions, equipment/readiness fixes closed, ROSC where documented.
+
+### 24.8 Internal long-term vision (docs-only tone)
+
+**For contributors and leadership docs only — not public marketing copy:**
+
+- Shift the institutional landscape from **cert-mill** to **ERS-first** — readiness assessment and ERT scope lead sales; training follows identified gaps
+- **eCard / eBook costs** and AHA partnership economics are **strategic** considerations for leadership — document in internal narrative and MOU discussions, not in public SEO or GBP copy
+
+Full internal strategy framing: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) § Strategy.
+
+### 24.9 Contributor anti-patterns (quick reference)
+
+Cross-reference: [§22.3](#223-what-you-must-never-do).
+
+| Anti-pattern | Instead |
+|--------------|---------|
+| “One paediatric nurse covers all wards” | ~2 nurses/dept/shift; one responds, colleague holds department |
+| Lead with bulk PALS/ACLS seats | Lead with Hospital ERS readiness + training mesh |
+| Name pilot hospitals without CEO approval | Confidential until MOU; no site names in public copy |
+| Claim mortality reduction | Governed evaluation only; process metrics in pilots |
+| “Paeds Resus replaces AHA” | AHA-aligned training **plus** institutional ERS |
+
+---
+
+**Last structural update:** 2026-05-29 — Added §24 (Institutional Emergency Readiness / ERS); expanded §3, §12, §15.3, §19, §21, §22.3, §23.6. Prior: 2026-05-28 — Institutional ERS narrative (§19, §21). Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
