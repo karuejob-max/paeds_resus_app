@@ -46,8 +46,15 @@ import {
   evaluateMedicationEligibility, 
   calculateShockEnergy,
   calculateCprMedicationDose,
+  getCycleWorkflowStatus,
+  getEpinephrineTimingState,
+  shouldTriggerIntubatedVentilationCue,
+  getHyperkalemiaGuidance,
+  applyRhythmWindowDecision,
   type CprEngineState,
   type RhythmType,
+  type EpiTimingState,
+  type RhythmClassification,
 } from '@/lib/resus/cpr-engine';
 import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
@@ -168,6 +175,11 @@ export function CPRClockStreamlined({
   const [metronomeEnabled, setMetronomeEnabled] = useState(true);
   const [defibCharging, setDefibCharging] = useState(false);
   const [showChargePrompt, setShowChargePrompt] = useState(false);
+  const [showRhythmActionCapture, setShowRhythmActionCapture] = useState(false);
+  const [windowRhythmClassification, setWindowRhythmClassification] = useState<RhythmClassification | null>(null);
+  const [windowRhythmType, setWindowRhythmType] = useState<RhythmType | null>(null);
+  const [windowShockAction, setWindowShockAction] = useState<'shock_delivered' | 'no_shock' | null>(null);
+  const [windowNoShockReason, setWindowNoShockReason] = useState('');
   const [showSummaryCard, setShowSummaryCard] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
   const [postRoscChecklist, setPostRoscChecklist] = useState({
@@ -186,6 +198,8 @@ export function CPRClockStreamlined({
   const [showPatientInfoDialog, setShowPatientInfoDialog] = useState(false);
   const [editableWeight, setEditableWeight] = useState(patientWeight);
   const [editableAge, setEditableAge] = useState(patientAgeMonths || 0);
+  const [intubationStartTime, setIntubationStartTime] = useState<number | null>(null);
+  const [hyperKalemiaInput, setHyperKalemiaInput] = useState('');
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -231,12 +245,18 @@ export function CPRClockStreamlined({
   const amiodaroneDose = Math.min(Math.round(patientWeight * 5), 300);
   const lidocaineDose = Math.min(Math.round(patientWeight * 1), 100);
   const shockEnergy = calculateShockEnergy(patientWeight, effectiveShockCount);
+  const workflow = getCycleWorkflowStatus(effectiveArrestDuration);
 
   // Format time
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  const getEpiButtonClass = (state: EpiTimingState) => {
+    if (state === 'overdue') return 'bg-red-600 hover:bg-red-700 animate-pulse';
+    if (state === 'almost_due') return 'bg-orange-600 hover:bg-orange-700';
+    return 'bg-green-600 hover:bg-green-700';
   };
 
   // Voice synthesis
@@ -373,6 +393,15 @@ export function CPRClockStreamlined({
           
           return newCycleTime;
         });
+
+        if (
+          intubationStartTime !== null &&
+          shouldTriggerIntubatedVentilationCue(effectiveArrestDuration - intubationStartTime, advancedAirwayPlaced)
+        ) {
+          triggerHaptic('medium');
+          speak('Ventilate now.');
+          addEvent('Ventilation cue', 'Intubated ventilation at 6-second cadence');
+        }
       }, 1000);
     }
     
@@ -386,6 +415,7 @@ export function CPRClockStreamlined({
     effectiveArrestDuration,
     effectiveRhythmType,
     advancedAirwayPlaced,
+    intubationStartTime,
     externalElapsed,
     syncShared,
     shared,
@@ -476,6 +506,10 @@ export function CPRClockStreamlined({
   const handleRhythmCheck = (type: RhythmType) => {
     setRhythmType(type);
     setShowRhythmCheck(false);
+    setWindowRhythmType(type);
+    setWindowRhythmClassification(type === 'vf_pvt' ? 'shockable' : 'non_shockable');
+    setWindowShockAction(null);
+    setWindowNoShockReason('');
     
     // Use pure engine logic to determine next phase
     const engineState: CprEngineState = {
@@ -500,33 +534,38 @@ export function CPRClockStreamlined({
       shared.setEngineState((s) => ({ ...s, rhythmType: type, phase: rhythmResult.nextPhase }));
     }
     
-    // Apply phase transition
-    setPhase(rhythmResult.nextPhase as ArrestPhase);
+    // Hold progression until explicit rhythm/shock action is captured.
+    setPhase('reassessment');
+    setShowRhythmActionCapture(true);
     addEvent(`${type.toUpperCase()} detected`, rhythmResult.message);
     speak(rhythmResult.message);
-    
-    if (rhythmResult.shockRequired) {
-      // Shockable rhythm: charge defib
-      setDefibCharging(true);
-      const energy = calculateShockEnergy(patientWeight, effectiveShockCount);
-      speak(`Shockable rhythm. Charging to ${energy} joules. Clear the patient.`);
-      
-      // Simulate charging time (3 seconds)
-      setTimeout(() => {
-        setPhase('shock_ready');
-        setDefibCharging(false);
-        speak('Defibrillator ready. Clear and shock.');
-      }, 3000);
-    } else {
-      // Non-shockable: resume compressions
-      setPhase('compressions');
-      speak('Non-shockable rhythm. Resume CPR immediately.');
-      
-      // Check medication eligibility
-      if (medResult.epiEligible && medResult.recommendation) {
-        speak(medResult.recommendation);
-      }
+    if (medResult.epiEligible && medResult.recommendation) {
+      speak(medResult.recommendation);
     }
+  };
+
+  const submitRhythmWindowAction = () => {
+    if (!windowRhythmClassification || !windowShockAction) return;
+    const decision = applyRhythmWindowDecision(effectiveShockCount, {
+      rhythmClassification: windowRhythmClassification,
+      rhythmType: windowRhythmType || undefined,
+      shockAction: windowShockAction,
+      noShockReason: windowNoShockReason,
+    });
+    setShowRhythmActionCapture(false);
+    addEvent('Rhythm window action', decision.actionSummary);
+
+    if (windowShockAction === 'shock_delivered') {
+      const nextShockCount = decision.nextShockCount;
+      setShockCount(nextShockCount);
+      if (syncShared && shared) {
+        shared.setEngineState((s) => ({ ...s, shockCount: nextShockCount, phase: 'post_shock' }));
+      }
+      speak(`Shock ${nextShockCount} delivered. Resume compressions.`);
+    } else {
+      speak('No shock delivered. Resume compressions now.');
+    }
+    setPhase('compressions');
   };
 
   // Deliver shock using cpr-engine
@@ -621,6 +660,7 @@ export function CPRClockStreamlined({
   // Advanced airway
   const placeAdvancedAirway = () => {
     setAdvancedAirwayPlaced(true);
+    setIntubationStartTime(effectiveArrestDuration);
     setShowAdvancedAirwayPrompt(false);
     addEvent('Advanced airway placed');
     speak('Advanced airway placed. Continue compressions without pauses.');
@@ -707,7 +747,7 @@ export function CPRClockStreamlined({
         <div className="flex items-center gap-2 md:gap-4">
           <Heart className="h-5 w-5 md:h-8 md:w-8 text-red-500" />
           <div>
-            <h1 className="text-base md:text-2xl font-bold text-white">CPR</h1>
+            <h1 className="text-base md:text-2xl font-bold text-white">CPR-GPS</h1>
             <p className="text-gray-400 text-xs md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
           </div>
           
@@ -808,19 +848,19 @@ export function CPRClockStreamlined({
         {!effectiveIsRunning && !effectiveRoscAchieved && !autoStart ? (
           // Start screen
           <div className="text-center space-y-6">
-            <div className="text-6xl font-bold text-white mb-4">READY</div>
+            <div className="text-6xl font-bold text-white mb-4">CPR-GPS READY</div>
             <Button
               onClick={startArrest}
               size="lg"
               className="bg-red-600 hover:bg-red-700 text-white text-2xl px-12 py-8 h-auto"
             >
               <Play className="h-8 w-8 mr-4" />
-              START CPR
+              START CPR-GPS
             </Button>
           </div>
         ) : !effectiveIsRunning && !effectiveRoscAchieved && autoStart ? (
           <div className="text-center space-y-4">
-            <div className="text-2xl font-bold text-white">Syncing CPR clock…</div>
+            <div className="text-2xl font-bold text-white">Syncing CPR-GPS clock…</div>
           </div>
         ) : phase === 'initial_assessment' ? (
           // Initial assessment - attach pads
@@ -859,7 +899,7 @@ export function CPRClockStreamlined({
                         COMPRESSIONS
                       </div>
                       <div className="text-lg md:text-2xl text-gray-300">
-                        Next rhythm check in {formatTime(120 - cycleTime)}
+                        Next rhythm check in {formatTime(workflow.countdownToRhythmCheck)}
                       </div>
                     </>
                   )}
@@ -921,17 +961,20 @@ export function CPRClockStreamlined({
               <Button
                 onClick={giveEpinephrine}
                 size="lg"
-                className={`text-white text-sm md:text-xl py-3 md:py-6 h-auto ${
-                  lastEpiTime === null 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : (() => {
-                        const timeSinceEpi = arrestDuration - lastEpiTime;
-                        if (timeSinceEpi >= 180) return 'bg-red-600 hover:bg-red-700 animate-pulse';
-                        if (timeSinceEpi >= 120) return 'bg-orange-600 hover:bg-orange-700';
-                        if (timeSinceEpi >= 60) return 'bg-yellow-600 hover:bg-yellow-700';
-                        return 'bg-green-600 hover:bg-green-700';
-                      })()
-                }`}
+                className={`text-white text-sm md:text-xl py-3 md:py-6 h-auto ${getEpiButtonClass(
+                  getEpinephrineTimingState(
+                    effectiveArrestDuration,
+                    {
+                      shockCount: effectiveShockCount,
+                      epiDoses: effectiveEpiDoses,
+                      lastEpiTime: effectiveLastEpiTime,
+                      antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
+                      rhythmType: effectiveRhythmType || 'unknown',
+                      phase: phase as CprEngineState['phase'],
+                    },
+                    effectiveRhythmType === 'vf_pvt'
+                  )
+                )}`}
                 disabled={lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180}
               >
                 <Syringe className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
@@ -977,6 +1020,12 @@ export function CPRClockStreamlined({
             <div className="grid grid-cols-4 gap-1 md:gap-4">
               <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-2 md:p-4 text-center">
+                  <div className="text-xl md:text-3xl font-bold text-cyan-300">{workflow.cycleNumber}</div>
+                  <div className="text-xs md:text-sm text-gray-400">Cycle</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gray-800 border-gray-700">
+                <CardContent className="p-2 md:p-4 text-center">
                   <div className="text-xl md:text-3xl font-bold text-white">{shockCount}</div>
                   <div className="text-xs md:text-sm text-gray-400">Shocks</div>
                 </CardContent>
@@ -1004,6 +1053,21 @@ export function CPRClockStreamlined({
                 </CardContent>
               </Card>
             </div>
+            <Card className="bg-gray-900 border-gray-700">
+              <CardContent className="p-3 md:p-4">
+                <div className="text-sm md:text-base text-gray-300">
+                  Next action: <span className="font-semibold text-white">{workflow.nextAction}</span>
+                </div>
+                {workflow.phase === 'precharge_alert' && (
+                  <div className="text-yellow-400 text-sm mt-1">Pre-charge alert active (T-15s to rhythm check).</div>
+                )}
+                {workflow.phase === 'rhythm_window' && (
+                  <div className="text-blue-300 text-sm mt-1">
+                    10-second rhythm/shock window: {workflow.rhythmWindowRemaining}s remaining.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
@@ -1231,12 +1295,37 @@ export function CPRClockStreamlined({
                         <input type="checkbox" checked={reversibleCausesChecked.hypokalemia} onChange={() => {}} className="h-5 w-5 mt-0.5 flex-shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()} />
                         <span><strong>Hypo/Hyperkalemia</strong> - Check labs</span>
                       </div>
+                      <Input
+                        placeholder="Enter K+ mmol/L"
+                        value={hyperKalemiaInput}
+                        onChange={(e) => setHyperKalemiaInput(e.target.value)}
+                        className="bg-gray-900 border-gray-700 text-white"
+                      />
+                      {hyperKalemiaInput && !Number.isNaN(Number(hyperKalemiaInput)) && (
+                        <div className="text-xs text-blue-200 space-y-1">
+                          {(() => {
+                            const guidance = getHyperkalemiaGuidance({
+                              weightKg: patientWeight,
+                              potassiumMmolL: Number(hyperKalemiaInput),
+                              hasEcgChanges: true,
+                              prolongedArrest: effectiveArrestDuration >= 600,
+                            });
+                            return (
+                              <>
+                                <p>{guidance.calciumGluconate}</p>
+                                <p>{guidance.insulinDextrose}</p>
+                                <p>{guidance.bicarbonate}</p>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
                       <Button
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           setReversibleCausesChecked(prev => ({ ...prev, hypokalemia: true }));
-                          addEvent('Labs checked for electrolytes');
+                          addEvent('Hyperkalemia pathway documented', `K+ ${hyperKalemiaInput || 'unknown'} mmol/L`);
                           speak('Labs ordered');
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 h-auto w-full"
@@ -1456,6 +1545,46 @@ export function CPRClockStreamlined({
                   Continue with BVM
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showRhythmActionCapture && (
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-20">
+          <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
+            <CardContent className="p-8 space-y-4">
+              <h2 className="text-2xl font-bold text-white">Document Rhythm Window Action</h2>
+              <p className="text-gray-300">Capture rhythm interpretation and defibrillation action before next cycle.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  className={windowShockAction === 'shock_delivered' ? 'bg-yellow-600 hover:bg-yellow-700 text-black' : 'bg-gray-700 hover:bg-gray-600 text-white'}
+                  onClick={() => setWindowShockAction('shock_delivered')}
+                >
+                  Shock Delivered
+                </Button>
+                <Button
+                  className={windowShockAction === 'no_shock' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}
+                  onClick={() => setWindowShockAction('no_shock')}
+                >
+                  No Shock
+                </Button>
+              </div>
+              {windowShockAction === 'no_shock' && (
+                <Input
+                  placeholder="Optional reason (required to submit no-shock)"
+                  value={windowNoShockReason}
+                  onChange={(e) => setWindowNoShockReason(e.target.value)}
+                  className="bg-gray-900 border-gray-700 text-white"
+                />
+              )}
+              <Button
+                onClick={submitRhythmWindowAction}
+                disabled={!windowShockAction || (windowShockAction === 'no_shock' && !windowNoShockReason.trim())}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                Save and Resume Compressions
+              </Button>
             </CardContent>
           </Card>
         </div>
