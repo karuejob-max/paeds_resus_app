@@ -30,7 +30,7 @@ Paeds Resus helps hospitals in central and upper Eastern Kenya reduce preventabl
 
 
 
-We support nurse-led Emergency Response Teams (ERT) — 24/7. During a code, one nurse responds while a colleague keeps the department running; a second responder activates hospital-wide coordination so teams across units move together — not one nurse alone covering everything. Our readiness model includes ResusGPS bedside guidance, Care Signal quality-improvement reporting, AHA-aligned BLS/ACLS/PALS/NRP training from Paeds Resus Limited, equipment audits, and an institutional dashboard for activations and system fixes.
+We support nurse-led Emergency Response Teams (ERT) — 24/7. During a code, one nurse responds while a colleague keeps the department running; a second responder activates hospital-wide coordination so teams across units move together — not one nurse alone covering everything. Our readiness model includes ResusGPS bedside guidance, Care Signal quality-improvement reporting, AHA-aligned BLS/ACLS/PALS/NRP training from Paeds Resus Limited, paediatric emergency micro-courses, equipment audits, and an institutional dashboard for activations and system fixes.
 
 
 
@@ -48,13 +48,45 @@ Working Emergency Response Systems plus AHA-aligned training that supports them 
 
 
 
-### Short variant (≈750 characters)
+### Short variant (CEO-approved — May 2026)
+
+
+
+**Formatted (reference — line breaks OK in this doc):**
 
 
 
 ```
 
-Paeds Resus — hospital Emergency Readiness System (ERS) with paediatric priority for central and upper Eastern Kenya. Nurse-led 24/7 ERT coordinates teams across units; ResusGPS, Care Signal QI, AHA-aligned BLS/ACLS/PALS/NRP training, readiness audits. Nyeri, Embu, Murang'a, Meru, Nanyuki, Marsabit, and region. Working ERS plus training — not seat bundles. paedsresus254@gmail.com · +254 706 781 260
+Paeds Resus — hospital Emergency Readiness System (ERS) with paediatric priority for central and upper Eastern Kenya.
+
+
+
+Nurse-led 24/7 Emergency Response Teams coordinate resuscitation across units; ResusGPS, Care Signal QI, AHA-aligned BLS/ACLS/PALS/NRP training, paediatric emergency micro-courses, readiness audits.
+
+
+
+Nyeri, Embu, Murang'a, Meru, Nanyuki, Marsabit, and region.
+
+
+
+Working ERS plus training — not seat bundles.
+
+
+
+paedsresus254@gmail.com · +254 706 781 260
+
+```
+
+
+
+**Single paragraph (paste into GBP — no line breaks):**
+
+
+
+```
+
+Paeds Resus — hospital Emergency Readiness System (ERS) with paediatric priority for central and upper Eastern Kenya. Nurse-led 24/7 Emergency Response Teams coordinate resuscitation across units; ResusGPS, Care Signal QI, AHA-aligned BLS/ACLS/PALS/NRP training, paediatric emergency micro-courses, readiness audits. Nyeri, Embu, Murang'a, Meru, Nanyuki, Marsabit, and region. Working ERS plus training — not seat bundles. paedsresus254@gmail.com · +254 706 781 260
 
 ```
 
