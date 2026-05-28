@@ -45,6 +45,10 @@ export interface DKAIntervention {
   monitoring?: string;
 }
 
+function formatMmollFromMgdl(mgdl: number): string {
+  return (mgdl / 18).toFixed(1);
+}
+
 /**
  * Convert glucose units to mg/dL
  */
@@ -106,7 +110,7 @@ export function assessDKASeverity(assessment: DKAAssessment): DKASeverity {
     level,
     classification,
     score,
-    description: `${classification} - pH ${assessment.pH.toFixed(2)}, HCO3 ${assessment.bicarbonate} mEq/L`,
+    description: `${classification} - pH ${assessment.pH.toFixed(2)}, HCO3 ${assessment.bicarbonate} mmol/L (mEq/L equivalent)`,
     requiresICU: level === 'severe',
     riskOfCerebralEdema,
   };
@@ -201,8 +205,8 @@ Preparation: 50U regular insulin in 50mL 0.9% NS = 1U/mL`,
   interventions.push({
     type: 'glucose_management',
     description: 'Glucose monitoring and management',
-    indication: 'Target glucose decline 50-100 mg/dL/hour',
-    dosing: `If glucose < 250 mg/dL: Add dextrose to IV fluids (5-10% dextrose)
+    indication: 'Target glucose decline 50-100 mg/dL/hour (2.8-5.6 mmol/L/hour)',
+    dosing: `If glucose < 250 mg/dL (<${formatMmollFromMgdl(250)} mmol/L): Add dextrose to IV fluids (5-10% dextrose)
 Continue insulin infusion until pH > 7.3 and HCO3 > 15`,
     frequency: 'Check glucose every 1 hour',
     monitoring: 'Ensure glucose decline is gradual (avoid rapid drop)',
@@ -230,10 +234,10 @@ export function generateElectrolyteManagement(assessment: DKAAssessment): DKAInt
   interventions.push({
     type: 'potassium_management',
     description: 'Potassium supplementation',
-    indication: 'Maintain K+ 3.5-5.5 mEq/L',
-    dosing: `Current K+: ${assessment.potassium} mEq/L (${potassiumStatus})
-If K+ < 3.5: Add 20-40 mEq/L to IV fluids
-If K+ 3.5-5.5: Add 20 mEq/L to IV fluids
+    indication: 'Maintain K+ 3.5-5.5 mmol/L (mEq/L equivalent)',
+    dosing: `Current K+: ${assessment.potassium} mmol/L (mEq/L equivalent) (${potassiumStatus})
+If K+ < 3.5: Add 20-40 mmol/L (mEq/L equivalent) to IV fluids
+If K+ 3.5-5.5: Add 20 mmol/L (mEq/L equivalent) to IV fluids
 If K+ > 5.5: Withhold K+ supplementation`,
     monitoring: 'Serum K+ every 2-4 hours; ECG if K+ abnormal',
   });
@@ -243,7 +247,7 @@ If K+ > 5.5: Withhold K+ supplementation`,
     type: 'sodium_management',
     description: 'Sodium monitoring',
     indication: 'Monitor for hyponatremia',
-    dosing: `Current Na+: ${assessment.sodium} mEq/L
+    dosing: `Current Na+: ${assessment.sodium} mmol/L (mEq/L equivalent)
 Use 0.9% NS for initial resuscitation
 Monitor for pseudohyponatremia (due to hyperglycemia)`,
     monitoring: 'Serum Na+ every 4 hours',
@@ -254,7 +258,7 @@ Monitor for pseudohyponatremia (due to hyperglycemia)`,
     type: 'phosphate_management',
     description: 'Phosphate monitoring',
     indication: 'Monitor for hypophosphatemia',
-    dosing: 'Monitor phosphate levels; supplement if < 1.5 mg/dL',
+    dosing: 'Monitor phosphate levels; supplement if < 1.5 mg/dL (<0.48 mmol/L)',
     monitoring: 'Serum phosphate every 4-6 hours',
   });
 
@@ -272,7 +276,7 @@ export function generateCerebralEdemaProtocol(assessment: DKAAssessment): DKAInt
     description: 'Cerebral edema prevention measures',
     indication: 'Reduce risk of cerebral edema during DKA treatment',
     dosing: `- Avoid hypotonic fluids (use 0.9% NS)
-- Avoid rapid glucose decline (target 50-100 mg/dL/hour)
+- Avoid rapid glucose decline (target 50-100 mg/dL/hour or 2.8-5.6 mmol/L/hour)
 - Monitor for signs: headache, altered mental status, seizures
 - If cerebral edema suspected: Mannitol 0.25-1 g/kg IV or hypertonic saline`,
     monitoring: 'Continuous neurological assessment',
@@ -298,15 +302,15 @@ ${severity.description}
 Laboratory Values:
 - Blood Glucose: ${glucoseMgdl.toFixed(0)} mg/dL (${(glucoseMgdl / 18).toFixed(1)} mmol/L)
 - pH: ${assessment.pH.toFixed(2)}
-- Bicarbonate: ${assessment.bicarbonate} mEq/L
+- Bicarbonate: ${assessment.bicarbonate} mmol/L (mEq/L equivalent)
 - Anion Gap: ${assessment.anionGap}
 - Ketonemia: ${assessment.ketonemia}
 - Ketonuria: ${assessment.ketonuria}
 
 Electrolytes:
-- Potassium: ${assessment.potassium} mEq/L
-- Sodium: ${assessment.sodium} mEq/L
-- Chloride: ${assessment.chloride} mEq/L
+- Potassium: ${assessment.potassium} mmol/L (mEq/L equivalent)
+- Sodium: ${assessment.sodium} mmol/L (mEq/L equivalent)
+- Chloride: ${assessment.chloride} mmol/L (mEq/L equivalent)
 
 Clinical Findings:
 - Respiratory Pattern: ${assessment.breathPattern}

@@ -1453,16 +1453,16 @@ export const dkaICourse= {
 
 Diabetic Ketoacidosis is a life-threatening metabolic emergency defined by the triad:
 - **Hyperglycaemia**: Blood glucose >11 mmol/L (>200 mg/dL)
-- **Acidosis**: pH <7.3 or bicarbonate <15 mmol/L
-- **Ketonaemia/Ketonuria**: Ketones >3 mmol/L blood or 2+ urine
+- **Acidosis**: pH <7.3 or bicarbonate <15 mmol/L (mEq/L equivalent)
+- **Ketonaemia/Ketonuria**: Ketones >3 mmol/L blood (31.2 mg/dL beta-hydroxybutyrate equivalent) or 2+ urine
 
 ## Severity Classification (ISPAD 2022)
 
 | Severity | pH | Bicarbonate | Altered Consciousness |
 |----------|-----|-------------|----------------------|
-| Mild | 7.2–7.3 | 10–15 mmol/L | Alert |
-| Moderate | 7.1–7.2 | 5–10 mmol/L | Drowsy |
-| Severe | <7.1 | <5 mmol/L | Stupor/Coma |
+| Mild | 7.2–7.3 | 10–15 mmol/L (mEq/L equivalent) | Alert |
+| Moderate | 7.1–7.2 | 5–10 mmol/L (mEq/L equivalent) | Drowsy |
+| Severe | <7.1 | <5 mmol/L (mEq/L equivalent) | Stupor/Coma |
 
 ## Clinical Features
 
@@ -1531,7 +1531,7 @@ A falling corrected Na during treatment is a warning sign for cerebral oedema.
 ### Rehydration Phase (All DKA Patients)
 - **Estimated deficit**: 5–10% dehydration (use 5% for mild, 7% for moderate, 10% for severe)
 - **Duration**: Rehydrate over **48 hours** (not 24 hours)
-- **Fluid**: 0.9% NS initially, then 0.45% NS with 5% dextrose once glucose <14 mmol/L
+- **Fluid**: 0.9% NS initially, then 0.45% NS with 5% dextrose once glucose <14 mmol/L (<252 mg/dL)
 
 **Formula:**
 Total fluid = Maintenance (24h × 2) + Deficit
@@ -1545,16 +1545,16 @@ Divide by 48 hours to get hourly rate.
 
 ### Potassium Management
 - **NEVER start insulin without knowing potassium**
-- If K <3.5 mmol/L: Replace potassium BEFORE insulin
-- If K 3.5–5.5 mmol/L: Add 40 mmol/L KCl to IV fluid
-- If K >5.5 mmol/L: Withhold potassium, recheck in 2 hours
+- If K <3.5 mmol/L (mEq/L equivalent): Replace potassium BEFORE insulin
+- If K 3.5–5.5 mmol/L (mEq/L equivalent): Add 40 mmol/L KCl (mEq/L equivalent) to IV fluid
+- If K >5.5 mmol/L (mEq/L equivalent): Withhold potassium, recheck in 2 hours
 - Monitor ECG continuously
 
 ### When to Add Dextrose
-- When blood glucose falls to <14 mmol/L
+- When blood glucose falls to <14 mmol/L (<252 mg/dL)
 - Switch to 0.45% NS + 5% dextrose
 - Continue insulin — do NOT stop insulin to manage glucose
-- Adjust dextrose concentration (5–12.5%) to maintain glucose 8–12 mmol/L
+- Adjust dextrose concentration (5–12.5%) to maintain glucose 8–12 mmol/L (144–216 mg/dL)
 
 ## Cerebral Oedema Warning Signs
 - Headache, agitation, change in behaviour
@@ -1603,7 +1603,7 @@ Divide by 48 hours to get hourly rate.
 ### Insulin Infusion Protocol
 - **Rate**: 0.05–0.1 units/kg/hour (start at 0.05 for young children)
 - **Preparation**: 1 unit/mL regular insulin in 0.9% NS
-- **Target glucose fall**: 2–5 mmol/L/hour
+- **Target glucose fall**: 2–5 mmol/L/hour (36–90 mg/dL/hour)
 - If glucose falling too fast: Add more dextrose, do NOT reduce insulin
 
 ### Monitoring Schedule
@@ -1617,7 +1617,7 @@ Divide by 48 hours to get hourly rate.
 | Every 2h thereafter | ✓ | ✓ | ✓ | ✓ |
 
 ### Resolution Criteria (Switch to SC Insulin)
-- pH >7.3 AND bicarbonate >15 mmol/L
+- pH >7.3 AND bicarbonate >15 mmol/L (mEq/L equivalent)
 - Blood ketones <1 mmol/L (or urine ketones <2+)
 - Patient tolerating oral fluids
 - Give SC insulin 30 min BEFORE stopping infusion
@@ -1639,10 +1639,10 @@ Divide by 48 hours to get hourly rate.
       id: 'dka-i-q1',
       questionNumber: 1,
       type: 'multiple-choice',
-      text: 'A 10-year-old presents with vomiting, deep sighing respirations, and blood glucose of 28 mmol/L. pH is 7.18, bicarbonate 8 mmol/L. What is the severity of DKA?',
+      text: 'A 10-year-old presents with vomiting, deep sighing respirations, and blood glucose of 28 mmol/L (504 mg/dL). pH is 7.18, bicarbonate 8 mmol/L (mEq/L equivalent). What is the severity of DKA?',
       options: ['Mild DKA', 'Moderate DKA', 'Severe DKA', 'Hyperosmolar hyperglycaemic state'],
       correctAnswer: 'Moderate DKA',
-      explanation: 'pH 7.1–7.2 and bicarbonate 5–10 mmol/L = moderate DKA. Severe DKA requires pH <7.1 and bicarbonate <5 mmol/L.',
+      explanation: 'pH 7.1–7.2 and bicarbonate 5–10 mmol/L (mEq/L equivalent) = moderate DKA. Severe DKA requires pH <7.1 and bicarbonate <5 mmol/L (mEq/L equivalent).',
       points: 10,
     },
     {
@@ -1678,12 +1678,12 @@ Divide by 48 hours to get hourly rate.
     caseScenario: `
 A 9-year-old girl presents to your emergency department with a 3-day history of polyuria, polydipsia, and vomiting. She is drowsy (GCS 13/15), with deep sighing respirations, dry mucous membranes, and prolonged capillary refill of 3 seconds.
 
-Vitals: HR 128, BP 95/60, RR 28, SpO2 98%, Temp 37.2°C
+Vitals: HR 128, BP 95/60, RR 28, SpO2 98%, Temp 37.2°C (99.0°F)
 Weight: 28 kg
-Blood glucose: 32 mmol/L
-Blood gas: pH 7.15, pCO2 18, HCO3 7 mmol/L
-Na 132 mmol/L, K 3.8 mmol/L, Cl 98 mmol/L
-Blood ketones: 5.2 mmol/L
+Blood glucose: 32 mmol/L (576 mg/dL)
+Blood gas: pH 7.15, pCO2 18 mmHg (2.4 kPa), HCO3 7 mmol/L (mEq/L equivalent)
+Na 132 mmol/L (mEq/L equivalent), K 3.8 mmol/L (mEq/L equivalent), Cl 98 mmol/L (mEq/L equivalent)
+Blood ketones: 5.2 mmol/L (54.1 mg/dL beta-hydroxybutyrate equivalent)
 
 Your management plan should address:
 1. Severity classification and immediate priorities
@@ -1801,12 +1801,12 @@ export const dkaIICourse= {
 ### Management
 | Serum K | Action |
 |---------|--------|
-| <3.0 mmol/L | Stop insulin, give KCl 0.3–0.5 mmol/kg/hr IV, recheck in 1h |
-| 3.0–3.5 mmol/L | Give KCl 0.3 mmol/kg/hr, start insulin cautiously |
-| 3.5–5.5 mmol/L | Add 40 mmol/L KCl to IV fluid, proceed with insulin |
-| >5.5 mmol/L | Withhold K, recheck in 2h |
+| <3.0 mmol/L (mEq/L equivalent) | Stop insulin, give KCl 0.3–0.5 mmol/kg/hr (mEq/kg/hr equivalent) IV, recheck in 1h |
+| 3.0–3.5 mmol/L (mEq/L equivalent) | Give KCl 0.3 mmol/kg/hr (mEq/kg/hr equivalent), start insulin cautiously |
+| 3.5–5.5 mmol/L (mEq/L equivalent) | Add 40 mmol/L KCl (mEq/L equivalent) to IV fluid, proceed with insulin |
+| >5.5 mmol/L (mEq/L equivalent) | Withhold K, recheck in 2h |
 
-**Maximum IV KCl rate**: 0.5 mmol/kg/hr (requires cardiac monitoring)
+**Maximum IV KCl rate**: 0.5 mmol/kg/hr (0.5 mEq/kg/hr equivalent; requires cardiac monitoring)
 
 ## DKA in Infants (<2 years)
 
@@ -1818,7 +1818,7 @@ export const dkaIICourse= {
 - Lower insulin dose: start at 0.05 units/kg/hr
 
 ### Neonatal DKA
-- Blood glucose may be lower (>11 mmol/L still diagnostic)
+- Blood glucose may be lower (>11 mmol/L [>198 mg/dL] still diagnostic)
 - pH and ketones same criteria
 - Consult paediatric endocrinology urgently
 - Genetic testing for neonatal diabetes
@@ -1826,7 +1826,7 @@ export const dkaIICourse= {
 ## Bicarbonate — When NOT to Use
 - **Avoid bicarbonate in DKA** (increases cerebral oedema risk, paradoxical CSF acidosis)
 - Only consider if: pH <6.9 with haemodynamic compromise AND no response to fluids
-- If used: NaHCO3 1–2 mmol/kg IV over 60 minutes (not a bolus)
+- If used: NaHCO3 1–2 mmol/kg IV over 60 minutes (1–2 mEq/kg equivalent; not a bolus)
       `,
       keyPoints: [
         'Stop insulin if K <3.0 mmol/L — replace potassium first',
@@ -1845,7 +1845,7 @@ export const dkaIICourse= {
       id: 'dka-ii-q1',
       questionNumber: 1,
       type: 'multiple-choice',
-      text: 'A child with DKA develops headache and bradycardia 4 hours into treatment. Corrected sodium has fallen from 138 to 132 mmol/L. What is the most likely diagnosis and first action?',
+      text: 'A child with DKA develops headache and bradycardia 4 hours into treatment. Corrected sodium has fallen from 138 to 132 mmol/L (mEq/L equivalent). What is the most likely diagnosis and first action?',
       options: [
         'Hypoglycaemia — check glucose and give dextrose',
         'Cerebral oedema — give mannitol 0.5–1 g/kg IV',
@@ -1870,7 +1870,7 @@ export const dkaIICourse= {
       id: 'dka-ii-q3',
       questionNumber: 3,
       type: 'multiple-choice',
-      text: 'A child with DKA has serum K of 2.8 mmol/L. What is the correct action?',
+      text: 'A child with DKA has serum K of 2.8 mmol/L (mEq/L equivalent). What is the correct action?',
       options: [
         'Start insulin at 0.1 units/kg/hr and add KCl to fluids',
         'Stop insulin, give KCl 0.3–0.5 mmol/kg/hr IV, recheck in 1 hour',
@@ -1887,9 +1887,9 @@ export const dkaIICourse= {
     title: 'DKA Complications Case',
     description: 'Manage a child with DKA who develops cerebral oedema',
     caseScenario: `
-A 6-year-old boy (22 kg) with known Type 1 diabetes is admitted with DKA (pH 7.08, glucose 38 mmol/L, K 4.2 mmol/L). He received a 10 mL/kg NS bolus and was started on 48-hour rehydration and insulin infusion at 0.1 units/kg/hr.
+A 6-year-old boy (22 kg) with known Type 1 diabetes is admitted with DKA (pH 7.08, glucose 38 mmol/L [684 mg/dL], K 4.2 mmol/L [mEq/L equivalent]). He received a 10 mL/kg NS bolus and was started on 48-hour rehydration and insulin infusion at 0.1 units/kg/hr.
 
-3 hours into treatment: Glucose has fallen to 14 mmol/L, pH improved to 7.22. However, the nurse calls you urgently — the child is now complaining of severe headache, his HR has dropped from 120 to 78, and his GCS has fallen from 15 to 12. Corrected sodium has fallen from 140 to 133 mmol/L.
+3 hours into treatment: Glucose has fallen to 14 mmol/L (252 mg/dL), pH improved to 7.22. However, the nurse calls you urgently — the child is now complaining of severe headache, his HR has dropped from 120 to 78, and his GCS has fallen from 15 to 12. Corrected sodium has fallen from 140 to 133 mmol/L (mEq/L equivalent).
 
 Your management plan should include:
 1. Diagnosis and immediate action

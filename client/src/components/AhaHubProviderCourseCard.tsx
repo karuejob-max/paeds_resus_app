@@ -42,16 +42,15 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
     }
   }
 
-  const middle =
-    !enrollmentPending && isEnrolled ? (
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
-        <AhaCertificationPath
-          cognitiveComplete={cognitiveComplete}
-          practicalSignedOff={practicalSignedOff}
-          certificateIssued={certIssued}
-        />
-      </div>
-    ) : null;
+  const middle = enrollmentPending ? null : (
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <AhaCertificationPath
+        cognitiveComplete={cognitiveComplete}
+        practicalSignedOff={practicalSignedOff}
+        certificateIssued={certIssued}
+      />
+    </div>
+  );
 
   const footer = enrollmentPending ? (
     <FooterButtonSkeleton />
