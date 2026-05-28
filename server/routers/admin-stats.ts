@@ -475,7 +475,7 @@ export const adminStatsRouter = router({
         userId: z.number().int().positive().optional(),
         search: z.string().max(200).optional(),
         programType: z
-          .enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver"])
+          .enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"])
           .optional(),
         limit: z.number().int().min(1).max(5000).default(100),
         offset: z.number().int().min(0).default(0),
