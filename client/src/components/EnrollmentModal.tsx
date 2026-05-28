@@ -6,6 +6,21 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { cn } from "@/lib/utils";
+
+/** High-contrast panels — readable on light and dark backgrounds (no pastel-on-pastel). */
+const panelClass = "rounded-lg border p-3 sm:p-4 text-sm text-foreground";
+const panelMuted = cn(panelClass, "border-border bg-muted/70");
+const panelSuccess = cn(
+  panelClass,
+  "border-green-700/25 bg-green-50 text-green-950",
+  "dark:border-green-600/40 dark:bg-green-950/45 dark:text-green-50"
+);
+const panelInfo = cn(
+  panelClass,
+  "border-primary/25 bg-primary/5",
+  "dark:border-primary/35 dark:bg-primary/10"
+);
 
 interface Course {
   id: number;
@@ -108,7 +123,7 @@ export function EnrollmentModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Enroll in {course.title}</DialogTitle>
+          <DialogTitle className="text-foreground">Enroll in {course.title}</DialogTitle>
           <DialogDescription>
             {step === "confirm" && "Free enrollment — get instant access"}
             {step === "success" && "Enrollment confirmed"}
@@ -120,28 +135,29 @@ export function EnrollmentModal({
           {/* ── CONFIRM STEP ─────────────────────────────────────────────── */}
           {step === "confirm" && (
             <div className="space-y-4">
-              {/* Course info */}
-              <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
-                <p className="text-sm font-semibold text-blue-900">{course.title}</p>
-                <p className="text-xs text-blue-700 mt-0.5 capitalize">{course.level} · 1 month access</p>
+              <div className={panelInfo}>
+                <p className="font-semibold text-foreground">{course.title}</p>
+                <p className="mt-0.5 capitalize text-muted-foreground">{course.level} · 1 month access</p>
               </div>
 
-              <div className="flex items-start gap-2 p-3 bg-green-50 rounded-md border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-700 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-green-800">
-                  <strong>Free access</strong> — no payment required. Click below to enroll instantly.
+              <div className={cn(panelSuccess, "flex items-start gap-2")}>
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-300" />
+                <p className="text-foreground">
+                  <span className="font-semibold">Free access</span>
+                  {" — "}
+                  no payment required. Click below to enroll instantly.
                 </p>
               </div>
 
               <Button
                 onClick={handleEnroll}
                 disabled={isLoading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className="w-full"
                 size="lg"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Enrolling…
                   </>
                 ) : (
@@ -157,38 +173,77 @@ export function EnrollmentModal({
 
           {/* ── SUCCESS STEP ─────────────────────────────────────────────── */}
           {step === "success" && (
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="enrollment-success-step">
               <div className="text-center">
-                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                <p className="font-semibold text-lg">Enrollment Confirmed!</p>
+                <CheckCircle2
+                  className="mx-auto mb-2 h-12 w-12 text-green-700 dark:text-green-400"
+                  aria-hidden
+                />
+                <p className="text-lg font-semibold text-foreground">Enrollment Confirmed!</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You now have access to this micro-course.
+                </p>
               </div>
-              <div className="bg-green-50 p-4 rounded-md border border-green-200 space-y-1.5 text-xs text-gray-700">
-                <p><span className="font-medium">Course:</span> {course.title}</p>
-                <p><span className="font-medium">Date:</span> {enrollmentDate}</p>
-                <p><span className="font-medium">Access:</span> Free</p>
-                {enrollmentId > 0 && <p><span className="font-medium">Enrollment ID:</span> {enrollmentId}</p>}
+
+              <div className={cn(panelSuccess, "space-y-1.5")} data-testid="enrollment-receipt">
+                <p>
+                  <span className="font-semibold text-foreground">Course:</span>{" "}
+                  <span className="text-foreground">{course.title}</span>
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Date:</span>{" "}
+                  <span className="text-foreground">{enrollmentDate}</span>
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">Access:</span>{" "}
+                  <span className="text-foreground">Free</span>
+                </p>
+                {enrollmentId > 0 && (
+                  <p>
+                    <span className="font-semibold text-foreground">Enrollment ID:</span>{" "}
+                    <span className="font-mono text-foreground">{enrollmentId}</span>
+                  </p>
+                )}
               </div>
-              <div className="bg-blue-50 p-3 rounded-md border border-blue-200 text-xs text-gray-700">
-                <p><span className="font-medium">Access:</span> 1 month from today</p>
-                <p className="mt-0.5"><span className="font-medium">Duration:</span> Estimated 2–4 hours</p>
+
+              <div className={panelMuted}>
+                <p>
+                  <span className="font-semibold text-foreground">Access period:</span>{" "}
+                  <span className="text-foreground">1 month from today</span>
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold text-foreground">Duration:</span>{" "}
+                  <span className="text-foreground">Estimated 2–4 hours</span>
+                </p>
               </div>
+
               <div className="space-y-2">
-                <Button onClick={handleGoToCourse} className="w-full bg-green-600 hover:bg-green-700">
+                <Button onClick={handleGoToCourse} className="w-full" size="lg">
                   Start Learning Now
                 </Button>
                 <Button onClick={onClose} variant="outline" className="w-full">
                   Close
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 text-center">Certificate issued after course completion</p>
+
+              <p className="text-center text-xs text-muted-foreground">
+                Certificate issued after course completion
+              </p>
             </div>
           )}
 
           {/* ── Status / Error messages ───────────────────────────────────── */}
           {statusMessage && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 rounded-md border border-red-200">
-              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-red-600">{statusMessage}</p>
+            <div
+              className={cn(
+                panelClass,
+                "flex items-start gap-2 border-destructive/40 bg-destructive/10 text-destructive",
+                "dark:border-red-800/50 dark:bg-red-950/35 dark:text-red-200"
+              )}
+              role="alert"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <p className="text-sm">{statusMessage}</p>
             </div>
           )}
         </div>
