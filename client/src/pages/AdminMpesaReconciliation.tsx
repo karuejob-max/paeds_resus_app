@@ -9,12 +9,24 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Shield, RefreshCw, Download, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+type ReconcileRowResult = {
+  paymentId: number;
+  action: string;
+  previousStatus: string;
+  currentStatus: string;
+  stkResultCode?: string;
+  error?: string;
+};
 
 export default function AdminMpesaReconciliation() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [olderThanHours, setOlderThanHours] = useState(24);
   const [limit, setLimit] = useState(100);
+  const [lastResults, setLastResults] = useState<Record<number, ReconcileRowResult>>({});
+  const [reconcilingId, setReconcilingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -42,7 +54,41 @@ export default function AdminMpesaReconciliation() {
   );
 
   const reconcile = trpc.mpesa.adminReconcileMpesaPayment.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: async (data, variables) => {
+      const paymentId = variables.paymentId;
+      setLastResults((prev) => ({
+        ...prev,
+        [paymentId]: {
+          paymentId,
+          action: data.action,
+          previousStatus: data.previousStatus,
+          currentStatus: data.currentStatus,
+          stkResultCode: data.stkResultCode,
+          error: data.error,
+        },
+      }));
+
+      if (data.action === "completed") {
+        toast.success(`Payment #${paymentId} marked completed`);
+      } else if (data.action === "failed") {
+        toast.message(`Payment #${paymentId} marked failed`, {
+          description: data.stkResultDesc || data.error || "Stale or abandoned STK attempt",
+        });
+      } else if (data.action === "skipped") {
+        toast.info(`Payment #${paymentId}: ${data.skipped ?? "no change"}`);
+      } else {
+        toast.warning(`Payment #${paymentId} unchanged`, {
+          description: data.stkResultDesc || data.error || "STK query did not finalize this row",
+        });
+      }
+
+      await refetch();
+      setReconcilingId(null);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Reconcile request failed");
+      setReconcilingId(null);
+    },
   });
 
   const csvBlob = useMemo(() => {
@@ -176,6 +222,7 @@ export default function AdminMpesaReconciliation() {
                   <th className="text-left p-3">Amount (KES)</th>
                   <th className="text-left p-3">CheckoutRequestID</th>
                   <th className="text-left p-3">Created</th>
+                  <th className="text-left p-3">Status</th>
                   <th className="text-left p-3">Action</th>
                 </tr>
               </thead>
@@ -193,13 +240,40 @@ export default function AdminMpesaReconciliation() {
                       {p.createdAt ? new Date(p.createdAt as string).toLocaleString() : "—"}
                     </td>
                     <td className="p-3">
+                      {lastResults[Number(p.id)] ? (
+                        <Badge
+                          variant={
+                            lastResults[Number(p.id)].currentStatus === "completed"
+                              ? "default"
+                              : lastResults[Number(p.id)].currentStatus === "failed"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {lastResults[Number(p.id)].currentStatus}
+                          {lastResults[Number(p.id)].stkResultCode
+                            ? ` · ${lastResults[Number(p.id)].stkResultCode}`
+                            : ""}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">{String(p.status ?? "pending")}</Badge>
+                      )}
+                    </td>
+                    <td className="p-3">
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={reconcile.isPending}
-                        onClick={() => reconcile.mutate({ paymentId: Number(p.id) })}
+                        onClick={() => {
+                          setReconcilingId(Number(p.id));
+                          reconcile.mutate({ paymentId: Number(p.id) });
+                        }}
                       >
-                        Reconcile (STK query)
+                        {reconcilingId === Number(p.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Reconcile (STK query)"
+                        )}
                       </Button>
                     </td>
                   </tr>
