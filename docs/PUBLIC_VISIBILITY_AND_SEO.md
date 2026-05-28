@@ -2,7 +2,7 @@
 
 **Audience:** Job Karue (CEO), marketing, engineering  
 **Canonical PSOT:** [PLATFORM_SOURCE_OF_TRUTH.md §23](./PLATFORM_SOURCE_OF_TRUTH.md#23-public-visibility--discovery)  
-**Last updated:** 2026-05-27
+**Last updated:** 2026-05-28
 
 ---
 
@@ -44,8 +44,9 @@ Ensure providers, trainees, parents, and institutions **find Paeds Resus** when 
 1. Claim or update **Paeds Resus Limited** / **Paeds Resus** listing (Nairobi / primary service area).
 2. Category suggestions: *Emergency training*, *Health consultant*, *Educational institution* (pick best fit).
 3. Website URL: `https://www.paedsresus.com`
-4. Add photos: logo, training sessions (with consent), team in clinical education context.
-5. Post monthly: new cohort dates, micro-course launches, institutional pilot news (no unsupported outcome claims).
+4. **Paste-ready description (no URLs in body):** [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md)
+5. Add photos: logo, training sessions (with consent), team in clinical education context.
+6. Post monthly: ERS/ERT readiness, new cohort dates, institutional pilot process metrics (no unsupported outcome claims).
 
 ### 3. Content refresh cadence
 
@@ -65,8 +66,8 @@ Ensure providers, trainees, parents, and institutions **find Paeds Resus** when 
 | P0 | BLS certification Kenya, basic life support course | `/training/bls` |
 | P1 | NRP neonatal resuscitation Kenya | `/training/nrp` |
 | P1 | Paeds Resus, paediatric emergency platform Kenya | `/` |
+| P2 | hospital emergency response system Kenya, paediatric readiness Nyeri | `/institutional`, `/for-institutions` |
 | P2 | paediatric resuscitation app, ResusGPS | `/for-providers` |
-| P2 | hospital emergency readiness Kenya | `/for-institutions` |
 | P2 | parent child safety emergency Kenya | `/for-parents` |
 
 ### 5. LLM / AI discovery

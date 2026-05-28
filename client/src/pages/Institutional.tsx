@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, CheckCircle2, LogIn, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, LogIn, ShieldCheck, Siren, Users } from "lucide-react";
 
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -21,7 +23,18 @@ const COURSE_TO_PRICING_KEY: Record<string, string> = {
   gold: "fellowship",
 };
 
+const SERVICE_REGION_TOWNS =
+  "Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, and Marsabit";
+
 export default function Institutional() {
+  useScrollToTop();
+  usePageMeta({
+    title: "Hospital Emergency Response System Kenya — Paediatric Readiness | Paeds Resus",
+    description:
+      "Hospital-wide Emergency Readiness System (ERS) with paediatric priority for Kenya. Nurse-led 24/7 ERT, ResusGPS, Care Signal, training mesh, and readiness audits — Nyeri, Embu, Murang'a, Meru, and central Kenya.",
+    path: "/institutional",
+  });
+
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
   const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
@@ -50,16 +63,41 @@ export default function Institutional() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
-        <div className="max-w-6xl mx-auto space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold">Paeds Resus for Institutions</h1>
-          <p className="text-lg md:text-xl text-orange-100 max-w-3xl">
-            Paediatric emergency readiness systems — ResusGPS bedside guidance, Care Signal quality improvement, and
-            training aligned to your facility&apos;s gaps—not seat-count alone.
+        <div className="max-w-6xl mx-auto space-y-5">
+          <p className="text-sm font-medium text-orange-200 tracking-wide uppercase">
+            Hospital Emergency Readiness System · Paediatric priority
+          </p>
+          <h1 className="text-4xl md:text-5xl font-bold max-w-4xl">
+            No child should die from a preventable emergency — even when one nurse covers the whole ward
+          </h1>
+          <p className="text-lg md:text-xl text-orange-100 max-w-3xl leading-relaxed">
+            Paeds Resus helps hospitals build a <strong className="font-semibold text-white">hospital-wide Emergency
+            Response System (ERS)</strong> — nurse-led ERT, 24/7 cross-unit coverage for adult, paediatric, and
+            neonatal emergencies, plus ResusGPS, Care Signal, training mesh, and readiness audits. Readiness systems,
+            not seat bundles.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
-            We publish only supportable claims. Clinical outcomes depend on facility context, staffing, and adherence
-            to local protocols.
+            Serving central and upper Eastern Kenya — {SERVICE_REGION_TOWNS}.
           </p>
+          <p className="text-xs text-orange-100/80 max-w-3xl">
+            Early pilot signal: improved ROSC at Mathari with nurse-only ERT. We do not claim mortality reduction until
+            governed evaluation completes.
+          </p>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_ers_contact")}>
+              <a href="#quote">Contact / request onboarding</a>
+            </Button>
+            <Link href="/hospital-admin-dashboard">
+              <Button variant="outline" className="border-white/50 text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_hospital_admin")}>
+                Hospital admin portal
+              </Button>
+            </Link>
+            <Link href="/institutional-onboarding">
+              <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_onboarding")}>
+                New facility onboarding
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -68,7 +106,7 @@ export default function Institutional() {
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
             <h2 className="text-lg font-semibold mb-2">Evaluating a partnership?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Request a scoped quote for your facility. No login is required for this buyer workflow.
+              Start a readiness conversation — ERS scope, ERT design, and training gaps. No login required.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_get_quote")}>
@@ -76,7 +114,7 @@ export default function Institutional() {
               </Button>
               <WhatsAppButton
                 phoneNumber="254706781260"
-                message="Hello Paeds Resus, I would like information on institutional training."
+                message="Hello Paeds Resus, I would like to discuss Hospital Emergency Readiness (ERS) for our facility."
                 label="WhatsApp"
                 className="bg-green-600 hover:bg-green-700 text-white"
               />
@@ -109,52 +147,75 @@ export default function Institutional() {
         </div>
       </section>
 
-      <section className="py-14 px-4">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-5">
-          <Card>
-            <CardHeader>
-              <CardTitle className="inline-flex items-center gap-2 text-base">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                Clinical scope clarity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              ResusGPS is a provider tool for structured bedside guidance. It supports clinical teams and does not
-              replace local policy or senior decision making.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="inline-flex items-center gap-2 text-base">
-                <Users className="h-4 w-4 text-primary" />
-                Team training model
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Combine foundational courses and focused modules to match your workforce needs across nurses, clinicians,
-              and emergency-facing teams.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="inline-flex items-center gap-2 text-base">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Readiness & QI visibility
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Command-centre views surface Care Signal reporting, ResusGPS adoption, and training coverage so leadership
-              can act on system gaps—not just enrollment counts.
-            </CardContent>
-          </Card>
+      <section className="py-14 px-4" aria-labelledby="ers-components-heading">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 id="ers-components-heading" className="text-2xl md:text-3xl font-bold text-[#1a4d4d] mb-3">
+              What the Hospital ERS includes
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Give-before-you-take partnership — readiness assessment and ERT design first; training and platform follow
+              identified gaps.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <Card>
+              <CardHeader>
+                <CardTitle className="inline-flex items-center gap-2 text-base">
+                  <Siren className="h-4 w-4 text-primary" />
+                  Nurse-led ERT · 24/7
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Hospital-wide activation with paediatric priority — cross-unit support when one peds nurse covers adult,
+                maternity, and neonatal wards.
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="inline-flex items-center gap-2 text-base">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  ResusGPS at the bedside
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Structured ABCDE flows, CPR Clock, and weight-based dosing. Supports teams — does not replace local
+                policy or senior decision making.
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="inline-flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4 text-primary" />
+                  Training mesh
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                BLS, ACLS, PALS, and NRP from Paeds Resus Limited — mapped to role and gap, not generic bulk
+                certification drives.
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="inline-flex items-center gap-2 text-base">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  Dashboard & audit
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                ERT activations, time to response, Care Signal QI, training coverage, and equipment readiness fixes —
+                honest metrics, not seat counts alone.
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
       <section className="py-16 px-4 bg-gradient-to-b from-white to-orange-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center text-[#1a4d4d]">Training programmes</h2>
-          <p className="text-center text-muted-foreground mb-8">
-            Select a programme to preview content and planning costs.
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center text-[#1a4d4d]">Training mesh (after gap assessment)</h2>
+          <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Programmes align to your ERS rollout — preview content and planning costs once readiness scope is agreed.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {getPublicInstitutionalCourses().map((course) => (
@@ -321,9 +382,10 @@ export default function Institutional() {
 
       <section className="py-16 px-4 bg-green-900 text-white">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to scope your facility plan?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to build your hospital ERS?</h2>
           <p className="text-lg text-green-100 mb-8">
-            Share your staffing and programme needs. We will return a formal quote and next-step onboarding path.
+            Share your staffing reality and current emergency response setup. We will scope ERT design, readiness audit,
+            and training mesh — with an honest onboarding path.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button asChild size="lg" className="bg-white text-green-900 hover:bg-green-50">
@@ -331,7 +393,7 @@ export default function Institutional() {
             </Button>
             <WhatsAppButton
               phoneNumber="254706781260"
-              message="Hello Paeds Resus, I am interested in institutional training for my hospital."
+              message="Hello Paeds Resus, I am interested in the Hospital Emergency Readiness System (ERS) for our hospital."
               size="lg"
               className="bg-green-500 hover:bg-green-600 text-white"
               label="Chat on WhatsApp"
@@ -348,9 +410,9 @@ export default function Institutional() {
       <section id="quote" className="py-16 bg-muted/30 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Request an institutional quote</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Contact / request hospital onboarding</h2>
             <p className="text-lg text-muted-foreground">
-              We use your details to scope training and follow up with your team.
+              We use your details to scope ERS readiness, ERT design, and training — then follow up with your leadership team.
             </p>
           </div>
           <InstitutionalLeadForm />

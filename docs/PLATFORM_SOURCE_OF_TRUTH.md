@@ -392,7 +392,7 @@ Paeds Resus is not a bundle of separate tools that happen to share a login. It i
 | **Bedside cognition** | Wrong sequence, missed steps, dosing errors under stress | ResusGPS |
 | **Professional competence** | Knowledge gaps, certification, behaviour change | Fellowship + AHA Courses + Micro-courses |
 | **Continuous learning from real cases** | Gap between classroom mastery and ward behaviour | Care Signal → linked learning |
-| **Institutional systems** | Workflow, triage, procurement, accountability | Institutional OS |
+| **Institutional systems** | Workflow, triage, procurement, accountability | Institutional OS (Hospital ERS) |
 | **Community and guardian voice** | Late presentation, family experience, upstream failures | Safe-Truth |
 
 No level replaces the others. Engineering decisions must **prefer integration** — shared identity, shared analytics, linked data flows — over siloed tools.
@@ -467,10 +467,14 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Canonical doc:** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) §9
 
 #### Institutional OS
-- **Feeds:** Facility-level analytics, MOH reporting, procurement intelligence
+- **Institutional offering (canonical):** **Hospital Emergency Readiness System (ERS)** — hospital-wide Emergency Response Team (ERT) model with **paediatric priority framing**; nurse-led 24/7 cross-unit coverage; ResusGPS, Care Signal, training mesh (Paeds Resus Limited), equipment/readiness audit, and institutional dashboard. **Not** a generic ACLS vendor or seat-bundle catalogue. Narrative: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md).
+- **Feeds:** Facility-level analytics, MOH reporting, procurement intelligence, ERT activation metrics
 - **Receives from:** Care Signal (facility gap data), ResusGPS (case load by facility), Course completions (staff training status)
 - **Integration gap (current):** Facility-level Care Signal dashboard not yet built; institutional admin sees only enrollment/payment data
-- **Canonical doc:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md)
+- **Pilot:** Mathari nurse-only ERT — early ROSC improvement signal; mortality impact **not claimed** until governed evaluation
+- **Service region:** Central and upper Eastern Kenya (Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, Marsabit)
+- **Legal templates:** [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md), [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md)
+- **Canonical docs:** [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md), [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md)
 
 ---
 
@@ -553,6 +557,8 @@ Every strategic and operational document in this repository is listed here with 
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
+| [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, Mathari pilot, 90-day metrics — expands §19 Institutional OS |
+| [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md) | Active | Paste-ready Google Business Profile description (no URLs in body) — expands §23 |
 
 ### 21.2 Technical and Operational Documents
 
@@ -711,4 +717,4 @@ Localized discovery pages (e.g. country-specific training landings, Swahili meta
 
 ---
 
-**Last structural update:** 2026-05-27 — Added §23 (public visibility & discovery). Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-05-28 — Institutional ERS narrative (§19 Institutional OS, §21 registry). Prior: 2026-05-27 — Added §23 (public visibility & discovery). Prior: 2026-05-01 — §19–§22.
