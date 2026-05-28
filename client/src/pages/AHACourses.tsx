@@ -4,81 +4,16 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, CheckCircle2, ArrowLeft, XCircle, Clock, ClipboardCheck, CalendarPlus, Award } from "lucide-react";
+import { BookOpen, CheckCircle2, ArrowLeft, ClipboardCheck, CalendarPlus, Award } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
 import { AhaHubCourseCard, AhaHubCourseCardSkeleton } from "@/components/AhaHubCourseCard";
+import { AhaCertificationPath } from "@/components/AhaCertificationPath";
+import { buildAhaHubEnrollmentMap } from "@/lib/pick-aha-hub-enrollment";
 import { toast } from "sonner";
 
 const AHA_QUERY_STALE_MS = 5 * 60 * 1000;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Certification progress indicator
-// Shows the two gates a learner must pass before the full AHA certificate is issued.
-// A cognitive completion certificate is issued immediately after cognitive modules
-// are done — this serves as a gatepass for the practical skills session.
-// ─────────────────────────────────────────────────────────────────────────────
-function CertProgressBar({
-  cognitiveComplete,
-  practicalSignedOff,
-  certificateIssued,
-}: {
-  cognitiveComplete: boolean;
-  practicalSignedOff: boolean;
-  certificateIssued: boolean;
-}) {
-  if (certificateIssued) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-        <CheckCircle2 className="h-4 w-4 shrink-0" />
-        Full AHA certificate issued — valid for 2 years
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground font-medium">Certification path</p>
-      <div className="space-y-1.5">
-        {/* Gate 1: Cognitive */}
-        <div className="flex items-center gap-2 text-xs">
-          {cognitiveComplete ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-          ) : (
-            <XCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          )}
-          <span className={cognitiveComplete ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
-            {cognitiveComplete ? "Cognitive modules complete — gatepass certificate issued" : "Complete all cognitive modules"}
-          </span>
-        </div>
-        {/* Gate 2: Practical */}
-        <div className="flex items-center gap-2 text-xs">
-          {practicalSignedOff ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-          ) : (
-            <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          )}
-          <span className={practicalSignedOff ? "text-emerald-700 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
-            {practicalSignedOff
-              ? "Practical skills signed off"
-              : "Practical skills — awaiting instructor sign-off"}
-          </span>
-        </div>
-      </div>
-      {cognitiveComplete && !practicalSignedOff && (
-        <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed bg-blue-50 dark:bg-blue-950/30 rounded p-2 mt-1">
-          Your cognitive gatepass certificate is ready. Present it at your hands-on session to complete practical sign-off.
-        </p>
-      )}
-      {!cognitiveComplete && (
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Complete all cognitive modules to receive your gatepass certificate for the hands-on practical session.
-        </p>
-      )}
-    </div>
-  );
-}
 
 export default function AHACourses() {
   const { user, loading: authLoading } = useAuth();
@@ -100,6 +35,14 @@ export default function AHACourses() {
     staleTime: AHA_QUERY_STALE_MS,
   });
 
+  const hubCourseIdByProgram = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of ahaCourses ?? []) {
+      m.set(c.programType, c.id);
+    }
+    return m;
+  }, [ahaCourses]);
+
   const hubCourseByProgram = useMemo(() => {
     const m = new Map<string, NonNullable<typeof ahaCourses>[number]>();
     for (const c of ahaCourses ?? []) {
@@ -107,6 +50,11 @@ export default function AHACourses() {
     }
     return m;
   }, [ahaCourses]);
+
+  const enrollmentByProgram = useMemo(
+    () => buildAhaHubEnrollmentMap(ahaEnrollments, hubCourseIdByProgram),
+    [ahaEnrollments, hubCourseIdByProgram]
+  );
 
   const openAhaPlayer = (pt: AhaProgramType, enrollmentId: number) => {
     const hubCourse = hubCourseByProgram.get(pt);
@@ -117,22 +65,11 @@ export default function AHACourses() {
     setLocation(getAhaContinueRoute(pt, enrollmentId, hubCourse.id).destination);
   };
 
-  const latestAhaByProgram = useMemo(() => {
-    const m = new Map<string, (NonNullable<typeof ahaEnrollments>[number])>();
-    for (const e of ahaEnrollments ?? []) {
-      const pt = e.programType;
-      const cur = m.get(pt);
-      if (!cur || new Date(e.createdAt) > new Date(cur.createdAt)) m.set(pt, e);
-    }
-    return m;
-  }, [ahaEnrollments]);
-
   // Primary action: guide user to the next unenrolled course, or continue an in-progress one
   const primaryAction = useMemo(() => {
-    // First: find a course that is enrolled but cognitive not yet complete
     for (const pt of AHA_COURSE_ORDER) {
-      const enrol = latestAhaByProgram.get(pt);
-      if (enrol && !(enrol as any)?.cognitiveModulesComplete) {
+      const enrol = enrollmentByProgram.get(pt);
+      if (enrol && !enrol.cognitiveModulesComplete) {
         return {
           label: `Continue ${pt.toUpperCase()} cognitive modules`,
           onClick: () => {
@@ -146,9 +83,8 @@ export default function AHACourses() {
         };
       }
     }
-    // Second: find a course not yet enrolled
     for (const pt of AHA_COURSE_ORDER) {
-      if (!latestAhaByProgram.get(pt)) {
+      if (!enrollmentByProgram.get(pt)) {
         return {
           label: `Start ${pt.toUpperCase()} enrollment`,
           onClick: () => {
@@ -162,10 +98,10 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [latestAhaByProgram, setLocation, track, hubCourseByProgram]);
+  }, [enrollmentByProgram, setLocation, track, hubCourseByProgram]);
 
-  const anyEnrolled = [...latestAhaByProgram.values()].length > 0;
-  const anyCognitiveComplete = [...latestAhaByProgram.values()].some((e) => (e as any)?.cognitiveModulesComplete);
+  const anyEnrolled = enrollmentByProgram.size > 0;
+  const anyCognitiveComplete = [...enrollmentByProgram.values()].some((e) => e.cognitiveModulesComplete);
 
   if (authLoading || !user) {
     return (
@@ -192,7 +128,6 @@ export default function AHACourses() {
           </div>
         </div>
 
-        {/* How certification works — shown when any course is enrolled */}
         {anyEnrolled && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
             <CardHeader className="pb-2">
@@ -212,7 +147,6 @@ export default function AHACourses() {
           </Card>
         )}
 
-        {/* Cognitive gatepass certificate notice */}
         {anyCognitiveComplete && (
           <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
             <CardContent className="pt-4 pb-4 flex items-center gap-3">
@@ -239,10 +173,10 @@ export default function AHACourses() {
           {coursesLoading
             ? AHA_COURSE_ORDER.map((pt) => <AhaHubCourseCardSkeleton key={pt} />)
             : AHA_COURSE_ORDER.map((pt) => {
-                const enrol = latestAhaByProgram.get(pt);
+                const enrol = enrollmentByProgram.get(pt);
                 const isEnrolled = !!enrol;
-                const cognitiveComplete = (enrol as any)?.cognitiveModulesComplete ?? false;
-                const practicalSignedOff = (enrol as any)?.practicalSkillsSignedOff ?? false;
+                const cognitiveComplete = enrol?.cognitiveModulesComplete ?? false;
+                const practicalSignedOff = enrol?.practicalSkillsSignedOff ?? false;
                 const certIssued = cognitiveComplete && practicalSignedOff;
 
                 const titleAdornment = certIssued ? (
@@ -258,15 +192,13 @@ export default function AHACourses() {
                     titleAdornment={titleAdornment}
                     className={certIssued ? "border-emerald-300 dark:border-emerald-700" : undefined}
                     middle={
-                      isEnrolled ? (
-                        <div className="rounded-lg border border-border bg-muted/30 p-3">
-                          <CertProgressBar
-                            cognitiveComplete={cognitiveComplete}
-                            practicalSignedOff={practicalSignedOff}
-                            certificateIssued={certIssued}
-                          />
-                        </div>
-                      ) : undefined
+                      <div className="rounded-lg border border-border bg-muted/30 p-3">
+                        <AhaCertificationPath
+                          cognitiveComplete={cognitiveComplete}
+                          practicalSignedOff={practicalSignedOff}
+                          certificateIssued={certIssued}
+                        />
+                      </div>
                     }
                     footer={
                       <div className="space-y-2">
@@ -332,7 +264,6 @@ export default function AHACourses() {
               })}
         </div>
 
-        {/* Primary next action */}
         {primaryAction && (
           <Card className="border-2 border-primary/30 bg-primary/5">
             <CardHeader>
@@ -347,7 +278,6 @@ export default function AHACourses() {
           </Card>
         )}
 
-        {/* Book a hands-on session CTA — shown when any cognitive modules are complete */}
         {anyCognitiveComplete && (
           <Card className="border-border">
             <CardContent className="pt-5 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

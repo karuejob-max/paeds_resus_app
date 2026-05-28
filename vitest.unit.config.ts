@@ -24,10 +24,11 @@ export default defineConfig({
     environmentMatchGlobs: [["client/src/components/**", "jsdom"]],
     include: [
       "client/src/lib/**/*.test.ts",
+      "client/src/lib/**/*.test.tsx",
       "client/src/const/**/*.test.ts",
+      "client/src/components/**/*.test.tsx",
       "shared/**/*.test.ts",
       "server/routers/events.trackEvent.test.ts",
-      "client/src/lib/**/*.test.tsx",
       "server/lib/**/*.test.ts",
       "server/routers/fellowship-care-signal-streak.test.ts",
       "server/_core/**/*.test.ts",

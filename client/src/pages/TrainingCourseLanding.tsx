@@ -13,6 +13,7 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
 import { formatPrice } from "@/const/pricing";
+import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
 import {
   TRAINING_LANDING_CONFIGS,
   getTrainingPrice,
@@ -23,7 +24,7 @@ import {
   buildJsonLdGraph,
   buildOrganizationJsonLd,
 } from "@/lib/seo-schema";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 
 type Props = {
   slug: TrainingLandingConfig["slug"];
@@ -63,6 +64,10 @@ export default function TrainingCourseLanding({ slug }: Props) {
             <p className="text-sm text-brand-orange font-medium mb-2">Paeds Resus Limited · AHA-aligned</p>
             <h1 className="text-3xl md:text-4xl font-bold mb-3">{config.h1}</h1>
             <p className="text-lg text-white/90">{config.subtitle}</p>
+            <p className="mt-3 flex items-center gap-2 text-sm text-white/85">
+              <Clock className="h-4 w-4 shrink-0" aria-hidden />
+              {formatAhaDurationLabel(slug)}
+            </p>
             {price != null && price > 0 && (
               <p className="mt-4 text-white/80 text-sm">
                 Individual enrollment from <strong className="text-white">{formatPrice(price)}</strong> — institutional
