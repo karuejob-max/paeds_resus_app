@@ -49,7 +49,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-05-28 | Cursor | **AHA hub cards + performance:** CEO-standard durations in `aha-course-metadata.ts`; shared `AhaHubCourseCard` (badge, duration, description, price, CTA); hub renders all five programs from metadata (fixes sparse PALS); parallel `listAhaHubPrograms`; query `staleTime` + skeleton loading. `check` + `test:unit` + `build`. | PR TBD · `fix/aha-hub-cards-performance` |
+| 2026-05-28 | Cursor | **AHA hub cards + performance:** CEO-standard durations in `aha-course-metadata.ts`; shared `AhaHubCourseCard` (badge, duration, description, price, CTA); hub renders all five programs from metadata (fixes sparse PALS); parallel `listAhaHubPrograms`; query `staleTime` + skeleton loading. `check` + `test:unit` + `build`. | PR #75 · `fix/aha-hub-cards-performance` |
 | 2026-05-28 | Cursor | **NRP pricing 10,000 KES:** `pricing.ts` individual + institutional; `/training/nrp` via `priceCourseId`; PublicHome, TrainingHub, AHACoursesPublic; JSON-LD offers. `check` + `test:unit` + `build`. | PR #72 · `fix/nrp-pricing-10000` |
 | 2026-05-28 | Cursor | **Production copy fixes:** PALS 20,000 KES; typo `paemergencies`; AHA FAQ answers (Yes + AHA certificate); registration/reconsent ResusGPS intended use. `check` + `test:unit` + `build`. | PR #71 · `fix/pals-pricing-typos-consent` |
 | 2026-05-27 | Cursor | **Public visibility & SEO:** compound home `/`, training landings (`/training/*`), stakeholder pages (`/for-*`), public `/aha-courses`, sitemap + JSON-LD, PSOT §23, operator guide. | PR TBD · `feat/public-compound-seo` |
