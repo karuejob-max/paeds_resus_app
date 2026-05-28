@@ -150,7 +150,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
             </div>
 
             <div className="lab-input">
-              <label>Bicarbonate (mEq/L)</label>
+              <label>Bicarbonate (mmol/L; mEq/L equivalent)</label>
               <input
                 type="number"
                 value={assessment.bicarbonate || ''}
@@ -170,7 +170,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
             </div>
 
             <div className="lab-input">
-              <label>Potassium (mEq/L)</label>
+              <label>Potassium (mmol/L; mEq/L equivalent)</label>
               <input
                 type="number"
                 step="0.1"
@@ -181,7 +181,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
             </div>
 
             <div className="lab-input">
-              <label>Sodium (mEq/L)</label>
+              <label>Sodium (mmol/L; mEq/L equivalent)</label>
               <input
                 type="number"
                 value={assessment.sodium || ''}
@@ -191,7 +191,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
             </div>
 
             <div className="lab-input">
-              <label>Chloride (mEq/L)</label>
+              <label>Chloride (mmol/L; mEq/L equivalent)</label>
               <input
                 type="number"
                 value={assessment.chloride || ''}
