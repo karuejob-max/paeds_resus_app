@@ -184,7 +184,16 @@ export default function AdminMpesaWebhooks() {
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : !data?.rows.length ? (
-              <p className="text-sm text-muted-foreground">No webhook log entries yet.</p>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>No webhook log entries yet.</p>
+                <p>
+                  This usually means Safaricom has not reached your STK callback since logging was enabled,
+                  or migration <code className="text-xs bg-muted px-1 rounded">0040</code> was not applied.
+                  Confirm <code className="text-xs bg-muted px-1 rounded">MPESA_CALLBACK_URL</code> in Render
+                  matches the Daraja app URL, and check logs for{" "}
+                  <code className="text-xs bg-muted px-1 rounded">[mpesaWebhookLog] insert failed</code>.
+                </p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">

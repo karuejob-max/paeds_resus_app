@@ -64,7 +64,25 @@ export function initializeScheduler() {
   console.log("[Scheduler] All scheduled tasks initialized");
 }
 
+function scheduleStaleMpesaReconciliation() {
+  cron.schedule("10 * * * *", async () => {
+    try {
+      const { reconcileStaleMpesaPendingBatch } = await import("./mpesa-reconciliation");
+      const result = await reconcileStaleMpesaPendingBatch({ olderThanHours: 24, limit: 30 });
+      if (result.processed > 0) {
+        console.log(
+          `[Scheduler] stale M-Pesa reconcile: processed=${result.processed} completed=${result.completed} failed=${result.failed} unchanged=${result.unchanged}`
+        );
+      }
+    } catch (error) {
+      console.error("[Scheduler] stale M-Pesa reconcile failed:", error);
+    }
+  });
+}
+
 function scheduleAdminOpsAlerts() {
+  scheduleStaleMpesaReconciliation();
+
   cron.schedule("15 * * * *", async () => {
     try {
       const { runAdminOpsAlerts } = await import("./lib/admin-ops-alerts");
