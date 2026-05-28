@@ -467,11 +467,11 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Canonical doc:** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) §9
 
 #### Institutional OS
-- **Institutional offering (canonical):** **Hospital Emergency Readiness System (ERS)** — hospital-wide Emergency Response Team (ERT) model with **paediatric priority framing**; nurse-led 24/7 cross-unit coverage; ResusGPS, Care Signal, training mesh (Paeds Resus Limited), equipment/readiness audit, and institutional dashboard. **Not** a generic ACLS vendor or seat-bundle catalogue. Narrative: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md).
+- **Institutional offering (canonical):** **Hospital Emergency Readiness System (ERS)** — hospital-wide Emergency Response Team (ERT) model with **paediatric priority framing**; nurse-led 24/7 hospital-wide coordination across units; ResusGPS, Care Signal, AHA-aligned training mesh (Paeds Resus Limited), equipment/readiness audit, and institutional dashboard. **Not** a generic ACLS vendor or seat-bundle catalogue. Narrative: [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md).
 - **Feeds:** Facility-level analytics, MOH reporting, procurement intelligence, ERT activation metrics
 - **Receives from:** Care Signal (facility gap data), ResusGPS (case load by facility), Course completions (staff training status)
 - **Integration gap (current):** Facility-level Care Signal dashboard not yet built; institutional admin sees only enrollment/payment data
-- **Pilot:** Mathari nurse-only ERT — early ROSC improvement signal; mortality impact **not claimed** until governed evaluation
+- **Pilot:** Early facility pilots — process metrics only; mortality impact **not claimed** until governed evaluation
 - **Service region:** Central and upper Eastern Kenya (Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, Marsabit)
 - **Legal templates:** [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md), [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md)
 - **Canonical docs:** [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md), [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md)
@@ -557,7 +557,7 @@ Every strategic and operational document in this repository is listed here with 
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
-| [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, Mathari pilot, 90-day metrics — expands §19 Institutional OS |
+| [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, ERS-first strategy, 90-day metrics — expands §19 Institutional OS |
 | [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md) | Active | Paste-ready Google Business Profile description (no URLs in body) — expands §23 |
 
 ### 21.2 Technical and Operational Documents
