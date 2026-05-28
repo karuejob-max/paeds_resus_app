@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
 import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } from "lucide-react";
 import { getIndividualCoursesByTrack, individualCourses } from "@/const/pricing";
+import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
 import { trpc } from "@/lib/trpc";
+import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { toast } from "sonner";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
@@ -116,15 +118,16 @@ export default function Payment() {
     selectedTrack === "paeds_resus"
       ? [...availableBaseCourses, ...getIndividualCoursesByTrack("paeds_resus")]
       : availableBaseCourses;
-  const courses = availableCourses
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      price: c.price,
-      duration: c.duration ?? "",
-      icon: courseIcons[c.id] ?? "📋",
-    }));
+  const courses = availableCourses.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    price: c.price,
+    duration: isAhaProgramSlug(c.id)
+      ? formatAhaDurationLabel(c.id as AhaProgramType)
+      : (c.duration ?? ""),
+    icon: courseIcons[c.id] ?? "📋",
+  }));
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
   const selectedProgramType = enrollmentRow?.programType ?? selectedCourse ?? null;
   const isPaedsResusPayment = selectedProgramType === "instructor";

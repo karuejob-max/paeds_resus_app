@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
 import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
+import { AhaEnrollCertificationPreview } from "@/components/AhaEnrollCertificationPreview";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 
@@ -180,6 +181,9 @@ export default function Enroll() {
                             {course.duration}
                           </div>
                         </div>
+                        {isAhaProgramSlug(course.id) && (
+                          <AhaEnrollCertificationPreview programType={course.id as AhaProgramType} />
+                        )}
                         <ul className="space-y-3">
                           {course.features.map((feature, idx) => (
                             <li key={idx} className="flex items-start gap-3">
@@ -338,6 +342,12 @@ export default function Enroll() {
                     KES {course.price.toLocaleString()}
                   </span>
                 </div>
+                {isAhaProgramSlug(selectedCourse) && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    {formatAhaDurationLabel(selectedCourse as AhaProgramType)}
+                  </div>
+                )}
                 {selectedCourse === "heartsaver" && course.price > 0 ? (
                   <>
                     <div className="flex justify-between gap-4 text-sm">
@@ -362,6 +372,14 @@ export default function Enroll() {
               </div>
             </CardContent>
           </Card>
+
+          {isAhaProgramSlug(selectedCourse) && (
+            <Card className="mb-6 border-border">
+              <CardContent className="pt-6">
+                <AhaEnrollCertificationPreview programType={selectedCourse as AhaProgramType} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Checkout Form */}
           <Card>
