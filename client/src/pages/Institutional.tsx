@@ -68,20 +68,16 @@ export default function Institutional() {
             Hospital Emergency Readiness System · Paediatric priority
           </p>
           <h1 className="text-4xl md:text-5xl font-bold max-w-4xl">
-            No child should die from a preventable emergency — even when one nurse covers the whole ward
+            No child should die from a preventable emergency — even when every department is stretched thin
           </h1>
           <p className="text-lg md:text-xl text-orange-100 max-w-3xl leading-relaxed">
             Paeds Resus helps hospitals build a <strong className="font-semibold text-white">hospital-wide Emergency
-            Response System (ERS)</strong> — nurse-led ERT, 24/7 cross-unit coverage for adult, paediatric, and
-            neonatal emergencies, plus ResusGPS, Care Signal, training mesh, and readiness audits. Readiness systems,
-            not seat bundles.
+            Response System (ERS)</strong> — nurse-led ERT, 24/7. During a code, one nurse responds while a colleague
+            keeps the department running; hospital-wide coordination brings teams across units together. ResusGPS, Care
+            Signal, AHA-aligned training mesh, and readiness audits — working ERS plus training, not seat bundles.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
             Serving central and upper Eastern Kenya — {SERVICE_REGION_TOWNS}.
-          </p>
-          <p className="text-xs text-orange-100/80 max-w-3xl">
-            Early pilot signal: improved ROSC at Mathari with nurse-only ERT. We do not claim mortality reduction until
-            governed evaluation completes.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_ers_contact")}>
@@ -154,8 +150,9 @@ export default function Institutional() {
               What the Hospital ERS includes
             </h2>
             <p className="text-muted-foreground text-sm">
-              Give-before-you-take partnership — readiness assessment and ERT design first; training and platform follow
-              identified gaps.
+              Working Emergency Response Systems plus AHA-aligned training — not generic bulk certification where
+              emergency response never improves. Readiness assessment and ERT design first; training follows identified
+              gaps.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -167,8 +164,8 @@ export default function Institutional() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Hospital-wide activation with paediatric priority — cross-unit support when one peds nurse covers adult,
-                maternity, and neonatal wards.
+                Hospital-wide activation with paediatric priority — one nurse responds during a code while a colleague
+                keeps the department running; a second responder coordinates teams across units.
               </CardContent>
             </Card>
             <Card>

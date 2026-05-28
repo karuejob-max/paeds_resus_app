@@ -256,10 +256,10 @@ export default function PublicHome() {
             <Card>
               <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <p className="text-muted-foreground max-w-2xl">
-                  Build a hospital-wide Emergency Readiness System with paediatric priority — nurse-led 24/7 ERT,
-                  cross-unit support when one peds nurse covers the ward, ResusGPS, Care Signal QI, training mesh, and
-                  readiness audits. Serving Nyeri, Embu, Murang&apos;a, Meru, and central Kenya — give-before-you-take,
-                  not seat bundles.
+                  Build a hospital-wide Emergency Readiness System with paediatric priority — nurse-led 24/7 ERT that
+                  coordinates teams across units, ResusGPS, Care Signal QI, AHA-aligned training mesh, and readiness
+                  audits. Serving Nyeri, Embu, Murang&apos;a, Meru, and central Kenya — working ERS plus training, not
+                  seat bundles.
                 </p>
                 <div className="flex flex-wrap gap-2 shrink-0">
                   <Link href="/institutional">
