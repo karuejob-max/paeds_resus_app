@@ -41,7 +41,7 @@ export const individualCourses: CoursePrice[] = [
     name: "PALS (Pediatric Advanced Life Support)",
     description:
       "Advanced pediatric emergency assessment and stabilization for critically ill children.",
-    price: 100,
+    price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
     duration: "Self-paced",
