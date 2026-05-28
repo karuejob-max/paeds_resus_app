@@ -583,6 +583,11 @@ Every strategic and operational document in this repository is listed here with 
 | [PROBLEM_SOLVING_FRAMEWORK.md](./PROBLEM_SOLVING_FRAMEWORK.md) | Active | Decision framework for agents |
 | [TEAMWORK_TASK_FORMAT.md](./TEAMWORK_TASK_FORMAT.md) | Active | Task format for multi-agent work |
 | [AGENTS.md](../AGENTS.md) | Active | **All-agents mandate** — read before any work in this repo |
+| [AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md) | Active v2 | **Multi-agent Definition of Done** — Distance = `origin/main`, Kolb cycle, forbidden Done |
+| [CRITICAL_FIX_PLAYBOOK.md](./CRITICAL_FIX_PLAYBOOK.md) | Active | **All critical fixes** — content, env, legal, payments, SEO, clinical pathways |
+| [CONTENT_HOTFIX_PLAYBOOK.md](./CONTENT_HOTFIX_PLAYBOOK.md) | Active | Quiz/content appendix — DB vs seed, verify scripts, PR checklist |
+| [MANUS_AGENT_RULES.md](./MANUS_AGENT_RULES.md) | Active | **Manus-specific** — Handoff vs Done, sandbox ≠ production |
+| [AI_TEAM_WORKFLOW.md](./AI_TEAM_WORKFLOW.md) | Active | Commit/push/PR/merge for Manus, Codex, Cursor |
 
 ### 21.4 Archive (Historical — Do Not Treat as Current)
 
