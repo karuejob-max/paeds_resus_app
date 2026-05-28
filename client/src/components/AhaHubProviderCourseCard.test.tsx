@@ -75,4 +75,18 @@ describe("AhaHubProviderCourseCard", () => {
 
     expect(screen.getByText("Certification path")).toBeTruthy();
   });
+
+  it("shows dual duration lines on hub cards", () => {
+    render(
+      <AhaHubProviderCourseCard
+        programType="pals"
+        onContinue={noop}
+        onEnroll={noop}
+        onViewCertificates={noop}
+      />
+    );
+
+    expect(screen.getByText("Total time (AHA recommendation): 16 hours")).toBeTruthy();
+    expect(screen.getByText("Cognitive coursework: ~10 hours online")).toBeTruthy();
+  });
 });

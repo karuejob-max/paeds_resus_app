@@ -1,4 +1,8 @@
-import { ahaDurationIsoHours, formatAhaDuration } from "@/const/aha-course-metadata";
+import {
+  ahaDurationIsoHours,
+  formatAhaRecommendedDuration,
+  formatCognitiveCourseworkDuration,
+} from "@/const/aha-course-metadata";
 import { getIndividualCoursePrice } from "@/const/pricing";
 
 export type TrainingFaq = { question: string; answer: string };
@@ -54,7 +58,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
         heading: "What you will learn",
         paragraphs: [
           "PALS covers systematic paediatric assessment, respiratory and shock algorithms, arrhythmia recognition, post–cardiac arrest care, and effective team communication during paediatric emergencies. Content follows American Heart Association science while emphasising adaptation to resource-limited settings: clear roles, early escalation, and alignment with your facility protocol.",
-          `Typical PALS certification involves approximately ${formatAhaDuration("pals")} of structured learning, split between self-paced cognitive modules and instructor-led practical skills. Paeds Resus tracks your progress so you always know whether you need to continue online learning or book a practical session.`,
+          `Typical PALS certification involves ${formatAhaRecommendedDuration("pals")} total (AHA recommendation), with approximately ${formatCognitiveCourseworkDuration("pals")} of self-paced cognitive modules plus instructor-led practical skills. Paeds Resus tracks your progress so you always know whether you need to continue online learning or book a practical session.`,
         ],
       },
       {
@@ -78,7 +82,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       {
         question: "How long does PALS take?",
         answer:
-          `Plan for approximately ${formatAhaDuration("pals")} total: self-paced cognitive modules plus a scheduled practical skills session.`,
+          `Plan for ${formatAhaRecommendedDuration("pals")} total (AHA recommendation): ${formatCognitiveCourseworkDuration("pals")} self-paced online plus a scheduled practical skills session.`,
       },
       {
         question: "Can my hospital enroll a team?",
@@ -112,7 +116,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       {
         heading: "Course structure and certification path",
         paragraphs: [
-          `ACLS typically requires approximately ${formatAhaDuration("acls")} of learning. Cognitive content covers BLS integration, airway management, pharmacology, ACLS algorithms, and post–cardiac arrest care. Practical sessions validate megacode performance, defibrillation, and team leadership.`,
+          `ACLS typically requires ${formatAhaRecommendedDuration("acls")} total (AHA recommendation), including approximately ${formatCognitiveCourseworkDuration("acls")} of online cognitive content. Cognitive modules cover BLS integration, airway management, pharmacology, ACLS algorithms, and post–cardiac arrest care. Practical sessions validate megacode performance, defibrillation, and team leadership.`,
           "Your enrollment, progress, and certificates live in your Paeds Resus provider account. Verify any certificate publicly at www.paedsresus.com/verify.",
         ],
       },
@@ -166,7 +170,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
         heading: "BLS: the foundation of every resuscitation team",
         paragraphs: [
           "Basic Life Support (BLS) is the entry point for high-quality CPR, AED use, and team-based response for healthcare providers. Whether you work in a district hospital, private clinic, or national referral centre in Kenya, BLS competence is non-negotiable for safe emergency care.",
-          `Paeds Resus Limited delivers AHA-aligned BLS through the Paeds Resus platform. Learners complete approximately ${formatAhaDuration("bls")} of structured cognitive content, receive a gatepass certificate when online modules are complete, and attend a practical session for full certification.`,
+          `Paeds Resus Limited delivers AHA-aligned BLS through the Paeds Resus platform. The AHA recommends ${formatAhaRecommendedDuration("bls")} total contact time; learners typically spend ${formatCognitiveCourseworkDuration("bls")} on self-paced cognitive modules, receive a gatepass certificate when online modules are complete, and attend a practical session for full certification.`,
           "BLS is separate from the Paeds Resus Fellowship. It is an optional, standalone AHA-aligned offering — many institutions require BLS renewal every two years regardless of fellowship progress.",
         ],
       },

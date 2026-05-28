@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
+import {
+  formatAhaRecommendedDuration,
+  formatAhaRecommendedDurationLabel,
+} from "@/const/aha-course-metadata";
 import { getIndividualCoursePrice, individualCourses } from "@/const/pricing";
 
 describe("individual course pricing (KES)", () => {
@@ -25,9 +28,11 @@ describe("individual course pricing (KES)", () => {
     expect(pals?.price).toBe(acls?.price);
   });
 
-  it("stores CEO-standard hour labels on AHA catalog rows", () => {
+  it("stores CEO-standard recommended total hours on AHA catalog rows", () => {
     expect(individualCourses.find((c) => c.id === "pals")?.duration).toBe("16 hours");
-    expect(formatAhaDurationLabel("pals")).toBe("Duration: 16 hours");
-    expect(formatAhaDurationLabel("bls")).toBe("Duration: 1 hour");
+    expect(formatAhaRecommendedDurationLabel("pals")).toBe(
+      "Total time (AHA recommendation): 16 hours"
+    );
+    expect(formatAhaRecommendedDuration("bls")).toBe("1 hour");
   });
 });

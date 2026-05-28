@@ -3,7 +3,7 @@
  * All course pricing in KES (Kenyan Shillings)
  */
 
-import { formatAhaDuration } from "./aha-course-metadata";
+import { formatAhaRecommendedDuration } from "./aha-course-metadata";
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
 
 export interface CoursePrice {
@@ -26,7 +26,7 @@ export const individualCourses: CoursePrice[] = [
     price: 10000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: formatAhaDuration("bls" as AhaProgramType),
+    duration: formatAhaRecommendedDuration("bls" as AhaProgramType),
     level: "Beginner",
   },
   {
@@ -36,7 +36,7 @@ export const individualCourses: CoursePrice[] = [
     price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: formatAhaDuration("acls" as AhaProgramType),
+    duration: formatAhaRecommendedDuration("acls" as AhaProgramType),
     level: "Intermediate",
   },
   {
@@ -47,7 +47,7 @@ export const individualCourses: CoursePrice[] = [
     price: 20000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: formatAhaDuration("pals" as AhaProgramType),
+    duration: formatAhaRecommendedDuration("pals" as AhaProgramType),
     level: "Advanced",
   },
   {
@@ -58,7 +58,7 @@ export const individualCourses: CoursePrice[] = [
     price: 5000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: formatAhaDuration("heartsaver" as AhaProgramType),
+    duration: formatAhaRecommendedDuration("heartsaver" as AhaProgramType),
     level: "Beginner",
   },
   {
@@ -69,7 +69,7 @@ export const individualCourses: CoursePrice[] = [
     price: 10000,
     category: "individual",
     providerTrack: "aha_certification",
-    duration: formatAhaDuration("nrp" as AhaProgramType),
+    duration: formatAhaRecommendedDuration("nrp" as AhaProgramType),
     level: "Advanced",
   },
   {
