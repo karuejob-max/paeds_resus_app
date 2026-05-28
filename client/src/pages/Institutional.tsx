@@ -15,6 +15,7 @@ const COURSE_TO_PRICING_KEY: Record<string, string> = {
   bls: "bls",
   acls: "acls",
   pals: "pals",
+  nrp: "nrp",
   bronze: "fellowship",
   silver: "fellowship",
   gold: "fellowship",

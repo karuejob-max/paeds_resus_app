@@ -52,8 +52,7 @@ export default function TrainingCourseLanding({ slug }: Props) {
     }),
   ]);
 
-  const enrollPath =
-    slug === "nrp" ? getLoginUrl("/enroll") : getLoginUrl(`/enroll?courseId=${slug}`);
+  const enrollPath = getLoginUrl(`/enroll?courseId=${slug}`);
 
   return (
     <>

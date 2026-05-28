@@ -6,7 +6,8 @@ import { JsonLdScript } from "@/components/JsonLdScript";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
-import { TRAINING_LANDING_CONFIGS } from "@/lib/training-landing-content";
+import { TRAINING_LANDING_CONFIGS, getTrainingPrice } from "@/lib/training-landing-content";
+import { formatPrice } from "@/const/pricing";
 import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 import { ArrowRight, GraduationCap } from "lucide-react";
 
@@ -44,11 +45,20 @@ export default function TrainingHub() {
 
         <div className="max-w-4xl mx-auto px-4 pb-12 space-y-8">
           <div className="grid sm:grid-cols-2 gap-4">
-            {Object.values(TRAINING_LANDING_CONFIGS).map((course) => (
+            {Object.values(TRAINING_LANDING_CONFIGS).map((course) => {
+              const price = getTrainingPrice(course.slug);
+              return (
               <Card key={course.slug} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-lg">{course.courseCode}</CardTitle>
-                  <CardDescription>{course.subtitle.slice(0, 100)}…</CardDescription>
+                  <CardDescription>
+                    {course.subtitle.slice(0, 100)}…
+                    {price != null && price > 0 && (
+                      <span className="block mt-2 font-medium text-foreground">
+                        From {formatPrice(price)}
+                      </span>
+                    )}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Link href={course.path}>
@@ -59,7 +69,8 @@ export default function TrainingHub() {
                   </Link>
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
 
           <Card>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { TRAINING_LANDING_CONFIGS, ahaCertificationFaqAnswer } from "./training-landing-content";
+import {
+  TRAINING_LANDING_CONFIGS,
+  ahaCertificationFaqAnswer,
+  getTrainingPrice,
+} from "./training-landing-content";
 
 describe("ahaCertificationFaqAnswer", () => {
   it("starts with Yes and names AHA certificate issuance", () => {
@@ -7,6 +11,12 @@ describe("ahaCertificationFaqAnswer", () => {
     expect(answer.startsWith("Yes.")).toBe(true);
     expect(answer).toContain("American Heart Association");
     expect(answer).toMatch(/AHA\)-aligned/);
+  });
+});
+
+describe("getTrainingPrice", () => {
+  it("returns 10000 KES for NRP landing", () => {
+    expect(getTrainingPrice("nrp")).toBe(10000);
   });
 });
 

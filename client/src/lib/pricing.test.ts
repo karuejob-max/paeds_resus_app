@@ -7,6 +7,14 @@ describe("individual course pricing (KES)", () => {
     expect(getIndividualCoursePrice("acls")).toBe(20000);
     expect(getIndividualCoursePrice("pals")).toBe(20000);
     expect(getIndividualCoursePrice("heartsaver")).toBe(5000);
+    expect(getIndividualCoursePrice("nrp")).toBe(10000);
+  });
+
+  it("lists NRP at same individual price as BLS", () => {
+    const nrp = individualCourses.find((c) => c.id === "nrp");
+    const bls = individualCourses.find((c) => c.id === "bls");
+    expect(nrp?.price).toBe(10000);
+    expect(nrp?.price).toBe(bls?.price);
   });
 
   it("lists PALS at same price as ACLS", () => {

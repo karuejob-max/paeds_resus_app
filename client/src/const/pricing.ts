@@ -48,6 +48,17 @@ export const individualCourses: CoursePrice[] = [
     level: "Advanced",
   },
   {
+    id: "nrp",
+    name: "NRP (Neonatal Resuscitation Program)",
+    description:
+      "Neonatal resuscitation training for delivery suites, NICUs, and maternity teams — newborn transition at birth.",
+    price: 10000,
+    category: "individual",
+    providerTrack: "aha_certification",
+    duration: "Self-paced + practical",
+    level: "Intermediate",
+  },
+  {
     id: "heartsaver",
     name: "Heartsaver CPR AED",
     description:
@@ -98,6 +109,17 @@ export const institutionalPricing = {
   pals: {
     name: "PALS - Institutional",
     basePricePerSeat: 16000, // 20% discount from individual
+    minimumSeats: 10,
+    bulkDiscounts: [
+      { seats: 10, discount: 20 },
+      { seats: 25, discount: 30 },
+      { seats: 50, discount: 40 },
+      { seats: 100, discount: 50 },
+    ],
+  },
+  nrp: {
+    name: "NRP - Institutional",
+    basePricePerSeat: 8000, // 20% discount from individual
     minimumSeats: 10,
     bulkDiscounts: [
       { seats: 10, discount: 20 },
