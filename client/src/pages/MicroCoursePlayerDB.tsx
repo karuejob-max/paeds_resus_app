@@ -19,6 +19,8 @@ import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { AhaCertificationPath } from "@/components/AhaCertificationPath";
+import { formatAhaDuration } from "@/const/aha-course-metadata";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -191,6 +193,28 @@ export default function MicroCoursePlayerDB() {
     }
     return myEnrollments?.find((e) => e.course?.courseId === slug);
   }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
+
+  const ahaProgramForUi = useMemo((): AhaProgramType | null => {
+    if (!isAhaCourse) return null;
+    const pt =
+      ahaProgram ??
+      ((ahaCourseDetails as { programType?: string } | undefined)?.programType as AhaProgramType | undefined);
+    return pt && isAhaProgramSlug(pt) ? pt : null;
+  }, [isAhaCourse, ahaProgram, ahaCourseDetails]);
+
+  const ahaCertState = useMemo(() => {
+    const enrol = enrollment as {
+      cognitiveModulesComplete?: boolean | null;
+      practicalSkillsSignedOff?: boolean | null;
+    } | undefined;
+    const cognitiveComplete = enrol?.cognitiveModulesComplete ?? false;
+    const practicalSignedOff = enrol?.practicalSkillsSignedOff ?? false;
+    return {
+      cognitiveComplete,
+      practicalSignedOff,
+      certificateIssued: cognitiveComplete && practicalSignedOff,
+    };
+  }, [enrollment]);
 
   // ── Resume Progress Query ──────────────────────────────────────────────────
   // Only fire once we have both courseDetails (to know the courseId) and
@@ -757,6 +781,16 @@ export default function MicroCoursePlayerDB() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 mt-8">
+        {ahaProgramForUi && (
+          <div className="mb-6 rounded-lg border border-border bg-white p-4 shadow-sm">
+            <AhaCertificationPath
+              cognitiveComplete={ahaCertState.cognitiveComplete}
+              practicalSignedOff={ahaCertState.practicalSignedOff}
+              certificateIssued={ahaCertState.certificateIssued}
+            />
+          </div>
+        )}
+
         {/* Step-by-Step Navigation */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
           {modules.map((m: CourseModuleRow, idx: number) => (
@@ -812,6 +846,7 @@ export default function MicroCoursePlayerDB() {
             onComplete={handleFinalSubmit}
             isPending={completeCourse.isPending || markAhaCognitive.isPending}
             isAhaCourse={isAhaCourse}
+            ahaProgramType={ahaProgramForUi}
           />
         ) : showFormativeQuiz ? (
             <FormativeQuizView 
@@ -1056,7 +1091,23 @@ function FormativeQuizView({
   );
 }
 
-function SummativeQuizView({ course, quiz, onComplete, isPending, isAhaCourse }: any) {
+function SummativeQuizView({
+  course,
+  quiz,
+  onComplete,
+  isPending,
+  isAhaCourse,
+  ahaProgramType,
+}: {
+  course: { title: string; duration?: number };
+  quiz: unknown;
+  onComplete: () => void;
+  isPending: boolean;
+  isAhaCourse: boolean;
+  ahaProgramType?: AhaProgramType | null;
+}) {
+  const completedLabel =
+    isAhaCourse && ahaProgramType ? formatAhaDuration(ahaProgramType) : `${course.duration ?? 0}m`;
   return (
     <Card className="border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
       <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-12 text-center text-white relative overflow-hidden">
@@ -1083,7 +1134,7 @@ function SummativeQuizView({ course, quiz, onComplete, isPending, isAhaCourse }:
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Final Exam</p>
           </div>
           <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
-            <p className="text-4xl font-black text-foreground">{course.duration}m</p>
+            <p className="text-4xl font-black text-foreground">{completedLabel}</p>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</p>
           </div>
         </div>
