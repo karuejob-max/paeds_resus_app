@@ -7,6 +7,7 @@ import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Brief
 import { NotificationBell } from "@/components/NotificationBell";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
@@ -34,6 +35,7 @@ export default function Header() {
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
+  const prefetchAhaHub = usePrefetchAhaHub();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -229,7 +231,11 @@ export default function Header() {
           <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
             {navigation.map((link) => (
               <Link key={link.href} href={link.href}>
-                <span className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg">
+                <span
+                  className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg"
+                  onMouseEnter={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
+                  onFocus={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
+                >
                   {link.label}
                 </span>
               </Link>
@@ -460,6 +466,7 @@ export default function Header() {
                 <span
                   className="block px-3 py-2 text-foreground/90 hover:bg-accent hover:text-primary rounded transition cursor-pointer font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
+                  onTouchStart={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
                 >
                   {link.label}
                 </span>

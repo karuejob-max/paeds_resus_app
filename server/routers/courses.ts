@@ -18,6 +18,37 @@ import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_cor
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
 import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-enrollment-progress";
+import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
+
+const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
+
+async function fetchMyAhaEnrollments(userId: number) {
+  const database = await getDb();
+  if (!database) return [];
+  return database
+    .select({
+      id: enrollments.id,
+      userId: enrollments.userId,
+      programType: enrollments.programType,
+      courseId: enrollments.courseId,
+      trainingDate: enrollments.trainingDate,
+      paymentStatus: enrollments.paymentStatus,
+      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+      practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+      createdAt: enrollments.createdAt,
+      updatedAt: enrollments.updatedAt,
+      courseTitle: courses.title,
+    })
+    .from(enrollments)
+    .leftJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.userId, userId),
+        inArray(enrollments.programType, [...AHA_PROGRAM_TYPES])
+      )
+    )
+    .orderBy(desc(enrollments.createdAt));
+}
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   const database = await getDb();
@@ -93,24 +124,29 @@ export const coursesRouter = router({
     try {
       const database = await getDb();
       if (!database) return [];
-      const order = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
-      const resolved = await Promise.all(
-        order.map(async (pt) => {
-          try {
-            return await resolveAhaCourseAnchor(database, pt);
-          } catch (programErr) {
-            // Do not blank the whole AHA hub if one catalog fails (e.g. NRP enum not yet migrated).
-            console.warn(`[courses.listAhaHubPrograms] skipping ${pt}:`, programErr);
-            return null;
-          }
-        })
-      );
-      return resolved.filter(
-        (anchor): anchor is NonNullable<Awaited<ReturnType<typeof resolveAhaCourseAnchor>>> => anchor != null
-      );
+      return await fetchAhaHubPrograms(database);
     } catch (error) {
       console.error('[courses.listAhaHubPrograms]', error);
       return [];
+    }
+  }),
+
+  /**
+   * Provider AHA hub — programs + enrollments in one round trip (prefetch-friendly).
+   */
+  getAhaHubDashboard: protectedProcedure.query(async ({ ctx }) => {
+    assertTrainingWorkspaceOrAdmin(ctx.user);
+    try {
+      const database = await getDb();
+      if (!database) return { programs: [], enrollments: [] };
+      const [programs, enrollments] = await Promise.all([
+        fetchAhaHubPrograms(database),
+        fetchMyAhaEnrollments(ctx.user.id),
+      ]);
+      return { programs, enrollments };
+    } catch (error) {
+      console.error('[courses.getAhaHubDashboard]', error);
+      return { programs: [], enrollments: [] };
     }
   }),
 
@@ -118,32 +154,7 @@ export const coursesRouter = router({
   getMyAhaEnrollments: protectedProcedure.query(async ({ ctx }) => {
     assertTrainingWorkspaceOrAdmin(ctx.user);
     try {
-      const database = await getDb();
-      if (!database) return [];
-      const rows = await database
-        .select({
-          id: enrollments.id,
-          userId: enrollments.userId,
-          programType: enrollments.programType,
-          courseId: enrollments.courseId,
-          trainingDate: enrollments.trainingDate,
-          paymentStatus: enrollments.paymentStatus,
-          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
-          createdAt: enrollments.createdAt,
-          updatedAt: enrollments.updatedAt,
-          courseTitle: courses.title,
-        })
-        .from(enrollments)
-        .leftJoin(courses, eq(enrollments.courseId, courses.id))
-        .where(
-          and(
-            eq(enrollments.userId, ctx.user.id),
-            inArray(enrollments.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp'])
-          )
-        )
-        .orderBy(desc(enrollments.createdAt));
-      return rows;
+      return await fetchMyAhaEnrollments(ctx.user.id);
     } catch (error) {
       console.error('[courses.getMyAhaEnrollments]', error);
       return [];
