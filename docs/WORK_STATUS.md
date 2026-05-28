@@ -49,6 +49,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-28 | Cursor | **PALS hub cert path regression fix:** PR #78 re-gated `AhaCertificationPath` on `isEnrolled` in `AhaHubProviderCourseCard`; restored always-on path (matches PR #76). Regression test for unenrolled PALS. `check` + `test:unit` + `build`. | PR TBD · `fix/pals-hub-cert-path-always` |
 | 2026-05-28 | Cursor | **Certificate 2-year expiry:** Shared `certificate-expiry` helper (calendar years via date-fns); AHA + micro-course certs expire 2 years from issue; PDF "Valid until" footer; verify page shows Valid/Expired with authentic messaging; migration 0046 backfill; terms updated. | PR TBD · `feat/certificate-2yr-expiry` |
 | 2026-05-28 | Cursor | **AHA PALS cert path + duration audit:** Certification path on all five hub cards (`AhaCertificationPath`); PALS enrollment prefers AHA anchor over ADF rows; `Duration: N hours` on Enroll, TrainingHub, training landings. `check` + `test:unit` + `build`. | PR #76 · `fix/aha-pals-cert-path` |
 | 2026-05-28 | Cursor | **AHA hub load perf (round 2):** Combined `getAhaHubDashboard` (1 RTT); in-memory anchor cache; static metadata cards render instantly; enrollment CTAs fill async; prefetch from provider home + nav hover; eager hub bundle; 15m staleTime. `check` + `test:unit` + `build`. | PR #78 · `perf/aha-hub-faster` |
