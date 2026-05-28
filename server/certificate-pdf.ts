@@ -9,6 +9,11 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import QRCode from "qrcode";
 import sharp from "sharp";
+import {
+  certificateShowsExpiryOnPdf,
+  computeCertificateExpiryDate,
+  formatCertificateExpiryDate,
+} from "./lib/certificate-expiry";
 
 /** ESM has no `__dirname`; bundled `dist/index.js` resolves logo paths relative to project root via `process.cwd()` and this fallback. */
 function certificatePdfDir(): string {
@@ -74,6 +79,10 @@ interface CertificateData {
   recipientName: string;
   programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive";
   trainingDate: Date;
+  /** Issue date for expiry calculation; defaults to trainingDate when omitted. */
+  issueDate?: Date;
+  /** Stored expiry; computed from issue date when omitted. */
+  expiryDate?: Date;
   instructorName: string;
   certificateNumber: string;
   verificationCode: string;
@@ -462,9 +471,10 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     thickness: 0.5,
   });
 
-  const expiryDate = new Date(data.trainingDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + 2);
-  const showExpiry = ["bls", "acls", "pals", "heartsaver", "nrp"].includes(data.programType);
+  const issueDate = data.issueDate ?? data.trainingDate;
+  const expiryDate =
+    data.expiryDate ?? computeCertificateExpiryDate(issueDate, data.programType);
+  const showExpiry = certificateShowsExpiryOnPdf(data.programType);
 
   const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - FOOTER_METADATA_BELOW_PAD;
   const signatureGuideY = metadataRowY + SIGNATURE_GUIDE_ABOVE_NAME;
@@ -477,8 +487,8 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   });
 
   const leftLines = [
-    `Issued on: ${formatDate(data.trainingDate)}`,
-    ...(showExpiry ? [`Valid until: ${formatDate(expiryDate)}`] : []),
+    `Issued on: ${formatCertificateExpiryDate(issueDate)}`,
+    ...(showExpiry ? [`Valid until: ${formatCertificateExpiryDate(expiryDate)}`] : []),
     `Certificate No.: ${data.certificateNumber}`,
   ];
   page.drawText(leftLines[0], {
@@ -603,15 +613,6 @@ function wrapText(text: string, maxLength: number): string[] {
   return lines;
 }
 
-/** International (en-GB) long date — e.g. 21 May 2026 */
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 export async function saveCertificateFile(pdfBuffer: Buffer, certificateNumber: string): Promise<string> {
   const dir = path.join(process.cwd(), "certificates");

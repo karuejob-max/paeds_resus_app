@@ -128,19 +128,28 @@ describe("Certificate Service", () => {
   });
 
   describe("Certificate Validity", () => {
-    it("should set 1-year expiry from issue date", () => {
-      const issueDate = new Date("2026-01-20");
-      const expectedExpiry = new Date("2027-01-20");
-      expect(expectedExpiry.getFullYear()).toBe(issueDate.getFullYear() + 1);
-      expect(expectedExpiry.getMonth()).toBe(issueDate.getMonth());
-      expect(expectedExpiry.getDate()).toBe(issueDate.getDate());
+    it("should set 2-year expiry from issue date for AHA certs", async () => {
+      const { computeCertificateExpiryDate } = await import("./lib/certificate-expiry");
+      const issueDate = new Date("2026-01-20T00:00:00.000Z");
+      const expiryDate = computeCertificateExpiryDate(issueDate, "bls");
+      expect(expiryDate.getUTCFullYear()).toBe(2028);
+      expect(expiryDate.getUTCMonth()).toBe(issueDate.getUTCMonth());
+      expect(expiryDate.getUTCDate()).toBe(issueDate.getUTCDate());
     });
 
-    it("should handle leap year expiry dates", () => {
-      const issueDate = new Date("2024-02-29");
-      const expiryDate = new Date(issueDate.getTime() + 365 * 24 * 60 * 60 * 1000);
-      expect(expiryDate).toBeDefined();
-      expect(expiryDate.getTime()).toBeGreaterThan(issueDate.getTime());
+    it("should set 2-year expiry for micro-course fellowship certs", async () => {
+      const { computeCertificateExpiryDate } = await import("./lib/certificate-expiry");
+      const issueDate = new Date("2025-05-28T00:00:00.000Z");
+      const expiryDate = computeCertificateExpiryDate(issueDate, "fellowship");
+      expect(expiryDate.getUTCFullYear()).toBe(2027);
+    });
+
+    it("should handle leap year expiry dates", async () => {
+      const { computeCertificateExpiryDate } = await import("./lib/certificate-expiry");
+      const issueDate = new Date("2024-02-29T00:00:00.000Z");
+      const expiryDate = computeCertificateExpiryDate(issueDate, "pals");
+      expect(expiryDate.getUTCFullYear()).toBe(2026);
+      expect(expiryDate.getUTCDate()).toBe(28);
     });
   });
 

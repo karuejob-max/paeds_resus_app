@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
     "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit && tsc -p client/src/lib/pwa/tsconfig.json",
     "format": "prettier --write .",
     "test": "pnpm run test:unit && pnpm run test:clinical && pnpm run test:api && pnpm run test:api:enrollment",
@@ -45,6 +45,7 @@
     "db:apply-0043": "node scripts/apply-0043-institutional-action-logs.mjs",
     "db:apply-0044": "node scripts/apply-0044-legal-consent.mjs",
     "db:apply-0045": "node scripts/apply-0045-nrp-program-type.mjs",
+    "db:apply-0046": "node scripts/apply-0046-certificate-expiry.mjs",
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "db:verify-0044": "node scripts/verify-0044-migration.mjs",
     "retention:cleanup": "tsx --import dotenv/config scripts/run-retention-cleanup.ts",
