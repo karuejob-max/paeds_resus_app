@@ -15,9 +15,9 @@ const AHA_COURSES = individualCourses.filter((c) => c.providerTrack === "aha_cer
 export default function AHACoursesPublic() {
   useScrollToTop();
   usePageMeta({
-    title: "AHA-Aligned Courses — BLS, ACLS, PALS, Heartsaver | Paeds Resus",
+    title: "AHA-Aligned Courses — BLS, ACLS, PALS, NRP, Heartsaver | Paeds Resus",
     description:
-      "Browse AHA-aligned BLS, ACLS, PALS, and Heartsaver courses from Paeds Resus Limited. Blended cognitive modules plus hands-on skills for healthcare providers in Kenya.",
+      "Browse AHA-aligned BLS, ACLS, PALS, NRP, and Heartsaver courses from Paeds Resus Limited. Blended cognitive modules plus hands-on skills for healthcare providers in Kenya.",
     path: "/aha-courses",
   });
 
@@ -48,7 +48,13 @@ export default function AHACoursesPublic() {
                 <CardContent className="space-y-3">
                   <p className="text-sm font-medium">{formatPrice(course.price)}</p>
                   <div className="flex flex-wrap gap-2">
-                    <Link href={`/training/${course.id === "heartsaver" ? "bls" : course.id}`}>
+                    <Link
+                      href={
+                        course.id === "heartsaver"
+                          ? "/training/bls"
+                          : `/training/${course.id}`
+                      }
+                    >
                       <Button variant="outline" size="sm">
                         Course details
                       </Button>

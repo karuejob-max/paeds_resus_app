@@ -16,6 +16,7 @@ import { JsonLdScript } from "@/components/JsonLdScript";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
+import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
 import { buildJsonLdGraph, buildOrganizationJsonLd, buildWebsiteJsonLd } from "@/lib/seo-schema";
 
 const TRAINING_LINKS = [
@@ -159,8 +160,11 @@ export default function PublicHome() {
               </div>
             </div>
             <p className="text-muted-foreground mb-6 max-w-3xl">
-              BLS, ACLS, PALS, Heartsaver, NRP coordination, and condition-focused micro-courses — blended
-              cognitive modules plus hands-on skills sessions. Search-friendly landing pages explain each
+              BLS, ACLS, PALS, NRP, Heartsaver, and condition-focused micro-courses — blended cognitive modules
+              plus hands-on skills sessions. Individual pricing from{" "}
+              {formatPrice(getIndividualCoursePrice("heartsaver") ?? 0)} (Heartsaver) to{" "}
+              {formatPrice(getIndividualCoursePrice("acls") ?? 0)} (ACLS/PALS); NRP from{" "}
+              {formatPrice(getIndividualCoursePrice("nrp") ?? 0)}. Search-friendly landing pages explain each
               course for teams across Kenya and the East African Community.
             </p>
             <div className="flex flex-wrap gap-2 mb-6">
