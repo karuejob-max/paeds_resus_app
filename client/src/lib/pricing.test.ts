@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatAhaDurationLabel } from "@/const/aha-course-metadata";
 import { getIndividualCoursePrice, individualCourses } from "@/const/pricing";
 
 describe("individual course pricing (KES)", () => {
@@ -22,5 +23,11 @@ describe("individual course pricing (KES)", () => {
     const acls = individualCourses.find((c) => c.id === "acls");
     expect(pals?.price).toBe(20000);
     expect(pals?.price).toBe(acls?.price);
+  });
+
+  it("stores CEO-standard hour labels on AHA catalog rows", () => {
+    expect(individualCourses.find((c) => c.id === "pals")?.duration).toBe("16 hours");
+    expect(formatAhaDurationLabel("pals")).toBe("Duration: 16 hours");
+    expect(formatAhaDurationLabel("bls")).toBe("Duration: 1 hour");
   });
 });
