@@ -1,6 +1,6 @@
 /**
  * Idempotent: ensures Heartsaver course catalog exists with modules, sections,
- * and knowledge-check quizzes aligned to AHA Heartsaver CPR AED 2020 guidelines.
+ * and knowledge-check quizzes aligned to AHA Heartsaver CPR AED 2025 guideline updates.
  */
 import { asc, desc, eq, and } from "drizzle-orm";
 import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
@@ -8,7 +8,7 @@ import { HEARTSAVER_MODULES, type HeartsaverModuleDef } from "./heartsaver-modul
 
 async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
   const programType = "heartsaver" as const;
-  const courseTitle = "Heartsaver CPR AED — AHA 2020 Guidelines";
+  const courseTitle = "Heartsaver CPR AED — AHA 2025 Guidelines";
   const courseDescription =
     "American Heart Association Heartsaver CPR AED course for lay rescuers and non-clinical healthcare workers. Covers adult, child, and infant CPR, AED use, and choking relief.";
 

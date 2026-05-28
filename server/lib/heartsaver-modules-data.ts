@@ -1,5 +1,5 @@
 /**
- * Heartsaver module catalog — AHA Heartsaver CPR AED 2020 Guidelines.
+ * Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
  * Shared by seed-heartsaver.ts and runtime ensure-heartsaver-catalog.
  */
 export const HEARTSAVER_MODULES = [

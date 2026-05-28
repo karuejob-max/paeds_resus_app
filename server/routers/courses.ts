@@ -12,7 +12,7 @@ import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
@@ -651,6 +651,39 @@ export const coursesRouter = router({
             .$returningId();
           const newId = (inserted as any)[0]?.id ?? 0;
           enrolRow = { id: newId, cognitiveModulesComplete: false };
+        }
+
+        // Verify all cognitive modules for this program are complete in this enrollment.
+        const anchor = await resolveAhaCourseAnchor(database, input.programType);
+        if (!anchor?.id) {
+          return { success: false, error: "Course catalog is not ready. Please refresh and try again." };
+        }
+        const moduleRows = await database
+          .select({ id: modules.id })
+          .from(modules)
+          .where(eq(modules.courseId, anchor.id));
+        const moduleIds = moduleRows.map((m) => m.id);
+        if (moduleIds.length === 0) {
+          return { success: false, error: "Course modules are not available yet. Please try again shortly." };
+        }
+        const progressRows = await database
+          .select({ moduleId: userProgress.moduleId })
+          .from(userProgress)
+          .where(
+            and(
+              eq(userProgress.enrollmentId, enrolRow.id),
+              eq(userProgress.status, "completed"),
+              inArray(userProgress.moduleId, moduleIds)
+            )
+          );
+        const done = new Set(progressRows.map((r) => r.moduleId));
+        const allComplete = moduleIds.every((id) => done.has(id));
+        if (!allComplete) {
+          return {
+            success: false,
+            cognitiveComplete: false,
+            error: `Complete all modules before final submission (${done.size}/${moduleIds.length} complete).`,
+          };
         }
 
         // Mark cognitive modules complete (idempotent)
