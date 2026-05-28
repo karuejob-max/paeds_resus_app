@@ -12,6 +12,29 @@
 
 If you are an AI agent operating in this repository, you **MUST** read this file and follow its instructions before executing any task.
 
+### Definition of Done — Distance = merged on `origin/main`
+
+**Work = Distance × Effort.** High effort without merged artifacts on `main` is **NOT done**.
+
+Work is **NOT done** until:
+
+- Changes are on **`origin/main`** (merge commit hash), **or** CEO-only blocker documented in WORK_STATUS **Blocked**
+- **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + verify command output
+- Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script
+
+**Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR.
+
+### Autonomous shipping (read every session)
+
+| Agent | Start here |
+|-------|------------|
+| **All agents** | **[docs/AGENT_AUTONOMY.md](docs/AGENT_AUTONOMY.md)** — Kolb cycle, shipping loop, CEO stop list, effort vs distance |
+| **Manus** | **[docs/MANUS_AGENT_RULES.md](docs/MANUS_AGENT_RULES.md)** — Handoff template; sandbox ≠ production |
+| **Codex / Cursor** | Same Definition of Done; **[docs/AI_TEAM_WORKFLOW.md](docs/AI_TEAM_WORKFLOW.md)** |
+| **Any critical fix** | **[docs/CRITICAL_FIX_PLAYBOOK.md](docs/CRITICAL_FIX_PLAYBOOK.md)** — content, env, legal, payments, SEO, clinical |
+
+Loop: read AGENTS + WORK_STATUS + PSOT → implement → check / test:unit / build → PR → merge when CI passes → update WORK_STATUS. Quiz/content appendix: [CONTENT_HOTFIX_PLAYBOOK.md](docs/CONTENT_HOTFIX_PLAYBOOK.md).
+
 ---
 
 ## 1. The Platform Source of Truth (PSOT)

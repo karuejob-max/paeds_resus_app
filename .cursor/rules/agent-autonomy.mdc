@@ -1,0 +1,38 @@
+---
+description: Multi-agent autonomy — Distance=merged on main; Kolb; CRITICAL_FIX_PLAYBOOK
+alwaysApply: true
+---
+
+# Agent autonomy (Paeds Resus — all agents)
+
+Read **`docs/AGENT_AUTONOMY.md`** every session (with **`AGENTS.md`**, **`docs/WORK_STATUS.md`**, **`docs/PLATFORM_SOURCE_OF_TRUTH.md`**).
+
+**Manus:** also **`docs/MANUS_AGENT_RULES.md`**. Sandbox ≠ production. No Done without merge on `origin/main`.
+
+## Definition of Done (Distance)
+
+NOT done until: on **`origin/main`** (merge hash) + **WORK_STATUS** (PR link) + **verify output** (`check`, `test:unit`, or targeted script). Forbidden: local-only, sandbox-only, plan-only, unmerged branch.
+
+## Loop
+
+Implement → `pnpm run check` → `pnpm run test:unit` → `pnpm run build` → branch → `gh pr create` → merge **`main` when CI green** → update **`docs/WORK_STATUS.md`**.
+
+## Critical fixes
+
+Follow **`docs/CRITICAL_FIX_PLAYBOOK.md`** (content, env, legal, payments, SEO, clinical). Quiz detail: **`docs/CONTENT_HOTFIX_PLAYBOOK.md`**. Answers: **`shared/quiz-answer-contract.ts`** (value-based text).
+
+## Git
+
+Never force-push **`main`**; never change git config; use **`gh`** for PRs.
+
+## CEO-only (stop)
+
+Staging provision, counsel/MOU sign-off, `fellowTitleEnabled`, production pilot flags — AGENT_AUTONOMY §6.
+
+## DB (Windows → Aiven)
+
+Use **`scripts/db-connection-config.mjs`** for SSL scripts/migrations.
+
+## Kolb (non-trivial fixes)
+
+Reproduce → root cause in Critique → playbook category → runtime patch → merge → re-verify.

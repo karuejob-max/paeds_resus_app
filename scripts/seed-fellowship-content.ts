@@ -1,3 +1,4 @@
+import { assertQuizCorrectAnswerValid, encodeQuizCorrectAnswerForStorage } from "../shared/quiz-answer-contract";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like } from "drizzle-orm";
@@ -208,16 +209,14 @@ async function seed() {
 
         for (let qIdx = 0; qIdx < quizData.questions.length; qIdx++) {
           const qData = quizData.questions[qIdx];
-          const correctOption = typeof qData.correct === 'number' 
-            ? qData.options[qData.correct] 
-            : qData.correct;
+          assertQuizCorrectAnswerValid(qData.correct, qData.options);
 
           await db.insert(quizQuestions).values({
             quizId: quizId,
             question: qData.question,
             questionType: 'multiple_choice',
             options: JSON.stringify(qData.options),
-            correctAnswer: JSON.stringify(correctOption),
+            correctAnswer: encodeQuizCorrectAnswerForStorage(qData.correct, qData.options),
             explanation: qData.explanation,
             order: qIdx + 1,
           });

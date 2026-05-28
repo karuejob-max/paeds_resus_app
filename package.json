@@ -35,6 +35,8 @@
     "db:apply-0031": "node scripts/apply-0031-care-signal-events.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
+    "quiz:verify-answer": "node scripts/verify-quiz-answer.mjs",
+    "quiz:fix-dka-fluid-bolus": "node scripts/fix-dka-q1-answer.mjs",
     "seed:seriously-ill-child-course": "tsx server/seed-seriously-ill-child-fellowship-course.ts",
     "seed:micro-courses": "tsx server/seed-micro-courses.ts",
     "seed:bls-acls": "tsx --import dotenv/config server/seed-bls-acls-courses.ts",
