@@ -690,6 +690,7 @@ The PSOT is a living document. It is only as useful as the discipline of the age
 | `/for-providers`, `/for-institutions`, `/for-parents` | Stakeholder discovery pages |
 | `/institutional`, `/parent-safe-truth`, `/verify`, `/about`, `/help` | Existing public surfaces |
 | `/login`, `/register` | Auth entry (indexed for brand discovery) |
+| `/payment/success` | **Paid conversion thank-you** (Google Ads; `noindex`; auth + `paymentStatus=completed` required) |
 | Legal: `/privacy`, `/terms`, `/legal/*` | Compliance pages |
 
 **Sitemap:** `client/public/sitemap.xml` — must list all routes above when public.

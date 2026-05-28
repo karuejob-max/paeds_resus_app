@@ -2,7 +2,7 @@
 
 **Audience:** Job Karue (CEO), marketing, engineering  
 **Canonical PSOT:** [PLATFORM_SOURCE_OF_TRUTH.md §23](./PLATFORM_SOURCE_OF_TRUTH.md#23-public-visibility--discovery)  
-**Last updated:** 2026-05-28
+**Last updated:** 2026-05-29
 
 ---
 
@@ -23,6 +23,21 @@ Ensure providers, trainees, parents, and institutions **find Paeds Resus** when 
 | Sitemap | `client/public/sitemap.xml` |
 | JSON-LD helpers | `client/src/lib/seo-schema.ts` |
 | Meta tags | `usePageMeta` + `client/index.html` defaults |
+| Payment conversion thank-you | `/payment/success` — `noindex`; Google Ads conversion URL (auth + paid enrollment required) |
+
+---
+
+## Google Ads conversion tracking
+
+| Setting | Value |
+|---------|--------|
+| **Conversion URL** | `https://www.paedsresus.com/payment/success` |
+| **When it fires (UX)** | After M-Pesa confirms payment; user lands on thank-you page (3s auto-redirect to course or **Start course** CTA) |
+| **Validation** | Server `enrollment.getPaymentSuccessView` — enrollment must belong to signed-in user and `paymentStatus === completed` |
+| **Bank transfer** | Do **not** use this URL until payment is confirmed (webhook/admin); stay on `/payment` |
+| **Analytics** | `provider_conversion` / `payment_success_page_view` on validated mount; `payment_completed_redirect` on course redirect |
+
+Paste the conversion URL in Google Ads → Goals → Conversions → Website → URL contains `/payment/success`.
 
 ---
 

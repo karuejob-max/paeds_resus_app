@@ -63,6 +63,7 @@ Additional fellowship/QI events may use the same prefix (e.g. streak milestones)
 
 | Date | Change |
 |------|--------|
+| 2026-05-29 | **`payment_success_page_view`** on validated `/payment/success` mount; **`payment_completed_redirect`** chained from thank-you auto-redirect or Start course CTA (`PaymentSuccess.tsx`). |
 | 2026-05-27 | **`care_signal_consent_granted`** at first Care Signal submission; admin **Maturity KPIs** tab (mission impact, conversion funnel, §11 checklist). |
 | 2026-05-27 | **`holistic_loop`** events for ResusGPS post-case Care Signal prompt and septic shock micro-course CTA (MATURITY_ROADMAP Phase 1 vertical slice). |
 | 2026-05-17 | **Care Signal form v2:** `submissionVersion` v1/v2 on insert; `gapDetails.formVersion === "v2"`; analytics + facility QI rollups documented above. |

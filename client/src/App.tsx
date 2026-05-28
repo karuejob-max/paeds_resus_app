@@ -95,6 +95,7 @@ const ResusGated = lazy(() => import("./pages/ResusGated"));
 const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 
 /** Redirects to target path (for routes that have no dedicated page). */
 function Redirect({ to }: { to: string }) {
@@ -284,6 +285,11 @@ function Router() {
           <Route path="/payment">{() => (
             <RoleGate allowed={["provider"]}>
               <Payment />
+            </RoleGate>
+          )}</Route>
+          <Route path="/payment/success">{() => (
+            <RoleGate allowed={["provider"]}>
+              <PaymentSuccess />
             </RoleGate>
           )}</Route>
           <Route path="/verify" component={VerifyCertificate} />
