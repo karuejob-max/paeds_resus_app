@@ -52,6 +52,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-05-29 | Cursor | **Legal reconsent modal fix (CEO feedback):** Simplified post-sign-in `LegalReconsentGate` — removed nested ScrollArea/Alert that caused overlapping text on mobile; short intro + inline doc links; compact Register-style checkboxes; ResusGPS ack now calls `acceptResusGpsDisclaimer` on continue. Verified: `pnpm run check`, `pnpm run test:unit` (209). | PR #98 · merge `15f36c9` |
 | 2026-05-29 | Cursor | **Legal reconsent modal UI:** Redesigned post-sign-in `LegalReconsentGate` — scrollable review section, ResusGPS intended-use Alert callout, three separate consent checkboxes (matches Register), improved spacing/typography; all required legal copy preserved. Verified: `pnpm run check`, `pnpm run test:unit` (209). | PR #96 · merge `25ee86b` |
 | 2026-05-29 | Cursor | **M-Pesa stale pending closure (admin reconcile):** Close stale pending payments during admin reconciliation; scheduler hook; admin Mpesa UI updates. Verified: `pnpm run check`, `server/mpesa-reconciliation.test.ts` (4). | PR #94 � merge `c6ead0c` � `4f85683` |
 | 2026-05-29 | Cursor | **PSOT §24 Institutional ERS (canonical):** Added §24 (Hospital ERS name/scope, staffing reality, hospital vs staff buyer split, geography, AHA rules, anti-patterns); expanded §3, §12, §15.3, §19, §21 (MOU + B2B addendum registry), §22.3, §23.6. Encodes CEO direction from PRs #88–#91 so contributors need not retell the institutional story. | PR TBD · `docs/psot-institutional-ers` |
