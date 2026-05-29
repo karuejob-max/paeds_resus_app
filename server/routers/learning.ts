@@ -33,6 +33,18 @@ import {
   isMicroCourseEnrollmentId,
   syncMicroCourseEnrollmentProgress,
 } from "../lib/sync-micro-course-enrollment-progress";
+import {
+  assertMicrocourseCompletionAllowed,
+  getMicrocourseExamState,
+  loadSummativeQuestionBank,
+} from "../lib/microcourse-exam-gate";
+import {
+  MICROCOURSE_SUMMATIVE_PASS_PERCENT,
+  canAttemptSummative,
+  examKindFromQuizTitle,
+  shuffleQuestionIndices,
+} from "../../shared/microcourse-exam-policy";
+import { TRPCError } from "@trpc/server";
 
 export const learningRouter = router({
   // Get all courses
@@ -312,6 +324,43 @@ export const learningRouter = router({
       return progress;
     }),
 
+  getMicroCourseExamState: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      if (!(await isMicroCourseEnrollmentId(db as any, input.enrollmentId))) {
+        return null;
+      }
+      return getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
+    }),
+
+  getSummativeExamQuestions: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        summativeQuizId: z.number(),
+        shuffleSeed: z.number().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!(await isMicroCourseEnrollmentId(db as any, input.enrollmentId))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Not a micro-course enrollment" });
+      }
+      const state = await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
+      if (state?.summativeQuizId && state.summativeQuizId !== input.summativeQuizId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid summative quiz for this course" });
+      }
+      const bank = await loadSummativeQuestionBank(db as any, input.summativeQuizId);
+      const order = shuffleQuestionIndices(bank.length, input.shuffleSeed);
+      return {
+        questions: order.map((i) => bank[i]),
+        passPercent: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
+      };
+    }),
+
   // Record quiz attempt
   recordQuizAttempt: protectedProcedure
     .input(
@@ -325,8 +374,17 @@ export const learningRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      // Check if progress record exists
+      const quizMeta = await (db as any)
+        .select({ passingScore: quizzes.passingScore, title: quizzes.title })
+        .from(quizzes)
+        .where(eq(quizzes.id, input.quizId))
+        .limit(1);
+      const quizTitle = quizMeta[0]?.title as string | undefined;
+      const examKind = examKindFromQuizTitle(quizTitle);
+      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
+
       const existing = await (db as any)
         .select()
         .from(userProgress)
@@ -339,25 +397,85 @@ export const learningRouter = router({
           )
         );
 
-      const quizMeta = await (db as any)
-        .select({ passingScore: quizzes.passingScore })
-        .from(quizzes)
-        .where(eq(quizzes.id, input.quizId))
-        .limit(1);
-      const passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
+      const existingRow = existing?.[0] as {
+        id: number;
+        attempts?: number;
+        completedAt?: Date | null;
+        updatedAt?: Date | null;
+      } | undefined;
+
+      if (isMicro && examKind === "diagnostic") {
+        if (existingRow?.completedAt) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Diagnostic baseline cannot be retaken.",
+          });
+        }
+        const now = new Date();
+        if (existingRow) {
+          await (db as any)
+            .update(userProgress)
+            .set({
+              score: input.score,
+              attempts: 1,
+              status: "completed",
+              completedAt: now,
+              updatedAt: now,
+            })
+            .where(eq(userProgress.id, existingRow.id));
+        } else {
+          await (db as any).insert(userProgress).values({
+            userId: ctx.user.id,
+            enrollmentId: input.enrollmentId,
+            moduleId: input.moduleId,
+            quizId: input.quizId,
+            score: input.score,
+            attempts: 1,
+            status: "completed",
+            completedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+        return {
+          success: true,
+          score: input.score,
+          passed: true,
+          passingScore: 0,
+          examKind: "diagnostic" as const,
+          noRetake: true,
+        };
+      }
+
+      let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
+      if (isMicro && examKind === "summative") {
+        passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
+        const retry = canAttemptSummative({
+          attempts: existingRow?.attempts ?? 0,
+          lastAttemptAt: existingRow?.updatedAt ?? existingRow?.completedAt ?? null,
+        });
+        if (!retry.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: retry.reason ?? "Summative retry not available yet.",
+          });
+        }
+      }
+
       const passed = input.score >= passingScore;
 
-      if (existing && existing.length > 0) {
+      if (existingRow) {
         await (db as any)
           .update(userProgress)
           .set({
             score: input.score,
-            attempts: ((existing[0] as any).attempts || 0) + 1,
+            attempts: (existingRow.attempts || 0) + 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : (existing[0] as any).completedAt,
+            completedAt: passed ? new Date() : existingRow.completedAt,
             updatedAt: new Date(),
           })
-          .where(eq(userProgress.id, (existing[0] as any).id));
+          .where(eq(userProgress.id, existingRow.id));
       } else {
         await (db as any).insert(userProgress).values({
           userId: ctx.user.id,
@@ -373,11 +491,17 @@ export const learningRouter = router({
         });
       }
 
-      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+      if (isMicro) {
         await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
       }
 
-      return { success: true, score: input.score, passed, passingScore };
+      return {
+        success: true,
+        score: input.score,
+        passed,
+        passingScore,
+        examKind,
+      };
     }),
 
   // Get recommended courses based on performance

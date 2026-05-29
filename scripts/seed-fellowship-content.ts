@@ -1,4 +1,9 @@
 import { assertQuizCorrectAnswerValid, encodeQuizCorrectAnswerForStorage } from "../shared/quiz-answer-contract";
+import {
+  MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+  MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+} from "../shared/microcourse-exam-policy";
+import { appendClinicalFooter } from "../server/data/clinical-content-helpers";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like } from "drizzle-orm";
@@ -132,10 +137,66 @@ async function seed() {
       targetCourseId = newCourse.id;
     }
 
+    const upsertQuizQuestions = async (
+      quizId: number,
+      questions: (typeof courseData.quiz)["questions"]
+    ) => {
+      await db.delete(quizQuestions).where(eq(quizQuestions.quizId, quizId));
+      for (let qIdx = 0; qIdx < questions.length; qIdx++) {
+        const qData = questions[qIdx];
+        assertQuizCorrectAnswerValid(qData.correct, qData.options);
+        await db.insert(quizQuestions).values({
+          quizId,
+          question: qData.question,
+          questionType: "multiple_choice",
+          options: JSON.stringify(qData.options),
+          correctAnswer: encodeQuizCorrectAnswerForStorage(qData.correct, qData.options),
+          explanation: qData.explanation,
+          order: qIdx + 1,
+        });
+      }
+    };
+
+    const ensureQuizOnModule = async (
+      moduleId: number,
+      title: string,
+      passingScore: number
+    ): Promise<number> => {
+      const [existingQuiz] = await db
+        .select()
+        .from(quizzes)
+        .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+        .limit(1);
+      if (existingQuiz) {
+        await db
+          .update(quizzes)
+          .set({ passingScore, description: title })
+          .where(eq(quizzes.id, existingQuiz.id));
+        return existingQuiz.id;
+      }
+      await db.insert(quizzes).values({
+        moduleId,
+        title,
+        description: title,
+        passingScore,
+        order: 1,
+      });
+      const [newQuiz] = await db
+        .select({ id: quizzes.id })
+        .from(quizzes)
+        .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+        .orderBy(desc(quizzes.id))
+        .limit(1);
+      return newQuiz!.id;
+    };
+
+    const moduleIds: number[] = [];
+
     // 3. Seed Modules
     for (let i = 0; i < courseData.modules.length; i++) {
       const modData = courseData.modules[i];
       const order = i + 1;
+      const content = appendClinicalFooter(modData.content);
 
       const [existingMod] = await db
         .select()
@@ -146,20 +207,23 @@ async function seed() {
       let moduleId: number;
       if (existingMod) {
         moduleId = existingMod.id;
-        await db.update(modules).set({
-          title: modData.title,
-          description: modData.title,
-          content: modData.content,
-          duration: modData.duration,
-        }).where(eq(modules.id, moduleId));
+        await db
+          .update(modules)
+          .set({
+            title: modData.title,
+            description: modData.title,
+            content,
+            duration: modData.duration,
+          })
+          .where(eq(modules.id, moduleId));
       } else {
         await db.insert(modules).values({
           courseId: targetCourseId,
           title: modData.title,
           description: modData.title,
-          content: modData.content,
+          content,
           duration: modData.duration,
-          order: order,
+          order,
         });
         const [newMod] = await db
           .select({ id: modules.id })
@@ -167,61 +231,29 @@ async function seed() {
           .where(and(eq(modules.courseId, targetCourseId), eq(modules.order, order)))
           .orderBy(desc(modules.id))
           .limit(1);
-        moduleId = newMod.id;
+        moduleId = newMod!.id;
       }
+      moduleIds.push(moduleId);
+    }
 
-      // 4. Seed Quiz
-      if (i === courseData.modules.length - 1 && courseData.quiz) {
-        const quizData = courseData.quiz;
-        
-        const [existingQuiz] = await db
-          .select()
-          .from(quizzes)
-          .where(eq(quizzes.moduleId, moduleId))
-          .limit(1);
+    // 4. Summative + diagnostic exams (same question bank)
+    if (courseData.quiz && courseData.quiz.questions.length > 0) {
+      const lastModuleId = moduleIds[moduleIds.length - 1]!;
+      const firstModuleId = moduleIds[0]!;
 
-        let quizId: number;
-        if (existingQuiz) {
-          quizId = existingQuiz.id;
-          await db.update(quizzes).set({
-            title: quizData.title,
-            passingScore: quizData.passingScore,
-          }).where(eq(quizzes.id, quizId));
-        } else {
-          await db.insert(quizzes).values({
-            moduleId: moduleId,
-            title: quizData.title,
-            description: quizData.title,
-            passingScore: quizData.passingScore,
-            order: 1,
-          });
-          const [newQuiz] = await db
-            .select({ id: quizzes.id })
-            .from(quizzes)
-            .where(eq(quizzes.moduleId, moduleId))
-            .orderBy(desc(quizzes.id))
-            .limit(1);
-          quizId = newQuiz.id;
-        }
+      const summativeQuizId = await ensureQuizOnModule(
+        lastModuleId,
+        MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+        80
+      );
+      await upsertQuizQuestions(summativeQuizId, courseData.quiz.questions);
 
-        // 5. Seed Quiz Questions
-        await db.delete(quizQuestions).where(eq(quizQuestions.quizId, quizId));
-
-        for (let qIdx = 0; qIdx < quizData.questions.length; qIdx++) {
-          const qData = quizData.questions[qIdx];
-          assertQuizCorrectAnswerValid(qData.correct, qData.options);
-
-          await db.insert(quizQuestions).values({
-            quizId: quizId,
-            question: qData.question,
-            questionType: 'multiple_choice',
-            options: JSON.stringify(qData.options),
-            correctAnswer: encodeQuizCorrectAnswerForStorage(qData.correct, qData.options),
-            explanation: qData.explanation,
-            order: qIdx + 1,
-          });
-        }
-      }
+      const diagnosticQuizId = await ensureQuizOnModule(
+        firstModuleId,
+        MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+        0
+      );
+      await upsertQuizQuestions(diagnosticQuizId, courseData.quiz.questions);
     }
   }
 

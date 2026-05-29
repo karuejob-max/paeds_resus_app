@@ -1,7 +1,7 @@
 # Clinical content governance
 
-**Status:** Active — CEO/clinical sign-off (Pass 1)  
-**Version:** 1.0 · **Date:** 2026-05-29  
+**Status:** Active — CEO locked decisions (§8, 2026-05-29); post-deploy module sign-off per batch  
+**Version:** 1.1 · **Date:** 2026-05-29  
 **Audience:** Clinical faculty, content authors, engineering, all agents shipping micro-courses or ResusGPS clinical strings.
 
 **Purpose:** Canonical rules for **what we teach**, **how we teach it**, and **how we handle guideline conflict** across **micro-courses**, **ResusGPS**, and related training surfaces. This document does **not** replace [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) (bedside engine change control) or [legal/CLINICAL_INTENDED_USE_STATEMENT.md](./legal/CLINICAL_INTENDED_USE_STATEMENT.md) (ResusGPS intended use / regulatory framing).
@@ -42,8 +42,9 @@ Use this structure when international, WHO/LMIC, and/or Kenya MOH guidance diver
 
 **Example — status epilepticus:** International first-line (**lorazepam**, **buccal midazolam**) with **why**. Kenya reality (**diazepam** available) with cautions (**respiratory depression**). **Neonates: skip benzos** — must be **explicit** in module copy and assessments.
 
-### 2.2 Units
+### 2.2 Units and locale narrative
 
+- **Default locale:** **Kenya-first narrative** (mmol/L, drugs commonly available locally) with international/WHO/MOH guidance as concise **“also consider”** notes — **not** separate columns unless needed for clarity ([§8](#8-locked-decisions-ceo-approved-2026-05-29) item 2).
 - **Prefer mmol/L** for glucose and related labs in **micro-courses** (Kenya / East Africa practice).
 - **mg/dL** optional where needed for cross-audience clarity — label both when shown.
 
@@ -54,7 +55,7 @@ Use this structure when international, WHO/LMIC, and/or Kenya MOH guidance diver
 ### 3.1 Tone and format
 
 - **Simplified evidence-based medicine** — short, not long articles; **simple and fun**.
-- **Gamification** is acceptable when it reinforces learning (see [§8 Open questions](#8-open-questions-for-ceo--pending-decisions) for depth).
+- **Gamification** is **light only** — progress, module complete, optional streak, diagnostic→summative improvement message; **no** leaderboards or points shops ([§8](#8-locked-decisions-ceo-approved-2026-05-29) item 6).
 
 ### 3.2 Course levels
 
@@ -73,10 +74,11 @@ Use this structure when international, WHO/LMIC, and/or Kenya MOH guidance diver
 
 | Phase | Behaviour |
 |-------|-----------|
-| **Start** | **Diagnostic exam** — **no pass mark**; establishes baseline; **cannot redo**. |
-| **End** | **Same exam** (question bank **shuffled**) — measures learning benefit. |
+| **Start** | **Diagnostic exam** — **no pass mark**; establishes baseline; **no retakes**. |
+| **End** | **Same fixed question bank** — **item and option order shuffled**; **80%** pass required for course completion/certificate; up to **2 retries** after **24 h** between attempts. |
+| **Bank size** | Expand bank if **&lt;15** items so shuffle remains meaningful. |
 
-Blueprint vs identical bank: **CEO decision pending** — see [§8](#8-open-questions-for-ceo--pending-decisions).
+Implementation: `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`, player `MicroCoursePlayerDB.tsx`. Canonical clinical spine: [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md) §6.
 
 ### 3.5 Known content gaps (remediation backlog — do not fix silently in Pass 1)
 
@@ -108,11 +110,11 @@ Track in [§7 Remediation backlog skeleton](#7-remediation-backlog-skeleton-pass
 
 | Pass | Scope | Sign-off |
 |------|--------|----------|
-| **Pass 1 (this document)** | Governance doc + backlog skeleton + PSOT §21 link | CEO clinical content direction captured here |
-| **Pass 2+** | Systematic **micro-course audit** + **ResusGPS alignment** | CEO signs off per module / batch |
+| **Pass 1** | Governance doc (§8 locked) + backlog skeleton + PSOT §21 link + platform exam policy | CEO direction captured in §8 (2026-05-29) |
+| **Pass 2+** | **Substantive** micro-course remediation + **ResusGPS alignment** per [§7](#7-remediation-backlog-skeleton-pass-2) | CEO Clinical Lead — **batch per module**; **post-deploy** review on live site — **not** a pre-merge gate |
 | **Later** | **AHA courses** full guideline audit | Separate pass — **not** Pass 1 |
 
-**Pass 1 explicitly does NOT:** rewrite all micro-course content unless **trivial** (typo, broken link). Use [CONTENT_HOTFIX_PLAYBOOK.md](./CONTENT_HOTFIX_PLAYBOOK.md) for urgent clinical hotfixes.
+**Pass scope (CEO):** Governance **plus** substantive micro-course/ResusGPS remediation — **not** governance-only. Urgent fixes: [CONTENT_HOTFIX_PLAYBOOK.md](./CONTENT_HOTFIX_PLAYBOOK.md).
 
 ---
 
@@ -120,7 +122,7 @@ Track in [§7 Remediation backlog skeleton](#7-remediation-backlog-skeleton-pass
 
 1. Read this document before authoring or editing micro-course or ResusGPS clinical copy.
 2. For bedside engine / dosing table changes, update [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) and run clinical tests per PSOT §13.
-3. Material pathway or teaching changes require **CEO clinical sign-off** before merge (see AGENTS.md).
+3. Material pathway or teaching changes: **CEO Clinical Lead** sign-off **per module batch** after deploy; log **Pending CEO post-deploy review** in [WORK_STATUS.md](./WORK_STATUS.md) — **no interim approval gate** blocking engineering merge ([§8](#8-locked-decisions-ceo-approved-2026-05-29) items 7–8).
 4. Log execution in [WORK_STATUS.md](./WORK_STATUS.md) — **not** canonical rule changes here.
 5. Add remediation items to §7; do not close backlog rows without sign-off.
 
@@ -128,40 +130,54 @@ Track in [§7 Remediation backlog skeleton](#7-remediation-backlog-skeleton-pass
 
 ## 7. Remediation backlog skeleton (Pass 2+)
 
-**Status:** Planning — CEO priority order **pending** (see §8).  
+**Status:** Active — audit in **CEO priority order** (§8 item 3). **ResusGPS** spine syncs **after each module** CST entry.  
 **Owner column:** Fill on first audit pass.
+
+**Audit priority (harm × enrollment):** (1) DKA → (2) Status epilepticus → (3) Status asthmaticus → (4) Shock / sepsis / fluids → (5) Remaining fellowship conditions by harm × enrollment.
 
 | ID | Domain | Gap (CEO-flagged) | Level / module hint | Owner | Status |
 |----|--------|-------------------|---------------------|-------|--------|
-| CLIN-DKA-01 | Metabolic / DKA | mg/dL overuse; prefer mmol/L | DKA micro-course(s) | TBD | Open |
-| CLIN-DKA-02 | Metabolic / DKA | Insulin stop criteria (ketones vs glucose/pH) | DKA micro-course(s) | TBD | Open |
-| CLIN-DKA-03 | Metabolic / DKA | NS vs balanced crystalloids; hyperchloremic acidosis | DKA + ResusGPS fluids | TBD | Open |
-| CLIN-SE-01 | Neurological | Status epilepticus — intl first-line vs Kenya diazepam; neonatal benzo skip | Status epilepticus module | TBD | Open |
-| CLIN-ASTH-01 | Airway | Status asthmaticus — steroids beyond hydrocortisone only | Asthma Level 1/2 | TBD | Open |
-| CLIN-ASTH-02 | Airway | Salbutamol IV where appropriate | Asthma Level 2 | TBD | Open |
-| CLIN-GOV-01 | Cross-cutting | Summative exam implementation vs §3.4 (diagnostic no-redo, end shuffle) | Platform / player | TBD | Open |
-| CLIN-RESUS-01 | ResusGPS | Spine audit — orphan strings, unit consistency | ResusGPS pathways | TBD | Open |
+| CLIN-DKA-01 | Metabolic / DKA | mg/dL overuse; prefer mmol/L | DKA micro-course(s) | Cursor | Done (seed + CST) |
+| CLIN-DKA-02 | Metabolic / DKA | Insulin stop criteria (ketones vs glucose/pH) | DKA micro-course(s) | Cursor | Done (seed + CST) |
+| CLIN-DKA-03 | Metabolic / DKA | NS vs balanced crystalloids; hyperchloremic acidosis | DKA + ResusGPS fluids | Cursor | Done (seed + ResusGPS) |
+| CLIN-SE-01 | Neurological | Status epilepticus — intl first-line vs Kenya diazepam; neonatal benzo skip | Status epilepticus module | Cursor | Done (seed + ResusGPS) |
+| CLIN-ASTH-01 | Airway | Status asthmaticus — steroids beyond hydrocortisone only | Asthma Level 1/2 | Cursor | Done (Level 1/2 seed) |
+| CLIN-ASTH-02 | Airway | Salbutamol IV where appropriate | Asthma Level 2 | Cursor | Done (Asthma II seed) |
+| CLIN-GOV-01 | Cross-cutting | Summative exam implementation vs §3.4 (diagnostic no-redo, end shuffle) | Platform / player | Cursor | Done (exam policy + player) |
+| CLIN-RESUS-01 | ResusGPS | Spine audit — orphan strings, unit consistency | ResusGPS pathways | Cursor | Partial (P0 conditions; full audit backlog in handoff) |
 
 **Changelog**
 
 | Date | Change |
 |------|--------|
 | 2026-05-29 | Initial governance + backlog skeleton (CEO Pass 1). |
+| 2026-05-29 | §8 locked decisions (CEO approved); audit priority + exam model finalized. |
 
 ---
 
-## 8. Open questions for CEO — pending decisions
+## 8. Locked decisions (CEO approved 2026-05-29)
 
-Draft for CEO reply; update this section when decided (then note in WORK_STATUS).
+Canonical answers — agents implement against these; update [WORK_STATUS.md](./WORK_STATUS.md) for execution, not rule changes here.
 
-1. **Diagnostic vs summative:** Identical question bank shuffled at end, or **same blueprint** with **different items**?
-2. **Default locale:** Kenya-first narrative with intl/WHO columns, or **single blended narrative**?
-3. **Micro-course audit priority order:** DKA, status epilepticus, asthma first — or another sequence?
-4. **Citation granularity:** Per module bibliography vs **per claim** footnotes?
-5. **Neonatal content:** Separate neonatal modules vs **embedded warnings** in paediatric modules?
-6. **Gamification depth:** Badges only vs **points / leaderboards**?
-7. **Content fix Pass 1:** Governance doc only, or also ship **DKA / SE hotfixes** in same release train?
-8. **Clinical sign-off SLA** and **name/role** to record in WORK_STATUS for content merges?
+1. **Diagnostic vs summative:** **Same fixed question bank**; at end, **shuffle item and option order** (not a different blueprint). Expand bank if **&lt;15** items.
+
+2. **Default locale:** **Kenya-first narrative** (mmol/L, available drugs) with intl/WHO/MOH as concise **“also consider”** — not separate columns unless clarity requires it.
+
+3. **Audit priority:** **DKA** → **Status epilepticus** → **Status asthmaticus** → **shock/sepsis/fluids** → remaining by **harm × enrollment**. **ResusGPS** syncs after each module CST entry.
+
+4. **Citations:** **CST per condition**; module bibliography **3–8 refs**; **in-body cites** for high-stakes claims only.
+
+5. **Neonates:** **Embedded callouts** in relevant modules; **status epilepticus** must state **neonates skip benzos** + alternatives. Separate neonatal micro-course later if needed.
+
+6. **Gamification:** **Light only** — progress, module complete, optional streak, diagnostic→summative improvement message. **No** leaderboards or points shops.
+
+7. **Pass scope:** Governance **+ substantive** micro-course/ResusGPS remediation (not governance-only). **CEO post-deploy sign-off** on live site — **not** a pre-merge block.
+
+8. **Sign-off:** **CEO Clinical Lead** (Job Karue); **batch per module**; after merge log **Pending CEO post-deploy review** in WORK_STATUS. **No interim approval gate.**
+
+9. **Summative vs diagnostic rules:** **Summative** required for course **completed** / certificate; **80%** pass; up to **2 retries** after **24 h**. **Diagnostic:** no pass mark, **no retakes**.
+
+10. **Spirit:** International consensus + user choice + LMIC reality; **eliminate preventable childhood deaths**; **simple not perfect**.
 
 ---
 
