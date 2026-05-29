@@ -76,12 +76,16 @@ export function LegalDocumentLayout({ document, children }: Props) {
             Version {document.version} · Last updated: {document.lastUpdated}
           </p>
           <p>
+            <Link href="/terms" className="text-primary underline">
+              Terms of Use
+            </Link>
+            {" · "}
             <Link href="/privacy" className="text-primary underline">
               Privacy Policy
             </Link>
             {" · "}
-            <Link href="/terms" className="text-primary underline">
-              Terms of Use
+            <Link href="/legal/clinical-use" className="text-primary underline">
+              ResusGPS Intended Use
             </Link>
             {" · "}
             <Link href="/legal/cookies" className="text-primary underline">
