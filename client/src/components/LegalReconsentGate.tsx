@@ -79,7 +79,7 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
             </li>
             <li>
               <LegalExternalLink href="/legal/clinical-use" className="text-primary underline">
-                ResusGPS
+                ResusGPS Intended Use
               </LegalExternalLink>
             </li>
           </ul>
