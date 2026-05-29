@@ -343,7 +343,7 @@ describe('DKA Engine', () => {
       expect(insulinInterventions[0].description.toLowerCase()).toContain('insulin');
     });
 
-    it('should include bolus for severe DKA', () => {
+    it('should use infusion without insulin bolus for severe DKA (ISPAD)', () => {
       const assessment: DKAAssessment = {
         age: 14,
         weightKg: 45,
