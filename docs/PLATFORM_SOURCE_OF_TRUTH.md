@@ -184,6 +184,7 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 - **Preserve report definitions:** **This month** = EAT calendar month; **last 7 days** = rolling; **Safe-Truth** and **analyticsEvents** meanings as in [§8](#8-admin-reports-definitions).
 - **Secrets:** No hardcoded credentials; use env vars and document in `.env.example` when adding new ones.
 - **Clinical pathways:** Track bedside-critical logic in [CLINICAL_SAFETY_REGISTER.md](./CLINICAL_SAFETY_REGISTER.md) (owners, sources, test pointers).
+- **Clinical teaching content (micro-courses, ResusGPS spine):** Follow [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md) — authority, conflict presentation, pedagogy, summative exam model; CEO sign-off before material teaching changes.
 - **Execution sequencing:** Ship work in the order of [§12](#12-priority-order-locked). Phased tasks, exit criteria, and any **staged trade-offs** (e.g. session length vs default cookie behaviour) are expanded in [FIVE_PILLAR_EXECUTION_ROADMAP.md](./FIVE_PILLAR_EXECUTION_ROADMAP.md). Operational staging checklist (while [§10](#10-deployment-and-infrastructure) still reflects single production): [STAGING_BRANCH_SETUP.md](./STAGING_BRANCH_SETUP.md). Session max age and staging/release notes for operators: [DEPLOYMENT_SESSION_AND_STAGING.md](./DEPLOYMENT_SESSION_AND_STAGING.md). Engineering discipline until fully locked in [§11](#11-security-current-and-target): [ENGINEERING_GOVERNANCE_CHECKLIST.md](./ENGINEERING_GOVERNANCE_CHECKLIST.md).
 
 ---
@@ -554,6 +555,7 @@ Every strategic and operational document in this repository is listed here with 
 | [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) | Active | Canonical Fellowship rules — expands §17 |
 | [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) | Active | Course catalog and ADF strategy — expands §3 |
 | [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) | Active | 24-slot micro-course backlog — expands §3 |
+| [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md) | Active | CEO clinical content rules — micro-courses, ResusGPS spine, conflict templates, Pass 1/2 scope — expands §3 and §13 |
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
@@ -839,4 +841,4 @@ Cross-reference: [§22.3](#223-what-you-must-never-do).
 
 ---
 
-**Last structural update:** 2026-05-29 — Added §24 (Institutional Emergency Readiness / ERS); expanded §3, §12, §15.3, §19, §21, §22.3, §23.6. Prior: 2026-05-28 — Institutional ERS narrative (§19, §21). Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-05-29 — Added [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md) to §21; §13 clinical teaching link. Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
