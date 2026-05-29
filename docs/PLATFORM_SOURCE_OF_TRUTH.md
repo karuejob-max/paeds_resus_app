@@ -556,6 +556,8 @@ Every strategic and operational document in this repository is listed here with 
 | [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) | Active | Course catalog and ADF strategy — expands §3 |
 | [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md) | Active | 24-slot micro-course backlog — expands §3 |
 | [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md) | Active | CEO clinical content rules — micro-courses, ResusGPS spine, conflict templates, Pass 1/2 scope — expands §3 and §13 |
+| [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md) | Active (CEO post-deploy review pending) | Per-condition clinical spine + citations — DKA, SE, asthma, shock; exam model; ResusGPS alignment |
+| [MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md) | Active | CEO click-test checklist after deploy; course touch list; known backlog |
 | [CONVERSION_90_DAY_EXECUTION_PLAN.md](./CONVERSION_90_DAY_EXECUTION_PLAN.md) | Active | Growth execution plan — expands §18 |
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |

@@ -21,6 +21,7 @@ import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
+import { examKindFromQuizTitle } from "@shared/microcourse-exam-policy";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -68,7 +69,9 @@ export default function MicroCoursePlayerDB() {
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [showFormativeQuiz, setShowFormativeQuiz] = useState(false);
-  const [showSummativeQuiz, setShowSummativeQuiz] = useState(false);
+  const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false);
+  const [showSummativeExam, setShowSummativeExam] = useState(false);
+  const [showCertificateReady, setShowCertificateReady] = useState(false);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -176,6 +179,12 @@ export default function MicroCoursePlayerDB() {
     { enabled: !!currentModuleId }
   );
 
+  const firstModuleId = courseDetails?.modules?.[0]?.id;
+  const { data: firstModuleContent } = trpc.learning.getModuleContent.useQuery(
+    { moduleId: firstModuleId ?? 0 },
+    { enabled: !!firstModuleId && !isAhaCourse }
+  );
+
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -193,6 +202,12 @@ export default function MicroCoursePlayerDB() {
     }
     return myEnrollments?.find((e) => e.course?.courseId === slug);
   }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
+
+  const microEnrollmentId = (enrollment as { id?: number } | undefined)?.id;
+  const { data: examState } = trpc.learning.getMicroCourseExamState.useQuery(
+    { enrollmentId: microEnrollmentId ?? 0 },
+    { enabled: !isAhaCourse && !!microEnrollmentId }
+  );
 
   const ahaProgramForUi = useMemo((): AhaProgramType | null => {
     if (!isAhaCourse) return null;
@@ -235,6 +250,17 @@ export default function MicroCoursePlayerDB() {
   // In review mode (course already completed) we always start from module 1
   // so the user can browse freely instead of landing on the final exam.
   const [hasResumed, setHasResumed] = useState(false);
+  const [diagnosticPrompted, setDiagnosticPrompted] = useState(false);
+  const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+
+  useEffect(() => {
+    if (isAhaCourse || isReviewMode || diagnosticPrompted || !examState) return;
+    if (examState.diagnosticRequired && !examState.diagnosticCompleted) {
+      setShowDiagnosticQuiz(true);
+      setDiagnosticPrompted(true);
+    }
+  }, [examState, isAhaCourse, isReviewMode, diagnosticPrompted]);
+
   useEffect(() => {
     if (hasResumed) return;
     if (resumeQuery.data == null) return;
@@ -380,7 +406,9 @@ export default function MicroCoursePlayerDB() {
   const submitQuizMutation = trpc.learning.recordQuizAttempt.useMutation({
     onSuccess: (result) => {
       if (result.success && result.passed) {
-        toast.success(showSummativeQuiz ? "Final exam passed!" : "Module quiz passed!");
+        toast.success(
+          showSummativeExam ? "Summative exam passed!" : showDiagnosticQuiz ? "Diagnostic saved." : "Module quiz passed!"
+        );
         setQuizScore(result.score);
         setQuizSubmitted(true);
         void utils.courses.getUserEnrollments.invalidate();
@@ -397,7 +425,23 @@ export default function MicroCoursePlayerDB() {
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
   const isLastModule = currentModuleIndex === modules.length - 1;
-  const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+  const diagnosticQuiz = useMemo(() => {
+    const list = firstModuleContent?.quizzes ?? [];
+    return list.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "diagnostic") ?? list[0];
+  }, [firstModuleContent]);
+  const summativeQuiz = useMemo(() => {
+    return (
+      quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "summative") ??
+      quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) !== "diagnostic")
+    );
+  }, [quizzes]);
+  const activeQuiz = showDiagnosticQuiz
+    ? diagnosticQuiz
+    : showSummativeExam
+      ? summativeQuiz
+      : quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "formative") ?? quizzes[0];
+  const isSummativeExamActive =
+    showSummativeExam || examKindFromQuizTitle(activeQuiz?.title) === "summative";
 
   useEffect(() => {
     if (!backToLastSectionOfModule || contentLoading || !currentModuleId) return;
@@ -414,12 +458,18 @@ export default function MicroCoursePlayerDB() {
   };
 
   const goToPreviousStep = (exitAtStart: boolean) => {
-    if (showSummativeQuiz) {
-      setShowSummativeQuiz(false);
+    if (showCertificateReady || showSummativeExam) {
+      setShowCertificateReady(false);
+      setShowSummativeExam(false);
       setShowFormativeQuiz(false);
       resetQuizState();
       setCurrentModuleIndex(Math.max(0, modules.length - 1));
       setBackToLastSectionOfModule(true);
+      return;
+    }
+    if (showDiagnosticQuiz) {
+      setShowDiagnosticQuiz(false);
+      resetQuizState();
       return;
     }
     if (showFormativeQuiz) {
@@ -436,7 +486,8 @@ export default function MicroCoursePlayerDB() {
     }
     if (currentModuleIndex > 0) {
       setShowFormativeQuiz(false);
-      setShowSummativeQuiz(false);
+      setShowSummativeExam(false);
+      setShowCertificateReady(false);
       setCurrentModuleIndex(currentModuleIndex - 1);
       setBackToLastSectionOfModule(true);
       return;
@@ -457,8 +508,15 @@ export default function MicroCoursePlayerDB() {
         setMaxReachedSectionIndex(nextIdx);
       }
       window.scrollTo(0, 0);
-    } else if (quizzes.length > 0) {
-      // Show formative quiz after last section
+    } else if (
+      quizzes.some(
+        (q: { title?: string }) =>
+          examKindFromQuizTitle(q.title) === "formative" ||
+          (!q.title?.toLowerCase().startsWith("summative") &&
+            !q.title?.toLowerCase().startsWith("diagnostic"))
+      )
+    ) {
+      // Show formative quiz after last section (not summative/diagnostic)
       setShowFormativeQuiz(true);
       setQuizAnswers({});
       setQuizSubmitted(false);
@@ -490,8 +548,8 @@ export default function MicroCoursePlayerDB() {
       }
       window.scrollTo(0, 0);
     } else {
-      // Final module complete, show final summative quiz
-      setShowSummativeQuiz(true);
+      setShowSummativeExam(true);
+      setCurrentModuleIndex(modules.length - 1);
       setQuizAnswers({});
       setQuizSubmitted(false);
       setQuizScore(null);
@@ -500,8 +558,13 @@ export default function MicroCoursePlayerDB() {
   };
 
   const doSubmitQuiz = (enrollmentId: number) => {
-    const quiz = quizzes[0];
+    const quiz = activeQuiz;
     if (!quiz) return;
+    const moduleIdForQuiz = showDiagnosticQuiz
+      ? (firstModuleId ?? currentModuleId!)
+      : showSummativeExam
+        ? (modules[modules.length - 1]?.id ?? currentModuleId!)
+        : currentModuleId!;
     let correct = 0;
     quiz.questions.forEach((q: any, idx: number) => {
       const userAnswer = quizAnswers[idx];
@@ -518,7 +581,7 @@ export default function MicroCoursePlayerDB() {
     const score = Math.round((correct / quiz.questions.length) * 100);
     submitQuizMutation.mutate({
       enrollmentId,
-      moduleId: currentModuleId!,
+      moduleId: moduleIdForQuiz,
       quizId: quiz.id,
       score,
       answers: quizAnswers,
@@ -526,7 +589,7 @@ export default function MicroCoursePlayerDB() {
   };
 
   const handleQuizSubmit = () => {
-    const quiz = quizzes[0]; // Currently support one quiz per module
+    const quiz = activeQuiz;
     if (!quiz) return;
 
     if (enrollment?.id) {
@@ -698,7 +761,8 @@ export default function MicroCoursePlayerDB() {
                     setCurrentModuleIndex(0);
                     setCurrentSectionIndex(0);
                     setShowFormativeQuiz(false);
-                    setShowSummativeQuiz(false);
+                    setShowSummativeExam(false);
+                    setShowCertificateReady(false);
                     setHasResumed(false);
                     // Navigate to the same course with review=true so isReviewMode is set
                     navigate(`/micro-course/${slug}?review=true`);
@@ -731,10 +795,7 @@ export default function MicroCoursePlayerDB() {
 
   const currentModule = modules[currentModuleIndex];
   const currentSection = sections[currentSectionIndex];
-  const currentQuiz = quizzes[0]; // Formative quiz for the module
-  // Detect if the current module is the "Final Knowledge Check" (last module, title contains 'Final')
-  // Must be declared AFTER currentModule to avoid temporal dead zone (ReferenceError)
-  const isFinalExamModule = isLastModule && (currentModule?.title?.toLowerCase().includes('final') ?? false);
+  const isFinalExamModule = isSummativeExamActive;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -747,12 +808,12 @@ export default function MicroCoursePlayerDB() {
               size="icon"
               onClick={handleHeaderBack}
               aria-label={
-                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                showCertificateReady || showSummativeExam || showDiagnosticQuiz || showFormativeQuiz || canGoBackInContent
                   ? "Go to previous section or module"
                   : coursesHubReturnLabel
               }
               title={
-                showSummativeQuiz || showFormativeQuiz || canGoBackInContent
+                showCertificateReady || showSummativeExam || showDiagnosticQuiz || showFormativeQuiz || canGoBackInContent
                   ? "Previous section or module"
                   : coursesHubReturnLabel
               }
@@ -801,7 +862,8 @@ export default function MicroCoursePlayerDB() {
                     setCurrentModuleIndex(idx);
                     setCurrentSectionIndex(0);
                     setShowFormativeQuiz(false);
-                    setShowSummativeQuiz(false);
+                    setShowSummativeExam(false);
+                    setShowCertificateReady(false);
                   }
                 }}
                 className={cn(
@@ -827,7 +889,7 @@ export default function MicroCoursePlayerDB() {
           <div 
             className={cn(
               "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
-              showSummativeQuiz 
+              showSummativeExam || showCertificateReady
                 ? "bg-primary text-white ring-4 ring-primary/20" 
                 : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)
                   ? "bg-slate-100 text-slate-600"
@@ -839,25 +901,46 @@ export default function MicroCoursePlayerDB() {
         </div>
 
         {/* Content Area */}
-        {showSummativeQuiz ? (
+        {showCertificateReady ? (
           <SummativeQuizView 
             course={dbCourse}
-            quiz={currentQuiz}
+            quiz={summativeQuiz}
             onComplete={handleFinalSubmit}
             isPending={completeCourse.isPending || markAhaCognitive.isPending}
             isAhaCourse={isAhaCourse}
             ahaProgramType={ahaProgramForUi}
           />
-        ) : showFormativeQuiz ? (
+        ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
             <FormativeQuizView 
-            moduleTitle={currentModule?.title ?? ""}
-            quiz={currentQuiz}
+            moduleTitle={
+              showDiagnosticQuiz
+                ? "Diagnostic baseline"
+                : showSummativeExam
+                  ? "Summative knowledge check"
+                  : (currentModule?.title ?? "")
+            }
+            quiz={activeQuiz}
             answers={quizAnswers}
             setAnswers={setQuizAnswers}
             onSubmit={handleQuizSubmit}
             submitted={quizSubmitted}
             score={quizScore}
-            onNext={handleModuleTransition}
+            onNext={() => {
+              if (showDiagnosticQuiz) {
+                setShowDiagnosticQuiz(false);
+                resetQuizState();
+                void utils.learning.getMicroCourseExamState.invalidate();
+                return;
+              }
+              if (showSummativeExam || isSummativeExamActive) {
+                setShowSummativeExam(false);
+                setShowCertificateReady(true);
+                resetQuizState();
+                void utils.learning.getMicroCourseExamState.invalidate();
+                return;
+              }
+              handleModuleTransition();
+            }}
             onRetry={() => {
               setQuizAnswers({});
               setQuizSubmitted(false);
@@ -866,6 +949,14 @@ export default function MicroCoursePlayerDB() {
             isPending={submitQuizMutation.isPending}
             isEnsuring={ensureAhaEnrollmentMutation.isPending}
             isFinalExam={isFinalExamModule}
+            isDiagnostic={showDiagnosticQuiz}
+            summativeRetryBlocked={
+              !!examState &&
+              !examState.canRetrySummative &&
+              !examState.summativePassed &&
+              isSummativeExamActive
+            }
+            retryAvailableAt={examState?.retryAvailableAt ?? null}
           />
         ) : (
           <div className="space-y-6">
@@ -960,9 +1051,12 @@ export default function MicroCoursePlayerDB() {
 
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
-  submitted, score, onNext, onRetry, isPending, isEnsuring, isFinalExam 
+  submitted, score, onNext, onRetry, isPending, isEnsuring, isFinalExam,
+  isDiagnostic, summativeRetryBlocked, retryAvailableAt,
 }: any) {
   if (!quiz) return null;
+
+  const passThreshold = isDiagnostic ? 0 : quiz.passingScore;
 
   return (
     <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -970,18 +1064,20 @@ function FormativeQuizView({
         <div className="flex items-center gap-2 mb-2 opacity-80">
           {isFinalExam ? <Award className="w-5 h-5" /> : <ListChecks className="w-5 h-5" />}
           <span className="text-xs font-bold uppercase tracking-widest">
-            {isFinalExam ? 'Final Examination' : 'Knowledge Check'}
+            {isDiagnostic ? "Diagnostic baseline" : isFinalExam ? "Summative exam" : "Knowledge Check"}
           </span>
         </div>
         <CardTitle className="text-2xl font-bold">
-          {isFinalExam ? 'Final Knowledge Check' : `Review: ${moduleTitle}`}
+          {isDiagnostic ? "Before you start" : isFinalExam ? "Summative knowledge check" : `Review: ${moduleTitle}`}
         </CardTitle>
         <p className="text-white/70 text-sm mt-2">
-          {isFinalExam
-            ? `This is the final examination. You must score ≥${quiz.passingScore}% to receive your certificate.`
+          {isDiagnostic
+            ? "No pass mark — establishes your baseline. You cannot retake this diagnostic."
+            : isFinalExam
+            ? `Same topics as taught, shuffled. Score ≥${quiz.passingScore}% required. Up to 2 retries after 24 hours between attempts.`
             : `Test your understanding of the concepts covered in this module. Passing score: `
           }
-          {!isFinalExam && <span className="text-white font-bold">{quiz.passingScore}%</span>}
+          {!isFinalExam && !isDiagnostic && <span className="text-white font-bold">{quiz.passingScore}%</span>}
         </p>
         {isFinalExam && (
           <div className="flex items-center gap-4 mt-4">
@@ -1054,34 +1150,41 @@ function FormativeQuizView({
           <div className="w-full text-center space-y-6">
             <div className={cn(
               "inline-flex flex-col items-center p-6 rounded-2xl border-2",
-              score >= quiz.passingScore ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
+              score >= passThreshold ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
             )}>
               <span className="text-sm font-bold uppercase tracking-widest mb-1">
-                {isFinalExam ? 'Final Exam Score' : 'Your Score'}
+                {isDiagnostic ? "Baseline recorded" : isFinalExam ? "Summative score" : "Your Score"}
               </span>
               <span className="text-5xl font-black">{score}%</span>
               <span className="text-sm font-medium mt-2">
-                {score >= quiz.passingScore
-                  ? isFinalExam ? `Excellent! You've passed the final exam.` : `Great job! You've mastered this module.`
-                  : isFinalExam ? `You need ${quiz.passingScore}% to pass. Review the material and try again.` : `Keep studying and try again.`
+                {isDiagnostic
+                  ? "Thank you — continue to the course modules."
+                  : score >= passThreshold
+                  ? isFinalExam ? `Excellent! You've passed the summative exam.` : `Great job! You've mastered this module.`
+                  : isFinalExam
+                    ? summativeRetryBlocked && retryAvailableAt
+                      ? `Retry available after ${new Date(retryAvailableAt).toLocaleString()}.`
+                      : `You need ${quiz.passingScore}% to pass. Review the material and try again.`
+                    : `Keep studying and try again.`
                 }
               </span>
             </div>
             
-            {score >= quiz.passingScore ? (
+            {score >= passThreshold || isDiagnostic ? (
               <Button 
                 className="w-full py-8 rounded-2xl font-bold text-xl bg-emerald-600 hover:bg-emerald-700"
                 onClick={onNext}
               >
-                {isFinalExam ? <><Award className="w-6 h-6 mr-2" />Claim My Certificate</> : <>Continue to Next Module</>}
+                {isDiagnostic ? <>Start course</> : isFinalExam ? <><Award className="w-6 h-6 mr-2" />Continue to certificate</> : <>Continue to Next Module</>}
               </Button>
             ) : (
               <Button 
                 variant="outline"
                 className="w-full py-8 rounded-2xl font-bold text-xl border-border"
                 onClick={onRetry}
+                disabled={summativeRetryBlocked}
               >
-                {isFinalExam ? 'Retry Final Exam' : 'Retry Knowledge Check'}
+                {isFinalExam ? 'Retry summative exam' : 'Retry Knowledge Check'}
               </Button>
             )}
           </div>

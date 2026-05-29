@@ -343,7 +343,7 @@ describe('DKA Engine', () => {
       expect(insulinInterventions[0].description.toLowerCase()).toContain('insulin');
     });
 
-    it('should include bolus for severe DKA', () => {
+    it('should use infusion without insulin bolus for severe DKA (ISPAD)', () => {
       const assessment: DKAAssessment = {
         age: 14,
         weightKg: 45,
@@ -368,8 +368,12 @@ describe('DKA Engine', () => {
       const severity = assessDKASeverity(assessment);
       const insulinInterventions = generateInsulinProtocol(assessment, severity);
 
-      const hasBolus = insulinInterventions.some(i => i.description.includes('bolus'));
-      expect(hasBolus).toBe(true);
+      const hasInfusion = insulinInterventions.some((i) =>
+        i.description.toLowerCase().includes('infusion')
+      );
+      const hasBolus = insulinInterventions.some((i) => i.description.toLowerCase().includes('bolus'));
+      expect(hasInfusion).toBe(true);
+      expect(hasBolus).toBe(false); // ISPAD: no insulin bolus in children
     });
   });
 });
@@ -504,10 +508,11 @@ describe('Status Epilepticus Engine', () => {
       };
 
       const firstLine = generateFirstLineTherapy(assessment);
-      const lorazepam = firstLine.find(i => i.description.includes('Lorazepam'));
+      const lorazepam = firstLine.find((i) => i.description.toLowerCase().includes('lorazepam'));
 
       expect(lorazepam).toBeDefined();
       expect(lorazepam?.dosing).toContain('1.8'); // 0.1 mg/kg * 18kg
+      expect(firstLine.some((i) => i.description.toLowerCase().includes('midazolam'))).toBe(true);
     });
 
     it('should include supportive care in first-line therapy', () => {

@@ -135,8 +135,8 @@ export function calculateDKAFluidResuscitation(
     type: 'fluid_resuscitation_phase1',
     description: 'Initial IV fluid resuscitation (Phase 1)',
     indication: 'Replace 50% of fluid deficit over 30 minutes',
-    dosing: `${phase1Fluid.toFixed(0)}mL of 0.9% normal saline
-Infusion rate: ${(phase1Fluid / 0.5).toFixed(0)}mL/hour`,
+    dosing: `${phase1Fluid.toFixed(0)} mL isotonic fluid (0.9% NaCl or balanced crystalloid per availability)
+Note: large 0.9% NaCl volumes may worsen hyperchloraemic acidosis — ISPAD allows balanced crystalloids where available.`,
     frequency: 'Over 30 minutes',
     monitoring: 'Blood pressure, heart rate, urine output',
   });
@@ -176,38 +176,24 @@ export function generateInsulinProtocol(
 ): DKAIntervention[] {
   const interventions: DKAIntervention[] = [];
 
-  // Initial insulin bolus (0.1 U/kg)
-  const initialBolus = assessment.weightKg * 0.1;
-  interventions.push({
-    type: 'insulin_bolus_initial',
-    description: 'Initial IV insulin bolus',
-    indication: 'Begin insulin therapy after fluid resuscitation started',
-    dosing: `${initialBolus.toFixed(1)}U of regular insulin IV
-(0.1 U/kg)`,
-    frequency: 'One-time bolus',
-    monitoring: 'Blood glucose, potassium',
-  });
-
-  // Continuous insulin infusion (0.1 U/kg/hour)
+  // No insulin bolus in children (ISPAD) — infusion only
+  // Continuous insulin infusion (0.05-0.1 U/kg/hour)
   const insulinInfusion = assessment.weightKg * 0.1;
   interventions.push({
     type: 'insulin_infusion_continuous',
     description: 'Continuous IV insulin infusion',
-    indication: 'Maintain steady glucose decline',
-    dosing: `${insulinInfusion.toFixed(1)}U/hour of regular insulin IV
-(0.1 U/kg/hour)
-Preparation: 50U regular insulin in 50mL 0.9% NS = 1U/mL`,
+    indication: 'After fluids started and K+ >3.5 mmol/L — continue until ketosis resolving',
+    dosing: `${(assessment.weightKg * 0.05).toFixed(2)}–${insulinInfusion.toFixed(1)} U/hour regular insulin IV (0.05–0.1 U/kg/h; no bolus in children)`,
     frequency: 'Continuous infusion',
-    monitoring: 'Blood glucose every 1 hour; adjust rate based on glucose decline',
+    monitoring: 'Glucose hourly; ketones until clearing; do not stop for normoglycaemia alone',
   });
 
-  // Glucose management
   interventions.push({
     type: 'glucose_management',
-    description: 'Glucose monitoring and management',
-    indication: 'Target glucose decline 50-100 mg/dL/hour (2.8-5.6 mmol/L/hour)',
-    dosing: `If glucose < 250 mg/dL (<${formatMmollFromMgdl(250)} mmol/L): Add dextrose to IV fluids (5-10% dextrose)
-Continue insulin infusion until pH > 7.3 and HCO3 > 15`,
+    description: 'Glucose + ketone targets',
+    indication: 'Avoid stopping insulin when glucose normalises',
+    dosing: `If glucose <14 mmol/L (<${formatMmollFromMgdl(250)} mmol/L from mg/dL labs): add dextrose to fluids.
+Continue insulin until ketosis resolving and pH >7.3 — not glucose alone.`,
     frequency: 'Check glucose every 1 hour',
     monitoring: 'Ensure glucose decline is gradual (avoid rapid drop)',
   });

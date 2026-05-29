@@ -18,6 +18,7 @@ import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_cor
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
 import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-enrollment-progress";
+import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate";
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
@@ -324,6 +325,23 @@ export const coursesRouter = router({
 
         if (!course) {
           return { success: false, message: 'Course not found' };
+        }
+
+        const enrollmentRow = await database.query.microCourseEnrollments.findFirst({
+          where: and(
+            eq(microCourseEnrollments.userId, ctx.user.id),
+            eq(microCourseEnrollments.microCourseId, course.id)
+          ),
+        });
+        if (enrollmentRow) {
+          const examGate = await assertMicrocourseCompletionAllowed(
+            database as any,
+            ctx.user.id,
+            enrollmentRow.id
+          );
+          if (!examGate.ok) {
+            return { success: false, message: examGate.message };
+          }
         }
 
         // Update enrollment status

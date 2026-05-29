@@ -1409,7 +1409,7 @@ const threatRules: ThreatRule[] = [
     condition: (f) => f.seizure_activity === 'active',
     interventions: () => [
       { id: uid(), action: 'PROTECT PATIENT', detail: 'Place in recovery position. Clear surroundings. Do NOT restrain. Do NOT put anything in mouth. Note time of seizure onset.', critical: true, status: 'pending' },
-      { id: uid(), action: 'BENZODIAZEPINE (1st line)', dose: makeDose('Diazepam', 0.3, 'mg', 'IV/IO (or 0.5 mg/kg PR if no IV)', { maxDose: 10, preparation: 'IV: 0.3 mg/kg (max 10mg). PR: 0.5 mg/kg (max 20mg). Or Midazolam 0.15mg/kg IV / 0.2mg/kg IN / 0.3mg/kg buccal.' }), critical: true, status: 'pending', timerSeconds: 300, reassessAfter: 'Has seizure stopped after 5 minutes?' },
+      { id: uid(), action: 'BENZODIAZEPINE (1st line — not in neonates)', dose: makeDose('Midazolam', 0.2, 'mg', 'buccal/IM/IV (or Lorazepam 0.1 mg/kg IV max 4 mg)', { maxDose: 10, preparation: 'International: midazolam/lorazepam first. Kenya: diazepam 0.3 mg/kg IV/PR (max 10 mg) — watch respiratory depression. NEONATES: skip benzos; phenobarbital per protocol.' }), critical: true, status: 'pending', timerSeconds: 300, reassessAfter: 'Has seizure stopped after 5 minutes?' },
       { id: uid(), action: 'REPEAT BENZODIAZEPINE (if still seizing at 5 min)', dose: makeDose('Diazepam', 0.3, 'mg', 'IV/IO', { maxDose: 10, preparation: 'Repeat once if seizure continues after 5 min. Max 2 doses of benzodiazepine.' }), status: 'pending' },
       { id: uid(), action: 'PHENYTOIN (2nd line if still seizing)', dose: makeDose('Phenytoin', 20, 'mg', 'IV over 20 min', { maxDose: 1500, preparation: 'Or Levetiracetam 40mg/kg IV over 15 min (max 3000mg). Or Phenobarbital 20mg/kg IV over 20 min.' }), status: 'pending' },
     ]

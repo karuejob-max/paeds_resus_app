@@ -88,34 +88,58 @@ export function generateFirstLineTherapy(
 ): StatusEpilepticusIntervention[] {
   const interventions: StatusEpilepticusIntervention[] = [];
 
-  // Benzodiazepine - first-line
-  const lorazepam = assessment.weightKg * 0.1; // max 4mg
-  const lorazepamDose = Math.min(lorazepam, 4);
+  const isNeonate = assessment.age < 1 / 12; // under ~1 month as approximate neonate guard
+
+  if (isNeonate) {
+    interventions.push({
+      type: 'neonate_no_benzo',
+      description: 'Neonate: avoid benzodiazepines as first-line',
+      indication: 'Status epilepticus in neonate',
+      dosing: 'Treat hypoglycaemia, infection, electrolytes. Phenobarbital per local protocol — senior review.',
+      frequency: 'Per protocol',
+      timeWindow: 'Immediate',
+      monitoring: 'Glucose, airway, perfusion',
+    });
+    return interventions;
+  }
+
+  const midazolam = assessment.weightKg * 0.2;
+  const midazolamDose = Math.min(midazolam, 10);
 
   interventions.push({
     type: 'benzodiazepine_first_line',
-    description: 'Lorazepam IV (first-line)',
+    description: 'Buccal/IM/IV midazolam (international first-line)',
     indication: 'Initial seizure management',
-    dosing: `${lorazepamDose.toFixed(1)}mg IV
-(0.1 mg/kg, max 4mg)`,
-    frequency: 'One-time dose',
+    dosing: `${midazolamDose.toFixed(1)} mg (0.2 mg/kg buccal/IM, max 10 mg)`,
+    frequency: 'One-time; repeat once at 5 min if needed',
     timeWindow: '0-5 minutes',
-    monitoring: 'Seizure cessation, respiratory status, blood pressure',
+    monitoring: 'Seizure cessation, respiratory depression',
   });
 
-  // Alternative: Diazepam if IV access not available
-  const diazepam = assessment.weightKg * 0.3; // max 10mg
-  const diazepamDose = Math.min(diazepam, 10);
+  const lorazepam = assessment.weightKg * 0.1;
+  const lorazepamDose = Math.min(lorazepam, 4);
 
   interventions.push({
-    type: 'benzodiazepine_alternative',
-    description: 'Diazepam IV (if lorazepam unavailable)',
-    indication: 'Alternative first-line if lorazepam not available',
-    dosing: `${diazepamDose.toFixed(1)}mg IV
-(0.3 mg/kg, max 10mg)`,
+    type: 'benzodiazepine_lorazepam',
+    description: 'IV lorazepam (when available)',
+    indication: 'Alternative first-line with IV access',
+    dosing: `${lorazepamDose.toFixed(1)} mg IV (0.1 mg/kg, max 4 mg)`,
     frequency: 'One-time dose',
     timeWindow: '0-5 minutes',
     monitoring: 'Seizure cessation, respiratory status',
+  });
+
+  const diazepam = assessment.weightKg * 0.3;
+  const diazepamDose = Math.min(diazepam, 10);
+
+  interventions.push({
+    type: 'benzodiazepine_kenya_option',
+    description: 'Diazepam IV/PR (Kenya / low-resource option)',
+    indication: 'Often available — caution respiratory depression',
+    dosing: `${diazepamDose.toFixed(1)} mg (0.3 mg/kg IV, max 10 mg)`,
+    frequency: 'One-time; max 2 benzo doses before second-line',
+    timeWindow: '0-5 minutes',
+    monitoring: 'Respiratory rate, SpO₂, seizure cessation',
   });
 
   // Rectal diazepam if no IV access

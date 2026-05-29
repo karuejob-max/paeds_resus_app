@@ -1,6 +1,7 @@
 /**
  * Micro-Courses Data: Batch 1-5 (20 courses)
  * PSOT §16: Complete 24-course learning ecosystem
+ * Clinical spine: docs/CLINICAL_SOURCE_OF_TRUTH.md
  * 
  * Batch 1: Asthma II, Status Epilepticus II, Anaphylaxis I & II (4)
  * Batch 2: DKA I & II, Severe Pneumonia/ARDS I & II (4)
@@ -8,6 +9,12 @@
  * Batch 4: Meningitis I & II, Severe Malaria I & II (4)
  * Batch 5: Acute Kidney Injury I & II, Severe Anaemia I & II (4)
  */
+
+import {
+  DKA_FLUIDS_CONFLICT,
+  DKA_INSULIN_KETONES,
+  GLUCOSE_MMOL_NOTE,
+} from './clinical-content-helpers';
 
 export const microCoursesBatch1To5 = [
   // ============================================
@@ -65,7 +72,8 @@ export const microCoursesBatch1To5 = [
           <ul>
             <li><strong>Salbutamol:</strong> 15 mg nebulized continuously (not intermittent)</li>
             <li><strong>Ipratropium:</strong> 0.5 mg nebulized (synergistic with salbutamol)</li>
-            <li><strong>Hydrocortisone:</strong> 4-5 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg</li>
+            <li><strong>Steroids:</strong> Dexamethasone 0.6 mg/kg (max 16 mg) PO/IM, prednisolone 1–2 mg/kg PO, or hydrocortisone 4–5 mg/kg IV if severe / NPO</li>
+            <li><strong>IV salbutamol:</strong> Where continuous nebulisation fails and monitoring available — per local ICU protocol (taught in Level 2)</li>
             <li><strong>Magnesium sulfate:</strong> 40 mg/kg IV over 20 min (max 2g) if severe</li>
             <li><strong>Avoid:</strong> Anticholinergics (atropine) unless intubated</li>
           </ul>
@@ -702,7 +710,7 @@ export const microCoursesBatch1To5 = [
 
   {
     id: 'dka-i',
-    title: 'Paediatric DKA I: Recognition and First-Hour Stabilization',
+    title: 'DKA Level 1: Recognition & Fluids (mmol/L)',
     level: 'foundational',
     duration: 45,
     price: 800,
@@ -714,7 +722,8 @@ export const microCoursesBatch1To5 = [
         content: `
           <h2>Diabetic Ketoacidosis (DKA) Recognition</h2>
           <h3>DKA Definition:</h3>
-          <p>Metabolic emergency with hyperglycemia (>250 mg/dL), metabolic acidosis (pH <7.3, HCO3 <15), and ketonemia/ketonuria.</p>
+          ${GLUCOSE_MMOL_NOTE}
+          <p>Metabolic emergency: glucose typically &gt;11 mmol/L (&gt;200 mg/dL), acidosis (pH &lt;7.3, bicarbonate &lt;15 mmol/L), and ketonaemia/ketonuria.</p>
           <h3>Clinical Presentation:</h3>
           <ul>
             <li><strong>Respiratory:</strong> Kussmaul breathing (deep, rapid), fruity breath odor (acetone)</li>
@@ -731,7 +740,7 @@ export const microCoursesBatch1To5 = [
           </ul>
           <h3>Diagnostic Criteria:</h3>
           <ul>
-            <li>Glucose >250 mg/dL (or normal in euglycemic DKA)</li>
+            <li>Glucose &gt;11 mmol/L (often &gt;14 mmol/L) or euglycaemic DKA with ketones + acidosis</li>
             <li>Venous pH <7.3 OR HCO3 <15 mEq/L</li>
             <li>Positive serum/urine ketones</li>
             <li>Anion gap metabolic acidosis (AG >12)</li>
@@ -752,21 +761,19 @@ export const microCoursesBatch1To5 = [
             <li>Assess mental status and neurological signs</li>
           </ul>
           <h3>Fluid Resuscitation (First Hour):</h3>
-          <div className="clinical-note"><h4>The "Slow and Steady" Rule</h4>
+          ${DKA_FLUIDS_CONFLICT}
+          <div className="clinical-note"><h4>Slow and steady</h4>
           <ul>
-            <li><strong>Initial bolus:</strong> 10-20 mL/kg 0.9% NaCl over 1 hour (not 15 min, unless in shock).</li>
-            <li><strong>Goal:</strong> Restore perfusion, not to correct the entire deficit.</li>
-            <li><strong>Maintenance:</strong> 0.9% NaCl at 1.5× maintenance rate.</li>
-            <li><strong>Cerebral Edema Risk:</strong> Rapid fluid administration is the #1 risk factor. Monitor GCS every hour.</li>
+            <li><strong>Bolus:</strong> 10 mL/kg over 15–30 min only if perfusion compromised — avoid large rapid boluses (cerebral oedema risk).</li>
+            <li><strong>Deficit replacement:</strong> Spread over 24–48 h per ISPAD — do not correct entire deficit in the first hours.</li>
+            <li>Monitor GCS hourly; headache, vomiting, bradycardia → treat cerebral oedema urgently.</li>
           </ul></div>
-          <h3>Insulin Therapy (CRITICAL):</h3>
-          <div className="clinical-note"><h4>Safe Insulin Initiation</h4>
+          <h3>Insulin (when indicated):</h3>
+          ${DKA_INSULIN_KETONES}
           <ul>
-            <li><strong>DO NOT start insulin until:</strong> 1 hour after fluid resuscitation begins.</li>
-            <li><strong>Potassium Check:</strong> Ensure K+ >3.5 mEq/L before starting insulin.</li>
-            <li><strong>Bolus vs Infusion:</strong> Avoid insulin boluses in children (increases cerebral edema risk).</li>
-            <li><strong>Infusion Rate:</strong> 0.05-0.1 unit/kg/hr IV. In low-resource settings without infusion pumps, SC insulin 0.1 unit/kg every 2-4 hours is a safer alternative.</li>
-          </ul></div>
+            <li>Do not start until K⁺ &gt;3.5 mmol/L and initial fluids underway (~1 h).</li>
+            <li>0.05–0.1 units/kg/h IV infusion — no bolus in children.</li>
+          </ul>
           <h3>Electrolyte Monitoring:</h3>
           <ul>
             <li><strong>Potassium:</strong> Total body deficit 3-5 mEq/kg; recheck every 2-4 hours</li>
@@ -805,7 +812,7 @@ export const microCoursesBatch1To5 = [
           </ul>
           <h3>Transition to Maintenance:</h3>
           <ul>
-            <li>When glucose <250 mg/dL AND pH >7.3: switch to SC insulin</li>
+            <li>When glucose &lt;14 mmol/L with dextrose in fluids: continue insulin until ketosis resolving and pH &gt;7.3</li>
             <li>Continue IV fluids until tolerating PO</li>
             <li>Start PO intake: clear fluids → regular diet</li>
             <li>Diabetes education and follow-up with endocrinology</li>
@@ -819,9 +826,9 @@ export const microCoursesBatch1To5 = [
       questions: [
         {
           question: 'DKA diagnostic criteria include:',
-          options: ['Glucose >250 only', 'Glucose >250 + pH <7.3 + positive ketones', 'Fever + vomiting', 'Seizures only'],
+          options: ['Glucose >11 mmol/L only', 'Hyperglycaemia + acidosis (pH <7.3) + ketones', 'Fever + vomiting', 'Seizures only'],
           correct: 1,
-          explanation: 'DKA = hyperglycemia (>250) + metabolic acidosis (pH <7.3, HCO3 <15) + ketonemia/ketonuria.'
+          explanation: 'DKA = hyperglycaemia + metabolic acidosis + ketonaemia — confirm with glucose (mmol/L), pH/bicarbonate, and ketones.'
         },
         {
           question: 'Kussmaul breathing in DKA is:',
@@ -872,10 +879,10 @@ export const microCoursesBatch1To5 = [
           explanation: 'Total body K+ deficit 3-5 mEq/kg. Recheck every 2-4 hours during treatment.'
         },
         {
-          question: 'When to switch from IV to SC insulin in DKA:',
-          options: ['Immediately', 'When glucose <250 AND pH >7.3', 'When glucose <200', 'After 24 hours'],
+          question: 'When can you stop insulin in DKA?',
+          options: ['As soon as glucose is normal', 'When ketosis is resolving and acidosis improving', 'After one hour', 'Never'],
           correct: 1,
-          explanation: 'Switch to SC insulin when glucose <250 mg/dL AND pH >7.3 (resolution of acidosis).'
+          explanation: 'Continue insulin until ketosis resolves and acidosis improves — not glucose alone.'
         }
       ]
     }

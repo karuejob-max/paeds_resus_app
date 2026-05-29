@@ -1,12 +1,14 @@
 /**
- * Micro-Courses Data: Missing Fellowship Courses (Asthma I, Status Epilepticus I, DKA I Advanced, Meningitis I & II, Trauma I & II)
- * Clinical content generated to match the PaedsResusGPS standards for bedside reliability.
+ * Micro-Courses Data: Missing Fellowship Courses (Asthma I, Status Epilepticus I, Meningitis I & II, Trauma I & II)
+ * Clinical content aligned with CLINICAL_CONTENT_GOVERNANCE + CLINICAL_SOURCE_OF_TRUTH.
  */
+
+import { ASTHMA_STEROIDS, NEONATE_CALLOUT, SE_BENZO_CONFLICT } from './clinical-content-helpers';
 
 export const microCoursesMissingFellowship = [
   {
     id: 'asthma-i',
-    title: 'Paediatric Asthma I: Recognition and First-Hour Stabilization',
+    title: 'Paediatric Asthma Level 1: Recognition, 1st & 2nd Line',
     level: 'beginner',
     duration: 45,
     price: 800,
@@ -46,10 +48,9 @@ export const microCoursesMissingFellowship = [
             <li><strong>Salbutamol:</strong> 2.5-5mg via nebulizer OR 6-10 puffs via spacer every 20 mins.</li>
             <li><strong>Ipratropium Bromide:</strong> 250-500mcg nebulized every 20 mins for the first hour in severe cases.</li>
           </ul>
-          <h3>Corticosteroids:</h3>
-          <ul>
-            <li><strong>Prednisolone:</strong> 1-2mg/kg (max 40mg) PO OR Hydrocortisone 4mg/kg IV.</li>
-          </ul>
+          ${ASTHMA_STEROIDS}
+          <h3>When to escalate:</h3>
+          <p>SpO₂ &lt;90%, silent chest, or altered consciousness → treat as severe; prepare for Level 2 / status asthmaticus course.</p>
         `
       }
     ],
@@ -74,7 +75,7 @@ export const microCoursesMissingFellowship = [
   },
   {
     id: 'status-epilepticus-i',
-    title: 'Paediatric Status Epilepticus I: Emergency Seizure Control',
+    title: 'Status Epilepticus Level 1: Recognition & First-Line',
     level: 'beginner',
     duration: 45,
     price: 800,
@@ -98,13 +99,9 @@ export const microCoursesMissingFellowship = [
         title: 'Module 2: Pharmacological Control',
         duration: 20,
         content: `
-          <h2>First-Line Benzodiazepines</h2>
-          <ul>
-            <li><strong>Diazepam:</strong> 0.2-0.5mg/kg IV OR 0.5mg/kg PR.</li>
-            <li><strong>Midazolam:</strong> 0.1-0.2mg/kg IV/IM OR 0.3mg/kg Buccal.</li>
-            <li><strong>Lorazepam:</strong> 0.1mg/kg IV (preferred if available).</li>
-          </ul>
-          <p>Repeat once after 5 mins if seizure continues.</p>
+          ${SE_BENZO_CONFLICT}
+          ${NEONATE_CALLOUT}
+          <p>Repeat one benzodiazepine dose after 5 minutes if seizure continues (non-neonate). Max two benzo doses before second-line agents.</p>
         `
       }
     ],
