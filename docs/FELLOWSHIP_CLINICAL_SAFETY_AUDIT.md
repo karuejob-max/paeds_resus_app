@@ -1,189 +1,224 @@
 # Fellowship micro-course clinical safety audit
 
-**Date:** 2026-05-30  
+**Date:** 2026-05-30 (Pass 2 complete)  
 **Auditor:** Cursor (engineering) — **CEO post-deploy sign-off pending**  
 **Authority:** [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md), [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md)  
-**Scope:** All published fellowship catalog courses except sample `intubation-essentials` (27 courses).
+**Scope:** All published fellowship catalog courses except sample `intubation-essentials` (**27 courses**).
+
+---
 
 ## Executive summary
 
 | Metric | Count |
 |--------|------:|
-| **P0 findings (harm if propagated)** | 1 |
-| **P0 fixed in this pass** | 1 |
-| **P1 findings (critical gap / platform)** | 5 |
-| **P1 fixed in this pass** | 5 |
-| **P2 backlog (documented, not blocking merge)** | 8 |
+| **P0 findings (harm if propagated)** | 2 |
+| **P0 fixed** | 2 |
+| **P1 findings (critical gap / platform)** | 7 |
+| **P1 fixed** | 7 |
+| **P2 backlog (documented)** | 9 |
 
-**P0 fixed:** Severe malaria taught **artemether** as IV/IM first-line for cerebral/severe malaria — corrected to **artesunate 3 mg/kg** (WHO/CST). Artemether-lumefantrine noted as oral ACT for uncomplicated disease only.
+### P0 fixed (patient harm if followed)
 
-**P1 fixed:** Per-module **formative** quizzes seeded; **diagnostic + summative** on seriously-ill-child-i; **mmol/L** hypoglycaemia in malaria; DKA 2 euglycaemic thresholds; catalog **“Level”** titles removed (→ Asthma 1/2, DKA 1/2, etc.).
+1. **Severe malaria:** Taught **artemether** IV/IM as first-line for cerebral/severe malaria → **artesunate 3 mg/kg** (WHO/CST). Oral artemether-lumefantrine = uncomplicated ACT only.
+2. **DKA insulin:** Confirmed **no insulin bolus** in children; hold insulin if K⁺ &lt;3.5 mmol/L (dka-i module + quiz + ResusGPS engine).
 
-**Platform:** `MicroCoursePlayerDB.tsx` already step-through (one module/section per view); formative after module content; diagnostic at start; summative at end. Player fix: do not fall back to diagnostic quiz when selecting formative.
+### P1 fixed (important gaps / platform)
 
----
+1. Per-module **formative** quizzes on all seeded courses (seed + player).
+2. **Diagnostic + summative** exam triad; seriously-ill-child-i upgraded.
+3. **mmol/L** hypoglycaemia in malaria; DKA euglycaemic thresholds.
+4. Catalog **“Level”** removed → **DKA 1**, **Asthma 2**, etc.
+5. **FEAST-aware** fluids in septic/hypovolemic shock; warm vs cold vasopressor teaching.
+6. **Neonate benzo skip** + Kenya diazepam cautions in SE; steroid options in asthma.
+7. **KCl IV push** language removed from DKA 2 — `DKA_POTASSIUM_SAFETY` helper (never bolus; fluids/infusion only).
 
-## Exam architecture coverage (post-fix)
+### Production verify (2026-05-30)
 
-| Course slug | Modules | Diagnostic | Formative (per module) | Summative | Bank ≥15 |
-|-------------|--------:|:----------:|:----------------------:|:---------:|:--------:|
-| seriously-ill-child-i | 1 | ✓ | ✓ | ✓ | ✓ (expanded) |
-| asthma-i | 2 | ✓ | ✓✓ | ✓ | expand on seed |
-| asthma-ii | 3 | ✓ | ✓✓✓ | ✓ | ✓ |
-| pneumonia-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| pneumonia-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| septic-shock-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| septic-shock-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| hypovolemic-shock-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| hypovolemic-shock-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| cardiogenic-shock-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| cardiogenic-shock-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| status-epilepticus-i | 2 | ✓ | ✓✓ | ✓ | expand on seed |
-| status-epilepticus-ii | 3 | ✓ | ✓✓✓ | ✓ | ✓ |
-| dka-i | 3 | ✓ | ✓✓✓ | ✓ | ✓ |
-| dka-ii | 3 | ✓ | ✓✓✓ | ✓ | ✓ |
-| anaphylaxis-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| anaphylaxis-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| meningitis-i | 1 | ✓ | ✓ | ✓ | expand on seed |
-| meningitis-ii | 1 | ✓ | ✓ | ✓ | expand on seed |
-| malaria-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| malaria-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| burns-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| burns-ii | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| trauma-i | 1 | ✓ | ✓ | ✓ | expand on seed |
-| trauma-ii | 1 | ✓ | ✓ | ✓ | expand on seed |
-| aki-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
-| anaemia-i | 2 | ✓ | ✓✓ | ✓ | ✓ |
+```
+pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts
+→ Fellowship verify: 27 courses, 0 failure(s)
+```
 
-Implementation: `scripts/fellowship-seed-lib.ts` (formative distribution), `shared/microcourse-exam-policy.ts` (`expandQuestionBank`, `distributeFormativeQuestions`), `server/lib/ensure-seriously-ill-child-fellowship-catalog.ts`.
-
-Verify: `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts`
+All courses: diagnostic ≥1, summative ≥1, formative per module, governance footer, no “Level” in catalog title.
 
 ---
 
-## Findings by course (priority conditions first)
+## Master audit table — all 27 fellowship courses
+
+| Course slug | Title | P0 | P1 | P2 | Key fixes applied |
+|-------------|-------|:--:|:--:|:--:|-------------------|
+| seriously-ill-child-i | Systematic approach | — | Platform | Depth | Exam triad; perfusion ≠ cool skin quiz |
+| asthma-i | Asthma 1 | — | Steroids | — | Dex/pred/hydrocortisone; formative×3 |
+| asthma-ii | Asthma 2 | — | IV salbutamol | — | Status asthmaticus; continuous neb |
+| pneumonia-i | Pneumonia 1 | — | WHO/Kenya ABX | SpO₂ target | `PNEUMONIA_WHO_KENYA` |
+| pneumonia-ii | Pneumonia 2 | — | Sepsis overlap | — | Severe pneumonia fluids |
+| septic-shock-i | Septic Shock 1 | FEAST | Fluids | — | 10–20 mL/kg + reassess; FEAST callout |
+| septic-shock-ii | Septic Shock 2 | — | Vasopressors | — | Noradrenaline/adrenaline; Kenya note |
+| hypovolemic-shock-i | Hypovolemic Shock 1 | — | FEAST | — | 20 mL/kg with reassessment |
+| hypovolemic-shock-ii | Hypovolemic Shock 2 | — | MTP | — | Massive transfusion |
+| cardiogenic-shock-i | Cardiogenic Shock 1 | Fluid bolus | — | — | Avoid aggressive boluses |
+| cardiogenic-shock-ii | Cardiogenic Shock 2 | — | Inotropes | ECMO depth | Inotrope escalation |
+| status-epilepticus-i | SE 1 | Neonate benzo | Kenya diazepam | 2nd line depth | `NEONATE_CALLOUT`, `SE_BENZO_CONFLICT` |
+| status-epilepticus-ii | SE 2 | — | RSE agents | — | Propofol/midazolam ICU; 2nd line named |
+| dka-i | DKA 1 | Insulin bolus; K⁺ gate | mmol/L; fluids | — | No bolus; ketones stop criteria; NS vs balanced |
+| dka-ii | DKA 2 | KCl push wording | eGDKA mmol/L | — | `DKA_POTASSIUM_SAFETY`; cerebral oedema |
+| anaphylaxis-i | Anaphylaxis 1 | — | IM adrenaline | — | 0.01 mg/kg IM; repeat 5–15 min |
+| anaphylaxis-ii | Anaphylaxis 2 | IV epi concentration | Refractory | — | 1:10,000 IV not 1:1000 |
+| meningitis-i | Meningitis 1 | Delay ABX for LP | — | Single module | `MENINGITIS_ABX_EARLY` |
+| meningitis-ii | Meningitis 2 | — | ICP depth | Single module | Head elevation 30° |
+| malaria-i | Malaria 1 | Artemether IV | Hypogly mmol/L | Diazepam context | Artesunate 3 mg/kg WHO |
+| malaria-ii | Malaria 2 | — | MODS | Exchange tx depth | Complications module |
+| burns-i | Burns 1 | — | Parkland | — | Airway inhalation injury |
+| burns-ii | Burns 2 | — | — | Wound depth | Infection prevention backlog |
+| trauma-i | Trauma 1 | — | ABCDE | Single module | `TRAUMA_ABCDE` |
+| trauma-ii | Trauma 2 | — | — | Single module | Abdominal trauma |
+| aki-i | AKI 1 | — | — | Creatinine units | Recognition + fluids |
+| anaemia-i | Anaemia 1 | — | Transfusion | anaemia-ii absent | Volume + reactions |
+
+**Excluded:** `intubation-essentials` (sample catalog row, not fellowship pillar).
+
+---
+
+## Detailed findings by priority condition
 
 ### DKA 1 (`dka-i`)
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| Insulin stop when glucose normal only | P0 | Module 3, quiz Q10 | Y | CST: continue until ketosis resolving |
-| NS-only fluids without acidosis note | P1 | Module 2 | Y | `DKA_FLUIDS_CONFLICT` helper |
-| mg/dL primary glucose narrative | P1 | Modules 1–3 | Y | mmol/L primary + parenthetical mg/dL |
-| No insulin bolus in children | P0 | Module 2, quiz | Y | Explicit “no bolus”; hold if K⁺ <3.5 |
-| 800 mL bolus distractor in quiz | P1 | Quiz Q4 | Y | Correct 10 mL/kg = 200 mL for 20 kg |
+| Insulin stop when glucose normal only | P0 | Module 3, quiz Q10 | Y | Continue until ketosis resolving (CST) |
+| No insulin bolus in children | P0 | Module 2, quiz | Y | 0.05–0.1 U/kg/h infusion only |
+| NS-only without acidosis note | P1 | Module 2 | Y | `DKA_FLUIDS_CONFLICT` |
+| mg/dL primary glucose | P1 | Modules 1–3 | Y | mmol/L primary |
+| K⁺ check before insulin | P1 | Module 2, quiz Q3 | Y | Hold if K⁺ &lt;3.5 |
+| 800 mL bolus quiz distractor | P1 | Quiz Q4 | Y | 10 mL/kg = 200 mL for 20 kg |
+| KCl push not explicit | P1 | Module 3 | Y | `DKA_POTASSIUM_SAFETY` added |
 
 ### DKA 2 (`dka-ii`)
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| eGDKA defined only in mg/dL | P1 | Module 1 | Y | mmol/L primary (<14 / <11 mmol/L) |
-| Rapid glucose drop only mg/dL/hr | P2 | Module 2 prevention | Y | Added mmol/L/hr equivalent |
-| K⁺ replacement rate vs “bolus” | P2 | Module 3 | N | Teaches 0.5 mEq/kg over 15–30 min — not push bolus; acceptable |
+| KCl “0.5 mEq/kg IV” read as bolus | P1 | Module 3, quiz Q5 | Y | Never push; fluids/infusion only |
+| eGDKA mg/dL only | P1 | Module 1 | Y | &lt;14 / &lt;11 mmol/L primary |
+| Rapid glucose drop mg/dL/hr only | P2 | Module 2 | Y | Added mmol/L/hr equivalent |
 
-### Status Epilepticus 1 (`status-epilepticus-i`)
-
-| Finding | Severity | Location | Fix | Notes |
-|---------|----------|----------|:---:|-------|
-| Neonates — benzos first-line | P0 | Module 2 | Y | `NEONATE_CALLOUT` + SE conflict box |
-| Kenya diazepam vs intl midazolam/lorazepam | P1 | Module 2 | Y | `SE_BENZO_CONFLICT` |
-| Second-line agents named | P2 | Module 2 | N | Level 2 course; P2 deepen levétiracetam/phenytoin |
-
-### Status Epilepticus 2 (`status-epilepticus-ii`)
+### Status epilepticus 1 / 2
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| Propofol/midazolam infusion doses | P2 | Module 2 | N | ICU-level; verify against local protocol in CEO review |
-| Neonate callout in refractory module | P2 | — | N | Add in Pass 3 if neonatal SE cases expanded |
+| Benzos first-line in neonates | P0 | SE 1 Module 2 | Y | `NEONATE_CALLOUT` |
+| Kenya diazepam without cautions | P1 | SE 1 | Y | `SE_BENZO_CONFLICT` |
+| Second-line agents in SE 2 | P1 | SE 2 | Y | Phenytoin/levetiracetam/propofol |
+| Midazolam “IV bolus” in RSE | P2 | SE 2 | N | ICU context; loading dose not push KCl |
 
-### Asthma 1 / 2 (`asthma-i`, `asthma-ii`)
-
-| Finding | Severity | Location | Fix | Notes |
-|---------|----------|----------|:---:|-------|
-| Hydrocortisone-only steroids | P1 | asthma-i Module 2 | Y | Dex/pred/hydrocortisone in `ASTHMA_STEROIDS` |
-| IV salbutamol omission | P1 | asthma-ii | Y | Taught where monitored |
-| “Level 2” internal refs | P2 | asthma-i escalate text | Y | → “Asthma 2” |
-
-### Septic / hypovolemic / cardiogenic shock
+### Shock family
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| FEAST-unaware 20 mL/kg without reassess | P1 | septic-shock-i, hypovolemic-i | Y | `SHOCK_FLUIDS_FEAST`; catalog desc updated |
-| Cool extremities = shock | P1 | seriously-ill-child quiz | Y | New quiz Q3 — perfusion beyond cool skin |
-| Cardiogenic: aggressive 20 mL/kg | P0 | cardiogenic-i content | Y | Teaches avoid/limit boluses |
-| Vasopressor Kenya reality | P1 | septic-shock-ii | Y | `SHOCK_VASOPRESSORS` |
+| Unmonitored 20 mL/kg boluses | P1 | septic/hypovolemic-i | Y | `SHOCK_FLUIDS_FEAST` |
+| Cool extremities = shock | P1 | seriously-ill-child quiz | Y | Perfusion beyond cool skin |
+| Aggressive bolus in cardiogenic | P0 | cardiogenic-i | Y | Limit/caution boluses |
+| Warm vs cold vasopressor | P1 | septic-shock-ii | Y | `SHOCK_VASOPRESSORS` |
 
-### Pneumonia 1 / 2
-
-| Finding | Severity | Location | Fix | Notes |
-|---------|----------|----------|:---:|-------|
-| WHO vs Kenya ABX conflict | P1 | pneumonia-i | Y | `PNEUMONIA_WHO_KENYA` |
-| Oxygen target | P2 | pneumonia-i | N | SpO₂ >90% in helper — CEO confirm vs 94% |
-
-### Anaphylaxis 1 / 2
+### Asthma, pneumonia, anaphylaxis
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| Adrenaline/epinephrine naming | P1 | anaphylaxis-i | Y | `ANAPHYLAXIS_ADRENALINE` |
-| IM 0.01 mg/kg first-line | P0 | Module 1 | Y | Correct; IV for refractory in course 2 |
+| Hydrocortisone-only steroids | P1 | asthma-i | Y | Dex/pred/hydrocortisone |
+| IV salbutamol omitted | P1 | asthma-ii | Y | Where monitored |
+| WHO vs Kenya ABX | P1 | pneumonia-i | Y | `PNEUMONIA_WHO_KENYA` |
+| IM adrenaline first-line | P0 | anaphylaxis-i | Y | 0.01 mg/kg; not antihistamine first |
+| IV epi 1:1000 error risk | P1 | anaphylaxis-ii | Y | 1:10,000 for IV |
 
-### Meningitis 1 / 2
+### Meningitis, malaria, metabolic
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
 | ABX delayed for LP | P0 | meningitis-i | Y | `MENINGITIS_ABX_EARLY` |
-| ICP management depth | P2 | meningitis-ii | N | Mannitol/HTS — CEO depth review |
-
-### Severe malaria 1 / 2
-
-| Finding | Severity | Location | Fix | Notes |
-|---------|----------|----------|:---:|-------|
-| **Artemether as severe IV/IM first-line** | **P0** | malaria-i modules + quiz | **Y** | → **Artesunate 3 mg/kg** WHO; ACT oral for uncomplicated |
-| Hypoglycaemia <40 mg/dL only | P1 | malaria-i/ii | Y | <3.3 mmol/L primary |
-| Diazepam for cerebral malaria seizures | P2 | malaria-i supportive | N | Acceptable for older children; neonate SE rules in SE course |
+| Artemether severe IV first-line | P0 | malaria-i | Y | → Artesunate 3 mg/kg |
+| Hypoglycaemia mg/dL only | P1 | malaria-i/ii | Y | &lt;3.3 mmol/L |
 
 ### Burns, trauma, AKI, anaemia
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
 | burns-ii depth | P2 | burns-ii | N | CST §5 backlog |
-| trauma-i single module | P2 | trauma-i | N | Expand modules in Pass 3 |
-| AKI creatinine mg/dL | P2 | aki-i | N | Secondary US units; mmol/L glucose where relevant |
-| anaemia-ii not in catalog | P2 | — | N | Only anaemia-i seeded |
+| trauma single-module | P2 | trauma-i/ii | N | Pass 3 expand |
+| AKI creatinine mg/dL | P2 | aki-i | N | Secondary units OK |
+| anaemia-ii absent | P2 | catalog | N | Only anaemia-i in MECE v1 |
 
-### Cross-cutting / platform
+### Platform / assessments
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
 | No per-module formative | P1 | seed pipeline | Y | `distributeFormativeQuestions` |
-| seriously-ill-child no diagnostic/summative | P1 | ensure-seriously-ill-child | Y | Full exam triad |
-| Catalog “Level 1/2” titles | P1 | micro-course-catalog.ts | Y | DKA 1, Asthma 1, etc. |
-| Summative bank <15 items | P2 | small courses | Y | `expandQuestionBank` on seed |
-| ResusGPS full spine audit | P2 | all engines | Partial | DKA/SE P0 aligned prior pass |
+| seriously-ill-child exams | P1 | ensure-SIC catalog | Y | Diagnostic + formative + summative |
+| “Level” in catalog titles | P1 | micro-course-catalog.ts | Y | DKA 1, Asthma 2, … |
+| Player all-modules scroll | P1 | MicroCoursePlayerDB | Y | Step-through; one module/section per view |
+| Summative bank &lt;15 | P2 | small courses | Y | `expandQuestionBank` |
+| Formative = rotated bank Qs | P2 | seed | N | Pass 3: module-native items |
 
 ---
 
-## ResusGPS spot-check (DKA, SE, shock)
+## Exam architecture coverage (verified prod 2026-05-30)
 
-| Engine | Finding | Severity | Fix |
-|--------|---------|----------|:---:|
-| `dka-engine.ts` | No insulin bolus; K⁺ gate; ketones vs glucose stop | — | Y (prior) |
-| `status-epilepticus-engine.ts` | Neonate no benzo path | — | Y (prior) |
-| `abcdeEngine.ts` | Seizure/DKA strings mmol/L + neonate | — | Y (prior) |
-| Shock pathways | FEAST-aware copy in training; bedside strings | P2 | Partial |
+| Course slug | Modules | Diagnostic | Formative (per module) | Summative | Verified |
+|-------------|--------:|:----------:|:----------------------:|:---------:|:--------:|
+| seriously-ill-child-i | 7 | ✓ | 7/7 | ✓ | OK |
+| asthma-i | 3 | ✓ | 3/3 | ✓ | OK |
+| asthma-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| pneumonia-i | 3 | ✓ | 3/3 | ✓ | OK |
+| pneumonia-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| septic-shock-i | 3 | ✓ | 3/3 | ✓ | OK |
+| septic-shock-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| hypovolemic-shock-i | 3 | ✓ | 3/3 | ✓ | OK |
+| hypovolemic-shock-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| cardiogenic-shock-i | 3 | ✓ | 3/3 | ✓ | OK |
+| cardiogenic-shock-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| status-epilepticus-i | 3 | ✓ | 3/3 | ✓ | OK |
+| status-epilepticus-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| dka-i | 3 | ✓ | 3/3 | ✓ | OK |
+| dka-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| anaphylaxis-i | 3 | ✓ | 3/3 | ✓ | OK |
+| anaphylaxis-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| meningitis-i | 1 | ✓ | 1/1 | ✓ | OK |
+| meningitis-ii | 1 | ✓ | 1/1 | ✓ | OK |
+| malaria-i | 3 | ✓ | 3/3 | ✓ | OK |
+| malaria-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| burns-i | 3 | ✓ | 3/3 | ✓ | OK |
+| burns-ii | 3 | ✓ | 3/3 | ✓ | OK |
+| trauma-i | 1 | ✓ | 1/1 | ✓ | OK |
+| trauma-ii | 1 | ✓ | 1/1 | ✓ | OK |
+| aki-i | 3 | ✓ | 3/3 | ✓ | OK |
+| anaemia-i | 3 | ✓ | 3/3 | ✓ | OK |
+
+**Player UX:** `MicroCoursePlayerDB.tsx` — step-through navigation (module index + section index); formative after last section of each module; diagnostic at course start (no retake); summative after final module (80%, 2× retry / 24 h).
+
+**Implementation:** `shared/microcourse-exam-policy.ts`, `scripts/fellowship-seed-lib.ts`, `server/lib/microcourse-exam-gate.ts`.
 
 ---
 
-## P2 backlog (honest — not “nothing remaining”)
+## ResusGPS alignment (P0 spot-check)
 
-1. Deep module rewrite: **burns-ii**, **cardiogenic-ii**, **meningitis-ii** ICP detail (CST §5).
-2. **anaemia-ii**, **aki-ii** — not in fellowship catalog; do not imply complete metabolic pillar.
-3. **trauma-i/ii**, **meningitis-i/ii** — single-module courses; expand pedagogy + module-specific formative banks.
-4. **Oxygen targets** — harmonise 90% vs 94% across pneumonia/asthma/WHO citations.
+| Engine | Finding | Fix |
+|--------|---------|:---:|
+| `dka-engine.ts` | No insulin bolus; K⁺ gate; ketones vs glucose | Y |
+| `status-epilepticus-engine.ts` | Neonate no benzo path | Y |
+| `abcdeEngine.ts` | DKA/SE mmol/L; K⁺ with insulin warning | Y |
+| Shock bedside strings | FEAST nuance partial | P2 backlog |
+
+---
+
+## P2 backlog (honest — work remains)
+
+1. **burns-ii**, **cardiogenic-ii**, **meningitis-ii** — deep module rewrite (CST §5).
+2. **anaemia-ii**, **aki-ii** — not in fellowship catalog.
+3. **trauma-i/ii**, **meningitis-i/ii** — single-module; expand pedagogy + native formative banks.
+4. **Oxygen targets** — harmonise 90% vs 94% (pneumonia vs asthma).
 5. **ResusGPS** — full orphan-string audit beyond DKA/SE/shock P0.
-6. **dka-i-advanced** orphan seed ID — not in catalog; remove or merge to avoid confusion.
-7. **CEO live click-test** — all 27 courses on paedsresus.com after prod re-seed.
-8. **Formative fairness** — some modules share rotated summative-bank questions; Pass 3: author module-native formative items only.
+6. **dka-i-advanced** orphan seed row — not in catalog; remove in Pass 3.
+7. **CEO live click-test** — all 27 courses on paedsresus.com.
+8. **Formative fairness** — module-native questions vs rotated summative bank.
+9. **Legacy courseContent.ts / PALS seeds** — artemether/KCl strings outside fellowship path (not learner-facing for fellowship player).
 
 ---
 
@@ -192,5 +227,6 @@ Verify: `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts`
 | Field | Value |
 |-------|--------|
 | CEO sign-off | **Pending post-deploy review** |
-| Next action | Prod chunked re-seed + `verify-fellowship-seed.ts` |
-| Merge PR | See WORK_STATUS |
+| PRs | #113 (audit), #116 (seed title match) |
+| Merge (latest) | `6a2c0c1` |
+| Verify | `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` → 27/27 OK |
