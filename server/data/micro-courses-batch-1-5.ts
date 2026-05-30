@@ -11,9 +11,11 @@
  */
 
 import {
+  ANAPHYLAXIS_ADRENALINE,
   DKA_FLUIDS_CONFLICT,
   DKA_INSULIN_KETONES,
   GLUCOSE_MMOL_NOTE,
+  PNEUMONIA_WHO_KENYA,
 } from './clinical-content-helpers';
 
 export const microCoursesBatch1To5 = [
@@ -390,6 +392,7 @@ export const microCoursesBatch1To5 = [
         title: 'Module 2: First-Dose Epinephrine Administration',
         duration: 20,
         content: `
+          ${ANAPHYLAXIS_ADRENALINE}
           <h2>Epinephrine: The Definitive Treatment</h2>
           <h3>Epinephrine Dose (IM preferred):</h3>
           <ul>
@@ -1139,6 +1142,7 @@ export const microCoursesBatch1To5 = [
         title: 'Module 2: First-Hour Stabilization',
         duration: 20,
         content: `
+          ${PNEUMONIA_WHO_KENYA}
           <h2>Severe Pneumonia First-Hour Protocol</h2>
           <h3>Oxygen Therapy:</h3>
           <ul>

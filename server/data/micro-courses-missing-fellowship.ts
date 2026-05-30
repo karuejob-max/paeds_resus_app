@@ -3,7 +3,13 @@
  * Clinical content aligned with CLINICAL_CONTENT_GOVERNANCE + CLINICAL_SOURCE_OF_TRUTH.
  */
 
-import { ASTHMA_STEROIDS, NEONATE_CALLOUT, SE_BENZO_CONFLICT } from './clinical-content-helpers';
+import {
+  ASTHMA_STEROIDS,
+  MENINGITIS_ABX_EARLY,
+  NEONATE_CALLOUT,
+  SE_BENZO_CONFLICT,
+  TRAUMA_ABCDE,
+} from './clinical-content-helpers';
 
 export const microCoursesMissingFellowship = [
   {
@@ -179,6 +185,7 @@ export const microCoursesMissingFellowship = [
             <li>Older children: Neck stiffness, photophobia, headache, Kernig/Brudzinski signs.</li>
             <li><strong>Non-blanching rash:</strong> Suggests meningococcal septicaemia.</li>
           </ul>
+          ${MENINGITIS_ABX_EARLY}
         `
       }
     ],
@@ -241,6 +248,7 @@ export const microCoursesMissingFellowship = [
         title: 'Module 1: Primary Survey',
         duration: 20,
         content: `
+          ${TRAUMA_ABCDE}
           <h2>The ABCDE Approach</h2>
           <ul>
             <li><strong>A:</strong> Airway with C-spine protection.</li>

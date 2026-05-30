@@ -7,6 +7,8 @@
  * Batch 5: Acute Kidney Injury I & II, Severe Anaemia I & II (4)
  */
 
+import { SHOCK_FLUIDS_FEAST } from "./clinical-content-helpers";
+
 export const microCoursesBatch3To5 = [
   // ============================================
   // BATCH 3: Hypovolemic Shock I & II, Cardiogenic Shock I & II
@@ -59,6 +61,7 @@ export const microCoursesBatch3To5 = [
         title: 'Module 2: Rapid Fluid Resuscitation',
         duration: 20,
         content: `
+          ${SHOCK_FLUIDS_FEAST}
           <h2>Hypovolemic Shock Resuscitation</h2>
           <h3>Immediate Actions:</h3>
           <ul>

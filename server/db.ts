@@ -1,9 +1,14 @@
 import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import dns from "node:dns";
+import { promisify } from "node:util";
+
 import * as schema from "../drizzle/schema";
 import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
 import { ENV } from './_core/env';
+
+const lookup4 = promisify(dns.lookup);
 
 function createDrizzle(pool: mysql.Pool) {
   return drizzle(pool, { schema, mode: "default" });
@@ -17,21 +22,31 @@ export type DbClient = Database;
 let _db: Database | null = null;
 
 // mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.
-// Build config from URL and set ssl object when Aiven/cloud SSL is required.
-function getConnectionConfig(databaseUrl: string): mysql.PoolOptions {
+// Resolve IPv4 + Aiven SSL servername (see scripts/db-connection-config.mjs).
+async function getConnectionConfig(databaseUrl: string): Promise<mysql.PoolOptions> {
   const url = new URL(databaseUrl);
   const needsSsl = /ssl-mode=REQUIRED|ssl=true/i.test(databaseUrl) || url.hostname.endsWith(".aivencloud.com");
   const database = url.pathname.replace(/^\//, "") || undefined;
+  let host = url.hostname;
+  try {
+    const resolved = await lookup4(url.hostname, { family: 4 });
+    host = resolved.address;
+  } catch {
+    // keep hostname
+  }
+  const connectTimeoutMs = Number(process.env.DB_CONNECT_TIMEOUT_MS) || 60_000;
   const config: mysql.PoolOptions = {
-    host: url.hostname,
+    host,
     port: url.port ? parseInt(url.port, 10) : 3306,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: database || undefined,
+    connectTimeout: connectTimeoutMs,
+    enableKeepAlive: true,
+    connectionLimit: 5,
   };
   if (needsSsl) {
-    // Aiven/cloud often use certs Node doesn't trust by default; still use SSL but allow connection
-    config.ssl = { rejectUnauthorized: false };
+    config.ssl = { rejectUnauthorized: false, servername: url.hostname } as mysql.SslOptions;
   }
   return config;
 }
@@ -40,9 +55,10 @@ export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       console.log('[Database] Attempting to connect...');
-      const config = getConnectionConfig(process.env.DATABASE_URL);
+      const config = await getConnectionConfig(process.env.DATABASE_URL);
       console.log('[Database] Connection config:', { host: config.host, user: config.user, database: config.database });
       const pool = mysql.createPool(config);
+      await pool.query('SELECT 1');
       console.log('[Database] Pool created');
       _db = createDrizzle(pool);
       console.log('[Database] Drizzle instance created successfully');
