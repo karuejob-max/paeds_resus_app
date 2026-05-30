@@ -15,7 +15,33 @@
 4. **ResusGPS alignment** — `dka-engine.ts`, `status-epilepticus-engine.ts`, `abcdeEngine.ts` seizure/DKA strings.
 5. **Seed pipeline** — `scripts/seed-fellowship-content.ts` writes diagnostic + summative quizzes and governance footer on modules.
 
-**Production DB:** Run `pnpm exec tsx scripts/seed-fellowship-content.ts` against production after deploy to refresh module HTML and exam rows.
+**Production DB (required once after PR #107 deploy):** Code on `main` does **not** auto-seed production. Learners still see **old** module HTML and quiz rows until this runs.
+
+| Where | Command |
+|-------|---------|
+| **Render Shell** (preferred — `DATABASE_URL` already set) | See chunked commands below |
+| **Local** (CEO machine only — same Aiven URI as Render in `.env`, never commit) | Same commands with production `DATABASE_URL` |
+
+**Chunked seed (avoids ETIMEDOUT on long runs):**
+
+```bash
+pnpm run seed:fellowship-content:p0          # dka, SE, asthma (6 courses)
+pnpm run seed:fellowship-content:respiratory # pneumonia-i/ii
+pnpm run seed:fellowship-content:shock       # septic/hypovolemic/cardiogenic/anaphylaxis
+pnpm run seed:fellowship-content:infectious  # meningitis, malaria
+pnpm run seed:fellowship-content:trauma      # trauma, burns
+pnpm run seed:fellowship-content:metabolic   # aki-i, anaemia-i
+# Or single slug: pnpm exec tsx --import dotenv/config scripts/seed-fellowship-content.ts --only=status-epilepticus-i
+# Or full catalog: pnpm run seed:fellowship-content
+```
+
+**P0 seed verified 2026-05-30:** `dka-i`, `dka-ii`, `asthma-i`, `asthma-ii` succeeded from agent env. **SE slugs corrected:** use `status-epilepticus-i` / `status-epilepticus-ii` (not `se-i`).
+
+Expect log lines `Processing: …` per catalog course and `Seeding complete!` at the end. Idempotent: safe to re-run. Does **not** replace `ensure-paediatric-septic-shock-catalog` runtime HTML for legacy PALS paths; fellowship player content comes from this seed + `server/data/micro-courses-*.ts`.
+
+**Not in CI:** No GitHub Action or Render deploy hook runs this today (intentional — production DB writes need explicit ops approval). To automate later: optional manual workflow_dispatch with production secrets — do not add silent auto-prod writes without CEO sign-off.
+
+**Connectivity:** If `ETIMEDOUT` from a desktop, use Render Shell (same region as API) or allowlist your IP on Aiven.
 
 ---
 
@@ -26,11 +52,9 @@
 | `dka-i`, `dka-ii` | mmol/L, fluids conflict, insulin until ketosis resolving; Level titles |
 | `status-epilepticus-i`, `status-epilepticus-ii` | Benzo intl/Kenya/neonate; Level titles |
 | `asthma-i`, `asthma-ii` | Level 1/2 titles; dex/pred/hydrocortisone; status asthmaticus steroids + IV salbutamol note |
-| `septic-shock-i`, `septic-shock-ii` | Governance footer via seed (prior clinical review doc) |
+| `septic-shock-i`, `septic-shock-ii` | Pass 2 CST content + vasopressor module (II authored for seed) |
+| `pneumonia-i/ii`, shock family, anaphylaxis, meningitis, malaria, trauma | Pass 2 CST snippets (WHO/Kenya, FEAST, artesunate, adrenaline/epinephrine) |
 | All fellowship seeds | Diagnostic + summative quiz pair; disclaimer footer |
-| **Catalog** | `server/lib/micro-course-catalog.ts` titles for DKA/SE/Asthma levels |
-
-**Remaining conditions** (pneumonia, shock II, anaphylaxis, meningitis, malaria, burns, trauma, AKI, anaemia): governance footer + exam structure via seed; full clinical rewrite tracked in CST §5 — not blocking deploy.
 
 ---
 
@@ -50,6 +74,8 @@
 4. **ResusGPS** — hyperglycaemia + active seizure paths show mmol/L / midazolam–lorazepam–diazepam framing and neonate benzo warning.
 5. **Asthma Level 1** — module text lists dexamethasone, prednisolone, hydrocortisone.
 6. **Status Epilepticus Level 1** — intl vs Kenya table; neonate callout visible.
+7. **Septic Shock Level 2** — vasopressor module loads; summative exam present.
+8. **Pneumonia Level 1** — WHO/Kenya antibiotic conflict box visible.
 
 ---
 
@@ -57,8 +83,8 @@
 
 | ID | Item |
 |----|------|
-| DB seed | CEO ops: run fellowship seed on production after merge |
-| Content | Deep rewrite of pneumonia, malaria, trauma, etc. (CST §5) |
+| DB seed | Run chunked fellowship seed on production (see commands above) |
+| Content | Deep module rewrite for burns-ii, cardiogenic-ii, anaemia depth — CST §5 backlog |
 | Gamification | Badge auto-award on micro-course complete — optional follow-up (`gamification` router exists) |
 | Interactive seed | `seed-interactive-content.ts` still splits quizzes per module — fellowship seed is canonical for exam pair |
 
@@ -69,6 +95,7 @@
 ```text
 pnpm run check
 pnpm run test:unit
+pnpm run seed:fellowship-content   # staging or production DATABASE_URL only
 ```
 
 Targeted: `shared/microcourse-exam-policy.test.ts`, `server/lib/microcourse-exam-gate.test.ts`

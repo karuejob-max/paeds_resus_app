@@ -9,6 +9,8 @@
  * Note: Meningitis II already in batch-4-5.ts
  */
 
+import { GLUCOSE_MMOL_NOTE, MALARIA_ARTESUNATE } from "./clinical-content-helpers";
+
 export const microCoursesFinalBatch = [
   // ============================================
   // SEVERE MALARIA I & II
@@ -63,6 +65,8 @@ export const microCoursesFinalBatch = [
         title: 'Module 2: Artemether Therapy & Supportive Care',
         duration: 20,
         content: `
+          ${MALARIA_ARTESUNATE}
+          ${GLUCOSE_MMOL_NOTE}
           <h2>Severe Malaria Treatment</h2>
           <h3>Artemether (First-Line for Severe Malaria):</h3>
           <ul>
