@@ -4,13 +4,17 @@
 > This file is the agent-facing distillation of the Platform's Source of Truth (PSOT).
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** May 1, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** May 30, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
 **CRITICAL INSTRUCTION FOR ALL AI AGENTS (Manus, Cursor, Codex, etc.)**
 
 If you are an AI agent operating in this repository, you **MUST** read this file and follow its instructions before executing any task.
+
+### Read this first for shipping and production DB
+
+**[docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md)** — step-by-step runbooks: protected-branch PR/merge (`gh`), production fellowship seed (chunked batches, verify script, Render Shell), ETIMEDOUT recovery, honest multitask status. Cross-links [AGENT_AUTONOMY.md](docs/AGENT_AUTONOMY.md); does not replace it.
 
 ### Definition of Done — Distance = merged on `origin/main`
 
@@ -28,6 +32,7 @@ Work is **NOT done** until:
 
 | Agent | Start here |
 |-------|------------|
+| **All agents** | **[docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md)** — shipping to `main`, prod DB seed, common errors |
 | **All agents** | **[docs/AGENT_AUTONOMY.md](docs/AGENT_AUTONOMY.md)** — Kolb cycle, shipping loop, CEO stop list, effort vs distance |
 | **Manus** | **[docs/MANUS_AGENT_RULES.md](docs/MANUS_AGENT_RULES.md)** — Handoff template; sandbox ≠ production |
 | **Codex / Cursor** | Same Definition of Done; **[docs/AI_TEAM_WORKFLOW.md](docs/AI_TEAM_WORKFLOW.md)** |
