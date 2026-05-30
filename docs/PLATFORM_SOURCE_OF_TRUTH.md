@@ -595,6 +595,7 @@ Every strategic and operational document in this repository is listed here with 
 | [PROBLEM_SOLVING_FRAMEWORK.md](./PROBLEM_SOLVING_FRAMEWORK.md) | Active | Decision framework for agents |
 | [TEAMWORK_TASK_FORMAT.md](./TEAMWORK_TASK_FORMAT.md) | Active | Task format for multi-agent work |
 | [AGENTS.md](../AGENTS.md) | Active | **All-agents mandate** — read before any work in this repo |
+| [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) | Active v1 | **Operational runbooks** — protected-branch shipping (`gh`), prod DB seed/verify/chunking, ETIMEDOUT/Render Shell, multitask honesty; complements AGENT_AUTONOMY |
 | [AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md) | Active v2 | **Multi-agent Definition of Done** — Distance = `origin/main`, Kolb cycle, forbidden Done |
 | [CRITICAL_FIX_PLAYBOOK.md](./CRITICAL_FIX_PLAYBOOK.md) | Active | **All critical fixes** — content, env, legal, payments, SEO, clinical pathways |
 | [CONTENT_HOTFIX_PLAYBOOK.md](./CONTENT_HOTFIX_PLAYBOOK.md) | Active | Quiz/content appendix — DB vs seed, verify scripts, PR checklist |
@@ -843,4 +844,4 @@ Cross-reference: [§22.3](#223-what-you-must-never-do).
 
 ---
 
-**Last structural update:** 2026-05-29 — Added [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md) to §21; §13 clinical teaching link. Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
