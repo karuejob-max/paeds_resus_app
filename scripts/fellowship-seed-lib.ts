@@ -9,7 +9,7 @@ import {
 import { appendClinicalFooter } from "../server/data/clinical-content-helpers";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
-import { eq, and, desc, like } from "drizzle-orm";
+import { eq, and, desc, like, or } from "drizzle-orm";
 
 import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
 import { microCoursesBatch3To5 } from "../server/data/micro-courses-batch-3-5";
@@ -17,6 +17,7 @@ import { microCoursesFinalBatch } from "../server/data/micro-courses-final-batch
 import { microCoursesBurns } from "../server/data/micro-courses-burns";
 import { microCoursesMissingFellowship } from "../server/data/micro-courses-missing-fellowship";
 import { microCoursesSepticShock } from "../server/data/micro-courses-septic-shock";
+import { ensureMicroCoursesCatalog } from "../server/lib/micro-course-catalog";
 
 export type FellowshipCourseSeed = {
   id: string;
@@ -156,6 +157,8 @@ export async function seedFellowshipContent(options: {
 
   console.log(`Starting fellowship seed for ${label} (${filteredContent.length} course(s))...`);
 
+  await ensureMicroCoursesCatalog();
+
   for (const courseData of filteredContent) {
     const catalogSlug = resolveCatalogSlug(courseData.id);
 
@@ -174,10 +177,16 @@ export async function seedFellowshipContent(options: {
 
     let targetCourseId: number;
 
+    const titlePrefix = courseRow.title.split(":")[0]!.trim();
     const [existingCourse] = await db
       .select()
       .from(courses)
-      .where(like(courses.title, `%${courseRow.title.split(":")[0]}%`))
+      .where(
+        and(
+          eq(courses.programType, "fellowship"),
+          or(like(courses.title, `%${titlePrefix}%`), eq(courses.order, courseRow.order))
+        )
+      )
       .limit(1);
 
     const mappedLevel = courseData.level === "foundational" ? "beginner" : courseData.level;

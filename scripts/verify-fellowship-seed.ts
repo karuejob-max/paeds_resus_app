@@ -1,7 +1,7 @@
 /** Verify fellowship seed — all catalog courses (excl. sample intubation). */
 import { getDb } from "../server/db";
 import { microCourses, courses, modules, quizzes } from "../drizzle/schema";
-import { eq, like, and } from "drizzle-orm";
+import { eq, like, and, or } from "drizzle-orm";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
@@ -35,7 +35,12 @@ async function main() {
     const [course] = await db
       .select()
       .from(courses)
-      .where(and(eq(courses.programType, "fellowship"), like(courses.title, `%${titlePrefix}%`)))
+      .where(
+        and(
+          eq(courses.programType, "fellowship"),
+          or(like(courses.title, `%${titlePrefix}%`), eq(courses.order, row.order))
+        )
+      )
       .limit(1);
 
     if (!course) {
@@ -70,7 +75,7 @@ async function main() {
         } else if (kind === "summative") {
           summative++;
           modSummative++;
-        if (kind === "formative") {
+        } else if (kind === "formative") {
           modFormative++;
         }
       }

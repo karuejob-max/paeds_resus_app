@@ -47,7 +47,7 @@ async function migrateLegacyPalsSeriouslyIllRow(db: any): Promise<number | null>
       title: SERIOUSLY_ILL_CHILD_COURSE_TITLE,
       description:
         "Structured assessment, stabilisation, and escalation for the critically unwell child — cross-cutting fellowship foundation (ABCDE in practice).",
-      level: "foundational",
+      level: "beginner",
       order: 0,
     })
     .where(eq(courses.id, legacy[0].id));
@@ -76,7 +76,7 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
         title: SERIOUSLY_ILL_CHILD_COURSE_TITLE,
         description:
           "Structured assessment, stabilisation, and escalation for the critically unwell child — cross-cutting fellowship foundation (ABCDE in practice).",
-        level: "foundational",
+        level: "beginner",
         order: 0,
       })
       .where(eq(courses.id, courseId));
@@ -87,7 +87,7 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
         "Structured assessment, stabilisation, and escalation for the critically unwell child — cross-cutting fellowship foundation (ABCDE in practice).",
       programType: "fellowship",
       duration: 45,
-      level: "foundational",
+      level: "beginner",
       order: 0,
     });
     const row = await db
