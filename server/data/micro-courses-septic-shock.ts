@@ -43,7 +43,7 @@ export const microCoursesSepticShock = [
             <li><strong>Bedside glucose</strong> — treat hypoglycaemia (mmol/L) if present</li>
           </ol>
           ${SHOCK_FLUIDS_FEAST}
-          <p>After <strong>40 mL/kg</strong> without improvement → escalate; consider inotropes and ICU (Level 2 course).</p>
+          <p>After <strong>40 mL/kg</strong> without improvement → escalate; consider inotropes and ICU (Septic Shock 2 course).</p>
         `,
       },
       {

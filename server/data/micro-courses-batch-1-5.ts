@@ -75,7 +75,7 @@ export const microCoursesBatch1To5 = [
             <li><strong>Salbutamol:</strong> 15 mg nebulized continuously (not intermittent)</li>
             <li><strong>Ipratropium:</strong> 0.5 mg nebulized (synergistic with salbutamol)</li>
             <li><strong>Steroids:</strong> Dexamethasone 0.6 mg/kg (max 16 mg) PO/IM, prednisolone 1–2 mg/kg PO, or hydrocortisone 4–5 mg/kg IV if severe / NPO</li>
-            <li><strong>IV salbutamol:</strong> Where continuous nebulisation fails and monitoring available — per local ICU protocol (taught in Level 2)</li>
+            <li><strong>IV salbutamol:</strong> Where continuous nebulisation fails and monitoring available — per local ICU protocol (taught in Asthma 2)</li>
             <li><strong>Magnesium sulfate:</strong> 40 mg/kg IV over 20 min (max 2g) if severe</li>
             <li><strong>Avoid:</strong> Anticholinergics (atropine) unless intubated</li>
           </ul>
@@ -713,7 +713,7 @@ export const microCoursesBatch1To5 = [
 
   {
     id: 'dka-i',
-    title: 'DKA Level 1: Recognition & Fluids (mmol/L)',
+    title: 'DKA 1: Recognition & Fluids (mmol/L)',
     level: 'foundational',
     duration: 45,
     price: 800,
@@ -855,7 +855,7 @@ export const microCoursesBatch1To5 = [
           question: 'Insulin infusion rate for DKA:',
           options: ['0.01 unit/kg/hr', '0.05-0.1 unit/kg/hr', '0.5 unit/kg/hr', '1 unit/kg/hr'],
           correct: 1,
-          explanation: '0.05-0.1 unit/kg/hr IV infusion. Titrate to decrease glucose 50-100 mg/dL/hr.'
+          explanation: '0.05-0.1 unit/kg/hr IV infusion. Titrate to decrease glucose ~3–6 mmol/L/hr (~50–100 mg/dL/hr).'
         },
         {
           question: 'Most feared complication of DKA:',
@@ -893,7 +893,7 @@ export const microCoursesBatch1To5 = [
 
   {
     id: 'dka-ii',
-    title: 'Paediatric DKA II: Euglycemic DKA and Complications Management',
+    title: 'DKA 2: Insulin, Ketones & Complications',
     level: 'advanced',
     duration: 60,
     price: 1200,
@@ -906,7 +906,7 @@ export const microCoursesBatch1To5 = [
         content: `
           <h2>Euglycemic DKA (eGDKA)</h2>
           <h3>Definition:</h3>
-          <p>DKA with glucose <250 mg/dL (often <200 mg/dL), presenting diagnostic challenge.</p>
+          <p>DKA with glucose &lt;14 mmol/L (&lt;250 mg/dL; often &lt;11 mmol/L / &lt;200 mg/dL), presenting diagnostic challenge — confirm ketones and acidosis.</p>
           <h3>Epidemiology:</h3>
           <ul>
             <li>5-10% of all DKA cases</li>
@@ -921,7 +921,7 @@ export const microCoursesBatch1To5 = [
             <li>Altered mental status</li>
             <li>Dehydration signs</li>
           </ul>
-          <h3>Diagnostic Clues (Glucose <250):</h3>
+          <h3>Diagnostic Clues (Glucose &lt;14 mmol/L):</h3>
           <ul>
             <li>Metabolic acidosis (pH <7.3, HCO3 <15)</li>
             <li>Positive serum/urine ketones DESPITE normal glucose</li>
@@ -962,12 +962,12 @@ export const microCoursesBatch1To5 = [
             <li>New-onset diabetes</li>
             <li>Severe acidosis (pH <7.1)</li>
             <li>Rapid fluid replacement</li>
-            <li>Rapid glucose drop (>100 mg/dL/hr)</li>
+            <li>Rapid glucose drop (&gt;3–6 mmol/L/hr; &gt;50–100 mg/dL/hr)</li>
           </ul>
           <h3>Prevention Strategy:</h3>
           <ul>
             <li>Slow fluid replacement (avoid rapid shifts)</li>
-            <li>Gradual glucose reduction (50-100 mg/dL/hr)</li>
+            <li>Gradual glucose reduction (3–6 mmol/L/hr; ~50–100 mg/dL/hr)</li>
             <li>Avoid hypotonic fluids (use 0.9% NaCl)</li>
             <li>Monitor mental status hourly</li>
           </ul>

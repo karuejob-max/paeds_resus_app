@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   MICROCOURSE_SUMMATIVE_RETRY_COOLDOWN_MS,
   canAttemptSummative,
+  distributeFormativeQuestions,
+  expandQuestionBank,
   examKindFromQuizTitle,
   shuffleQuestionIndices,
   summativePassed,
@@ -42,5 +44,21 @@ describe("microcourse-exam-policy", () => {
 
   it("caps summative attempts at 3", () => {
     expect(canAttemptSummative({ attempts: 3, lastAttemptAt: null }).allowed).toBe(false);
+  });
+
+  it("distributes at least one formative question per module", () => {
+    const qs = [
+      { question: "Q1", options: ["a"], correct: 0, explanation: "e1" },
+      { question: "Q2", options: ["a"], correct: 0, explanation: "e2" },
+    ];
+    const perMod = distributeFormativeQuestions(qs, 3);
+    expect(perMod).toHaveLength(3);
+    expect(perMod.every((m) => m.length >= 1)).toBe(true);
+  });
+
+  it("expands question bank to minimum size", () => {
+    const qs = [{ q: 1 }, { q: 2 }];
+    const expanded = expandQuestionBank(qs, 5);
+    expect(expanded).toHaveLength(5);
   });
 });

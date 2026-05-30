@@ -1,7 +1,10 @@
 import { assertQuizCorrectAnswerValid, encodeQuizCorrectAnswerForStorage } from "../shared/quiz-answer-contract";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+  MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+  distributeFormativeQuestions,
+  expandQuestionBank,
 } from "../shared/microcourse-exam-policy";
 import { appendClinicalFooter } from "../server/data/clinical-content-helpers";
 import { getDb } from "../server/db";
@@ -311,20 +314,36 @@ export async function seedFellowshipContent(options: {
     if (courseData.quiz && courseData.quiz.questions.length > 0) {
       const lastModuleId = moduleIds[moduleIds.length - 1]!;
       const firstModuleId = moduleIds[0]!;
+      const bankQuestions = expandQuestionBank(courseData.quiz.questions);
+      const formativeByModule = distributeFormativeQuestions(
+        courseData.quiz.questions,
+        moduleIds.length
+      );
+
+      for (let i = 0; i < moduleIds.length; i++) {
+        const moduleFormative = formativeByModule[i] ?? [];
+        if (moduleFormative.length === 0) continue;
+        const formativeTitle =
+          moduleIds.length > 1
+            ? `${MICROCOURSE_FORMATIVE_QUIZ_TITLE}: Module ${i + 1}`
+            : MICROCOURSE_FORMATIVE_QUIZ_TITLE;
+        const formativeQuizId = await ensureQuizOnModule(moduleIds[i]!, formativeTitle, 70);
+        await upsertQuizQuestions(formativeQuizId, moduleFormative);
+      }
 
       const summativeQuizId = await ensureQuizOnModule(
         lastModuleId,
         MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
         80
       );
-      await upsertQuizQuestions(summativeQuizId, courseData.quiz.questions);
+      await upsertQuizQuestions(summativeQuizId, bankQuestions);
 
       const diagnosticQuizId = await ensureQuizOnModule(
         firstModuleId,
         MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
         0
       );
-      await upsertQuizQuestions(diagnosticQuizId, courseData.quiz.questions);
+      await upsertQuizQuestions(diagnosticQuizId, bankQuestions);
     }
   }
 

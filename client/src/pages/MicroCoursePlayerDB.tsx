@@ -439,7 +439,7 @@ export default function MicroCoursePlayerDB() {
     ? diagnosticQuiz
     : showSummativeExam
       ? summativeQuiz
-      : quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "formative") ?? quizzes[0];
+      : quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "formative");
   const isSummativeExamActive =
     showSummativeExam || examKindFromQuizTitle(activeQuiz?.title) === "summative";
 

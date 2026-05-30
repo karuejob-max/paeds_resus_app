@@ -14,7 +14,7 @@ import {
 export const microCoursesMissingFellowship = [
   {
     id: 'asthma-i',
-    title: 'Paediatric Asthma Level 1: Recognition, 1st & 2nd Line',
+    title: 'Paediatric Asthma 1: Recognition, 1st & 2nd Line',
     level: 'beginner',
     duration: 45,
     price: 800,
@@ -56,7 +56,7 @@ export const microCoursesMissingFellowship = [
           </ul>
           ${ASTHMA_STEROIDS}
           <h3>When to escalate:</h3>
-          <p>SpO₂ &lt;90%, silent chest, or altered consciousness → treat as severe; prepare for Level 2 / status asthmaticus course.</p>
+          <p>SpO₂ &lt;90%, silent chest, or altered consciousness → treat as severe; prepare for Asthma 2 / status asthmaticus course.</p>
         `
       }
     ],
@@ -81,7 +81,7 @@ export const microCoursesMissingFellowship = [
   },
   {
     id: 'status-epilepticus-i',
-    title: 'Status Epilepticus Level 1: Recognition & First-Line',
+    title: 'Status Epilepticus 1: Recognition & First-Line',
     level: 'beginner',
     duration: 45,
     price: 800,
