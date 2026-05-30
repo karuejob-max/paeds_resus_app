@@ -12,6 +12,8 @@ export const DKA_FLUIDS_CONFLICT = `<div class="clinical-note"><h4>Fluids: inter
 
 export const DKA_INSULIN_KETONES = `<div class="clinical-note"><h4>Insulin: glucose alone is not enough</h4><p>Continue insulin until <strong>ketosis is resolving</strong> (falling beta-hydroxybutyrate / urine ketones) and acidosis improving — not only until glucose normalises. When glucose &lt;14 mmol/L, add dextrose to fluids and <strong>continue insulin</strong> until ketosis clears.</p></div>`;
 
+export const DKA_POTASSIUM_SAFETY = `<div class="clinical-note border-l-4 border-rose-500 pl-3 my-3"><h4>Potassium — never IV push in children</h4><p><strong>Never give KCl as an IV bolus/push</strong> — risk of fatal arrhythmia. If K⁺ &lt;3.5 mmol/L: <strong>hold insulin</strong>, add KCl to IV fluids (typically 20–40 mmol/L) or infuse replacement slowly (max ~0.5 mEq/kg/hr with monitoring). Recheck K⁺ every 2–4 h.</p></div>`;
+
 export const SE_BENZO_CONFLICT = `<div class="clinical-note"><h4>First-line anticonvulsants</h4><ol><li><strong>International:</strong> Buccal/IM/IV <strong>midazolam</strong> or IV <strong>lorazepam</strong> (0.1 mg/kg, max 4 mg) — effective, shorter redistribution than diazepam.</li><li><strong>Kenya / low-resource:</strong> <strong>Diazepam</strong> IV/PR often available — useful but watch <strong>respiratory depression</strong> and repeat dosing limits.</li><li><strong>Neonates:</strong> See neonate callout — avoid benzos as first-line.</li></ol></div>`;
 
 export const HYPOGLYCEMIA_MMOL_NOTE = `<p><strong>Hypoglycaemia:</strong> Treat when glucose &lt;3.3 mmol/L (&lt;60 mg/dL). Give 0.5 g/kg dextrose (2 mL/kg of 25% dextrose or equivalent) and recheck in 15 min.</p>`;

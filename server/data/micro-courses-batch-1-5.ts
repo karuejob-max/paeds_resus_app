@@ -14,6 +14,7 @@ import {
   ANAPHYLAXIS_ADRENALINE,
   DKA_FLUIDS_CONFLICT,
   DKA_INSULIN_KETONES,
+  DKA_POTASSIUM_SAFETY,
   GLUCOSE_MMOL_NOTE,
   PNEUMONIA_WHO_KENYA,
 } from './clinical-content-helpers';
@@ -799,11 +800,12 @@ export const microCoursesBatch1To5 = [
             <li><strong>Treatment:</strong> Hypertonic saline (3%) 0.25-1 g/kg IV, elevate head 30°, intubate if coma</li>
           </ul>
           <h3>Hypokalemia (Insulin-Induced):</h3>
+          ${DKA_POTASSIUM_SAFETY}
           <ul>
             <li>Insulin shifts K+ intracellularly → severe hypokalemia risk</li>
             <li>Monitor K+ every 2-4 hours initially</li>
-            <li>If K+ <3.5, hold insulin and replace K+ first</li>
-            <li>Target K+ 4-5 mEq/L during insulin therapy</li>
+            <li>If K+ &lt;3.5 mmol/L, hold insulin and replace K+ via fluids — not IV push</li>
+            <li>Target K+ 4-5 mmol/L during insulin therapy</li>
           </ul>
           <h3>Ongoing Monitoring (First 24 hours):</h3>
           <ul>
@@ -987,12 +989,13 @@ export const microCoursesBatch1To5 = [
         duration: 15,
         content: `
           <h2>Advanced Electrolyte Management</h2>
+          ${DKA_POTASSIUM_SAFETY}
           <h3>Hypokalemia Management:</h3>
           <ul>
-            <li><strong>Severe hypokalemia (K+ <2.5):</strong> Hold insulin, give K+ 0.5 mEq/kg IV over 15-30 min</li>
-            <li><strong>Moderate (K+ 2.5-3.5):</strong> Hold insulin, give K+ 0.25 mEq/kg IV</li>
+            <li><strong>Severe hypokalemia (K+ &lt;2.5 mmol/L):</strong> Hold insulin; add KCl to IV fluids or infuse replacement slowly (max ~0.5 mEq/kg/hr) — <strong>never IV push</strong></li>
+            <li><strong>Moderate (K+ 2.5-3.5):</strong> Hold insulin; add K+ to fluids with cardiac monitoring</li>
             <li><strong>Mild (K+ 3.5-4):</strong> Continue insulin, add K+ to fluids (20 mEq/L)</li>
-            <li><strong>Recheck K+:</strong> Every 2-4 hours until stable (target 4-5 mEq/L)</li>
+            <li><strong>Recheck K+:</strong> Every 2-4 hours until stable (target 4-5 mmol/L)</li>
           </ul>
           <h3>Hypernatremia Correction:</h3>
           <ul>
@@ -1053,10 +1056,10 @@ export const microCoursesBatch1To5 = [
           explanation: '0.25-1 g/kg of 3% saline = 0.25-1 × 30 = 7.5-30 g = 250-1000 mL of 3% solution. Use 0.25 g/kg initially (250 mL).'
         },
         {
-          question: 'When severe hypokalemia (K+ <2.5) occurs in DKA:',
-          options: ['Continue insulin', 'Hold insulin and give K+ 0.5 mEq/kg IV', 'Give glucose only', 'Discharge home'],
+          question: 'When severe hypokalemia (K+ <2.5 mmol/L) occurs in DKA:',
+          options: ['Continue insulin', 'Hold insulin; replace K+ in IV fluids — never KCl IV push', 'Give glucose only', 'Discharge home'],
           correct: 1,
-          explanation: 'Severe hypokalemia: hold insulin (risk of cardiac arrhythmia), give K+ 0.5 mEq/kg IV over 15-30 min.'
+          explanation: 'Hold insulin. Replace K+ by adding to IV fluids or slow infusion (max ~0.5 mEq/kg/hr) — never IV bolus/push (fatal arrhythmia risk).'
         },
         {
           question: 'Maximum rate of sodium correction in hypernatremic DKA:',
