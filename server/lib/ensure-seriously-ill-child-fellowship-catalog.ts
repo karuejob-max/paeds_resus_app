@@ -5,6 +5,13 @@
  */
 import { and, desc, eq, like } from "drizzle-orm";
 import { courses, modules, quizQuestions, quizzes } from "../../drizzle/schema";
+import {
+  MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+  MICROCOURSE_FORMATIVE_QUIZ_TITLE,
+  MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+  expandQuestionBank,
+} from "../../shared/microcourse-exam-policy";
+import { encodeQuizCorrectAnswerForStorage } from "../../shared/quiz-answer-contract";
 
 export const SERIOUSLY_ILL_CHILD_MICRO_COURSE_ID = "seriously-ill-child-i";
 export const SERIOUSLY_ILL_CHILD_COURSE_TITLE =
@@ -148,54 +155,82 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     moduleId = m[0]!.id;
   }
 
-  const quizExisting = await db
-    .select({ id: quizzes.id })
-    .from(quizzes)
-    .where(eq(quizzes.moduleId, moduleId))
-    .limit(1);
-
-  let quizId: number;
-  if (quizExisting.length > 0) {
-    quizId = quizExisting[0].id;
-  } else {
-    await db.insert(quizzes).values({
-      moduleId,
-      title: "Check: primary survey priorities",
-      description: "Quick knowledge check",
-      passingScore: 70,
-      order: 1,
-    });
-    const q = await db
-      .select({ id: quizzes.id })
-      .from(quizzes)
-      .where(eq(quizzes.moduleId, moduleId))
-      .orderBy(desc(quizzes.id))
-      .limit(1);
-    quizId = q[0]!.id;
-  }
-
-  const qCount = await db
-    .select({ id: quizQuestions.id })
-    .from(quizQuestions)
-    .where(eq(quizQuestions.quizId, quizId))
-    .limit(1);
-
-  if (qCount.length === 0) {
-    await db.insert(quizQuestions).values({
-      quizId,
+  const BANK = expandQuestionBank([
+    {
       question:
         "In the initial assessment of a seriously ill child, which sequence best reflects a systematic primary survey?",
-      questionType: "multiple_choice",
-      options: JSON.stringify([
+      options: [
         "Airway → Breathing → Circulation → Disability → Exposure",
         "Labs → Imaging → Fluids → Antibiotics",
         "Disposition before stabilization",
         "Exposure before airway",
-      ]),
-      correctAnswer: JSON.stringify("Airway → Breathing → Circulation → Disability → Exposure"),
+      ],
+      correct: 0,
       explanation:
         "Stabilize life threats in order; exposure may be part of evaluation but does not come before airway/breathing/circulation.",
+    },
+    {
+      question: "Which finding most urgently requires immediate airway intervention?",
+      options: ["Mild wheeze", "Stridor with fatigue", "Normal SpO₂", "Clear breath sounds"],
+      correct: 1,
+      explanation: "Stridor with fatigue signals impending airway failure — treat before completing full survey.",
+    },
+    {
+      question: "Cool extremities alone indicate shock:",
+      options: ["Always — start 40 mL/kg bolus", "Never relevant", "Only with other perfusion deficits — reassess", "Only in adults"],
+      correct: 2,
+      explanation: "Perfusion, CRT, mental status, and pulse quality matter — cool skin is not sufficient alone (CST §4).",
+    },
+  ]);
+
+  const upsertQuiz = async (title: string, passingScore: number): Promise<number> => {
+    const existing = await db
+      .select({ id: quizzes.id })
+      .from(quizzes)
+      .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(quizzes).set({ passingScore, description: title }).where(eq(quizzes.id, existing[0]!.id));
+      return existing[0]!.id;
+    }
+    await db.insert(quizzes).values({
+      moduleId,
+      title,
+      description: title,
+      passingScore,
       order: 1,
     });
-  }
+    const row = await db
+      .select({ id: quizzes.id })
+      .from(quizzes)
+      .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+      .orderBy(desc(quizzes.id))
+      .limit(1);
+    return row[0]!.id;
+  };
+
+  const upsertQuestions = async (quizId: number, questions: typeof BANK) => {
+    await db.delete(quizQuestions).where(eq(quizQuestions.quizId, quizId));
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]!;
+      await db.insert(quizQuestions).values({
+        quizId,
+        question: q.question,
+        questionType: "multiple_choice",
+        options: JSON.stringify(q.options),
+        correctAnswer: encodeQuizCorrectAnswerForStorage(q.correct, q.options),
+        explanation: q.explanation,
+        order: i + 1,
+      });
+    }
+  };
+
+  const formativeId = await upsertQuiz(MICROCOURSE_FORMATIVE_QUIZ_TITLE, 70);
+  await upsertQuestions(formativeId, [BANK[0]!]);
+
+  const diagnosticId = await upsertQuiz(MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, 0);
+  await upsertQuestions(diagnosticId, BANK);
+
+  const summativeId = await upsertQuiz(MICROCOURSE_SUMMATIVE_QUIZ_TITLE, 80);
+  await upsertQuestions(summativeId, BANK);
 }

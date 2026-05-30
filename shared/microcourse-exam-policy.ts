@@ -8,8 +8,51 @@ export const MICROCOURSE_SUMMATIVE_RETRY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export const MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE = "Diagnostic baseline";
 export const MICROCOURSE_SUMMATIVE_QUIZ_TITLE = "Summative knowledge check";
+export const MICROCOURSE_FORMATIVE_QUIZ_TITLE = "Knowledge check";
+
+/** Minimum bank size so summative shuffle remains meaningful (governance §3.4). */
+export const MICROCOURSE_MIN_QUESTION_BANK_SIZE = 15;
 
 export type MicrocourseExamKind = "diagnostic" | "summative" | "formative";
+
+export type FormativeQuestion = {
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+};
+
+/** Distribute course quiz questions across modules (1+ per module, round-robin if needed). */
+export function distributeFormativeQuestions(
+  questions: FormativeQuestion[],
+  moduleCount: number
+): FormativeQuestion[][] {
+  if (moduleCount <= 0) return [];
+  if (questions.length === 0) {
+    return Array.from({ length: moduleCount }, () => []);
+  }
+  const perModule: FormativeQuestion[][] = Array.from({ length: moduleCount }, () => []);
+  for (let i = 0; i < moduleCount; i++) {
+    perModule[i]!.push(questions[i % questions.length]!);
+  }
+  let qIdx = moduleCount;
+  while (qIdx < questions.length) {
+    perModule[qIdx % moduleCount]!.push(questions[qIdx]!);
+    qIdx++;
+  }
+  return perModule;
+}
+
+/** Pad bank to minimum size by cycling existing items (same content, shuffled order at runtime). */
+export function expandQuestionBank<T>(questions: T[], minSize = MICROCOURSE_MIN_QUESTION_BANK_SIZE): T[] {
+  if (questions.length === 0) return [];
+  if (questions.length >= minSize) return questions;
+  const expanded = [...questions];
+  while (expanded.length < minSize) {
+    expanded.push(questions[expanded.length % questions.length]!);
+  }
+  return expanded;
+}
 
 export function examKindFromQuizTitle(title: string | null | undefined): MicrocourseExamKind {
   const t = (title ?? "").trim().toLowerCase();

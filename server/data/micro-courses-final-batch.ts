@@ -9,7 +9,7 @@
  * Note: Meningitis II already in batch-4-5.ts
  */
 
-import { GLUCOSE_MMOL_NOTE, MALARIA_ARTESUNATE } from "./clinical-content-helpers";
+import { GLUCOSE_MMOL_NOTE, HYPOGLYCEMIA_MMOL_NOTE, MALARIA_ARTESUNATE } from "./clinical-content-helpers";
 
 export const microCoursesFinalBatch = [
   // ============================================
@@ -18,11 +18,11 @@ export const microCoursesFinalBatch = [
 
   {
     id: 'severe-malaria-i',
-    title: 'Paediatric Severe Malaria I: Recognition and Artemether Therapy',
+    title: 'Paediatric Severe Malaria 1: Recognition and Artesunate Therapy',
     level: 'foundational',
     duration: 45,
     price: 800,
-    description: 'Recognize severe malaria and administer artemether in low-resource settings.',
+    description: 'Recognize severe malaria and administer IV/IM artesunate in low-resource settings.',
     modules: [
       {
         title: 'Module 1: Severe Malaria Recognition',
@@ -42,7 +42,7 @@ export const microCoursesFinalBatch = [
             <li>Severe anemia: Hgb <5 g/dL</li>
             <li>Acute kidney injury: Creatinine >3 mg/dL or oliguria</li>
             <li>Pulmonary edema/ARDS</li>
-            <li>Severe hypoglycemia: <40 mg/dL</li>
+            <li>Severe hypoglycemia: &lt;3.3 mmol/L (&lt;60 mg/dL)</li>
             <li>Lactic acidosis: pH <7.35 + lactate >5 mmol/L</li>
             <li>Severe malaria anemia (Hgb <5 + parasitemia >10%)</li>
             <li>Disseminated intravascular coagulation (DIC)</li>
@@ -62,29 +62,30 @@ export const microCoursesFinalBatch = [
         `
       },
       {
-        title: 'Module 2: Artemether Therapy & Supportive Care',
+        title: 'Module 2: Artesunate Therapy & Supportive Care',
         duration: 20,
         content: `
           ${MALARIA_ARTESUNATE}
           ${GLUCOSE_MMOL_NOTE}
+          ${HYPOGLYCEMIA_MMOL_NOTE}
           <h2>Severe Malaria Treatment</h2>
-          <h3>Artemether (First-Line for Severe Malaria):</h3>
+          <h3>Artesunate (First-Line for Severe Malaria — WHO):</h3>
           <ul>
-            <li><strong>Dose:</strong> 3.2 mg/kg IM or IV at 0, 24, 48 hours</li>
-            <li><strong>Route:</strong> IM preferred (faster absorption than IV)</li>
-            <li><strong>Efficacy:</strong> 35% reduction in mortality vs quinine</li>
-            <li><strong>Mechanism:</strong> Rapid parasite clearance, reduces sequestration</li>
+            <li><strong>Dose:</strong> 3 mg/kg IV or IM at 0, 12, 24 hours (then daily per protocol)</li>
+            <li><strong>Route:</strong> IV or IM — preferred over quinine for severe malaria</li>
+            <li><strong>Efficacy:</strong> Lower mortality vs quinine in severe disease</li>
+            <li><strong>Note:</strong> Oral <strong>artesunate-lumefantrine</strong> (ACT) is for uncomplicated malaria — not first-line for severe/cerebral malaria.</li>
           </ul>
-          <h3>Artemether Dosing Example:</h3>
+          <h3>Artesunate Dosing Example:</h3>
           <ul>
-            <li>20 kg child: 3.2 × 20 = 64 mg IM at 0, 24, 48 hours</li>
-            <li>Then switch to oral artemisinin-based combination therapy (ACT) when tolerable</li>
+            <li>20 kg child: 3 × 20 = 60 mg IV/IM at 0, 12, 24 hours</li>
+            <li>Then switch to oral ACT when tolerating and stable</li>
           </ul>
           <h3>Supportive Care:</h3>
           <ul>
             <li><strong>Oxygen:</strong> Target SpO2 >94%</li>
             <li><strong>Fluids:</strong> Careful fluid management (avoid pulmonary edema)</li>
-            <li><strong>Glucose:</strong> Monitor closely; treat hypoglycemia <40 mg/dL with 0.5 g/kg dextrose</li>
+            <li><strong>Glucose:</strong> Monitor in mmol/L; treat hypoglycaemia &lt;3.3 mmol/L with 0.5 g/kg dextrose</li>
             <li><strong>Transfusion:</strong> If Hgb <5 g/dL or symptomatic anemia</li>
             <li><strong>Seizure precautions:</strong> Diazepam 0.1 mg/kg IV if seizures</li>
           </ul>
@@ -107,14 +108,14 @@ export const microCoursesFinalBatch = [
           <ul>
             <li>GCS ≤11 (coma) + P. falciparum parasitemia</li>
             <li>Mechanism: Sequestration of infected RBCs in cerebral vessels</li>
-            <li>Management: Artemether + supportive care, intubation if GCS <8</li>
+            <li>Management: Artesunate + supportive care, intubation if GCS <8</li>
             <li>Prognosis: 15-20% mortality; 10-30% neurological sequelae in survivors</li>
           </ul>
           <h3>Severe Malarial Anemia:</h3>
           <ul>
             <li>Hgb <5 g/dL + parasitemia >10%</li>
             <li>Mechanism: Hemolysis + bone marrow suppression</li>
-            <li>Management: Transfusion (target Hgb >7 g/dL), artemether</li>
+            <li>Management: Transfusion (target Hgb >7 g/dL), artesunate</li>
           </ul>
           <h3>Acute Kidney Injury:</h3>
           <ul>
@@ -126,7 +127,7 @@ export const microCoursesFinalBatch = [
           <ul>
             <li>pH <7.35 + lactate >5 mmol/L</li>
             <li>Ominous sign: High mortality</li>
-            <li>Management: Artemether, fluid resuscitation, supportive care</li>
+            <li>Management: Artesunate, fluid resuscitation, supportive care</li>
           </ul>
           <h3>ICU Escalation Criteria:</h3>
           <ul>
@@ -150,16 +151,16 @@ export const microCoursesFinalBatch = [
           explanation: 'Severe malaria = any one criterion: cerebral malaria, severe anemia, AKI, pulmonary edema, hypoglycemia, lactic acidosis, or DIC.'
         },
         {
-          question: 'Artemether dose for severe malaria:',
-          options: ['1 mg/kg', '3.2 mg/kg', '5 mg/kg', '10 mg/kg'],
+          question: 'Artesunate dose for severe malaria:',
+          options: ['1 mg/kg', '3 mg/kg', '5 mg/kg', '10 mg/kg'],
           correct: 1,
-          explanation: '3.2 mg/kg IM at 0, 24, 48 hours (then switch to oral ACT).'
+          explanation: '3 mg/kg IV/IM at 0, 12, 24 hours (WHO) — then switch to oral ACT when stable.'
         },
         {
-          question: 'Artemether route of administration:',
+          question: 'Artesunate route of administration:',
           options: ['Oral only', 'IV only', 'IM preferred (faster absorption)', 'Subcutaneous'],
           correct: 2,
-          explanation: 'IM preferred for artemether (faster absorption than IV).'
+          explanation: 'IM preferred for artesunate (faster absorption than IV).'
         },
         {
           question: 'Cerebral malaria mortality:',
@@ -168,10 +169,10 @@ export const microCoursesFinalBatch = [
           explanation: 'Cerebral malaria mortality 15-20%; 10-30% neurological sequelae in survivors.'
         },
         {
-          question: 'Parasitemia should decrease by what percentage every 48 hours on artemether:',
+          question: 'Parasitemia should decrease by what percentage every 48 hours on artesunate:',
           options: ['10%', '25%', '50%', '75%'],
           correct: 2,
-          explanation: 'Parasitemia should decrease by 50% every 48 hours on artemether (indicates treatment response).'
+          explanation: 'Parasitemia should decrease by 50% every 48 hours on artesunate (indicates treatment response).'
         },
         {
           question: 'Hypoglycemia in severe malaria occurs due to:',
@@ -235,9 +236,9 @@ export const microCoursesFinalBatch = [
             <li>Posturing, abnormal reflexes</li>
             <li>Brainstem signs (if severe)</li>
           </ul>
-          <h3>Artemether Dosing in Cerebral Malaria:</h3>
+          <h3>Artesunate Dosing in Cerebral Malaria:</h3>
           <ul>
-            <li>Same as severe malaria: 3.2 mg/kg IM at 0, 24, 48 hours</li>
+            <li>Same as severe malaria: 3 mg/kg IV/IM at 0, 12, 24 hours</li>
             <li>Efficacy: 35% mortality reduction vs quinine</li>
             <li>Mechanism: Rapid parasite clearance reduces sequestration</li>
           </ul>
@@ -246,7 +247,7 @@ export const microCoursesFinalBatch = [
             <li>Intubation: If GCS <8 (unable to protect airway)</li>
             <li>Seizure management: Diazepam 0.1 mg/kg IV, then phenytoin or phenobarbital</li>
             <li>Cerebral edema: Hypertonic saline (3%) 0.25-1 g/kg IV</li>
-            <li>Glucose: Monitor closely, treat hypoglycemia <40 mg/dL</li>
+            <li>Glucose: Monitor in mmol/L; treat hypoglycaemia &lt;3.3 mmol/L</li>
             <li>Fever: Paracetamol 15 mg/kg Q4-6H</li>
           </ul>
         `
@@ -316,7 +317,7 @@ export const microCoursesFinalBatch = [
           </ul>
           <h3>Overall Mortality & Outcomes:</h3>
           <ul>
-            <li>Severe malaria mortality: 15-20% with artemether</li>
+            <li>Severe malaria mortality: 15-20% with artesunate</li>
             <li>Cerebral malaria mortality: 15-20%</li>
             <li>Severe anemia mortality: 5-10% (if transfused)</li>
             <li>Survivors: Most recover fully; 10-30% have neurological sequelae</li>
@@ -651,7 +652,7 @@ export const microCoursesFinalBatch = [
           </ul>
           <h3>Underlying Cause Management:</h3>
           <ul>
-            <li>Malaria: Artemether + transfusion</li>
+            <li>Malaria: Artesunate + transfusion</li>
             <li>Bleeding: Control source + transfusion</li>
             <li>Hemolysis: Treat underlying cause (sickle cell crisis, G6PD)</li>
             <li>Bone marrow suppression: Treat infection, consider chemotherapy</li>

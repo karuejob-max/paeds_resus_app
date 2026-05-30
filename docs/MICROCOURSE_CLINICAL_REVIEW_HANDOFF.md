@@ -68,14 +68,19 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 
 ## CEO click-test checklist (paedsresus.com)
 
-1. **Fellowship → DKA Level 1** — diagnostic appears first; complete modules; summative requires ≥80%; certificate only after pass.
+**Clinical safety record:** [FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md](./FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md) (2026-05-30)
+
+1. **Fellowship → DKA 1** — diagnostic appears first; complete modules one-at-a-time; formative after each module; summative requires ≥80%; certificate only after pass.
 2. **Diagnostic** — submit once; confirm no retake button on second visit.
 3. **Summative fail** — score &lt;80%; retry blocked &lt;24 h (message shows retry time).
 4. **ResusGPS** — hyperglycaemia + active seizure paths show mmol/L / midazolam–lorazepam–diazepam framing and neonate benzo warning.
-5. **Asthma Level 1** — module text lists dexamethasone, prednisolone, hydrocortisone.
-6. **Status Epilepticus Level 1** — intl vs Kenya table; neonate callout visible.
-7. **Septic Shock Level 2** — vasopressor module loads; summative exam present.
-8. **Pneumonia Level 1** — WHO/Kenya antibiotic conflict box visible.
+5. **Asthma 1** — module text lists dexamethasone, prednisolone, hydrocortisone.
+6. **Status Epilepticus 1** — intl vs Kenya table; neonate callout visible.
+7. **Septic Shock 2** — vasopressor module loads; summative exam present.
+8. **Pneumonia 1** — WHO/Kenya antibiotic conflict box visible.
+9. **Malaria 1** — artesunate (not artemether) for severe disease; hypoglycaemia in mmol/L.
+10. **Catalog titles** — no “Level 1/2”; use “DKA 1”, “Asthma 2”, etc.
+11. **Seriously ill child** — diagnostic + formative + summative on single-module course.
 
 ---
 
