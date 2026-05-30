@@ -57,8 +57,8 @@ const CERTIFICATE_TITLE_SIZE = 15;
 const CERTIFY_LINE_SIZE = 11;
 /** Gap between “This is to certify that” and the participant name. */
 const GAP_CERTIFY_TO_NAME = 38;
-/** Offset below participant name baseline for the orange divider (not full em height). */
-const ORANGE_BELOW_NAME_BASELINE = 4;
+/** Gap below participant name baseline before the orange divider (~4 mm in PDF points). */
+const ORANGE_BELOW_NAME_BASELINE = 12;
 /** Gap between the orange divider and the description baseline. */
 const GAP_ORANGE_TO_DESCRIPTION = 28;
 /** Minimum gap between description block and course title when computing vertical center. */
