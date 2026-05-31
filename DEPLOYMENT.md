@@ -160,10 +160,18 @@ pnpm run dev
 
 **Production:**
 ```bash
-NODE_ENV=production node dist/index.js
+pnpm start
 ```
 
-The server will start on `http://localhost:3000` (or configured port).
+`pnpm start` runs `scripts/start-production.mjs`, which on Render production (`NODE_ENV=production` or `RENDER=true`):
+
+1. Runs all fellowship seed batches + `seed:seriously-ill-child-course` (idempotent, up to 3 retries per step).
+2. Runs `scripts/verify-fellowship-seed.ts` — **deploy fails** (exit 1) if verify reports any failures.
+3. Starts `node dist/index.js`.
+
+**Disable auto-seed** on staging: `AUTO_SEED_FELLOWSHIP_ON_START=false`. **Force on local:** `AUTO_SEED_FELLOWSHIP_ON_START=true` with production `DATABASE_URL` only (never commit).
+
+The server will start on `http://localhost:3000` (or configured port) after seed completes.
 
 ### 5. Verify Deployment
 

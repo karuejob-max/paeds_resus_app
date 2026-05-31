@@ -2,6 +2,18 @@
 
 **Schema parity:** The app expects MySQL schema to match **`drizzle/`** migrations (see `drizzle/meta/_journal.json`). For a **clean database**, run migrations from a machine with `DATABASE_URL` set (e.g. `pnpm exec drizzle-kit migrate` or **`pnpm run db:fresh-migrate`** — the latter **drops all tables** first). Committed snapshot reference: [DB_SNAPSHOT_AUTOGEN.md](./DB_SNAPSHOT_AUTOGEN.md).
 
+---
+
+## Fellowship content auto-seed (production start — not Pre-Deploy)
+
+CEO-approved fellowship DB sync runs on **every production deploy** via the **Start Command** (`pnpm start`), not Pre-Deploy:
+
+1. `scripts/start-production.mjs` calls `scripts/run-fellowship-auto-seed.mjs` when `NODE_ENV=production` or `RENDER=true` (skipped when `APP_BASE_URL` contains `staging` or `AUTO_SEED_FELLOWSHIP_ON_START=false`).
+2. All six `seed:fellowship-content:*` batches + `seed:seriously-ill-child-course`, then `verify-fellowship-seed.ts` (3 retries per step, 10 min timeout default).
+3. **Verify failure → exit 1 → server never starts** (deploy shows failed — safer than silent bad content).
+
+Manual one-shot (any machine with `DATABASE_URL`): `pnpm run seed:fellowship-content:all`. See [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) §2.
+
 ## enrollments.courseId (migration 0029)
 
 If production shows **`Unknown column 'courseId' in 'field list'`** on **`enrollments`** (often when completing enrollment on `/enroll`), the database is behind the app: PALS micro-courses need a nullable `courseId` on `enrollments`.

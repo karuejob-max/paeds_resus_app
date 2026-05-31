@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
     "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "cross-env NODE_ENV=production node dist/index.js",
+    "start": "cross-env NODE_ENV=production node scripts/start-production.mjs",
+    "seed:fellowship-content:all": "node scripts/run-fellowship-auto-seed.mjs --force",
+    "deploy:seed-fellowship": "node scripts/run-fellowship-auto-seed.mjs",
     "check": "tsc --noEmit && tsc -p client/src/lib/pwa/tsconfig.json",
     "format": "prettier --write .",
     "test": "pnpm run test:unit && pnpm run test:clinical && pnpm run test:api && pnpm run test:api:enrollment",

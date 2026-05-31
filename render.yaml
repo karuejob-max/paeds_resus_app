@@ -1,0 +1,15 @@
+# Optional Render Blueprint — syncs Pre-Deploy when service is blueprint-managed.
+# Production fellowship seed runs via pnpm start → scripts/start-production.mjs (see docs/RENDER_PREDEPLOY_LOCKED.md).
+# Uncomment preDeployCommand only if you prefer seed before build artifacts; default is start-hook only.
+services:
+  - type: web
+    name: paeds-resus
+    runtime: node
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build
+    startCommand: pnpm start
+    # preDeployCommand: pnpm run deploy:seed-fellowship
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTO_SEED_FELLOWSHIP_ON_START
+        value: "true"
