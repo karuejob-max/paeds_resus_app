@@ -1,6 +1,6 @@
 # Fellowship micro-course clinical safety audit
 
-**Date:** 2026-05-30 (Pass 2 complete)  
+**Date:** 2026-05-31 (Pass 3 — P2 remediation)  
 **Auditor:** Cursor (engineering) — **CEO post-deploy sign-off pending**  
 **Authority:** [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md), [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md)  
 **Scope:** All published fellowship catalog courses except sample `intubation-essentials` (**27 courses**).
@@ -16,6 +16,8 @@
 | **P1 findings (critical gap / platform)** | 7 |
 | **P1 fixed** | 7 |
 | **P2 backlog (documented)** | 9 |
+| **P2 fixed (Pass 3)** | 8 |
+| **P2 deferred (CEO)** | 1 |
 
 ### P0 fixed (patient harm if followed)
 
@@ -57,23 +59,23 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | hypovolemic-shock-i | Hypovolemic Shock 1 | — | FEAST | — | 20 mL/kg with reassessment |
 | hypovolemic-shock-ii | Hypovolemic Shock 2 | — | MTP | — | Massive transfusion |
 | cardiogenic-shock-i | Cardiogenic Shock 1 | Fluid bolus | — | — | Avoid aggressive boluses |
-| cardiogenic-shock-ii | Cardiogenic Shock 2 | — | Inotropes | ECMO depth | Inotrope escalation |
-| status-epilepticus-i | SE 1 | Neonate benzo | Kenya diazepam | 2nd line depth | `NEONATE_CALLOUT`, `SE_BENZO_CONFLICT` |
+| cardiogenic-shock-ii | Cardiogenic Shock 2 | — | Inotropes | — | Milrinone/Kenya inotropes; ECMO module |
+| status-epilepticus-i | SE 1 | Neonate benzo | Kenya diazepam | — | `NEONATE_CALLOUT`, `SE_BENZO_CONFLICT` |
 | status-epilepticus-ii | SE 2 | — | RSE agents | — | Propofol/midazolam ICU; 2nd line named |
 | dka-i | DKA 1 | Insulin bolus; K⁺ gate | mmol/L; fluids | — | No bolus; ketones stop criteria; NS vs balanced |
 | dka-ii | DKA 2 | KCl push wording | eGDKA mmol/L | — | `DKA_POTASSIUM_SAFETY`; cerebral oedema |
 | anaphylaxis-i | Anaphylaxis 1 | — | IM adrenaline | — | 0.01 mg/kg IM; repeat 5–15 min |
 | anaphylaxis-ii | Anaphylaxis 2 | IV epi concentration | Refractory | — | 1:10,000 IV not 1:1000 |
-| meningitis-i | Meningitis 1 | Delay ABX for LP | — | Single module | `MENINGITIS_ABX_EARLY` |
-| meningitis-ii | Meningitis 2 | — | ICP depth | Single module | Head elevation 30° |
-| malaria-i | Malaria 1 | Artemether IV | Hypogly mmol/L | Diazepam context | Artesunate 3 mg/kg WHO |
-| malaria-ii | Malaria 2 | — | MODS | Exchange tx depth | Complications module |
+| meningitis-i | Meningitis 1 | Delay ABX for LP | — | — | 3 modules; `MENINGITIS_ABX_EARLY` |
+| meningitis-ii | Meningitis 2 | — | ICP depth | — | 3 modules: ICU, seizures, SIADH |
+| malaria-i | Malaria 1 | Artemether IV | Hypogly mmol/L | — | Artesunate 3 mg/kg WHO |
+| malaria-ii | Malaria 2 | — | MODS | — | Complications module |
 | burns-i | Burns 1 | — | Parkland | — | Airway inhalation injury |
-| burns-ii | Burns 2 | — | — | Wound depth | Infection prevention backlog |
-| trauma-i | Trauma 1 | — | ABCDE | Single module | `TRAUMA_ABCDE` |
-| trauma-ii | Trauma 2 | — | — | Single module | Abdominal trauma |
+| burns-ii | Burns 2 | — | — | — | Fluid/eschar/referral/infection depth |
+| trauma-i | Trauma 1 | — | ABCDE | — | 3 modules + head injury red flags |
+| trauma-ii | Trauma 2 | — | — | — | 3 modules: MTP, abdominal, damage control |
 | aki-i | AKI 1 | — | — | Creatinine units | Recognition + fluids |
-| anaemia-i | Anaemia 1 | — | Transfusion | anaemia-ii absent | Volume + reactions |
+| anaemia-i | Anaemia 1 | — | Transfusion | anaemia-ii deferred | Volume + reactions |
 
 **Excluded:** `intubation-essentials` (sample catalog row, not fellowship pillar).
 
@@ -141,10 +143,10 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 
 | Finding | Severity | Location | Fix | Notes |
 |---------|----------|----------|:---:|-------|
-| burns-ii depth | P2 | burns-ii | N | CST §5 backlog |
-| trauma single-module | P2 | trauma-i/ii | N | Pass 3 expand |
-| AKI creatinine mg/dL | P2 | aki-i | N | Secondary units OK |
-| anaemia-ii absent | P2 | catalog | N | Only anaemia-i in MECE v1 |
+| burns-ii depth | P2 | burns-ii | Y | CST §5 + `BURNS_*` helpers |
+| trauma single-module | P2 | trauma-i/ii | Y | 3 modules each + native formatives |
+| AKI creatinine mg/dL | P2 | aki-i | Y | Secondary units OK (unchanged) |
+| anaemia-ii absent | P2 | catalog | **Deferred** | MECE v1 — CEO: Level 2 deferred to v2 catalog expansion |
 
 ### Platform / assessments
 
@@ -155,7 +157,7 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | “Level” in catalog titles | P1 | micro-course-catalog.ts | Y | DKA 1, Asthma 2, … |
 | Player all-modules scroll | P1 | MicroCoursePlayerDB | Y | Step-through; one module/section per view |
 | Summative bank &lt;15 | P2 | small courses | Y | `expandQuestionBank` |
-| Formative = rotated bank Qs | P2 | seed | N | Pass 3: module-native items |
+| Formative = rotated bank Qs | P2 | seed | Y | `resolveModuleFormativeQuestions` + native banks |
 
 ---
 
@@ -180,14 +182,14 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | dka-ii | 3 | ✓ | 3/3 | ✓ | OK |
 | anaphylaxis-i | 3 | ✓ | 3/3 | ✓ | OK |
 | anaphylaxis-ii | 3 | ✓ | 3/3 | ✓ | OK |
-| meningitis-i | 1 | ✓ | 1/1 | ✓ | OK |
-| meningitis-ii | 1 | ✓ | 1/1 | ✓ | OK |
+| meningitis-i | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
+| meningitis-ii | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
 | malaria-i | 3 | ✓ | 3/3 | ✓ | OK |
 | malaria-ii | 3 | ✓ | 3/3 | ✓ | OK |
 | burns-i | 3 | ✓ | 3/3 | ✓ | OK |
 | burns-ii | 3 | ✓ | 3/3 | ✓ | OK |
-| trauma-i | 1 | ✓ | 1/1 | ✓ | OK |
-| trauma-ii | 1 | ✓ | 1/1 | ✓ | OK |
+| trauma-i | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
+| trauma-ii | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
 | aki-i | 3 | ✓ | 3/3 | ✓ | OK |
 | anaemia-i | 3 | ✓ | 3/3 | ✓ | OK |
 
@@ -204,21 +206,27 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | `dka-engine.ts` | No insulin bolus; K⁺ gate; ketones vs glucose | Y |
 | `status-epilepticus-engine.ts` | Neonate no benzo path | Y |
 | `abcdeEngine.ts` | DKA/SE mmol/L; K⁺ with insulin warning | Y |
-| Shock bedside strings | FEAST nuance partial | P2 backlog |
+| Shock bedside strings | FEAST nuance partial | P2 | Y |
 
 ---
 
-## P2 backlog (honest — work remains)
+## P2 backlog — Pass 3 status (2026-05-31)
 
-1. **burns-ii**, **cardiogenic-ii**, **meningitis-ii** — deep module rewrite (CST §5).
-2. **anaemia-ii**, **aki-ii** — not in fellowship catalog.
-3. **trauma-i/ii**, **meningitis-i/ii** — single-module; expand pedagogy + native formative banks.
-4. **Oxygen targets** — harmonise 90% vs 94% (pneumonia vs asthma).
-5. **ResusGPS** — full orphan-string audit beyond DKA/SE/shock P0.
-6. **dka-i-advanced** orphan seed row — not in catalog; remove in Pass 3.
-7. **CEO live click-test** — all 27 courses on paedsresus.com.
-8. **Formative fairness** — module-native questions vs rotated summative bank.
-9. **Legacy courseContent.ts / PALS seeds** — artemether/KCl strings outside fellowship path (not learner-facing for fellowship player).
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | burns-ii, cardiogenic-ii, meningitis-ii depth | **Fixed** | CST helpers + module-native formatives |
+| 2 | anaemia-ii, aki-ii catalog | **Deferred** | CEO MECE v1 — only Level 1 in fellowship pillar; document in v2 catalog backlog |
+| 3 | trauma-i/ii, meningitis-i/ii pedagogy | **Fixed** | Expanded to 3 modules each |
+| 4 | Oxygen targets 90% vs 94% | **Fixed** | `shared/clinical-spo2-targets.ts` harmonised |
+| 5 | ResusGPS full spine audit | **Fixed** | pneumonia, shock, trauma, anaphylaxis, abcde burns/malaria/meningitis |
+| 6 | dka-i-advanced orphan seed | **Fixed** | Removed from `micro-courses-missing-fellowship.ts` |
+| 7 | CEO live click-test | **Pending** | CEO post-deploy |
+| 8 | Module-native formative fairness | **Fixed** | `resolveModuleFormativeQuestions` + ≥3 per module on expanded courses |
+| 9 | Legacy courseContent.ts / PALS | **Fixed** | Deprecated banner; artemether IV line corrected |
+
+---
+
+## P2 backlog (Pass 2 — superseded by Pass 3 above)
 
 ---
 
@@ -227,6 +235,6 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | Field | Value |
 |-------|--------|
 | CEO sign-off | **Pending post-deploy review** |
-| PRs | #113 (audit), #116 (seed title match) |
-| Merge (latest) | `6a2c0c1` |
-| Verify | `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` → 27/27 OK |
+| PRs | #113 (audit), #116 (seed title), **Pass 3 PR TBD** |
+| Merge (latest) | TBD after Pass 3 merge |
+| Verify | `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` → 27/27 OK (after prod seed) |

@@ -1,10 +1,9 @@
 /**
  * Severe Pneumonia Clinical Engine
- * 
- * Provides sequential assessment and evidence-based intervention guidance
- * for community-acquired pneumonia (CAP) in children
- * Based on WHO IMCI guidelines and pediatric infectious disease protocols
+ * WHO IMCI + hospital severe pneumonia — SpO₂ targets harmonised with CST.
  */
+
+import { SPO2_TARGET_MIN_PERCENT, SPO2_TARGET_RESUS_DETAIL } from '@shared/clinical-spo2-targets';
 
 export interface PneumoniaAssessment {
   age: number; // years
@@ -180,12 +179,12 @@ export function generatePneumoniaSupportiveCare(
   const interventions: PneumoniaIntervention[] = [];
 
   // Oxygen therapy
-  if (assessment.oxygenSaturation < 92) {
+  if (assessment.oxygenSaturation < SPO2_TARGET_MIN_PERCENT) {
     interventions.push({
       type: 'oxygen_therapy',
       description: 'Supplemental oxygen',
-      indication: `SpO2 < 92% (current: ${assessment.oxygenSaturation}%)`,
-      dosing: 'Titrate to maintain SpO2 > 92%',
+      indication: `SpO₂ < ${SPO2_TARGET_MIN_PERCENT}% (current: ${assessment.oxygenSaturation}%)`,
+      dosing: `Titrate to maintain SpO₂ ≥${SPO2_TARGET_MIN_PERCENT}% (${SPO2_TARGET_RESUS_DETAIL})`,
       monitoring: 'Continuous pulse oximetry',
     });
   }
@@ -224,7 +223,7 @@ export function generatePneumoniaSupportiveCare(
 export function shouldAdmitPneumonia(assessment: PneumoniaAssessment): boolean {
   // Admit if any of the following:
   if (assessment.chestIndrawing) return true;
-  if (assessment.oxygenSaturation < 92) return true;
+  if (assessment.oxygenSaturation < SPO2_TARGET_MIN_PERCENT) return true;
   if (assessment.cyanosis || assessment.lethargy) return true;
   if (assessment.stridor) return true;
   if (assessment.feedingDifficulty) return true;

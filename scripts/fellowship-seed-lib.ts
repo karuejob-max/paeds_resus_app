@@ -3,8 +3,9 @@ import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
-  distributeFormativeQuestions,
   expandQuestionBank,
+  resolveModuleFormativeQuestions,
+  type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
 import { appendClinicalFooter } from "../server/data/clinical-content-helpers";
 import { getDb } from "../server/db";
@@ -26,7 +27,7 @@ export type FellowshipCourseSeed = {
   duration: number;
   price: number;
   description: string;
-  modules: { title: string; duration: number; content: string }[];
+  modules: { title: string; duration: number; content: string; questions?: FormativeQuestion[] }[];
   quiz: {
     title: string;
     passingScore: number;
@@ -324,9 +325,9 @@ export async function seedFellowshipContent(options: {
       const lastModuleId = moduleIds[moduleIds.length - 1]!;
       const firstModuleId = moduleIds[0]!;
       const bankQuestions = expandQuestionBank(courseData.quiz.questions);
-      const formativeByModule = distributeFormativeQuestions(
-        courseData.quiz.questions,
-        moduleIds.length
+      const formativeByModule = resolveModuleFormativeQuestions(
+        courseData.modules,
+        courseData.quiz.questions
       );
 
       for (let i = 0; i < moduleIds.length; i++) {

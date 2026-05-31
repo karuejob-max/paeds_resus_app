@@ -1,6 +1,10 @@
 /**
  * Fellowship Course Content Structure
- * 
+ *
+ * @deprecated Legacy client-side course bundle — fellowship player uses DB seed
+ * (`scripts/seed-fellowship-content.ts`). Harmful strings audited Pass 3 (2026-05-31);
+ * do not teach from this file for fellowship pathways.
+ *
  * All courses aligned to:
  * - AHA PALS 2025 Guidelines
  * - WHO IMCI (Integrated Management of Neonatal and Childhood Illness)
@@ -296,7 +300,7 @@ At least 2 of 4:
 
 ### Adjust if Risk Factors
 - **Meningitis suspected:** Add vancomycin 15-20 mg/kg IV/IO
-- **Malaria endemic area:** Add artemether or quinine
+- **Malaria endemic area (severe disease):** IV/IM **artesunate** 3 mg/kg (WHO) — oral artemether-lumefantrine is for uncomplicated malaria only
 - **Immunocompromised:** Add TMP-SMX or fluconazole
 
 ## Step 4: Supportive Care

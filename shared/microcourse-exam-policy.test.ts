@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   MICROCOURSE_SUMMATIVE_RETRY_COOLDOWN_MS,
   canAttemptSummative,
+  assignFormativeByModuleChunks,
   distributeFormativeQuestions,
   expandQuestionBank,
   examKindFromQuizTitle,
+  MIN_FORMATIVE_QUESTIONS_PER_MODULE,
+  padModuleFormativeQuestions,
+  resolveModuleFormativeQuestions,
   shuffleQuestionIndices,
   summativePassed,
 } from "./microcourse-exam-policy";
@@ -60,5 +64,33 @@ describe("microcourse-exam-policy", () => {
     const qs = [{ q: 1 }, { q: 2 }];
     const expanded = expandQuestionBank(qs, 5);
     expect(expanded).toHaveLength(5);
+  });
+
+  it("pads module-native formatives to minimum per module", () => {
+    const qs = [{ question: "Q1", options: ["a"], correct: 0, explanation: "e1" }];
+    const padded = padModuleFormativeQuestions(qs);
+    expect(padded).toHaveLength(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
+  });
+
+  it("assigns contiguous chunks with min 3 per module", () => {
+    const qs = Array.from({ length: 10 }, (_, i) => ({
+      question: `Q${i}`,
+      options: ["a"],
+      correct: 0,
+      explanation: "e",
+    }));
+    const perMod = assignFormativeByModuleChunks(qs, 3);
+    expect(perMod.every((m) => m.length >= MIN_FORMATIVE_QUESTIONS_PER_MODULE)).toBe(true);
+  });
+
+  it("prefers module-native questions over summative bank", () => {
+    const modules = [
+      { questions: [{ question: "M1", options: ["a"], correct: 0, explanation: "e" }] },
+      { questions: [] },
+    ];
+    const bank = [{ question: "B1", options: ["a"], correct: 0, explanation: "e" }];
+    const resolved = resolveModuleFormativeQuestions(modules, bank);
+    expect(resolved[0]![0]!.question).toBe("M1");
+    expect(resolved[0]!.length).toBe(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
   });
 });

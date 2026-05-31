@@ -1,9 +1,8 @@
 /**
- * Pediatric Trauma Clinical Engine
- * 
- * Provides sequential assessment and evidence-based management for pediatric trauma
- * Based on ATLS (Advanced Trauma Life Support) and PHTLS (Prehospital Trauma Life Support) guidelines
+ * Pediatric Trauma Clinical Engine — ABCDE aligned with fellowship CST.
  */
+
+import { SPO2_TARGET_MIN_PERCENT, SPO2_TARGET_RESUS_DETAIL } from '@shared/clinical-spo2-targets';
 
 export interface TraumaAssessment {
   age: number; // years
@@ -190,7 +189,7 @@ export function generatePrimarySurveyInterventions(
       type: 'breathing_management',
       description: 'Breathing Support',
       indication: `SpO2 ${assessment.oxygenSaturation}%, breath sounds ${assessment.breathSounds}`,
-      dosing: `- High-flow oxygen (15 L/min via non-rebreather)
+      dosing: `- High-flow oxygen (15 L/min via non-rebreather) — ${SPO2_TARGET_RESUS_DETAIL}
 - Bag-valve-mask ventilation if needed
 - Needle decompression if tension pneumothorax
 - Chest tube if pneumothorax/hemothorax`,
@@ -207,7 +206,7 @@ export function generatePrimarySurveyInterventions(
       type: 'fluid_resuscitation',
       description: 'Fluid Resuscitation (Hemorrhagic Shock)',
       indication: `Hypotension (SBP ${assessment.systolicBP}), CRT ${assessment.capillaryRefillTime}s`,
-      dosing: `Initial bolus: ${fluidBolus} mL of warmed normal saline IV
+      dosing: `Initial bolus: ${fluidBolus} mL warmed crystalloid IV (10–20 mL/kg with reassessment)
 (20 mL/kg)
 Reassess after 10-15 minutes`,
       frequency: 'Repeat bolus if no improvement',

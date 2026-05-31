@@ -1,10 +1,9 @@
 /**
  * Micro-Courses Data: Paediatric Burns I & II
  * PSOT §16 Extension: Critical emergency management in low-resource settings
- * 
- * Burns I: Recognition and First-Hour Stabilization
- * Burns II: Advanced Fluid Management and Complications
  */
+
+import { BURNS_FLUID_ESCHAR, BURNS_INFECTION, SPO2_TARGET_NOTE } from './clinical-content-helpers';
 
 export const microCoursesBurns = [
   {
@@ -222,6 +221,8 @@ export const microCoursesBurns = [
         duration: 20,
         content: `
           <h2>Advanced Burn Resuscitation</h2>
+          ${BURNS_FLUID_ESCHAR}
+          ${SPO2_TARGET_NOTE}
           <h3>Parkland Formula Limitations:</h3>
           <ul>
             <li>Overestimates fluid needs in 20-30% of cases</li>
@@ -254,13 +255,34 @@ export const microCoursesBurns = [
             <li>Abdominal compartment syndrome (intra-abdominal hypertension)</li>
             <li>Acute kidney injury (from rhabdomyolysis)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'Parkland formula overestimates fluid needs in:',
+            options: ['<5% of cases', '20-30% of cases', '>50% of cases', 'Never'],
+            correct: 1,
+            explanation: 'Parkland overestimates in 20-30% of cases — titrate to urine output.'
+          },
+          {
+            question: 'Urine output target if myoglobinuria present:',
+            options: ['0.5 mL/kg/hr', '1 mL/kg/hr', '>1 mL/kg/hr (aggressive)', '0.1 mL/kg/hr'],
+            correct: 2,
+            explanation: 'Myoglobinuria needs >1 mL/kg/hr to flush myoglobin and prevent AKI.'
+          },
+          {
+            question: 'Burn centre referral is indicated for:',
+            options: ['Minor sunburn', 'Partial-thickness >10% TBSA', 'No burns ever', 'Only adults'],
+            correct: 1,
+            explanation: 'Refer >10% partial-thickness, face/hands, inhalation injury, circumferential burns.'
+          }
+        ]
       },
       {
         title: 'Module 2: Burn Complications and Management',
         duration: 25,
         content: `
           <h2>Burn Complications</h2>
+          ${BURNS_INFECTION}
           <h3>Compartment Syndrome (Limbs):</h3>
           <ul>
             <li>Increased pressure in fascial compartment → tissue ischemia</li>
@@ -295,13 +317,34 @@ export const microCoursesBurns = [
             <li>Signs of infection: Fever, tachycardia, thrombocytopenia, hyperglycemia, wound discoloration</li>
             <li>Treatment: Broad-spectrum antibiotics, aggressive wound care, possible early grafting</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'Escharotomy is performed for:',
+            options: ['Infection only', 'Compartment syndrome (circumferential burns)', 'Pain only', 'Fever'],
+            correct: 1,
+            explanation: 'Escharotomy relieves compartment pressure from circumferential full-thickness burns.'
+          },
+          {
+            question: 'Compartment syndrome signs include:',
+            options: ['Fever only', 'Pain out of proportion + paresthesias', 'Cough', 'Diarrhea'],
+            correct: 1,
+            explanation: 'Pain out of proportion, paresthesias, pallor — escharotomy if circumferential burn.'
+          },
+          {
+            question: 'Leading cause of death in major burns (>20% TBSA):',
+            options: ['Hypovolemia only', 'Infection/sepsis', 'Pain', 'Dehydration only'],
+            correct: 1,
+            explanation: 'Burn wound infection/sepsis is the leading cause of death in major burns.'
+          }
+        ]
       },
       {
         title: 'Module 3: Nutritional Support and Long-Term Management',
         duration: 15,
         content: `
           <h2>Burn Nutrition & Rehabilitation</h2>
+          ${BURNS_INFECTION}
           <h3>Hypermetabolic State (Flow Phase):</h3>
           <ul>
             <li>Metabolic rate increases 1.5-2× normal</li>
@@ -337,7 +380,27 @@ export const microCoursesBurns = [
             <li>Inhalation injury: increases mortality 3-4×</li>
             <li>Survivors: Many have permanent scarring, functional limitations, psychological effects</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'Caloric requirement in burn flow phase:',
+            options: ['10 kcal/kg', '25 kcal/kg + 40 kcal/%TBSA', '50 kcal/kg', '100 kcal/kg'],
+            correct: 1,
+            explanation: 'Hypermetabolic state: 25 kcal/kg + 40 kcal/%TBSA.'
+          },
+          {
+            question: 'When to start enteral feeding in burns:',
+            options: ['After 1 week', 'Within 24-48 hours', 'Never', 'Only if eating PO'],
+            correct: 1,
+            explanation: 'Start feeding within 24-48 hours — reduces infection, maintains gut barrier.'
+          },
+          {
+            question: 'Topical antibiotic for burn wounds (broad-spectrum):',
+            options: ['Silver sulfadiazine', 'Oral amoxicillin only', 'Topical steroids only', 'No dressings'],
+            correct: 0,
+            explanation: 'Silver sulfadiazine is common topical prophylaxis for burn wounds.'
+          }
+        ]
       }
     ],
     quiz: {

@@ -159,7 +159,7 @@ export function buildSepticShockProtocol(weight: number, ageCategory: string): C
     {
       id: 'ss_06_bolus1',
       phase: 'Fluid Resuscitation (0–15 min)',
-      action: 'Give first fluid bolus: 10 mL/kg balanced crystalloid (Ringer\'s Lactate preferred) over 5–10 min.',
+      action: 'Give first fluid bolus: 10 mL/kg balanced crystalloid (Ringer\'s Lactate preferred) over 5–10 min. Reassess after each bolus — FEAST-aware: stop if fluid overload or no perfusion improvement.',
       doses: [
         {
           drug: 'Ringer\'s Lactate (or 0.9% NaCl)',
@@ -1066,7 +1066,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
     monitoringTargets: [
       'HR, BP, SpO₂ every 5 min until stable',
       'Observe minimum 4–6 hours after epinephrine (12 h if severe/biphasic risk)',
-      'SpO₂ ≥ 95% on supplemental O₂',
+      'SpO₂ ≥ 90% (WHO severe illness); titrate toward 90–94% when feasible',
       'Systolic BP > 70 + (2 × age in years) mmHg',
       'Resolution of urticaria, angioedema, and bronchospasm',
     ],
@@ -1287,7 +1287,7 @@ function buildSevereAsthmaProtocol(weight: number, ageCategory: string): Conditi
       {
         id: 'asthma_o2',
         phase: 'Immediate (0–5 min)',
-        action: 'Give supplemental O₂ to maintain SpO₂ ≥ 94%. High-flow via NRB mask if SpO₂ < 90%.',
+        action: `Give supplemental O₂ to maintain SpO₂ ≥90% (titrate toward 90–94%). High-flow via NRB if SpO₂ <90%.`,
         status: 'pending',
       },
       {
