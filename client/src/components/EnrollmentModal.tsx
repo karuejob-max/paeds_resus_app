@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { cn } from "@/lib/utils";
+import { microCourseTrackLabel, type MicroCourseTier } from "@shared/micro-course-display";
 
 /** High-contrast panels — readable on light and dark backgrounds (no pastel-on-pastel). */
 const panelClass = "rounded-lg border p-3 sm:p-4 text-sm text-foreground";
@@ -137,7 +138,9 @@ export function EnrollmentModal({
             <div className="space-y-4">
               <div className={panelInfo}>
                 <p className="font-semibold text-foreground">{course.title}</p>
-                <p className="mt-0.5 capitalize text-muted-foreground">{course.level} · 1 month access</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  {microCourseTrackLabel(course.level as MicroCourseTier)} · 1 month access
+                </p>
               </div>
 
               <div className={cn(panelSuccess, "flex items-start gap-2")}>

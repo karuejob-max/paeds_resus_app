@@ -25,6 +25,7 @@ import {
   buildOrganizationJsonLd,
 } from "@/lib/seo-schema";
 import { ArrowRight } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type Props = {
   slug: TrainingLandingConfig["slug"];
@@ -93,6 +94,13 @@ export default function TrainingCourseLanding({ slug }: Props) {
         </header>
 
         <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
+          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
+            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+              <strong>AHA certification track</strong> — separate from the Paeds Resus Fellowship micro-courses.
+              ResusGPS supports bedside emergency steps; fellowship teaching depth lives in condition micro-courses.
+            </AlertDescription>
+          </Alert>
+
           {config.sections.map((section) => (
             <section key={section.heading}>
               <h2 className="text-xl font-bold mb-3">{section.heading}</h2>

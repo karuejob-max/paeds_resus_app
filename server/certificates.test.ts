@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { generateCertificatePDF, getCertificateFilenameSlug } from "./certificate-pdf";
+import { generateCertificatePDF, getCertificateFilenameSlug, CERTIFICATE_COMPETENCE_DISCLAIMER } from "./certificate-pdf";
 import { getCertificateStats } from "./certificates";
 
 async function expectValidBrandedPdf(buffer: Buffer) {
@@ -103,6 +103,24 @@ describe("Certificate Service", () => {
         })
       );
       await expectValidBrandedPdf(pdfBuffer);
+    });
+
+    it("includes competence disclaimer on AHA and fellowship PDFs", async () => {
+      for (const programType of ["bls", "pals", "acls", "fellowship"] as const) {
+        const pdfBuffer = await generateCertificatePDF(
+          baseCert({
+            programType,
+            certificateNumber: `PRES-${programType}-DISC`,
+            verificationCode: `verify-${programType}-disc`,
+          })
+        );
+        await expectValidBrandedPdf(pdfBuffer);
+        const raw = pdfBuffer.toString("latin1");
+        const hasDisclaimer =
+          raw.includes(CERTIFICATE_COMPETENCE_DISCLAIMER) ||
+          raw.includes("clinical competence");
+        expect(hasDisclaimer).toBe(true);
+      }
     });
   });
 

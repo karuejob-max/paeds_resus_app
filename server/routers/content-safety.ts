@@ -12,6 +12,8 @@ export const contentSafetyRouter = router({
         courseId: z.string().min(1).max(64),
         moduleId: z.number().int().positive().optional(),
         message: z.string().min(10).max(4000),
+        /** UI surface for analytics (fellowship player, AHA player, ResusGPS). */
+        surface: z.enum(["fellowship_player", "aha_player", "resus_gps"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -35,6 +37,7 @@ export const contentSafetyRouter = router({
         eventData: {
           courseId: input.courseId,
           moduleId: input.moduleId,
+          surface: input.surface,
         },
         sessionId: `content_safety_${input.courseId}`,
       });

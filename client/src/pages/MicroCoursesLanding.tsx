@@ -23,6 +23,7 @@ import { AlertCircle, Clock, DollarSign, Lock, CheckCircle2, BookOpen, Award, Za
 import { useLocation } from 'wouter';
 import { useEffect, useState, useMemo } from 'react';
 import { EnrollmentModal } from '@/components/EnrollmentModal';
+import { microCourseTrackLabel, type MicroCourseTier } from '@shared/micro-course-display';
 
 type EmergencyType =
   | 'respiratory'
@@ -211,6 +212,13 @@ export default function MicroCoursesLanding() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
+        <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+          <AlertDescription className="text-sm text-amber-950 dark:text-amber-100">
+            <strong>Paeds Resus Fellowship</strong> — not AHA certification. BLS/ACLS/PALS are separate AHA-aligned
+            paths. ResusGPS supports emergency bedside steps; complete Foundational courses before Advanced tracks.
+          </AlertDescription>
+        </Alert>
+
         {/* Filters */}
         <Card className="mb-8">
           <CardHeader>
@@ -263,7 +271,7 @@ export default function MicroCoursesLanding() {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      {level === 'all' ? 'All Levels' : level.charAt(0).toUpperCase() + level.slice(1)}
+                      {level === 'all' ? 'All Levels' : microCourseTrackLabel(level as MicroCourseTier)}
                     </button>
                   ))}
                 </div>
@@ -316,7 +324,7 @@ export default function MicroCoursesLanding() {
                         variant={course.level === 'foundational' ? 'default' : 'secondary'}
                         className="text-xs"
                       >
-                        {course.level === 'foundational' ? '📚 Foundational' : '🎓 Advanced'}
+                        {microCourseTrackLabel(course.level as MicroCourseTier)}
                       </Badge>
                       {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                     </div>

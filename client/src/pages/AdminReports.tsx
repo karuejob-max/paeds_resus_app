@@ -158,6 +158,11 @@ export default function AdminReports() {
     { enabled: adminRoleOk && reportTab === "maturity" }
   );
 
+  const { data: contentSafetyReports } = trpc.contentSafety.listReports.useQuery(
+    { limit: 25 },
+    { enabled: adminRoleOk && reportTab === "maturity" }
+  );
+
   const { data: clinicalPilotStatus } = trpc.adminStats.getClinicalPilotStatus.useQuery(undefined, {
     enabled: adminRoleOk && reportTab === "maturity",
   });
@@ -2058,6 +2063,49 @@ export default function AdminReports() {
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">Loading checklist…</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Content safety reports</CardTitle>
+                <CardDescription>
+                  Learner reports from fellowship player, AHA player, and ResusGPS (migration 0047)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {contentSafetyReports && contentSafetyReports.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="py-2 pr-2">When</th>
+                          <th className="py-2 pr-2">Course / surface</th>
+                          <th className="py-2 pr-2">Module</th>
+                          <th className="py-2 pr-2">Status</th>
+                          <th className="py-2">Message</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contentSafetyReports.map((row) => (
+                          <tr key={row.id} className="border-b align-top">
+                            <td className="py-2 pr-2 whitespace-nowrap">
+                              {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                            </td>
+                            <td className="py-2 pr-2 font-mono text-xs">{row.courseId}</td>
+                            <td className="py-2 pr-2">{row.moduleId ?? "—"}</td>
+                            <td className="py-2 pr-2">{row.status}</td>
+                            <td className="py-2 max-w-xs truncate" title={row.message}>
+                              {row.message}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No open reports — or migration 0047 not yet applied.</p>
                 )}
               </CardContent>
             </Card>

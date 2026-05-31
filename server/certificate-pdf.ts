@@ -32,7 +32,7 @@ const CERTIFICATE_SIGNATORY_NAME =
 const CERTIFICATE_SIGNATORY_TITLE =
   process.env.CERTIFICATE_SIGNATORY_TITLE?.trim() || "Course Director";
 
-const CERTIFICATE_COMPETENCE_DISCLAIMER =
+export const CERTIFICATE_COMPETENCE_DISCLAIMER =
   "This certificate attests course completion only — not clinical competence, licensure, or hospital privileging.";
 
 const FELLOWSHIP_TRACK_LABEL: Record<"foundational" | "advanced", string> = {
@@ -498,17 +498,15 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
     data.expiryDate ?? computeCertificateExpiryDate(issueDate, data.programType);
   const showExpiry = certificateShowsExpiryOnPdf(data.programType);
 
-  if (data.programType === "fellowship") {
-    drawCenteredText(
-      page,
-      CERTIFICATE_COMPETENCE_DISCLAIMER,
-      FOOTER_DIVIDER_Y + 6,
-      6.5,
-      font,
-      BRAND.inkMuted,
-      0
-    );
-  }
+  drawCenteredText(
+    page,
+    CERTIFICATE_COMPETENCE_DISCLAIMER,
+    FOOTER_DIVIDER_Y + 6,
+    6.5,
+    font,
+    BRAND.inkMuted,
+    0
+  );
 
   const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - FOOTER_METADATA_BELOW_PAD;
   const signatureGuideY = metadataRowY + SIGNATURE_GUIDE_ABOVE_NAME;
