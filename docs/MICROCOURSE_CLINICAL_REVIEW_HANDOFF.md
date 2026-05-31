@@ -16,7 +16,7 @@
 4. **ResusGPS alignment** — `dka-engine.ts`, `status-epilepticus-engine.ts`, `abcdeEngine.ts` seizure/DKA strings.
 5. **Seed pipeline** — `scripts/seed-fellowship-content.ts` writes diagnostic + summative quizzes and governance footer on modules.
 
-**Production DB (required once after PR #107 deploy):** Code on `main` does **not** auto-seed production. Learners still see **old** module HTML and quiz rows until this runs.
+**Production DB:** Auto-seeded on every production deploy (`pnpm start`). After content merges, confirm deploy logs show `Fellowship auto-seed complete — verify passed` (29 courses, 0 failures).
 
 | Where | Command |
 |-------|---------|
@@ -40,7 +40,7 @@ pnpm run seed:fellowship-content:metabolic   # aki-i, anaemia-i
 
 Expect log lines `Processing: …` per catalog course and `Seeding complete!` at the end. Idempotent: safe to re-run. Does **not** replace `ensure-paediatric-septic-shock-catalog` runtime HTML for legacy PALS paths; fellowship player content comes from this seed + `server/data/micro-courses-*.ts`.
 
-**Not in CI:** No GitHub Action or Render deploy hook runs this today (intentional — production DB writes need explicit ops approval). To automate later: optional manual workflow_dispatch with production secrets — do not add silent auto-prod writes without CEO sign-off.
+**Production deploy:** Fellowship seed runs automatically before server start on Render production (`scripts/run-fellowship-auto-seed.mjs` via `pnpm start`). Verify failure **blocks** deploy. Staging: `AUTO_SEED_FELLOWSHIP_ON_START=false`. Manual: `pnpm run seed:fellowship-content:all`.
 
 **Connectivity:** If `ETIMEDOUT` from a desktop, use Render Shell (same region as API) or allowlist your IP on Aiven.
 

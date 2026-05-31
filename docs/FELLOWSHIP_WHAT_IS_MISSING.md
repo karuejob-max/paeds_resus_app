@@ -96,7 +96,7 @@ Fellowship verify: 27 courses, 0 failure(s)
 
 3. **Document learner track separation** — Fellowship (29 + seriously-ill-child-i in catalog) vs AHA (BLS/ACLS/PALS/NRP) vs sample `intubation-essentials`. Reduces wrong-protocol-at-bedside risk when users conflate products.
 
-4. **Operationalise seed-on-release** — Manual workflow_dispatch or Render Shell checklist tied to every PR that touches micro-course data; WORK_STATUS row template = batches run + verify line. Prevents code/DB drift recurrence.
+4. **Seed-on-release** — **Done:** production deploy auto-seeds + verify (`scripts/run-fellowship-auto-seed.mjs`). WORK_STATUS still records deploy log evidence when touching micro-course data.
 
 5. **CEO click-test `aki-ii` / `anaemia-ii`** — After prod metabolic seed, verify RRT/AEIOU, K⁺ never-push, PD-not-first-line, transfusion thresholds, sickle/malaria co-morbidity in browser.
 

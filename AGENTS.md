@@ -46,7 +46,7 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 
 - **Protected `main`:** Feature branch → `gh pr create` → CI green → merge. **Never** `git push origin main` (GH006).
 - **Local commit ≠ Done:** Record **`origin/main` merge hash** + **WORK_STATUS** + verify output (`check`, `test:unit`, or targeted script).
-- **Code on `main` ≠ learner content:** Fellowship modules live in the **production DB** until chunked `seed:fellowship-content:*` runs + **`verify-fellowship-seed.ts`** passes (currently **29** fellowship courses excl. sample `intubation-essentials`). After MECE v2 merge, run **`seed:fellowship-content:metabolic`** for `aki-ii` / `anaemia-ii`.
+- **Code on `main` ≠ learner content until deploy:** Production **auto-seeds** fellowship on every deploy (`pnpm start` → `scripts/start-production.mjs`; CEO approved). Verify target **29** courses, 0 failures. Staging: set `AUTO_SEED_FELLOWSHIP_ON_START=false`. Manual: `pnpm run seed:fellowship-content:all` or chunked batches + verify.
 - **Summative exam integrity:** Player must use **`getSummativeExamQuestions`** (shuffled); **`recordQuizAttempt`** server-grades summative — never trust client score; strip `correctAnswer` from summative in **`getModuleContent`**.
 - **ETIMEDOUT on seed/migrate:** Chunk with `--batch=` / `--only=`; use **`scripts/db-connection-config.mjs`** / IPv4 **`server/db.ts`**; fallback **Render Shell** with production `DATABASE_URL`.
 - **Clinical harm audit before "complete":** **mmol/L** for glucose; **never KCl IV push**; **DKA — no insulin bolus**; **neonates — no benzos first-line** for seizures; spot-check seeded HTML, not just TypeScript.

@@ -20,7 +20,7 @@
 
 1. **`git push origin main` is rejected (GH006).** `main` is protected. Always: feature branch → PR → CI green → merge → record merge hash in WORK_STATUS.
 2. **Local commit ≠ Done.** Definition of Done requires **`origin/main` merge commit** + WORK_STATUS + verify output ([AGENT_AUTONOMY.md](./AGENT_AUTONOMY.md) §2).
-3. **Merge to `main` ≠ learners see new content.** Fellowship micro-course content lives in the **production DB** until seed scripts run ([§ Production database operations](#2-production-database-operations)).
+3. **Merge to `main` → learners see new content after prod deploy succeeds.** Fellowship micro-course rows are auto-seeded on each production deploy ([§2.4](#24-where-to-run-seed)); failed verify blocks deploy.
 4. **`db:test-connection` OK once does not guarantee a 30-minute seed.** Use **chunked batches** or **Render Shell** when ETIMEDOUT hits.
 5. **CEO post-deploy review ≠ merge blocker** when engineering is mandated to ship; log **CEO sign-off: pending** in WORK_STATUS and handoff — do not block merge on interim clinical review ([CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md)).
 
@@ -165,9 +165,19 @@ Record verify output in WORK_STATUS when marking seed work Done.
 
 **Aiven allowlist:** If desktop IP is not allowlisted, Shell avoids timeout without opening firewall to arbitrary agent IPs.
 
-**Not in CI today:** Production DB writes require explicit ops approval — no silent auto-seed on deploy ([MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md)).
+**Production auto-seed (CEO approved — ON):** Every Render production deploy runs fellowship seed **before** the server starts (`pnpm start` → `scripts/start-production.mjs` → `scripts/run-fellowship-auto-seed.mjs`). All six batches + `seed:seriously-ill-child-course`, then `verify-fellowship-seed.ts` (target **29 courses, 0 failure(s)**). **Verify failure blocks deploy** (process exits 1; server never binds). Idempotent — safe every deploy. Logs end with `Fellowship auto-seed complete — verify passed`.
 
-**Post-deploy fellowship checklist (safe — idempotent):** After MECE/content merges on `main`, run all six `seed:fellowship-content:*` batches **plus** `pnpm run seed:seriously-ill-child-course`, then `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` (target **29 courses, 0 failure(s)**). Do **not** wire auto-seed into Render deploy hooks until CEO approves — partial seed on a cold DB is worse than a documented manual runbook.
+| Control | Purpose |
+|---------|---------|
+| `AUTO_SEED_FELLOWSHIP_ON_START=false` | Disable on staging or one-off skip |
+| `AUTO_SEED_FELLOWSHIP_ON_START=true` | Force on local dev (manual test) |
+| `APP_BASE_URL` contains `staging` | Auto-skipped even on Render |
+| `FELLOWSHIP_SEED_MAX_RETRIES` | Default `3` per step |
+| `FELLOWSHIP_SEED_STEP_TIMEOUT_MS` | Default `600000` (10 min) per batch |
+
+**Manual equivalent:** `pnpm run seed:fellowship-content:all` (runs seed + verify with `--force`, any env).
+
+**Post-merge (agents):** Code on `main` is not Done for fellowship content until prod deploy succeeds (auto-seed + verify in deploy logs). Shell seed still valid for ETIMEDOUT recovery or hotfix without redeploy.
 
 ### 2.5 Migrations (pattern)
 

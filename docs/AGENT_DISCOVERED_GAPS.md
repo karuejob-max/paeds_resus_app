@@ -38,7 +38,7 @@
 |---|-----|----------|
 | 10 | **CEO handoff checklist = theater without live click-test** | `MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md` 13 items; WORK_STATUS still "CEO sign-off: pending". DB verify ≠ browser verify. |
 | 11 | **`fellowTitleEnabled: false`** | Correct gate; §11 checklist incomplete — intentional. |
-| 12 | **No auto-seed on deploy** | Documented; code merge ≠ learner content. Manual chunked seed required. |
+| 12 | **Auto-seed on deploy** | **Fixed:** `scripts/start-production.mjs` + `run-fellowship-auto-seed.mjs` on Render prod; verify failure blocks deploy. Staging: `AUTO_SEED_FELLOWSHIP_ON_START=false`. |
 | 13 | **M-Pesa / legal counsel** | Engineering baseline shipped; counsel sign-off CEO-only (~95% per WORK_STATUS). |
 
 ---
