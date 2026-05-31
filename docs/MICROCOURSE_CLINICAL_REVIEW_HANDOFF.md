@@ -50,7 +50,7 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 
 | Course ID | Changes |
 |-----------|---------|
-| `dka-i`, `dka-ii` | mmol/L, fluids conflict, insulin until ketosis resolving; Level titles |
+| `dka-i`, `dka-ii` | mmol/L, fluids conflict, insulin until ketosis resolving; titles **DKA: Foundational / Advanced** |
 | `status-epilepticus-i`, `status-epilepticus-ii` | Benzo intl/Kenya/neonate; Level titles |
 | `asthma-i`, `asthma-ii` | Level 1/2 titles; dex/pred/hydrocortisone; status asthmaticus steroids + IV salbutamol note |
 | `septic-shock-i`, `septic-shock-ii` | Pass 2 CST content + vasopressor module (II authored for seed) |

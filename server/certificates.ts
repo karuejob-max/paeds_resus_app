@@ -728,11 +728,14 @@ export async function ensureMicroCourseCertificateForCompletedCourse(
       .limit(1);
     const recipientName = userRows[0]?.name ?? "Participant";
 
+    const track =
+      course.level === "foundational" || course.level === "advanced" ? course.level : undefined;
     return await saveMicroCourseCertificate(
       enrollment.id,
       userId,
       recipientName,
-      course.title ?? courseIdSlug
+      course.title ?? courseIdSlug,
+      track
     );
   } catch (err) {
     console.error("[Certificates] ensureMicroCourseCertificateForCompletedCourse:", err);
@@ -839,7 +842,8 @@ export async function saveMicroCourseCertificate(
   microCourseEnrollmentId: number,
   userId: number,
   recipientName: string,
-  courseTitle: string
+  courseTitle: string,
+  fellowshipTrack?: "foundational" | "advanced"
 ): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
   try {
     const db = await getDb();
@@ -898,6 +902,7 @@ export async function saveMicroCourseCertificate(
       certificateNumber,
       verificationCode: verificationHash,
       courseDisplayName: courseTitle,
+      fellowshipTrack,
     });
     await db.insert(certificates).values({
       enrollmentId: 0, // sentinel: micro-course certs use microCourseEnrollmentId, not enrollmentId

@@ -7,7 +7,11 @@ import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import { TRPCError } from "@trpc/server";
 import { getDb } from '../db';
-import { ensureMicroCoursesCatalog, loadMicroCoursesFromDb } from '../lib/micro-course-catalog';
+import {
+  CLINICAL_CONTENT_VERSION,
+  ensureMicroCoursesCatalog,
+  loadMicroCoursesFromDb,
+} from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
@@ -96,6 +100,11 @@ export const coursesRouter = router({
       return [];
     }
   }),
+
+  /** Clinical content version string for fellowship player footer (B1). */
+  getClinicalContentVersion: publicProcedure.query(() => ({
+    version: CLINICAL_CONTENT_VERSION,
+  })),
 
   /**
    * AHA-style certification programs (BLS, ACLS, PALS) from `courses` — not fellowship micro-courses.
@@ -377,11 +386,14 @@ export const coursesRouter = router({
             .where(eq(users.id, ctx.user.id))
             .limit(1);
           const recipientName = userRows[0]?.name ?? 'Participant';
+          const track =
+            course.level === "foundational" || course.level === "advanced" ? course.level : undefined;
           const certResult = await saveMicroCourseCertificate(
             enrollment.id,
             ctx.user.id,
             recipientName,
-            course.title ?? input.courseId
+            course.title ?? input.courseId,
+            track
           );
           if (certResult.success) {
             certificateNumber = certResult.certificateNumber;

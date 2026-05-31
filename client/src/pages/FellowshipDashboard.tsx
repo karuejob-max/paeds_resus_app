@@ -491,10 +491,25 @@ export default function FellowshipDashboard() {
                           {!isEnrolled && isPublished && <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />}
                           {!isPublished && <Badge variant="secondary" className="text-[10px] h-4 px-1 ml-2">Coming soon</Badge>}
                         </div>
-                        <p className="text-xs text-muted-foreground mb-3">{course.duration} mins • {course.level}</p>
-                        <div className="flex gap-2 mb-3">
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {course.duration} mins •{" "}
+                          {course.level === "foundational" || course.level === "advanced"
+                            ? course.level === "foundational"
+                              ? "Foundational"
+                              : "Advanced"
+                            : course.level}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <Badge variant="outline" className="text-xs">
+                            {course.level === "advanced" ? "Advanced" : "Foundational"}
+                          </Badge>
                           <Badge variant="outline" className="text-xs">{course.emergencyType}</Badge>
                         </div>
+                        {course.prerequisiteId && !isCompleted && !isEnrolled && (
+                          <p className="text-xs text-amber-800 mb-2">
+                            Requires completed foundational course first
+                          </p>
+                        )}
                         {isCompleted && (
                           <Button
                             size="sm"

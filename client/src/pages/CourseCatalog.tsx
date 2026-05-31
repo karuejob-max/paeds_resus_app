@@ -9,6 +9,11 @@ import { AlertCircle, BookOpen, Clock, DollarSign, Lock, CheckCircle2 } from 'lu
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server/routers';
 import { toast } from 'sonner';
+import {
+  formatPrerequisiteHint,
+  microCourseTrackLabel,
+  type MicroCourseTier,
+} from '@shared/micro-course-display';
 
 type EmergencyType = 'respiratory' | 'shock' | 'seizure' | 'toxicology' | 'metabolic' | 'infectious' | 'burns' | 'trauma';
 type Level = 'foundational' | 'advanced';
@@ -37,6 +42,14 @@ export default function CourseCatalog() {
   const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: !!user,
   });
+
+  const catalogTitleBySlug = useMemo(() => {
+    const map: Record<string, string> = {};
+    coursesData?.forEach((c) => {
+      map[c.courseId] = c.title;
+    });
+    return map;
+  }, [coursesData]);
 
   // Get enrollment status for each course
   const enrollmentMap = useMemo(() => {
@@ -190,6 +203,14 @@ export default function CourseCatalog() {
                 enrollment?.status === 'completed' ||
                 isCompleted;
               const isAdmin = user?.email === 'karuejob@gmail.com';
+              const prereqCompleted =
+                !course.prerequisiteId ||
+                enrollmentsData?.some(
+                  (e) =>
+                    e.course?.courseId === course.prerequisiteId &&
+                    e.enrollmentStatus === 'completed'
+                );
+              const prerequisiteBlocked = !!course.prerequisiteId && !prereqCompleted && !isEnrolled;
 
               return (
                 <Card key={course.id} className={`flex flex-col transition-all hover:shadow-lg ${isCompleted ? 'border-green-200 bg-green-50' : ''}`}>
@@ -199,7 +220,7 @@ export default function CourseCatalog() {
                         variant={course.level === 'foundational' ? 'default' : 'secondary'}
                         className="text-xs"
                       >
-                        {course.level === 'foundational' ? '📚 Foundational' : '🎓 Advanced'}
+                        {microCourseTrackLabel(course.level as MicroCourseTier)}
                       </Badge>
                       {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                     </div>
@@ -222,8 +243,10 @@ export default function CourseCatalog() {
                       {/* Prerequisite Badge */}
                       {course.prerequisiteId && (
                         <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-2 rounded">
-                          <Lock className="h-4 w-4" />
-                          <span>Requires prerequisite course</span>
+                          <Lock className="h-4 w-4 flex-shrink-0" />
+                          <span>
+                            {formatPrerequisiteHint(course.prerequisiteId, catalogTitleBySlug)}
+                          </span>
                         </div>
                       )}
 
@@ -242,6 +265,7 @@ export default function CourseCatalog() {
                       isCompleted={isCompleted}
                       isAdmin={isAdmin}
                       userId={user?.id}
+                      prerequisiteBlocked={prerequisiteBlocked}
                     />
                   </CardContent>
                 </Card>
@@ -260,12 +284,14 @@ function EnrollmentButton({
   isCompleted,
   isAdmin,
   userId,
+  prerequisiteBlocked,
 }: {
   course: MicroCourseRow;
   isEnrolled: boolean;
   isCompleted: boolean;
   isAdmin: boolean;
   userId?: number;
+  prerequisiteBlocked?: boolean;
 }) {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
@@ -303,6 +329,14 @@ function EnrollmentButton({
     return (
       <Button disabled className="w-full bg-blue-600 hover:bg-blue-700">
         → Continue Learning
+      </Button>
+    );
+  }
+
+  if (prerequisiteBlocked) {
+    return (
+      <Button disabled className="w-full" variant="outline">
+        Complete foundational course first
       </Button>
     );
   }

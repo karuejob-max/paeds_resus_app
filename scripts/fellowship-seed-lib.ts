@@ -8,7 +8,7 @@ import {
   resolveModuleFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
-import { appendClinicalFooter } from "../server/data/clinical-content-helpers";
+import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-helpers";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like, or } from "drizzle-orm";
@@ -285,7 +285,12 @@ export async function seedFellowshipContent(options: {
     for (let i = 0; i < courseData.modules.length; i++) {
       const modData = courseData.modules[i];
       const order = i + 1;
-      const content = appendClinicalFooter(modData.content);
+      const content = enhanceFellowshipModuleContent(
+        catalogSlug,
+        i,
+        courseData.modules.length,
+        modData.content
+      );
 
       const [existingMod] = await db
         .select()
