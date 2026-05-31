@@ -91,6 +91,18 @@
 | B11 `docs/PLATFORM_SAFETY_GAPS.md` | **Added** |
 | B12–B14 catalog copy, analytics, auto-seed | **Fixed** / documented |
 
+## Global safety pass (2026-05-31)
+
+| Item | Status |
+|------|--------|
+| Shared `ClinicalContentSafetyFooter` (AHA + fellowship + ResusGPS) | **Fixed** |
+| Certificate disclaimer all program types | **Fixed** |
+| Clinical lint → AHA seed scripts + ResusGPS (tests excluded) | **Fixed** |
+| Ward checklists → septic-shock-i, malaria-i, anaphylaxis-i, meningitis-i | **Fixed** (seed on deploy) |
+| Admin content safety reports UI | **Fixed** |
+| `docs/GLOBAL_SAFETY_AUDIT.md` | **Added** |
+| Migration 0047 prod | **Applied** (agent env) |
+
 ---
 
 ## Static audit command (no DB)

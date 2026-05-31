@@ -23,6 +23,7 @@ import { checkMedicationDuplicate, type DuplicateCheckResult } from '@/lib/resus
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
+import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
@@ -1246,6 +1247,15 @@ export default function ResusGPS() {
             <MedicationTimerStrip threats={session.threats} />
           </div>
         </div>
+      )}
+
+      {session.phase === 'IDLE' && (
+        <ClinicalContentSafetyFooter
+          surfaceId="resus-gps"
+          surface="resus_gps"
+          compact
+          className="max-w-2xl mx-auto border-t-0 bg-muted/30"
+        />
       )}
 
       <BottomNav />

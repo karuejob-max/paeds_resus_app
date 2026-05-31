@@ -109,6 +109,30 @@ export const WARD_ACTIONS_BY_SLUG: Record<string, string[]> = {
     "Admit if silent chest, exhaustion, or SpO₂ not improving",
     "Discharge only with spacer technique teach-back and follow-up plan",
   ],
+  "septic-shock-i": [
+    "Recognize sepsis; take cultures before antibiotics when possible",
+    "Give 10–20 mL/kg isotonic bolus with reassessment (FEAST-aware)",
+    "Start empiric antibiotics within 1 hour of recognition",
+    "Escalate vasopressors/ICU if perfusion not improving after fluids",
+  ],
+  "malaria-i": [
+    "Confirm severe malaria criteria; check glucose in mmol/L",
+    "Give IV/IM artesunate per weight — not artemether IV first-line",
+    "Treat hypoglycaemia; monitor for cerebral malaria signs",
+    "Transition to oral ACT when tolerating; plan for anaemia/transfusion if needed",
+  ],
+  "anaphylaxis-i": [
+    "IM adrenaline 0.01 mg/kg anterolateral thigh — time the dose",
+    "Position supine with legs elevated; give high-flow oxygen",
+    "Prepare second dose and IV access; observe for biphasic reaction",
+    "Admit if refractory, airway compromise, or need for infusion",
+  ],
+  "meningitis-i": [
+    "Do not delay empiric antibiotics for LP if meningitis suspected",
+    "Blood culture then ceftriaxone (or local MOH first-line)",
+    "Protect airway; treat seizures; avoid hypotonic fluids (SIADH risk)",
+    "Hourly neuro checks; escalate if GCS falling or focal signs",
+  ],
 };
 
 /** Slugs that receive LMIC callouts on first module (seed pipeline). */

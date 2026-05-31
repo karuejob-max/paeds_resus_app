@@ -11,7 +11,7 @@ import {
   CheckCircle2, Download, ChevronRight, ChevronLeft,
   GraduationCap, ListChecks, Lock
 } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { cn } from "@/lib/utils";
@@ -27,18 +27,7 @@ import {
   microCourseTrackLabel,
   type MicroCourseTier,
 } from "@shared/micro-course-display";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { ShieldAlert } from "lucide-react";
+import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyFooter";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -116,9 +105,6 @@ export default function MicroCoursePlayerDB() {
   // Path A: Fellowship courses — look up via catalog + title match
   const { data: allMicroCourses, isLoading: catalogLoading } = trpc.courses.listAll.useQuery(undefined, {
     enabled: isAuthenticated && !isAhaCourse,
-  });
-  const { data: clinicalVersion } = trpc.courses.getClinicalContentVersion.useQuery(undefined, {
-    enabled: !isAhaCourse,
   });
   const catalogTitleBySlug = useMemo(() => {
     const map: Record<string, string> = {};
@@ -368,27 +354,6 @@ export default function MicroCoursePlayerDB() {
     },
   });
   const trackProductActivity = trpc.events.trackEvent.useMutation();
-  const reportUnsafeMutation = trpc.contentSafety.reportUnsafeContent.useMutation({
-    onSuccess: (res) => {
-      if (res.success) toast.success("Report submitted — thank you for helping keep content safe.");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  const [unsafeReportOpen, setUnsafeReportOpen] = useState(false);
-  const [unsafeReportMessage, setUnsafeReportMessage] = useState("");
-
-  const contentVersionTracked = useRef(false);
-  useEffect(() => {
-    if (contentVersionTracked.current || isAhaCourse || !slug || !clinicalVersion?.version) return;
-    contentVersionTracked.current = true;
-    trackProductActivity.mutate({
-      eventType: "content_safety",
-      eventName: "content_version_viewed",
-      eventData: { courseId: slug, contentVersion: clinicalVersion.version },
-      sessionId: getAnalyticsSessionId(),
-      pageUrl: typeof window !== "undefined" ? window.location.pathname : "/micro-course",
-    });
-  }, [isAhaCourse, slug, clinicalVersion?.version, trackProductActivity]);
 
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
     onSuccess: (data) => {
@@ -1186,64 +1151,12 @@ export default function MicroCoursePlayerDB() {
         )}
       </div>
 
-      <footer className="max-w-4xl mx-auto px-4 py-6 mt-8 border-t border-slate-200 text-center text-xs text-muted-foreground space-y-3">
-        {!isAhaCourse && clinicalVersion?.version && (
-          <p>Clinical content v{clinicalVersion.version}</p>
-        )}
-        {!isAhaCourse && slug && (
-          <Dialog open={unsafeReportOpen} onOpenChange={setUnsafeReportOpen}>
-            <DialogTrigger asChild>
-              <Button variant="link" size="sm" className="text-xs h-auto p-0 text-amber-800">
-                <ShieldAlert className="w-3 h-3 mr-1 inline" />
-                Report unsafe or incorrect content
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Report content safety concern</DialogTitle>
-                <DialogDescription>
-                  Describe what may be unsafe or incorrect in this module. Reports are reviewed by the clinical team.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2">
-                <Label htmlFor="unsafe-report-msg">Your message</Label>
-                <Textarea
-                  id="unsafe-report-msg"
-                  rows={4}
-                  value={unsafeReportMessage}
-                  onChange={(e) => setUnsafeReportMessage(e.target.value)}
-                  placeholder="e.g. dose conflict, missing neonate warning, wrong first-line drug…"
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  disabled={unsafeReportMessage.trim().length < 10 || reportUnsafeMutation.isPending}
-                  onClick={() => {
-                    reportUnsafeMutation.mutate(
-                      {
-                        courseId: slug,
-                        moduleId: currentModuleId ?? undefined,
-                        message: unsafeReportMessage.trim(),
-                      },
-                      {
-                        onSuccess: (res) => {
-                          if (res.success) {
-                            setUnsafeReportMessage("");
-                            setUnsafeReportOpen(false);
-                          }
-                        },
-                      }
-                    );
-                  }}
-                >
-                  {reportUnsafeMutation.isPending ? "Sending…" : "Submit report"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-        <p className="text-[10px]">Educational use only — apply your facility protocol and senior review.</p>
-      </footer>
+      <ClinicalContentSafetyFooter
+        surfaceId={slug ?? ""}
+        surface={isAhaCourse ? "aha_player" : "fellowship_player"}
+        moduleId={currentModuleId ?? undefined}
+        className="max-w-4xl mx-auto"
+      />
     </div>
   );
 }

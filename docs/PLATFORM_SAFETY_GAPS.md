@@ -1,29 +1,30 @@
 # Platform safety gaps — engineering vs CEO
 
-**Last updated:** 2026-05-31  
-**Scope:** Fellowship micro-courses, ResusGPS alignment, certificates, content governance.
+**Last updated:** 2026-05-31 (global pass)  
+**Scope:** All course types (AHA, fellowship micro-courses, ResusGPS), certificates, content governance.
 
 ---
 
-## Fixed in engineering (B1–B14 + Part A naming)
+## Fixed in engineering (B1–B14 + Part A naming) — **global**
 
 | ID | Item | Implementation |
 |----|------|----------------|
-| A | Foundational / Advanced naming | `shared/micro-course-display.ts`, `server/lib/micro-course-catalog.ts` titles (`DKA: Foundational`, etc.); slugs unchanged |
-| B1 | Content version on player | Footer + `courses.getClinicalContentVersion`; env `CLINICAL_CONTENT_VERSION` |
-| B2 | Certificate ≠ competence | PDF footer disclaimer + track line on fellowship certs |
-| B3 | LMIC “if you only have X” callouts | `lmicsResourceCalloutHtml` + `enhanceFellowshipModuleContent` on seed for dka, SE, shock, malaria |
-| B4 | Report unsafe content | `contentSafetyReports` table (0047), `contentSafety.reportUnsafeContent`, player dialog |
-| B5 | Clinical CI lint | `pnpm run lint:clinical` in `pnpm run check` |
-| B6 | Prerequisites enforced | Server `enrollWithPayment` + player + catalog UI block |
-| B7 | ResusGPS ↔ fellowship | `seriously_ill_child` condition; player fellowship / AHA separation banners |
-| B8 | Course depth labels | `tier` on catalog rows; Foundational / Advanced badges on cards |
-| B9 | AHA / Fellowship separation | Banners on AHA player + fellowship player |
-| B10 | Ward actions checklist | `wardActionsChecklistHtml` on P0 last modules (DKA, SE, asthma) |
-| B11 | This document | — |
+| A | Foundational / Advanced naming | `shared/micro-course-display.ts`, catalog, CourseCatalog, MicroCoursesLanding, EnrollmentModal |
+| B1 | Content version on player | `ClinicalContentSafetyFooter` — fellowship player, AHA player, ResusGPS (idle) |
+| B2 | Certificate ≠ competence | PDF footer disclaimer on **all** program types (`certificate-pdf.ts`) |
+| B3 | LMIC “if you only have X” callouts | `lmicsResourceCalloutHtml` — fellowship P0 slugs only (not BLS/AHA) |
+| B4 | Report unsafe content | `contentSafetyReports` (0047), shared footer component, all surfaces |
+| B5 | Clinical CI lint | `pnpm run lint:clinical` — fellowship + AHA seed scripts + ResusGPS + `courseContent.ts` |
+| B6 | Prerequisites enforced | Advanced micro-courses only; AHA separate track |
+| B7 | ResusGPS ↔ fellowship | `seriously_ill_child`; footer + pillar banner |
+| B8 | Course depth labels | Foundational / Advanced badges on catalog + enrollment |
+| B9 | AHA / Fellowship separation | Banners on players, TrainingCourseLanding, MicroCoursesLanding |
+| B10 | Ward actions checklist | P0 slugs + septic-shock-i, malaria-i, anaphylaxis-i, meningitis-i |
+| B11 | Gap docs | `docs/GLOBAL_SAFETY_AUDIT.md`, this file |
 | B12 | Seriously ill child + intubation | Catalog copy; intubation sample labeled non-pillar |
-| B13 | Analytics | `content_version_viewed`, `unsafe_content_reported` via `trackEvent` |
-| B14 | Production seed | Existing `run-fellowship-auto-seed.mjs` on deploy picks up content after merge |
+| B13 | Analytics | `content_version_viewed`, `unsafe_content_reported` with `surface` on all footers |
+| B14 | Production seed | `run-fellowship-auto-seed.mjs` on deploy |
+| — | Admin ops | `contentSafety.listReports` in Admin Reports → Maturity |
 
 ---
 
@@ -35,7 +36,8 @@
 | Clinical content approval per module | CEO | Engineering ships; CEO approves copy |
 | `fellowTitleEnabled` | CEO | Remains **false** until §11 fellowship launch checklist passes |
 | Counsel / MOU / legal sign-off | CEO | ~95% engineering baseline per WORK_STATUS |
-| Ops email on every content safety report | Optional | Admin `contentSafety.listReports`; wire SES alert in follow-up if needed |
+| Ops email on every content safety report | Optional | Admin UI shipped; wire SES alert in follow-up if needed |
+| Full AHA 2025 clinical audit | CEO/clinical | Separate from fellowship CST |
 
 ---
 
@@ -50,4 +52,4 @@
 
 ## Document control
 
-Supersedes informal gap notes for **platform safety** only. Clinical depth backlog remains in `docs/FELLOWSHIP_WHAT_IS_MISSING.md` and `docs/AGENT_DISCOVERED_GAPS.md`.
+See `docs/GLOBAL_SAFETY_AUDIT.md` for item-by-item audit. Clinical depth backlog remains in `docs/FELLOWSHIP_WHAT_IS_MISSING.md` and `docs/AGENT_DISCOVERED_GAPS.md`.
