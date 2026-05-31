@@ -92,7 +92,7 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 | ID | Item |
 |----|------|
 | DB seed | **Done 2026-05-31** — all 6 fellowship batches + `seed:seriously-ill-child-course`; verify **27/0**; spot-check meningitis-i, trauma-ii, burns-ii, dka-i OK. CEO click-test still pending. |
-| Catalog v2 | **Deferred (CEO):** `anaemia-ii`, `aki-ii` Level 2 courses — MECE v1 fellowship pillar complete at 27 courses |
+| Catalog v2 | **Shipped (code):** `anaemia-ii`, `aki-ii` — titles **Anaemia 2**, **AKI 2**; prod seed via `seed:fellowship-content:metabolic`; verify **29** fellowship courses |
 | Content | Pass 3 P2 remediation merged — CEO live click-test pending |
 | Gamification | Badge auto-award on micro-course complete — optional follow-up (`gamification` router exists) |
 | Interactive seed | `seed-interactive-content.ts` still splits quizzes per module — fellowship seed is canonical for exam pair |

@@ -4,7 +4,7 @@
 > This file is the agent-facing distillation of the Platform's Source of Truth (PSOT).
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** May 30, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** May 31, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
@@ -39,6 +39,19 @@ Work is **NOT done** until:
 | **Any critical fix** | **[docs/CRITICAL_FIX_PLAYBOOK.md](docs/CRITICAL_FIX_PLAYBOOK.md)** — content, env, legal, payments, SEO, clinical |
 
 Loop: read AGENTS + WORK_STATUS + PSOT → implement → check / test:unit / build → PR → merge when CI passes → update WORK_STATUS. Quiz/content appendix: [CONTENT_HOTFIX_PLAYBOOK.md](docs/CONTENT_HOTFIX_PLAYBOOK.md).
+
+### Lessons learned (for agents)
+
+High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md).
+
+- **Protected `main`:** Feature branch → `gh pr create` → CI green → merge. **Never** `git push origin main` (GH006).
+- **Local commit ≠ Done:** Record **`origin/main` merge hash** + **WORK_STATUS** + verify output (`check`, `test:unit`, or targeted script).
+- **Code on `main` ≠ learner content:** Fellowship modules live in the **production DB** until chunked `seed:fellowship-content:*` runs + **`verify-fellowship-seed.ts`** passes (currently **29** fellowship courses excl. sample `intubation-essentials`). After MECE v2 merge, run **`seed:fellowship-content:metabolic`** for `aki-ii` / `anaemia-ii`.
+- **Summative exam integrity:** Player must use **`getSummativeExamQuestions`** (shuffled); **`recordQuizAttempt`** server-grades summative — never trust client score; strip `correctAnswer` from summative in **`getModuleContent`**.
+- **ETIMEDOUT on seed/migrate:** Chunk with `--batch=` / `--only=`; use **`scripts/db-connection-config.mjs`** / IPv4 **`server/db.ts`**; fallback **Render Shell** with production `DATABASE_URL`.
+- **Clinical harm audit before "complete":** **mmol/L** for glucose; **never KCl IV push**; **DKA — no insulin bolus**; **neonates — no benzos first-line** for seizures; spot-check seeded HTML, not just TypeScript.
+- **Honest gap docs:** Use [FELLOWSHIP_WHAT_IS_MISSING.md](docs/FELLOWSHIP_WHAT_IS_MISSING.md) for CEO — do not reassure that prod DB matches code without seed + verify evidence.
+- **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
 
 ---
 

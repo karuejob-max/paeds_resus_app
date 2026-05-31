@@ -191,7 +191,7 @@ async function runAudit() {
 
   // Print summary
   if (issues.length === 0) {
-    console.log("✅ ALL CLEAR — No issues found across all 27 courses.\n");
+    console.log("✅ ALL CLEAR — No issues found across all fellowship catalog courses.\n");
   } else {
     console.log(`⚠️  FOUND ${issues.length} ISSUES:\n`);
 

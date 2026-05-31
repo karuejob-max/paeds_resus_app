@@ -1,10 +1,12 @@
 /** Verify fellowship seed — all catalog courses (excl. sample intubation). */
 import { getDb } from "../server/db";
-import { microCourses, courses, modules, quizzes } from "../drizzle/schema";
+import { microCourses, courses, modules, quizzes, quizQuestions } from "../drizzle/schema";
 import { eq, like, and, or } from "drizzle-orm";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+  MICROCOURSE_MIN_QUESTION_BANK_SIZE,
+  MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   examKindFromQuizTitle,
 } from "../shared/microcourse-exam-policy";
 import { MICRO_COURSE_CATALOG } from "../server/lib/micro-course-catalog";
@@ -60,10 +62,12 @@ async function main() {
     let diagnostic = 0;
     let summative = 0;
     let formativeModules = 0;
+    let summativeQuestionCount = 0;
+    let thinFormativeModules = 0;
     const missingFormative: number[] = [];
 
     for (const mod of mods) {
-      const qs = await db.select({ title: quizzes.title }).from(quizzes).where(eq(quizzes.moduleId, mod.id));
+      const qs = await db.select({ id: quizzes.id, title: quizzes.title }).from(quizzes).where(eq(quizzes.moduleId, mod.id));
       let modDiagnostic = 0;
       let modSummative = 0;
       let modFormative = 0;
@@ -75,22 +79,34 @@ async function main() {
         } else if (kind === "summative") {
           summative++;
           modSummative++;
+          const qCount = await db
+            .select({ id: quizQuestions.id })
+            .from(quizQuestions)
+            .where(eq(quizQuestions.quizId, q.id));
+          summativeQuestionCount = Math.max(summativeQuestionCount, qCount.length);
         } else if (kind === "formative") {
           modFormative++;
+          const fq = await db
+            .select({ question: quizQuestions.question })
+            .from(quizQuestions)
+            .where(eq(quizQuestions.quizId, q.id));
+          const unique = new Set(fq.map((r) => r.question?.trim()).filter(Boolean));
+          if (unique.size < MIN_FORMATIVE_QUESTIONS_PER_MODULE) thinFormativeModules++;
         }
       }
       if (modFormative > 0) formativeModules++;
       else missingFormative.push(mod.order ?? 0);
     }
 
-    const examOk = diagnostic >= 1 && summative >= 1 && formativeModules === mods.length;
+    const summativeBankOk = summativeQuestionCount >= MICROCOURSE_MIN_QUESTION_BANK_SIZE;
+    const examOk = diagnostic >= 1 && summative >= 1 && formativeModules === mods.length && summativeBankOk;
     const titleOk = !hasLevelInTitle;
     const ok = hasFooter && examOk && titleOk;
 
     if (!ok) failures++;
 
     rows.push(
-      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} formativeMods=${formativeModules}/${mods.length} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}`
+      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}`
     );
   }
 

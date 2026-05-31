@@ -90,7 +90,7 @@ When international, WHO, and Kenya MOH differ: present **both**, recommend with 
 | Severe malaria | Artesunate, glucose | MODS, exchange transfusion discussion |
 | Burns | Parkland, airway | Wound / infection |
 | Trauma | ABCDE primary survey | Massive haemorrhage |
-| AKI / Anaemia | Recognition, transfusion triggers | RRT / complications |
+| AKI / Anaemia | Recognition, transfusion triggers (Hb &lt;4 g/dL; 4–6 + symptoms) | RRT (AEIOU), K⁺/phosphate, PD when HD unavailable; sickle crisis, malaria co-morbidity, iron vs transfusion |
 
 Each module cites this CST in seed footers via `clinical-content-helpers.ts`.
 

@@ -4,7 +4,7 @@
 **Context:** Production fellowship seed re-run after Pass 3 merge (`afc9b5f`); verify + spot-check on live Aiven DB.  
 **Authority:** Synthesised from [FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md](./FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md), [MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md), [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md), [WORK_STATUS.md](./WORK_STATUS.md).
 
-**Production seed (2026-05-31):** All six fellowship batches + `seed:seriously-ill-child-course` succeeded from agent env. Verify: **27 courses, 0 failure(s)**.
+**Production seed:** After MECE v2 merge, run `seed:fellowship-content:metabolic` (includes `aki-ii`, `anaemia-ii`) + full verify — target **29 courses, 0 failure(s)**. Prior 2026-05-31 run: 27/0 before v2 catalog expansion.
 
 ---
 
@@ -14,7 +14,7 @@ After the 2026-05-31 production seed, engineering asserts the following are **li
 
 | Area | What CEO can trust |
 |------|-------------------|
-| **27 fellowship micro-courses** | Catalog rows + module HTML + exam triad (diagnostic, per-module formative, summative) + governance footer — excluding sample `intubation-essentials`. |
+| **29 fellowship micro-courses** (after v2 seed) | Catalog rows + module HTML + exam triad + governance footer — excluding sample `intubation-essentials`. Includes **AKI 2** and **Anaemia 2** once metabolic batch seeded on prod. |
 | **P0 harm fixes (code + DB)** | No paediatric insulin bolus in DKA teaching; K⁺ gate before insulin; artesunate (not artemether IV) for severe malaria; IM adrenaline first in anaphylaxis; early ABX in meningitis; no aggressive bolus teaching in cardiogenic shock; neonate benzo warning in SE. |
 | **P1 platform fixes** | Step-through player; no “Level 1/2” in catalog titles; FEAST-aware shock fluids; mmol/L glucose framing on P0 metabolic/infectious courses. |
 | **Pass 3 depth (seeded)** | meningitis-i/ii, trauma-i/ii, burns-ii, cardiogenic-ii expanded to 3 modules each; module-native formatives on expanded courses; SpO₂ harmonisation via `shared/clinical-spo2-targets.ts`. |
@@ -33,7 +33,7 @@ After the 2026-05-31 production seed, engineering asserts the following are **li
 | **Fellow title / graduation UI — blocked** | `fellowTitleEnabled: false` in `shared/fellowship-launch-gate.ts`. Learners must not be told they are “Fellows” until §11 checklist + CEO flip. |
 | **No staging clinical environment** | Content ships to production DB via manual seed. There is no CEO-safe staging mirror for pre-prod clinical review ([STAGING_GO_LIVE_CHECKLIST.md](./STAGING_GO_LIVE_CHECKLIST.md) remains CEO-led). |
 | **AHA course content — not audited** | BLS/ACLS/PALS/NRP use separate content paths (`courseContent.ts` legacy surfaces still exist). Out of fellowship CST scope but **not** guideline-audited to 2025 AHA standard in this program. Misalignment with fellowship teaching is possible if learners mix tracks. |
-| **`intubation-essentials` sample row** | Published in catalog (order 27) but **excluded** from fellowship pillar and verify. If marketed as required fellowship content, that would be wrong — today it is a sample only. |
+| **`intubation-essentials` sample row** | Published in catalog (order 29) but **excluded** from fellowship pillar and verify. If marketed as required fellowship content, that would be wrong — today it is a sample only. |
 
 **P0 open findings:** None remaining in [FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md](./FELLOWSHIP_CLINICAL_SAFETY_AUDIT.md) after Pass 3 — **provided prod DB matches code** (re-seed completed 2026-05-31).
 
@@ -43,7 +43,7 @@ After the 2026-05-31 production seed, engineering asserts the following are **li
 
 | Item | Limitation CEO must know |
 |------|--------------------------|
-| **`anaemia-ii`, `aki-ii` deferred** | MECE v1 fellowship = 27 courses. Level 2 AKI and anaemia **do not exist** in catalog. Pillar A “complete every micro-course” is true for v1 only — not full MECE Level 1+2 matrix in CST §5. |
+| **`anaemia-ii`, `aki-ii` prod DB** | Authored in code (MECE v2). **Learners do not see content until metabolic batch seed + verify on production DB.** CEO click-test should include new slugs after seed. |
 | **`seriously-ill-child-i`** | Seeded via separate script (not fellowship `--batch=`). Has 7 modules + full exam triad. Audit notes **depth** vs specialty courses; cross-cutting ABCDE, not condition-specific mastery. **Not** in `FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS` — Pillar B ResusGPS credit does not map to this foundation course. |
 | **Formative fairness** | Verify counts formative quizzes per module; it does **not** prove every question is module-native vs rotated summative bank. Pass 3 fixed expanded courses; smaller/older courses may still rely on bank fallback where native banks are thin. |
 | **ResusGPS ↔ micro-course parity** | Pass 3 improved pneumonia, shock, trauma, burns, malaria, meningitis bedside strings. Full bedside spine for every CST row is **not** guaranteed — e.g. SE 2 RSE midazolam “IV bolus” left as ICU-context teaching (audit: acceptable in ICU, not pushed KCl). |
@@ -58,7 +58,7 @@ After the 2026-05-31 production seed, engineering asserts the following are **li
 
 | Gap | Status (2026-05-31) |
 |-----|------------------------|
-| **Prod seed after code merge** | **Done today** — all batches + seriously-ill-child; verify 27/0. |
+| **Prod seed after v2 merge** | **Pending** for `aki-ii` / `anaemia-ii` — run `pnpm run seed:fellowship-content:metabolic` then verify 29/0. Prior full re-seed: 27/0 (2026-05-31). |
 | **Deploy ≠ content** | Still true: future merges touching `server/data/micro-courses-*.ts` require **manual chunked seed** — no CI/deploy hook. |
 | **Seed runbook** | [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) — Render Shell fallback if desktop ETIMEDOUT. |
 | **CEO sign-off record** | WORK_STATUS + handoff still say **pending** — update only after CEO click-test. |
@@ -94,11 +94,11 @@ Fellowship verify: 27 courses, 0 failure(s)
 
 2. **Do not enable Fellow title** until §11 checklist passes and CEO sets `fellowTitleEnabled`. Prevents false “qualified expert” signalling.
 
-3. **Document learner track separation** — Fellowship (27 + seriously-ill-child-i) vs AHA (BLS/ACLS/PALS/NRP) vs sample `intubation-essentials`. Reduces wrong-protocol-at-bedside risk when users conflate products.
+3. **Document learner track separation** — Fellowship (29 + seriously-ill-child-i in catalog) vs AHA (BLS/ACLS/PALS/NRP) vs sample `intubation-essentials`. Reduces wrong-protocol-at-bedside risk when users conflate products.
 
 4. **Operationalise seed-on-release** — Manual workflow_dispatch or Render Shell checklist tied to every PR that touches micro-course data; WORK_STATUS row template = batches run + verify line. Prevents code/DB drift recurrence.
 
-5. **Catalog v2 decision (anaemia-ii, aki-ii)** — CEO decides whether deferred Level 2 courses block “global benchmark” narrative or ship v1 with explicit limitation in learner-facing copy.
+5. **CEO click-test `aki-ii` / `anaemia-ii`** — After prod metabolic seed, verify RRT/AEIOU, K⁺ never-push, PD-not-first-line, transfusion thresholds, sickle/malaria co-morbidity in browser.
 
 ---
 

@@ -209,6 +209,33 @@ export default function MicroCoursePlayerDB() {
     { enabled: !isAhaCourse && !!microEnrollmentId }
   );
 
+  const [summativeShuffleSeed, setSummativeShuffleSeed] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (showSummativeExam && summativeShuffleSeed === null) {
+      setSummativeShuffleSeed(Date.now());
+    }
+    if (!showSummativeExam) {
+      setSummativeShuffleSeed(null);
+    }
+  }, [showSummativeExam, summativeShuffleSeed]);
+
+  const { data: shuffledSummative } = trpc.learning.getSummativeExamQuestions.useQuery(
+    {
+      enrollmentId: microEnrollmentId ?? 0,
+      summativeQuizId: examState?.summativeQuizId ?? 0,
+      shuffleSeed: summativeShuffleSeed ?? undefined,
+    },
+    {
+      enabled:
+        !isAhaCourse &&
+        showSummativeExam &&
+        !!microEnrollmentId &&
+        !!examState?.summativeQuizId &&
+        summativeShuffleSeed !== null,
+    }
+  );
+
   const ahaProgramForUi = useMemo((): AhaProgramType | null => {
     if (!isAhaCourse) return null;
     const pt =
@@ -430,11 +457,21 @@ export default function MicroCoursePlayerDB() {
     return list.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "diagnostic") ?? list[0];
   }, [firstModuleContent]);
   const summativeQuiz = useMemo(() => {
-    return (
+    const base =
       quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "summative") ??
-      quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) !== "diagnostic")
-    );
-  }, [quizzes]);
+      quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) !== "diagnostic");
+    if (!showSummativeExam || !shuffledSummative || !base) return base;
+    return {
+      ...base,
+      passingScore: shuffledSummative.passPercent,
+      questions: shuffledSummative.questions.map((q) => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        explanation: q.explanation,
+      })),
+    };
+  }, [quizzes, showSummativeExam, shuffledSummative]);
   const activeQuiz = showDiagnosticQuiz
     ? diagnosticQuiz
     : showSummativeExam
@@ -567,7 +604,7 @@ export default function MicroCoursePlayerDB() {
         : currentModuleId!;
     let correct = 0;
     quiz.questions.forEach((q: any, idx: number) => {
-      const userAnswer = quizAnswers[idx];
+      const userAnswer = quizAnswers[q.id] ?? quizAnswers[idx];
       // Safe correctAnswer resolution — stored as plain string or JSON string
       let correctAnswer: string;
       try {
@@ -584,7 +621,12 @@ export default function MicroCoursePlayerDB() {
       moduleId: moduleIdForQuiz,
       quizId: quiz.id,
       score,
-      answers: quizAnswers,
+      answers: Object.fromEntries(
+        quiz.questions.map((q: any, idx: number) => [
+          q.id,
+          quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
+        ])
+      ),
     });
   };
 
@@ -945,6 +987,9 @@ export default function MicroCoursePlayerDB() {
               setQuizAnswers({});
               setQuizSubmitted(false);
               setQuizScore(null);
+              if (showSummativeExam || isSummativeExamActive) {
+                setSummativeShuffleSeed(Date.now());
+              }
             }}
             isPending={submitQuizMutation.isPending}
             isEnsuring={ensureAhaEnrollmentMutation.isPending}
@@ -1093,8 +1138,10 @@ function FormativeQuizView({
         )}
       </CardHeader>
       <CardContent className="p-8 space-y-10">
-        {quiz.questions.map((q: any, idx: number) => (
-          <div key={q.id} className="space-y-4">
+        {quiz.questions.map((q: any, idx: number) => {
+          const answerKey = q.id ?? idx;
+          return (
+          <div key={q.id ?? idx} className="space-y-4">
             <div className="flex gap-4">
               <span className="flex-shrink-0 w-8 h-8 bg-muted rounded-lg flex items-center justify-center font-bold text-muted-foreground text-sm">
                 {idx + 1}
@@ -1103,17 +1150,17 @@ function FormativeQuizView({
             </div>
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
-                const isSelected = answers[idx] === option;
+                const isSelected = answers[answerKey] === option;
                 // Safe correctAnswer resolution — handles plain string or JSON-encoded string
                 const resolvedCorrect = (() => { try { const p = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; return typeof p === 'string' ? p : String(p); } catch { return typeof q.correctAnswer === 'string' ? q.correctAnswer : String(q.correctAnswer); } })();
-                const isCorrect = submitted && option === resolvedCorrect;
-                const isWrong = submitted && isSelected && !isCorrect;
+                const isCorrect = submitted && resolvedCorrect && option === resolvedCorrect;
+                const isWrong = submitted && isSelected && resolvedCorrect && !isCorrect;
 
                 return (
                   <button
                     key={option}
                     disabled={submitted}
-                    onClick={() => setAnswers({ ...answers, [idx]: option })}
+                    onClick={() => setAnswers({ ...answers, [answerKey]: option })}
                     className={cn(
                       "text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group",
                       isSelected && !submitted ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-muted-foreground/30",
@@ -1134,13 +1181,18 @@ function FormativeQuizView({
               </div>
             )}
           </div>
-        ))}
+        );})}
       </CardContent>
       <CardFooter className="p-8 bg-muted/30 border-t border-border flex flex-col gap-6">
         {!submitted ? (
           <Button 
             className="w-full py-8 rounded-2xl font-bold text-xl shadow-xl shadow-primary/20"
-            disabled={Object.keys(answers).length < quiz.questions.length || isPending || isEnsuring}
+            disabled={
+              quiz.questions.filter((q: any, idx: number) => {
+                const key = q.id ?? idx;
+                return answers[key] != null && answers[key] !== "";
+              }).length < quiz.questions.length || isPending || isEnsuring
+            }
             onClick={onSubmit}
           >
             {(isPending || isEnsuring) ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
