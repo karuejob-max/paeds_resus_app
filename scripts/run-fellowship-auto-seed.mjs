@@ -1,6 +1,8 @@
 /**
- * Fellowship content auto-seed for production deploys.
- * Runs all seed batches + seriously-ill-child, then verify-fellowship-seed.ts.
+ * Fellowship content auto-seed — single implementation for:
+ *   - `pnpm run deploy:seed-fellowship` (production deploy via `pnpm start`, env-gated)
+ *   - `pnpm run seed:fellowship-content:all` (this file with `--force`, manual/any env)
+ * Runs all six `seed:fellowship-content:*` batches + seriously-ill-child + verify.
  * Idempotent — safe on every deploy. Exits non-zero if verify fails after retries.
  */
 import { spawn } from "node:child_process";
