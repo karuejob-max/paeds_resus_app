@@ -1,4 +1,8 @@
 import type { Pathway } from '../stateMachine';
+import {
+  SPO2_TARGET_OPTIMAL_PERCENT,
+  SPO2_TARGET_RESUS_DETAIL,
+} from '@shared/clinical-spo2-targets';
 
 export const seizurePathway: Pathway = {
   id: 'seizure',
@@ -116,8 +120,8 @@ export const seizurePathway: Pathway = {
         },
         {
           id: 'pi_o2',
-          action: 'OXYGEN IF SpO2 < 94%',
-          detail: 'Monitor closely. Post-ictal patients often have transient desaturation.',
+          action: `OXYGEN IF SpO₂ < ${SPO2_TARGET_OPTIMAL_PERCENT}%`,
+          detail: `Monitor closely. Post-ictal patients often have transient desaturation. ${SPO2_TARGET_RESUS_DETAIL}`,
         },
         {
           id: 'pi_glucose',

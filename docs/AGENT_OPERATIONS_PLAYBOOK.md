@@ -167,6 +167,8 @@ Record verify output in WORK_STATUS when marking seed work Done.
 
 **Not in CI today:** Production DB writes require explicit ops approval — no silent auto-seed on deploy ([MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md)).
 
+**Post-deploy fellowship checklist (safe — idempotent):** After MECE/content merges on `main`, run all six `seed:fellowship-content:*` batches **plus** `pnpm run seed:seriously-ill-child-course`, then `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` (target **29 courses, 0 failure(s)**). Do **not** wire auto-seed into Render deploy hooks until CEO approves — partial seed on a cold DB is worse than a documented manual runbook.
+
 ### 2.5 Migrations (pattern)
 
 For numbered migrations, prefer idempotent apply scripts:

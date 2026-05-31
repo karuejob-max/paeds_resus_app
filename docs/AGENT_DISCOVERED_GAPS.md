@@ -19,7 +19,7 @@
 
 | # | Gap | Evidence | Recommended fix |
 |---|-----|----------|---------------|
-| 3 | **`aki-ii` / `anaemia-ii` code complete, prod DB not** | Catalog + `micro-courses-metabolic-ii.ts` authored on branch; prod verify still **27/0** (2026-05-31). Learners see catalog row but empty/wrong content until `seed:fellowship-content:metabolic`. | Merge MECE v2 branch; run metabolic batch + verify **29/0** on prod. |
+| 3 | **`aki-ii` / `anaemia-ii` code complete, prod DB not** | Catalog + `micro-courses-metabolic-ii.ts` authored on branch; prod verify still **27/0** (2026-05-31). Learners see catalog row but empty/wrong content until `seed:fellowship-content:metabolic`. | **Fixed 2026-05-31:** MECE v2 merged (#121); metabolic + full batch re-seed; prod verify **29/0**, `thinFormative=0` all courses. |
 | 4 | **Verify script blind to exam quality** | `verify-fellowship-seed.ts` counted formative quiz rows, not bank size or duplicate formatives. | **Extended:** summative bank ≥15 (`summQs`), `thinFormative` metric; static audit script `scripts/audit-fellowship-seed-static.ts`. |
 | 5 | **No summative exam analytics server-side** | Client fired `micro_course` complete event; summative pass/fail attempts not tracked in `analyticsEvents` from server. | **Fixed:** `trackEvent` on summative attempts in `recordQuizAttempt`. |
 
@@ -27,9 +27,9 @@
 
 | # | Gap | Evidence | Recommended fix |
 |---|-----|----------|---------------|
-| 6 | **~18 courses use summative-bank formative fallback** | Static audit: `burns-i`, `pneumonia-i`, `asthma-i`, most batch-1 courses have **zero** module-native `questions[]`; seed uses `resolveModuleFormativeQuestions` bank chunks → duplicate/rotated items. | Add ≥3 module-native formatives per module (content sprint); fail CI static audit when `BANK_FALLBACK`. |
-| 7 | **ResusGPS SpO₂ targets inconsistent** | `shared/clinical-spo2-targets.ts` harmonised engines; legacy `pathways/breathing.ts`, `upper-airway-engine.ts` still use ad-hoc 92%/94% strings. | Migrate remaining pathway files to shared SpO₂ helper. |
-| 8 | **Title-match fragility fellowship player** | `fellowshipDbCourse` matches `microCourses.title === courses.title`. Any catalog/seed title drift → "Content Not Found". | Add stable `courseSlug` on `courses` row or match via catalog order/id map. |
+| 6 | **~18 courses use summative-bank formative fallback** | Static audit: `burns-i`, `pneumonia-i`, `asthma-i`, most batch-1 courses have **zero** module-native `questions[]`; seed uses `resolveModuleFormativeQuestions` bank chunks → duplicate/rotated items. | **Fixed:** `materializeModuleNativeFormatives()` in seed pipeline + static audit exits non-zero on `BANK_FALLBACK`; asthma-i/SE-i bank expanded. |
+| 7 | **ResusGPS SpO₂ targets inconsistent** | `shared/clinical-spo2-targets.ts` harmonised engines; legacy `pathways/breathing.ts`, `upper-airway-engine.ts` still use ad-hoc 92%/94% strings. | **Fixed:** `breathing.ts`, `shock.ts`, `seizure.ts`, `metabolic.ts`, `upper-airway-engine.ts` use `@shared/clinical-spo2-targets`. |
+| 8 | **Title-match fragility fellowship player** | `fellowshipDbCourse` matches `microCourses.title === courses.title`. Any catalog/seed title drift → "Content Not Found". | **Fixed:** `MicroCoursePlayerDB` matches fellowship `courses.order` to catalog `order`, title fallback. |
 | 9 | **AHA legacy `courseContent.ts` still in repo** | Deprecated but present; risk of wrong clinical leaking if re-wired. Fellowship uses DB seed — separate path — but grep shows artemether strings in legacy file. | Keep deprecated banner; delete or quarantine in follow-up PR. |
 
 ### P3 — Product completeness (not fellowship-blocking)
@@ -69,8 +69,11 @@
 | `initialize.ts` → catalog ensure | **Implemented** |
 | `verify-fellowship-seed.ts` summQs + thinFormative | **Implemented** |
 | `scripts/audit-fellowship-seed-static.ts` | **Added** |
-| Prod metabolic seed | **Blocked** — no `DATABASE_URL` in agent env; runbook in AGENT_OPERATIONS_PLAYBOOK |
-| CEO click-test | **Still pending** |
+| Prod metabolic seed + full re-seed | **Done** — agent env; verify **29 courses, 0 failure(s)**; all `thinFormative=0` |
+| `materializeModuleNativeFormatives` + verify depth gate | **Done** |
+| SpO₂ pathway harmonisation + player order match | **Done** |
+| Summative grading/shuffle unit tests | **Done** — `microcourse-summative-grading.test.ts` |
+| CEO click-test | **Still pending** (CEO-only) |
 
 ---
 

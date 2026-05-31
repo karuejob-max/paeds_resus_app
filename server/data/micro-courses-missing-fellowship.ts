@@ -84,6 +84,30 @@ export const microCoursesMissingFellowship = [
           options: ['Mild asthma', 'Moderate asthma', 'Severe asthma', 'Normal breathing'],
           correct: 2,
           explanation: 'Inability to speak sentences and SpO2 <90% indicates severe asthma.'
+        },
+        {
+          question: 'Ipratropium bromide in the first hour is indicated for:',
+          options: ['Mild intermittent wheeze only', 'Moderate or severe acute asthma', 'All children regardless of severity', 'Post-discharge only'],
+          correct: 1,
+          explanation: 'Add ipratropium with salbutamol in moderate/severe asthma during the first hour.'
+        },
+        {
+          question: 'Systemic steroid in acute asthma should be given:',
+          options: ['Only if admitted to ICU', 'Early (dexamethasone, prednisolone, or hydrocortisone per protocol)', 'Never in children', 'After 24 hours only'],
+          correct: 1,
+          explanation: 'Early systemic steroid reduces relapse and admission risk.'
+        },
+        {
+          question: 'Life-threatening asthma may present with:',
+          options: ['Silent chest and exhaustion', 'Only mild wheeze', 'Normal SpO2 always', 'Bradycardia as the first sign only'],
+          correct: 0,
+          explanation: 'Silent chest, cyanosis, and exhaustion signal impending respiratory failure.'
+        },
+        {
+          question: 'SpO2 target in acute asthma when monitoring allows:',
+          options: ['≥90% with titration toward 90–94%', '100% hyperoxia for all', 'No oxygen ever', '<80%'],
+          correct: 0,
+          explanation: 'Treat hypoxia; titrate toward 90–94% and avoid routine hyperoxia.'
         }
       ]
     }
@@ -135,6 +159,30 @@ export const microCoursesMissingFellowship = [
           options: ['Temperature', 'Blood Glucose', 'Weight', 'Blood Pressure'],
           correct: 1,
           explanation: 'Hypoglycemia is a common, reversible cause of seizures.'
+        },
+        {
+          question: 'First-line benzodiazepine timing in non-neonate status epilepticus:',
+          options: ['Wait 30 minutes', 'Give at 5 minutes of continuous seizure', 'Only after CT', 'Never in hospital'],
+          correct: 1,
+          explanation: 'Treat at 5 minutes; repeat once if seizure continues before second-line agents.'
+        },
+        {
+          question: 'Airway management during active convulsion prioritises:',
+          options: ['Immediate intubation without positioning', 'Recovery position, suction, oxygen', 'Oral glucose only', 'Delay all treatment for labs'],
+          correct: 1,
+          explanation: 'Position, protect airway, oxygen, and treat reversible causes while preparing drugs.'
+        },
+        {
+          question: 'Neonates with prolonged seizures:',
+          options: ['Same benzo protocol as older children always', 'Require specialist pathway — avoid routine benzos per local protocol', 'No treatment needed', 'Only phenytoin first line always'],
+          correct: 1,
+          explanation: 'Neonatal seizures need specialist assessment; benzo use differs from older children.'
+        },
+        {
+          question: 'Maximum benzodiazepine doses before second-line agents (typical teaching):',
+          options: ['Unlimited repeats', 'Two doses then escalate', 'One dose only ever', 'None until ICU arrival'],
+          correct: 1,
+          explanation: 'After two adequate benzo doses, move to second-line anticonvulsants and senior help.'
         }
       ]
     }

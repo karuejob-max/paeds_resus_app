@@ -54,7 +54,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-## Done
+| 2026-05-31 | Cursor | **Engineering gaps closure (AGENT_DISCOVERED_GAPS):** `materializeModuleNativeFormatives` + static audit CI fail on `BANK_FALLBACK`; verify `thinFormative=0` gate; fellowship player `courses.order` match; SpO₂ harmonisation (`@shared/clinical-spo2-targets` in pathways + upper-airway); expanded asthma-i/SE-i/septic summative banks; seriously-ill-child 21-stem bank + per-module formatives; summative shuffle/grading tests. **Prod seed:** p0, metabolic, shock, infectious, seriously-ill-child; `verify-fellowship-seed.ts` → **29 courses, 0 failure(s)** (host `public-karuejob-dbmysql-karuejob-paeds-resus.a.aivencloud.com`). CEO click-test: pending. Verified: `check`, `test:unit` (225). | PR TBD · `feat/engineering-gaps-closure` |
 
 | 2026-05-31 | Cursor | **MECE v2 — Anaemia 2 + AKI 2 + AGENTS lessons learned:** Catalog slugs `anaemia-ii`, `aki-ii` (titles **Anaemia 2**, **AKI 2**); authored `server/data/micro-courses-metabolic-ii.ts` (3 modules each, diagnostic + per-module formative + summative); CST/safety audit/gap docs updated; ResusGPS Pillar B aliases extended; **AGENTS.md** “Lessons learned (for agents)” section. **Prod seed:** `seed:fellowship-content:metabolic` (4 courses); verify **29 courses, 0 failure(s)**. CEO sign-off: pending live review. Verified: `check`, `test:unit` (222), `ci:gate`. | PR #121 · merge `7fcb5ca` |
 

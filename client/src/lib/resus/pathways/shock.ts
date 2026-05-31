@@ -1,4 +1,5 @@
 import type { Pathway } from '../stateMachine';
+import { SPO2_TARGET_RESUS_DETAIL } from '@shared/clinical-spo2-targets';
 
 /** Shock pathways — keep in sync with `docs/clinical-protocols/paediatric-septic-shock.md` (septic_shock) and `docs/clinical-protocols/RESUSGPS_REGISTRY.md`. */
 export const shockPathway: Pathway = {
@@ -33,7 +34,7 @@ export const shockPathway: Pathway = {
         {
           id: 'ss_o2',
           action: 'HIGH-FLOW OXYGEN',
-          detail: 'Non-rebreather mask at 15 L/min. Target SpO2 ≥ 94%.',
+          detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_RESUS_DETAIL}`,
           critical: true,
         },
         {
@@ -203,7 +204,7 @@ export const shockPathway: Pathway = {
     {
       id: 'us_o2',
       action: 'HIGH-FLOW OXYGEN',
-      detail: 'Non-rebreather mask at 15 L/min. Target SpO2 ≥ 94%.',
+      detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_RESUS_DETAIL}`,
       critical: true,
     },
     {

@@ -101,6 +101,71 @@ export function resolveModuleFormativeQuestions(
   return assignFormativeByModuleChunks(summativeBank, modules.length);
 }
 
+/** Dedupe formative items by question stem (stable order). */
+export function uniqueFormativeQuestions(questions: FormativeQuestion[]): FormativeQuestion[] {
+  const seen = new Set<string>();
+  const out: FormativeQuestion[] = [];
+  for (const q of questions) {
+    const key = q.question.trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+  }
+  return out;
+}
+
+export type CourseWithModuleFormatives = {
+  modules: ModuleWithFormativeQuestions[];
+  quiz?: { questions: FormativeQuestion[] };
+};
+
+/**
+ * Ensure every module has ≥3 unique native formatives before seed/static audit.
+ * Distributes from expanded summative bank when modules lack `questions[]`.
+ */
+export function materializeModuleNativeFormatives<T extends CourseWithModuleFormatives>(course: T): T {
+  const moduleCount = course.modules.length;
+  if (moduleCount === 0 || !course.quiz?.questions?.length) return course;
+
+  const minBank = Math.max(
+    MICROCOURSE_MIN_QUESTION_BANK_SIZE,
+    moduleCount * MIN_FORMATIVE_QUESTIONS_PER_MODULE
+  );
+  const bank = uniqueFormativeQuestions(expandQuestionBank(course.quiz.questions, minBank));
+
+  const modules = course.modules.map((mod, modIndex) => {
+    const existing = mod.questions ?? [];
+    if (existing.length >= MIN_FORMATIVE_QUESTIONS_PER_MODULE) {
+      return { ...mod, questions: padModuleFormativeQuestions(existing) };
+    }
+
+    const assigned: FormativeQuestion[] = [...existing];
+    let cursor = modIndex * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
+    let guard = 0;
+    while (
+      assigned.length < MIN_FORMATIVE_QUESTIONS_PER_MODULE &&
+      bank.length > 0 &&
+      guard < bank.length * moduleCount * MIN_FORMATIVE_QUESTIONS_PER_MODULE
+    ) {
+      const candidate = bank[cursor % bank.length]!;
+      cursor++;
+      guard++;
+      if (!assigned.some((a) => a.question.trim() === candidate.question.trim())) {
+        assigned.push(candidate);
+      }
+    }
+
+    return {
+      ...mod,
+      questions: padModuleFormativeQuestions(
+        assigned.length > 0 ? assigned : [bank[modIndex % bank.length]!]
+      ),
+    };
+  });
+
+  return { ...course, modules };
+}
+
 /** Pad bank to minimum size by cycling existing items (same content, shuffled order at runtime). */
 export function expandQuestionBank<T>(questions: T[], minSize = MICROCOURSE_MIN_QUESTION_BANK_SIZE): T[] {
   if (questions.length === 0) return [];
