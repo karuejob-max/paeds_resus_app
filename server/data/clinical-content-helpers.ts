@@ -66,7 +66,82 @@ export const AKI_PD_LMIC_NOTE = `<div class="clinical-note"><h4>RRT in LMIC: hae
 
 export const AKI_ELECTROLYTES_MMOL = `<div class="clinical-note"><h4>Electrolytes in AKI (mmol/L)</h4><ul><li><strong>Hyperkalaemia:</strong> Ca gluconate if ECG changes; insulin + glucose; salbutamol neb; consider RRT if refractory — <strong>never KCl IV push</strong>.</li><li><strong>Hyperphosphataemia:</strong> Restrict intake; phosphate binders if persistent; worsens with rhabdomyolysis/HUS.</li><li><strong>Hyponatraemia:</strong> Usually dilutional — <strong>fluid restrict</strong>; avoid hypotonic fluids.</li></ul></div>`;
 
+export type LmicsResourceTopic =
+  | "insulin_no_pump"
+  | "diazepam"
+  | "fluids"
+  | "hypoglycemia";
+
+const LMIC_CALLOUT_BODIES: Record<LmicsResourceTopic, string> = {
+  insulin_no_pump: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have insulin (no pump)</h4><p>Use <strong>IV insulin infusion</strong> 0.05–0.1 units/kg/h via syringe driver or calibrated drip — <strong>no bolus in children</strong>. If only subcutaneous insulin is available, this course teaches infusion-first; follow senior/MOH protocol and transfer when infusion unavailable.</p></div>`,
+  diazepam: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have diazepam</h4><p><strong>IV/PR diazepam</strong> 0.2–0.3 mg/kg (max 10 mg) may be used when midazolam/lorazepam are unavailable — monitor respiratory depression and repeat limits. Prefer midazolam when stocked.</p></div>`,
+  fluids: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have crystalloid (limited blood products)</h4><p><strong>10–20 mL/kg isotonic bolus</strong> (0.9% NaCl or balanced crystalloid) with reassessment after each bolus. Stop if fluid overload; escalate vasopressors/transfer per local ICU capability.</p></div>`,
+  hypoglycemia: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have dextrose for hypoglycaemia</h4><p>Treat glucose &lt;3.3 mmol/L with <strong>0.5 g/kg dextrose</strong> (2 mL/kg of 25% dextrose or equivalent) and recheck in 15 min. Monitor in mmol/L — severe malaria and DKA pathways overlap.</p></div>`,
+};
+
+/** Reusable “If you only have X” callout for LMIC resource constraints (platform safety B3). */
+export function lmicsResourceCalloutHtml(topic: LmicsResourceTopic): string {
+  return LMIC_CALLOUT_BODIES[topic];
+}
+
+/** Printable ward actions checklist appended to P0 module endings (B10). */
+export function wardActionsChecklistHtml(actions: string[]): string {
+  const items = actions.map((a) => `<li>${a}</li>`).join("");
+  return `<section class="ward-actions-checklist border border-slate-300 rounded-lg p-4 my-4 print:break-inside-avoid"><h4>Ward actions checklist</h4><ul class="list-disc pl-5 space-y-1">${items}</ul><p class="text-xs text-muted-foreground mt-2">Print and tick at bedside — educational checklist, not a substitute for local protocol.</p></section>`;
+}
+
+export const WARD_ACTIONS_BY_SLUG: Record<string, string[]> = {
+  "dka-i": [
+    "Confirm IV access and send glucose, ketones, electrolytes, VBG/ABG",
+    "Start measured fluids; document hourly neuro checks (cerebral oedema vigilance)",
+    "Hold insulin until K⁺ ≥3.5 mmol/L; start infusion only per protocol",
+    "Escalate to PICU if GCS falling, severe acidosis, or no improvement",
+  ],
+  "status-epilepticus-i": [
+    "Protect airway; give oxygen; check glucose in mmol/L",
+    "Give first-line anticonvulsant weight-based; time the dose",
+    "Prepare second-line and intubation kit if seizure continues >5 min",
+    "Screen for meningitis/metabolic cause; document times for handover",
+  ],
+  "asthma-i": [
+    "Salbutamol neb/spacer + ipratropium; systemic steroid when indicated",
+    "Reassess work of breathing and SpO₂ after each treatment",
+    "Admit if silent chest, exhaustion, or SpO₂ not improving",
+    "Discharge only with spacer technique teach-back and follow-up plan",
+  ],
+};
+
+/** Slugs that receive LMIC callouts on first module (seed pipeline). */
+export const LMIC_CALLOUTS_BY_SLUG: Record<string, LmicsResourceTopic[]> = {
+  "dka-i": ["insulin_no_pump"],
+  "dka-ii": ["insulin_no_pump"],
+  "status-epilepticus-i": ["diazepam"],
+  "status-epilepticus-ii": ["diazepam"],
+  "hypovolemic-shock-i": ["fluids"],
+  "septic-shock-i": ["fluids"],
+  "malaria-i": ["hypoglycemia"],
+};
+
 export function appendClinicalFooter(html: string, extras: string[] = []): string {
   const parts = [html, ...extras, CLINICAL_EDUCATION_DISCLAIMER];
   return parts.filter(Boolean).join("\n");
+}
+
+/** Seed helper: LMIC callouts on module 1; ward checklist on final module for P0 slugs. */
+export function enhanceFellowshipModuleContent(
+  catalogSlug: string,
+  moduleIndex: number,
+  totalModules: number,
+  html: string
+): string {
+  const extras: string[] = [];
+  const lmicTopics = LMIC_CALLOUTS_BY_SLUG[catalogSlug];
+  if (moduleIndex === 0 && lmicTopics?.length) {
+    extras.push(...lmicTopics.map((t) => lmicsResourceCalloutHtml(t)));
+  }
+  const wardActions = WARD_ACTIONS_BY_SLUG[catalogSlug];
+  if (wardActions && moduleIndex === totalModules - 1) {
+    extras.push(wardActionsChecklistHtml(wardActions));
+  }
+  return appendClinicalFooter(html, extras);
 }

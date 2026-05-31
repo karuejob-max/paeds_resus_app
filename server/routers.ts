@@ -122,6 +122,7 @@ import { coursesRouter } from "./routers/courses";
 import { fellowshipRouter } from "./routers/fellowship";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { legalRouter } from "./routers/legal";
+import { contentSafetyRouter } from "./routers/content-safety";
 
 export const appRouter = router({
   system: systemRouter,
@@ -508,6 +509,7 @@ export const appRouter = router({
   courses: coursesRouter,
   fellowship: fellowshipRouter,
   legal: legalRouter,
+  contentSafety: contentSafetyRouter,
 });
 
 export type AppRouter = typeof appRouter;

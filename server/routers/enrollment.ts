@@ -430,6 +430,22 @@ export const enrollmentRouter = router({
           throw new Error("Course not found");
         }
 
+        if (course.prerequisiteId) {
+          const { hasCompletedMicroCourse } = await import("../db-enrollment");
+          const prereqMet = await hasCompletedMicroCourse(userId, course.prerequisiteId);
+          if (!prereqMet) {
+            const { MICRO_COURSE_CATALOG } = await import("../lib/micro-course-catalog");
+            const prereqTitle =
+              MICRO_COURSE_CATALOG.find((r) => r.courseId === course.prerequisiteId)?.title ??
+              course.prerequisiteId;
+            return {
+              success: false,
+              error: `Complete ${prereqTitle} before enrolling in this advanced course.`,
+              prerequisiteBlocked: true,
+            };
+          }
+        }
+
         const alreadyEnrolled = await isUserEnrolled(userId, course.id);
         if (alreadyEnrolled) {
           return {

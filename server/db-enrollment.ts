@@ -86,6 +86,37 @@ export function calculateFinalPrice(
 /**
  * Check if user is already enrolled in a course
  */
+/** True when learner has completed the micro-course (summative passed / status completed). */
+export async function hasCompletedMicroCourse(
+  userId: number,
+  prerequisiteCourseIdSlug: string
+): Promise<boolean> {
+  try {
+    await ensureMicroCoursesCatalog();
+    const prereq = await db
+      .select({ id: microCourses.id })
+      .from(microCourses)
+      .where(eq(microCourses.courseId, prerequisiteCourseIdSlug))
+      .limit(1);
+    if (!prereq[0]) return false;
+
+    const row = await db
+      .select({ enrollmentStatus: microCourseEnrollments.enrollmentStatus })
+      .from(microCourseEnrollments)
+      .where(
+        and(
+          eq(microCourseEnrollments.userId, userId),
+          eq(microCourseEnrollments.microCourseId, prereq[0].id)
+        )
+      )
+      .limit(1);
+    return row[0]?.enrollmentStatus === "completed";
+  } catch (error) {
+    console.error("[DB] Error checking prerequisite completion:", error);
+    return false;
+  }
+}
+
 export async function isUserEnrolled(
   userId: number,
   microCourseId: number

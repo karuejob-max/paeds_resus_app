@@ -13,6 +13,7 @@ import {
   examKindFromQuizTitle,
 } from "../shared/microcourse-exam-policy";
 import { MICRO_COURSE_CATALOG } from "../server/lib/micro-course-catalog";
+import { hasLegacyCourseNumberTitle } from "../shared/micro-course-display";
 
 const FELLOWSHIP_SLUGS = MICRO_COURSE_CATALOG.filter(
   (c) => c.isPublished && c.courseId !== "intubation-essentials"
@@ -60,7 +61,7 @@ async function main() {
       .where(eq(modules.courseId, course.id));
 
     const hasFooter = mods.some((m) => m.content?.includes("Educational use only"));
-    const hasLevelInTitle = /Level\s+[12]/i.test(row.title);
+    const hasLevelInTitle = hasLegacyCourseNumberTitle(row.title);
 
     let diagnostic = 0;
     let summative = 0;

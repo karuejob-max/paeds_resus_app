@@ -32,6 +32,14 @@ const CERTIFICATE_SIGNATORY_NAME =
 const CERTIFICATE_SIGNATORY_TITLE =
   process.env.CERTIFICATE_SIGNATORY_TITLE?.trim() || "Course Director";
 
+const CERTIFICATE_COMPETENCE_DISCLAIMER =
+  "This certificate attests course completion only — not clinical competence, licensure, or hospital privileging.";
+
+const FELLOWSHIP_TRACK_LABEL: Record<"foundational" | "advanced", string> = {
+  foundational: "Foundational",
+  advanced: "Advanced",
+};
+
 const PAGE = { width: 842, height: 595 };
 /** Hairline credential frame inset from page edge (~12.7 mm). */
 const FRAME_INSET = 36;
@@ -89,6 +97,8 @@ interface CertificateData {
   completionHours?: number;
   /** When set (e.g. PALS micro-course), shown on PDF instead of generic PALS/BLS line */
   courseDisplayName?: string;
+  /** Fellowship micro-course track line on PDF (Foundational / Advanced). */
+  fellowshipTrack?: "foundational" | "advanced";
 }
 
 interface CertificateTemplate {
@@ -451,6 +461,18 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
       : courseTitleBandBottom;
   drawCenteredText(page, courseName, courseTitleY, COURSE_TITLE_SIZE, fontBold, BRAND.teal, 0);
 
+  if (data.fellowshipTrack && data.programType === "fellowship") {
+    drawCenteredText(
+      page,
+      `Track: ${FELLOWSHIP_TRACK_LABEL[data.fellowshipTrack]}`,
+      courseTitleY - 18,
+      10,
+      font,
+      BRAND.inkMuted,
+      0
+    );
+  }
+
   // Footer: rule on top; all metadata below the line
   if (showAhaLine) {
     drawCenteredText(
@@ -475,6 +497,18 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
   const expiryDate =
     data.expiryDate ?? computeCertificateExpiryDate(issueDate, data.programType);
   const showExpiry = certificateShowsExpiryOnPdf(data.programType);
+
+  if (data.programType === "fellowship") {
+    drawCenteredText(
+      page,
+      CERTIFICATE_COMPETENCE_DISCLAIMER,
+      FOOTER_DIVIDER_Y + 6,
+      6.5,
+      font,
+      BRAND.inkMuted,
+      0
+    );
+  }
 
   const metadataRowY = FOOTER_DIVIDER_Y - SIGNATURE_PAD_HEIGHT - FOOTER_METADATA_BELOW_PAD;
   const signatureGuideY = metadataRowY + SIGNATURE_GUIDE_ABOVE_NAME;

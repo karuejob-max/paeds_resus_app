@@ -2739,3 +2739,17 @@ export const userConsentEvents = mysqlTable("userConsentEvents", {
 
 export type UserConsentEvent = typeof userConsentEvents.$inferSelect;
 export type InsertUserConsentEvent = typeof userConsentEvents.$inferInsert;
+
+/** Learner reports of unsafe or incorrect fellowship content (migration 0047). */
+export const contentSafetyReports = mysqlTable("contentSafetyReports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  courseId: varchar("courseId", { length: 64 }).notNull(),
+  moduleId: int("moduleId"),
+  message: text("message").notNull(),
+  status: mysqlEnum("status", ["open", "reviewed", "closed"]).default("open").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ContentSafetyReport = typeof contentSafetyReports.$inferSelect;
+export type InsertContentSafetyReport = typeof contentSafetyReports.$inferInsert;

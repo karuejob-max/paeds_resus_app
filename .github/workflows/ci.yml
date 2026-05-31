@@ -25,7 +25,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Typecheck (app + service worker)
+      - name: Typecheck, clinical lint (app + service worker)
         run: pnpm run check
 
       - name: Unit + clinical engine tests

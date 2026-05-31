@@ -14,6 +14,12 @@ export type FellowshipMicrocourseResusCondition = {
 /** Foundational fellowship micro-course topics (excludes intubation sample / procedural-only). */
 export const FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS: FellowshipMicrocourseResusCondition[] = [
   {
+    id: "seriously_ill_child",
+    label: "Seriously Ill Child (ABCDE)",
+    microCourseIds: ["seriously-ill-child-i"],
+    aliases: ["seriously_ill_child", "abcde", "systematic_assessment", "seriously-ill-child-i"],
+  },
+  {
     id: "severe_asthma",
     label: "Severe Asthma / Status Asthmaticus",
     microCourseIds: ["asthma-i", "asthma-ii"],

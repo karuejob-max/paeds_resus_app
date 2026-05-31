@@ -9,9 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, ArrowLeft, BookOpen, Award, AlertCircle, 
   CheckCircle2, Download, ChevronRight, ChevronLeft,
-  GraduationCap, ListChecks
+  GraduationCap, ListChecks, Lock
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,23 @@ import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoute
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle } from "@shared/microcourse-exam-policy";
+import {
+  formatPrerequisiteHint,
+  microCourseTrackLabel,
+  type MicroCourseTier,
+} from "@shared/micro-course-display";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { ShieldAlert } from "lucide-react";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -100,6 +117,16 @@ export default function MicroCoursePlayerDB() {
   const { data: allMicroCourses, isLoading: catalogLoading } = trpc.courses.listAll.useQuery(undefined, {
     enabled: isAuthenticated && !isAhaCourse,
   });
+  const { data: clinicalVersion } = trpc.courses.getClinicalContentVersion.useQuery(undefined, {
+    enabled: !isAhaCourse,
+  });
+  const catalogTitleBySlug = useMemo(() => {
+    const map: Record<string, string> = {};
+    allMicroCourses?.forEach((c) => {
+      map[c.courseId] = c.title;
+    });
+    return map;
+  }, [allMicroCourses]);
   const microCourseRow = useMemo(
     () =>
       !isAhaCourse ? allMicroCourses?.find((c: MicroCourseCatalogRow) => c.courseId === slug) : undefined,
@@ -196,6 +223,13 @@ export default function MicroCoursePlayerDB() {
   const { data: myAhaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
     enabled: isAuthenticated && isAhaCourse,
   });
+
+  const prerequisiteBlocked = useMemo(() => {
+    if (isAhaCourse || !microCourseRow?.prerequisiteId) return false;
+    const prereqSlug = microCourseRow.prerequisiteId;
+    const prereq = myEnrollments?.find((e) => e.course?.courseId === prereqSlug);
+    return prereq?.enrollmentStatus !== "completed";
+  }, [isAhaCourse, microCourseRow, myEnrollments]);
 
   const enrollment = useMemo(() => {
     if (isAhaCourse) {
@@ -334,6 +368,27 @@ export default function MicroCoursePlayerDB() {
     },
   });
   const trackProductActivity = trpc.events.trackEvent.useMutation();
+  const reportUnsafeMutation = trpc.contentSafety.reportUnsafeContent.useMutation({
+    onSuccess: (res) => {
+      if (res.success) toast.success("Report submitted — thank you for helping keep content safe.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const [unsafeReportOpen, setUnsafeReportOpen] = useState(false);
+  const [unsafeReportMessage, setUnsafeReportMessage] = useState("");
+
+  const contentVersionTracked = useRef(false);
+  useEffect(() => {
+    if (contentVersionTracked.current || isAhaCourse || !slug || !clinicalVersion?.version) return;
+    contentVersionTracked.current = true;
+    trackProductActivity.mutate({
+      eventType: "content_safety",
+      eventName: "content_version_viewed",
+      eventData: { courseId: slug, contentVersion: clinicalVersion.version },
+      sessionId: getAnalyticsSessionId(),
+      pageUrl: typeof window !== "undefined" ? window.location.pathname : "/micro-course",
+    });
+  }, [isAhaCourse, slug, clinicalVersion?.version, trackProductActivity]);
 
   const markAhaCognitive = trpc.courses.markAhaCognitiveComplete.useMutation({
     onSuccess: (data) => {
@@ -696,6 +751,20 @@ export default function MicroCoursePlayerDB() {
     );
   }
 
+  if (!isAhaCourse && prerequisiteBlocked && !isReviewMode) {
+    const hint = microCourseRow?.prerequisiteId
+      ? formatPrerequisiteHint(microCourseRow.prerequisiteId, catalogTitleBySlug)
+      : "Complete the foundational course first";
+    return (
+      <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center max-w-lg mx-auto">
+        <Lock className="w-12 h-12 text-amber-600 mb-4" />
+        <h2 className="text-xl font-bold mb-2">Foundational course required</h2>
+        <p className="text-muted-foreground mb-6">{hint} before starting this advanced course.</p>
+        <Button onClick={() => navigate(coursesHubPath)}>{coursesHubReturnLabel}</Button>
+      </div>
+    );
+  }
+
   if (!dbCourse || (!isAhaCourse && !microCourseRow)) {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
@@ -871,7 +940,9 @@ export default function MicroCoursePlayerDB() {
               <h1 className="font-bold text-slate-900 line-clamp-1">{dbCourse.title}</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="secondary" className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider">
-                  {dbCourse.level}
+                  {!isAhaCourse && microCourseRow?.level
+                    ? microCourseTrackLabel(microCourseRow.level as MicroCourseTier)
+                    : dbCourse.level}
                 </Badge>
                 {isReviewMode && (
                   <Badge className="text-[10px] h-4 px-1.5 bg-emerald-500 text-white border-none">Review Mode</Badge>
@@ -889,6 +960,27 @@ export default function MicroCoursePlayerDB() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 mt-8">
+        {ahaProgramForUi && (
+          <Alert className="mb-4 border-blue-200 bg-blue-50">
+            <AlertDescription className="text-sm text-blue-900">
+              <strong>AHA 2025 curriculum</strong> — separate from the Paeds Resus Fellowship. This path issues AHA-aligned cognitive certificates, not Fellowship micro-course credit.
+            </AlertDescription>
+          </Alert>
+        )}
+        {!isAhaCourse && (
+          <Alert className="mb-4 border-amber-200 bg-amber-50">
+            <AlertDescription className="text-sm text-amber-950">
+              <strong>Paeds Resus Fellowship</strong> — not AHA certification. ResusGPS supports emergency steps; complete the Foundational course in each condition pair for full teaching depth.
+            </AlertDescription>
+          </Alert>
+        )}
+        {!isAhaCourse && modules.length > 0 && modules.length < 2 && (
+          <Alert className="mb-4 border-slate-300 bg-slate-50">
+            <AlertDescription className="text-sm text-slate-800">
+              Foundation module — not a substitute for advanced training. Enroll in the Advanced track when the Foundational course is complete.
+            </AlertDescription>
+          </Alert>
+        )}
         {ahaProgramForUi && (
           <div className="mb-6 rounded-lg border border-border bg-white p-4 shadow-sm">
             <AhaCertificationPath
@@ -1093,6 +1185,65 @@ export default function MicroCoursePlayerDB() {
           </div>
         )}
       </div>
+
+      <footer className="max-w-4xl mx-auto px-4 py-6 mt-8 border-t border-slate-200 text-center text-xs text-muted-foreground space-y-3">
+        {!isAhaCourse && clinicalVersion?.version && (
+          <p>Clinical content v{clinicalVersion.version}</p>
+        )}
+        {!isAhaCourse && slug && (
+          <Dialog open={unsafeReportOpen} onOpenChange={setUnsafeReportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="link" size="sm" className="text-xs h-auto p-0 text-amber-800">
+                <ShieldAlert className="w-3 h-3 mr-1 inline" />
+                Report unsafe or incorrect content
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Report content safety concern</DialogTitle>
+                <DialogDescription>
+                  Describe what may be unsafe or incorrect in this module. Reports are reviewed by the clinical team.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="unsafe-report-msg">Your message</Label>
+                <Textarea
+                  id="unsafe-report-msg"
+                  rows={4}
+                  value={unsafeReportMessage}
+                  onChange={(e) => setUnsafeReportMessage(e.target.value)}
+                  placeholder="e.g. dose conflict, missing neonate warning, wrong first-line drug…"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={unsafeReportMessage.trim().length < 10 || reportUnsafeMutation.isPending}
+                  onClick={() => {
+                    reportUnsafeMutation.mutate(
+                      {
+                        courseId: slug,
+                        moduleId: currentModuleId ?? undefined,
+                        message: unsafeReportMessage.trim(),
+                      },
+                      {
+                        onSuccess: (res) => {
+                          if (res.success) {
+                            setUnsafeReportMessage("");
+                            setUnsafeReportOpen(false);
+                          }
+                        },
+                      }
+                    );
+                  }}
+                >
+                  {reportUnsafeMutation.isPending ? "Sending…" : "Submit report"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+        <p className="text-[10px]">Educational use only — apply your facility protocol and senior review.</p>
+      </footer>
     </div>
   );
 }

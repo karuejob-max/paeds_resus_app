@@ -75,6 +75,22 @@
 | Summative grading/shuffle unit tests | **Done** — `microcourse-summative-grading.test.ts` |
 | CEO click-test | **Still pending** (CEO-only) |
 
+## Platform safety B1–B14 (2026-05-31)
+
+| Item | Status |
+|------|--------|
+| Foundational / Advanced naming (Part A) | **Fixed** — `shared/micro-course-display.ts`, catalog titles |
+| B1 content version footer | **Fixed** |
+| B2 certificate competence disclaimer + track | **Fixed** |
+| B3 LMIC resource callouts | **Fixed** — seed pipeline |
+| B4 report unsafe content | **Fixed** — migration 0047 + tRPC |
+| B5 clinical lint in CI | **Fixed** — `lint:clinical` in `check` |
+| B6 prerequisite enforcement | **Fixed** — server + UI |
+| B7 ResusGPS seriously-ill-child + banners | **Fixed** |
+| B8–B10 depth badges, AHA separation, ward checklists | **Fixed** |
+| B11 `docs/PLATFORM_SAFETY_GAPS.md` | **Added** |
+| B12–B14 catalog copy, analytics, auto-seed | **Fixed** / documented |
+
 ---
 
 ## Static audit command (no DB)

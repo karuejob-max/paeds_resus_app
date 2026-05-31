@@ -10,6 +10,7 @@ describe("fellowship-microcourse-resus-conditions", () => {
     expect(normalizeToFellowshipResusConditionId("septic_shock")).toBe("septic_shock");
     expect(normalizeToFellowshipResusConditionId("severe_asthma")).toBe("severe_asthma");
     expect(normalizeToFellowshipResusConditionId("asthma-i")).toBe("severe_asthma");
+    expect(normalizeToFellowshipResusConditionId("seriously-ill-child-i")).toBe("seriously_ill_child");
   });
 
   it("resolves primary diagnosis from session for fellowship credit", () => {
@@ -22,7 +23,7 @@ describe("fellowship-microcourse-resus-conditions", () => {
     expect(id).toBe("septic_shock");
   });
 
-  it("exposes 14 foundational micro-course conditions", () => {
-    expect(getFellowshipMicrocourseResusConditionCount()).toBe(14);
+  it("exposes 15 foundational micro-course conditions (incl. seriously ill child)", () => {
+    expect(getFellowshipMicrocourseResusConditionCount()).toBe(15);
   });
 });
