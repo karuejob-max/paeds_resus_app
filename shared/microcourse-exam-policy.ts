@@ -22,6 +22,27 @@ export type FormativeQuestion = {
   explanation: string;
 };
 
+/** Minimum module-native formative items (governance §3.3 — taught-before-tested). */
+export const MIN_FORMATIVE_QUESTIONS_PER_MODULE = 3;
+
+export type ModuleWithFormativeQuestions = {
+  questions?: FormativeQuestion[];
+};
+
+/** Pad a module's own question set to minimum size (never pull from summative bank). */
+export function padModuleFormativeQuestions(
+  questions: FormativeQuestion[],
+  minSize = MIN_FORMATIVE_QUESTIONS_PER_MODULE
+): FormativeQuestion[] {
+  if (questions.length === 0) return [];
+  if (questions.length >= minSize) return questions;
+  const padded = [...questions];
+  while (padded.length < minSize) {
+    padded.push(questions[padded.length % questions.length]!);
+  }
+  return padded;
+}
+
 /** Distribute course quiz questions across modules (1+ per module, round-robin if needed). */
 export function distributeFormativeQuestions(
   questions: FormativeQuestion[],
@@ -41,6 +62,43 @@ export function distributeFormativeQuestions(
     qIdx++;
   }
   return perModule;
+}
+
+/** Contiguous chunks from summative bank — fallback when modules lack native questions. */
+export function assignFormativeByModuleChunks(
+  questions: FormativeQuestion[],
+  moduleCount: number,
+  minPerModule = MIN_FORMATIVE_QUESTIONS_PER_MODULE
+): FormativeQuestion[][] {
+  if (moduleCount <= 0) return [];
+  if (questions.length === 0) {
+    return Array.from({ length: moduleCount }, () => []);
+  }
+  const perModule: FormativeQuestion[][] = Array.from({ length: moduleCount }, () => []);
+  for (let i = 0; i < questions.length; i++) {
+    perModule[i % moduleCount]!.push(questions[i]!);
+  }
+  for (let m = 0; m < moduleCount; m++) {
+    if (perModule[m]!.length === 0) {
+      perModule[m]!.push(questions[m % questions.length]!);
+    }
+    perModule[m] = padModuleFormativeQuestions(perModule[m]!, minPerModule);
+  }
+  return perModule;
+}
+
+/**
+ * Prefer module-native formative banks; fall back to contiguous summative chunks (not rotation).
+ */
+export function resolveModuleFormativeQuestions(
+  modules: ModuleWithFormativeQuestions[],
+  summativeBank: FormativeQuestion[]
+): FormativeQuestion[][] {
+  const hasNative = modules.some((m) => (m.questions?.length ?? 0) > 0);
+  if (hasNative) {
+    return modules.map((m) => padModuleFormativeQuestions(m.questions ?? []));
+  }
+  return assignFormativeByModuleChunks(summativeBank, modules.length);
 }
 
 /** Pad bank to minimum size by cycling existing items (same content, shuffled order at runtime). */

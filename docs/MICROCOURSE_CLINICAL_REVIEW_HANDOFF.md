@@ -80,7 +80,9 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 8. **Pneumonia 1** — WHO/Kenya antibiotic conflict box visible.
 9. **Malaria 1** — artesunate (not artemether) for severe disease; hypoglycaemia in mmol/L.
 10. **Catalog titles** — no “Level 1/2”; use “DKA 1”, “Asthma 2”, etc.
-11. **Seriously ill child** — diagnostic + formative + summative on single-module course.
+11. **Meningitis 1 / Trauma 1** — three modules each; formative ≥3 questions tied to module teaching.
+12. **Burns 2 / Cardiogenic Shock 2** — eschar/referral/infection and inotrope/Kenya depth visible.
+13. **ResusGPS** — burns exposure path; malaria artesunate note on fever; SpO₂ ≥90% harmonised strings.
 
 ---
 
@@ -88,8 +90,9 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 
 | ID | Item |
 |----|------|
-| DB seed | Run chunked fellowship seed on production (see commands above) |
-| Content | Deep module rewrite for burns-ii, cardiogenic-ii, anaemia depth — CST §5 backlog |
+| DB seed | Run chunked fellowship seed on production after Pass 3 merge (meningitis, trauma, burns-ii, cardiogenic-ii batches) |
+| Catalog v2 | **Deferred (CEO):** `anaemia-ii`, `aki-ii` Level 2 courses — MECE v1 fellowship pillar complete at 27 courses |
+| Content | Pass 3 P2 remediation merged — CEO live click-test pending |
 | Gamification | Badge auto-award on micro-course complete — optional follow-up (`gamification` router exists) |
 | Interactive seed | `seed-interactive-content.ts` still splits quizzes per module — fellowship seed is canonical for exam pair |
 

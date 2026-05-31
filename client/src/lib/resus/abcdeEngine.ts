@@ -31,6 +31,10 @@ import {
   getFellowshipMicrocourseResusConditionLabel,
   normalizeToFellowshipResusConditionId,
 } from '@shared/fellowship-microcourse-resus-conditions';
+import {
+  SPO2_TARGET_ASTHMA_DETAIL,
+  SPO2_TARGET_RESUS_DETAIL,
+} from '@shared/clinical-spo2-targets';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -1134,7 +1138,7 @@ const threatRules: ThreatRule[] = [
     severity: 'urgent',
     condition: (f) => f.breathing_sounds === 'wheezing',
     interventions: (s) => [
-      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: 'Apply high-flow O2 via non-rebreather mask. Target SpO2 ≥ 94%.', critical: true, status: 'pending' },
+      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: `Apply high-flow O2 via non-rebreather mask. ${SPO2_TARGET_ASTHMA_DETAIL}`, critical: true, status: 'pending' },
       { id: uid(), action: 'SALBUTAMOL NEBULIZER', dose: makeDose('Salbutamol', 2.5, 'mg', 'nebulized', { preparation: '2.5mg if <20kg, 5mg if ≥20kg. Can repeat every 20 min x3, then hourly.' }), critical: true, status: 'pending' },
       { id: uid(), action: 'IPRATROPIUM BROMIDE', dose: makeDose('Ipratropium Bromide', 250, 'mcg', 'nebulized', { preparation: '250mcg if <20kg, 500mcg if ≥20kg. Add to salbutamol neb.' }), detail: 'Add to salbutamol nebulizer for moderate-severe wheeze.', status: 'pending' },
       { id: uid(), action: 'SYSTEMIC STEROIDS', dose: makeDose('Prednisolone', 1, 'mg', 'PO', { maxDose: 60, preparation: 'Or Dexamethasone 0.6mg/kg PO (max 16mg), or Methylprednisolone 2mg/kg IV (max 60mg)' }), status: 'pending' },
@@ -1162,7 +1166,7 @@ const threatRules: ThreatRule[] = [
       return spo2 !== undefined && spo2 < 90;
     },
     interventions: () => [
-      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: '15L/min via non-rebreather mask. Target SpO2 ≥ 94%.', critical: true, status: 'pending' },
+      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: `15L/min via non-rebreather mask. ${SPO2_TARGET_RESUS_DETAIL}`, critical: true, status: 'pending' },
       { id: uid(), action: 'ASSESS FOR TENSION PNEUMOTHORAX', detail: 'If unilateral absent breath sounds + tracheal deviation → needle decompression at 2nd intercostal space, midclavicular line.', status: 'pending' },
     ]
   },
@@ -1176,7 +1180,7 @@ const threatRules: ThreatRule[] = [
       return spo2 !== undefined && spo2 >= 90 && spo2 < 94;
     },
     interventions: () => [
-      { id: uid(), action: 'SUPPLEMENTAL OXYGEN', detail: 'Start O2 via nasal cannula or simple face mask. Target SpO2 ≥ 94%.', status: 'pending' },
+      { id: uid(), action: 'SUPPLEMENTAL OXYGEN', detail: `Start O2 via nasal cannula or simple face mask. ${SPO2_TARGET_RESUS_DETAIL}`, status: 'pending' },
     ]
   },
 
@@ -1443,6 +1447,7 @@ const threatRules: ThreatRule[] = [
       const isNeonate = getAgeCategory(s.patientAge) === 'neonate';
       return [
         { id: uid(), action: 'BLOOD CULTURES BEFORE ANTIBIOTICS', detail: 'Draw blood cultures, CBC, CRP, lactate if possible. Do NOT delay antibiotics for cultures if critically ill.', status: 'pending' },
+        { id: uid(), action: 'SEVERE MALARIA (endemic area)', detail: 'If severe malaria suspected (altered consciousness, seizures, severe anaemia, acidosis): IV/IM artesunate 3 mg/kg (WHO) — not IV artemether. Check glucose in mmol/L (<3.3 treat).', status: 'pending' },
         {
           id: uid(),
           action: isNeonate ? 'CEFOTAXIME (Neonate-safe)' : 'CEFTRIAXONE (High Dose)',
@@ -1452,6 +1457,24 @@ const threatRules: ThreatRule[] = [
           critical: true, status: 'pending'
         },
         { id: uid(), action: 'ANTIPYRETIC', dose: makeDose('Paracetamol (Acetaminophen)', 15, 'mg', 'PO/IV/PR', { maxDose: 1000, frequency: 'Every 4-6 hours' }), status: 'pending' },
+      ];
+    }
+  },
+  {
+    id: 'burns_exposure',
+    name: 'Major Burns',
+    letter: 'E',
+    severity: 'critical',
+    condition: (f) => f.other_exposure === 'burns',
+    interventions: (s) => {
+      const fluid = getDefaultFluid(s);
+      return [
+        { id: uid(), action: 'AIRWAY — INHALATION INJURY', detail: 'Facial burns, singed nasal hairs, carbonaceous sputum, hoarse voice → early intubation. Airway oedema may progress over hours.', critical: true, status: 'pending' },
+        { id: uid(), action: 'STOP BURNING PROCESS', detail: 'Remove clothing/jewellery. Cool with room-temperature water briefly — do not ice. Cover with clean dry dressing.', status: 'pending' },
+        { id: uid(), action: 'FLUID RESUSCITATION', dose: makeDose(fluid.name, 4, 'mL', 'IV × TBSA% × weight (Parkland estimate)', { preparation: `Titrate to urine output 0.5–1 mL/kg/hr (>1 if myoglobinuria). ${fluid.rationale}` }), critical: true, status: 'pending' },
+        { id: uid(), action: 'ESCHAROTOMY IF NEEDED', detail: 'Circumferential full-thickness burns with compartment signs (pain out of proportion, paresthesias, pulselessness) → escharotomy — not elective.', status: 'pending' },
+        { id: uid(), action: 'OXYGEN', detail: SPO2_TARGET_RESUS_DETAIL, status: 'pending' },
+        { id: uid(), action: 'REFER TO BURN CENTRE', detail: '>10% partial-thickness, >5% full-thickness, face/hands/perineum, inhalation injury, circumferential burns.', status: 'pending' },
       ];
     }
   },

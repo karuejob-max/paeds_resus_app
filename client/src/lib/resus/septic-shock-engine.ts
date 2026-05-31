@@ -1,9 +1,8 @@
 /**
- * Septic Shock Clinical Engine
- * 
- * Provides sequential assessment and evidence-based management for pediatric septic shock
- * Based on Surviving Sepsis Campaign guidelines and ACCM/PCCM recommendations
+ * Septic Shock Clinical Engine — FEAST-aware fluid teaching aligned with CST.
  */
+
+import { SPO2_TARGET_MIN_PERCENT, SPO2_TARGET_RESUS_DETAIL } from '@shared/clinical-spo2-targets';
 
 export interface SepticShockAssessment {
   age: number; // years
@@ -132,14 +131,14 @@ export function calculateFluidResuscitation(
 ): ShockIntervention[] {
   const interventions: ShockIntervention[] = [];
 
-  // Initial bolus: 20 mL/kg over 15-30 minutes
+  // Initial bolus: 10–20 mL/kg with reassessment (FEAST-aware — stop if no improvement or overload)
   const initialBolus = assessment.weightKg * 20;
   const bolusRate = initialBolus / 0.5; // mL/hour for 30-minute infusion
 
   interventions.push({
     type: 'fluid_bolus_initial',
-    description: 'Initial IV fluid bolus (20 mL/kg)',
-    indication: 'Septic shock with hypotension or poor perfusion',
+    description: 'Initial IV fluid bolus (10–20 mL/kg) — reassess after each bolus',
+    indication: 'Septic shock with hypotension or poor perfusion (FEAST-aware: stop if fluid overload or no response)',
     dosing: `${initialBolus.toFixed(0)}mL of normal saline or Ringer's lactate
 Infusion rate: ${bolusRate.toFixed(0)}mL/hour
 Duration: 30 minutes`,
@@ -270,8 +269,8 @@ export function generateSupportiveCare(assessment: SepticShockAssessment): Shock
   interventions.push({
     type: 'oxygen_therapy',
     description: 'Supplemental oxygen',
-    indication: 'Maintain SpO2 > 92%',
-    dosing: 'Titrate to maintain SpO2 > 92%',
+    indication: `Maintain SpO₂ ≥${SPO2_TARGET_MIN_PERCENT}% (${SPO2_TARGET_RESUS_DETAIL})`,
+    dosing: SPO2_TARGET_RESUS_DETAIL,
     monitoring: 'Continuous pulse oximetry',
   });
 

@@ -7,7 +7,7 @@
  * Batch 5: Acute Kidney Injury I & II, Severe Anaemia I & II (4)
  */
 
-import { SHOCK_FLUIDS_FEAST } from "./clinical-content-helpers";
+import { CARDIOGENIC_INOTROPES, SHOCK_FLUIDS_FEAST } from "./clinical-content-helpers";
 
 export const microCoursesBatch3To5 = [
   // ============================================
@@ -581,6 +581,7 @@ export const microCoursesBatch3To5 = [
         duration: 20,
         content: `
           <h2>Refractory Cardiogenic Shock Management</h2>
+          ${CARDIOGENIC_INOTROPES}
           <h3>Inotrope Combinations for Refractory Shock:</h3>
           <ul>
             <li><strong>Dopamine + Dobutamine:</strong> Dopamine for BP, dobutamine for contractility</li>
@@ -609,7 +610,27 @@ export const microCoursesBatch3To5 = [
             <li>Decrease by 10-20% every 4-6 hours if tolerated</li>
             <li>Watch for rebound hypotension or decreased cardiac output</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'Milrinone in cardiogenic shock primarily provides:',
+            options: ['Vasoconstriction', 'Inotropy and afterload reduction', 'Antibiotic cover', 'Diuresis only'],
+            correct: 1,
+            explanation: 'Milrinone is a phosphodiesterase inhibitor — inotropy + afterload reduction; watch hypotension.'
+          },
+          {
+            question: 'Kenya/LMIC inotrope often available when noradrenaline is not:',
+            options: ['Oral paracetamol', 'Adrenaline infusion per ICU protocol', 'No inotropes exist', 'Topical cream'],
+            correct: 1,
+            explanation: 'Adrenaline infusion is often available — use per local ICU protocol with monitoring.'
+          },
+          {
+            question: 'Pitfall in cardiogenic shock:',
+            options: ['Repeated large fluid boluses', 'Careful inotrope titration', 'BP monitoring', 'ECG monitoring'],
+            correct: 0,
+            explanation: 'Avoid repeated fluid boluses in cardiogenic shock — worsens pulmonary oedema.'
+          }
+        ]
       },
       {
         title: 'Module 2: ECMO Support for Refractory Cardiogenic Shock',
@@ -646,7 +667,27 @@ export const microCoursesBatch3To5 = [
             <li>If cardiac output adequate off ECMO: decannulate</li>
             <li>If no recovery after 5-7 days: consider heart transplant or destination therapy</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'VA-ECMO target flow in cardiogenic shock:',
+            options: ['50 mL/kg/min', '100-150 mL/kg/min', '200 mL/kg/min', '>300 mL/kg/min'],
+            correct: 1,
+            explanation: 'VA-ECMO target flow 100-150 mL/kg/min for adequate systemic perfusion.'
+          },
+          {
+            question: 'ECMO indication in cardiogenic shock:',
+            options: ['All mild cases', 'Refractory shock despite maximal inotropes', 'Never', 'Outpatient only'],
+            correct: 1,
+            explanation: 'ECMO for refractory cardiogenic shock unresponsive to medical therapy.'
+          },
+          {
+            question: 'Anticoagulation target during ECMO:',
+            options: ['ACT 100-120 sec', 'ACT 180-220 sec', 'ACT 300+ sec', 'No anticoagulation'],
+            correct: 1,
+            explanation: 'ECMO anticoagulation target ACT 180-220 sec (heparin).'
+          }
+        ]
       },
       {
         title: 'Module 3: Specific Cardiogenic Shock Scenarios',
@@ -686,7 +727,27 @@ export const microCoursesBatch3To5 = [
             <li>Chronic heart failure: Some require long-term inotropes or transplant</li>
             <li>Rehabilitation: Gradual activity increase, medication compliance</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: 'Fulminant myocarditis mortality without ECMO:',
+            options: ['<5%', '10-20%', '50-80%', '>90%'],
+            correct: 2,
+            explanation: 'Fulminant myocarditis mortality high without ECMO; many survive with ECMO support.'
+          },
+          {
+            question: 'Septic cardiomyopathy management includes:',
+            options: ['Inotropes only', 'Antibiotics + fluids + inotropes', 'Antibiotics only', 'No treatment'],
+            correct: 1,
+            explanation: 'Treat infection + support perfusion with fluids/inotropes as in septic shock.'
+          },
+          {
+            question: 'Long-term cardiac function recovery in myocarditis survivors:',
+            options: ['<10%', '30-50%', '80-90%', '>95%'],
+            correct: 2,
+            explanation: '80-90% of myocarditis survivors recover normal cardiac function with treatment.'
+          }
+        ]
       }
     ],
     quiz: {
