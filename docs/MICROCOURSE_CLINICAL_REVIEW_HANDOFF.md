@@ -1,7 +1,8 @@
 # Micro-course clinical delivery — CEO handoff
 
-**Date:** 2026-05-29  
+**Date:** 2026-05-31 (prod seed re-run)  
 **Sign-off:** **Pending CEO post-deploy review** at https://www.paedsresus.com  
+**Honest gap report:** [FELLOWSHIP_WHAT_IS_MISSING.md](./FELLOWSHIP_WHAT_IS_MISSING.md)  
 **CST:** [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md)  
 **Governance:** [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md)
 
@@ -90,7 +91,7 @@ Expect log lines `Processing: …` per catalog course and `Seeding complete!` at
 
 | ID | Item |
 |----|------|
-| DB seed | Run chunked fellowship seed on production after Pass 3 merge (meningitis, trauma, burns-ii, cardiogenic-ii batches) |
+| DB seed | **Done 2026-05-31** — all 6 fellowship batches + `seed:seriously-ill-child-course`; verify **27/0**; spot-check meningitis-i, trauma-ii, burns-ii, dka-i OK. CEO click-test still pending. |
 | Catalog v2 | **Deferred (CEO):** `anaemia-ii`, `aki-ii` Level 2 courses — MECE v1 fellowship pillar complete at 27 courses |
 | Content | Pass 3 P2 remediation merged — CEO live click-test pending |
 | Gamification | Badge auto-award on micro-course complete — optional follow-up (`gamification` router exists) |
