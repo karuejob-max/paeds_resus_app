@@ -235,6 +235,6 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | Field | Value |
 |-------|--------|
 | CEO sign-off | **Pending post-deploy review** |
-| PRs | #113 (audit), #116 (seed title), **Pass 3 PR TBD** |
-| Merge (latest) | TBD after Pass 3 merge |
+| PRs | #113 (audit), #116 (seed title), #117 (KCl), **#118 (Pass 3 P2)** |
+| Merge (latest) | `afc9b5f` |
 | Verify | `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` → 27/27 OK (after prod seed) |
