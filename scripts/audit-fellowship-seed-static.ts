@@ -54,3 +54,4 @@ for (const slug of catalogSlugs.sort()) {
 
 console.log(`\nCourses needing formative depth work: ${nativeThin}/${catalogSlugs.length}`);
 if (missingSeed.length > 0) process.exit(1);
+if (nativeThin > 0) process.exit(1);

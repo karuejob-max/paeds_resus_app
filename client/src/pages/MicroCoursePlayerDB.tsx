@@ -109,11 +109,16 @@ export default function MicroCoursePlayerDB() {
     { programType: "fellowship" },
     { enabled: !!microCourseRow }
   );
-  const fellowshipDbCourse = useMemo(
-    () =>
-      fellowshipCourses?.find((c: FellowshipCatalogRow) => c.title === microCourseRow?.title),
-    [fellowshipCourses, microCourseRow]
-  );
+  const fellowshipDbCourse = useMemo(() => {
+    if (!microCourseRow || !fellowshipCourses?.length) return undefined;
+    const byOrder = fellowshipCourses.find(
+      (c: FellowshipCatalogRow) => c.order === microCourseRow.order
+    );
+    if (byOrder) return byOrder;
+    return fellowshipCourses.find(
+      (c: FellowshipCatalogRow) => c.title === microCourseRow.title
+    );
+  }, [fellowshipCourses, microCourseRow]);
 
   const ahaProgram = programType ?? ahaProgramFromSlug;
 

@@ -9,7 +9,10 @@ import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+  MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   expandQuestionBank,
+  uniqueFormativeQuestions,
+  type FormativeQuestion,
 } from "../../shared/microcourse-exam-policy";
 import { encodeQuizCorrectAnswerForStorage } from "../../shared/quiz-answer-contract";
 
@@ -155,7 +158,18 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     moduleId = m[0]!.id;
   }
 
-  const BANK = expandQuestionBank([
+  const allModules = await db
+    .select({ id: modules.id, order: modules.order })
+    .from(modules)
+    .where(eq(modules.courseId, courseId))
+    .orderBy(modules.order);
+
+  const moduleRows =
+    allModules.length > 0
+      ? allModules
+      : [{ id: moduleId, order: 1 }];
+
+  const rawBank: FormativeQuestion[] = [
     {
       question:
         "In the initial assessment of a seriously ill child, which sequence best reflects a systematic primary survey?",
@@ -177,24 +191,239 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     },
     {
       question: "Cool extremities alone indicate shock:",
-      options: ["Always — start 40 mL/kg bolus", "Never relevant", "Only with other perfusion deficits — reassess", "Only in adults"],
+      options: [
+        "Always — start 40 mL/kg bolus",
+        "Never relevant",
+        "Only with other perfusion deficits — reassess",
+        "Only in adults",
+      ],
       correct: 2,
-      explanation: "Perfusion, CRT, mental status, and pulse quality matter — cool skin is not sufficient alone (CST §4).",
+      explanation:
+        "Perfusion, CRT, mental status, and pulse quality matter — cool skin is not sufficient alone (CST §4).",
     },
-  ]);
+    {
+      question: "Tachypnoea with poor feeding in an infant should prompt:",
+      options: [
+        "Structured ABCDE assessment and early escalation",
+        "Discharge without observation",
+        "Antibiotics only without exam",
+        "Ignore if afebrile",
+      ],
+      correct: 0,
+      explanation: "Respiratory and perfusion compromise can evolve quickly — assess systematically.",
+    },
+    {
+      question: "Capillary refill time >3 seconds with lethargy suggests:",
+      options: [
+        "Perfusion failure — treat circulation while reassessing",
+        "Normal variant only",
+        "Hypervolaemia",
+        "No urgency",
+      ],
+      correct: 0,
+      explanation: "Prolonged CRT with altered status is a perfusion warning sign.",
+    },
+    {
+      question: "Exposure in the primary survey is used to:",
+      options: [
+        "Identify hidden injuries, rashes, and bleeding after ABC stabilisation",
+        "Replace airway assessment",
+        "Delay treatment until full imaging",
+        "Skip in all children",
+      ],
+      correct: 0,
+      explanation: "Exposure completes the survey once immediate threats are addressed.",
+    },
+    {
+      question: "When to call senior help during initial stabilisation:",
+      options: [
+        "Early when airway, breathing, or circulation remain unstable",
+        "Only after 24 hours",
+        "Never in district hospitals",
+        "After discharge planning",
+      ],
+      correct: 0,
+      explanation: "Escalate early for persistent instability or unclear diagnosis.",
+    },
+    {
+      question: "Bedside glucose in an unwell child is important because:",
+      options: [
+        "Hypoglycaemia is a reversible cause of altered mental status",
+        "It replaces blood pressure",
+        "Only adults need glucose checks",
+        "Hyperglycaemia rules out sepsis",
+      ],
+      correct: 0,
+      explanation: "Treat hypoglycaemia while continuing ABCDE stabilisation.",
+    },
+    {
+      question: "High-flow oxygen is indicated when:",
+      options: [
+        "SpO₂ remains below target despite standard oxygen",
+        "Child is comfortable on room air",
+        "Only for adults",
+        "Never in asthma",
+      ],
+      correct: 0,
+      explanation: "Escalate oxygen delivery when hypoxia persists.",
+    },
+    {
+      question: "Disability (neurological) assessment includes:",
+      options: [
+        "AVPU/GCS, pupils, and glucose",
+        "Only CT scan",
+        "Skipping in infants",
+        "Pain score only",
+      ],
+      correct: 0,
+      explanation: "Rapid neuro check guides urgency for airway protection and imaging.",
+    },
+    {
+      question: "Primary survey differs from secondary survey because:",
+      options: [
+        "Primary treats life threats immediately; secondary is detailed head-to-toe",
+        "They are identical",
+        "Secondary comes first always",
+        "Primary is only for trauma",
+      ],
+      correct: 0,
+      explanation: "Stabilise ABC first, then complete a fuller evaluation.",
+    },
+    {
+      question: "A structured handover after stabilisation should include:",
+      options: [
+        "Age, weight, interventions, response, and outstanding concerns (SBAR)",
+        "Only diagnosis name",
+        "No vital signs",
+        "Verbal only without documentation",
+      ],
+      correct: 0,
+      explanation: "SBAR-style handover supports safe escalation and referral.",
+    },
+    {
+      question: "Weak femoral pulse compared with brachial pulse suggests:",
+      options: [
+        "Possible shock — assess perfusion and treat circulation",
+        "Normal in all children",
+        "Hypervolaemia",
+        "No clinical relevance",
+      ],
+      correct: 0,
+      explanation: "Central vs peripheral pulse quality helps detect compensated shock.",
+    },
+    {
+      question: "Stridor at rest requires:",
+      options: [
+        "Urgent airway assessment and senior help",
+        "Outpatient review in 2 weeks",
+        "Antibiotics only",
+        "No action if SpO₂ is normal",
+      ],
+      correct: 0,
+      explanation: "Stridor at rest is a potential airway emergency.",
+    },
+    {
+      question: "Urine output monitoring in critical illness helps assess:",
+      options: [
+        "Perfusion and renal perfusion",
+        "Only hydration unrelated to shock",
+        "Nothing useful",
+        "Only adults",
+      ],
+      correct: 0,
+      explanation: "Oliguria can signal hypoperfusion or AKI.",
+    },
+    {
+      question: "Fever with petechiae mandates:",
+      options: [
+        "Immediate assessment for meningococcal disease",
+        "Observation at home only",
+        "Antipyretics alone",
+        "Defer antibiotics until rash fades",
+      ],
+      correct: 0,
+      explanation: "Non-blanching rash with fever is a medical emergency.",
+    },
+    {
+      question: "After initial stabilisation, the secondary survey is:",
+      options: [
+        "A detailed head-to-toe evaluation when safe",
+        "Always before any treatment",
+        "Optional in all emergencies",
+        "Only imaging",
+      ],
+      correct: 0,
+      explanation: "Complete secondary survey after ABC threats are addressed.",
+    },
+    {
+      question: "Pain assessment in a seriously ill child should:",
+      options: [
+        "Use age-appropriate pain scales and treat severe pain",
+        "Be ignored in infants",
+        "Delay all analgesia",
+        "Replace vital signs",
+      ],
+      correct: 0,
+      explanation: "Pain increases distress and complicates assessment — treat when safe.",
+    },
+    {
+      question: "Family presence during resuscitation:",
+      options: [
+        "May be supported per facility policy when safe",
+        "Is always forbidden",
+        "Replaces clinical team",
+        "Delays all treatment",
+      ],
+      correct: 0,
+      explanation: "Follow local policy; communication with caregivers remains essential.",
+    },
+    {
+      question: "Referral to higher-level care is indicated when:",
+      options: [
+        "Required interventions exceed local capability",
+        "Child is fully stable",
+        "Only for adults",
+        "Never from district hospitals",
+      ],
+      correct: 0,
+      explanation: "Escalate early when specialised care is needed.",
+    },
+    {
+      question: "Documentation during stabilisation should capture:",
+      options: [
+        "Times, vital trends, fluids, drugs, and clinical response",
+        "Only final diagnosis",
+        "Nothing until discharge",
+        "Verbal handover only",
+      ],
+      correct: 0,
+      explanation: "Contemporaneous notes support continuity and medicolegal safety.",
+    },
+  ];
 
-  const upsertQuiz = async (title: string, passingScore: number): Promise<number> => {
+  const BANK = uniqueFormativeQuestions(
+    expandQuestionBank(
+      rawBank,
+      Math.max(15, moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE)
+    )
+  );
+
+  const upsertQuizOnModule = async (
+    modId: number,
+    title: string,
+    passingScore: number
+  ): Promise<number> => {
     const existing = await db
       .select({ id: quizzes.id })
       .from(quizzes)
-      .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+      .where(and(eq(quizzes.moduleId, modId), eq(quizzes.title, title)))
       .limit(1);
     if (existing.length > 0) {
       await db.update(quizzes).set({ passingScore, description: title }).where(eq(quizzes.id, existing[0]!.id));
       return existing[0]!.id;
     }
     await db.insert(quizzes).values({
-      moduleId,
+      moduleId: modId,
       title,
       description: title,
       passingScore,
@@ -203,13 +432,13 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     const row = await db
       .select({ id: quizzes.id })
       .from(quizzes)
-      .where(and(eq(quizzes.moduleId, moduleId), eq(quizzes.title, title)))
+      .where(and(eq(quizzes.moduleId, modId), eq(quizzes.title, title)))
       .orderBy(desc(quizzes.id))
       .limit(1);
     return row[0]!.id;
   };
 
-  const upsertQuestions = async (quizId: number, questions: typeof BANK) => {
+  const upsertQuestions = async (quizId: number, questions: FormativeQuestion[]) => {
     await db.delete(quizQuestions).where(eq(quizQuestions.quizId, quizId));
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]!;
@@ -225,12 +454,32 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     }
   };
 
-  const formativeId = await upsertQuiz(MICROCOURSE_FORMATIVE_QUIZ_TITLE, 70);
-  await upsertQuestions(formativeId, [BANK[0]!]);
+  for (let m = 0; m < moduleRows.length; m++) {
+    const modId = moduleRows[m]!.id;
+    const slice: FormativeQuestion[] = [];
+    let cursor = m * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
+    while (slice.length < MIN_FORMATIVE_QUESTIONS_PER_MODULE && BANK.length > 0) {
+      const candidate = BANK[cursor % BANK.length]!;
+      cursor++;
+      if (!slice.some((q) => q.question.trim() === candidate.question.trim())) {
+        slice.push(candidate);
+      }
+      if (cursor > BANK.length * moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE) break;
+    }
+    const formativeTitle =
+      moduleRows.length > 1
+        ? `${MICROCOURSE_FORMATIVE_QUIZ_TITLE}: Module ${m + 1}`
+        : MICROCOURSE_FORMATIVE_QUIZ_TITLE;
+    const formativeId = await upsertQuizOnModule(modId, formativeTitle, 70);
+    await upsertQuestions(formativeId, slice);
+  }
 
-  const diagnosticId = await upsertQuiz(MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, 0);
+  const firstModId = moduleRows[0]!.id;
+  const lastModId = moduleRows[moduleRows.length - 1]!.id;
+
+  const diagnosticId = await upsertQuizOnModule(firstModId, MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, 0);
   await upsertQuestions(diagnosticId, BANK);
 
-  const summativeId = await upsertQuiz(MICROCOURSE_SUMMATIVE_QUIZ_TITLE, 80);
+  const summativeId = await upsertQuizOnModule(lastModId, MICROCOURSE_SUMMATIVE_QUIZ_TITLE, 80);
   await upsertQuestions(summativeId, BANK);
 }

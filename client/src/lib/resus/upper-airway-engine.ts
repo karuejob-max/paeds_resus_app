@@ -1,3 +1,9 @@
+import {
+  SPO2_TARGET_MIN_PERCENT,
+  SPO2_TARGET_OPTIMAL_PERCENT,
+  SPO2_TARGET_RESUS_DETAIL,
+} from '@shared/clinical-spo2-targets';
+
 /**
  * Upper Airway Obstruction Clinical Engine
  * 
@@ -161,12 +167,12 @@ export function generateCroupInterventions(assessment: UpperAirwayAssessment): U
   }
 
   // Oxygen therapy
-  if (assessment.oxygenSaturation < 92) {
+  if (assessment.oxygenSaturation < SPO2_TARGET_MIN_PERCENT) {
     interventions.push({
       type: 'oxygen_therapy',
       description: 'Supplemental oxygen',
-      indication: `SpO2 < 92% (current: ${assessment.oxygenSaturation}%)`,
-      dosing: 'Titrate to maintain SpO2 > 92%',
+      indication: `SpO₂ < ${SPO2_TARGET_MIN_PERCENT}% (current: ${assessment.oxygenSaturation}%)`,
+      dosing: SPO2_TARGET_RESUS_DETAIL,
       monitoring: 'Continuous pulse oximetry',
     });
   }
@@ -229,7 +235,7 @@ Vancomycin: ${vancomycin.toFixed(0)}mg/day IV (${(vancomycin / 4).toFixed(0)}mg 
     type: 'oxygen_therapy',
     description: 'High-flow oxygen',
     indication: 'Maintain oxygenation',
-    dosing: 'Titrate to maintain SpO2 > 94%',
+    dosing: SPO2_TARGET_RESUS_DETAIL,
     monitoring: 'Continuous pulse oximetry',
   });
 

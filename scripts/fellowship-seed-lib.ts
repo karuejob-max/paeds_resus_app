@@ -4,6 +4,7 @@ import {
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
   expandQuestionBank,
+  materializeModuleNativeFormatives,
   resolveModuleFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
@@ -82,7 +83,7 @@ export const FELLOWSHIP_SEED_BATCHES: Record<string, string[]> = {
 };
 
 export function getAllFellowshipSeedContent(): FellowshipCourseSeed[] {
-  return [
+  const raw = [
     ...microCoursesBatch1To5,
     ...microCoursesBatch3To5,
     ...microCoursesFinalBatch,
@@ -91,6 +92,7 @@ export function getAllFellowshipSeedContent(): FellowshipCourseSeed[] {
     ...microCoursesSepticShock,
     ...microCoursesMetabolicIi,
   ] as FellowshipCourseSeed[];
+  return raw.map((c) => materializeModuleNativeFormatives(c));
 }
 
 export function resolveCatalogSlug(courseId: string): string {
@@ -329,7 +331,7 @@ export async function seedFellowshipContent(options: {
       const bankQuestions = expandQuestionBank(courseData.quiz.questions);
       const formativeByModule = resolveModuleFormativeQuestions(
         courseData.modules,
-        courseData.quiz.questions
+        bankQuestions
       );
 
       for (let i = 0; i < moduleIds.length; i++) {

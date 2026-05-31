@@ -1,4 +1,9 @@
 import type { Pathway } from '../stateMachine';
+import {
+  SPO2_TARGET_ASTHMA_DETAIL,
+  SPO2_TARGET_MIN_PERCENT,
+  SPO2_TARGET_RESUS_DETAIL,
+} from '@shared/clinical-spo2-targets';
 
 export const breathingPathway: Pathway = {
   id: 'breathing',
@@ -32,7 +37,7 @@ export const breathingPathway: Pathway = {
         {
           id: 'br_o2',
           action: 'HIGH-FLOW OXYGEN',
-          detail: 'Non-rebreather mask at 15 L/min. Target SpO2 ≥ 94%.',
+          detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_ASTHMA_DETAIL}`,
           critical: true,
         },
         {
@@ -136,8 +141,8 @@ export const breathingPathway: Pathway = {
         },
         {
           id: 'cr_o2',
-          action: 'OXYGEN IF SpO2 < 92%',
-          detail: 'Blow-by oxygen if child distressed by mask. Target SpO2 ≥ 94%.',
+          action: `OXYGEN IF SpO2 < ${SPO2_TARGET_MIN_PERCENT}%`,
+          detail: `Blow-by oxygen if child distressed by mask. ${SPO2_TARGET_RESUS_DETAIL}`,
         },
         {
           id: 'cr_nebulized_epi',
@@ -192,7 +197,7 @@ export const breathingPathway: Pathway = {
     {
       id: 'rd_o2',
       action: 'HIGH-FLOW OXYGEN',
-      detail: 'Non-rebreather mask at 15 L/min. Target SpO2 ≥ 94%. If infant: consider high-flow nasal cannula.',
+      detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_ASTHMA_DETAIL} If infant: consider high-flow nasal cannula.`,
       critical: true,
     },
     {
@@ -228,7 +233,7 @@ export const breathingPathway: Pathway = {
     {
       id: 'rd_intubation',
       action: 'INTUBATE IF FAILING',
-      detail: 'Indications: exhaustion, apnea, unable to maintain SpO2 >90% on high-flow O2, decreasing consciousness.',
+      detail: `Indications: exhaustion, apnea, unable to maintain SpO₂ ≥${SPO2_TARGET_MIN_PERCENT}% on high-flow O₂, decreasing consciousness.`,
       critical: true,
     },
   ],

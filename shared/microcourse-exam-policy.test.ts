@@ -9,8 +9,10 @@ import {
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   padModuleFormativeQuestions,
   resolveModuleFormativeQuestions,
+  materializeModuleNativeFormatives,
   shuffleQuestionIndices,
   summativePassed,
+  uniqueFormativeQuestions,
 } from "./microcourse-exam-policy";
 
 describe("microcourse-exam-policy", () => {
@@ -81,6 +83,23 @@ describe("microcourse-exam-policy", () => {
     }));
     const perMod = assignFormativeByModuleChunks(qs, 3);
     expect(perMod.every((m) => m.length >= MIN_FORMATIVE_QUESTIONS_PER_MODULE)).toBe(true);
+  });
+
+  it("materializes unique native formatives per module from summative bank", () => {
+    const course = materializeModuleNativeFormatives({
+      modules: [{ title: "M1" }, { title: "M2" }, { title: "M3" }],
+      quiz: {
+        questions: Array.from({ length: 10 }, (_, i) => ({
+          question: `Stem ${i}`,
+          options: ["a", "b"],
+          correct: 0,
+          explanation: "e",
+        })),
+      },
+    });
+    expect(course.modules.every((m) => (m.questions?.length ?? 0) >= 3)).toBe(true);
+    const allStems = course.modules.flatMap((m) => m.questions!.map((q) => q.question));
+    expect(uniqueFormativeQuestions(allStems.map((question) => ({ question, options: [], correct: 0, explanation: "" }))).length).toBeGreaterThanOrEqual(9);
   });
 
   it("prefers module-native questions over summative bank", () => {

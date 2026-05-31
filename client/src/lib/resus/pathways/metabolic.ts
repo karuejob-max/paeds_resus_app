@@ -1,4 +1,5 @@
 import type { Pathway } from '../stateMachine';
+import { SPO2_TARGET_RESUS_DETAIL } from '@shared/clinical-spo2-targets';
 
 export const metabolicPathway: Pathway = {
   id: 'metabolic',
@@ -25,7 +26,7 @@ export const metabolicPathway: Pathway = {
         {
           id: 'dka_o2',
           action: 'OXYGEN IF NEEDED',
-          detail: 'Monitor SpO2. Give O2 if < 94%. Kussmaul breathing is compensatory — do NOT intubate for this alone.',
+          detail: `Monitor SpO₂. ${SPO2_TARGET_RESUS_DETAIL} Kussmaul breathing is compensatory — do NOT intubate for this alone.`,
           critical: true,
         },
         {
