@@ -165,7 +165,7 @@ Record verify output in WORK_STATUS when marking seed work Done.
 
 **Aiven allowlist:** If desktop IP is not allowlisted, Shell avoids timeout without opening firewall to arbitrary agent IPs.
 
-**Production auto-seed (CEO approved — ON):** Every Render production deploy runs fellowship seed **before** the server starts (`pnpm start` → `scripts/start-production.mjs` → `scripts/run-fellowship-auto-seed.mjs`). All six batches + `seed:seriously-ill-child-course`, then `verify-fellowship-seed.ts` (target **29 courses, 0 failure(s)**). **Verify failure blocks deploy** (process exits 1; server never binds). Idempotent — safe every deploy. Logs end with `Fellowship auto-seed complete — verify passed`.
+**Production auto-seed (CEO approved — ON):** On deploy, the same pipeline as **`pnpm run seed:fellowship-content:all`** runs automatically: `pnpm start` → `deploy:seed-fellowship` → `scripts/run-fellowship-auto-seed.mjs` (six `seed:fellowship-content:*` batches + `seed:seriously-ill-child-course` + `verify-fellowship-seed.ts`; target **29 courses, 0 failure(s)**). **Verify failure blocks deploy** (process exits 1; server never binds). Idempotent — safe every deploy. Logs end with `Fellowship auto-seed complete — verify passed`.
 
 | Control | Purpose |
 |---------|---------|

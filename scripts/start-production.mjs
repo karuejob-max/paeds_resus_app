@@ -5,14 +5,31 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runFellowshipAutoSeed, shouldRunFellowshipAutoSeed } from "./run-fellowship-auto-seed.mjs";
+import { shouldRunFellowshipAutoSeed } from "./run-fellowship-auto-seed.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Same pipeline as `pnpm run seed:fellowship-content:all` (via deploy:seed-fellowship, env-gated). */
+function runPnpmScript(script) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("pnpm", ["run", script], {
+      cwd: ROOT,
+      stdio: "inherit",
+      shell: process.platform === "win32",
+      env: process.env,
+    });
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${script}: exit ${code ?? "null"} signal=${signal ?? "none"}`));
+    });
+  });
+}
 
 async function main() {
   if (shouldRunFellowshipAutoSeed()) {
     try {
-      await runFellowshipAutoSeed();
+      await runPnpmScript("deploy:seed-fellowship");
     } catch (err) {
       console.error("[Start] Fellowship auto-seed failed — not starting server:", err);
       process.exit(1);

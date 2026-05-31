@@ -8,7 +8,7 @@
 
 CEO-approved fellowship DB sync runs on **every production deploy** via the **Start Command** (`pnpm start`), not Pre-Deploy:
 
-1. `scripts/start-production.mjs` calls `scripts/run-fellowship-auto-seed.mjs` when `NODE_ENV=production` or `RENDER=true` (skipped when `APP_BASE_URL` contains `staging` or `AUTO_SEED_FELLOWSHIP_ON_START=false`).
+1. `scripts/start-production.mjs` runs `pnpm run deploy:seed-fellowship` (same as `seed:fellowship-content:all` without `--force`) when `NODE_ENV=production` or `RENDER=true` (skipped when `APP_BASE_URL` contains `staging` or `AUTO_SEED_FELLOWSHIP_ON_START=false`).
 2. All six `seed:fellowship-content:*` batches + `seed:seriously-ill-child-course`, then `verify-fellowship-seed.ts` (3 retries per step, 10 min timeout default).
 3. **Verify failure → exit 1 → server never starts** (deploy shows failed — safer than silent bad content).
 
