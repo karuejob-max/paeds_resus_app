@@ -35,6 +35,7 @@ import {
 } from "../lib/sync-micro-course-enrollment-progress";
 import {
   assertMicrocourseCompletionAllowed,
+  computeQuizScoreFromDb,
   getMicrocourseExamState,
   loadSummativeQuestionBank,
 } from "../lib/microcourse-exam-gate";
@@ -45,6 +46,7 @@ import {
   shuffleQuestionIndices,
 } from "../../shared/microcourse-exam-policy";
 import { TRPCError } from "@trpc/server";
+import { trackEvent } from "../services/analytics.service";
 
 export const learningRouter = router({
   // Get all courses
@@ -247,7 +249,7 @@ export const learningRouter = router({
         .orderBy(quizzes.order);
 
       const quizzesWithQuestions = await Promise.all(
-        moduleQuizzes.map(async (quiz: { id: number }) => {
+        moduleQuizzes.map(async (quiz: { id: number; title?: string }) => {
           const raw = await (db as any)
             .select()
             .from(quizQuestions)
@@ -263,7 +265,13 @@ export const learningRouter = router({
                 options = [];
               }
             }
-            return { ...q, options };
+            const kind = examKindFromQuizTitle(quiz.title as string);
+            const base = { ...q, options };
+            if (kind === "summative") {
+              const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
+              return withoutAnswer;
+            }
+            return base;
           });
           return { ...quiz, questions };
         })
@@ -449,6 +457,7 @@ export const learningRouter = router({
       }
 
       let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
+      let score = input.score;
       if (isMicro && examKind === "summative") {
         passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
         const retry = canAttemptSummative({
@@ -461,15 +470,21 @@ export const learningRouter = router({
             message: retry.reason ?? "Summative retry not available yet.",
           });
         }
+        const graded = await computeQuizScoreFromDb(
+          db as any,
+          input.quizId,
+          input.answers as Record<string | number, string>
+        );
+        score = graded.score;
       }
 
-      const passed = input.score >= passingScore;
+      const passed = score >= passingScore;
 
       if (existingRow) {
         await (db as any)
           .update(userProgress)
           .set({
-            score: input.score,
+            score,
             attempts: (existingRow.attempts || 0) + 1,
             status: passed ? "completed" : "in_progress",
             completedAt: passed ? new Date() : existingRow.completedAt,
@@ -482,7 +497,7 @@ export const learningRouter = router({
           enrollmentId: input.enrollmentId,
           moduleId: input.moduleId,
           quizId: input.quizId,
-          score: input.score,
+          score,
           attempts: 1,
           status: passed ? "completed" : "in_progress",
           completedAt: passed ? new Date() : null,
@@ -495,9 +510,25 @@ export const learningRouter = router({
         await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
       }
 
+      if (isMicro && examKind === "summative") {
+        void trackEvent({
+          userId: ctx.user.id,
+          eventType: "micro_course",
+          eventName: passed ? "Summative exam passed" : "Summative exam attempt",
+          pageUrl: "/micro-course",
+          eventData: {
+            quizId: input.quizId,
+            enrollmentId: input.enrollmentId,
+            score,
+            passed,
+            attemptNumber: (existingRow?.attempts ?? 0) + 1,
+          },
+        });
+      }
+
       return {
         success: true,
-        score: input.score,
+        score,
         passed,
         passingScore,
         examKind,

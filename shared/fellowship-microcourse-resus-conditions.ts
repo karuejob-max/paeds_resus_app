@@ -88,14 +88,14 @@ export const FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS: FellowshipMicrocourseResus
   {
     id: "acute_kidney_injury",
     label: "Acute Kidney Injury",
-    microCourseIds: ["aki-i"],
-    aliases: ["acute_kidney_injury", "aki", "renal_failure"],
+    microCourseIds: ["aki-i", "aki-ii"],
+    aliases: ["acute_kidney_injury", "aki", "renal_failure", "rrt", "dialysis"],
   },
   {
     id: "severe_anaemia",
     label: "Severe Anaemia",
-    microCourseIds: ["anaemia-i"],
-    aliases: ["severe_anaemia", "anaemia", "anemia"],
+    microCourseIds: ["anaemia-i", "anaemia-ii"],
+    aliases: ["severe_anaemia", "anaemia", "anemia", "sickle_cell", "sickle_crisis", "transfusion"],
   },
 ];
 

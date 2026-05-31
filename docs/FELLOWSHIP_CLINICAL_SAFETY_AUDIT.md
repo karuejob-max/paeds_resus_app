@@ -3,7 +3,7 @@
 **Date:** 2026-05-31 (Pass 3 — P2 remediation)  
 **Auditor:** Cursor (engineering) — **CEO post-deploy sign-off pending**  
 **Authority:** [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md), [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md)  
-**Scope:** All published fellowship catalog courses except sample `intubation-essentials` (**27 courses**).
+**Scope:** All published fellowship catalog courses except sample `intubation-essentials` (**29 courses**).
 
 ---
 
@@ -75,7 +75,9 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | trauma-i | Trauma 1 | — | ABCDE | — | 3 modules + head injury red flags |
 | trauma-ii | Trauma 2 | — | — | — | 3 modules: MTP, abdominal, damage control |
 | aki-i | AKI 1 | — | — | Creatinine units | Recognition + fluids |
-| anaemia-i | Anaemia 1 | — | Transfusion | anaemia-ii deferred | Volume + reactions |
+| aki-ii | AKI 2 | RRT, K⁺/phosphate | PD LMIC note | Nephrotoxins | AEIOU indications |
+| anaemia-i | Anaemia 1 | — | Transfusion | Volume + reactions | WHO thresholds |
+| anaemia-ii | Anaemia 2 | Sickle/malaria | Kenya blood bank | Iron vs transfusion | 10 mL/kg in heart failure |
 
 **Excluded:** `intubation-essentials` (sample catalog row, not fellowship pillar).
 
@@ -146,7 +148,7 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | burns-ii depth | P2 | burns-ii | Y | CST §5 + `BURNS_*` helpers |
 | trauma single-module | P2 | trauma-i/ii | Y | 3 modules each + native formatives |
 | AKI creatinine mg/dL | P2 | aki-i | Y | Secondary units OK (unchanged) |
-| anaemia-ii absent | P2 | catalog | **Deferred** | MECE v1 — CEO: Level 2 deferred to v2 catalog expansion |
+| anaemia-ii / aki-ii | P2 | catalog | **Shipped** | MECE v2 — `anaemia-ii`, `aki-ii` in catalog + metabolic batch seed |
 
 ### Platform / assessments
 
@@ -191,7 +193,9 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | trauma-i | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
 | trauma-ii | 3 | ✓ | 3/3 | ✓ | OK (re-seed) |
 | aki-i | 3 | ✓ | 3/3 | ✓ | OK |
+| aki-ii | 3 | ✓ | 3/3 | ✓ | OK (v2) |
 | anaemia-i | 3 | ✓ | 3/3 | ✓ | OK |
+| anaemia-ii | 3 | ✓ | 3/3 | ✓ | OK (v2) |
 
 **Player UX:** `MicroCoursePlayerDB.tsx` — step-through navigation (module index + section index); formative after last section of each module; diagnostic at course start (no retake); summative after final module (80%, 2× retry / 24 h).
 
@@ -215,7 +219,7 @@ All courses: diagnostic ≥1, summative ≥1, formative per module, governance f
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 1 | burns-ii, cardiogenic-ii, meningitis-ii depth | **Fixed** | CST helpers + module-native formatives |
-| 2 | anaemia-ii, aki-ii catalog | **Deferred** | CEO MECE v1 — only Level 1 in fellowship pillar; document in v2 catalog backlog |
+| 2 | anaemia-ii, aki-ii catalog | **Shipped** | MECE v2 — metabolic Level 2 in catalog + seed batch |
 | 3 | trauma-i/ii, meningitis-i/ii pedagogy | **Fixed** | Expanded to 3 modules each |
 | 4 | Oxygen targets 90% vs 94% | **Fixed** | `shared/clinical-spo2-targets.ts` harmonised |
 | 5 | ResusGPS full spine audit | **Fixed** | pneumonia, shock, trauma, anaphylaxis, abcde burns/malaria/meningitis |

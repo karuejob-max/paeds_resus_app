@@ -15,6 +15,7 @@ import {
   examKindFromQuizTitle,
   summativePassed,
 } from "../../shared/microcourse-exam-policy";
+import { parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 
 type Db = {
   select: (...args: unknown[]) => { from: (...args: unknown[]) => { where: (...args: unknown[]) => Promise<unknown[]> } };
@@ -194,6 +195,43 @@ export async function loadSummativeQuestionBank(
     options: r.options ? (JSON.parse(r.options) as string[]) : [],
     explanation: r.explanation,
   }));
+}
+
+/** Server-side score — never trust client-reported summative scores. */
+export async function computeQuizScoreFromDb(
+  db: Db,
+  quizId: number,
+  answers: Record<string | number, string> | null | undefined
+): Promise<{ score: number; correctCount: number; totalQuestions: number }> {
+  const rows = (await (db as any)
+    .select()
+    .from(quizQuestions)
+    .where(eq(quizQuestions.quizId, quizId))
+    .orderBy(asc(quizQuestions.order))) as {
+    id: number;
+    correctAnswer: string | null;
+  }[];
+
+  if (rows.length === 0) {
+    return { score: 0, correctCount: 0, totalQuestions: 0 };
+  }
+
+  const answerMap = answers ?? {};
+  let correctCount = 0;
+  for (const q of rows) {
+    const userAnswer =
+      answerMap[q.id] ??
+      answerMap[String(q.id)] ??
+      (typeof (answerMap as Record<string, string>)[String(q.id)] === "string"
+        ? (answerMap as Record<string, string>)[String(q.id)]
+        : undefined);
+    if (!userAnswer) continue;
+    const expected = parseStoredQuizCorrectAnswer(q.correctAnswer);
+    if (expected && userAnswer === expected) correctCount++;
+  }
+
+  const score = Math.round((correctCount / rows.length) * 100);
+  return { score, correctCount, totalQuestions: rows.length };
 }
 
 export { MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, MICROCOURSE_SUMMATIVE_QUIZ_TITLE };

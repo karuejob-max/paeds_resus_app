@@ -18,6 +18,7 @@ import { microCoursesFinalBatch } from "../server/data/micro-courses-final-batch
 import { microCoursesBurns } from "../server/data/micro-courses-burns";
 import { microCoursesMissingFellowship } from "../server/data/micro-courses-missing-fellowship";
 import { microCoursesSepticShock } from "../server/data/micro-courses-septic-shock";
+import { microCoursesMetabolicIi } from "../server/data/micro-courses-metabolic-ii";
 import { ensureMicroCoursesCatalog } from "../server/lib/micro-course-catalog";
 
 export type FellowshipCourseSeed = {
@@ -77,7 +78,7 @@ export const FELLOWSHIP_SEED_BATCHES: Record<string, string[]> = {
   ],
   infectious: ["meningitis-i", "meningitis-ii", "malaria-i", "malaria-ii"],
   trauma: ["trauma-i", "trauma-ii", "burns-i", "burns-ii"],
-  metabolic: ["aki-i", "anaemia-i"],
+  metabolic: ["aki-i", "aki-ii", "anaemia-i", "anaemia-ii"],
 };
 
 export function getAllFellowshipSeedContent(): FellowshipCourseSeed[] {
@@ -88,6 +89,7 @@ export function getAllFellowshipSeedContent(): FellowshipCourseSeed[] {
     ...microCoursesBurns,
     ...microCoursesMissingFellowship,
     ...microCoursesSepticShock,
+    ...microCoursesMetabolicIi,
   ] as FellowshipCourseSeed[];
 }
 
