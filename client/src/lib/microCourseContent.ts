@@ -297,231 +297,467 @@ const ASTHMA_I: MicroCourseStaticContent = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PALS 2025: Pediatric Advanced Life Support
+// PALS 2025: Beginner-Friendly Curriculum
 // ─────────────────────────────────────────────────────────────────────────────
 const PALS_2025: MicroCourseStaticContent = {
-  courseId: "40",
+  courseId: "pals-2025",
   modules: [
     {
       id: "pals-2025-mod-1",
-      title: "The 2025 Systematic Approach & Science Updates",
-      duration: 30,
+      title: "Module 1: Introduction to PALS & Pediatric Assessment",
+      duration: 45,
       learningObjectives: [
-        "Master the new physiology-directed resuscitation mindset",
-        "Apply the consolidated 6-link Chain of Survival",
-        "Identify 2025 physiological targets during CPR",
+        "Understand the scope and importance of PALS.",
+        "Master the Pediatric Assessment Triangle (PAT).",
+        "Perform a systematic primary assessment (ABCDE approach).",
+        "Recognize signs of respiratory distress, respiratory failure, and shock.",
       ],
-      content: `
-<h2>The 2025 Universal Chain of Survival</h2>
-<p>The AHA has consolidated the pediatric and adult chains into a single, universal 6-link chain. This reflects the reality that high-quality care is a continuum from the field to long-term recovery.</p>
+      content: `<h2>Why PALS Matters</h2>
+<p>Pediatric Advanced Life Support (PALS) is a critical course designed to improve outcomes for critically ill infants and children. It focuses on a systematic approach to assessment and management, emphasizing early recognition and intervention to prevent cardiac arrest.</p>
 <div class="clinical-note">
-  <strong>The 6 Links of Survival:</strong>
-  <ol>
-    <li><strong>Activation of Emergency Response</strong> — Early recognition and calling for help.</li>
-    <li><strong>High-Quality CPR</strong> — The foundation of all resuscitation.</li>
-    <li><strong>Defibrillation</strong> — Rapid delivery of shocks for shockable rhythms.</li>
-    <li><strong>Advanced Resuscitation</strong> — PALS algorithms, drugs, and advanced airways.</li>
-    <li><strong>Post-Cardiac Arrest Care</strong> — Hemodynamic and temperature optimization.</li>
-    <li><strong>Recovery</strong> — The new link focusing on long-term rehabilitation and survivorship.</li>
-  </ol>
+  <strong>The Paeds Resus Mission:</strong> To reduce preventable deaths by delivering reliable, practical, rollout-ready improvements for low-resource hospitals. PALS is a cornerstone of this mission.
 </div>
-<h3>Why "Recovery" Matters</h3>
-<p>Survival is no longer just about a pulse; it is about returning to a functional life. The 2025 guidelines mandate early evaluation for physical, cognitive, and behavioral challenges post-discharge.</p>
-<h2>Physiology-Directed Resuscitation</h2>
-<p>One of the most significant changes in 2025 is the shift toward using real-time physiology to guide CPR quality rather than just following a clock.</p>
-<table style="width:100%;border-collapse:collapse;font-size:0.85rem">
-  <thead>
-    <tr style="background:#f1f5f9">
-      <th style="border:1px solid #cbd5e1;padding:6px">Metric</th>
-      <th style="border:1px solid #cbd5e1;padding:6px">2025 Target</th>
-      <th style="border:1px solid #cbd5e1;padding:6px">Clinical Significance</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="border:1px solid #cbd5e1;padding:6px"><strong>Diastolic BP (Infants)</strong></td>
-      <td style="border:1px solid #cbd5e1;padding:6px">≥25 mmHg</td>
-      <td style="border:1px solid #cbd5e1;padding:6px">Ensures coronary perfusion pressure.</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid #cbd5e1;padding:6px"><strong>Diastolic BP (Children ≥1y)</strong></td>
-      <td style="border:1px solid #cbd5e1;padding:6px">≥30 mmHg</td>
-      <td style="border:1px solid #cbd5e1;padding:6px">Linked to improved survival with neuro recovery.</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid #cbd5e1;padding:6px"><strong>ETCO2</strong></td>
-      <td style="border:1px solid #cbd5e1;padding:6px">Monitor trend</td>
-      <td style="border:1px solid #cbd5e1;padding:6px">Indicator of CPR quality and ROSC; do not use as a sole termination rule.</td>
-    </tr>
-  </tbody>
-</table>
-      `,
+<h3>PALS Team Dynamics</h3>
+<p>Effective resuscitation relies on a well-coordinated team. Understanding roles, responsibilities, and closed-loop communication is vital for success.</p>`,
       keyPoints: [
-        "DBP targets: Infants ≥25, Children ≥30 mmHg",
-        "Recovery is the 6th link in the Chain of Survival",
-        "ETCO2 is a quality indicator, not a termination rule",
+        "PALS improves outcomes for critically ill children.",
+        "Systematic approach to assessment is key.",
+        "Early recognition prevents cardiac arrest.",
+        "Effective team dynamics are crucial.",
       ],
-      references: ["AHA PALS 2025 Guidelines Executive Summary"],
+      references: [
+        "AHA PALS Provider Manual 2025 - Introduction.",
+        "Paeds Resus Platform - Mission Statement.",
+      ],
       quiz: [
         {
-          question: "According to the 2025 Guidelines, what is the minimum Diastolic Blood Pressure (DBP) target during CPR for a 5-year-old child?",
-          options: ["20 mmHg", "25 mmHg", "30 mmHg", "40 mmHg"],
-          correctAnswer: "30 mmHg",
-          explanation: "The 2025 Update sets specific DBP targets: ≥25 mmHg in infants and ≥30 mmHg in children aged 1 year or older.",
+          question: "Which component of the Pediatric Assessment Triangle (PAT) reflects brain perfusion and oxygenation?",
+          options: ["Appearance", "Work of Breathing", "Circulation to Skin", "All of the above"],
+          correctAnswer: "Appearance",
+          explanation: "Appearance (TICLS) is the most sensitive indicator of brain perfusion and oxygenation in children.",
+        },
+        {
+          question: "According to the ABCDE approach, what is the immediate action if a child is found to be unresponsive?",
+          options: ["Check blood pressure", "Administer oxygen", "Activate BLS/ALS pathway", "Assess capillary refill"],
+          correctAnswer: "Activate BLS/ALS pathway",
+          explanation: "An unresponsive child requires immediate activation of the BLS/ALS pathway to initiate resuscitation.",
+        },
+        {
+          question: "A child with increased work of breathing, tachypnea, but normal mental status and SpO2 is likely in what state?",
+          options: ["Respiratory Failure", "Compensated Shock", "Respiratory Distress", "Decompensated Shock"],
+          correctAnswer: "Respiratory Distress",
+          explanation: "Respiratory distress is characterized by increased work of breathing with adequate gas exchange. Respiratory failure involves altered mental status, bradypnea, or cyanosis.",
         },
       ],
     },
     {
       id: "pals-2025-mod-2",
-      title: "Advanced Airway & Respiratory Management",
-      duration: 25,
+      title: "Module 2: Basic Life Support (BLS) for Infants & Children",
+      duration: 40,
       learningObjectives: [
-        "Apply the 94-99% oxygen titration rule",
-        "Identify correct ventilation rates for 2025",
-        "Explain why cuffed tubes are preferred",
+        "Perform high-quality CPR for infants and children (single and two-rescuer).",
+        "Utilize an Automated External Defibrillator (AED) for pediatric patients.",
+        "Manage foreign-body airway obstruction (FBAO) in infants and children.",
       ],
-      content: `
-<h2>Oxygen Titration: The 94-99% Rule</h2>
-<p>The 2025 guidelines emphasize rapid titration once stable to avoid hyperoxia.</p>
-<div class="clinical-note">
-  <strong>Target SpO2: 94% – 99%</strong>.
-  Avoid 100% saturation once stable, as it can worsen oxidative stress and neurological injury.
-</div>
-<h2>Updated Ventilation Rates</h2>
-<p>If the child has a pulse but requires assisted ventilation:</p>
+      content: `<h2>High-Quality CPR: The Foundation of Resuscitation</h2>
+<p>Effective CPR is the single most important intervention in cardiac arrest. Focus on the key components:</p>
 <ul>
-  <li><strong>Infants and Children:</strong> 1 breath every 2-3 seconds (20-30 breaths per minute).</li>
+  <li><strong>Compression Rate:</strong> 100-120 compressions per minute.</li>
+  <li><strong>Compression Depth:</strong> At least one-third of the anterior-posterior diameter of the chest (approximately 1.5 inches for infants, 2 inches for children).</li>
+  <li><strong>Chest Recoil:</strong> Allow full chest recoil after each compression.</li>
+  <li><strong>Minimizing Interruptions:</strong> Limit pauses in compressions to less than 10 seconds.</li>
+  <li><strong>Ventilations:</strong> Deliver 2 breaths after every 30 compressions for single rescuer, or 2 breaths after every 15 compressions for two rescuers.</li>
 </ul>
-<div class="warning-note">
-  <strong>Stop Hyperventilating:</strong> Excessive ventilation increases intrathoracic pressure and decreases cardiac output.
-</div>
-      `,
+<h3>Single Rescuer vs. Two Rescuers</h3>
+<p><strong>Single Rescuer:</strong> Use the 30:2 compression-to-ventilation ratio for both infants and children.</p>
+<p><strong>Two Rescuers:</strong> Use the 15:2 compression-to-ventilation ratio for both infants and children.</p>`,
       keyPoints: [
-        "Target SpO2 94-99% once stable",
-        "Ventilation rate: 20-30 breaths per minute",
-        "Cuffed ETTs preferred for all ages",
+        "CPR rate: 100-120/min.",
+        "CPR depth: 1/3 AP diameter (1.5in infants, 2in children).",
+        "Allow full chest recoil.",
+        "Minimize interruptions.",
+        "Single rescuer: 30:2. Two rescuers: 15:2.",
       ],
-      references: ["AHA PALS 2025 Guidelines"],
+      references: [
+        "AHA PALS Provider Manual 2025 - BLS.",
+      ],
       quiz: [
         {
-          question: "What is the recommended ventilation rate for a child with a pulse but inadequate breathing in 2025?",
-          options: ["8-10 breaths/min", "10-12 breaths/min", "12-20 breaths/min", "20-30 breaths/min"],
-          correctAnswer: "20-30 breaths/min",
-          explanation: "The 2025 rate for pediatric rescue breathing is 1 breath every 2-3 seconds (20-30 bpm).",
+          question: "What is the recommended compression-to-ventilation ratio for a single rescuer performing CPR on an infant?",
+          options: ["15:2", "30:2", "5:1", "20:2"],
+          correctAnswer: "30:2",
+          explanation: "For a single rescuer, the ratio is 30 compressions to 2 ventilations for both infants and children.",
+        },
+        {
+          question: "When using an AED on an infant, what is the preferred method if a manual defibrillator is unavailable?",
+          options: ["Adult pads without attenuation", "Child attenuator pads", "Do not use an AED", "Wait for a manual defibrillator"],
+          correctAnswer: "Child attenuator pads",
+          explanation: "If a manual defibrillator is unavailable, an AED with child attenuator pads is preferred for infants. If child pads are unavailable, adult pads can be used, ensuring they do not touch.",
+        },
+        {
+          question: "What is the initial intervention for a conscious infant with a severe foreign-body airway obstruction?",
+          options: ["Abdominal thrusts", "Blind finger sweeps", "5 back blows and 5 chest thrusts", "Start CPR"],
+          correctAnswer: "5 back blows and 5 chest thrusts",
+          explanation: "For a conscious infant with FBAO, deliver 5 back blows followed by 5 chest thrusts until the object is expelled or the infant becomes unconscious.",
         },
       ],
     },
     {
       id: "pals-2025-mod-3",
-      title: "Circulatory Emergencies & Shock",
-      duration: 25,
+      title: "Module 3: Airway Management & Oxygen Delivery",
+      duration: 35,
       learningObjectives: [
-        "Categorize shock types correctly",
-        "Execute 2025 fluid resuscitation strategy",
-        "Identify when to start vasoactives in septic shock",
+        "Select appropriate oxygen delivery devices and flow rates.",
+        "Perform basic airway maneuvers (head-tilt chin-lift, jaw-thrust).",
+        "Understand indications for advanced airway management.",
       ],
-      content: `
-<h2>2025 Fluid Resuscitation Strategy</h2>
-<p>The 20 mL/kg bolus remains standard, but with a critical caveat: <strong>Reassess after every bolus.</strong></p>
+      content: `<h2>Oxygen Therapy: Devices and Targets</h2>
+<p>Oxygen is a drug and should be administered judiciously. The goal is to achieve adequate oxygenation while avoiding hyperoxia.</p>
 <ul>
-  <li>Look for signs of fluid overload: New crackles or enlarging liver.</li>
-  <li>In <strong>Septic Shock</strong>, if the child remains shocked after 40-60 mL/kg, start vasoactive infusions immediately.</li>
+  <li><strong>Nasal Cannula:</strong> Low flow (0.25-4 L/min), delivers 24-35% FiO2. For mild hypoxemia.</li>
+  <li><strong>Simple Face Mask:</strong> Moderate flow (6-10 L/min), delivers 35-50% FiO2.</li>
+  <li><strong>Non-Rebreather Mask:</strong> High flow (10-15 L/min), delivers 60-95% FiO2. For severe hypoxemia.</li>
+  <li><strong>Bag-Mask Device (BVM):</strong> Used for assisted ventilation.</li>
 </ul>
-      `,
+<div class="clinical-note">
+  <strong>2025 Oxygen Titration Rule:</strong> Once stable, titrate oxygen to maintain SpO2 between 94-99%. Avoid prolonged 100% oxygen to prevent oxidative stress.
+</div>`,
       keyPoints: [
-        "Reassess after every 20 mL/kg bolus",
-        "Early vasoactives in septic shock",
-        "IO access if IV fails in 60 seconds",
+        "Oxygen is a drug, use judiciously.",
+        "Target SpO2: 94-99% once stable.",
+        "Avoid hyperoxia.",
+        "Head-tilt chin-lift for most, jaw-thrust for C-spine injury.",
+        "Cuffed ETTs preferred for advanced airways.",
       ],
-      references: ["AHA PALS 2025 Guidelines"],
+      references: [
+        "AHA PALS Provider Manual 2025 - Airway Management.",
+      ],
       quiz: [
         {
-          question: "A child in septic shock remains hypotensive after 40 mL/kg fluid. What is the next 2025-aligned step?",
-          options: ["Give more fluid", "Start vasoactive medication", "Administer Atropine", "Wait and see"],
-          correctAnswer: "Start vasoactive medication",
-          explanation: "2025 guidelines emphasize early transition to vasoactive support in fluid-refractory septic shock.",
+          question: "What is the recommended SpO2 target range for a stable pediatric patient receiving oxygen therapy, according to 2025 guidelines?",
+          options: ["90-92%", "92-94%", "94-99%", "100%"],
+          correctAnswer: "94-99%",
+          explanation: "The 2025 guidelines recommend titrating oxygen to maintain SpO2 between 94-99% once stable, avoiding hyperoxia.",
+        },
+        {
+          question: "Which airway maneuver is preferred for a patient with suspected cervical spine injury?",
+          options: ["Head-tilt chin-lift", "Jaw-thrust maneuver", "Oropharyngeal airway insertion", "Nasopharyngeal airway insertion"],
+          correctAnswer: "Jaw-thrust maneuver",
+          explanation: "The jaw-thrust maneuver minimizes neck movement and is preferred for patients with suspected cervical spine injury.",
+        },
+        {
+          question: "According to 2025 guidelines, which type of endotracheal tube is preferred for infants and children?",
+          options: ["Uncuffed ETT", "Cuffed ETT", "Tracheostomy tube", "Laryngeal Mask Airway"],
+          correctAnswer: "Cuffed ETT",
+          explanation: "The 2025 guidelines prefer cuffed endotracheal tubes for all ages to allow for better pressure control and tidal volume delivery.",
         },
       ],
     },
     {
       id: "pals-2025-mod-4",
-      title: "Cardiac Arrest Algorithms 2025",
-      duration: 30,
+      title: "Module 4: Respiratory Distress & Failure (2025 Updates)",
+      duration: 40,
       learningObjectives: [
-        "Execute the 2025 non-shockable algorithm",
-        "Identify correct defibrillation energy levels",
-        "Prioritize early Epinephrine in PEA/Asystole",
+        "Differentiate between respiratory distress and respiratory failure.",
+        "Apply the 2025 guidelines for managing specific respiratory emergencies (e.g., asthma, bronchiolitis).",
+        "Understand the role of non-invasive ventilation.",
       ],
-      content: `
-<h2>The Non-Shockable Pathway: Epinephrine ASAP</h2>
-<div class="clinical-note">
-  <strong>2025 Mandate:</strong> Administer Epinephrine 0.01 mg/kg IV/IO as soon as possible after starting CPR for non-shockable rhythms.
-</div>
-<h2>The Shockable Pathway</h2>
-<ul>
-  <li>First Shock: 2 J/kg</li>
-  <li>Second Shock: 4 J/kg</li>
-  <li>Subsequent: ≥4 J/kg</li>
-</ul>
-      `,
+      content: `<h2>Spectrum of Respiratory Compromise</h2>
+<p>Understanding the difference between distress and failure is key to timely intervention.</p>
+<table>
+  <thead><tr><th>Feature</th><th>Respiratory Distress</th><th>Respiratory Failure</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Work of Breathing</strong></td><td>Increased (tachypnea, retractions, flaring)</td><td>Markedly increased or absent/ineffective</td></tr>
+    <tr><td><strong>Mental Status</strong></td><td>Normal to anxious</td><td>Altered (lethargy, agitation, unresponsiveness)</td></tr>
+    <tr><td><strong>SpO2</strong></td><td>May be normal or slightly decreased</td><td>Significantly decreased, often with cyanosis</td></tr>
+    <tr><td><strong>Breath Sounds</strong></td><td>Wheezing, stridor, crackles</td><td>Diminished or absent, grunting</td></tr>
+    <tr><td><strong>Heart Rate</strong></td><td>Tachycardia</td><td>Bradycardia (ominous sign)</td></tr>
+  </tbody>
+</table>
+<div class="warning-note">
+  <strong>Bradycardia in Respiratory Failure:</strong> A slowing heart rate in a child with respiratory symptoms is a pre-terminal event and requires immediate, aggressive intervention.
+</div>`,
       keyPoints: [
-        "Epinephrine ASAP for PEA/Asystole",
-        "High-quality CPR is the foundation",
-        "Search for H's and T's",
+        "Differentiate distress from failure.",
+        "Bradycardia in respiratory illness is ominous.",
+        "Tailor treatment to specific conditions (asthma, bronchiolitis, croup, anaphylaxis).",
+        "Ventilation rate: 20-30 breaths/min for children with pulse.",
+        "NIV (CPAP/BiPAP) can avoid intubation.",
       ],
-      references: ["AHA PALS 2025 Guidelines"],
+      references: [
+        "AHA PALS Provider Manual 2025 - Respiratory Emergencies.",
+        "GINA 2024 - Global Initiative for Asthma.",
+      ],
       quiz: [
         {
-          question: "When should the first dose of Epinephrine be given for Asystole in 2025?",
-          options: ["After 2 mins CPR", "ASAP after access", "After first shock", "After 3 cycles"],
-          correctAnswer: "ASAP after access",
-          explanation: "2025 guidelines emphasize giving Epinephrine ASAP for non-shockable rhythms.",
+          question: "Which of the following is an ominous sign in a child with respiratory symptoms, indicating impending cardiac arrest?",
+          options: ["Tachypnea", "Wheezing", "Bradycardia", "Retractions"],
+          correctAnswer: "Bradycardia",
+          explanation: "Bradycardia in a child with respiratory symptoms is a late and ominous sign, often preceding cardiac arrest.",
+        },
+        {
+          question: "According to 2025 guidelines, what is the recommended ventilation rate for a child with a pulse but inadequate breathing?",
+          options: ["8-10 breaths/min", "12-20 breaths/min", "20-30 breaths/min", "30-40 breaths/min"],
+          correctAnswer: "20-30 breaths/min",
+          explanation: "The 2025 guidelines recommend 1 breath every 2-3 seconds (20-30 breaths per minute) to avoid hyperventilation.",
+        },
+        {
+          question: "Which medication is the first-line treatment for anaphylaxis with respiratory compromise?",
+          options: ["Albuterol", "Dexamethasone", "Epinephrine (IM)", "Diphenhydramine"],
+          correctAnswer: "Epinephrine (IM)",
+          explanation: "Intramuscular epinephrine is the first-line treatment for anaphylaxis, especially with respiratory or circulatory involvement.",
         },
       ],
     },
     {
       id: "pals-2025-mod-5",
-      title: "Tachycardia & Bradycardia",
-      duration: 25,
+      title: "Module 5: Circulatory Emergencies & Shock (2025 Updates)",
+      duration: 40,
       learningObjectives: [
-        "Identify the 'Rule of 60' for bradycardia",
-        "Apply 2025 updates for SVT",
+        "Classify different types of shock in children.",
+        "Implement the 2025 fluid resuscitation strategy with reassessment.",
+        "Identify early indications for vasoactive medications in septic shock.",
       ],
-      content: `
-<h2>The Rule of 60</h2>
-<p>Start CPR if HR < 60 bpm with poor perfusion despite oxygen/ventilation.</p>
-<h2>SVT Updates</h2>
-<p>2025 Update: IV Sotalol may be considered for refractory SVT if expert consultation is unavailable.</p>
-      `,
+      content: `<h2>Categorizing Shock</h2>
+<p>Understanding the etiology of shock guides appropriate treatment.</p>
+<table>
+  <thead><tr><th>Type</th><th>Common Causes</th><th>Key Features</th><th>Initial Management</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hypovolemic</strong></td><td>Dehydration, hemorrhage, burns</td><td>Tachycardia, poor perfusion, dry mucous membranes, decreased urine output</td><td>Fluid boluses</td></tr>
+    <tr><td><strong>Distributive</strong></td><td>Sepsis, anaphylaxis, neurogenic</td><td>Warm/flushed skin (early sepsis), rapid CRT, wide pulse pressure (sepsis); or cold/pale (late sepsis)</td><td>Fluids + Early Vasoactives</td></tr>
+    <tr><td><strong>Cardiogenic</strong></td><td>Myocarditis, cardiomyopathy, arrhythmias</td><td>Tachycardia, poor perfusion, enlarged liver, crackles, pulmonary edema</td><td>Small fluid boluses, inotropes</td></tr>
+    <tr><td><strong>Obstructive</strong></td><td>Tension pneumothorax, cardiac tamponade, pulmonary embolism, ductal-dependent lesions</td><td>Signs of shock with specific obstructive findings (e.g., tracheal deviation, muffled heart sounds)</td><td>Treat underlying cause (e.g., needle decompression)</td></tr>
+  </tbody>
+</table>`,
       keyPoints: [
-        "CPR for HR < 60 with poor perfusion",
-        "Adenosine for stable SVT",
-        "Cardioversion for unstable SVT",
+        "Four types of shock: Hypovolemic, Distributive, Cardiogenic, Obstructive.",
+        "Reassess after every fluid bolus (20 mL/kg).",
+        "Early vasoactives for fluid-refractory septic shock.",
+        "Smaller fluid boluses for cardiogenic shock.",
+        "IO access if IV not established within 60s or 2 attempts.",
       ],
-      references: ["AHA PALS 2025 Guidelines"],
-      quiz: [],
+      references: [
+        "AHA PALS Provider Manual 2025 - Shock.",
+      ],
+      quiz: [
+        {
+          question: "A child in septic shock has received 60 mL/kg of fluid and remains hypotensive. What is the next most appropriate step according to 2025 guidelines?",
+          options: ["Administer another 20 mL/kg fluid bolus", "Initiate vasoactive medication infusion", "Perform a pericardiocentesis", "Wait 30 minutes and reassess"],
+          correctAnswer: "Initiate vasoactive medication infusion",
+          explanation: "The 2025 guidelines emphasize early initiation of vasoactive medications in fluid-refractory septic shock after 40-60 mL/kg of fluid.",
+        },
+        {
+          question: "Which type of shock is characterized by tachycardia, poor perfusion, and an enlarged liver?",
+          options: ["Hypovolemic shock", "Distributive shock", "Cardiogenic shock", "Obstructive shock"],
+          correctAnswer: "Cardiogenic shock",
+          explanation: "Cardiogenic shock often presents with signs of fluid overload (enlarged liver, crackles) due to pump failure, in addition to poor perfusion.",
+        },
+        {
+          question: "When should intraosseous (IO) access be considered during a pediatric resuscitation?",
+          options: ["After 5 minutes of failed IV attempts", "Only in children under 1 year old", "If IV access cannot be established within 60 seconds or 2 attempts", "As a last resort after all other options fail"],
+          correctAnswer: "If IV access cannot be established within 60 seconds or 2 attempts",
+          explanation: "IO access should be established rapidly if IV access is difficult, specifically if it cannot be obtained within 60 seconds or after 2 attempts.",
+        },
+      ],
     },
     {
       id: "pals-2025-mod-6",
-      title: "Post-Cardiac Arrest Care & Recovery",
-      duration: 25,
+      title: "Module 6: Cardiac Arrest Algorithms (2025 Updates)",
+      duration: 45,
       learningObjectives: [
-        "Identify fever prevention targets",
-        "Explain the importance of the Recovery link",
+        "Master high-performance CPR, execute the 2025 non-shockable and shockable cardiac arrest algorithms, and prioritize early Epinephrine.",
       ],
-      content: `
-<h2>Targeted Temperature Management</h2>
-<p>Preventing hyperthermia (>37.5°C) is critical for neuroprotection.</p>
-<h2>The Recovery Link</h2>
-<p>Early referral to rehabilitation is now a 2025 mandate.</p>
-      `,
+      content: `<h2>CPR Quality: The Core of Resuscitation</h2>
+<p>The principles of high-quality CPR (rate, depth, recoil, minimizing interruptions, avoiding excessive ventilation) are even more critical during cardiac arrest.</p>
+<ul>
+  <li><strong>Compression Rate:</strong> 100-120/min.</li>
+  <li><strong>Compression Depth:</strong> At least one-third AP diameter (1.5 inches infants, 2 inches children).</li>
+  <li><strong>Full Chest Recoil.</strong></li>
+  <li><strong>Minimize Interruptions.</strong></li>
+  <li><strong>Avoid Excessive Ventilation.</strong></li>
+</ul>
+<div class="clinical-note">
+  <strong>Physiology-Directed CPR:</strong> Monitor ETCO2 (target >15-20 mmHg) and Diastolic BP (infants ≥25 mmHg, children ≥30 mmHg) to guide CPR quality.
+</div>`,
       keyPoints: [
-        "Prevent fever >37.5°C",
-        "Recovery is a long-term journey",
-        "Neuroprognostication must be multi-modal",
+        "High-quality CPR is paramount.",
+        "Epinephrine ASAP for non-shockable rhythms (Asystole, PEA).",
+        "Shock is priority for shockable rhythms (VF, pVT).",
+        "Defibrillation: 2 J/kg first, then 4 J/kg, then ≥4 J/kg.",
+        "Treat H's and T's.",
       ],
-      references: ["AHA PALS 2025 Guidelines"],
-      quiz: [],
+      references: [
+        "AHA PALS Provider Manual 2025 - Cardiac Arrest.",
+      ],
+      quiz: [
+        {
+          question: "For a child in Asystole, when should the first dose of Epinephrine be administered according to 2025 guidelines?",
+          options: ["After 2 minutes of CPR", "As soon as IV/IO access is available", "After the first rhythm check", "Only after the second shock"],
+          correctAnswer: "As soon as IV/IO access is available",
+          explanation: "For non-shockable rhythms (Asystole, PEA), Epinephrine should be given as soon as IV/IO access is available, without delay.",
+        },
+        {
+          question: "What is the recommended energy dose for the first defibrillation attempt in a child?",
+          options: ["1 J/kg", "2 J/kg", "4 J/kg", "10 J/kg"],
+          correctAnswer: "2 J/kg",
+          explanation: "The first defibrillation attempt for VF/pVT is 2 J/kg. Subsequent shocks are 4 J/kg or higher.",
+        },
+        {
+          question: "Which of the following is NOT one of the 'H's or 'T's (reversible causes) in pediatric cardiac arrest?",
+          options: ["Hypoglycemia", "Hypoxia", "Tension pneumothorax", "Tachycardia"],
+          correctAnswer: "Tachycardia",
+          explanation: "Tachycardia is a rhythm, not a reversible cause. The H's and T's are critical to identify and treat during resuscitation.",
+        },
+      ],
+    },
+    {
+      id: "pals-2025-mod-7",
+      title: "Module 7: Bradycardia & Tachycardia (2025 Updates)",
+      duration: 40,
+      learningObjectives: [
+        "Manage unstable rhythms, apply the 'Rule of 60' for bradycardia, and implement 2025 updates for SVT and other arrhythmias.",
+      ],
+      content: `<h2>Pediatric Bradycardia: When to Intervene</h2>
+<p>Bradycardia in children is most often secondary to hypoxia and acidosis. It is an ominous sign.</p>
+<div class="warning-note">
+  <strong>The Rule of 60:</strong> Start CPR if the heart rate is <60 bpm with signs of poor perfusion (altered mental status, weak pulses, pallor) despite adequate oxygenation and ventilation.
+</div>
+<p><strong>Management:</strong></p>
+<ul>
+  <li><strong>Oxygenation and Ventilation:</strong> Ensure adequate.</li>
+  <li><strong>Epinephrine:</strong> 0.01 mg/kg IV/IO is the first-line drug for symptomatic bradycardia.</li>
+  <li><strong>Atropine:</strong> 0.02 mg/kg IV/IO (minimum 0.1 mg) for primary AV block or increased vagal tone.</li>
+  <li><strong>Pacing:</strong> Transcutaneous pacing may be considered if bradycardia is unresponsive to medications and reversible causes are treated.</li>
+</ul>`,
+      keyPoints: [
+        "Bradycardia is often due to hypoxia/acidosis.",
+        "Rule of 60: Start CPR if HR <60 with poor perfusion.",
+        "Epinephrine is first-line for symptomatic bradycardia.",
+        "Unstable tachycardia requires synchronized cardioversion.",
+        "IV Sotalol for refractory SVT (2025 update).",
+      ],
+      references: [
+        "AHA PALS Provider Manual 2025 - Arrhythmias.",
+      ],
+      quiz: [
+        {
+          question: "According to the 'Rule of 60', when should CPR be initiated for a bradycardic child?",
+          options: ["HR <60 bpm regardless of perfusion", "HR <60 bpm with signs of poor perfusion despite oxygenation/ventilation", "HR <80 bpm with poor perfusion", "Only if asystole is present"],
+          correctAnswer: "HR <60 bpm with signs of poor perfusion despite oxygenation/ventilation",
+          explanation: "The Rule of 60 states that CPR should be started if HR <60 bpm with poor perfusion despite adequate oxygenation and ventilation.",
+        },
+        {
+          question: "What is the first-line medication for stable Supraventricular Tachycardia (SVT) in children after vagal maneuvers?",
+          options: ["Epinephrine", "Atropine", "Adenosine", "Amiodarone"],
+          correctAnswer: "Adenosine",
+          explanation: "Adenosine is the first-line medication for stable SVT unresponsive to vagal maneuvers.",
+        },
+        {
+          question: "What is the recommended initial energy dose for synchronized cardioversion in unstable pediatric tachycardia?",
+          options: ["0.1 J/kg", "0.5-1 J/kg", "2 J/kg", "4 J/kg"],
+          correctAnswer: "0.5-1 J/kg",
+          explanation: "The initial energy dose for synchronized cardioversion in unstable pediatric tachycardia is 0.5-1 J/kg.",
+        },
+      ],
+    },
+    {
+      id: "pals-2025-mod-8",
+      title: "Module 8: Post-Cardiac Arrest Care & Recovery (2025 Updates)",
+      duration: 35,
+      learningObjectives: [
+        "Implement targeted temperature management to prevent hyperthermia.",
+        "Understand the importance of the 'Recovery' link in the Chain of Survival.",
+        "Identify key elements of post-resuscitation stabilization.",
+      ],
+      content: `<h2>Post-Cardiac Arrest Syndrome</h2>
+<p>After ROSC, children can experience a complex syndrome involving brain injury, myocardial dysfunction, systemic ischemia/reperfusion injury, and persistent precipitating illness.</p>
+<h3>Key Goals:</h3>
+<ul>
+  <li><strong>Optimize Ventilation:</strong> Avoid hyperoxia and hyper/hypocapnia. Target normal SpO2 and ETCO2.</li>
+  <li><strong>Optimize Circulation:</strong> Maintain adequate blood pressure and perfusion. Use fluids and vasoactives as needed.</li>
+  <li><strong>Targeted Temperature Management (TTM):</strong> Prevent fever (>37.5°C). Consider therapeutic hypothermia (32-34°C) for comatose patients after out-of-hospital cardiac arrest (OHCA) or in-hospital cardiac arrest (IHCA) if feasible and protocols exist.</li>
+  <li><strong>Glucose Control:</strong> Avoid hypo- and hyperglycemia.</li>
+  <li><strong>Seizure Management:</strong> Treat clinical and electrographic seizures aggressively.</li>
+</ul>`,
+      keyPoints: [
+        "Post-ROSC care is critical for neurological outcomes.",
+        "Prevent fever (>37.5°C).",
+        "'Recovery' is the 6th link in the Chain of Survival.",
+        "Early rehabilitation is a 2025 mandate.",
+        "Multimodal neuroprognostication.",
+      ],
+      references: [
+        "AHA PALS Provider Manual 2025 - Post-Cardiac Arrest Care.",
+      ],
+      quiz: [
+        {
+          question: "According to 2025 guidelines, what is the primary temperature management goal in post-cardiac arrest care?",
+          options: ["Induce severe hypothermia (<30°C)", "Maintain normothermia and prevent fever (>37.5°C)", "Allow mild hyperthermia (38-39°C)", "Rapid rewarming to 37°C"],
+          correctAnswer: "Maintain normothermia and prevent fever (>37.5°C)",
+          explanation: "Preventing fever (>37.5°C) is a critical goal in post-cardiac arrest care to improve neurological outcomes.",
+        },
+        {
+          question: "Which new link was added to the 2025 Chain of Survival, emphasizing long-term well-being?",
+          options: ["Early Defibrillation", "Advanced Resuscitation", "Recovery", "Post-Cardiac Arrest Care"],
+          correctAnswer: "Recovery",
+          explanation: "The 'Recovery' link was added to highlight the importance of long-term physical, cognitive, and emotional support for survivors.",
+        },
+      ],
+    },
+    {
+      id: "pals-2025-mod-9",
+      title: "Module 9: PALS Team Dynamics & Communication",
+      duration: 30,
+      learningObjectives: [
+        "Apply effective team leadership and communication strategies during resuscitation.",
+        "Understand the roles and responsibilities of PALS team members.",
+        "Conduct effective debriefings.",
+      ],
+      content: `<h2>The PALS Team Leader</h2>
+<p>The team leader is responsible for:</p>
+<ul>
+  <li>Assigning roles and tasks.</li>
+  <li>Making treatment decisions.</li>
+  <li>Modeling good communication.</li>
+  <li>Periodically summarizing progress.</li>
+  <li>Maintaining situational awareness.</li>
+</ul>
+<h3>Key Team Roles:</h3>
+<ul>
+  <li><strong>Compressor:</strong> Performs chest compressions.</li>
+  <li><strong>Airway/Ventilation:</strong> Manages airway and delivers ventilations.</li>
+  <li><strong>Medication:</strong> Prepares and administers drugs.</li>
+  <li><strong>Timer/Recorder:</strong> Tracks time, records events, calls out next drug doses.</li>
+</ul>`,
+      keyPoints: [
+        "Team leader assigns roles and makes decisions.",
+        "Closed-loop communication ensures clarity.",
+        "Debriefing is crucial for continuous improvement.",
+        "Psychological safety in debriefing.",
+      ],
+      references: [
+        "AHA PALS Provider Manual 2025 - Team Dynamics.",
+      ],
+      quiz: [
+        {
+          question: "Which communication technique ensures that messages are sent, received, and understood during a resuscitation?",
+          options: ["Open-ended questions", "Closed-loop communication", "Briefing", "Debriefing"],
+          correctAnswer: "Closed-loop communication",
+          explanation: "Closed-loop communication is a critical technique to ensure clear and accurate information exchange within the resuscitation team.",
+        },
+        {
+          question: "What is a primary responsibility of the PALS team leader?",
+          options: ["Performing all chest compressions", "Administering all medications", "Assigning roles and tasks", "Recording all events"],
+          correctAnswer: "Assigning roles and tasks",
+          explanation: "The team leader is responsible for organizing the team, assigning roles, and making treatment decisions.",
+        },
+        {
+          question: "What is the purpose of a post-resuscitation debriefing?",
+          options: ["To assign blame for errors", "To document legal aspects of the resuscitation", "To identify what went well and what could be improved", "To review patient billing information"],
+          correctAnswer: "To identify what went well and what could be improved",
+          explanation: "Debriefing is a crucial learning tool to analyze team performance, identify areas for improvement, and enhance psychological safety.",
+        },
+      ],
     },
   ],
 };
