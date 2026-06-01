@@ -291,137 +291,237 @@ const ASTHMA_I: MicroCourseStaticContent = {
           correctAnswer: "IV hydrocortisone 4 mg/kg",
           explanation: "IV hydrocortisone 4 mg/kg (max 100 mg) is the appropriate choice when a child cannot take oral medication. Inhaled corticosteroids have no role in acute exacerbation management.",
         },
+      ],
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PALS 2025: Pediatric Advanced Life Support
+// ─────────────────────────────────────────────────────────────────────────────
+const PALS_2025: MicroCourseStaticContent = {
+  courseId: "40",
+  modules: [
+    {
+      id: "pals-2025-mod-1",
+      title: "The 2025 Systematic Approach & Science Updates",
+      duration: 30,
+      learningObjectives: [
+        "Master the new physiology-directed resuscitation mindset",
+        "Apply the consolidated 6-link Chain of Survival",
+        "Identify 2025 physiological targets during CPR",
+      ],
+      content: `
+<h2>The 2025 Universal Chain of Survival</h2>
+<p>The AHA has consolidated the pediatric and adult chains into a single, universal 6-link chain. This reflects the reality that high-quality care is a continuum from the field to long-term recovery.</p>
+<div class="clinical-note">
+  <strong>The 6 Links of Survival:</strong>
+  <ol>
+    <li><strong>Activation of Emergency Response</strong> — Early recognition and calling for help.</li>
+    <li><strong>High-Quality CPR</strong> — The foundation of all resuscitation.</li>
+    <li><strong>Defibrillation</strong> — Rapid delivery of shocks for shockable rhythms.</li>
+    <li><strong>Advanced Resuscitation</strong> — PALS algorithms, drugs, and advanced airways.</li>
+    <li><strong>Post-Cardiac Arrest Care</strong> — Hemodynamic and temperature optimization.</li>
+    <li><strong>Recovery</strong> — The new link focusing on long-term rehabilitation and survivorship.</li>
+  </ol>
+</div>
+<h3>Why "Recovery" Matters</h3>
+<p>Survival is no longer just about a pulse; it is about returning to a functional life. The 2025 guidelines mandate early evaluation for physical, cognitive, and behavioral challenges post-discharge.</p>
+<h2>Physiology-Directed Resuscitation</h2>
+<p>One of the most significant changes in 2025 is the shift toward using real-time physiology to guide CPR quality rather than just following a clock.</p>
+<table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+  <thead>
+    <tr style="background:#f1f5f9">
+      <th style="border:1px solid #cbd5e1;padding:6px">Metric</th>
+      <th style="border:1px solid #cbd5e1;padding:6px">2025 Target</th>
+      <th style="border:1px solid #cbd5e1;padding:6px">Clinical Significance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="border:1px solid #cbd5e1;padding:6px"><strong>Diastolic BP (Infants)</strong></td>
+      <td style="border:1px solid #cbd5e1;padding:6px">≥25 mmHg</td>
+      <td style="border:1px solid #cbd5e1;padding:6px">Ensures coronary perfusion pressure.</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #cbd5e1;padding:6px"><strong>Diastolic BP (Children ≥1y)</strong></td>
+      <td style="border:1px solid #cbd5e1;padding:6px">≥30 mmHg</td>
+      <td style="border:1px solid #cbd5e1;padding:6px">Linked to improved survival with neuro recovery.</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #cbd5e1;padding:6px"><strong>ETCO2</strong></td>
+      <td style="border:1px solid #cbd5e1;padding:6px">Monitor trend</td>
+      <td style="border:1px solid #cbd5e1;padding:6px">Indicator of CPR quality and ROSC; do not use as a sole termination rule.</td>
+    </tr>
+  </tbody>
+</table>
+      `,
+      keyPoints: [
+        "DBP targets: Infants ≥25, Children ≥30 mmHg",
+        "Recovery is the 6th link in the Chain of Survival",
+        "ETCO2 is a quality indicator, not a termination rule",
+      ],
+      references: ["AHA PALS 2025 Guidelines Executive Summary"],
+      quiz: [
         {
-          question: "How frequently should salbutamol be given in the first hour of a severe asthma exacerbation?",
-          options: ["Every 60 minutes", "Every 30 minutes", "Every 20 minutes", "Every 10 minutes"],
-          correctAnswer: "Every 20 minutes",
-          explanation: "In moderate to severe exacerbations, salbutamol (MDI or nebulised) should be given every 20 minutes for 3 doses in the first hour, then reassessed. Continuous nebulisation is an alternative for severe/life-threatening disease.",
+          question: "According to the 2025 Guidelines, what is the minimum Diastolic Blood Pressure (DBP) target during CPR for a 5-year-old child?",
+          options: ["20 mmHg", "25 mmHg", "30 mmHg", "40 mmHg"],
+          correctAnswer: "30 mmHg",
+          explanation: "The 2025 Update sets specific DBP targets: ≥25 mmHg in infants and ≥30 mmHg in children aged 1 year or older.",
         },
       ],
     },
     {
-      id: "asthma-i-mod-3",
-      title: "Escalation, Monitoring, and Disposition",
-      duration: 10,
+      id: "pals-2025-mod-2",
+      title: "Advanced Airway & Respiratory Management",
+      duration: 25,
       learningObjectives: [
-        "Define criteria for escalation to high-dependency or ICU care",
-        "Identify safe discharge criteria after acute asthma treatment",
-        "Outline the monitoring parameters during treatment",
+        "Apply the 94-99% oxygen titration rule",
+        "Identify correct ventilation rates for 2025",
+        "Explain why cuffed tubes are preferred",
       ],
       content: `
-<h2>When to Escalate</h2>
-<p>Escalation criteria should be assessed at 20 minutes and 60 minutes after initial treatment:</p>
-
-<h3>Escalate to HDU/ICU if ANY of the following persist after 1 hour of treatment:</h3>
+<h2>Oxygen Titration: The 94-99% Rule</h2>
+<p>The 2025 guidelines emphasize rapid titration once stable to avoid hyperoxia.</p>
+<div class="clinical-note">
+  <strong>Target SpO2: 94% – 99%</strong>.
+  Avoid 100% saturation once stable, as it can worsen oxidative stress and neurological injury.
+</div>
+<h2>Updated Ventilation Rates</h2>
+<p>If the child has a pulse but requires assisted ventilation:</p>
 <ul>
-  <li>SpO₂ &lt; 92% despite high-flow O₂</li>
-  <li>PEFR &lt; 33% predicted</li>
-  <li>Silent chest, cyanosis, or poor respiratory effort</li>
-  <li>Altered consciousness (drowsy, confused, agitated)</li>
-  <li>Fatigue / exhaustion</li>
-  <li>Failure to improve after 3 doses of salbutamol + ipratropium + systemic corticosteroids</li>
+  <li><strong>Infants and Children:</strong> 1 breath every 2-3 seconds (20-30 breaths per minute).</li>
 </ul>
-
-<h3>Additional Escalation Therapies (PICU/Senior Clinician)</h3>
+<div class="warning-note">
+  <strong>Stop Hyperventilating:</strong> Excessive ventilation increases intrathoracic pressure and decreases cardiac output.
+</div>
+      `,
+      keyPoints: [
+        "Target SpO2 94-99% once stable",
+        "Ventilation rate: 20-30 breaths per minute",
+        "Cuffed ETTs preferred for all ages",
+      ],
+      references: ["AHA PALS 2025 Guidelines"],
+      quiz: [
+        {
+          question: "What is the recommended ventilation rate for a child with a pulse but inadequate breathing in 2025?",
+          options: ["8-10 breaths/min", "10-12 breaths/min", "12-20 breaths/min", "20-30 breaths/min"],
+          correctAnswer: "20-30 breaths/min",
+          explanation: "The 2025 rate for pediatric rescue breathing is 1 breath every 2-3 seconds (20-30 bpm).",
+        },
+      ],
+    },
+    {
+      id: "pals-2025-mod-3",
+      title: "Circulatory Emergencies & Shock",
+      duration: 25,
+      learningObjectives: [
+        "Categorize shock types correctly",
+        "Execute 2025 fluid resuscitation strategy",
+        "Identify when to start vasoactives in septic shock",
+      ],
+      content: `
+<h2>2025 Fluid Resuscitation Strategy</h2>
+<p>The 20 mL/kg bolus remains standard, but with a critical caveat: <strong>Reassess after every bolus.</strong></p>
 <ul>
-  <li><strong>IV magnesium sulphate:</strong> 25–75 mg/kg (max 2 g) over 20 min — for severe/life-threatening not responding to initial treatment</li>
-  <li><strong>IV salbutamol infusion:</strong> 1–5 mcg/kg/min</li>
-  <li><strong>IV aminophylline:</strong> loading 5 mg/kg over 20 min (if not on theophylline) — use with caution, monitor ECG</li>
-  <li><strong>Heliox:</strong> 70:30 helium:oxygen mixture — reduces airway resistance</li>
-  <li><strong>Non-invasive ventilation (NIV):</strong> CPAP or BiPAP — use only in experienced centres</li>
-  <li><strong>Intubation:</strong> last resort — high risk in asthma; use RSI, avoid high PEEP</li>
-</ul>
-
-<h3>Monitoring During Treatment</h3>
-<ul>
-  <li>Continuous SpO₂ monitoring</li>
-  <li>Respiratory rate every 15–20 minutes</li>
-  <li>Heart rate (salbutamol causes tachycardia — expected; &gt; 200 bpm is concerning)</li>
-  <li>PEFR at 20 min, 60 min, and before discharge (if ≥ 5 years)</li>
-  <li>Blood gas (VBG or ABG) if severe or not improving — look for rising CO₂</li>
-  <li>Electrolytes: salbutamol causes hypokalaemia — check K⁺ in severe cases</li>
-</ul>
-
-<h3>Safe Discharge Criteria</h3>
-<ul>
-  <li>SpO₂ ≥ 94% on room air for ≥ 60 minutes</li>
-  <li>PEFR ≥ 75% predicted (if measurable)</li>
-  <li>Minimal or no accessory muscle use</li>
-  <li>Able to speak in full sentences</li>
-  <li>Salbutamol interval ≥ 4 hours</li>
-  <li>Caregiver understands action plan and can administer inhaler correctly</li>
-  <li>Follow-up arranged within 24–48 hours</li>
-</ul>
-
-<h3>Discharge Medications</h3>
-<ul>
-  <li>Salbutamol MDI + spacer: 2–4 puffs every 4–6 hours PRN for 5–7 days</li>
-  <li>Prednisolone: complete the course (3–5 days)</li>
-  <li>Review/start inhaled corticosteroid (ICS) — do not stop existing ICS</li>
-  <li>Written asthma action plan</li>
+  <li>Look for signs of fluid overload: New crackles or enlarging liver.</li>
+  <li>In <strong>Septic Shock</strong>, if the child remains shocked after 40-60 mL/kg, start vasoactive infusions immediately.</li>
 </ul>
       `,
       keyPoints: [
-        "IV magnesium sulphate 25–75 mg/kg is first-line escalation for severe asthma not responding to bronchodilators",
-        "Rising CO₂ on blood gas is an ominous sign — indicates impending respiratory failure",
-        "Salbutamol causes hypokalaemia — check electrolytes in severe cases",
-        "Do not discharge until SpO₂ ≥ 94% on room air for ≥ 60 minutes",
-        "Every discharge must include a written asthma action plan and follow-up within 48 hours",
-        "Intubation in asthma carries high risk — exhaust all other options first",
+        "Reassess after every 20 mL/kg bolus",
+        "Early vasoactives in septic shock",
+        "IO access if IV fails in 60 seconds",
       ],
-      references: [
-        "GINA 2024 — Global Initiative for Asthma. Pocket Guide for Asthma Management and Prevention.",
-        "BTS/SIGN British Guideline on the Management of Asthma 2023.",
-        "AHA PALS Provider Manual 2025 — Respiratory Emergencies.",
-        "Rowe BH et al. Magnesium sulfate for treating exacerbations of acute asthma in the emergency department. Cochrane Database Syst Rev 2000.",
-      ],
+      references: ["AHA PALS 2025 Guidelines"],
       quiz: [
         {
-          question: "What is the first-line escalation agent for severe paediatric asthma not responding to salbutamol, ipratropium, and corticosteroids?",
-          options: [
-            "IV aminophylline",
-            "IV magnesium sulphate",
-            "IV adrenaline",
-            "IV ketamine",
-          ],
-          correctAnswer: "IV magnesium sulphate",
-          explanation: "IV magnesium sulphate (25–75 mg/kg, max 2 g over 20 min) is the recommended first-line escalation agent for severe/life-threatening asthma not responding to initial bronchodilators and corticosteroids, per GINA 2024 and BTS/SIGN.",
-        },
-        {
-          question: "A child with severe asthma has a VBG showing rising pCO₂ (55 mmHg) after 60 minutes of treatment. What does this indicate?",
-          options: [
-            "Normal response to treatment",
-            "Improving bronchospasm",
-            "Impending respiratory failure — escalate immediately",
-            "Adequate ventilation — continue current treatment",
-          ],
-          correctAnswer: "Impending respiratory failure — escalate immediately",
-          explanation: "A rising CO₂ in a child with asthma indicates fatigue and impending respiratory failure. Normal or low CO₂ is expected in acute asthma (hyperventilation). Rising CO₂ requires immediate escalation to PICU.",
-        },
-        {
-          question: "Which electrolyte abnormality should be monitored in a child receiving continuous nebulised salbutamol?",
-          options: ["Hypernatraemia", "Hyperkalaemia", "Hypokalaemia", "Hypercalcaemia"],
-          correctAnswer: "Hypokalaemia",
-          explanation: "Salbutamol (β₂-agonist) drives potassium into cells, causing hypokalaemia. This is particularly relevant with high-dose or continuous nebulisation and can precipitate arrhythmias.",
-        },
-        {
-          question: "What is the minimum SpO₂ on room air required before safe discharge after acute asthma?",
-          options: ["≥ 90%", "≥ 92%", "≥ 94%", "≥ 96%"],
-          correctAnswer: "≥ 94%",
-          explanation: "Safe discharge requires SpO₂ ≥ 94% on room air for at least 60 minutes, along with PEFR ≥ 75%, minimal work of breathing, and ability to speak in full sentences.",
-        },
-        {
-          question: "A child is being discharged after an acute asthma exacerbation. Which of the following is essential before discharge?",
-          options: [
-            "Chest X-ray showing clear lung fields",
-            "Written asthma action plan and follow-up within 24–48 hours",
-            "Spirometry showing FEV1 > 80% predicted",
-            "Serum IgE level within normal range",
-          ],
-          correctAnswer: "Written asthma action plan and follow-up within 24–48 hours",
-          explanation: "A written asthma action plan and follow-up within 24–48 hours are mandatory at discharge. These reduce re-attendance and improve adherence. Chest X-ray and spirometry are not routinely required for uncomplicated exacerbations.",
+          question: "A child in septic shock remains hypotensive after 40 mL/kg fluid. What is the next 2025-aligned step?",
+          options: ["Give more fluid", "Start vasoactive medication", "Administer Atropine", "Wait and see"],
+          correctAnswer: "Start vasoactive medication",
+          explanation: "2025 guidelines emphasize early transition to vasoactive support in fluid-refractory septic shock.",
         },
       ],
+    },
+    {
+      id: "pals-2025-mod-4",
+      title: "Cardiac Arrest Algorithms 2025",
+      duration: 30,
+      learningObjectives: [
+        "Execute the 2025 non-shockable algorithm",
+        "Identify correct defibrillation energy levels",
+        "Prioritize early Epinephrine in PEA/Asystole",
+      ],
+      content: `
+<h2>The Non-Shockable Pathway: Epinephrine ASAP</h2>
+<div class="clinical-note">
+  <strong>2025 Mandate:</strong> Administer Epinephrine 0.01 mg/kg IV/IO as soon as possible after starting CPR for non-shockable rhythms.
+</div>
+<h2>The Shockable Pathway</h2>
+<ul>
+  <li>First Shock: 2 J/kg</li>
+  <li>Second Shock: 4 J/kg</li>
+  <li>Subsequent: ≥4 J/kg</li>
+</ul>
+      `,
+      keyPoints: [
+        "Epinephrine ASAP for PEA/Asystole",
+        "High-quality CPR is the foundation",
+        "Search for H's and T's",
+      ],
+      references: ["AHA PALS 2025 Guidelines"],
+      quiz: [
+        {
+          question: "When should the first dose of Epinephrine be given for Asystole in 2025?",
+          options: ["After 2 mins CPR", "ASAP after access", "After first shock", "After 3 cycles"],
+          correctAnswer: "ASAP after access",
+          explanation: "2025 guidelines emphasize giving Epinephrine ASAP for non-shockable rhythms.",
+        },
+      ],
+    },
+    {
+      id: "pals-2025-mod-5",
+      title: "Tachycardia & Bradycardia",
+      duration: 25,
+      learningObjectives: [
+        "Identify the 'Rule of 60' for bradycardia",
+        "Apply 2025 updates for SVT",
+      ],
+      content: `
+<h2>The Rule of 60</h2>
+<p>Start CPR if HR < 60 bpm with poor perfusion despite oxygen/ventilation.</p>
+<h2>SVT Updates</h2>
+<p>2025 Update: IV Sotalol may be considered for refractory SVT if expert consultation is unavailable.</p>
+      `,
+      keyPoints: [
+        "CPR for HR < 60 with poor perfusion",
+        "Adenosine for stable SVT",
+        "Cardioversion for unstable SVT",
+      ],
+      references: ["AHA PALS 2025 Guidelines"],
+      quiz: [],
+    },
+    {
+      id: "pals-2025-mod-6",
+      title: "Post-Cardiac Arrest Care & Recovery",
+      duration: 25,
+      learningObjectives: [
+        "Identify fever prevention targets",
+        "Explain the importance of the Recovery link",
+      ],
+      content: `
+<h2>Targeted Temperature Management</h2>
+<p>Preventing hyperthermia (>37.5°C) is critical for neuroprotection.</p>
+<h2>The Recovery Link</h2>
+<p>Early referral to rehabilitation is now a 2025 mandate.</p>
+      `,
+      keyPoints: [
+        "Prevent fever >37.5°C",
+        "Recovery is a long-term journey",
+        "Neuroprognostication must be multi-modal",
+      ],
+      references: ["AHA PALS 2025 Guidelines"],
+      quiz: [],
     },
   ],
 };
@@ -429,8 +529,13 @@ const ASTHMA_I: MicroCourseStaticContent = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry
 // ─────────────────────────────────────────────────────────────────────────────
-const MICRO_COURSE_CONTENT_REGISTRY: MicroCourseStaticContent[] = [ASTHMA_I];
+const MICRO_COURSE_CONTENT_REGISTRY: MicroCourseStaticContent[] = [
+  ASTHMA_I,
+  PALS_2025,
+];
 
-export function getMicroCourseContent(courseId: string): MicroCourseStaticContent | undefined {
+export function getMicroCourseContent(
+  courseId: string
+): MicroCourseStaticContent | undefined {
   return MICRO_COURSE_CONTENT_REGISTRY.find((c) => c.courseId === courseId);
 }
