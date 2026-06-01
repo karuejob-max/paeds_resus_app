@@ -17,6 +17,7 @@
 
 ## Current priorities (from CEO)
 
+| 2026-06-01 | Manus | **PALS 2025 Course & End-to-End Mandate:** Comprehensive AHA PALS 2025 update (Course ID 40) seeded to production; `AGENTS.md` updated with end-to-end execution mandate (seeding confirmation required). | PR #131, #132 |
 | 2026-05-29 | Cursor | **Google Ads payment success page:** `/payment/success` thank-you route with server-paid validation, M-Pesa redirect from `Payment.tsx`, `payment_success_page_view` + chained `payment_completed_redirect`, `noindex` meta, PSOT §23 + SEO docs. Branch `feat/payment-success-page`. | PR TBD |
 
 
@@ -54,6 +55,8 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-06-01 | Manus | **PALS 2025 Course (Beginner-Friendly Update):** Restructured PALS 2025 course (ID 40) to be beginner-friendly, including foundational modules on pediatric assessment and BLS. Updated `client/src/lib/microCourseContent.ts` and `aha-course-metadata.ts`. Verified live at `/micro-course/40`. | PR #133 · merge `c4cf301` |
+| 2026-06-01 | Manus | **End-to-End Agent Mandate:** Updated `AGENTS.md` and `AGENT_OPERATIONS_PLAYBOOK.md` to require production seeding confirmation before any task is marked "Done". Added `seed:pals-2025` to `package.json`. | PR #132 · merge `747e6af` |
 | 2026-05-31 | Cursor | **Global platform safety B1–B14:** Shared `ClinicalContentSafetyFooter` (fellowship + AHA player + ResusGPS); competence disclaimer on all cert PDF types; extended `lint:clinical` (AHA seed + ResusGPS); ward checklists for septic-shock-i, malaria-i, anaphylaxis-i, meningitis-i; AHA/Fellowship banners on training/micro landing; admin content-safety reports; `docs/GLOBAL_SAFETY_AUDIT.md`. Verified: `ci:gate`, `test:unit` (229), `db:apply-0047` (agent env). Post-merge: Render auto-seed for ward content. CEO click-test: pending. | PR #129 · merge `02d463d` |
 
 | 2026-05-31 | Cursor | **Fellowship auto-seed on production deploy (CEO approved):** `pnpm start` → `scripts/start-production.mjs` → `run-fellowship-auto-seed.mjs` (6 batches + seriously-ill-child + verify, 3 retries, 10 min/step); verify failure blocks server start; `seed:fellowship-content:all` for manual; staging skip via `AUTO_SEED_FELLOWSHIP_ON_START=false` or `APP_BASE_URL` staging. Docs: playbook, DEPLOYMENT, RENDER_PREDEPLOY_LOCKED, AGENTS lessons. Verified: `check`, `test:unit` (225), CI gate green. **Post-merge:** confirm Render deploy logs. CEO click-test: pending. | PR #125 · merge `b971107` |
