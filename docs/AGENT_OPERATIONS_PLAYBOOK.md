@@ -120,7 +120,7 @@ Uses `scripts/test-db-connection.mjs` → **IPv4 DNS lookup + Aiven SSL** (same 
 
 **Windows / agent env:** Prefer scripts that import `scripts/db-connection-config.mjs`. Raw `drizzle-kit migrate` may ignore SSL in URL and timeout against Aiven.
 
-### 2.2 Fellowship content seed (chunked — preferred)
+### 2.2 Fellowship & AHA content seed (chunked — preferred)
 
 Full catalog in one run can **ETIMEDOUT** on long connections. Use batches:
 
@@ -131,6 +131,13 @@ pnpm run seed:fellowship-content:shock
 pnpm run seed:fellowship-content:infectious
 pnpm run seed:fellowship-content:trauma
 pnpm run seed:fellowship-content:metabolic
+```
+
+**AHA Courses (PALS, ACLS, BLS):**
+
+```bash
+pnpm run seed:pals-2025    # Targeted PALS 2025 update
+pnpm run seed:bls-acls     # Standard AHA courses
 ```
 
 **Single course:**

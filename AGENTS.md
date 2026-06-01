@@ -23,10 +23,11 @@ If you are an AI agent operating in this repository, you **MUST** read this file
 Work is **NOT done** until:
 
 - Changes are on **`origin/main`** (merge commit hash), **or** CEO-only blocker documented in WORK_STATUS **Blocked**
-- **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + verify command output
-- Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script
+- **Production Seeding Confirmed:** For any new course or content, the production database **MUST** be seeded and verified (e.g., via `verify-fellowship-seed.ts` or a targeted check script).
+- **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + **Production Verify Output**.
+- Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script.
 
-**Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR.
+**Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR, **code merged but production DB not seeded**.
 
 ### Autonomous shipping (read every session)
 

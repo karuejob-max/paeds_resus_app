@@ -60,6 +60,7 @@
     "db:apply-0046": "node scripts/apply-0046-certificate-expiry.mjs",
     "db:apply-0047": "node scripts/apply-0047-content-safety-reports.mjs",
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
+    "seed:pals-2025": "tsx --import dotenv/config seed-pals-2025.ts",
     "db:verify-0044": "node scripts/verify-0044-migration.mjs",
     "retention:cleanup": "tsx --import dotenv/config scripts/run-retention-cleanup.ts",
     "dsar:deletion": "tsx --import dotenv/config scripts/process-dsar-deletion.ts",
