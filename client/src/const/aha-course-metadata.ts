@@ -69,8 +69,8 @@ const AHA_COURSE_METADATA: Record<AhaProgramType, AhaCourseMetadata> = {
     programType: "pals",
     badge: "PALS",
     title: "PALS (Pediatric Advanced Life Support)",
-    shortDescription:
-      "Pediatric emergency assessment and stabilization for critically ill children — systematic ABCDE, algorithms, and team response.",
+shortDescription:
+      "2025 AHA PALS Update — Pediatric emergency assessment, systematic ABCDE, physiology-directed algorithms, and recovery.",
   },
   heartsaver: {
     programType: "heartsaver",
