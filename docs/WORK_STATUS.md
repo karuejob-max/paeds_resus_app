@@ -55,7 +55,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
-| 2026-06-01 | Manus | **PALS 2025 Course (AHA Hub Fix):** Fixed mismatch between database seed and production frontend course ID (ID 40). Authored and merged `client/src/lib/microCourseContent.ts` static content for PALS 2025; updated `aha-course-metadata.ts` with 2025 branding. Verified live at `/micro-course/40`. | PR #131 · merge `5a74138` |
+| 2026-06-01 | Manus | **PALS 2025 Course (Beginner-Friendly Update):** Restructured PALS 2025 course (ID 40) to be beginner-friendly, including foundational modules on pediatric assessment and BLS. Updated `client/src/lib/microCourseContent.ts` and `aha-course-metadata.ts`. Verified live at `/micro-course/40`. | PR #133 · merge `c4cf301` |
 | 2026-06-01 | Manus | **End-to-End Agent Mandate:** Updated `AGENTS.md` and `AGENT_OPERATIONS_PLAYBOOK.md` to require production seeding confirmation before any task is marked "Done". Added `seed:pals-2025` to `package.json`. | PR #132 · merge `747e6af` |
 | 2026-05-31 | Cursor | **Global platform safety B1–B14:** Shared `ClinicalContentSafetyFooter` (fellowship + AHA player + ResusGPS); competence disclaimer on all cert PDF types; extended `lint:clinical` (AHA seed + ResusGPS); ward checklists for septic-shock-i, malaria-i, anaphylaxis-i, meningitis-i; AHA/Fellowship banners on training/micro landing; admin content-safety reports; `docs/GLOBAL_SAFETY_AUDIT.md`. Verified: `ci:gate`, `test:unit` (229), `db:apply-0047` (agent env). Post-merge: Render auto-seed for ward content. CEO click-test: pending. | PR #129 · merge `02d463d` |
 
