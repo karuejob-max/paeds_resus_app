@@ -69,6 +69,14 @@ describe("Fellowship ResusGPS pillar counting", () => {
     expect(counts.severe_asthma).toBe(1);
   });
 
+  it("credits DKA primary diagnosis on completed session", () => {
+    const counts = countFellowshipResusCredits({
+      sessions: [{ sessionId: "resus-dka", primaryDiagnosis: "dka", status: "completed" }],
+      cases: [],
+    });
+    expect(counts.dka).toBe(1);
+  });
+
   it("ignores cases whose session is not completed", () => {
     const counts = countFellowshipResusCredits({
       sessions: [

@@ -73,8 +73,8 @@ export default function FellowshipDashboard() {
   // Fetch fellowship progress
   const { data: progress, isLoading, error } = trpc.fellowship.getProgress.useQuery(undefined, {
     enabled: Boolean(user),
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
   });
 
   const { data: resusCaseLog } = trpc.fellowship.getResusGPSCaseLog.useQuery(

@@ -16,7 +16,10 @@ const CLINICAL_ACTIVITY_EVENT_TYPES = new Set([
   "intervention_started",
   "intervention_completed",
   "reassessment",
+  "threat_identified",
 ]);
+
+const POST_PRIMARY_PHASES = new Set(["SECONDARY_SURVEY", "DEFINITIVE_CARE", "ONGOING"]);
 
 /**
  * True when a post-primary ResusGPS session has a mappable fellowship primary diagnosis
@@ -26,5 +29,7 @@ export function isEligibleForFellowshipAutoCredit(session: FellowshipAutoCreditS
   if (!session.definitiveDiagnosis?.trim()) return false;
   const diagnosis = normalizeToFellowshipResusConditionId(session.definitiveDiagnosis);
   if (!isFellowshipMicrocourseResusCondition(diagnosis)) return false;
+  // setDefinitiveDiagnosis moves to DEFINITIVE_CARE — intentional post-primary credit
+  if (POST_PRIMARY_PHASES.has(session.phase)) return true;
   return session.events.some((e) => CLINICAL_ACTIVITY_EVENT_TYPES.has(e.type));
 }

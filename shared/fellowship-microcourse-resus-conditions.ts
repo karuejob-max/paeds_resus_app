@@ -59,7 +59,14 @@ export const FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS: FellowshipMicrocourseResus
     id: "dka",
     label: "Diabetic Ketoacidosis (DKA)",
     microCourseIds: ["dka-i", "dka-ii"],
-    aliases: ["dka", "diabetic_ketoacidosis", "ketoacidosis"],
+    aliases: [
+      "dka",
+      "diabetic_ketoacidosis",
+      "ketoacidosis",
+      "hyperglycaemia",
+      "hyperglycemia",
+      "metabolic_acidosis",
+    ],
   },
   {
     id: "anaphylaxis",
@@ -107,6 +114,23 @@ export const FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS: FellowshipMicrocourseResus
 
 export function getFellowshipMicrocourseResusConditionCount(): number {
   return FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.length;
+}
+
+const RESUS_CASES_REQUIRED_PER_CONDITION = 3;
+
+/** Pillar B % = credited case slots (capped at 3 per condition) / (conditions × 3). */
+export function computeResusGpsPillarPercentage(
+  casesByCondition: Record<string, number>,
+  totalConditionsTaught = getFellowshipMicrocourseResusConditionCount()
+): number {
+  if (totalConditionsTaught <= 0) return 0;
+  const totalSlots = totalConditionsTaught * RESUS_CASES_REQUIRED_PER_CONDITION;
+  const filledSlots = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.reduce(
+    (sum, cond) =>
+      sum + Math.min(casesByCondition[cond.id] ?? 0, RESUS_CASES_REQUIRED_PER_CONDITION),
+    0
+  );
+  return Math.min(100, Math.round((filledSlots / totalSlots) * 100));
 }
 
 export function getFellowshipMicrocourseResusConditionLabel(id: string): string {

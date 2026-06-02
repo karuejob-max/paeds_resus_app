@@ -28,6 +28,7 @@ import {
 } from "../lib/micro-course-catalog";
 import {
   FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
+  computeResusGpsPillarPercentage,
   getFellowshipMicrocourseResusConditionCount,
   isFellowshipMicrocourseResusCondition,
   normalizeToFellowshipResusConditionId,
@@ -134,10 +135,7 @@ export async function calculateResusGPSPillar(userId: number) {
       (cond) => (casesByCondition[cond.id] ?? 0) >= 3
     ).length;
     const totalConditionsTaught = getFellowshipMicrocourseResusConditionCount();
-    const percentage = Math.min(
-      100,
-      Math.round((conditionsWithThreshold / totalConditionsTaught) * 100)
-    );
+    const percentage = computeResusGpsPillarPercentage(casesByCondition, totalConditionsTaught);
     const conditionBreakdown = FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => {
       const count = casesByCondition[cond.id] ?? 0;
       const required = 3;
