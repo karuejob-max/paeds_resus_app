@@ -226,6 +226,10 @@ export const fellowshipRouter = router({
         },
       });
 
+      await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+        console.warn("[Fellowship] sync after new session record failed:", e)
+      );
+
       return { success: true, sessionId: sessionId };
     }),
 
