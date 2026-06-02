@@ -23,6 +23,8 @@ After the 2026-05-31 production seed, engineering asserts the following are **li
 
 **Important nuance:** “Safe to use” here means **engineering verify passed and known P0/P1 audit items are remediated in prod DB**. It does **not** mean CEO clinical sign-off, counsel review, or “Fellow title ready.”
 
+**Pillar A scope (2026-06-02):** Progress math and learner copy use **29 fellowship pillar micro-courses** (`isFellowshipPillarMicroCourse` / catalog `isSample` on `intubation-essentials`). **`fellowTitleEnabled` remains `false`** — CEO §11 gate unchanged.
+
 ---
 
 ## 2. Not safe / not ready
@@ -94,7 +96,7 @@ Fellowship verify: 27 courses, 0 failure(s)
 
 2. **Do not enable Fellow title** until §11 checklist passes and CEO sets `fellowTitleEnabled`. Prevents false “qualified expert” signalling.
 
-3. **Document learner track separation** — Fellowship (29 + seriously-ill-child-i in catalog) vs AHA (BLS/ACLS/PALS/NRP) vs sample `intubation-essentials`. Reduces wrong-protocol-at-bedside risk when users conflate products.
+3. **Document learner track separation** — Fellowship pillar (**29** courses including `seriously-ill-child-i`) vs AHA (BLS/ACLS/PALS/NRP) vs sample `intubation-essentials`. Reduces wrong-protocol-at-bedside risk when users conflate products.
 
 4. **Seed-on-release** — **Done:** production deploy auto-seeds + verify (`scripts/run-fellowship-auto-seed.mjs`). WORK_STATUS still records deploy log evidence when touching micro-course data.
 

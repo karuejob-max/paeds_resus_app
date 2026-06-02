@@ -1,11 +1,14 @@
 /** Static audit: catalog vs seed TS + module-native formative coverage (no DB). */
 import { getAllFellowshipSeedContent, resolveCatalogSlug } from "./fellowship-seed-lib";
 import { resolveModuleFormativeQuestions, MIN_FORMATIVE_QUESTIONS_PER_MODULE } from "../shared/microcourse-exam-policy";
-import { MICRO_COURSE_CATALOG } from "../server/lib/micro-course-catalog";
+import {
+  isFellowshipPillarMicroCourse,
+  MICRO_COURSE_CATALOG,
+} from "../server/lib/micro-course-catalog";
 
-const catalogSlugs = MICRO_COURSE_CATALOG.filter(
-  (c) => c.isPublished && c.courseId !== "intubation-essentials"
-).map((c) => c.courseId);
+const catalogSlugs = MICRO_COURSE_CATALOG.filter(isFellowshipPillarMicroCourse).map(
+  (c) => c.courseId
+);
 
 /** Seeded via ensure-seriously-ill-child-fellowship-catalog, not fellowship batch TS. */
 const SEPARATE_SEED_SLUGS = new Set(["seriously-ill-child-i"]);

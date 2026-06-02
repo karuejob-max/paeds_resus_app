@@ -12,12 +12,15 @@ import {
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   examKindFromQuizTitle,
 } from "../shared/microcourse-exam-policy";
-import { MICRO_COURSE_CATALOG } from "../server/lib/micro-course-catalog";
+import {
+  isFellowshipPillarMicroCourse,
+  MICRO_COURSE_CATALOG,
+} from "../server/lib/micro-course-catalog";
 import { hasLegacyCourseNumberTitle } from "../shared/micro-course-display";
 
-const FELLOWSHIP_SLUGS = MICRO_COURSE_CATALOG.filter(
-  (c) => c.isPublished && c.courseId !== "intubation-essentials"
-).map((c) => c.courseId);
+const FELLOWSHIP_SLUGS = MICRO_COURSE_CATALOG.filter(isFellowshipPillarMicroCourse).map(
+  (c) => c.courseId
+);
 
 async function main() {
   const db = await getDb();
