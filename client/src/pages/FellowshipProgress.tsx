@@ -1,8 +1,8 @@
 /**
  * Fellowship Progress Dashboard
- * 
+ *
  * Displays the 3-pillar fellowship qualification status:
- * 1. Courses: Completion of all fellowship pillar micro-courses + legacy courses
+ * 1. Courses: Completion of all fellowship pillar micro-courses
  * 2. ResusGPS: ≥3 cases per taught condition
  * 3. Care Signal: 24 consecutive months of monthly reporting
  */
@@ -14,25 +14,30 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Stethoscope, AlertCircle, CheckCircle2, Clock } from "lucide-react";
-import { useLocation } from "wouter";
+import { BookOpen, Stethoscope, AlertCircle, Clock, HelpCircle } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import {
   canDisplayFellowTitle,
   FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL,
 } from "@shared/fellowship-launch-gate";
+import { FellowshipGraduationCard } from "@/components/fellowship/FellowshipGraduationCard";
 
 export default function FellowshipProgress() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if not logged in
   if (!loading && !user) {
     setLocation("/login");
     return null;
   }
 
-  // Fetch fellowship progress
   const { data: progress, isLoading, error } = trpc.fellowship.getProgress.useQuery();
+  const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
+    enabled: Boolean(user),
+  });
+  const fellowshipDiploma = (certData?.success ? certData.certificates ?? [] : []).find(
+    (c) => c.programType === "fellowship_diploma"
+  );
 
   if (loading || isLoading) {
     return (
@@ -66,8 +71,8 @@ export default function FellowshipProgress() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setLocation("/courses")} className="w-full">
-              Start a Course
+            <Button onClick={() => setLocation("/fellowship")} className="w-full">
+              Open Fellowship dashboard
             </Button>
           </CardContent>
         </Card>
@@ -75,44 +80,58 @@ export default function FellowshipProgress() {
     );
   }
 
-  const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
-  const showFellowCredential = canDisplayFellowTitle(isQualified);
+  const {
+    coursesPillar,
+    resusGPSPillar,
+    careSignalPillar,
+    isQualified,
+    overallPercentage,
+    fellowTitleEnabled = false,
+    canDisplayFellowTitle: serverCanDisplayFellowTitle = false,
+  } = progress;
+  const showFellowCredential =
+    serverCanDisplayFellowTitle || canDisplayFellowTitle(isQualified);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Fellowship Qualification Progress</h1>
-          <p className="text-muted-foreground mt-2">
-            Track your progress across the 3 pillars of the {FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL}.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Fellowship Qualification Progress</h1>
+            <p className="text-muted-foreground mt-2">
+              Track your progress across the 3 pillars of the {FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL}.
+            </p>
+          </div>
+          <Link href="/fellowship/about">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <HelpCircle className="h-4 w-4" />
+              Fellowship guide
+            </Button>
+          </Link>
         </div>
 
-        {/* Overall Status */}
-        <Card className={showFellowCredential ? "border-green-200 bg-green-50" : ""}>
+        <FellowshipGraduationCard
+          isQualified={isQualified}
+          fellowTitleEnabled={fellowTitleEnabled}
+          canDisplayFellowTitle={showFellowCredential}
+          coursesPillar={coursesPillar}
+          resusGPSPillar={resusGPSPillar}
+          careSignalPillar={careSignalPillar}
+          diplomaCertificateNumber={fellowshipDiploma?.certificateNumber}
+        />
+
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  {showFellowCredential ? (
-                    <>
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      Paeds Resus Fellow
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="h-5 w-5 text-amber-600" />
-                      Pathway in progress
-                    </>
-                  )}
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  Overall pathway
                 </CardTitle>
                 <CardDescription>
-                  {showFellowCredential
-                    ? "You have earned the title of Paeds Resus Fellow."
-                    : isQualified
-                      ? "All three pillars complete. Fellow credentials unlock after platform §11 launch readiness — your progress is saved."
-                      : `Overall progress: ${overallPercentage}% complete`}
+                  {isQualified
+                    ? "All three pillars at 100%."
+                    : `${overallPercentage}% complete — all pillars must reach 100%.`}
                 </CardDescription>
               </div>
               <div className="text-right">
@@ -123,9 +142,7 @@ export default function FellowshipProgress() {
           </CardHeader>
         </Card>
 
-        {/* 3 Pillars */}
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Pillar 1: Courses */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -138,9 +155,7 @@ export default function FellowshipProgress() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Progress</span>
-                  <Badge
-                    variant={coursesPillar.percentage === 100 ? "default" : "secondary"}
-                  >
+                  <Badge variant={coursesPillar.percentage === 100 ? "default" : "secondary"}>
                     {coursesPillar.percentage}%
                   </Badge>
                 </div>
@@ -157,18 +172,12 @@ export default function FellowshipProgress() {
                   </p>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setLocation("/courses")}
-              >
-                View Courses
+              <Button variant="outline" size="sm" className="w-full" onClick={() => setLocation("/fellowship")}>
+                View courses
               </Button>
             </CardContent>
           </Card>
 
-          {/* Pillar 2: ResusGPS */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -181,9 +190,7 @@ export default function FellowshipProgress() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Progress</span>
-                  <Badge
-                    variant={resusGPSPillar.percentage === 100 ? "default" : "secondary"}
-                  >
+                  <Badge variant={resusGPSPillar.percentage === 100 ? "default" : "secondary"}>
                     {resusGPSPillar.percentage}%
                   </Badge>
                 </div>
@@ -192,25 +199,16 @@ export default function FellowshipProgress() {
               <div className="space-y-1 text-sm">
                 <p>
                   <span className="font-medium">{resusGPSPillar.conditionsWithThreshold}</span> of{" "}
-                  <span className="font-medium">{resusGPSPillar.totalConditionsTaught}</span> conditions
-                  with ≥3 cases
+                  <span className="font-medium">{resusGPSPillar.totalConditionsTaught}</span> conditions with ≥3 cases
                 </p>
-                <p className="text-muted-foreground">
-                  {resusGPSPillar.casesCompleted} total cases completed
-                </p>
+                <p className="text-muted-foreground">{resusGPSPillar.casesCompleted} total cases completed</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setLocation("/resus")}
-              >
+              <Button variant="outline" size="sm" className="w-full" onClick={() => setLocation("/resus")}>
                 Launch ResusGPS
               </Button>
             </CardContent>
           </Card>
 
-          {/* Pillar 3: Care Signal */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -223,9 +221,7 @@ export default function FellowshipProgress() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Progress</span>
-                  <Badge
-                    variant={careSignalPillar.percentage === 100 ? "default" : "secondary"}
-                  >
+                  <Badge variant={careSignalPillar.percentage === 100 ? "default" : "secondary"}>
                     {careSignalPillar.percentage}%
                   </Badge>
                 </div>
@@ -236,23 +232,15 @@ export default function FellowshipProgress() {
                   <span className="font-medium">{careSignalPillar.streak}</span> of{" "}
                   <span className="font-medium">24</span> consecutive months
                 </p>
-                <p className="text-muted-foreground">
-                  {careSignalPillar.eventsSubmitted} total events submitted
-                </p>
+                <p className="text-muted-foreground">{careSignalPillar.eventsSubmitted} total events submitted</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setLocation("/care-signal")}
-              >
+              <Button variant="outline" size="sm" className="w-full" onClick={() => setLocation("/care-signal")}>
                 Report Incident
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Requirements Info */}
         <Card>
           <CardHeader>
             <CardTitle>Fellowship Requirements</CardTitle>
@@ -264,8 +252,8 @@ export default function FellowshipProgress() {
                 <h4 className="font-medium">Pillar 1: Courses</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>✓ Complete all {coursesPillar.required} fellowship micro-courses</li>
-                  <li>✓ BLS, ACLS, PALS (bonus)</li>
-                  <li>✓ Maintain 80%+ quiz scores</li>
+                  <li>✓ Foundational before Advanced per condition</li>
+                  <li>✓ Pass summative exams (knowledge checks)</li>
                 </ul>
               </div>
               <div className="space-y-2">
@@ -289,7 +277,6 @@ export default function FellowshipProgress() {
           </CardContent>
         </Card>
 
-        {/* Next Steps */}
         {!isQualified && (
           <Card>
             <CardHeader>
@@ -307,13 +294,8 @@ export default function FellowshipProgress() {
                       <p className="text-sm text-muted-foreground">
                         You have {coursesPillar.required - coursesPillar.completed} courses left to complete.
                       </p>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="mt-1"
-                        onClick={() => setLocation("/courses")}
-                      >
-                        View Courses →
+                      <Button variant="link" size="sm" className="mt-1" onClick={() => setLocation("/fellowship")}>
+                        View courses →
                       </Button>
                     </div>
                   </div>
@@ -328,15 +310,9 @@ export default function FellowshipProgress() {
                       <p className="font-medium">Complete ResusGPS Cases</p>
                       <p className="text-sm text-muted-foreground">
                         You need ≥3 cases for{" "}
-                        {resusGPSPillar.totalConditionsTaught - resusGPSPillar.conditionsWithThreshold}{" "}
-                        more conditions.
+                        {resusGPSPillar.totalConditionsTaught - resusGPSPillar.conditionsWithThreshold} more conditions.
                       </p>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="mt-1"
-                        onClick={() => setLocation("/resus")}
-                      >
+                      <Button variant="link" size="sm" className="mt-1" onClick={() => setLocation("/resus")}>
                         Launch ResusGPS →
                       </Button>
                     </div>
@@ -353,12 +329,7 @@ export default function FellowshipProgress() {
                       <p className="text-sm text-muted-foreground">
                         You have {careSignalPillar.streak} of 24 consecutive months. Keep reporting incidents.
                       </p>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="mt-1"
-                        onClick={() => setLocation("/care-signal")}
-                      >
+                      <Button variant="link" size="sm" className="mt-1" onClick={() => setLocation("/care-signal")}>
                         Report Incident →
                       </Button>
                     </div>
