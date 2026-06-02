@@ -651,21 +651,25 @@ const modules = [
         order: 1,
         title: "Team Leadership and Roles",
         content: `<h2>The PALS Team Leader</h2>
-<p>The team leader is responsible for:</p>
+<p>The <strong>Team Leader</strong> is a separate and distinct role. They must maintain situational awareness and should NOT be involved in hands-on tasks unless absolutely necessary. Their responsibilities include:</p>
 <ul>
   <li>Assigning roles and tasks.</li>
-  <li>Making treatment decisions.</li>
-  <li>Modeling good communication.</li>
-  <li>Periodically summarizing progress.</li>
-  <li>Maintaining situational awareness.</li>
+  <li>Making treatment decisions and maintaining the algorithm.</li>
+  <li>Modeling closed-loop communication.</li>
+  <li>Periodically summarizing progress and reassessing the plan.</li>
+  <li>Maintaining situational awareness (the "helicopter view").</li>
 </ul>
 <h3>Key Team Roles:</h3>
 <ul>
-  <li><strong>Compressor:</strong> Performs chest compressions.</li>
+  <li><strong>Compressor:</strong> Performs high-quality chest compressions.</li>
   <li><strong>Airway/Ventilation:</strong> Manages airway and delivers ventilations.</li>
   <li><strong>Medication:</strong> Prepares and administers drugs.</li>
-  <li><strong>Timer/Recorder:</strong> Tracks time, records events, calls out next drug doses.</li>
-</ul>`
+  <li><strong>Timer/Recorder:</strong> Tracks time, records events, and calls out next drug doses.</li>
+  <li><strong>Monitor/Defibrillator/CPR Coach:</strong> A critical 2025 role. They manage the monitor, operate the defibrillator, and actively <strong>coach</strong> the compressor on rate, depth, and recoil to ensure high-quality CPR.</li>
+</ul>
+<div class="clinical-note">
+  <strong>The CPR Coach:</strong> This role is essential for maintaining CPR quality and coordinating switching compressors every 2 minutes to prevent fatigue.
+</div>`
       },
       {
         order: 2,
