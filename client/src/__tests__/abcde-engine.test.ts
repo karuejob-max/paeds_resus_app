@@ -45,6 +45,7 @@ import {
   updatePatientInfo,
   acknowledgeSafetyAlert,
   setDefinitiveDiagnosis,
+  addConcurrentDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
   derivePerfusionState,
@@ -666,6 +667,26 @@ describe('Definitive Diagnosis', () => {
     s = setDefinitiveDiagnosis(s, 'Septic Shock');
     expect(s.phase).toBe('DEFINITIVE_CARE');
     expect(s.definitiveDiagnosis).toBe('Septic Shock');
+  });
+});
+
+describe('Concurrent co-diagnoses', () => {
+  it('persists co-diagnosis on addConcurrentDiagnosis without replacing primary', () => {
+    let s = createSession(18, '5 years');
+    s = startQuickAssessment(s);
+    s = answerQuickAssessment(s, 'sick');
+    s = setDefinitiveDiagnosis(s, 'septic_shock');
+    s = addConcurrentDiagnosis(s, 'severe_anaemia');
+    expect(s.definitiveDiagnosis).toBe('septic_shock');
+    expect(s.concurrentDiagnoses).toEqual(['severe_anaemia']);
+  });
+
+  it('does not duplicate co-diagnosis entries', () => {
+    let s = createSession(18, '5 years');
+    s = setDefinitiveDiagnosis(s, 'septic_shock');
+    s = addConcurrentDiagnosis(s, 'meningitis');
+    s = addConcurrentDiagnosis(s, 'meningitis');
+    expect(s.concurrentDiagnoses).toEqual(['meningitis']);
   });
 });
 
