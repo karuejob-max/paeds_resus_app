@@ -529,9 +529,14 @@ export default function ResusGPS() {
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
+  const invalidateFellowshipProgress = useCallback(() => {
+    void utils.fellowship.getProgress.invalidate();
+    void utils.fellowship.getResusGPSCaseLog.invalidate();
+  }, [utils]);
+
   const recordSessionMutation = trpc.fellowship.recordResusGPSSession.useMutation({
     onSuccess: () => {
-      void utils.fellowship.getProgress.invalidate();
+      invalidateFellowshipProgress();
     },
   });
   const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation({
@@ -539,8 +544,7 @@ export default function ResusGPS() {
       if (data.casesByCondition) {
         setSavedCasesByCondition(data.casesByCondition);
       }
-      void utils.fellowship.getProgress.invalidate();
-      void utils.fellowship.getResusGPSCaseLog.invalidate();
+      invalidateFellowshipProgress();
     },
   });
 
@@ -618,6 +622,7 @@ export default function ResusGPS() {
         depthScore: activeSession.depthScore ?? 0,
       });
 
+      invalidateFellowshipProgress();
       await utils.fellowship.getProgress.refetch();
       setFellowshipSavedSessionId(activeSession.id);
       
@@ -2353,11 +2358,16 @@ function PostPrimaryScreen({
               </div>
             )}
             {(session.concurrentDiagnoses?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap items-start gap-2">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide shrink-0 mt-1">
-                  Co-diagnoses
-                </span>
-                <div className="flex flex-wrap gap-1.5">
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Co-diagnoses are documented for this case only. Fellowship Pillar B credit uses your{' '}
+                  <strong className="font-medium text-foreground">primary diagnosis</strong> only.
+                </p>
+                <div className="flex flex-wrap items-start gap-2">
+                  <span className="text-muted-foreground text-xs uppercase tracking-wide shrink-0 mt-1">
+                    Co-diagnoses
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
                   {session.concurrentDiagnoses!.map((dx) => (
                     <Badge
                       key={dx}
@@ -2377,6 +2387,7 @@ function PostPrimaryScreen({
                       </button>
                     </Badge>
                   ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -2394,7 +2405,8 @@ function PostPrimaryScreen({
           <p className="text-xs text-muted-foreground mt-1">
             Set a <strong className="font-medium text-foreground">primary diagnosis</strong> to credit this case toward
             the matching fellowship micro-course condition (≥3 cases each across {fellowshipConditionTotal}{' '}
-            conditions). Fellowship progress saves automatically when you choose a primary — no extra Record click.
+            conditions). Co-diagnoses do not add separate fellowship credit. Progress saves automatically when you
+            choose a primary; use the button below to retry if needed.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -2543,7 +2555,7 @@ function PostPrimaryScreen({
                           onSetPrimaryDiagnosis(cond.id);
                         }}
                       >
-                        {isPrimary ? 'Primary · saved' : 'Set primary'}
+                        {isPrimary ? 'Primary' : 'Set primary'}
                       </Button>
                     </div>
                   </div>

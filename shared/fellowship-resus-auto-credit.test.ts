@@ -26,12 +26,24 @@ describe("fellowship-resus-auto-credit", () => {
     ).toBe(false);
   });
 
-  it("rejects auto-credit without documented clinical activity", () => {
+  it("allows auto-credit for DKA primary on definitive care without intervention events", () => {
     expect(
       isEligibleForFellowshipAutoCredit({
-        definitiveDiagnosis: "septic_shock",
+        definitiveDiagnosis: "dka",
+        concurrentDiagnoses: ["septic_shock"],
+        phase: "DEFINITIVE_CARE",
+        activeThreat: null,
+        events: [{ type: "phase_change" }],
+      })
+    ).toBe(true);
+  });
+
+  it("rejects auto-credit before post-primary phase even with a fellowship primary", () => {
+    expect(
+      isEligibleForFellowshipAutoCredit({
+        definitiveDiagnosis: "dka",
         concurrentDiagnoses: [],
-        phase: "SECONDARY_SURVEY",
+        phase: "INTERVENE",
         activeThreat: null,
         events: [{ type: "phase_change" }],
       })
