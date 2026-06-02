@@ -85,6 +85,9 @@ const AdminCareSignalReview = lazy(() => import("./pages/AdminCareSignalReview")
 const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSignal"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
+const FellowshipAbout = lazy(() => import("./pages/FellowshipAbout"));
+const FellowshipWhy = lazy(() => import("./pages/FellowshipWhy"));
+const FellowshipProgress = lazy(() => import("./pages/FellowshipProgress"));
 const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
 const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
 const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
@@ -415,6 +418,21 @@ function Router() {
             <ErrorBoundary>
               <MicroCoursePlayer />
             </ErrorBoundary>
+          )}</Route>
+          <Route path="/fellowship/about">{() => (
+            <RoleGate allowed={["provider"]}>
+              <FellowshipAbout />
+            </RoleGate>
+          )}</Route>
+          <Route path="/fellowship/why">{() => (
+            <RoleGate allowed={["provider"]}>
+              <FellowshipWhy />
+            </RoleGate>
+          )}</Route>
+          <Route path="/fellowship/progress">{() => (
+            <RoleGate allowed={["provider"]}>
+              <FellowshipProgress />
+            </RoleGate>
           )}</Route>
           <Route path="/fellowship">{() => (
             <RoleGate allowed={["provider"]}>

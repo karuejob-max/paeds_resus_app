@@ -29,17 +29,17 @@ import {
   Lock,
   Download,
   Loader2,
+  HelpCircle,
 } from "lucide-react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EnrollmentModal } from "@/components/EnrollmentModal";
 import { microCourseTrackLabel, type MicroCourseTier } from "@shared/micro-course-display";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
-import {
-  canDisplayFellowTitle,
-} from "@shared/fellowship-launch-gate";
+import { canDisplayFellowTitle } from "@shared/fellowship-launch-gate";
+import { FellowshipGraduationCard } from "@/components/fellowship/FellowshipGraduationCard";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
@@ -114,6 +114,9 @@ export default function FellowshipDashboard() {
   });
   const fellowshipCertificates = (certData?.success ? certData.certificates ?? [] : []).filter(
     (c) => c.programType === "fellowship"
+  );
+  const fellowshipDiploma = (certData?.success ? certData.certificates ?? [] : []).find(
+    (c) => c.programType === "fellowship_diploma"
   );
 
   const downloadCert = trpc.certificates.download.useMutation();
@@ -249,8 +252,17 @@ export default function FellowshipDashboard() {
     );
   }
 
-  const { coursesPillar, resusGPSPillar, careSignalPillar, isQualified, overallPercentage } = progress;
-  const showFellowCredential = canDisplayFellowTitle(isQualified);
+  const {
+    coursesPillar,
+    resusGPSPillar,
+    careSignalPillar,
+    isQualified,
+    overallPercentage,
+    fellowTitleEnabled = false,
+    canDisplayFellowTitle: serverCanDisplayFellowTitle = false,
+  } = progress;
+  const showFellowCredential =
+    serverCanDisplayFellowTitle || canDisplayFellowTitle(isQualified);
 
   // Prepare course data
   const enrolledCourseIds = new Set(enrollments?.map((e: any) => e.course?.courseId) || []);
@@ -269,14 +281,36 @@ export default function FellowshipDashboard() {
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold flex items-center gap-3">
-            <Award className="h-8 w-8" />
-            Paeds Resus Fellowship
-          </h1>
-          <p className="text-muted-foreground">
-            One fellowship path with 3 pillars: courses, ResusGPS, and Care Signal.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-4xl font-bold flex items-center gap-3">
+                <Award className="h-8 w-8" />
+                Paeds Resus Fellowship
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                One fellowship path with 3 pillars: {coursesPillar.required} micro-courses, ResusGPS, and
+                Care Signal.
+              </p>
+            </div>
+            <Link href="/fellowship/about">
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                <HelpCircle className="h-4 w-4" />
+                Fellowship guide
+              </Button>
+            </Link>
+          </div>
         </div>
+
+        <FellowshipGraduationCard
+          isQualified={isQualified}
+          fellowTitleEnabled={fellowTitleEnabled}
+          canDisplayFellowTitle={showFellowCredential}
+          coursesPillar={coursesPillar}
+          resusGPSPillar={resusGPSPillar}
+          careSignalPillar={careSignalPillar}
+          diplomaCertificateNumber={fellowshipDiploma?.certificateNumber}
+          onGraduationClaimed={() => void utils.fellowship.getProgress.invalidate()}
+        />
 
         {/* Overall Progress */}
         <Card className="border-2">
@@ -889,23 +923,6 @@ export default function FellowshipDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Qualification Status */}
-          {showFellowCredential ? (
-            <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <AlertDescription className="text-emerald-800 dark:text-emerald-200">
-                Congratulations! You have earned the title of Paeds Resus Fellow.
-              </AlertDescription>
-            </Alert>
-          ) : isQualified ? (
-            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
-              <Clock className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-900 dark:text-amber-100">
-                You have met all three pillars. The Paeds Resus Fellow credential will appear here after platform launch
-                readiness checks (§11) are complete — your progress is saved.
-              </AlertDescription>
-            </Alert>
-          ) : null}
         </Tabs>
 
         {/* Enrollment Modal */}

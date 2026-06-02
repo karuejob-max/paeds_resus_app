@@ -74,6 +74,7 @@ export default function Header() {
         RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
         { label: "Fellowship", href: "/fellowship", icon: "📚" },
+        { label: "Fellowship guide", href: "/fellowship/about", icon: "📖" },
         { label: "AHA", href: "/aha-courses", icon: "🩺" },
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
         { label: "Instructor", href: "/instructor-portal", icon: "🎓" },

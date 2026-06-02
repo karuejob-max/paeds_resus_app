@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
@@ -140,6 +141,13 @@ export function EnrollmentModal({
                 <p className="font-semibold text-foreground">{course.title}</p>
                 <p className="mt-0.5 text-muted-foreground">
                   {microCourseTrackLabel(course.level as MicroCourseTier)} · 1 month access
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Part of the{" "}
+                  <Link href="/fellowship/about" className="text-primary underline-offset-2 hover:underline">
+                    Paeds Resus Fellowship
+                  </Link>{" "}
+                  — not AHA certification.
                 </p>
               </div>
 
