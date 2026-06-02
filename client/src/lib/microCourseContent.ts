@@ -578,7 +578,24 @@ const PALS_2025: MicroCourseStaticContent = {
 </ul>
 <div class="clinical-note">
   <strong>Physiology-Directed CPR:</strong> Monitor ETCO2 (target >15-20 mmHg) and Diastolic BP (infants ≥25 mmHg, children ≥30 mmHg) to guide CPR quality.
-</div>`,
+</div>
+<h3>The Non-Shockable Pathway: PEA and Asystole</h3>
+<p>These rhythms are not amenable to defibrillation. The priority is high-quality CPR and early administration of Epinephrine.</p>
+<div class="clinical-note">
+  <strong>2025 Mandate:</strong> Administer Epinephrine 0.01 mg/kg IV/IO as soon as possible after starting CPR for non-shockable rhythms. Repeat every 3-5 minutes.
+</div>
+<h3>The Shockable Pathway: VF and Pulseless VT</h3>
+<p>Defibrillation is the priority for VF and pulseless VT.</p>
+<ul>
+  <li><strong>First Shock:</strong> 2 J/kg. Immediately resume CPR.</li>
+  <li><strong>Second Shock:</strong> 4 J/kg. Immediately resume CPR.</li>
+  <li><strong>Subsequent Shocks:</strong> ≥4 J/kg (max 10 J/kg or adult dose).</li>
+</ul>
+<p><strong>Medications:</strong></p>
+<ul>
+  <li>If VF/pVT persists after the second shock, give Epinephrine (0.01 mg/kg IV/IO).</li>
+  <li>If VF/pVT persists after the third shock, give <strong>Amiodarone</strong> (5 mg/kg IV/IO bolus; max 300 mg). According to 2025 guidelines, you may <strong>repeat up to 3 doses</strong> for refractory VF/pVT (subsequent doses max 150 mg). Alternatively, give <strong>Lidocaine</strong> (1 mg/kg IV/IO bolus).</li>
+</ul>`,
       keyPoints: [
         "High-quality CPR is paramount.",
         "Epinephrine ASAP for non-shockable rhythms (Asystole, PEA).",

@@ -470,7 +470,7 @@ const modules = [
 <p><strong>Medications:</strong></p>
 <ul>
   <li>If VF/pVT persists after the second shock, give Epinephrine (0.01 mg/kg IV/IO).</li>
-  <li>If VF/pVT persists after the third shock, give Amiodarone (5 mg/kg IV/IO bolus) or Lidocaine (1 mg/kg IV/IO bolus).</li>
+  <li>If VF/pVT persists after the third shock, give <strong>Amiodarone</strong> (5 mg/kg IV/IO bolus; max 300 mg). According to 2025 guidelines, you may <strong>repeat up to 3 doses</strong> for refractory VF/pVT (subsequent doses max 150 mg). Alternatively, give <strong>Lidocaine</strong> (1 mg/kg IV/IO bolus).</li>
 </ul>`
       }
     ],
