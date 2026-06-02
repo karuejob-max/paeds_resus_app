@@ -133,6 +133,36 @@ export const WARD_ACTIONS_BY_SLUG: Record<string, string[]> = {
     "Protect airway; treat seizures; avoid hypotonic fluids (SIADH risk)",
     "Hourly neuro checks; escalate if GCS falling or focal signs",
   ],
+  "hypovolemic-shock-i": [
+    "Assess perfusion; give 10–20 mL/kg isotonic bolus only if hypovolaemic (FEAST-aware)",
+    "Reassess after each bolus; stop if fluid overload or no improvement",
+    "Treat cause (haemorrhage, dehydration, burns); activate MTP if massive haemorrhage",
+    "Escalate to ICU if shock persists after appropriate fluids",
+  ],
+  "pneumonia-i": [
+    "Recognize severe pneumonia; give oxygen to SpO₂ ≥90%",
+    "Blood culture if feasible; start empiric antibiotics within 1 hour",
+    "Reassess work of breathing; prepare intubation if tiring or silent chest",
+    "Refer if no ICU capability or not improving on first-line therapy",
+  ],
+  "trauma-i": [
+    "ABCDE primary survey; control external haemorrhage",
+    "Two large-bore IV access; send FBC, cross-match, lactate",
+    "10–20 mL/kg crystalloid with reassessment; blood products early if massive haemorrhage",
+    "Prevent hypothermia; document mechanism and neuro status hourly",
+  ],
+  "burns-i": [
+    "Airway assessment for inhalation injury; high-flow oxygen",
+    "Calculate % TBSA; start Parkland-based fluid plan with urine output targets",
+    "Analgesia weight-based; cover with clean dressing",
+    "Refer if >10% TBSA, circumferential, face/hands, or inhalation injury",
+  ],
+  "cardiogenic-shock-i": [
+    "Avoid repeated fluid boluses; treat as pump failure",
+    "Oxygen; consider non-invasive ventilation if work of breathing high",
+    "Start inotrope per ICU protocol when available; monitor rhythm",
+    "Escalate to PICU/cardiology if refractory hypotension or arrhythmia",
+  ],
 };
 
 /** Slugs that receive LMIC callouts on first module (seed pipeline). */
@@ -142,8 +172,13 @@ export const LMIC_CALLOUTS_BY_SLUG: Record<string, LmicsResourceTopic[]> = {
   "status-epilepticus-i": ["diazepam"],
   "status-epilepticus-ii": ["diazepam"],
   "hypovolemic-shock-i": ["fluids"],
+  "hypovolemic-shock-ii": ["fluids"],
   "septic-shock-i": ["fluids"],
+  "septic-shock-ii": ["fluids"],
   "malaria-i": ["hypoglycemia"],
+  "malaria-ii": ["hypoglycemia"],
+  "trauma-i": ["fluids"],
+  "pneumonia-i": ["fluids"],
 };
 
 export function appendClinicalFooter(html: string, extras: string[] = []): string {
