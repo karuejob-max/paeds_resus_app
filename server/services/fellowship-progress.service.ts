@@ -7,6 +7,7 @@ import { getDb, getFellowshipProgress, createFellowshipProgress, updateFellowshi
 import {
   certificates,
   microCourseEnrollments,
+  microCourses,
   resusGPSSessions,
   resusGPSCases,
   careSignalEvents,
@@ -21,7 +22,10 @@ import {
   enumerateMonthsEndingAt,
   monthKeyEAT,
 } from "../routers/fellowship-care-signal-streak";
-import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
+import {
+  FELLOWSHIP_PILLAR_MICRO_COURSE_IDS,
+  getFellowshipMicroCourseRequiredCount,
+} from "../lib/micro-course-catalog";
 import {
   FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
   getFellowshipMicrocourseResusConditionCount,
@@ -43,14 +47,21 @@ export async function calculateCoursesPillar(userId: number) {
     const completedCerts = await db.query.certificates.findMany({
       where: (certs) => eq(certs.userId, userId),
     });
-    const completedMicroCourses = await db.query.microCourseEnrollments.findMany({
-      where: (enrollments) =>
-        and(eq(enrollments.userId, userId), eq(enrollments.enrollmentStatus, "completed")),
-    });
+    const pillarIds = new Set(FELLOWSHIP_PILLAR_MICRO_COURSE_IDS);
+    const completedMicroRows = await db
+      .select({ courseId: microCourses.courseId })
+      .from(microCourseEnrollments)
+      .innerJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
+      .where(
+        and(
+          eq(microCourseEnrollments.userId, userId),
+          eq(microCourseEnrollments.enrollmentStatus, "completed")
+        )
+      );
     const legacyCourses = completedCerts.filter((c) =>
       ["bls", "acls", "pals", "instructor"].includes(c.programType)
     ).length;
-    const completed = completedMicroCourses.length;
+    const completed = completedMicroRows.filter((r) => pillarIds.has(r.courseId)).length;
     const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
     return { completed, required: totalRequired, percentage, legacyCourses };
   } catch (error) {

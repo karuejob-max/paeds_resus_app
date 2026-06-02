@@ -3,11 +3,6 @@
  * Prices are in KES cents; product default 200 KES per micro-course (PSoT / leadership).
  */
 
-/** Count of published micro-courses required for Pillar A (includes sample catalog rows). */
-export function getFellowshipMicroCourseRequiredCount(): number {
-  return MICRO_COURSE_CATALOG.filter((c) => c.isPublished).length;
-}
-
 import { asc, eq, inArray } from "drizzle-orm";
 import {
   CLINICAL_CONTENT_VERSION as CLINICAL_CONTENT_VERSION_DEFAULT,
@@ -44,6 +39,8 @@ export type MicroCourseCatalogRow = {
   prerequisiteId: string | null;
   order: number;
   isPublished: boolean;
+  /** Sample / demo row — excluded from fellowship Pillar A required count and verify. */
+  isSample?: boolean;
 };
 
 export const MICRO_COURSE_CATALOG: MicroCourseCatalogRow[] = [
@@ -100,8 +97,25 @@ export const MICRO_COURSE_CATALOG: MicroCourseCatalogRow[] = [
     prerequisiteId: null,
     order: 29,
     isPublished: true,
+    isSample: true,
   },
 ];
+
+/** Published fellowship Pillar A courses (excludes sample / non-pillar catalog rows). */
+export function isFellowshipPillarMicroCourse(
+  row: Pick<MicroCourseCatalogRow, "isPublished" | "isSample">
+): boolean {
+  return row.isPublished && !row.isSample;
+}
+
+export const FELLOWSHIP_PILLAR_MICRO_COURSE_IDS = MICRO_COURSE_CATALOG.filter(
+  isFellowshipPillarMicroCourse
+).map((c) => c.courseId);
+
+/** Count of published fellowship pillar micro-courses required for Pillar A (29; excludes sample). */
+export function getFellowshipMicroCourseRequiredCount(): number {
+  return FELLOWSHIP_PILLAR_MICRO_COURSE_IDS.length;
+}
 
 /**
  * In-memory flag: catalog is only seeded once per server process.

@@ -2,7 +2,7 @@
  * Paeds Resus Fellowship Dashboard
  * 
  * Single fellowship path with 3-pillar qualification system:
- * 1. Courses: All 26 micro-courses (displayed with progress)
+ * 1. Courses: All fellowship pillar micro-courses (displayed with progress)
  * 2. ResusGPS: ≥3 cases per taught condition
  * 3. Care Signal: 24 consecutive months of monthly reporting
  * 

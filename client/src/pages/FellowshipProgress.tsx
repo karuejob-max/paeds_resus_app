@@ -2,7 +2,7 @@
  * Fellowship Progress Dashboard
  * 
  * Displays the 3-pillar fellowship qualification status:
- * 1. Courses: Completion of 26 micro-courses + legacy courses
+ * 1. Courses: Completion of all fellowship pillar micro-courses + legacy courses
  * 2. ResusGPS: ≥3 cases per taught condition
  * 3. Care Signal: 24 consecutive months of monthly reporting
  */
@@ -263,7 +263,7 @@ export default function FellowshipProgress() {
               <div className="space-y-2">
                 <h4 className="font-medium">Pillar 1: Courses</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>✓ Complete all 26 micro-courses</li>
+                  <li>✓ Complete all {coursesPillar.required} fellowship micro-courses</li>
                   <li>✓ BLS, ACLS, PALS (bonus)</li>
                   <li>✓ Maintain 80%+ quiz scores</li>
                 </ul>
