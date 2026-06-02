@@ -57,6 +57,8 @@
 |------|-----|------|----------|
 | 2026-06-01 | Manus | **PALS 2025 Course (Beginner-Friendly Update):** Restructured PALS 2025 course (ID 40) to be beginner-friendly, including foundational modules on pediatric assessment and BLS. Updated `client/src/lib/microCourseContent.ts` and `aha-course-metadata.ts`. Verified live at `/micro-course/40`. | PR #133 · merge `c4cf301` |
 | 2026-06-01 | Manus | **End-to-End Agent Mandate:** Updated `AGENTS.md` and `AGENT_OPERATIONS_PLAYBOOK.md` to require production seeding confirmation before any task is marked "Done". Added `seed:pals-2025` to `package.json`. | PR #132 · merge `747e6af` |
+| 2026-06-02 | Cursor | **Global safety retry (CEO mandate):** Extended ward checklists (hypovolemic-shock-i, pneumonia-i, trauma-i, burns-i, cardiogenic-shock-i) + LMIC callouts (shock ii, malaria ii, trauma-i, pneumonia-i); ResusGPS safety footer on active cases; FellowshipDashboard track labels; full `GLOBAL_SAFETY_AUDIT.md` verification table. Verified: `ci:gate`, `lint:clinical`. Post-merge: fellowship auto-seed for new ward/LMIC HTML. Migration 0047 already on prod DB (idempotent). | PR TBD |
+
 | 2026-05-31 | Cursor | **Global platform safety B1–B14:** Shared `ClinicalContentSafetyFooter` (fellowship + AHA player + ResusGPS); competence disclaimer on all cert PDF types; extended `lint:clinical` (AHA seed + ResusGPS); ward checklists for septic-shock-i, malaria-i, anaphylaxis-i, meningitis-i; AHA/Fellowship banners on training/micro landing; admin content-safety reports; `docs/GLOBAL_SAFETY_AUDIT.md`. Verified: `ci:gate`, `test:unit` (229), `db:apply-0047` (agent env). Post-merge: Render auto-seed for ward content. CEO click-test: pending. | PR #129 · merge `02d463d` |
 
 | 2026-05-31 | Cursor | **Fellowship auto-seed on production deploy (CEO approved):** `pnpm start` → `scripts/start-production.mjs` → `run-fellowship-auto-seed.mjs` (6 batches + seriously-ill-child + verify, 3 retries, 10 min/step); verify failure blocks server start; `seed:fellowship-content:all` for manual; staging skip via `AUTO_SEED_FELLOWSHIP_ON_START=false` or `APP_BASE_URL` staging. Docs: playbook, DEPLOYMENT, RENDER_PREDEPLOY_LOCKED, AGENTS lessons. Verified: `check`, `test:unit` (225), CI gate green. **Post-merge:** confirm Render deploy logs. CEO click-test: pending. | PR #125 · merge `b971107` |
@@ -350,5 +352,6 @@ Any agent can add here. Format: date, reviewer (Codex/Manus/Cursor), subject (e.
 
 Last structural update: 2025-02 (WORK_STATUS created).
 
- -   [ D O N E ]   I m p l e m e n t e d   C o m p r e h e n s i v e   A H A   P A L S   2 0 2 5   C o u r s e   ( P R   # 1 3 1 )   -   2 0 2 6 - 0 6 - 0 1  
+ -   [ D O N E ]   I m p l e m e n t e d   C o m p r e h e n s i v e   A H A   P A L S   2 0 2 5   C o u r s e   ( P R   # 1 3 1 )   -   2 0 2 6 - 0 6 - 0 1 
+ 
  

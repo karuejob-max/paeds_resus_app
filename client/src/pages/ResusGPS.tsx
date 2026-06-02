@@ -140,6 +140,7 @@ import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
 import { MedicationTimerStrip } from '@/components/MedicationTimerStrip';
+import { cn } from '@/lib/utils';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -1249,14 +1250,15 @@ export default function ResusGPS() {
         </div>
       )}
 
-      {session.phase === 'IDLE' && (
-        <ClinicalContentSafetyFooter
-          surfaceId="resus-gps"
-          surface="resus_gps"
-          compact
-          className="max-w-2xl mx-auto border-t-0 bg-muted/30"
-        />
-      )}
+      <ClinicalContentSafetyFooter
+        surfaceId="resus-gps"
+        surface="resus_gps"
+        compact
+        className={cn(
+          "max-w-2xl mx-auto border-t-0",
+          session.phase === 'IDLE' ? "bg-muted/30" : "bg-background/95 backdrop-blur-sm mb-16"
+        )}
+      />
 
       <BottomNav />
     </div>

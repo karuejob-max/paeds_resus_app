@@ -34,6 +34,7 @@ import { useLocation, useSearch } from "wouter";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EnrollmentModal } from "@/components/EnrollmentModal";
+import { microCourseTrackLabel, type MicroCourseTier } from "@shared/micro-course-display";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import {
@@ -494,14 +495,14 @@ export default function FellowshipDashboard() {
                         <p className="text-xs text-muted-foreground mb-3">
                           {course.duration} mins •{" "}
                           {course.level === "foundational" || course.level === "advanced"
-                            ? course.level === "foundational"
-                              ? "Foundational"
-                              : "Advanced"
+                            ? microCourseTrackLabel(course.level as MicroCourseTier)
                             : course.level}
                         </p>
                         <div className="flex flex-wrap gap-2 mb-3">
                           <Badge variant="outline" className="text-xs">
-                            {course.level === "advanced" ? "Advanced" : "Foundational"}
+                            {course.level === "foundational" || course.level === "advanced"
+                              ? microCourseTrackLabel(course.level as MicroCourseTier)
+                              : course.level}
                           </Badge>
                           <Badge variant="outline" className="text-xs">{course.emergencyType}</Badge>
                         </div>
