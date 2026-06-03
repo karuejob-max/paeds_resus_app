@@ -45,7 +45,7 @@
 
 | Who | What | Notes |
 |-----|------|-------|
-| — | — | — |
+| Cursor | ResusGPS clinical UX PR | Branch `feat/resusgps-clinical-ux` — audit + UX ship pending merge |
 
 **Pending CEO post-deploy review:** Micro-course clinical E2E (CST, exams, P0 content, ResusGPS P0) — live sign-off at paedsresus.com per [MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md).
 
@@ -55,6 +55,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-06-03 | Cursor | **ResusGPS clinical UX (CEO mandate):** UX audit (`docs/RESUSGPS_UX_AUDIT.md`); ABCDE-grouped intervention tracker; consolidated next-step banner; reassessment nudge after bolus/SE/DKA with `reassessment` + `interventionId`; compact top bar during active resus; fellowship chip + Save state; silenced undo/redo toasts. `fellowTitleEnabled` unchanged. Verified: `check`, `test:unit` (246), `test:clinical` (328). | PR TBD |
 | 2026-06-03 | Cursor | **ResusGPS DKA fellowship 0% fix:** Root cause — PR #142 auto-credit required `intervention_*` events (often missing on post-primary diagnosis-only path), and Pillar B `percentage` counted only conditions at ≥3 cases (1 DKA case showed 0%). Fix: auto-credit on `DEFINITIVE_CARE`/`SECONDARY_SURVEY`/`ONGOING` with mappable primary; `hyperglycaemia` → `dka`; partial progress via `computeResusGpsPillarPercentage`; invalidate `getProgress` + case log after save; co-diagnosis primary-only helper; keep Save button (disabled when saved). Verified: `check`, `test:unit` (246), CI gate green. | PR #144 · merge `5e9dfaa` |
 | 2026-06-03 | Cursor | **ResusGPS fellowship Pillar B + co-diagnosis UX:** Root cause — setting primary diagnosis only updated local session state; Pillar B credit required separate `recordResusGPSCase` via "Save for Fellowship credit". Fix: auto-save fellowship credit when user sets a valid primary on an eligible post-primary session (`isEligibleForFellowshipAutoCredit`); co-diagnosis shows immediate Saved badge + toast; `recordResusGPSSession` now calls `syncFellowshipProgressForUser` on new inserts. `fellowTitleEnabled` unchanged (`false`). Verified: `pnpm run check`, `test:unit` (242), `test:clinical` abcde-engine (56), CI gate green. | PR #142 · merge `40c7a40` |
 | 2026-06-02 | Cursor | **Fellowship learner docs + graduation UI (CEO deliverables):** `/fellowship/about`, `/fellowship/why`, `shared/fellowship-learner-content.ts`; `FellowshipGraduationCard` on dashboard + `/fellowship/progress` (claim when `fellowTitleEnabled`, review message when off); `docs/FELLOWSHIP_PRACTITIONER_QUALITY.md`, `docs/FELLOWSHIP_LEARNER_GUIDE.md`; nav/enrollment links. `fellowTitleEnabled` unchanged (`false`). Verified: `check`, `test:unit` (6 new), CI gate green. | PR #138 · merge `50c6994` |
