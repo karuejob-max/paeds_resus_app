@@ -62,6 +62,7 @@
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "seed:pals": "tsx --import dotenv/config server/seed.ts",
     "seed:pals-2025": "tsx --import dotenv/config seed-pals-2025.ts",
+    "seed:pals-2025-content": "tsx --import dotenv/config scripts/seed-pals-2025-content.ts",
     "db:verify-0044": "node scripts/verify-0044-migration.mjs",
     "retention:cleanup": "tsx --import dotenv/config scripts/run-retention-cleanup.ts",
     "dsar:deletion": "tsx --import dotenv/config scripts/process-dsar-deletion.ts",

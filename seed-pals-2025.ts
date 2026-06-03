@@ -453,7 +453,7 @@ const modules = [
 </div>
 <p>Simultaneously, actively search for and treat reversible causes (H's and T's).</p>
 <ul>
-  <li><strong>H's:</strong> Hypovolemia, Hypoxia, Hydrogen ion (acidosis), Hypo-/Hyperkalemia, Hypothermia.</li>
+  <li><strong>H's:</strong> Hypovolemia, Hypoxia, Hydrogen ion (acidosis), Hypo-/Hyperkalemia, Hypothermia, <strong>Hypoglycemia</strong>.</li>
   <li><strong>T's:</strong> Tension pneumothorax, Tamponade (cardiac), Toxins, Thrombosis (coronary or pulmonary).</li>
 </ul>`
       },

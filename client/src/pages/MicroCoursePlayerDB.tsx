@@ -231,7 +231,7 @@ export default function MicroCoursePlayerDB() {
   const microEnrollmentId = (enrollment as { id?: number } | undefined)?.id;
   const { data: examState } = trpc.learning.getMicroCourseExamState.useQuery(
     { enrollmentId: microEnrollmentId ?? 0 },
-    { enabled: !isAhaCourse && !!microEnrollmentId }
+    { enabled: !!microEnrollmentId }
   );
 
   const [summativeShuffleSeed, setSummativeShuffleSeed] = useState<number | null>(null);
@@ -253,7 +253,6 @@ export default function MicroCoursePlayerDB() {
     },
     {
       enabled:
-        !isAhaCourse &&
         showSummativeExam &&
         !!microEnrollmentId &&
         !!examState?.summativeQuizId &&

@@ -115,3 +115,28 @@ export function assertQuizCorrectAnswerValid(
     throw new Error(`Invalid quiz correct answer "${text}" for options`);
   }
 }
+
+/**
+ * Compare learner-selected option text to stored correctAnswer (value, index, or letter).
+ */
+export function gradeQuizAnswerAgainstStored(
+  userAnswer: string,
+  correctRaw: string | null | undefined,
+  options: string[]
+): boolean {
+  if (!userAnswer?.trim()) return false;
+  const expected = parseStoredQuizCorrectAnswer(correctRaw);
+  if (!expected) return false;
+  if (userAnswer === expected) return true;
+
+  const encoding = classifyQuizAnswerEncoding(correctRaw, options);
+  if (encoding === "index") {
+    const idx = Number.parseInt(expected, 10);
+    return !Number.isNaN(idx) && options[idx] === userAnswer;
+  }
+  if (encoding === "letter") {
+    const idx = expected.toUpperCase().charCodeAt(0) - 65;
+    return idx >= 0 && idx < options.length && options[idx] === userAnswer;
+  }
+  return false;
+}

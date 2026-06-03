@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import {
   courses,
+  enrollments,
   microCourseEnrollments,
   microCourses,
   modules,
@@ -15,7 +16,7 @@ import {
   examKindFromQuizTitle,
   summativePassed,
 } from "../../shared/microcourse-exam-policy";
-import { parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
+import { gradeQuizAnswerAgainstStored } from "../../shared/quiz-answer-contract";
 
 type Db = {
   select: (...args: unknown[]) => { from: (...args: unknown[]) => { where: (...args: unknown[]) => Promise<unknown[]> } };
@@ -174,6 +175,100 @@ export async function assertMicrocourseCompletionAllowed(
   return { ok: true };
 }
 
+/** Last-module summative quiz for a course (e.g. PALS 2025 final exam). */
+export async function resolveCourseSummativeQuizId(
+  db: Db,
+  courseId: number
+): Promise<number | null> {
+  const moduleRows = (await (db as any)
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.courseId, courseId))
+    .orderBy(asc(modules.order))) as { id: number }[];
+
+  if (moduleRows.length === 0) return null;
+  const lastModuleId = moduleRows[moduleRows.length - 1]!.id;
+  const moduleQuizRows = (await (db as any)
+    .select({ id: quizzes.id, title: quizzes.title })
+    .from(quizzes)
+    .where(eq(quizzes.moduleId, lastModuleId))) as { id: number; title: string }[];
+
+  const summative = moduleQuizRows.find((q) => examKindFromQuizTitle(q.title) === "summative");
+  return summative?.id ?? null;
+}
+
+export async function getAhaCourseExamState(
+  db: Db,
+  userId: number,
+  ahaEnrollmentId: number
+): Promise<MicrocourseExamState | null> {
+  const enrollmentRows = (await (db as any)
+    .select()
+    .from(enrollments)
+    .where(and(eq(enrollments.id, ahaEnrollmentId), eq(enrollments.userId, userId)))
+    .limit(1)) as { id: number; courseId: number | null; programType: string | null }[];
+
+  const enrollment = enrollmentRows[0];
+  if (!enrollment) return null;
+
+  let courseId = enrollment.courseId;
+  if (courseId == null && enrollment.programType) {
+    const courseRow = await db.query.courses.findFirst({
+      where: eq(courses.programType, enrollment.programType as never),
+      columns: { id: true },
+    } as never);
+    courseId = courseRow?.id ?? null;
+  }
+  if (courseId == null) return null;
+
+  const summativeQuizId = await resolveCourseSummativeQuizId(db, courseId);
+  const moduleRows = (await (db as any)
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.courseId, courseId))
+    .orderBy(asc(modules.order))) as { id: number }[];
+
+  const progressRows = (await (db as any)
+    .select()
+    .from(userProgress)
+    .where(
+      and(eq(userProgress.userId, userId), eq(userProgress.enrollmentId, ahaEnrollmentId))
+    )) as {
+    moduleId: number;
+    quizId: number | null;
+    score: number | null;
+    attempts: number | null;
+    status: string | null;
+    updatedAt: Date | null;
+    completedAt: Date | null;
+  }[];
+
+  const summativeProgress = summativeQuizId
+    ? progressRows.find((p) => p.quizId === summativeQuizId)
+    : undefined;
+
+  const summativeAttempts = summativeProgress?.attempts ?? 0;
+  const lastAttemptAt = summativeProgress?.updatedAt ?? summativeProgress?.completedAt ?? null;
+  const retryCheck = canAttemptSummative({
+    attempts: summativeAttempts,
+    lastAttemptAt,
+  });
+  const passed = summativePassed(summativeProgress?.score ?? null);
+
+  return {
+    diagnosticRequired: false,
+    diagnosticCompleted: true,
+    summativeRequired: !!summativeQuizId,
+    summativePassed: passed,
+    summativeQuizId,
+    diagnosticQuizId: null,
+    summativeAttempts,
+    canRetrySummative: retryCheck.allowed,
+    retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
+    summativePassPercent: 80,
+  };
+}
+
 export async function loadSummativeQuestionBank(
   db: Db,
   summativeQuizId: number
@@ -210,6 +305,7 @@ export async function computeQuizScoreFromDb(
     .orderBy(asc(quizQuestions.order))) as {
     id: number;
     correctAnswer: string | null;
+    options: string | null;
   }[];
 
   if (rows.length === 0) {
@@ -226,8 +322,16 @@ export async function computeQuizScoreFromDb(
         ? (answerMap as Record<string, string>)[String(q.id)]
         : undefined);
     if (!userAnswer) continue;
-    const expected = parseStoredQuizCorrectAnswer(q.correctAnswer);
-    if (expected && userAnswer === expected) correctCount++;
+    let options: string[] = [];
+    if (q.options) {
+      try {
+        const parsed = JSON.parse(q.options);
+        options = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        options = [];
+      }
+    }
+    if (gradeQuizAnswerAgainstStored(userAnswer, q.correctAnswer, options)) correctCount++;
   }
 
   const score = Math.round((correctCount / rows.length) * 100);

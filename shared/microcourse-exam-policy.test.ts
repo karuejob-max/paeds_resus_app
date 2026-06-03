@@ -19,6 +19,7 @@ describe("microcourse-exam-policy", () => {
   it("classifies quiz titles", () => {
     expect(examKindFromQuizTitle("Diagnostic baseline")).toBe("diagnostic");
     expect(examKindFromQuizTitle("Summative knowledge check")).toBe("summative");
+    expect(examKindFromQuizTitle("PALS Summative Exam")).toBe("summative");
     expect(examKindFromQuizTitle("Module 2 Knowledge Check")).toBe("formative");
   });
 
