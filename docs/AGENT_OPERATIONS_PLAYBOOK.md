@@ -136,6 +136,7 @@ pnpm run seed:fellowship-content:metabolic
 **AHA Courses (PALS, ACLS, BLS):**
 
 ```bash
+pnpm run seed:pals         # PALS AHA catalog (courses/modules for scheduling)
 pnpm run seed:pals-2025    # Targeted PALS 2025 update
 pnpm run seed:bls-acls     # Standard AHA courses
 ```
@@ -205,7 +206,7 @@ Log applied migration + verify result in WORK_STATUS per PSOT §22.2.
 
 1. **`pnpm run db:test-connection`** — if fail, do not start long seed.
 2. **Chunk** — smaller `--batch=` or `--only=` (see §2.2).
-3. **Render Shell** — run same `pnpm run seed:…` commands with production env.
+3. **Render Shell** — run same `pnpm run seed:…` commands with production env. PALS catalog only: `pnpm run seed:pals` (uses `server/db.ts` pool; fellowship stays on `seed:fellowship-content:*`).
 4. **Aiven console** — allowlist operator IP if Shell unavailable (CEO/ops).
 5. **Re-verify** — `verify-fellowship-seed.ts` or targeted `db:verify-*` after each successful chunk.
 
