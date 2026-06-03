@@ -4,7 +4,7 @@
 > This file is the agent-facing distillation of the Platform's Source of Truth (PSOT).
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** May 31, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** June 3, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
@@ -50,6 +50,7 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 - **Code on `main` ≠ learner content until deploy:** On deploy, **`pnpm run seed:fellowship-content:all`** runs automatically (`pnpm start` → `deploy:seed-fellowship` → `scripts/run-fellowship-auto-seed.mjs`; CEO approved). Verify target **29** courses, 0 failures. Staging: `AUTO_SEED_FELLOWSHIP_ON_START=false`. Manual one-shot: same script with `--force`; chunked batches for ETIMEDOUT recovery.
 - **Summative exam integrity:** Player must use **`getSummativeExamQuestions`** (shuffled); **`recordQuizAttempt`** server-grades summative — never trust client score; strip `correctAnswer` from summative in **`getModuleContent`**.
 - **ETIMEDOUT on seed/migrate:** Chunk with `--batch=` / `--only=`; use **`scripts/db-connection-config.mjs`** / IPv4 **`server/db.ts`**; fallback **Render Shell** with production `DATABASE_URL`.
+- **Scripts DB access (PALS seed lesson, PR #155):** Never **`mysql.createConnection(DATABASE_URL)`** in scripts — use **`await getDb()`** from **`server/db.ts`** (IPv4 resolve, Aiven SSL `servername`, pool, `connectTimeout`, retries). **PALS:** `pnpm run seed:pals`; **fellowship:** `seed:fellowship-content:*`. Run **`pnpm run db:test-connection`** before blaming credentials; desktop ETIMEDOUT → Render Shell ([playbook](./docs/AGENT_OPERATIONS_PLAYBOOK.md) §2–3).
 - **Clinical harm audit before "complete":** **mmol/L** for glucose; **never KCl IV push**; **DKA — no insulin bolus**; **neonates — no benzos first-line** for seizures; spot-check seeded HTML, not just TypeScript.
 - **Honest gap docs:** Use [FELLOWSHIP_WHAT_IS_MISSING.md](docs/FELLOWSHIP_WHAT_IS_MISSING.md) for CEO — do not reassure that prod DB matches code without seed + verify evidence.
 - **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
