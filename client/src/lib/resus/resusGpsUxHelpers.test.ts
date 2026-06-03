@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   abcdeLetterToGroupLabel,
+  deriveQuickAssessmentRecommendation,
   findInterventionNeedingReassessment,
   getPrimaryNextStepBanner,
   getReassessmentPromptForIntervention,
   getResusPhaseGuidance,
   groupActiveThreatsByLetter,
   isActiveResusPhase,
+  toggleQuickAssessmentCue,
 } from './resusGpsUxHelpers';
 import {
   completeIntervention,
@@ -171,6 +173,41 @@ describe('resusGpsUxHelpers', () => {
   it('detects active resus phases for compact chrome', () => {
     expect(isActiveResusPhase('INTERVENTION')).toBe(true);
     expect(isActiveResusPhase('SECONDARY_SURVEY')).toBe(false);
+  });
+
+  it('returns neutral quick assessment guidance with no cues selected', () => {
+    const rec = deriveQuickAssessmentRecommendation(new Set());
+    expect(rec.level).toBe('neutral');
+    expect(rec.headline).toMatch(/tap anything abnormal/i);
+    expect(rec.suggestedAnswer).toBeUndefined();
+  });
+
+  it('suggests sick when one concerning cue is selected', () => {
+    const rec = deriveQuickAssessmentRecommendation(new Set(['b_grunting']));
+    expect(rec.level).toBe('reassess');
+    expect(rec.suggestedAnswer).toBe('sick');
+  });
+
+  it('suggests activate emergency when multiple concerning cues selected', () => {
+    const rec = deriveQuickAssessmentRecommendation(new Set(['a_pale_gray', 'c_mottled']));
+    expect(rec.level).toBe('sick');
+    expect(rec.headline).toMatch(/looks sick/i);
+    expect(rec.suggestedAnswer).toBe('sick');
+  });
+
+  it('toggles quick assessment cue selection', () => {
+    let selected = new Set<string>();
+    selected = toggleQuickAssessmentCue(selected, 'a_limp');
+    expect(selected.has('a_limp')).toBe(true);
+    selected = toggleQuickAssessmentCue(selected, 'a_limp');
+    expect(selected.has('a_limp')).toBe(false);
+  });
+
+  it('returns quick assessment phase guidance aligned with fellowship teaching', () => {
+    const session = startQuickAssessment(createSession(10, '2y 0m 0w', false));
+    const guidance = getResusPhaseGuidance(session);
+    expect(guidance?.headline).toMatch(/3-second look/i);
+    expect(guidance?.detail).toMatch(/ABCDE/i);
   });
 
   it('integrates with abcdeEngine completeIntervention lifecycle', () => {

@@ -15,6 +15,7 @@ Scope: `client/src/pages/ResusGPS.tsx`, intervention tracker sheet, top bar, not
 | **Notifications** | Fellowship save success with condition count; duplicate-med dialog | Undo/redo toasts on every tap; recording pulse banner + fellowship banner + safety alerts can stack | One consolidated next-step banner; silence undo/redo toasts; keep safety alerts separate (clinical) |
 | **Reassessment flow** | Structured checks with escalation options; logs `reassessment` for Pillar B | Only visible after expanding threat + tapping small “Reassess”; no vitals prompt for metabolic/shock paths | Banner nudge with fellowship-aligned prompts (vitals, GCS, glucose); one-tap “Re-check” opens flow |
 | **Post-primary / fellowship** | Auto-credit on primary + activity (`isEligibleForFellowshipAutoCredit`); co-diagnosis saved badges | Primary vs co-diagnosis role easy to miss amid differential cards | One-line “Primary drives fellowship credit”; prominent Save button retained |
+| **Quick Assessment (first screen)** | Sick / not sick buttons advance phase | Labels only (Appearance • WOB • Circulation) — no actionable cues | Shipped: three cue cards + tap findings → recommendation; same `answerQuickAssessment` phase machine |
 | **Phase guidance** | ABCDE letter progress on primary survey | No cross-phase “what to do now” | `getResusPhaseGuidance()` single headline from phase + pending interventions |
 | **Mobile / bottom nav** | Fixed bottom nav for hub switching | Medication timer strip + bottom nav + safety footer compete for thumb space | Keep timer strip above nav; next-step banner sticky below top bar |
 
@@ -26,18 +27,20 @@ Scope: `client/src/pages/ResusGPS.tsx`, intervention tracker sheet, top bar, not
 | SE benzos | Re-check GCS / ongoing seizure before repeat | Generic reassess button | Prompt: “Re-check GCS and seizure activity” |
 | DKA insulin | Glucose + K+ before continuing | Not surfaced at completion | Prompt: “Re-check glucose and K+” |
 | ABCDE primary | Complete letter before advancing | Letter chips only | Phase banner: “Complete {letter} — objective vitals” |
+| Quick look (PAT) | Seriously Ill Child — appearance, WOB, circulation cues | Static bullet labels | Three tappable cue cards; dynamic sick / reassess nudge; unchanged sick/well → PRIMARY_SURVEY |
 | Primary diagnosis → Pillar B | ≥3 cases per taught condition | Auto-save on primary (recent fix) | Consolidated banner + top-bar Save unchanged |
 
 ## Implementation notes
 
-- Helpers: `client/src/lib/resus/resusGpsUxHelpers.ts` (unit tested)
-- UI: `client/src/components/ResusGpsNextStepBanner.tsx`
+- Helpers: `client/src/lib/resus/resusGpsUxHelpers.ts` (unit tested; includes `QUICK_ASSESSMENT_PILLARS`, `deriveQuickAssessmentRecommendation`)
+- UI: `client/src/components/ResusGpsNextStepBanner.tsx`, `client/src/components/ResusGpsQuickAssessmentScreen.tsx`
 - `fellowTitleEnabled` not changed (CEO-only)
 
 ## CEO verification on `/resus`
 
-1. Start case → sick → complete C with shock → complete fluid bolus → **Re-check patient** banner appears (non-blocking).
-2. Finish to secondary survey without primary → banner: **Set primary diagnosis for fellowship credit**.
-3. Set primary (e.g. septic shock) → auto-save toast once; Save button shows saved state.
-4. During intervention phase → top bar shows timer, threats, Save; MCI/protocols/docs icons collapsed.
-5. Intervention sheet → threats grouped under **Circulation**, completed rows show green checkmark.
+1. Start case → tap concerning cue(s) → **Looks sick** nudge → **Patient looks sick** → ABCDE primary survey.
+2. Start case → sick → complete C with shock → complete fluid bolus → **Re-check patient** banner appears (non-blocking).
+3. Finish to secondary survey without primary → banner: **Set primary diagnosis for fellowship credit**.
+4. Set primary (e.g. septic shock) → auto-save toast once; Save button shows saved state.
+5. During intervention phase → top bar shows timer, threats, Save; MCI/protocols/docs icons collapsed.
+6. Intervention sheet → threats grouped under **Circulation**, completed rows show green checkmark.
