@@ -331,10 +331,10 @@ const PALS_2025: MicroCourseStaticContent = {
       ],
       quiz: [
         {
-          question: "Which component of the Pediatric Assessment Triangle (PAT) reflects brain perfusion and oxygenation?",
-          options: ["Appearance", "Work of Breathing", "Circulation to Skin", "All of the above"],
+          question: "Which component of the Pediatric Assessment Triangle (PAT) evaluates the child's neurological status (Appearance)?",
+          options: ["Appearance", "Work of Breathing", "Circulation to the Skin", "Respiratory Rate"],
           correctAnswer: "Appearance",
-          explanation: "Appearance (TICLS) is the most sensitive indicator of brain perfusion and oxygenation in children.",
+          explanation: "The Appearance component of the PAT (mental status, muscle tone, interactiveness) specifically evaluates the child's neurological status.",
         },
         {
           question: "According to the ABCDE approach, what is the immediate action if a child is found to be unresponsive?",
