@@ -120,7 +120,7 @@ describe('Septic Shock Engine', () => {
 
       expect(fluidInterventions.length).toBeGreaterThan(0);
       const firstBolus = fluidInterventions[0];
-      expect(firstBolus.dosing).toContain('360'); // 20 mL/kg * 18kg
+      expect(firstBolus.dosing).toContain('180'); // 10 mL/kg * 18kg per aliquot
     });
 
     it('should recommend multiple boluses for uncompensated shock', () => {

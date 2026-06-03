@@ -32,9 +32,9 @@ When international, WHO, and Kenya MOH differ: present **both**, recommend with 
 | Fluids | Isotonic resuscitation; **balanced crystalloid** option (ISPAD) | 0.9% NaCl often default | Note **hyperchloraemic acidosis** with large NS volumes |
 | Bolus | 10 mL/kg if perfusion poor; slow deficit replacement | Same; avoid rapid correction | Cerebral oedema vigilance |
 | Insulin | 0.05–0.1 U/kg/h **no bolus** in children | SC insulin q2–4h only if no pump — document risk | Continue until **ketosis resolving**, not normoglycaemia alone |
-| Potassium | Hold insulin if K⁺ &lt;3.5 mmol/L | Same | Replace per protocol |
+| Potassium | Hold insulin if K⁺ &lt;3.5 mmol/L | Same | Replace per protocol; **prospective guidance** in ResusGPS before insulin starts — alarm only when insulin infusion logged |
 
-**ResusGPS alignment:** `client/src/lib/resus/dka-engine.ts`, ABCDE hyperglycaemia branch in `abcdeEngine.ts`.
+**ResusGPS alignment:** `client/src/lib/resus/dka-engine.ts`, ABCDE hyperglycaemia branch in `abcdeEngine.ts` (`dka_potassium_before_insulin` guidance; `insulin_without_potassium` only when `insulinRunning`).
 
 ---
 
@@ -72,11 +72,11 @@ When international, WHO, and Kenya MOH differ: present **both**, recommend with 
 | Topic | Teaching |
 |-------|----------|
 | Recognition | Perfusion, CRT, mental status — cool extremities ≠ shock alone |
-| Fluids | 10–20 mL/kg isotonic boluses with reassessment; FEAST-aware caution in non-hypovolaemic shock |
-| Antibiotics | Early broad-spectrum in septic shock |
+| Fluids | **10 mL/kg aliquots** with reassessment after each; cumulative 40–60 mL/kg if still shocked and no overload; FEAST-aware caution in non-hypovolaemic shock; **not** a single 20 mL/kg bolus in DKA/hyperglycaemia (cerebral oedema risk) |
+| Antibiotics | Early broad-spectrum; **Ceftriaxone 80–100 mg/kg/day (max 4 g/day)**; if meningitis as cause of sepsis — treat as meningitis |
 | Inotropes | Level 2 / ICU courses |
 
-**ResusGPS alignment:** shock pathways in `abcdeEngine.ts`; fellowship condition map in `shared/fellowship-microcourse-resus-conditions.ts`.
+**ResusGPS alignment:** `septic-shock-engine.ts`, `pathways/shock.ts`, shock branch in `abcdeEngine.ts`; **Definitive Care:** `definitive-care-engine.ts`, `DefinitiveCarePanel.tsx` (see `docs/RESUSGPS_UX_AUDIT.md`).
 
 ---
 

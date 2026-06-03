@@ -45,7 +45,7 @@ export function DuplicateWarningDialog({
               className={`h-5 w-5 ${isDanger ? 'text-red-500' : 'text-amber-500'}`}
             />
             <DialogTitle>
-              {isDanger ? 'Duplicate Medication Alert' : 'Medication Already Given'}
+              {isDanger ? 'Duplicate Medication Alert' : 'Repeat dose?'}
             </DialogTitle>
           </div>
           <DialogDescription className="pt-2">
@@ -104,7 +104,7 @@ export function DuplicateWarningDialog({
               onClick={onContinue}
               disabled={isLoading}
             >
-              {isDanger ? 'Give Anyway' : 'Continue'}
+              {isDanger ? 'Give Anyway (confirm repeat)' : 'Confirm repeat dose'}
             </Button>
           )}
         </DialogFooter>

@@ -20,6 +20,7 @@ import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate, type DuplicateCheckResult } from '@/lib/resus/medication-deduplication';
+import { DefinitiveCarePanel } from '@/components/DefinitiveCarePanel';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
@@ -74,6 +75,7 @@ import {
   acknowledgeSafetyAlert,
   calcDose,
   setDefinitiveDiagnosis,
+  startDefinitiveCare,
   addConcurrentDiagnosis,
   removeConcurrentDiagnosis,
   updateSAMPLE,
@@ -150,6 +152,8 @@ import {
   getResusPhaseGuidance,
   isActiveResusPhase,
   isPostPrimaryPhase,
+  parsePatientAgeYears,
+  formatVitalWithAgeContext,
 } from '@/lib/resus/resusGpsUxHelpers';
 
 // ─── Constants ──────────────────────────────────────────────
@@ -471,7 +475,9 @@ export default function ResusGPS() {
     if (!intervention) return;
 
     // Check for medication duplicates
-    const duplicate = checkMedicationDuplicate(intervention, session);
+    const duplicate = checkMedicationDuplicate(intervention, session, {
+      excludeInterventionId: id,
+    });
     if (duplicate.isDuplicate && duplicate.existingIntervention) {
       setDuplicateCheck({ interventionId: id, result: duplicate });
       return;
@@ -514,7 +520,7 @@ export default function ResusGPS() {
       return startIntervention(withUndo, duplicateCheck.interventionId);
     });
     analytics.trackInterventionStarted(intervention.action);
-    toast.warning('Duplicate intervention started - verify clinical decision');
+    toast.warning('Repeat dose logged — verify clinical decision');
     setDuplicateCheck(null);
   };
 
@@ -730,6 +736,20 @@ export default function ResusGPS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [fellowshipSavedSessionId, session, timer.elapsed, protocolsUsed]
   );
+
+  const handleBolusReassessNow = useCallback((interventionId: string) => {
+    setPendingReassessmentId(interventionId);
+    setReassessmentMode({ interventionId, checkIndex: 0 });
+    setInterventionPanelOpen(true);
+    const threat = session.threats.find((t) =>
+      t.interventions.some((i) => i.id === interventionId)
+    );
+    if (threat) setExpandedThreat(threat.id);
+  }, [session.threats]);
+
+  const handleStartDefinitiveCare = useCallback(() => {
+    setSession((prev) => startDefinitiveCare(prev));
+  }, []);
 
   const handleSetPrimaryDiagnosis = useCallback(
     (diagnosis: string) => {
@@ -1144,6 +1164,7 @@ export default function ResusGPS() {
             onSaveSession={handleSaveSession}
             onSetPrimaryDiagnosis={handleSetPrimaryDiagnosis}
             onAddCoDiagnosis={handleAddCoDiagnosis}
+            onStartDefinitiveCare={handleStartDefinitiveCare}
             isSaving={recordSessionMutation.isPending || recordCaseMutation.isPending}
             fellowshipSavedSessionId={fellowshipSavedSessionId}
             savedCasesByCondition={savedCasesByCondition}
@@ -1179,7 +1200,7 @@ export default function ResusGPS() {
           </SheetHeader>
 
           {/* Medication countdown timers for in-progress interventions */}
-          <MedicationTimerStrip threats={session.threats} />
+          <MedicationTimerStrip threats={session.threats} onReassessNow={handleBolusReassessNow} />
 
           <div className="space-y-4 mt-4">
             {threatGroups.map((group) => (
@@ -1388,7 +1409,7 @@ export default function ResusGPS() {
       {session.phase !== 'IDLE' && (
         <div className="fixed bottom-16 left-0 right-0 z-40 px-2 pointer-events-none">
           <div className="max-w-lg mx-auto pointer-events-auto shadow-lg rounded-lg overflow-hidden border border-border">
-            <MedicationTimerStrip threats={session.threats} />
+            <MedicationTimerStrip threats={session.threats} onReassessNow={handleBolusReassessNow} />
           </div>
         </div>
       )}
@@ -2305,6 +2326,7 @@ function PostPrimaryScreen({
   onSaveSession,
   onSetPrimaryDiagnosis,
   onAddCoDiagnosis,
+  onStartDefinitiveCare,
   isSaving,
   fellowshipSavedSessionId,
   savedCasesByCondition,
@@ -2321,6 +2343,7 @@ function PostPrimaryScreen({
   onSaveSession: () => void | Promise<void>;
   onSetPrimaryDiagnosis: (diagnosis: string) => void;
   onAddCoDiagnosis: (diagnosis: string) => void;
+  onStartDefinitiveCare: () => void;
   isSaving: boolean;
   fellowshipSavedSessionId: string | null;
   savedCasesByCondition: Record<string, number>;
@@ -2344,6 +2367,11 @@ function PostPrimaryScreen({
   const isSavedThisSession = fellowshipSavedSessionId === session.id;
   const fellowshipConditionTotal = getFellowshipMicrocourseResusConditionCount();
   const resolvedThisCase = resolveFellowshipDiagnosisFromSession(session);
+  const patientAgeYears = parsePatientAgeYears(session.patientAge);
+  const showDefinitiveCareCta =
+    session.definitiveDiagnosis &&
+    (session.phase === 'SECONDARY_SURVEY' || session.phase === 'ONGOING');
+  const inDefinitiveCare = session.phase === 'DEFINITIVE_CARE';
 
   const workingDiagnosisLabels = useMemo(() => {
     const raw = [
@@ -2396,18 +2424,45 @@ function PostPrimaryScreen({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3">
-            {session.vitalSigns.hr !== undefined && (
-              <VitalBadge label="HR" value={`${session.vitalSigns.hr}`} unit="bpm" />
-            )}
-            {session.vitalSigns.rr !== undefined && (
-              <VitalBadge label="RR" value={`${session.vitalSigns.rr}`} unit="/min" />
-            )}
+            {session.vitalSigns.hr !== undefined && (() => {
+              const ctx = formatVitalWithAgeContext('hr', session.vitalSigns.hr!, patientAgeYears);
+              return (
+                <VitalBadge
+                  label="HR"
+                  value={ctx.valueText}
+                  unit="bpm"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
+            {session.vitalSigns.rr !== undefined && (() => {
+              const ctx = formatVitalWithAgeContext('rr', session.vitalSigns.rr!, patientAgeYears);
+              return (
+                <VitalBadge
+                  label="RR"
+                  value={ctx.valueText}
+                  unit="/min"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
             {session.vitalSigns.spo2 !== undefined && (
               <VitalBadge label="SpO2" value={`${session.vitalSigns.spo2}`} unit="%" />
             )}
-            {session.vitalSigns.sbp !== undefined && session.vitalSigns.dbp !== undefined && (
-              <VitalBadge label="BP" value={`${session.vitalSigns.sbp}/${session.vitalSigns.dbp}`} unit="mmHg" />
-            )}
+            {session.vitalSigns.sbp !== undefined && session.vitalSigns.dbp !== undefined && (() => {
+              const ctx = formatVitalWithAgeContext('sbp', session.vitalSigns.sbp!, patientAgeYears);
+              return (
+                <VitalBadge
+                  label="BP"
+                  value={`${session.vitalSigns.sbp}/${session.vitalSigns.dbp}`}
+                  unit="mmHg"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
             {session.vitalSigns.temp !== undefined && (
               <VitalBadge label="Temp" value={`${session.vitalSigns.temp}`} unit="C" />
             )}
@@ -2473,6 +2528,24 @@ function PostPrimaryScreen({
           </CardContent>
         </Card>
       )}
+
+      {showDefinitiveCareCta && (
+        <Card className="bg-primary/5 border-primary/30">
+          <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-foreground">Primary diagnosis set — start definitive care</p>
+              <p className="text-xs text-muted-foreground">
+                Walk through condition-based therapy (fluids, antibiotics, insulin protocol) per fellowship micro-course CST.
+              </p>
+            </div>
+            <Button onClick={onStartDefinitiveCare} className="shrink-0">
+              Start definitive care
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {inDefinitiveCare && <DefinitiveCarePanel session={session} />}
 
       {/* Differential diagnoses — always shown so fellows can pick primary for Pillar B */}
       <Card className="bg-card border-border">
@@ -3143,12 +3216,31 @@ function ReassessmentFlow({
 
 // ─── Vital Badge ────────────────────────────────────────────
 
-function VitalBadge({ label, value, unit }: { label: string; value: string; unit: string }) {
+function VitalBadge({
+  label,
+  value,
+  unit,
+  context,
+  abnormal,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  context?: string;
+  abnormal?: boolean;
+}) {
   return (
-    <div className="bg-accent/30 rounded-lg p-2 text-center">
+    <div
+      className={`rounded-lg p-2 text-center ${
+        abnormal ? 'bg-amber-500/15 border border-amber-500/40' : 'bg-accent/30'
+      }`}
+    >
       <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
-      <p className="text-sm font-bold text-foreground">{value}</p>
+      <p className={`text-sm font-bold ${abnormal ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+        {value}
+      </p>
       <p className="text-[10px] text-muted-foreground">{unit}</p>
+      {context && <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{context}</p>}
     </div>
   );
 }

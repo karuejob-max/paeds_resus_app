@@ -87,76 +87,74 @@ function getActiveInterventions(session: ResusSession): Intervention[] {
  * - severity: 'warning' (can override) or 'danger' (should not override)
  * - allowOverride: whether provider can force the duplicate
  */
+function normalizeDrugName(drug: string): string {
+  return drug.toLowerCase().replace(/\(.*?\)/g, '').trim();
+}
+
+function isSameDrug(a: string, b: string): boolean {
+  const na = normalizeDrugName(a);
+  const nb = normalizeDrugName(b);
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+export interface DuplicateCheckOptions {
+  /** Exclude the intervention being acted on (prevents self-match). */
+  excludeInterventionId?: string;
+}
+
 export function checkMedicationDuplicate(
   newIntervention: Intervention,
-  session: ResusSession
+  session: ResusSession,
+  options?: DuplicateCheckOptions
 ): DuplicateCheckResult {
   const { drug: newDrug, route: newRoute } = extractDrugInfo(newIntervention);
-  
-  // If no drug specified, no duplicate check needed
+
   if (!newDrug) {
     return { isDuplicate: false, allowOverride: true, severity: 'warning' };
   }
-  
+
   const activeInterventions = getActiveInterventions(session);
-  
-  // Check each active intervention
+
   for (const existing of activeInterventions) {
-    const { drug: existingDrug, route: existingRoute } = extractDrugInfo(existing);
-    
-    // Different drugs = no duplicate
-    if (existingDrug !== newDrug) continue;
-    
-    // Different routes = allow both (e.g., IV + PR diazepam)
-    if (existingRoute && newRoute && existingRoute !== newRoute) continue;
-    
-    // EXCEPTION 1: Boluses are repeatable
-    if (isBolus(newIntervention) && isBolus(existing)) {
-      // Allow multiple boluses (shock escalation requires them)
+    if (options?.excludeInterventionId && existing.id === options.excludeInterventionId) {
       continue;
     }
-    
-    // EXCEPTION 2: Continuous infusions can be restarted after 5+ minutes
+
+    const { drug: existingDrug, route: existingRoute } = extractDrugInfo(existing);
+    if (!existingDrug || !isSameDrug(existingDrug, newDrug)) continue;
+
+    if (existingRoute && newRoute && existingRoute !== newRoute) continue;
+
+    // Same drug listed on multiple threat cards (e.g. fever + sepsis) — not a duplicate dose
+    if (existing.status === 'pending') continue;
+
+    if (isBolus(newIntervention) && isBolus(existing)) continue;
+
     if (isContinuousInfusion(existing) && existing.status === 'completed') {
-      if (hasTimePassedSinceCompletion(existing, 5)) {
-        // Enough time has passed, allow restart
-        continue;
-      }
+      if (hasTimePassedSinceCompletion(existing, 5)) continue;
     }
-    
-    // DUPLICATE DETECTED
+
     if (existing.status === 'in_progress') {
       return {
         isDuplicate: true,
         existingIntervention: existing,
-        message: `${newDrug} ${newRoute || ''} already in progress (started ${formatTimeAgo(existing.startedAt || Date.now())})`,
+        message: `${newDrug} ${newRoute || ''} is already in progress (started ${formatTimeAgo(existing.startedAt || Date.now())} ago). Confirm you intend a repeat dose.`,
         severity: 'danger',
-        allowOverride: true, // Provider can force if needed
-      };
-    }
-    
-    if (existing.status === 'pending') {
-      return {
-        isDuplicate: true,
-        existingIntervention: existing,
-        message: `${newDrug} ${newRoute || ''} already pending`,
-        severity: 'warning',
         allowOverride: true,
       };
     }
-    
+
     if (existing.status === 'completed' && !hasTimePassedSinceCompletion(existing, 5)) {
       return {
         isDuplicate: true,
         existingIntervention: existing,
-        message: `${newDrug} ${newRoute || ''} was just given (${formatTimeAgo(existing.completedAt || Date.now())} ago)`,
+        message: `You already logged this ${newDrug} dose (${formatTimeAgo(existing.completedAt || Date.now())} ago) — tap to confirm repeat dose or cancel.`,
         severity: 'warning',
         allowOverride: true,
       };
     }
   }
-  
-  // No duplicate found
+
   return { isDuplicate: false, allowOverride: true, severity: 'warning' };
 }
 

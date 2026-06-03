@@ -45,7 +45,7 @@
 
 | Who | What | Notes |
 |-----|------|-------|
-| — | — | — |
+| Cursor | **ResusGPS clinical UX mandate (CEO Jun 2026):** PR open — 10 mL/kg aliquots, age vitals, med dedup fix, ceftriaxone 80–100 mg/kg, bolus early reassess, insulin/K+ guidance, Definitive Care panel | Awaiting CI + merge |
 
 **Pending CEO post-deploy review:** Micro-course clinical E2E (CST, exams, P0 content, ResusGPS P0) — live sign-off at paedsresus.com per [MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md).
 

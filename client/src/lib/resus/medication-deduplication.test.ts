@@ -247,10 +247,90 @@ describe('Medication Deduplication', () => {
         status: 'pending',
       };
       
-      const result = checkMedicationDuplicate(newEpi, session);
+      const result = checkMedicationDuplicate(newEpi, session, { excludeInterventionId: 'epi-2' });
       
       expect(result.isDuplicate).toBe(true);
-      expect(result.allowOverride).toBe(true); // Provider can force if needed
+      expect(result.allowOverride).toBe(true);
+    });
+
+    it('should not flag duplicate when same drug is only pending on another threat card', () => {
+      const session = createSession();
+
+      const feverCeftriaxone: Intervention = {
+        id: 'cef-fever',
+        action: 'CEFTRIAXONE (High Dose)',
+        dose: { drug: 'Ceftriaxone', dosePerKg: 100, unit: 'mg', route: 'IV' },
+        status: 'pending',
+      };
+
+      const sepsisCeftriaxone: Intervention = {
+        id: 'cef-sepsis',
+        action: 'CEFTRIAXONE empiric',
+        dose: { drug: 'Ceftriaxone', dosePerKg: 100, unit: 'mg', route: 'IV' },
+        status: 'pending',
+      };
+
+      session.threats.push(
+        {
+          id: 'fever-1',
+          letter: 'E',
+          name: 'Fever',
+          severity: 'urgent',
+          interventions: [feverCeftriaxone],
+          resolved: false,
+          findings: [],
+        },
+        {
+          id: 'shock-1',
+          letter: 'C',
+          name: 'Shock',
+          severity: 'critical',
+          interventions: [sepsisCeftriaxone],
+          resolved: false,
+          findings: [],
+        }
+      );
+
+      const result = checkMedicationDuplicate(sepsisCeftriaxone, session, {
+        excludeInterventionId: 'cef-sepsis',
+      });
+
+      expect(result.isDuplicate).toBe(false);
+    });
+
+    it('uses clearer message for recently completed duplicate', () => {
+      const session = createSession();
+
+      const prior: Intervention = {
+        id: 'para-1',
+        action: 'ANTIPYRETIC',
+        dose: { drug: 'Paracetamol (Acetaminophen)', dosePerKg: 15, unit: 'mg', route: 'PO/IV/PR' },
+        status: 'completed',
+        completedAt: Date.now() - 30_000,
+      };
+
+      session.threats.push({
+        id: 'fever-1',
+        letter: 'E',
+        name: 'Fever',
+        severity: 'urgent',
+        interventions: [prior],
+        resolved: false,
+        findings: [],
+      });
+
+      const repeat: Intervention = {
+        id: 'para-2',
+        action: 'ANTIPYRETIC repeat',
+        dose: { drug: 'Paracetamol (Acetaminophen)', dosePerKg: 15, unit: 'mg', route: 'PO/IV/PR' },
+        status: 'pending',
+      };
+
+      const result = checkMedicationDuplicate(repeat, session, { excludeInterventionId: 'para-2' });
+
+      expect(result.isDuplicate).toBe(true);
+      expect(result.message).toContain('already logged');
+      expect(result.message).toContain('confirm repeat dose');
     });
   });
 

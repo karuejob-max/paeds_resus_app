@@ -1453,7 +1453,7 @@ const threatRules: ThreatRule[] = [
           action: isNeonate ? 'CEFOTAXIME (Neonate-safe)' : 'CEFTRIAXONE (High Dose)',
           dose: isNeonate
             ? makeDose('Cefotaxime', 50, 'mg', 'IV', { preparation: 'Preferred in neonates: avoids bilirubin displacement and renal toxicity risk.' })
-            : makeDose('Ceftriaxone', 80, 'mg', 'IV', { maxDose: 4000, preparation: 'High dose for suspected meningitis coverage.' }),
+            : makeDose('Ceftriaxone', 100, 'mg', 'IV', { maxDose: 4000, preparation: '80–100 mg/kg/day (max 4 g/day). If meningitis as cause of sepsis — treat as meningitis; do not delay for LP.' }),
           critical: true, status: 'pending'
         },
         { id: uid(), action: 'ANTIPYRETIC', dose: makeDose('Paracetamol (Acetaminophen)', 15, 'mg', 'PO/IV/PR', { maxDose: 1000, frequency: 'Every 4-6 hours' }), status: 'pending' },
@@ -1557,8 +1557,23 @@ const safetyRules: SafetyRule[] = [
   {
     id: 'insulin_without_potassium',
     condition: (s) => s.insulinRunning && !s.potassiumAdded,
-    message: '⚠️ INSULIN RUNNING WITHOUT POTASSIUM — Risk of fatal hypokalemia. Add KCl 20-40 mmol/L to IV fluids BEFORE or WITH insulin.',
+    message: '⚠️ INSULIN RUNNING WITHOUT POTASSIUM — Risk of fatal hypokalemia. Add KCl 20–40 mmol/L to IV fluids WITH insulin infusion.',
     severity: 'danger',
+  },
+  {
+    id: 'dka_potassium_before_insulin',
+    condition: (s) => {
+      if (s.insulinRunning || s.potassiumAdded) return false;
+      const dx = [s.definitiveDiagnosis, ...(s.concurrentDiagnoses ?? [])]
+        .filter(Boolean)
+        .map(d => d!.toLowerCase());
+      const hasDkaContext =
+        dx.some(d => d.includes('dka') || d.includes('hypergly') || d.includes('ketoacidosis')) ||
+        (s.vitalSigns.glucose !== undefined && s.vitalSigns.glucose > 11);
+      return hasDkaContext;
+    },
+    message: 'Before starting insulin: confirm K⁺ ≥3.5 mmol/L and add KCl 20–40 mmol/L to IV fluids — never start insulin without potassium replacement plan.',
+    severity: 'warning',
   },
   {
     id: 'excessive_boluses',
@@ -1822,8 +1837,15 @@ export function answerPrimarySurvey(
   return next;
 }
 
+function isInsulinAdministration(action: string): boolean {
+  const upper = action.toUpperCase();
+  if (upper.includes('DO NOT') || upper.includes('NOT GIVE') || upper.includes('WITHOUT')) return false;
+  return upper.includes('INSULIN INFUSION') || upper.includes('START INSULIN') || upper.includes('INSULIN DRIP');
+}
+
 export function completeIntervention(session: ResusSession, interventionId: string): ResusSession {
   const next = deepCopy(session);
+  let completedDrug: { drug?: string; route?: string } = {};
 
   for (const threat of next.threats) {
     const intervention = threat.interventions.find(i => i.id === interventionId);
@@ -1831,6 +1853,7 @@ export function completeIntervention(session: ResusSession, interventionId: stri
       intervention.status = 'completed';
       intervention.completedAt = Date.now();
       log(next, 'intervention_completed', `✓ ${intervention.action}`, threat.letter);
+      completedDrug = extractDrugInfoFromIntervention(intervention);
 
       // Track boluses with fluid tracker
       if (intervention.action.includes('FLUID BOLUS') || intervention.action.includes('BOLUS')) {
@@ -1850,14 +1873,13 @@ export function completeIntervention(session: ResusSession, interventionId: stri
           log(next, 'note', `Fluid tracker: ${Math.round(next.fluidTracker.totalVolumePerKg)} mL/kg total (${next.fluidTracker.bolusCount} boluses)`);
         }
       }
-      if (intervention.action.includes('INSULIN')) {
+      if (isInsulinAdministration(intervention.action)) {
         next.insulinRunning = true;
       }
-      if (intervention.action.includes('POTASSIUM') || intervention.action.includes('KCl')) {
+      if (intervention.action.includes('POTASSIUM') || intervention.action.includes('KCl') || intervention.action.includes('K+')) {
         next.potassiumAdded = true;
       }
 
-      // Start timer
       if (intervention.timerSeconds) {
         next.activeTimers.push({
           interventionId: intervention.id,
@@ -1869,8 +1891,32 @@ export function completeIntervention(session: ResusSession, interventionId: stri
     }
   }
 
+  // Sync duplicate pathway entries (same drug + route still pending on another card)
+  if (completedDrug.drug) {
+    for (const threat of next.threats) {
+      for (const other of threat.interventions) {
+        if (other.id === interventionId || other.status !== 'pending') continue;
+        const info = extractDrugInfoFromIntervention(other);
+        if (!info.drug) continue;
+        const sameDrug =
+          info.drug.toLowerCase() === completedDrug.drug!.toLowerCase() ||
+          info.drug.toLowerCase().includes(completedDrug.drug!.toLowerCase()) ||
+          completedDrug.drug!.toLowerCase().includes(info.drug.toLowerCase());
+        if (!sameDrug) continue;
+        if (info.route && completedDrug.route && info.route !== completedDrug.route) continue;
+        other.status = 'completed';
+        other.completedAt = Date.now();
+        log(next, 'note', `Linked dose logged: ${other.action} (same administration)`);
+      }
+    }
+  }
+
   runSafetyChecks(next);
   return next;
+}
+
+function extractDrugInfoFromIntervention(intervention: Intervention): { drug?: string; route?: string } {
+  return { drug: intervention.dose?.drug, route: intervention.dose?.route };
 }
 
 export function startIntervention(session: ResusSession, interventionId: string): ResusSession {
@@ -1958,9 +2004,17 @@ export function setDefinitiveDiagnosis(session: ResusSession, diagnosis: string)
   if (next.definitiveDiagnosis === diagnosis) return session;
   next.definitiveDiagnosis = diagnosis;
   next.concurrentDiagnoses = (next.concurrentDiagnoses ?? []).filter(d => d !== diagnosis);
+  log(next, 'diagnosis', `PRIMARY DIAGNOSIS: ${diagnosis}`);
+  return next;
+}
+
+/** Transition to condition-based definitive care after primary (+ optional co-) diagnoses are set. */
+export function startDefinitiveCare(session: ResusSession): ResusSession {
+  const next = deepCopy(session);
+  if (!next.definitiveDiagnosis?.trim()) return session;
+  if (next.phase === 'DEFINITIVE_CARE') return session;
   next.phase = 'DEFINITIVE_CARE';
-  log(next, 'diagnosis', `DEFINITIVE DIAGNOSIS: ${diagnosis}`);
-  log(next, 'phase_change', `→ DEFINITIVE CARE: ${diagnosis}`);
+  log(next, 'phase_change', `→ DEFINITIVE CARE: ${next.definitiveDiagnosis}`);
   return next;
 }
 
