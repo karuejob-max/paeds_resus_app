@@ -470,6 +470,7 @@ export const learningRouter = router({
 
       let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
       let score = input.score;
+      let questionResults: Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"] | undefined;
       if (examKind === "summative") {
         passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
         const retry = canAttemptSummative({
@@ -488,6 +489,7 @@ export const learningRouter = router({
           input.answers as Record<string | number, string>
         );
         score = graded.score;
+        questionResults = graded.questionResults;
       }
 
       const passed = score >= passingScore;
@@ -544,6 +546,7 @@ export const learningRouter = router({
         passed,
         passingScore,
         examKind,
+        questionResults,
       };
     }),
 

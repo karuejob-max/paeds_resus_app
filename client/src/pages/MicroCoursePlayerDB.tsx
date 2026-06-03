@@ -82,6 +82,9 @@ export default function MicroCoursePlayerDB() {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [quizQuestionResults, setQuizQuestionResults] = useState<
+    Record<number, { correct: boolean; correctOption: string }>
+  >({});
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
   const [feedbackGate, setFeedbackGate] = useState<{ certificateId: number; certNumber: string } | null>(null);
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
@@ -454,20 +457,43 @@ export default function MicroCoursePlayerDB() {
   // AHA-ENROLL-1: Upsert enrollment row before first quiz submit
   const ensureAhaEnrollmentMutation = trpc.courses.ensureAhaEnrollment.useMutation();
 
+  const applyQuizAttemptResult = (result: {
+    success: boolean;
+    score: number;
+    passed: boolean;
+    passingScore: number;
+    questionResults?: Array<{
+      questionId: number;
+      correct: boolean;
+      correctOption: string;
+    }>;
+  }) => {
+    if (!result.success) return;
+    const resultsMap: Record<number, { correct: boolean; correctOption: string }> = {};
+    for (const r of result.questionResults ?? []) {
+      resultsMap[r.questionId] = { correct: r.correct, correctOption: r.correctOption };
+    }
+    setQuizQuestionResults(resultsMap);
+    setQuizScore(typeof result.score === "number" ? result.score : 0);
+    setQuizSubmitted(true);
+    void utils.courses.getUserEnrollments.invalidate();
+    if (result.passed) {
+      toast.success(
+        showSummativeExam
+          ? "Summative exam passed!"
+          : showDiagnosticQuiz
+            ? "Diagnostic saved."
+            : "Module quiz passed!"
+      );
+    } else {
+      toast.error(`Score: ${result.score}%. Passing is ${result.passingScore}%`);
+    }
+  };
+
   const submitQuizMutation = trpc.learning.recordQuizAttempt.useMutation({
-    onSuccess: (result) => {
-      if (result.success && result.passed) {
-        toast.success(
-          showSummativeExam ? "Summative exam passed!" : showDiagnosticQuiz ? "Diagnostic saved." : "Module quiz passed!"
-        );
-        setQuizScore(result.score);
-        setQuizSubmitted(true);
-        void utils.courses.getUserEnrollments.invalidate();
-      } else if (result.success) {
-        setQuizScore(result.score);
-        setQuizSubmitted(true);
-        toast.error(`Score: ${result.score}%. Passing is ${result.passingScore}%`);
-      }
+    onSuccess: applyQuizAttemptResult,
+    onError: (err) => {
+      toast.error(err.message || "Could not submit quiz. Please try again.");
     },
   });
 
@@ -516,6 +542,7 @@ export default function MicroCoursePlayerDB() {
     setQuizAnswers({});
     setQuizSubmitted(false);
     setQuizScore(null);
+    setQuizQuestionResults({});
   };
 
   const goToPreviousStep = (exitAtStart: boolean) => {
@@ -1028,6 +1055,7 @@ export default function MicroCoursePlayerDB() {
             onSubmit={handleQuizSubmit}
             submitted={quizSubmitted}
             score={quizScore}
+            questionResults={quizQuestionResults}
             onNext={() => {
               if (showDiagnosticQuiz) {
                 setShowDiagnosticQuiz(false);
@@ -1164,12 +1192,14 @@ export default function MicroCoursePlayerDB() {
 
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
-  submitted, score, onNext, onRetry, isPending, isEnsuring, isFinalExam,
+  submitted, score, questionResults, onNext, onRetry, isPending, isEnsuring, isFinalExam,
   isDiagnostic, summativeRetryBlocked, retryAvailableAt,
 }: any) {
   if (!quiz) return null;
 
   const passThreshold = isDiagnostic ? 0 : quiz.passingScore;
+  const displayScore = typeof score === "number" ? score : null;
+  const useServerResults = submitted && Object.keys(questionResults ?? {}).length > 0;
 
   return (
     <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1219,10 +1249,40 @@ function FormativeQuizView({
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
                 const isSelected = answers[answerKey] === option;
-                // Safe correctAnswer resolution — handles plain string or JSON-encoded string
-                const resolvedCorrect = (() => { try { const p = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer; return typeof p === 'string' ? p : String(p); } catch { return typeof q.correctAnswer === 'string' ? q.correctAnswer : String(q.correctAnswer); } })();
-                const isCorrect = submitted && resolvedCorrect && option === resolvedCorrect;
-                const isWrong = submitted && isSelected && resolvedCorrect && !isCorrect;
+                const serverResult = questionResults?.[q.id];
+                const resolvedCorrect = useServerResults
+                  ? serverResult?.correctOption
+                  : (() => {
+                      try {
+                        const p =
+                          typeof q.correctAnswer === "string"
+                            ? JSON.parse(q.correctAnswer)
+                            : q.correctAnswer;
+                        return typeof p === "string" ? p : String(p);
+                      } catch {
+                        return typeof q.correctAnswer === "string"
+                          ? q.correctAnswer
+                          : String(q.correctAnswer ?? "");
+                      }
+                    })();
+                const isCorrect =
+                  submitted &&
+                  !!resolvedCorrect &&
+                  (useServerResults
+                    ? serverResult?.correct && isSelected
+                    : option === resolvedCorrect);
+                const isWrong =
+                  submitted &&
+                  isSelected &&
+                  (useServerResults
+                    ? serverResult != null && !serverResult.correct
+                    : !!resolvedCorrect && option !== resolvedCorrect);
+                const showCorrectOption =
+                  submitted &&
+                  useServerResults &&
+                  serverResult &&
+                  !serverResult.correct &&
+                  option === serverResult.correctOption;
 
                 return (
                   <button
@@ -1232,7 +1292,9 @@ function FormativeQuizView({
                     className={cn(
                       "text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group",
                       isSelected && !submitted ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-muted-foreground/30",
-                      isCorrect ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "",
+                      isCorrect || showCorrectOption
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "",
                       isWrong ? "border-red-500 bg-red-50 text-red-700" : ""
                     )}
                   >
@@ -1266,20 +1328,20 @@ function FormativeQuizView({
             {(isPending || isEnsuring) ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
             {isEnsuring ? 'Setting up...' : 'Submit Answers'}
           </Button>
-        ) : (
+        ) : displayScore !== null ? (
           <div className="w-full text-center space-y-6">
             <div className={cn(
               "inline-flex flex-col items-center p-6 rounded-2xl border-2",
-              score >= passThreshold ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
+              displayScore >= passThreshold ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-red-50 border-red-100 text-red-700"
             )}>
               <span className="text-sm font-bold uppercase tracking-widest mb-1">
                 {isDiagnostic ? "Baseline recorded" : isFinalExam ? "Summative score" : "Your Score"}
               </span>
-              <span className="text-5xl font-black">{score}%</span>
+              <span className="text-5xl font-black">{displayScore}%</span>
               <span className="text-sm font-medium mt-2">
                 {isDiagnostic
                   ? "Thank you — continue to the course modules."
-                  : score >= passThreshold
+                  : displayScore >= passThreshold
                   ? isFinalExam ? `Excellent! You've passed the summative exam.` : `Great job! You've mastered this module.`
                   : isFinalExam
                     ? summativeRetryBlocked && retryAvailableAt
@@ -1290,7 +1352,7 @@ function FormativeQuizView({
               </span>
             </div>
             
-            {score >= passThreshold || isDiagnostic ? (
+            {displayScore >= passThreshold || isDiagnostic ? (
               <Button 
                 className="w-full py-8 rounded-2xl font-bold text-xl bg-emerald-600 hover:bg-emerald-700"
                 onClick={onNext}
@@ -1307,6 +1369,11 @@ function FormativeQuizView({
                 {isFinalExam ? 'Retry summative exam' : 'Retry Knowledge Check'}
               </Button>
             )}
+          </div>
+        ) : (
+          <div className="w-full text-center py-4 text-muted-foreground">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+            Calculating your score…
           </div>
         )}
       </CardFooter>
