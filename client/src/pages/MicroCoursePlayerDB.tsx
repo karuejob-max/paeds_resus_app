@@ -206,7 +206,7 @@ export default function MicroCoursePlayerDB() {
   const firstModuleId = courseDetails?.modules?.[0]?.id;
   const { data: firstModuleContent } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
-    { enabled: !!firstModuleId && !isAhaCourse }
+    { enabled: !!firstModuleId }
   );
 
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
@@ -311,12 +311,12 @@ export default function MicroCoursePlayerDB() {
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
 
   useEffect(() => {
-    if (isAhaCourse || isReviewMode || diagnosticPrompted || !examState) return;
+    if (isReviewMode || diagnosticPrompted || !examState) return;
     if (examState.diagnosticRequired && !examState.diagnosticCompleted) {
       setShowDiagnosticQuiz(true);
       setDiagnosticPrompted(true);
     }
-  }, [examState, isAhaCourse, isReviewMode, diagnosticPrompted]);
+  }, [examState, isReviewMode, diagnosticPrompted]);
 
   useEffect(() => {
     if (hasResumed) return;
@@ -987,7 +987,7 @@ export default function MicroCoursePlayerDB() {
                 How assessments work
               </Link>
               {" "}
-              — summative pass 80%, 3 attempts, 24h between retries.
+              — diagnostic baseline first, then modules; summative pass 80%, 3 attempts, 24h between retries.
             </p>
           </div>
         )}
@@ -1007,7 +1007,12 @@ export default function MicroCoursePlayerDB() {
             <div key={m.id} className="flex items-center">
               <button
                 onClick={() => {
-                  if (idx <= maxReachedModuleIndex || isReviewMode) {
+                  const diagnosticBlocksModules =
+                    !!examState?.diagnosticRequired && !examState?.diagnosticCompleted;
+                  if (
+                    (idx <= maxReachedModuleIndex || isReviewMode) &&
+                    !(diagnosticBlocksModules && idx > 0)
+                  ) {
                     setCurrentModuleIndex(idx);
                     setCurrentSectionIndex(0);
                     setShowFormativeQuiz(false);

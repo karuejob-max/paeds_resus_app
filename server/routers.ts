@@ -123,6 +123,7 @@ import { fellowshipRouter } from "./routers/fellowship";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { legalRouter } from "./routers/legal";
 import { contentSafetyRouter } from "./routers/content-safety";
+import { adminLearningRouter } from "./routers/admin-learning";
 
 export const appRouter = router({
   system: systemRouter,
@@ -442,6 +443,7 @@ export const appRouter = router({
   email: emailRouter,
   parentSafeTruth: parentSafeTruthRouter,
   adminStats: adminStatsRouter,
+  adminLearning: adminLearningRouter,
   facilities: facilitiesRouter,
   referrals: referralsRouter,
   institution: institutionRouter,

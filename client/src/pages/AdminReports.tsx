@@ -245,6 +245,18 @@ export default function AdminReports() {
     },
     onError: (e) => toast.error(e.message || "Could not update instructor status"),
   });
+
+  const SUMMATIVE_RESET_PROGRAMS = new Set(["bls", "acls", "pals", "nrp", "heartsaver"]);
+
+  const resetSummativeMutation = trpc.adminLearning.resetSummativeAttempts.useMutation({
+    onSuccess: (result) => {
+      toast.success(
+        `Summative attempts reset (quiz #${result.quizId}; was ${result.previousAttempts} attempt(s), score ${result.previousScore ?? "—"})`
+      );
+      void utils.adminStats.getEnrollmentLedger.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Summative reset failed"),
+  });
   const dispatchLifecycleBatchMutation = trpc.notifications.dispatchLifecycleNudgesBatch.useMutation({
     onSuccess: (result) => {
       const normalized = normalizeLifecycleBatchResult(result);
@@ -2121,6 +2133,11 @@ export default function AdminReports() {
                 <CardDescription>
                   Training enrollments with product line (AHA, Fellowship, …), offering label (e.g. PALS), and LMS catalog row.
                   Legacy PALS ADF rows may show catalog #3 “seriously ill child” — offering column clarifies the product. Export up to 5000 rows.
+                  For learners at max summative attempts, use <strong>Reset summative</strong> (logged in admin audit). See{" "}
+                  <a href="/learning/exam-policy#admin-reset" className="text-primary underline">
+                    exam policy — admin reset
+                  </a>
+                  .
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2247,6 +2264,7 @@ export default function AdminReports() {
                               <th className="text-left p-2 font-medium">Progress</th>
                               <th className="text-left p-2 font-medium">Cert</th>
                               <th className="text-left p-2 font-medium">Created</th>
+                              <th className="text-left p-2 font-medium">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2304,6 +2322,34 @@ export default function AdminReports() {
                                 <td className="p-2 whitespace-nowrap">
                                   {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
                                 </td>
+                                <td className="p-2">
+                                  {SUMMATIVE_RESET_PROGRAMS.has(row.programType) ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      disabled={resetSummativeMutation.isPending}
+                                      onClick={() => {
+                                        if (
+                                          !window.confirm(
+                                            `Reset summative attempts for enrollment #${row.enrollmentId} (user ${row.userId}, ${row.programType})?`
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        resetSummativeMutation.mutate({
+                                          enrollmentId: row.enrollmentId,
+                                          userId: row.userId,
+                                        });
+                                      }}
+                                    >
+                                      Reset summative
+                                    </Button>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -2320,6 +2366,7 @@ export default function AdminReports() {
                               <th className="text-left p-2 font-medium">Progress</th>
                               <th className="text-left p-2 font-medium">Completed</th>
                               <th className="text-left p-2 font-medium">Created</th>
+                              <th className="text-left p-2 font-medium">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2350,6 +2397,30 @@ export default function AdminReports() {
                                 </td>
                                 <td className="p-2 whitespace-nowrap">
                                   {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                                </td>
+                                <td className="p-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    disabled={resetSummativeMutation.isPending}
+                                    onClick={() => {
+                                      if (
+                                        !window.confirm(
+                                          `Reset summative for micro enrollment #${row.microEnrollmentId} (user ${row.userId})?`
+                                        )
+                                      ) {
+                                        return;
+                                      }
+                                      resetSummativeMutation.mutate({
+                                        enrollmentId: row.microEnrollmentId,
+                                        userId: row.userId,
+                                      });
+                                    }}
+                                  >
+                                    Reset summative
+                                  </Button>
                                 </td>
                               </tr>
                             ))}

@@ -22,19 +22,20 @@ export const EXAM_POLICY_SECTIONS: ExamPolicySection[] = [
     id: "overview",
     title: "Overview",
     paragraphs: [
-      "Paeds Resus uses three assessment types on cognitive courses: a diagnostic baseline (Fellowship only), module knowledge checks (formative), and a final summative exam. AHA courses (BLS, ACLS, PALS, NRP) use the summative model for the final exam; they do not include a diagnostic baseline.",
+      "Paeds Resus uses three assessment types on cognitive courses: a diagnostic baseline at course start, module knowledge checks (formative), and a final summative exam. Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP) follow the same flow: diagnostic → modules → summative.",
       "Scores for summative exams are calculated on the server — your result is based on stored correct answers, not self-reported marks.",
     ],
   },
   {
     id: "diagnostic",
-    title: "Diagnostic baseline (Fellowship only)",
+    title: "Diagnostic baseline",
     paragraphs: [
-      "Taken once at the start of a Fellowship micro-course. There is no pass mark — it records your baseline before you study.",
+      "Taken once at the start of a Fellowship micro-course or AHA cognitive course (BLS, ACLS, PALS, NRP). There is no pass mark — it records your baseline before you study.",
     ],
     bullets: [
       "One attempt only — you cannot retake the diagnostic.",
-      "Not used for AHA courses (BLS, ACLS, PALS, NRP).",
+      "Fixed question bank (not shuffled across retakes — retakes are not allowed).",
+      "Complete the diagnostic before module content unlocks beyond module 1.",
     ],
   },
   {
@@ -92,7 +93,7 @@ export type ExamPolicyCompareRow = {
 };
 
 export const EXAM_POLICY_COMPARE_ROWS: ExamPolicyCompareRow[] = [
-  { rule: "Diagnostic baseline", fellowship: "Yes — once, no pass mark", aha: "No" },
+  { rule: "Diagnostic baseline", fellowship: "Yes — once, no pass mark", aha: "Yes — once, no pass mark" },
   { rule: "Per-module formative checks", fellowship: "Yes — taught-before-tested", aha: "Yes — per course structure" },
   { rule: "Summative final exam", fellowship: "Yes — shuffled bank", aha: "Yes — shuffled bank" },
   { rule: "Summative pass mark", fellowship: "80%", aha: "80%" },
@@ -106,9 +107,22 @@ export const EXAM_POLICY_COMPARE_ROWS: ExamPolicyCompareRow[] = [
 
 /** Rules enforced on Fellowship but not on AHA (gap / honest diff). */
 export const EXAM_POLICY_AHA_GAPS: string[] = [
-  "Diagnostic baseline at course start",
   "Fellowship foundational vs advanced sequencing and prerequisites",
   "Minimum native formative bank per module (governance seed rules)",
   "Micro-course completion gate tied to Fellowship catalog (assertMicrocourseCompletionAllowed)",
   "Pillar A progress toward Paeds Resus Fellow",
 ];
+
+export const EXAM_POLICY_ADMIN_RESET_SECTION = {
+  id: "admin-reset",
+  title: "Maximum attempts reached — admin reset",
+  paragraphs: [
+    "If you have used all 3 summative attempts without reaching 80%, the course player blocks further summative retries until an administrator resets your summative progress for that enrollment.",
+    "Support verifies your identity and attempt history, then an admin clears the summative attempt counter on your enrollment (scores and attempt count for the final exam only — diagnostic and module progress are not removed).",
+  ],
+  bullets: [
+    "Admins use Platform Admin → Reports → Enrollment ledger (training / AHA rows).",
+    "Procedure: adminLearning.resetSummativeAttempts (logged in admin audit trail).",
+    "Self-serve reset is not available in v1.",
+  ],
+} as const;

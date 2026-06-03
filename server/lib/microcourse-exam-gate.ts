@@ -212,6 +212,27 @@ export async function resolveCourseSummativeQuizId(
   return summative?.id ?? null;
 }
 
+export async function resolveCourseDiagnosticQuizId(
+  db: Db,
+  courseId: number
+): Promise<number | null> {
+  const moduleRows = (await (db as any)
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.courseId, courseId))
+    .orderBy(asc(modules.order))) as { id: number }[];
+
+  if (moduleRows.length === 0) return null;
+  const firstModuleId = moduleRows[0]!.id;
+  const moduleQuizRows = (await (db as any)
+    .select({ id: quizzes.id, title: quizzes.title })
+    .from(quizzes)
+    .where(eq(quizzes.moduleId, firstModuleId))) as { id: number; title: string }[];
+
+  const diagnostic = moduleQuizRows.find((q) => examKindFromQuizTitle(q.title) === "diagnostic");
+  return diagnostic?.id ?? null;
+}
+
 export async function getAhaCourseExamState(
   db: Db,
   userId: number,
@@ -236,12 +257,41 @@ export async function getAhaCourseExamState(
   }
   if (courseId == null) return null;
 
-  const summativeQuizId = await resolveCourseSummativeQuizId(db, courseId);
   const moduleRows = (await (db as any)
-    .select({ id: modules.id })
+    .select({ id: modules.id, order: modules.order })
     .from(modules)
     .where(eq(modules.courseId, courseId))
-    .orderBy(asc(modules.order))) as { id: number }[];
+    .orderBy(asc(modules.order))) as { id: number; order: number }[];
+
+  const firstModuleId = moduleRows[0]?.id;
+  const lastModuleId = moduleRows[moduleRows.length - 1]?.id;
+
+  const moduleIds = moduleRows.map((m) => m.id);
+  const quizRows =
+    moduleIds.length > 0
+      ? ((await (db as any)
+          .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
+          .from(quizzes)
+          .where(inArray(quizzes.moduleId, moduleIds))) as {
+          id: number;
+          moduleId: number;
+          title: string;
+        }[])
+      : [];
+
+  const diagnosticQuiz = firstModuleId
+    ? quizRows.find(
+        (q) => q.moduleId === firstModuleId && examKindFromQuizTitle(q.title) === "diagnostic"
+      )
+    : undefined;
+  const summativeQuiz = lastModuleId
+    ? quizRows.find(
+        (q) => q.moduleId === lastModuleId && examKindFromQuizTitle(q.title) === "summative"
+      )
+    : undefined;
+
+  const summativeQuizId = summativeQuiz?.id ?? (await resolveCourseSummativeQuizId(db, courseId));
+  const diagnosticQuizId = diagnosticQuiz?.id ?? (await resolveCourseDiagnosticQuizId(db, courseId));
 
   const progressRows = (await (db as any)
     .select()
@@ -258,10 +308,16 @@ export async function getAhaCourseExamState(
     completedAt: Date | null;
   }[];
 
+  const diagnosticProgress = diagnosticQuizId
+    ? progressRows.find((p) => p.quizId === diagnosticQuizId)
+    : undefined;
+
   const summativeProgress = summativeQuizId
     ? progressRows.find((p) => p.quizId === summativeQuizId)
     : undefined;
 
+  const diagnosticCompleted =
+    !!diagnosticProgress?.completedAt || diagnosticProgress?.status === "completed";
   const summativeAttempts = summativeProgress?.attempts ?? 0;
   const lastAttemptAt = summativeProgress?.updatedAt ?? summativeProgress?.completedAt ?? null;
   const retryCheck = canAttemptSummative({
@@ -271,12 +327,12 @@ export async function getAhaCourseExamState(
   const passed = summativePassed(summativeProgress?.score ?? null);
 
   return {
-    diagnosticRequired: false,
-    diagnosticCompleted: true,
+    diagnosticRequired: !!diagnosticQuizId,
+    diagnosticCompleted: diagnosticQuizId ? diagnosticCompleted : true,
     summativeRequired: !!summativeQuizId,
     summativePassed: passed,
     summativeQuizId,
-    diagnosticQuizId: null,
+    diagnosticQuizId,
     summativeAttempts,
     summativeMaxAttempts: MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
     summativeBlockKind: retryCheck.blockKind,
