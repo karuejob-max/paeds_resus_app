@@ -23,6 +23,7 @@ import { checkMedicationDuplicate, type DuplicateCheckResult } from '@/lib/resus
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
+import { ResusGpsNextStepBanner } from '@/components/ResusGpsNextStepBanner';
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
@@ -142,6 +143,13 @@ import { MultiPatientBoard } from '@/components/MultiPatientBoard';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
 import { MedicationTimerStrip } from '@/components/MedicationTimerStrip';
 import { cn } from '@/lib/utils';
+import {
+  groupActiveThreatsByLetter,
+  getPrimaryNextStepBanner,
+  getResusPhaseGuidance,
+  isActiveResusPhase,
+  isPostPrimaryPhase,
+} from '@/lib/resus/resusGpsUxHelpers';
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -272,6 +280,8 @@ export default function ResusGPS() {
   const [numberInput2, setNumberInput2] = useState('');
   const [expandedThreat, setExpandedThreat] = useState<string | null>(null);
   const [reassessmentMode, setReassessmentMode] = useState<{ interventionId: string; checkIndex: number } | null>(null);
+  const [pendingReassessmentId, setPendingReassessmentId] = useState<string | null>(null);
+  const [dismissedReassessmentIds, setDismissedReassessmentIds] = useState<Set<string>>(() => new Set());
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
@@ -324,6 +334,37 @@ export default function ResusGPS() {
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
+
+  const nextStepBanner = useMemo(() => {
+    const pendingId =
+      pendingReassessmentId && !dismissedReassessmentIds.has(pendingReassessmentId)
+        ? pendingReassessmentId
+        : null;
+    return getPrimaryNextStepBanner(session, {
+      fellowshipSavedSessionId,
+      pendingReassessmentInterventionId: pendingId,
+    });
+  }, [session, fellowshipSavedSessionId, pendingReassessmentId, dismissedReassessmentIds]);
+
+  const threatGroups = useMemo(() => groupActiveThreatsByLetter(activeThreats), [activeThreats]);
+
+  const compactTopBar = isActiveResusPhase(session.phase);
+
+  const fellowshipChipLabel = useMemo(() => {
+    if (!isPostPrimaryPhase(session.phase) || !session.definitiveDiagnosis) return null;
+    const id = normalizeToFellowshipResusConditionId(session.definitiveDiagnosis);
+    if (!isFellowshipMicrocourseResusCondition(id)) return null;
+    const count = savedCasesByCondition[id] ?? 0;
+    return `${getFellowshipMicrocourseResusConditionLabel(id)} ${count}/3`;
+  }, [session.phase, session.definitiveDiagnosis, savedCasesByCondition]);
+
+  // Auto-expand first threat with pending critical work when intervention panel opens
+  useEffect(() => {
+    if (!interventionPanelOpen || activeThreats.length === 0) return;
+    const critical = getAllPendingCritical(session);
+    const target = critical.length > 0 ? critical[0].threat.id : activeThreats[0].id;
+    setExpandedThreat((prev) => prev ?? target);
+  }, [interventionPanelOpen, session, activeThreats]);
 
   const prevLetterRef = useRef<ABCDELetter | null>(null);
   const prevThreatCountRef = useRef(0);
@@ -394,14 +435,24 @@ export default function ResusGPS() {
 
   const handleCompleteIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
+    const threat = session.threats.find((t) => t.interventions.some((i) => i.id === id));
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, `Complete: ${intervention?.action ?? id}`);
       return completeIntervention(withUndo, id);
     });
-    // Track intervention completed
     if (intervention) {
       trackButtonClick('Log Intervention', { interventionName: intervention.action });
       analytics.trackInterventionCompleted(intervention.action);
+      if (intervention.reassessmentChecks?.length) {
+        setPendingReassessmentId(id);
+        setDismissedReassessmentIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        setExpandedThreat(threat?.id ?? null);
+        setInterventionPanelOpen(true);
+      }
     }
   };
 
@@ -855,6 +906,8 @@ export default function ResusGPS() {
     setNumberInput2('');
     setInterventionPanelOpen(false);
     setReassessmentMode(null);
+    setPendingReassessmentId(null);
+    setDismissedReassessmentIds(new Set());
   };
 
   // ── Resume dialog ──────────────────────────────────────────────────────────
@@ -930,6 +983,9 @@ export default function ResusGPS() {
         canRedo={canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        compact={compactTopBar}
+        fellowshipChipLabel={fellowshipChipLabel}
+        fellowshipSaved={fellowshipSavedSessionId === session.id}
         onOpenPatientInfo={() => {
           setTempWeight(session.patientWeight?.toString() || '');
           setTempAge(session.patientAge || '');
@@ -946,6 +1002,30 @@ export default function ResusGPS() {
         onOpenProtocols={() => setShowProtocols(true)}
         onOpenMCIBoard={() => setShowMCIBoard(true)}
       />
+
+      {nextStepBanner && session.phase !== 'IDLE' && (
+        <ResusGpsNextStepBanner
+          banner={nextStepBanner}
+          onReassess={(interventionId) => {
+            setReassessmentMode({ interventionId, checkIndex: 0 });
+            setInterventionPanelOpen(true);
+            const threat = session.threats.find((t) => t.interventions.some((i) => i.id === interventionId));
+            if (threat) setExpandedThreat(threat.id);
+          }}
+          onDismissReassessment={
+            nextStepBanner.kind === 'reassessment' && nextStepBanner.interventionId
+              ? () => {
+                  setDismissedReassessmentIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(nextStepBanner.interventionId!);
+                    return next;
+                  });
+                  setPendingReassessmentId(null);
+                }
+              : undefined
+          }
+        />
+      )}
 
       {/* Safety Alerts Banner */}
       {unackedAlerts.length > 0 && (
@@ -1101,21 +1181,33 @@ export default function ResusGPS() {
           <MedicationTimerStrip threats={session.threats} />
 
           <div className="space-y-4 mt-4">
-            {activeThreats.map(threat => (
-              <ThreatCard
-                key={threat.id}
-                threat={threat}
-                weight={weight}
-                expanded={expandedThreat === threat.id}
-                onToggle={() => setExpandedThreat(expandedThreat === threat.id ? null : threat.id)}
-                onComplete={handleCompleteIntervention}
-                onStart={handleStartIntervention}
-                onMarkUnavailable={handleMarkInterventionUnavailable}
-                reassessmentMode={reassessmentMode}
-                setReassessmentMode={setReassessmentMode}
-                session={session}
-                setSession={setSession}
-              />
+            {threatGroups.map((group) => (
+              <div key={group.letter} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                    {group.letter} — {group.label}
+                  </Badge>
+                </div>
+                {group.threats.map((threat) => (
+                  <ThreatCard
+                    key={threat.id}
+                    threat={threat}
+                    weight={weight}
+                    expanded={expandedThreat === threat.id}
+                    onToggle={() => setExpandedThreat(expandedThreat === threat.id ? null : threat.id)}
+                    onComplete={handleCompleteIntervention}
+                    onStart={handleStartIntervention}
+                    onMarkUnavailable={handleMarkInterventionUnavailable}
+                    reassessmentMode={reassessmentMode}
+                    setReassessmentMode={setReassessmentMode}
+                    session={session}
+                    setSession={setSession}
+                    onReassessmentLogged={(interventionId) => {
+                      if (pendingReassessmentId === interventionId) setPendingReassessmentId(null);
+                    }}
+                  />
+                ))}
+              </div>
             ))}
 
             {activeThreats.length === 0 && (
@@ -1327,6 +1419,9 @@ function TopBar({
   canRedo,
   onUndo,
   onRedo,
+  compact = false,
+  fellowshipChipLabel,
+  fellowshipSaved = false,
   onOpenPatientInfo,
   onOpenInterventions,
   onCardiacArrest,
@@ -1348,6 +1443,9 @@ function TopBar({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  compact?: boolean;
+  fellowshipChipLabel?: string | null;
+  fellowshipSaved?: boolean;
   onOpenPatientInfo: () => void;
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
@@ -1363,7 +1461,7 @@ function TopBar({
   if (session.phase === 'IDLE') return null;
 
   return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border [--resus-topbar-offset:2.75rem]">
       <div className="container max-w-2xl flex items-center gap-2 py-2">
         {/* Timer */}
         <div className="flex items-center gap-1.5 text-sm font-mono">
@@ -1412,6 +1510,21 @@ function TopBar({
 
         <div className="flex-1" />
 
+        {fellowshipChipLabel && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] shrink-0 hidden sm:inline-flex',
+              fellowshipSaved
+                ? 'border-emerald-500/50 text-emerald-600 bg-emerald-500/10'
+                : 'border-emerald-500/30 text-emerald-700'
+            )}
+          >
+            <GraduationCap className="h-3 w-3 mr-1" />
+            {fellowshipChipLabel}
+          </Badge>
+        )}
+
         {/* Threat count badge */}
         {activeThreats.length > 0 && (
           <Button
@@ -1446,12 +1559,7 @@ function TopBar({
           variant="ghost"
           className="text-xs h-8 w-8 p-0"
           onClick={() => {
-            if (canUndo) {
-              onUndo();
-              toast.success('Undo: Last action reverted');
-            } else {
-              toast.info('Nothing to undo');
-            }
+            if (canUndo) onUndo();
           }}
           disabled={!canUndo}
           title="Undo last action (Cmd+Z)"
@@ -1465,12 +1573,7 @@ function TopBar({
           variant="ghost"
           className="text-xs h-8 w-8 p-0"
           onClick={() => {
-            if (canRedo) {
-              onRedo();
-              toast.success('Redo: Action restored');
-            } else {
-              toast.info('Nothing to redo');
-            }
+            if (canRedo) onRedo();
           }}
           disabled={!canRedo}
           title="Redo last undone action (Cmd+Shift+Z)"
@@ -1479,64 +1582,71 @@ function TopBar({
           <Redo2 className="h-4 w-4" />
         </Button>
 
-        {/* Multi-Patient Board */}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs h-8 w-8 p-0"
-          onClick={onOpenMCIBoard}
-          title="Multi-patient board (mass casualty)"
-          aria-label="Multi-patient board"
-        >
-          <Users className="h-4 w-4" />
-        </Button>
-        {/* Condition Protocols */}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs h-8 w-8 p-0"
-          onClick={onOpenProtocols}
-          title="Condition protocols (Septic Shock, Status Epilepticus, DKA, NRP, Anaphylaxis, Severe Asthma)"
-          aria-label="Condition protocols"
-        >
-          <Layers className="h-4 w-4" />
-        </Button>
-        {/* Clinical Documents */}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs h-8 w-8 p-0"
-          onClick={onOpenDocuments}
-          title="Generate clinical documents (Referral / Progress Note)"
-          aria-label="Clinical documents"
-        >
-          <BookOpen className="h-4 w-4" />
-        </Button>
-        {/* Log */}
+        {!compact && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 w-8 p-0"
+              onClick={onOpenMCIBoard}
+              title="Multi-patient board (mass casualty)"
+              aria-label="Multi-patient board"
+            >
+              <Users className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 w-8 p-0"
+              onClick={onOpenProtocols}
+              title="Condition protocols (Septic Shock, Status Epilepticus, DKA, NRP, Anaphylaxis, Severe Asthma)"
+              aria-label="Condition protocols"
+            >
+              <Layers className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 w-8 p-0"
+              onClick={onOpenDocuments}
+              title="Generate clinical documents (Referral / Progress Note)"
+              aria-label="Clinical documents"
+            >
+              <BookOpen className="h-4 w-4" />
+            </Button>
+          </>
+        )}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
           <FileText className="h-4 w-4" />
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs h-8 w-8 p-0"
-          onClick={onCopySummary}
-          title="Copy session summary"
-          aria-label="Copy session summary"
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
+        {!compact && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-8 w-8 p-0"
+            onClick={onCopySummary}
+            title="Copy session summary"
+            aria-label="Copy session summary"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+        )}
         {/* Save Session for Fellowship Credit */}
         <Button
           size="sm"
           variant="outline"
-          className="text-xs h-8 px-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+          className={cn(
+            'text-xs h-8 px-2',
+            fellowshipSaved
+              ? 'border-emerald-500/60 text-emerald-600 bg-emerald-500/10'
+              : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
+          )}
           onClick={onSaveSession}
           title="Save session for fellowship credit"
           aria-label="Save session"
         >
           <CheckCircle2 className="h-4 w-4 mr-1" />
-          Save
+          {fellowshipSaved ? 'Saved' : 'Save'}
         </Button>
         {/* New Case */}
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
@@ -2021,9 +2131,16 @@ function InterventionScreen({
 }) {
   const criticalPending = getAllPendingCritical(session);
   const activeThreats = getActiveThreats(session);
+  const phaseHint = getResusPhaseGuidance(session);
 
   return (
     <div className="py-6">
+      {phaseHint && (
+        <p className="text-sm text-muted-foreground mb-4 px-1 border-l-2 border-primary/40 pl-3">
+          <span className="font-medium text-foreground">What to do now: </span>
+          {phaseHint.headline}
+        </p>
+      )}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-red-500/20 p-2 rounded-lg">
           <AlertTriangle className="h-6 w-6 text-red-400" />
@@ -2403,10 +2520,9 @@ function PostPrimaryScreen({
             Differential diagnoses
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            Set a <strong className="font-medium text-foreground">primary diagnosis</strong> to credit this case toward
-            the matching fellowship micro-course condition (≥3 cases each across {fellowshipConditionTotal}{' '}
-            conditions). Co-diagnoses do not add separate fellowship credit. Progress saves automatically when you
-            choose a primary; use the button below to retry if needed.
+            <strong className="font-medium text-foreground">Primary drives fellowship credit</strong> — co-diagnoses
+            document complexity only (≥3 cases per condition across {fellowshipConditionTotal} micro-courses). Progress
+            saves automatically when you choose a primary; use Save below to retry if needed.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -2791,6 +2907,7 @@ function ThreatCard({
   setReassessmentMode,
   session,
   setSession,
+  onReassessmentLogged,
 }: {
   threat: Threat;
   weight: number | null;
@@ -2803,6 +2920,7 @@ function ThreatCard({
   setReassessmentMode: (v: { interventionId: string; checkIndex: number } | null) => void;
   session: ResusSession;
   setSession: (s: ResusSession) => void;
+  onReassessmentLogged?: (interventionId: string) => void;
 }) {
   const completed = threat.interventions.filter(i => i.status === 'completed').length;
   const total = threat.interventions.length;
@@ -2930,6 +3048,7 @@ function ThreatCard({
                 {/* Reassessment Flow */}
                 {reassessmentMode?.interventionId === intervention.id && intervention.reassessmentChecks && (
                   <ReassessmentFlow
+                    interventionId={intervention.id}
                     checks={intervention.reassessmentChecks}
                     currentIndex={reassessmentMode.checkIndex}
                     weight={weight}
@@ -2939,6 +3058,7 @@ function ThreatCard({
                     setSession={setSession}
                     onAdvance={(idx) => setReassessmentMode({ interventionId: intervention.id, checkIndex: idx })}
                     onClose={() => setReassessmentMode(null)}
+                    onLogged={() => onReassessmentLogged?.(intervention.id)}
                   />
                 )}
               </div>
@@ -2953,6 +3073,7 @@ function ThreatCard({
 // ─── Reassessment Flow ──────────────────────────────────────
 
 function ReassessmentFlow({
+  interventionId,
   checks,
   currentIndex,
   weight,
@@ -2962,7 +3083,9 @@ function ReassessmentFlow({
   setSession,
   onAdvance,
   onClose,
+  onLogged,
 }: {
+  interventionId: string;
   checks: ReassessmentCheck[];
   currentIndex: number;
   weight: number | null;
@@ -2973,6 +3096,7 @@ function ReassessmentFlow({
   setSession: (s: ResusSession) => void;
   onAdvance: (idx: number) => void;
   onClose: () => void;
+  onLogged?: () => void;
 }) {
   const check = checks[currentIndex];
   if (!check) return null;
@@ -2982,7 +3106,8 @@ function ReassessmentFlow({
     next.events.push({
       timestamp: Date.now(),
       type: 'reassessment',
-      detail: `Reassessment: ${check.question} -> ${option.label}`,
+      detail: `Reassessment (${doseRationaleDrug}): ${check.question} -> ${option.label}`,
+      data: { interventionId },
     });
 
     if (option.recommendation) {
@@ -2994,6 +3119,7 @@ function ReassessmentFlow({
     }
 
     setSession(next);
+    onLogged?.();
 
     if (option.action === 'resolved' || option.action === 'stop') {
       onClose();
