@@ -15,6 +15,8 @@
 
 ---
 
+| 2026-06-03 | Cursor | **AHA diagnostic + admin summative reset (additive):** Diagnostic baseline on module 1 for BLS/ACLS/PALS/NRP/Heartsaver (`ensure-aha-diagnostic-quiz`, `seed:aha-diagnostic`); `getAhaCourseExamState` + player gate; `adminLearning.resetSummativeAttempts` + Admin Reports ledger button; exam policy updated. **Preserved:** PALS 2025 modules/summative/hypoglycemia (`ensure-pals-2025-content` untouched). Verified: `check`, `test:unit`, `build`, CI gate. | PR [#164](https://github.com/karuejob-max/paeds_resus_app/pull/164) · `e0b600b` |
+
 ## Current priorities (from CEO)
 
 | 2026-06-01 | Manus | **PALS 2025 Course & End-to-End Mandate:** Comprehensive AHA PALS 2025 update (Course ID 40) seeded to production; `AGENTS.md` updated with end-to-end execution mandate (seeding confirmation required). | PR #131, #132 |
