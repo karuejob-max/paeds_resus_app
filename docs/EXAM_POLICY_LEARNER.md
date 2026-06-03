@@ -39,11 +39,17 @@ Both use `canAttemptSummative` and `recordQuizAttempt` for summative gates.
 
 ---
 
+## Diagnostic (Fellowship + AHA)
+
+- Fixed bank on **module 1** — title `Diagnostic baseline`, `passingScore` 0
+- One attempt; `recordQuizAttempt` rejects retake when `completedAt` is set
+- Seeded idempotently: `pnpm run seed:aha-diagnostic` (BLS, ACLS, PALS, NRP, Heartsaver)
+- Does **not** replace PALS 2025 modules/summative (`ensure-pals-2025-content` unchanged)
+
 ## Fellowship-only (not applied to AHA)
 
 See `EXAM_POLICY_AHA_GAPS` in `shared/exam-policy-learner-content.ts`:
 
-- Diagnostic baseline (no pass mark, no retake)
 - Foundational / Advanced tracks and prerequisites
 - Minimum native formative bank per module (seed governance)
 - `assertMicrocourseCompletionAllowed` for Fellowship certificate claims
@@ -59,9 +65,18 @@ See `EXAM_POLICY_AHA_GAPS` in `shared/exam-policy-learner-content.ts`:
 
 ---
 
-## Admin reset (out of band)
+## Admin reset (summative attempts)
 
-No self-serve “reset attempts” in v1. Support may clear or adjust `userProgress` for the summative quiz after verifying identity and attempt history.
+**URL:** [https://www.paedsresus.com/admin/reports](https://www.paedsresus.com/admin/reports) → tab **Enrollment ledger** → source **Training / AHA enrollments**
+
+**Steps:**
+
+1. Sign in as platform **admin**.
+2. Open **Enrollment ledger**; filter by user (search or User ID) and program (BLS / ACLS / PALS / NRP) if needed.
+3. Locate the learner’s **enrollment ID** row.
+4. Click **Reset summative** (AHA / fellowship training rows only). Confirm — clears `userProgress.attempts` and score for the summative quiz only; action is logged in **adminAuditLog** via `adminLearning.resetSummativeAttempts`.
+
+No self-serve reset in v1. Fellowship micro-course enrollments use the same procedure with ledger source **ADF micro-courses** when applicable.
 
 ---
 

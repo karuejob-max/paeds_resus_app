@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, GraduationCap } from "lucide-react";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyFooter";
 import {
+  EXAM_POLICY_ADMIN_RESET_SECTION,
   EXAM_POLICY_AHA_GAPS,
   EXAM_POLICY_COMPARE_ROWS,
   EXAM_POLICY_PAGE,
@@ -86,6 +87,29 @@ export default function ExamPolicy() {
                 ))}
               </tbody>
             </table>
+          </CardContent>
+        </Card>
+
+        <Card id={EXAM_POLICY_ADMIN_RESET_SECTION.id}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">{EXAM_POLICY_ADMIN_RESET_SECTION.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            {EXAM_POLICY_ADMIN_RESET_SECTION.paragraphs.map((p) => (
+              <p key={p.slice(0, 40)}>{p}</p>
+            ))}
+            <ul className="list-disc list-inside space-y-2">
+              {EXAM_POLICY_ADMIN_RESET_SECTION.bullets.map((b) => (
+                <li key={b.slice(0, 40)}>{b}</li>
+              ))}
+            </ul>
+            <p>
+              <Link href="/admin/reports" className="text-primary underline-offset-2 hover:underline">
+                Admin enrollment ledger
+              </Link>
+              {" "}
+              (Platform Admin → Reports → Enrollment ledger).
+            </p>
           </CardContent>
         </Card>
 

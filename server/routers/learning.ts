@@ -425,7 +425,7 @@ export const learningRouter = router({
         updatedAt?: Date | null;
       } | undefined;
 
-      if (isMicro && examKind === "diagnostic") {
+      if (examKind === "diagnostic") {
         if (existingRow?.completedAt) {
           throw new TRPCError({
             code: "FORBIDDEN",
