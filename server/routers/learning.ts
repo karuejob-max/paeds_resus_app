@@ -551,21 +551,47 @@ export const learningRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
 
-      // Update all quiz progress for this module to completed (scoped to enrollment)
-      await (db as any)
-        .update(userProgress)
-        .set({
-          status: "completed",
-          completedAt: new Date(),
-          updatedAt: new Date(),
-        })
+      // Check if any progress row exists for this module + enrollment
+      const existing = await (db as any)
+        .select()
+        .from(userProgress)
         .where(
           and(
             eq(userProgress.userId, ctx.user.id),
             eq(userProgress.enrollmentId, input.enrollmentId),
             eq(userProgress.moduleId, input.moduleId)
           )
-        );
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Update existing row(s) to completed
+        await (db as any)
+          .update(userProgress)
+          .set({
+            status: "completed",
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(userProgress.userId, ctx.user.id),
+              eq(userProgress.enrollmentId, input.enrollmentId),
+              eq(userProgress.moduleId, input.moduleId)
+            )
+          );
+      } else {
+        // Insert a new progress row to mark the module as completed
+        await (db as any).insert(userProgress).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          moduleId: input.moduleId,
+          status: "completed",
+          completedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
 
       // After marking a module complete, check if ALL modules for this enrollment are now done.
       // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
