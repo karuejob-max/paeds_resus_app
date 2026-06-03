@@ -50,7 +50,9 @@ describe("microcourse-exam-policy", () => {
   });
 
   it("caps summative attempts at 3", () => {
-    expect(canAttemptSummative({ attempts: 3, lastAttemptAt: null }).allowed).toBe(false);
+    const r = canAttemptSummative({ attempts: 3, lastAttemptAt: null });
+    expect(r.allowed).toBe(false);
+    expect(r.blockKind).toBe("max_attempts");
   });
 
   it("distributes at least one formative question per module", () => {

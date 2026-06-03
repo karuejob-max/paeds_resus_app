@@ -86,6 +86,7 @@ const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSign
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
 const FellowshipAbout = lazy(() => import("./pages/FellowshipAbout"));
+const ExamPolicy = lazy(() => import("./pages/ExamPolicy"));
 const FellowshipWhy = lazy(() => import("./pages/FellowshipWhy"));
 const FellowshipProgress = lazy(() => import("./pages/FellowshipProgress"));
 const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
@@ -419,6 +420,12 @@ function Router() {
               <MicroCoursePlayer />
             </ErrorBoundary>
           )}</Route>
+          <Route path="/learning/exam-policy">{() => (
+            <ErrorBoundary>
+              <ExamPolicy />
+            </ErrorBoundary>
+          )}</Route>
+          <Route path="/courses/how-it-works">{() => <Redirect to="/learning/exam-policy" />}</Route>
           <Route path="/fellowship/about">{() => (
             <RoleGate allowed={["provider"]}>
               <FellowshipAbout />

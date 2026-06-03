@@ -104,7 +104,7 @@ Each module cites this CST in seed footers via `clinical-content-helpers.ts`.
 | Formative | Per module; taught content only |
 | Summative | End; same bank shuffled; **80%** pass; **2 retries** after **24 h**; required for certificate |
 
-Implementation: `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`.
+Implementation: `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`. Learner policy: [EXAM_POLICY_LEARNER.md](./EXAM_POLICY_LEARNER.md) (`/learning/exam-policy`).
 
 ---
 

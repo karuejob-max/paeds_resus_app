@@ -1,4 +1,4 @@
-import { useParams, useLocation, useSearch } from "wouter";
+import { Link, useParams, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,9 @@ import {
   type MicroCourseTier,
 } from "@shared/micro-course-display";
 import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyFooter";
+import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedBanner";
+import { EXAM_POLICY_LEARNER_PATH } from "@shared/summative-retry-display";
+import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -973,13 +976,29 @@ export default function MicroCoursePlayerDB() {
           </Alert>
         )}
         {ahaProgramForUi && (
-          <div className="mb-6 rounded-lg border border-border bg-white p-4 shadow-sm">
+          <div className="mb-6 rounded-lg border border-border bg-white p-4 shadow-sm space-y-3">
             <AhaCertificationPath
               cognitiveComplete={ahaCertState.cognitiveComplete}
               practicalSignedOff={ahaCertState.practicalSignedOff}
               certificateIssued={ahaCertState.certificateIssued}
             />
+            <p className="text-xs text-muted-foreground">
+              <Link href={EXAM_POLICY_LEARNER_PATH} className="text-primary underline-offset-2 hover:underline">
+                How assessments work
+              </Link>
+              {" "}
+              — summative pass 80%, 3 attempts, 24h between retries.
+            </p>
           </div>
+        )}
+        {!isAhaCourse && (
+          <p className="mb-4 text-xs text-muted-foreground">
+            <Link href={EXAM_POLICY_LEARNER_PATH} className="text-primary underline-offset-2 hover:underline">
+              Assessment policy
+            </Link>
+            {" "}
+            — diagnostic, formatives, and summative rules.
+          </p>
         )}
 
         {/* Step-by-Step Navigation */}
@@ -1090,6 +1109,11 @@ export default function MicroCoursePlayerDB() {
               !examState.summativePassed &&
               isSummativeExamActive
             }
+            summativeBlockKind={
+              (examState?.summativeBlockKind ?? "none") as SummativeBlockKind
+            }
+            summativeAttempts={examState?.summativeAttempts ?? 0}
+            summativeMaxAttempts={examState?.summativeMaxAttempts ?? 3}
             retryAvailableAt={examState?.retryAvailableAt ?? null}
           />
         ) : (
@@ -1193,7 +1217,8 @@ export default function MicroCoursePlayerDB() {
 function FormativeQuizView({ 
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
   submitted, score, questionResults, onNext, onRetry, isPending, isEnsuring, isFinalExam,
-  isDiagnostic, summativeRetryBlocked, retryAvailableAt,
+  isDiagnostic, summativeRetryBlocked, summativeBlockKind, summativeAttempts, summativeMaxAttempts,
+  retryAvailableAt,
 }: any) {
   if (!quiz) return null;
 
@@ -1201,7 +1226,19 @@ function FormativeQuizView({
   const displayScore = typeof score === "number" ? score : null;
   const useServerResults = submitted && Object.keys(questionResults ?? {}).length > 0;
 
+  const showSummativeBlocked =
+    isFinalExam && summativeRetryBlocked && summativeBlockKind && summativeBlockKind !== "none";
+
   return (
+    <div className="space-y-4">
+      {showSummativeBlocked && (
+        <SummativeRetryBlockedBanner
+          attempts={summativeAttempts ?? 0}
+          maxAttempts={summativeMaxAttempts ?? 3}
+          blockKind={summativeBlockKind}
+          retryAvailableAt={retryAvailableAt}
+        />
+      )}
     <Card className="border-none shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CardHeader className={isFinalExam ? "bg-gradient-to-br from-slate-800 to-slate-900 text-white p-8" : "bg-primary text-primary-foreground p-8"}>
         <div className="flex items-center gap-2 mb-2 opacity-80">
@@ -1222,6 +1259,13 @@ function FormativeQuizView({
           }
           {!isFinalExam && !isDiagnostic && <span className="text-white font-bold">{quiz.passingScore}%</span>}
         </p>
+        {isFinalExam && (
+          <p className="text-white/60 text-xs mt-3">
+            <Link href={EXAM_POLICY_LEARNER_PATH} className="underline underline-offset-2 hover:text-white">
+              View assessment policy
+            </Link>
+          </p>
+        )}
         {isFinalExam && (
           <div className="flex items-center gap-4 mt-4">
             <div className="bg-white/10 rounded-xl px-4 py-2 text-center">
@@ -1318,6 +1362,7 @@ function FormativeQuizView({
           <Button 
             className="w-full py-8 rounded-2xl font-bold text-xl shadow-xl shadow-primary/20"
             disabled={
+              (isFinalExam && summativeRetryBlocked) ||
               quiz.questions.filter((q: any, idx: number) => {
                 const key = q.id ?? idx;
                 return answers[key] != null && answers[key] !== "";
@@ -1338,18 +1383,31 @@ function FormativeQuizView({
                 {isDiagnostic ? "Baseline recorded" : isFinalExam ? "Summative score" : "Your Score"}
               </span>
               <span className="text-5xl font-black">{displayScore}%</span>
-              <span className="text-sm font-medium mt-2">
-                {isDiagnostic
-                  ? "Thank you — continue to the course modules."
-                  : displayScore >= passThreshold
-                  ? isFinalExam ? `Excellent! You've passed the summative exam.` : `Great job! You've mastered this module.`
-                  : isFinalExam
-                    ? summativeRetryBlocked && retryAvailableAt
-                      ? `Retry available after ${new Date(retryAvailableAt).toLocaleString()}.`
-                      : `You need ${quiz.passingScore}% to pass. Review the material and try again.`
-                    : `Keep studying and try again.`
-                }
-              </span>
+              {isDiagnostic ? (
+                <span className="text-sm font-medium mt-2">Thank you — continue to the course modules.</span>
+              ) : displayScore >= passThreshold ? (
+                <span className="text-sm font-medium mt-2">
+                  {isFinalExam
+                    ? `Excellent! You've passed the summative exam.`
+                    : `Great job! You've mastered this module.`}
+                </span>
+              ) : isFinalExam && summativeRetryBlocked ? null : (
+                <span className="text-sm font-medium mt-2">
+                  {isFinalExam
+                    ? `You need ${quiz.passingScore}% to pass. Review the material and try again.`
+                    : `Keep studying and try again.`}
+                </span>
+              )}
+              {isFinalExam && summativeRetryBlocked && (
+                <div className="mt-4 w-full max-w-md">
+                  <SummativeRetryBlockedBanner
+                    attempts={summativeAttempts ?? 0}
+                    maxAttempts={summativeMaxAttempts ?? 3}
+                    blockKind={summativeBlockKind ?? "max_attempts"}
+                    retryAvailableAt={retryAvailableAt}
+                  />
+                </div>
+              )}
             </div>
             
             {displayScore >= passThreshold || isDiagnostic ? (
@@ -1378,6 +1436,7 @@ function FormativeQuizView({
         )}
       </CardFooter>
     </Card>
+    </div>
   );
 }
 
