@@ -131,40 +131,36 @@ export function calculateFluidResuscitation(
 ): ShockIntervention[] {
   const interventions: ShockIntervention[] = [];
 
-  // Initial bolus: 10–20 mL/kg with reassessment (FEAST-aware — stop if no improvement or overload)
-  const initialBolus = assessment.weightKg * 20;
-  const bolusRate = initialBolus / 0.5; // mL/hour for 30-minute infusion
+  // Initial bolus: 10 mL/kg aliquots up to 40–60 mL/kg total (FEAST-aware)
+  const aliquotMl = assessment.weightKg * 10;
+  const bolusRate = aliquotMl / 0.17; // ~10 min push
 
   interventions.push({
     type: 'fluid_bolus_initial',
-    description: 'Initial IV fluid bolus (10–20 mL/kg) — reassess after each bolus',
-    indication: 'Septic shock with hypotension or poor perfusion (FEAST-aware: stop if fluid overload or no response)',
-    dosing: `${initialBolus.toFixed(0)}mL of normal saline or Ringer's lactate
-Infusion rate: ${bolusRate.toFixed(0)}mL/hour
-Duration: 30 minutes`,
-    monitoring: 'Blood pressure, heart rate, perfusion, urine output',
+    description: 'IV fluid aliquot: 10 mL/kg — reassess after EACH aliquot',
+    indication: 'Septic shock with hypotension or poor perfusion. Repeat 10 mL/kg aliquots up to 40–60 mL/kg total OR until perfusion improves — stop if fluid overload (FEAST-aware in non-hypovolaemic shock).',
+    dosing: `${aliquotMl.toFixed(0)} mL normal saline or Ringer's lactate per aliquot
+Rate: push over 5–10 min (not a single 20 mL/kg bolus)
+Cumulative target: 40–60 mL/kg with reassessment between aliquots`,
+    monitoring: 'BP, HR, CRT, perfusion, urine output, lung sounds (pulmonary oedema)',
   });
 
-  // Reassessment after first bolus
   interventions.push({
     type: 'reassessment_post_bolus',
-    description: 'Reassess perfusion after first bolus',
-    indication: 'Determine need for additional fluid or vasopressors',
-    dosing: 'Reassess: BP, CRT, skin perfusion, lactate',
-    monitoring: 'If still hypotensive or poor perfusion → second bolus or vasopressors',
+    description: 'Reassess perfusion after each 10 mL/kg aliquot',
+    indication: 'Mandatory before repeating fluid — watch for overload',
+    dosing: 'Reassess: BP, CRT, skin perfusion, lactate, respiratory status',
+    monitoring: 'If still shocked without overload → next 10 mL/kg aliquot; if refractory → vasopressors',
   });
 
-  // Second bolus if needed
   if (severity.level !== 'compensated') {
-    const secondBolus = assessment.weightKg * 20;
+    const secondAliquot = assessment.weightKg * 10;
     interventions.push({
       type: 'fluid_bolus_second',
-      description: 'Second IV fluid bolus (20 mL/kg)',
-      indication: 'Persistent hypotension or poor perfusion after first bolus',
-      dosing: `${secondBolus.toFixed(0)}mL of normal saline or Ringer's lactate
-Infusion rate: ${(secondBolus / 0.5).toFixed(0)}mL/hour
-Duration: 30 minutes`,
-      monitoring: 'Blood pressure, perfusion, urine output',
+      description: 'Second aliquot: 10 mL/kg (only if no overload and still shocked)',
+      indication: 'Persistent hypotension or poor perfusion after first 10 mL/kg + reassessment',
+      dosing: `${secondAliquot.toFixed(0)} mL — 10 mL/kg aliquot only (not 20 mL/kg single bolus)`,
+      monitoring: 'Stop at 40–60 mL/kg cumulative or if crackles, hepatomegaly, falling SpO₂',
     });
   }
 
@@ -188,16 +184,17 @@ Typical rate: ${(maintenanceMl / 24).toFixed(0)}mL/hour`,
 export function generateAntibioticRegimen(assessment: SepticShockAssessment): ShockIntervention[] {
   const interventions: ShockIntervention[] = [];
 
-  // Empiric broad-spectrum coverage
-  const ceftriaxone = assessment.weightKg * 80;
+  // Empiric broad-spectrum — 80–100 mg/kg/day ceftriaxone (max 4 g/day); meningitis dose at upper range
+  const ceftriaxoneDose = Math.min(assessment.weightKg * 100, 4000);
   const gentamicin = assessment.weightKg * 7.5;
 
   interventions.push({
     type: 'antibiotic_first_line',
     description: 'Ceftriaxone + Gentamicin (empiric coverage)',
-    indication: 'Septic shock - empiric broad-spectrum coverage',
-    dosing: `Ceftriaxone: ${ceftriaxone.toFixed(0)}mg/day IV (${(ceftriaxone / 2).toFixed(0)}mg Q12H)
-Gentamicin: ${gentamicin.toFixed(1)}mg/day IV (${(gentamicin / 2).toFixed(1)}mg Q12H)`,
+    indication: 'Septic shock — give within 1 hour. If meningitis suspected, treat as meningitis (high-dose ceftriaxone + consider dexamethasone).',
+    dosing: `Ceftriaxone: ${ceftriaxoneDose.toFixed(0)} mg/day IV (80–100 mg/kg/day, max 4000 mg/day)
+Loading: ${(ceftriaxoneDose / 2).toFixed(0)} mg Q12H or per local protocol
+Gentamicin: ${gentamicin.toFixed(1)} mg/day IV (${(gentamicin / 2).toFixed(1)} mg Q12H)`,
     frequency: 'Every 12 hours',
     monitoring: 'Renal function, hearing, clinical response',
   });
@@ -338,7 +335,7 @@ Laboratory:
 Recommendations:
 - ICU Admission: ${severity.requiresICU ? 'REQUIRED' : 'Consider if deteriorating'}
 - Vasopressors: ${severity.requiresVasopressors ? 'REQUIRED' : 'Not indicated at this time'}
-- Fluid Resuscitation: URGENT (20 mL/kg bolus)
+- Fluid Resuscitation: URGENT (10 mL/kg aliquots — reassess after each; up to 40–60 mL/kg total)
 - Antibiotics: URGENT (within 1 hour)
 
 Follow-up: Reassess every 15-30 minutes; escalate if worsening

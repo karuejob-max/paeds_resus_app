@@ -45,6 +45,7 @@ import {
   updatePatientInfo,
   acknowledgeSafetyAlert,
   setDefinitiveDiagnosis,
+  startDefinitiveCare,
   addConcurrentDiagnosis,
   updateSAMPLE,
   primarySurveyQuestions,
@@ -541,6 +542,45 @@ describe('Safety Rules', () => {
     s = acknowledgeSafetyAlert(s, 'test_alert');
     expect(s.safetyAlerts.find(a => a.id === 'test_alert')!.acknowledged).toBe(true);
   });
+
+  it('does not set insulinRunning when completing DO NOT GIVE INSULIN YET', () => {
+    let s = createSession(18, '5 years');
+    s.threats = [{
+      id: 'dka',
+      letter: 'D',
+      name: 'Hyperglycaemia',
+      severity: 'urgent',
+      resolved: false,
+      findings: [],
+      interventions: [{
+        id: 'no-insulin',
+        action: 'DO NOT GIVE INSULIN YET',
+        status: 'pending',
+      }],
+    }];
+    s = completeIntervention(s, 'no-insulin');
+    expect(s.insulinRunning).toBe(false);
+  });
+
+  it('shows prospective K+ guidance for DKA context before insulin started', () => {
+    let s = createSession(18, '5 years');
+    s = setDefinitiveDiagnosis(s, 'dka');
+    s.vitalSigns.glucose = 18;
+    s.threats = [{
+      id: 't1',
+      letter: 'C',
+      name: 'Test',
+      severity: 'urgent',
+      resolved: false,
+      findings: [],
+      interventions: [{ id: 'x1', action: 'CHECK GLUCOSE', status: 'pending' }],
+    }];
+    s = completeIntervention(s, 'x1');
+    const guidance = s.safetyAlerts.find(a => a.id === 'dka_potassium_before_insulin');
+    expect(guidance).toBeDefined();
+    expect(guidance!.severity).toBe('warning');
+    expect(s.insulinRunning).toBe(false);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -660,13 +700,16 @@ describe('SAMPLE History', () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe('Definitive Diagnosis', () => {
-  it('sets diagnosis and transitions to DEFINITIVE_CARE', () => {
+  it('sets primary diagnosis without changing phase until startDefinitiveCare', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
     s = answerQuickAssessment(s, 'sick');
+    s = { ...s, phase: 'SECONDARY_SURVEY' };
     s = setDefinitiveDiagnosis(s, 'Septic Shock');
-    expect(s.phase).toBe('DEFINITIVE_CARE');
+    expect(s.phase).toBe('SECONDARY_SURVEY');
     expect(s.definitiveDiagnosis).toBe('Septic Shock');
+    s = startDefinitiveCare(s);
+    expect(s.phase).toBe('DEFINITIVE_CARE');
   });
 });
 

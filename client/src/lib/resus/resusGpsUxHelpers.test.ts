@@ -9,6 +9,9 @@ import {
   groupActiveThreatsByLetter,
   isActiveResusPhase,
   toggleQuickAssessmentCue,
+  evaluateHeartRateForAge,
+  formatVitalWithAgeContext,
+  parsePatientAgeYears,
 } from './resusGpsUxHelpers';
 import {
   completeIntervention,
@@ -241,5 +244,24 @@ describe('resusGpsUxHelpers', () => {
     session = completeIntervention(session, 'benzo');
     expect(findInterventionNeedingReassessment(session)?.action).toBe('MIDAZOLAM IV');
     expect(getReassessmentPromptForIntervention(session.threats[0].interventions[0])).toMatch(/GCS/i);
+  });
+
+  it('flags HR high for age 8y', () => {
+    const result = evaluateHeartRateForAge(125, 8);
+    expect(result.assessment).toBe('high');
+    expect(result.displaySuffix).toContain('high for age');
+  });
+
+  it('shows expected range in vital context string', () => {
+    const ctx = formatVitalWithAgeContext('rr', 35, 5);
+    expect(ctx.abnormal).toBe(true);
+    expect(ctx.context).toContain('high for age');
+    expect(ctx.context).toContain('expected');
+  });
+
+  it('parsePatientAgeYears handles common formats', () => {
+    expect(parsePatientAgeYears('5 years')).toBe(5);
+    expect(parsePatientAgeYears('5y 0m 0w')).toBe(5);
+    expect(parsePatientAgeYears('6 months')).toBeCloseTo(0.5, 1);
   });
 });

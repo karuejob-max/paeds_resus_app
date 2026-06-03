@@ -1,3 +1,4 @@
+import { getVitalSignRanges } from '@/lib/clinicalCalculations';
 import {
   getAllPendingCritical,
   getPendingInterventions,
@@ -7,6 +8,91 @@ import {
   type ResusSession,
   type Threat,
 } from './abcdeEngine';
+
+export type VitalAssessment = 'low' | 'normal' | 'high';
+
+export interface VitalAgeEvaluation {
+  assessment: VitalAssessment;
+  rangeLabel: string;
+  displaySuffix: string;
+}
+
+/** Parse patient age string to approximate years for vital sign bands. */
+export function parsePatientAgeYears(ageStr: string | null | undefined): number | null {
+  if (!ageStr?.trim()) return null;
+  const s = ageStr.trim().toLowerCase();
+  const yMatch = s.match(/(\d+(?:\.\d+)?)\s*y/);
+  if (yMatch) return parseFloat(yMatch[1]);
+  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*m/);
+  if (mMatch) return parseFloat(mMatch[1]) / 12;
+  const wMatch = s.match(/(\d+(?:\.\d+)?)\s*w/);
+  if (wMatch) return parseFloat(wMatch[1]) / 52;
+  const num = parseFloat(s);
+  if (!Number.isNaN(num) && num < 18) return num;
+  return null;
+}
+
+function bandLabel(assessment: VitalAssessment): string {
+  if (assessment === 'high') return 'high for age';
+  if (assessment === 'low') return 'low for age';
+  return 'normal for age';
+}
+
+export function evaluateHeartRateForAge(hr: number, ageYears: number): VitalAgeEvaluation {
+  const { heartRate } = getVitalSignRanges(ageYears);
+  const assessment: VitalAssessment =
+    hr < heartRate.min ? 'low' : hr > heartRate.max ? 'high' : 'normal';
+  return {
+    assessment,
+    rangeLabel: `${heartRate.min}–${heartRate.max} bpm`,
+    displaySuffix: bandLabel(assessment),
+  };
+}
+
+export function evaluateRespiratoryRateForAge(rr: number, ageYears: number): VitalAgeEvaluation {
+  const { respiratoryRate } = getVitalSignRanges(ageYears);
+  const assessment: VitalAssessment =
+    rr < respiratoryRate.min ? 'low' : rr > respiratoryRate.max ? 'high' : 'normal';
+  return {
+    assessment,
+    rangeLabel: `${respiratoryRate.min}–${respiratoryRate.max}/min`,
+    displaySuffix: bandLabel(assessment),
+  };
+}
+
+export function evaluateSystolicBpForAge(sbp: number, ageYears: number): VitalAgeEvaluation {
+  const { systolicBP } = getVitalSignRanges(ageYears);
+  const assessment: VitalAssessment =
+    sbp < systolicBP.min ? 'low' : sbp > systolicBP.max ? 'high' : 'normal';
+  return {
+    assessment,
+    rangeLabel: `${systolicBP.min}–${systolicBP.max} mmHg`,
+    displaySuffix: bandLabel(assessment),
+  };
+}
+
+export function formatVitalWithAgeContext(
+  vital: 'hr' | 'rr' | 'sbp',
+  value: number,
+  ageYears: number | null
+): { valueText: string; context?: string; abnormal: boolean } {
+  if (ageYears == null) return { valueText: String(value), abnormal: false };
+  const evalFn =
+    vital === 'hr'
+      ? evaluateHeartRateForAge
+      : vital === 'rr'
+        ? evaluateRespiratoryRateForAge
+        : evaluateSystolicBpForAge;
+  const result = evalFn(value, ageYears);
+  return {
+    valueText: String(value),
+    context:
+      result.assessment === 'normal'
+        ? `(expected ${result.rangeLabel})`
+        : `(${result.displaySuffix} — expected ${result.rangeLabel})`,
+    abnormal: result.assessment !== 'normal',
+  };
+}
 import {
   getFellowshipMicrocourseResusConditionLabel,
   isFellowshipMicrocourseResusCondition,
@@ -214,9 +300,15 @@ export function getResusPhaseGuidance(session: ResusSession): { headline: string
           detail: 'Co-diagnoses document complexity; primary maps to micro-course Pillar B',
         };
       }
+      if (session.phase === 'DEFINITIVE_CARE') {
+        return {
+          headline: 'Definitive care — follow condition protocol steps below',
+          detail: '10 mL/kg fluid aliquots, reassess after each intervention (CST / micro-course aligned)',
+        };
+      }
       return {
-        headline: 'Document, save for fellowship, export handoff',
-        detail: 'Primary diagnosis already set — credit saves automatically when eligible',
+        headline: 'Tap Start definitive care for condition-based therapy',
+        detail: 'Primary set — fellowship Save remains available',
       };
     default:
       return null;
