@@ -16,7 +16,14 @@ import {
   examKindFromQuizTitle,
   summativePassed,
 } from "../../shared/microcourse-exam-policy";
-import { gradeQuizAnswerAgainstStored } from "../../shared/quiz-answer-contract";
+import { gradeQuizAnswerAgainstStored, parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
+
+export type SummativeQuestionResult = {
+  questionId: number;
+  correct: boolean;
+  correctOption: string;
+  userAnswer: string;
+};
 
 type Db = {
   select: (...args: unknown[]) => { from: (...args: unknown[]) => { where: (...args: unknown[]) => Promise<unknown[]> } };
@@ -292,12 +299,29 @@ export async function loadSummativeQuestionBank(
   }));
 }
 
+function resolveCorrectOptionText(
+  correctRaw: string | null,
+  options: string[]
+): string {
+  const parsed = parseStoredQuizCorrectAnswer(correctRaw);
+  if (!parsed) return "";
+  if (options.includes(parsed)) return parsed;
+  const idx = Number.parseInt(parsed, 10);
+  if (!Number.isNaN(idx) && options[idx] != null) return options[idx]!;
+  return parsed;
+}
+
 /** Server-side score — never trust client-reported summative scores. */
 export async function computeQuizScoreFromDb(
   db: Db,
   quizId: number,
   answers: Record<string | number, string> | null | undefined
-): Promise<{ score: number; correctCount: number; totalQuestions: number }> {
+): Promise<{
+  score: number;
+  correctCount: number;
+  totalQuestions: number;
+  questionResults: SummativeQuestionResult[];
+}> {
   const rows = (await (db as any)
     .select()
     .from(quizQuestions)
@@ -309,11 +333,13 @@ export async function computeQuizScoreFromDb(
   }[];
 
   if (rows.length === 0) {
-    return { score: 0, correctCount: 0, totalQuestions: 0 };
+    return { score: 0, correctCount: 0, totalQuestions: 0, questionResults: [] };
   }
 
   const answerMap = answers ?? {};
   let correctCount = 0;
+  const questionResults: SummativeQuestionResult[] = [];
+
   for (const q of rows) {
     const userAnswer =
       answerMap[q.id] ??
@@ -321,7 +347,6 @@ export async function computeQuizScoreFromDb(
       (typeof (answerMap as Record<string, string>)[String(q.id)] === "string"
         ? (answerMap as Record<string, string>)[String(q.id)]
         : undefined);
-    if (!userAnswer) continue;
     let options: string[] = [];
     if (q.options) {
       try {
@@ -331,11 +356,21 @@ export async function computeQuizScoreFromDb(
         options = [];
       }
     }
-    if (gradeQuizAnswerAgainstStored(userAnswer, q.correctAnswer, options)) correctCount++;
+    const correctOption = resolveCorrectOptionText(q.correctAnswer, options);
+    const correct = userAnswer
+      ? gradeQuizAnswerAgainstStored(userAnswer, q.correctAnswer, options)
+      : false;
+    if (correct) correctCount++;
+    questionResults.push({
+      questionId: q.id,
+      correct,
+      correctOption,
+      userAnswer: userAnswer ?? "",
+    });
   }
 
   const score = Math.round((correctCount / rows.length) * 100);
-  return { score, correctCount, totalQuestions: rows.length };
+  return { score, correctCount, totalQuestions: rows.length, questionResults };
 }
 
 export { MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, MICROCOURSE_SUMMATIVE_QUIZ_TITLE };

@@ -53,5 +53,19 @@ describe("summative exam integrity helpers", () => {
     const result = await computeQuizScoreFromDb(db as never, 1, { 9: "Appearance" });
     expect(result.score).toBe(100);
     expect(result.correctCount).toBe(1);
+    expect(result.questionResults[0]?.correctOption).toBe("Appearance");
+  });
+
+  it("returns per-question results for summative feedback UI", async () => {
+    const opts = [["A", "B"], ["C", "D"]] as const;
+    const db = mockDb([
+      { id: 1, correctAnswer: encodeQuizCorrectAnswerForStorage(0, [...opts[0]]) },
+      { id: 2, correctAnswer: encodeQuizCorrectAnswerForStorage(1, [...opts[1]]) },
+    ]);
+    const result = await computeQuizScoreFromDb(db as never, 1, { 1: "B", 2: "D" });
+    expect(result.score).toBe(50);
+    expect(result.questionResults).toHaveLength(2);
+    expect(result.questionResults[0]).toMatchObject({ questionId: 1, correct: false, correctOption: "A" });
+    expect(result.questionResults[1]).toMatchObject({ questionId: 2, correct: true, correctOption: "D" });
   });
 });
