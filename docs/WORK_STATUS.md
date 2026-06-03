@@ -45,7 +45,7 @@
 
 | Who | What | Notes |
 |-----|------|-------|
-| Cursor | **ResusGPS clinical UX mandate (CEO Jun 2026):** PR open — 10 mL/kg aliquots, age vitals, med dedup fix, ceftriaxone 80–100 mg/kg, bolus early reassess, insulin/K+ guidance, Definitive Care panel | Awaiting CI + merge |
+| — | — | — |
 
 **Pending CEO post-deploy review:** Micro-course clinical E2E (CST, exams, P0 content, ResusGPS P0) — live sign-off at paedsresus.com per [MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md](./MICROCOURSE_CLINICAL_REVIEW_HANDOFF.md).
 
@@ -55,6 +55,7 @@
 
 | Date | Who | What | Commit/PR |
 |------|-----|------|----------|
+| 2026-06-03 | Cursor | **ResusGPS clinical UX mandate (CEO):** 10 mL/kg aliquots (shock pathway + septic-shock-engine + DKA cerebral oedema copy); age-band vitals display; medication duplicate false-positive fix; ceftriaxone 80–100 mg/kg + meningitis copy; bolus early reassess timers; insulin/K+ prospective guidance; **Definitive Care** phase (`DefinitiveCarePanel`, `startDefinitiveCare`, `definitive-care-engine.ts`). Docs: `RESUSGPS_UX_AUDIT.md`, `CLINICAL_SOURCE_OF_TRUTH.md`. Verified: `test:unit` (246), `test:clinical` (345), CI gate green. CEO click-test: pending. | PR #153 · merge `76fa645` |
 | 2026-06-03 | Cursor | **ResusGPS Quick Assessment UX:** Three tappable cue cards (Appearance, WOB, Circulation to skin) with plain-language findings; dynamic sick/reassess nudge from `deriveQuickAssessmentRecommendation`; **Patient looks sick/well** buttons unchanged (`answerQuickAssessment` → PRIMARY_SURVEY). Helpers + 5 unit tests; `ResusGpsQuickAssessmentScreen.tsx`; `RESUSGPS_UX_AUDIT.md` updated. Fellowship auto-credit / phase machine untouched. Verified: CI gate green on PR #150. | PR #150 · merge `6e8f846` |
 | 2026-06-03 | Cursor | **ResusGPS clinical UX (CEO mandate):** UX audit (`docs/RESUSGPS_UX_AUDIT.md`); ABCDE-grouped intervention tracker; consolidated next-step banner; reassessment nudge after bolus/SE/DKA with `reassessment` + `interventionId`; compact top bar during active resus; fellowship chip + Save state; silenced undo/redo toasts. `fellowTitleEnabled` unchanged. Verified: `check`, `test:unit` (246), `test:clinical` (328), CI gate green. | PR #147 · merge `588d8bc` |
 | 2026-06-03 | Cursor | **ResusGPS DKA fellowship 0% fix:** Root cause — PR #142 auto-credit required `intervention_*` events (often missing on post-primary diagnosis-only path), and Pillar B `percentage` counted only conditions at ≥3 cases (1 DKA case showed 0%). Fix: auto-credit on `DEFINITIVE_CARE`/`SECONDARY_SURVEY`/`ONGOING` with mappable primary; `hyperglycaemia` → `dka`; partial progress via `computeResusGpsPillarPercentage`; invalidate `getProgress` + case log after save; co-diagnosis primary-only helper; keep Save button (disabled when saved). Verified: `check`, `test:unit` (246), CI gate green. | PR #144 · merge `5e9dfaa` |
