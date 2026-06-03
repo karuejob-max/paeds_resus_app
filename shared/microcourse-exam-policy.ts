@@ -180,7 +180,7 @@ export function expandQuestionBank<T>(questions: T[], minSize = MICROCOURSE_MIN_
 export function examKindFromQuizTitle(title: string | null | undefined): MicrocourseExamKind {
   const t = (title ?? "").trim().toLowerCase();
   if (t.startsWith("diagnostic")) return "diagnostic";
-  if (t.startsWith("summative")) return "summative";
+  if (t.includes("summative")) return "summative";
   return "formative";
 }
 

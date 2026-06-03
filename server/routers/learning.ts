@@ -13,6 +13,7 @@ import {
   enrollments,
 } from "../../drizzle/schema";
 import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
+import { ensurePals2025Content } from "../lib/ensure-pals-2025-content";
 import {
   ensureSeriouslyIllChildFellowshipCatalog,
 } from "../lib/ensure-seriously-ill-child-fellowship-catalog";
@@ -36,6 +37,7 @@ import {
 import {
   assertMicrocourseCompletionAllowed,
   computeQuizScoreFromDb,
+  getAhaCourseExamState,
   getMicrocourseExamState,
   loadSummativeQuestionBank,
 } from "../lib/microcourse-exam-gate";
@@ -203,6 +205,11 @@ export const learningRouter = router({
         await ensureHeartsaverCatalog(db);
       } else if (pt === "pals") {
         await ensurePalsAhaCatalog(db);
+        try {
+          await ensurePals2025Content(db);
+        } catch (e) {
+          console.error("[learning.getCourseDetails] ensure PALS 2025 content:", e);
+        }
       } else if (pt === "nrp") {
         const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
         await ensureNrpCatalog(db);
@@ -248,34 +255,34 @@ export const learningRouter = router({
         .where(eq(quizzes.moduleId, input.moduleId))
         .orderBy(quizzes.order);
 
-      const quizzesWithQuestions = await Promise.all(
-        moduleQuizzes.map(async (quiz: { id: number; title?: string }) => {
-          const raw = await (db as any)
-            .select()
-            .from(quizQuestions)
-            .where(eq(quizQuestions.quizId, quiz.id))
-            .orderBy(quizQuestions.order);
-          const questions = raw.map((q: Record<string, unknown>) => {
-            let options: string[] = [];
-            if (q.options) {
-              try {
-                const parsed = JSON.parse(q.options as string);
-                options = Array.isArray(parsed) ? parsed : [];
-              } catch {
-                options = [];
-              }
+      const mapQuizQuestions = async (quiz: { id: number; title?: string }) => {
+        const raw = await (db as any)
+          .select()
+          .from(quizQuestions)
+          .where(eq(quizQuestions.quizId, quiz.id))
+          .orderBy(quizQuestions.order);
+        const questions = raw.map((q: Record<string, unknown>) => {
+          let options: string[] = [];
+          if (q.options) {
+            try {
+              const parsed = JSON.parse(q.options as string);
+              options = Array.isArray(parsed) ? parsed : [];
+            } catch {
+              options = [];
             }
-            const kind = examKindFromQuizTitle(quiz.title as string);
-            const base = { ...q, options };
-            if (kind === "summative") {
-              const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
-              return withoutAnswer;
-            }
-            return base;
-          });
-          return { ...quiz, questions };
-        })
-      );
+          }
+          const kind = examKindFromQuizTitle(quiz.title as string);
+          const base = { ...q, options };
+          if (kind === "summative") {
+            const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
+            return withoutAnswer;
+          }
+          return base;
+        });
+        return { ...quiz, questions };
+      };
+
+      const quizzesWithQuestions = await Promise.all(moduleQuizzes.map(mapQuizQuestions));
 
       return {
         ...module[0],
@@ -337,10 +344,10 @@ export const learningRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return null;
-      if (!(await isMicroCourseEnrollmentId(db as any, input.enrollmentId))) {
-        return null;
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+        return getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
       }
-      return getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
+      return getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
     }),
 
   getSummativeExamQuestions: protectedProcedure
@@ -354,11 +361,16 @@ export const learningRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      if (!(await isMicroCourseEnrollmentId(db as any, input.enrollmentId))) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Not a micro-course enrollment" });
+
+      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
+      const state = isMicro
+        ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
+        : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
+
+      if (!state) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enrollment not found for summative exam" });
       }
-      const state = await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
-      if (state?.summativeQuizId && state.summativeQuizId !== input.summativeQuizId) {
+      if (state.summativeQuizId && state.summativeQuizId !== input.summativeQuizId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid summative quiz for this course" });
       }
       const bank = await loadSummativeQuestionBank(db as any, input.summativeQuizId);
@@ -458,7 +470,7 @@ export const learningRouter = router({
 
       let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
       let score = input.score;
-      if (isMicro && examKind === "summative") {
+      if (examKind === "summative") {
         passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
         const retry = canAttemptSummative({
           attempts: existingRow?.attempts ?? 0,
@@ -510,12 +522,12 @@ export const learningRouter = router({
         await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
       }
 
-      if (isMicro && examKind === "summative") {
+      if (examKind === "summative") {
         void trackEvent({
           userId: ctx.user.id,
-          eventType: "micro_course",
+          eventType: isMicro ? "micro_course" : "aha_course",
           eventName: passed ? "Summative exam passed" : "Summative exam attempt",
-          pageUrl: "/micro-course",
+          pageUrl: isMicro ? "/micro-course" : "/course/pals",
           eventData: {
             quizId: input.quizId,
             enrollmentId: input.enrollmentId,

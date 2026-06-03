@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyQuizAnswerEncoding,
   encodeQuizCorrectAnswerForStorage,
+  gradeQuizAnswerAgainstStored,
   isStoredQuizCorrectAnswerValid,
   normalizeQuizCorrectAnswer,
   parseStoredQuizCorrectAnswer,
@@ -46,5 +47,12 @@ describe("quiz-answer-contract", () => {
   it("marks 800 mL storage as valid text but not the keyed correct answer", () => {
     expect(isStoredQuizCorrectAnswerValid('"800 mL"', DKA_FLUID_BOLUS.options)).toBe(true);
     expect(parseStoredQuizCorrectAnswer('"800 mL"')).not.toBe(DKA_FLUID_BOLUS.expectedValue);
+  });
+
+  it("gradeQuizAnswerAgainstStored accepts index-encoded legacy rows", () => {
+    const opts = ["Appearance", "Work of Breathing", "Circulation to Skin"];
+    expect(gradeQuizAnswerAgainstStored("Appearance", "0", opts)).toBe(true);
+    expect(gradeQuizAnswerAgainstStored("Work of Breathing", "0", opts)).toBe(false);
+    expect(gradeQuizAnswerAgainstStored("Appearance", JSON.stringify("Appearance"), opts)).toBe(true);
   });
 });

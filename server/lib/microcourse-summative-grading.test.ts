@@ -3,7 +3,7 @@ import { shuffleQuestionIndices } from "../../shared/microcourse-exam-policy";
 import { encodeQuizCorrectAnswerForStorage } from "../../shared/quiz-answer-contract";
 import { computeQuizScoreFromDb } from "./microcourse-exam-gate";
 
-function mockDb(rows: { id: number; correctAnswer: string | null }[]) {
+function mockDb(rows: { id: number; correctAnswer: string | null; options?: string | null }[]) {
   return {
     select: () => ({
       from: () => ({
@@ -45,5 +45,13 @@ describe("summative exam integrity helpers", () => {
     });
     expect(partial.score).toBe(67);
     expect(partial.correctCount).toBe(2);
+  });
+
+  it("computeQuizScoreFromDb grades index-encoded correct answers", async () => {
+    const opts = ["Appearance", "Work of Breathing", "Circulation to Skin"];
+    const db = mockDb([{ id: 9, correctAnswer: "0", options: JSON.stringify(opts) }]);
+    const result = await computeQuizScoreFromDb(db as never, 1, { 9: "Appearance" });
+    expect(result.score).toBe(100);
+    expect(result.correctCount).toBe(1);
   });
 });
