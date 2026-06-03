@@ -16,6 +16,111 @@ import {
 
 export const ABCDE_GROUP_ORDER: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
 
+/** Quick Assessment pillars — aligned with Seriously Ill Child / PAT teaching (no "PAT" label in UI). */
+export type QuickAssessmentPillarId = 'appearance' | 'work_of_breathing' | 'circulation';
+
+export interface QuickAssessmentCue {
+  id: string;
+  pillar: QuickAssessmentPillarId;
+  label: string;
+  /** Concerning finding — selecting any suggests sick / activate resus. */
+  concerning: boolean;
+}
+
+export interface QuickAssessmentPillar {
+  id: QuickAssessmentPillarId;
+  label: string;
+  /** One-line clinician cue for the card header. */
+  scanFor: string;
+  cues: QuickAssessmentCue[];
+}
+
+export const QUICK_ASSESSMENT_PILLARS: QuickAssessmentPillar[] = [
+  {
+    id: 'appearance',
+    label: 'Appearance',
+    scanFor: 'How do they look and interact?',
+    cues: [
+      { id: 'a_pale_gray', pillar: 'appearance', label: 'Pale or gray', concerning: true },
+      { id: 'a_limp', pillar: 'appearance', label: 'Limp / floppy', concerning: true },
+      { id: 'a_not_interacting', pillar: 'appearance', label: 'Not interacting', concerning: true },
+    ],
+  },
+  {
+    id: 'work_of_breathing',
+    label: 'Work of breathing',
+    scanFor: 'Effort to move air — before you auscultate.',
+    cues: [
+      { id: 'b_nasal_flare', pillar: 'work_of_breathing', label: 'Nasal flare', concerning: true },
+      { id: 'b_grunting', pillar: 'work_of_breathing', label: 'Grunting', concerning: true },
+      { id: 'b_retractions', pillar: 'work_of_breathing', label: 'Retractions / head bobbing', concerning: true },
+    ],
+  },
+  {
+    id: 'circulation',
+    label: 'Circulation to skin',
+    scanFor: 'Perfusion at the bedside — skin and extremities.',
+    cues: [
+      { id: 'c_mottled', pillar: 'circulation', label: 'Mottled skin', concerning: true },
+      { id: 'c_cool', pillar: 'circulation', label: 'Cool extremities', concerning: true },
+      { id: 'c_delayed_crt', pillar: 'circulation', label: 'Delayed cap refill', concerning: true },
+    ],
+  },
+];
+
+export type QuickAssessmentRecommendationLevel = 'neutral' | 'sick' | 'reassess';
+
+export interface QuickAssessmentRecommendation {
+  level: QuickAssessmentRecommendationLevel;
+  headline: string;
+  detail: string;
+  /** Maps to `answerQuickAssessment` when clinician confirms. */
+  suggestedAnswer?: 'sick' | 'not_sick';
+}
+
+/** Derive guidance from tapped concerning cues — does not change phase machine. */
+export function deriveQuickAssessmentRecommendation(
+  selectedCueIds: ReadonlySet<string>
+): QuickAssessmentRecommendation {
+  const concerningCount = QUICK_ASSESSMENT_PILLARS.flatMap((p) => p.cues).filter(
+    (c) => c.concerning && selectedCueIds.has(c.id)
+  ).length;
+
+  if (concerningCount >= 2) {
+    return {
+      level: 'sick',
+      headline: 'Looks sick — activate emergency response',
+      detail: 'Continue to ABCDE primary survey now.',
+      suggestedAnswer: 'sick',
+    };
+  }
+
+  if (concerningCount === 1) {
+    return {
+      level: 'reassess',
+      headline: 'One warning sign — treat as sick until proven otherwise',
+      detail: 'Start ABCDE; reassess after first interventions.',
+      suggestedAnswer: 'sick',
+    };
+  }
+
+  return {
+    level: 'neutral',
+    headline: 'Tap anything abnormal — or confirm below',
+    detail: 'Next: structured ABCDE primary survey with vitals.',
+  };
+}
+
+export function toggleQuickAssessmentCue(
+  selected: ReadonlySet<string>,
+  cueId: string
+): Set<string> {
+  const next = new Set(selected);
+  if (next.has(cueId)) next.delete(cueId);
+  else next.add(cueId);
+  return next;
+}
+
 const LETTER_GROUP_LABEL: Record<ABCDELetter, string> = {
   X: 'Exsanguination',
   A: 'Airway',
@@ -58,8 +163,8 @@ export function getResusPhaseGuidance(session: ResusSession): { headline: string
   switch (session.phase) {
     case 'QUICK_ASSESSMENT':
       return {
-        headline: '3-second look: appearance, work of breathing, circulation to skin',
-        detail: 'Sick → activate emergency response and ABCDE',
+        headline: '3-second look — appearance, breathing effort, skin perfusion',
+        detail: 'Any warning sign → sick → ABCDE primary survey',
       };
     case 'PRIMARY_SURVEY':
       return {
