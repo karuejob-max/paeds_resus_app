@@ -1,0 +1,114 @@
+/**
+ * Learner-facing assessment policy copy (Fellowship micro-courses vs AHA cognitive courses).
+ * Canonical internal mirror: docs/EXAM_POLICY_LEARNER.md
+ */
+
+export const EXAM_POLICY_PAGE = {
+  path: "/learning/exam-policy",
+  title: "How assessments work",
+  description:
+    "Diagnostic, formative, and summative exams — pass marks, attempt limits, and retries for Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP).",
+} as const;
+
+export type ExamPolicySection = {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  bullets?: string[];
+};
+
+export const EXAM_POLICY_SECTIONS: ExamPolicySection[] = [
+  {
+    id: "overview",
+    title: "Overview",
+    paragraphs: [
+      "Paeds Resus uses three assessment types on cognitive courses: a diagnostic baseline (Fellowship only), module knowledge checks (formative), and a final summative exam. AHA courses (BLS, ACLS, PALS, NRP) use the summative model for the final exam; they do not include a diagnostic baseline.",
+      "Scores for summative exams are calculated on the server — your result is based on stored correct answers, not self-reported marks.",
+    ],
+  },
+  {
+    id: "diagnostic",
+    title: "Diagnostic baseline (Fellowship only)",
+    paragraphs: [
+      "Taken once at the start of a Fellowship micro-course. There is no pass mark — it records your baseline before you study.",
+    ],
+    bullets: [
+      "One attempt only — you cannot retake the diagnostic.",
+      "Not used for AHA courses (BLS, ACLS, PALS, NRP).",
+    ],
+  },
+  {
+    id: "formative",
+    title: "Formative knowledge checks",
+    paragraphs: [
+      "Short quizzes after each module. Questions cover only what was taught in that module.",
+    ],
+    bullets: [
+      "Fellowship: typically at least three items per module when the course is fully seeded.",
+      "AHA: module checks follow the course structure; pass marks may differ per quiz.",
+      "You can usually retry formatives until you pass (unless your course player says otherwise).",
+    ],
+  },
+  {
+    id: "summative",
+    title: "Summative (final) exam",
+    paragraphs: [
+      "Taken after you complete all modules. The same question bank is used each time, but question and answer order are shuffled.",
+    ],
+    bullets: [
+      "Pass mark: 80%.",
+      "Up to 3 attempts in total (first try plus 2 retries).",
+      "At least 24 hours between attempts after your first summative try.",
+      "Required to complete the course and issue your certificate (Fellowship micro-course or AHA cognitive gatepass).",
+    ],
+  },
+  {
+    id: "when-retry",
+    title: "When can I retry?",
+    paragraphs: [
+      "If you fail the summative exam, you may retry when both rules allow it: you still have attempts left, and the 24-hour cooldown since your last summative attempt has passed.",
+      "Example: you fail PALS summative on Monday 10:00 EAT (attempt 1 of 3). Your next retry opens Tuesday 10:00 EAT or later, until you pass or use all 3 attempts.",
+      "If you see “Maximum summative attempts reached,” you have used all 3 attempts without reaching 80%. Further retries require support or an admin reset — the timer does not reset attempt count.",
+    ],
+  },
+  {
+    id: "certificate-vs-fellow",
+    title: "Certificate vs Fellowship",
+    paragraphs: [
+      "Passing the summative exam completes the cognitive portion of your course and unlocks certificate issuance for that product.",
+    ],
+    bullets: [
+      "Fellowship micro-course: Paeds Resus Fellowship certificate for that condition — counts toward Pillar A when all catalog courses are complete.",
+      "AHA course: AHA-aligned cognitive gatepass — separate track; practical sign-off with an instructor is still required for full AHA certification.",
+      "BLS, ACLS, and PALS are not required to become a Paeds Resus Fellow.",
+    ],
+  },
+];
+
+export type ExamPolicyCompareRow = {
+  rule: string;
+  fellowship: string;
+  aha: string;
+};
+
+export const EXAM_POLICY_COMPARE_ROWS: ExamPolicyCompareRow[] = [
+  { rule: "Diagnostic baseline", fellowship: "Yes — once, no pass mark", aha: "No" },
+  { rule: "Per-module formative checks", fellowship: "Yes — taught-before-tested", aha: "Yes — per course structure" },
+  { rule: "Summative final exam", fellowship: "Yes — shuffled bank", aha: "Yes — shuffled bank" },
+  { rule: "Summative pass mark", fellowship: "80%", aha: "80%" },
+  { rule: "Summative max attempts", fellowship: "3 (1 + 2 retries)", aha: "3 (1 + 2 retries)" },
+  { rule: "24h between summative attempts", fellowship: "Yes", aha: "Yes" },
+  { rule: "Server-graded summative", fellowship: "Yes", aha: "Yes" },
+  { rule: "Foundational / Advanced tracks", fellowship: "Yes", aha: "No — single AHA curriculum" },
+  { rule: "Fellowship Pillar A credit", fellowship: "Yes", aha: "No — separate AHA path" },
+  { rule: "Practical instructor sign-off", fellowship: "N/A for micro-courses", aha: "Required for full AHA cert" },
+];
+
+/** Rules enforced on Fellowship but not on AHA (gap / honest diff). */
+export const EXAM_POLICY_AHA_GAPS: string[] = [
+  "Diagnostic baseline at course start",
+  "Fellowship foundational vs advanced sequencing and prerequisites",
+  "Minimum native formative bank per module (governance seed rules)",
+  "Micro-course completion gate tied to Fellowship catalog (assertMicrocourseCompletionAllowed)",
+  "Pillar A progress toward Paeds Resus Fellow",
+];

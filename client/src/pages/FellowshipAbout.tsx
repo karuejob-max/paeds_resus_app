@@ -43,6 +43,10 @@ export default function FellowshipAbout() {
               <Link href="/fellowship/why" className="text-primary underline-offset-2 hover:underline">
                 Practitioner Q&amp;A
               </Link>
+              . Summative rules and retries:{" "}
+              <Link href="/learning/exam-policy" className="text-primary underline-offset-2 hover:underline">
+                Assessment policy
+              </Link>
             </p>
           </CardContent>
         </Card>

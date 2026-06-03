@@ -47,6 +47,7 @@ import {
   examKindFromQuizTitle,
   shuffleQuestionIndices,
 } from "../../shared/microcourse-exam-policy";
+import { formatSummativeForbiddenMessage } from "../../shared/summative-retry-display";
 import { TRPCError } from "@trpc/server";
 import { trackEvent } from "../services/analytics.service";
 
@@ -480,7 +481,11 @@ export const learningRouter = router({
         if (!retry.allowed) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: retry.reason ?? "Summative retry not available yet.",
+            message: formatSummativeForbiddenMessage({
+              attempts: existingRow?.attempts ?? 0,
+              blockKind: retry.blockKind,
+              retryAvailableAt: retry.retryAvailableAt ?? null,
+            }),
           });
         }
         const graded = await computeQuizScoreFromDb(

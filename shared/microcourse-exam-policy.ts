@@ -198,14 +198,25 @@ export function shuffleQuestionIndices(count: number, seed?: number): number[] {
   return indices;
 }
 
+export type SummativeBlockKind = "none" | "max_attempts" | "cooldown";
+
 export function canAttemptSummative(params: {
   attempts: number;
   lastAttemptAt: Date | null;
   now?: Date;
-}): { allowed: boolean; reason?: string; retryAvailableAt?: Date } {
+}): {
+  allowed: boolean;
+  blockKind: SummativeBlockKind;
+  reason?: string;
+  retryAvailableAt?: Date;
+} {
   const now = params.now ?? new Date();
   if (params.attempts >= MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS) {
-    return { allowed: false, reason: "Maximum summative attempts reached." };
+    return {
+      allowed: false,
+      blockKind: "max_attempts",
+      reason: "Maximum summative attempts reached.",
+    };
   }
   if (params.attempts > 0 && params.lastAttemptAt) {
     const elapsed = now.getTime() - params.lastAttemptAt.getTime();
@@ -215,12 +226,13 @@ export function canAttemptSummative(params: {
       );
       return {
         allowed: false,
+        blockKind: "cooldown",
         reason: "Summative retry available after 24 hours.",
         retryAvailableAt,
       };
     }
   }
-  return { allowed: true };
+  return { allowed: true, blockKind: "none" };
 }
 
 export function summativePassed(score: number | null | undefined): boolean {

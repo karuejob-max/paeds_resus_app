@@ -147,7 +147,10 @@ export function EnrollmentModal({
                   <Link href="/fellowship/about" className="text-primary underline-offset-2 hover:underline">
                     Paeds Resus Fellowship
                   </Link>{" "}
-                  — not AHA certification.
+                  — not AHA certification.{" "}
+                  <Link href="/learning/exam-policy" className="text-primary underline-offset-2 hover:underline">
+                    Assessment policy
+                  </Link>
                 </p>
               </div>
 

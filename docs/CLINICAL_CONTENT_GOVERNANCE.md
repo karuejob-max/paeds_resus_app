@@ -78,7 +78,7 @@ Use this structure when international, WHO/LMIC, and/or Kenya MOH guidance diver
 | **End** | **Same fixed question bank** — **item and option order shuffled**; **80%** pass required for course completion/certificate; up to **2 retries** after **24 h** between attempts. |
 | **Bank size** | Expand bank if **&lt;15** items so shuffle remains meaningful. |
 
-Implementation: `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`, player `MicroCoursePlayerDB.tsx`. Canonical clinical spine: [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md) §6.
+Implementation: `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`, player `MicroCoursePlayerDB.tsx`. Canonical clinical spine: [CLINICAL_SOURCE_OF_TRUTH.md](./CLINICAL_SOURCE_OF_TRUTH.md) §6. **Learner-facing policy:** [EXAM_POLICY_LEARNER.md](./EXAM_POLICY_LEARNER.md), route `/learning/exam-policy`, copy in `shared/exam-policy-learner-content.ts`.
 
 ### 3.5 Known content gaps (remediation backlog — do not fix silently in Pass 1)
 

@@ -11,10 +11,12 @@ import {
 } from "../../drizzle/schema";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+  MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
   canAttemptSummative,
   examKindFromQuizTitle,
   summativePassed,
+  type SummativeBlockKind,
 } from "../../shared/microcourse-exam-policy";
 import { gradeQuizAnswerAgainstStored, parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 
@@ -42,6 +44,8 @@ export type MicrocourseExamState = {
   summativeQuizId: number | null;
   diagnosticQuizId: number | null;
   summativeAttempts: number;
+  summativeMaxAttempts: number;
+  summativeBlockKind: SummativeBlockKind;
   canRetrySummative: boolean;
   retryAvailableAt: string | null;
   summativePassPercent: number;
@@ -91,6 +95,8 @@ export async function getMicrocourseExamState(
       summativeQuizId: null,
       diagnosticQuizId: null,
       summativeAttempts: 0,
+      summativeMaxAttempts: MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
+      summativeBlockKind: "none",
       canRetrySummative: true,
       retryAvailableAt: null,
       summativePassPercent: 80,
@@ -157,6 +163,8 @@ export async function getMicrocourseExamState(
     summativeQuizId: summativeQuiz?.id ?? null,
     diagnosticQuizId: diagnosticQuiz?.id ?? null,
     summativeAttempts,
+    summativeMaxAttempts: MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
+    summativeBlockKind: retryCheck.blockKind,
     canRetrySummative: retryCheck.allowed,
     retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
     summativePassPercent: 80,
@@ -270,6 +278,8 @@ export async function getAhaCourseExamState(
     summativeQuizId,
     diagnosticQuizId: null,
     summativeAttempts,
+    summativeMaxAttempts: MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
+    summativeBlockKind: retryCheck.blockKind,
     canRetrySummative: retryCheck.allowed,
     retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
     summativePassPercent: 80,
