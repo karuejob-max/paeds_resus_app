@@ -24,6 +24,7 @@ import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
 import { ResusGpsNextStepBanner } from '@/components/ResusGpsNextStepBanner';
+import { ResusGpsQuickAssessmentScreen } from '@/components/ResusGpsQuickAssessmentScreen';
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
@@ -1070,7 +1071,7 @@ export default function ResusGPS() {
         )}
 
         {session.phase === 'QUICK_ASSESSMENT' && (
-          <QuickAssessmentScreen onAnswer={handleQuickAssessment} />
+          <ResusGpsQuickAssessmentScreen onAnswer={handleQuickAssessment} />
         )}
 
         {session.phase === 'PRIMARY_SURVEY' && (
@@ -1735,45 +1736,6 @@ function IdleScreen({
         >
           <AlertTriangle className="h-5 w-5" />
           TRAUMA ASSESSMENT (XABCDE)
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Quick Assessment Screen ────────────────────────────────
-
-function QuickAssessmentScreen({ onAnswer }: { onAnswer: (a: 'sick' | 'not_sick') => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-foreground mb-2">Quick Assessment</h2>
-        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-          3-second across-the-room assessment. Does this patient look sick?
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Appearance &bull; Work of Breathing &bull; Circulation to Skin
-        </p>
-      </div>
-
-      <div className="w-full max-w-sm space-y-4">
-        <Button
-          size="lg"
-          variant="destructive"
-          className="w-full py-8 text-xl font-bold"
-          onClick={() => onAnswer('sick')}
-        >
-          <Siren className="h-6 w-6 mr-2" />
-          SICK — Activate Emergency
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="w-full py-6 text-lg"
-          onClick={() => onAnswer('not_sick')}
-        >
-          <CheckCircle2 className="h-5 w-5 mr-2" />
-          NOT SICK — Routine Assessment
         </Button>
       </div>
     </div>
