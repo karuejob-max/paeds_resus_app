@@ -1,4 +1,5 @@
 import type { FormativeQuestion } from "../../shared/microcourse-exam-policy";
+import { FELLOWSHIP_SUMMATIVE_EXPANSIONS_P2 } from "./fellowship-summative-expansions-p2";
 
 /** Additional unique summative stems per catalog slug — pads banks to governance minimum (15). */
 export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]> = {
@@ -168,5 +169,8 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
 };
 
 export function getFellowshipSummativeExpansion(catalogSlug: string): FormativeQuestion[] {
-  return FELLOWSHIP_SUMMATIVE_EXPANSIONS[catalogSlug] ?? [];
+  return [
+    ...(FELLOWSHIP_SUMMATIVE_EXPANSIONS[catalogSlug] ?? []),
+    ...(FELLOWSHIP_SUMMATIVE_EXPANSIONS_P2[catalogSlug] ?? []),
+  ];
 }

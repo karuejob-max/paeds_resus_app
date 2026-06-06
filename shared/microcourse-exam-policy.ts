@@ -16,6 +16,10 @@ export const MICROCOURSE_MIN_QUESTION_BANK_SIZE = 15;
 /** Diagnostic baseline size — disjoint from summative when bank is large enough. */
 export const MICROCOURSE_DIAGNOSTIC_BANK_SIZE = 10;
 
+/** Minimum total unique stems for fully disjoint diagnostic (10) + summative (15). */
+export const MICROCOURSE_FULL_QUESTION_BANK_SIZE =
+  MICROCOURSE_MIN_QUESTION_BANK_SIZE + MICROCOURSE_DIAGNOSTIC_BANK_SIZE;
+
 export type MicrocourseExamKind = "diagnostic" | "summative" | "formative";
 
 export type FormativeQuestion = {
@@ -145,7 +149,7 @@ export function resolveExamQuestionBanks(questions: FormativeQuestion[]): {
   }
 
   let diagnosticCount = 0;
-  if (unique.length >= MICROCOURSE_MIN_QUESTION_BANK_SIZE + MICROCOURSE_DIAGNOSTIC_BANK_SIZE) {
+  if (unique.length >= MICROCOURSE_FULL_QUESTION_BANK_SIZE) {
     diagnosticCount = MICROCOURSE_DIAGNOSTIC_BANK_SIZE;
   } else if (unique.length >= 20) {
     diagnosticCount = 5;
