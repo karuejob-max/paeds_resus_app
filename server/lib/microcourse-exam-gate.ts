@@ -50,6 +50,8 @@ export type MicrocourseExamState = {
   canRetrySummative: boolean;
   retryAvailableAt: string | null;
   summativePassPercent: number;
+  capstoneRequired: boolean;
+  capstonePassed: boolean;
 };
 
 export function isDiagnosticProgressComplete(progress: {
@@ -164,6 +166,8 @@ export async function getMicrocourseExamState(
       canRetrySummative: true,
       retryAvailableAt: null,
       summativePassPercent: 80,
+      capstoneRequired: false,
+      capstonePassed: true,
     };
   }
 
@@ -233,6 +237,8 @@ export async function getMicrocourseExamState(
     canRetrySummative: retryCheck.allowed,
     retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
     summativePassPercent: 80,
+    capstoneRequired: false,
+    capstonePassed: true,
   };
 }
 
@@ -256,6 +262,12 @@ export async function assertMicrocourseCompletionAllowed(
     return {
       ok: false,
       message: "Pass the summative knowledge check (80%) before completing this course.",
+    };
+  }
+  if (state.capstoneRequired && !state.capstonePassed) {
+    return {
+      ok: false,
+      message: "Complete and pass the PALS Capstone Simulation (80%) to unlock your certificate.",
     };
   }
   return { ok: true };
@@ -416,6 +428,10 @@ export async function getAhaCourseExamState(
     canRetrySummative: retryCheck.allowed,
     retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
     summativePassPercent: 80,
+    capstoneRequired: enrollment.programType === "pals",
+    capstonePassed: enrollment.programType === "pals" 
+      ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 80 && p.moduleId === -1) 
+      : true,
   };
 }
 

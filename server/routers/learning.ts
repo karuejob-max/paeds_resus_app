@@ -413,13 +413,24 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      const quizMeta = await (db as any)
-        .select({ passingScore: quizzes.passingScore, title: quizzes.title })
-        .from(quizzes)
-        .where(eq(quizzes.id, input.quizId))
-        .limit(1);
-      const quizTitle = quizMeta[0]?.title as string | undefined;
-      const examKind = examKindFromQuizTitle(quizTitle);
+      let quizTitle: string | undefined;
+      let examKind: string | undefined;
+      let quizPassingScore: number | undefined;
+
+      if (input.quizId === -1 && input.moduleId === -1) {
+        quizTitle = "PALS Capstone Simulation";
+        examKind = "summative";
+        quizPassingScore = 80;
+      } else {
+        const quizMeta = await (db as any)
+          .select({ passingScore: quizzes.passingScore, title: quizzes.title })
+          .from(quizzes)
+          .where(eq(quizzes.id, input.quizId))
+          .limit(1);
+        quizTitle = quizMeta[0]?.title as string | undefined;
+        examKind = examKindFromQuizTitle(quizTitle);
+        quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
+      }
       const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
 
       const existing = await (db as any)
@@ -492,7 +503,7 @@ export const learningRouter = router({
         };
       }
 
-      let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
+      let passingScore = Math.min(100, Math.max(0, quizPassingScore ?? 70));
       let score = input.score;
       let questionResults: Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"] | undefined;
       let progressRow = existingRow as typeof existingRow | undefined;
@@ -555,13 +566,18 @@ export const learningRouter = router({
             }),
           });
         }
-        const graded = await computeQuizScoreFromDb(
-          db as any,
-          input.quizId,
-          input.answers as Record<string | number, string>
-        );
-        score = graded.score;
-        questionResults = graded.questionResults;
+        if (input.quizId === -1) {
+          score = input.score;
+          questionResults = [];
+        } else {
+          const graded = await computeQuizScoreFromDb(
+            db as any,
+            input.quizId,
+            input.answers as Record<string | number, string>
+          );
+          score = graded.score;
+          questionResults = graded.questionResults;
+        }
       }
 
       const passed = score >= passingScore;
