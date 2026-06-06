@@ -59,7 +59,27 @@ export const microCoursesFinalBatch = [
             <li><strong>P. vivax:</strong> Milder but can cause severe disease</li>
             <li><strong>P. ovale, P. malariae:</strong> Rare, milder</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Cerebral malaria is defined by GCS:",
+            options: ["≤11 with P. falciparum infection", ">15 always", "Any fever", "Only in adults"],
+            correct: 0,
+            explanation: "GCS ≤11 with malaria defines cerebral malaria — severe disease.",
+          },
+          {
+            question: "Severe malaria hypoglycaemia threshold (mmol/L) is typically:",
+            options: ["<3.3 mmol/L", ">15 mmol/L", "Not measured", "Only in adults"],
+            correct: 0,
+            explanation: "Severe hypoglycaemia <3.3 mmol/L — monitor glucose every 4–6 h.",
+          },
+          {
+            question: "P. falciparum is significant because it:",
+            options: ["Causes the most severe malaria and highest mortality", "Never causes severe disease", "Only causes mild illness", "Is absent in Africa"],
+            correct: 0,
+            explanation: "P. falciparum is the most dangerous species in paediatric malaria.",
+          },
+        ],
       },
       {
         title: 'Module 2: Artesunate Therapy & Supportive Care',
@@ -97,7 +117,27 @@ export const microCoursesFinalBatch = [
             <li>Renal function: Creatinine, urine output</li>
             <li>Mental status: Assess for cerebral malaria improvement</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Oral artesunate-lumefantrine (ACT) is for:",
+            options: ["Uncomplicated malaria — not first-line for severe/cerebral malaria", "All cerebral malaria first-line", "Prophylaxis only in neonates", "Never used in Africa"],
+            correct: 0,
+            explanation: "IV/IM artesunate for severe disease; oral ACT when stable and tolerating.",
+          },
+          {
+            question: "A 20 kg child receives artesunate dose of:",
+            options: ["60 mg at 0, 12, 24 hours (3 mg/kg)", "200 mg once only", "Oral paracetamol", "5 mg total"],
+            correct: 0,
+            explanation: "3 mg/kg × 20 kg = 60 mg IV/IM per WHO severe malaria schedule.",
+          },
+          {
+            question: "Fluid management in severe malaria should:",
+            options: ["Be cautious — avoid pulmonary oedema", "Give unlimited bolus always", "Withhold all fluids", "Use hypotonic dextrose only"],
+            correct: 0,
+            explanation: "Careful fluids; monitor for pulmonary oedema in severe malaria.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complications & Escalation',
@@ -137,8 +177,28 @@ export const microCoursesFinalBatch = [
             <li>Acute kidney injury with oliguria</li>
             <li>Lactic acidosis</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Cerebral malaria may require intubation when:",
+            options: ["GCS <8 or failing to protect airway", "Mild fever only", "Normal mental status", "After oral ACT only"],
+            correct: 0,
+            explanation: "Protect airway when GCS low or deteriorating — ICU escalation.",
+          },
+          {
+            question: "Severe malarial anaemia transfusion threshold includes Hgb:",
+            options: ["<5 g/dL or symptomatic anaemia", ">12 g/dL always", "Never transfuse", "Only in adults"],
+            correct: 0,
+            explanation: "Transfuse when Hgb <5 g/dL or symptomatic with high parasitaemia.",
+          },
+          {
+            question: "Lactic acidosis in severe malaria signals:",
+            options: ["High mortality risk — escalate supportive care", "Mild illness", "Ready for discharge", "Normal metabolism"],
+            correct: 0,
+            explanation: "pH <7.35 + lactate >5 mmol/L is an ominous sign.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Severe Malaria I Quiz',
@@ -250,7 +310,27 @@ export const microCoursesFinalBatch = [
             <li>Glucose: Monitor in mmol/L; treat hypoglycaemia &lt;3.3 mmol/L</li>
             <li>Fever: Paracetamol 15 mg/kg Q4-6H</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Cerebral malaria pathophysiology involves:",
+            options: ["Sequestration of infected RBCs in cerebral vessels", "Only bacterial co-infection", "Isolated dehydration", "Normal perfusion always"],
+            correct: 0,
+            explanation: "Cytoadherence and sequestration cause impaired consciousness and oedema.",
+          },
+          {
+            question: "Hypertonic saline for cerebral malaria oedema is:",
+            options: ["3% saline 0.25–1 g/kg IV", "Oral fluids only", "Hypotonic dextrose bolus", "Never used"],
+            correct: 0,
+            explanation: "3% saline reduces cerebral oedema alongside artesunate and supportive care.",
+          },
+          {
+            question: "Seizures occur in cerebral malaria in approximately:",
+            options: ["30–50% of cases", "Never", "100% always", "Only adults"],
+            correct: 0,
+            explanation: "Treat seizures promptly — diazepam then second-line per SE protocol.",
+          },
+        ],
       },
       {
         title: 'Module 2: Severe Anemia & Transfusion Management',
@@ -283,7 +363,27 @@ export const microCoursesFinalBatch = [
             <li>Transfusion reaction: Fever, hemoglobinuria</li>
             <li>Hemolysis: From incompatible blood</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Exchange transfusion may be considered when parasitaemia is:",
+            options: [">15% with severe anaemia (Hgb <5)", "<1% always", "Any level without symptoms", "Never in children"],
+            correct: 0,
+            explanation: "Exchange transfusion removes infected RBCs — ICU and blood bank support needed.",
+          },
+          {
+            question: "Transfusion volume per unit in severe malaria is typically:",
+            options: ["10–15 mL/kg slowly over 1–2 hours", "50 mL/kg rapid push", "Oral iron only", "No monitoring"],
+            correct: 0,
+            explanation: "Slow transfusion reduces pulmonary oedema risk in severe malaria.",
+          },
+          {
+            question: "Urgent transfusion in malaria is indicated when Hgb is:",
+            options: ["<3 g/dL", ">12 g/dL", "Exactly 10 g/dL always", "Never indicated"],
+            correct: 0,
+            explanation: "Hgb <3 g/dL needs immediate transfusion — high cardiovascular collapse risk.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complications & Long-Term Outcomes',
@@ -322,8 +422,28 @@ export const microCoursesFinalBatch = [
             <li>Severe anemia mortality: 5-10% (if transfused)</li>
             <li>Survivors: Most recover fully; 10-30% have neurological sequelae</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Pulmonary oedema in severe malaria may be worsened by:",
+            options: ["Over-transfusion and fluid overload", "Slow cautious fluids only", "Oxygen therapy", "Artesunate"],
+            correct: 0,
+            explanation: "Transfusion and aggressive fluids increase pulmonary oedema risk — monitor closely.",
+          },
+          {
+            question: "Post-cerebral malaria cognitive impairment affects:",
+            options: ["10–30% of survivors", "No survivors ever", "100% of all malaria", "Only adults"],
+            correct: 0,
+            explanation: "Neuropsychological follow-up needed for survivors of cerebral malaria.",
+          },
+          {
+            question: "AKI in severe malaria with dialysis requirement has mortality around:",
+            options: ["50%", "0%", "100% always", "Not related to outcome"],
+            correct: 0,
+            explanation: "AKI needing dialysis carries high mortality — optimise fluids and perfusion early.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Severe Malaria II Quiz',
@@ -430,7 +550,27 @@ export const microCoursesFinalBatch = [
             <li>Metabolic acidosis</li>
             <li>Hypertension (from fluid overload)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "KDIGO AKI Stage 1 includes creatinine rise to:",
+            options: ["1.5–1.9× baseline OR urine output <0.5 mL/kg/hr for 6–8 h", "Normal creatinine only", "10× baseline always", "No urine output criteria"],
+            correct: 0,
+            explanation: "Stage 1: creatinine 1.5–1.9× baseline or oliguria 6–8 h.",
+          },
+          {
+            question: "The most common AKI category in children is:",
+            options: ["Prerenal (~60%)", "Postrenal (~60%)", "Always congenital", "Never from dehydration"],
+            correct: 0,
+            explanation: "Prerenal AKI from dehydration/shock often reverses with perfusion restoration.",
+          },
+          {
+            question: "Oliguria in AKI is typically defined as:",
+            options: ["<1 mL/kg/hr (or <0.5 mL/kg/hr in severe stages)", ">5 mL/kg/hr", "Exactly 2 mL/kg/hr always", "Not measured"],
+            correct: 0,
+            explanation: "Track urine output hourly — key KDIGO criterion.",
+          },
+        ],
       },
       {
         title: 'Module 2: Fluid Management & Monitoring',
@@ -462,7 +602,27 @@ export const microCoursesFinalBatch = [
             <li>Electrolytes: Daily (K+, Na+, Cl-, HCO3)</li>
             <li>Blood pressure: Monitor for hypertension</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Hypovolaemic AKI may receive a cautious bolus of:",
+            options: ["10–20 mL/kg with reassessment", "100 mL/kg without monitoring", "No fluids ever", "Hypotonic dextrose only"],
+            correct: 0,
+            explanation: "Prerenal AKI may respond to small bolus if truly hypovolaemic.",
+          },
+          {
+            question: "Hypervolaemic AKI fluid prescription should:",
+            options: ["Restrict to insensible losses plus urine output", "Double maintenance always", "Ad lib oral intake", "Ignore weight gain"],
+            correct: 0,
+            explanation: "Restrict fluids when overloaded — insensible + mL-for-mL urine replacement.",
+          },
+          {
+            question: "Hyperkalaemia in AKI with ECG changes needs first:",
+            options: ["Calcium gluconate IV for cardiac membrane stabilisation", "KCl IV push", "Oral potassium load", "Discharge"],
+            correct: 0,
+            explanation: "Calcium gluconate stabilises myocardium — then insulin/glucose and RRT if needed.",
+          },
+        ],
       },
       {
         title: 'Module 3: Dialysis Indications & Complications',
@@ -495,8 +655,28 @@ export const microCoursesFinalBatch = [
             <li>Intrinsic AKI: 50-70% recover; some progress to chronic kidney disease</li>
             <li>Mortality: 10-30% (depends on underlying cause)</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Dialysis is indicated in AKI when potassium is:",
+            options: [">6.5 mEq/L unresponsive to medical management", "<3.0 always", "Exactly 4.0 only", "Never measured"],
+            correct: 0,
+            explanation: "Refractory hyperkalaemia is a classic RRT indication.",
+          },
+          {
+            question: "Peritoneal dialysis in LMIC settings is valuable because:",
+            options: ["It can be performed where haemodialysis is unavailable", "It is never safe in children", "It replaces all medical management", "It avoids any monitoring"],
+            correct: 0,
+            explanation: "PD is an LMIC option when HD/CRRT unavailable — per local capability.",
+          },
+          {
+            question: "Prerenal AKI recovery rate with timely fluid resuscitation is approximately:",
+            options: ["~90%", "10%", "0%", "Only with transplant"],
+            correct: 0,
+            explanation: "Most prerenal AKI reverses when perfusion is restored promptly.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Acute Kidney Injury I Quiz',
@@ -605,7 +785,27 @@ export const microCoursesFinalBatch = [
             <li>Hemolytic disease (sickle cell, G6PD)</li>
             <li>Bone marrow suppression (infection, leukemia)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Severe anaemia in children is defined as Hgb:",
+            options: ["<5 g/dL", "<10 g/dL always", ">12 g/dL", "Not measurable"],
+            correct: 0,
+            explanation: "Severe anaemia = Hgb <5 g/dL at any age.",
+          },
+          {
+            question: "Clinical signs of severe anaemia include:",
+            options: ["Pallor, tachycardia, and lethargy", "Only fever", "Normal heart rate always", "Hyperpigmentation"],
+            correct: 0,
+            explanation: "Pallor, tachycardia, tachypnoea, and altered mental status are key signs.",
+          },
+          {
+            question: "Malaria is a common cause of severe anaemia through:",
+            options: ["Haemolysis and bone marrow suppression", "Isolated dehydration only", "Normal RBC production", "Vitamin D deficiency only"],
+            correct: 0,
+            explanation: "Malaria causes haemolysis — treat malaria alongside transfusion when indicated.",
+          },
+        ],
       },
       {
         title: 'Module 2: Transfusion Management',
@@ -636,7 +836,27 @@ export const microCoursesFinalBatch = [
             <li>Allergic: urticaria, angioedema</li>
             <li>Anaphylaxis: rare but life-threatening</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Urgent transfusion in severe anaemia is indicated when Hgb is:",
+            options: ["<3 g/dL", ">12 g/dL", "Exactly 7 g/dL always", "Never in children"],
+            correct: 0,
+            explanation: "Hgb <3 g/dL requires immediate transfusion — high collapse risk.",
+          },
+          {
+            question: "If blood type is unknown in emergency transfusion, use:",
+            options: ["O-negative (universal donor)", "AB-positive only", "Any available without crossmatch ever", "No transfusion"],
+            correct: 0,
+            explanation: "O-negative for emergency when type unknown — prefer type and cross when time allows.",
+          },
+          {
+            question: "Transfusion should be infused slowly over:",
+            options: ["1–2 hours with monitoring for overload", "5 minutes push", "24 hours without observation", "Oral route only"],
+            correct: 0,
+            explanation: "10–15 mL/kg over 1–2 h — watch for pulmonary oedema.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complications & Prevention',
@@ -669,8 +889,28 @@ export const microCoursesFinalBatch = [
             <li>Nutritional support: Adequate protein, micronutrients</li>
             <li>Infection prevention: Vaccination, hygiene</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "After acute severe anaemia stabilisation, iron supplementation may use:",
+            options: ["Ferrous sulfate 3–6 mg/kg/day elemental iron", "IV iron push", "No iron ever", "Only transfusion long-term"],
+            correct: 0,
+            explanation: "Oral iron after acute phase — vitamin C enhances absorption.",
+          },
+          {
+            question: "Underlying malaria with severe anaemia requires:",
+            options: ["Artesunate plus transfusion per thresholds", "Transfusion alone always", "No antimalarial", "Discharge without treatment"],
+            correct: 0,
+            explanation: "Treat malaria and anaemia together — transfuse per Hgb/symptom thresholds.",
+          },
+          {
+            question: "Transfusion-related pulmonary oedema is prevented by:",
+            options: ["Slow transfusion volume and careful monitoring", "Rapid large-volume push", "No Foley or weight chart", "Hypertonic fluids"],
+            correct: 0,
+            explanation: "Slow 10–15 mL/kg with monitoring reduces volume overload in severe anaemia.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Severe Anaemia I Quiz',

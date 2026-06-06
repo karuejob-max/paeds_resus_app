@@ -47,7 +47,42 @@ export const microCoursesMissingFellowship = [
             <li><strong>Severe:</strong> Speaking in single words, SpO2 <90%, marked recessions, agitated.</li>
             <li><strong>Life-threatening:</strong> Silent chest, cyanosis, exhaustion, altered consciousness.</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Moderate acute asthma is characterised by:",
+            options: [
+              "Speaking in phrases with SpO₂ 90–94%",
+              "Speaking in full sentences with SpO₂ >98%",
+              "Silent chest",
+              "No accessory muscle use",
+            ],
+            correct: 0,
+            explanation: "Moderate asthma: phrases, SpO₂ 90–94%, accessory muscle use.",
+          },
+          {
+            question: "Clinical features of acute asthma include:",
+            options: [
+              "Wheezing, cough, and increased work of breathing",
+              "Only fever",
+              "Bradycardia as first sign",
+              "No respiratory symptoms",
+            ],
+            correct: 0,
+            explanation: "Wheeze, cough, chest tightness, and increased work of breathing are core features.",
+          },
+          {
+            question: "Mild acute asthma allows the child to:",
+            options: [
+              "Speak in full sentences with SpO₂ >94%",
+              "Speak only single words",
+              "Have silent chest",
+              "Be unresponsive",
+            ],
+            correct: 0,
+            explanation: "Mild: sentences, SpO₂ >94%, mild wheeze.",
+          },
+        ],
       },
       {
         title: 'Module 2: First-Hour Management',
@@ -66,8 +101,28 @@ export const microCoursesMissingFellowship = [
           ${ASTHMA_STEROIDS}
           <h3>When to escalate:</h3>
           <p>SpO₂ &lt;90%, silent chest, or altered consciousness → treat as severe; prepare for Asthma 2 / status asthmaticus course.</p>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Salbutamol first-hour dosing via spacer is typically:",
+            options: ["6–10 puffs every 20 minutes", "One puff only", "Oral salbutamol only", "Never repeat"],
+            correct: 0,
+            explanation: "Salbutamol 2.5–5 mg nebulised or 6–10 puffs spacer every 20 min in acute asthma.",
+          },
+          {
+            question: "Oxygen target in acute asthma when monitoring allows:",
+            options: ["94–98%", "100% hyperoxia for all", "<80%", "No oxygen ever"],
+            correct: 0,
+            explanation: "Target SpO₂ 94–98%; use high-flow if life-threatening.",
+          },
+          {
+            question: "Ipratropium dose in severe asthma first hour (typical) is:",
+            options: ["250–500 mcg nebulised every 20 min", "5 mg oral only", "Never combined with salbutamol", "Once daily only"],
+            correct: 0,
+            explanation: "Add ipratropium 250–500 mcg nebulised every 20 min in moderate/severe first hour.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Asthma I Quiz',
@@ -108,7 +163,16 @@ export const microCoursesMissingFellowship = [
           options: ['≥90% with titration toward 90–94%', '100% hyperoxia for all', 'No oxygen ever', '<80%'],
           correct: 0,
           explanation: 'Treat hypoxia; titrate toward 90–94% and avoid routine hyperoxia.'
-        }
+        },
+        { question: 'Accessory muscle use in asthma indicates:', options: ['Increased work of breathing', 'Normal breathing', 'Resolved asthma', 'Bradycardia'], correct: 0, explanation: 'Intercostal recession and nasal flaring signal moderate/severe disease.' },
+        { question: 'Prolonged expiratory phase in asthma reflects:', options: ['Airflow obstruction', 'Normal physiology', 'Cardiac failure only', 'Sepsis'], correct: 0, explanation: 'Wheeze and prolonged expiration are hallmark obstructive features.' },
+        { question: 'Chest tightness in acute asthma is caused by:', options: ['Bronchospasm and airway inflammation', 'Only fever', 'Pneumothorax always', 'Normal variant'], correct: 0, explanation: 'Inflammation and bronchoconstriction produce tightness and wheeze.' },
+        { question: 'Nasal flaring in a wheezy child suggests:', options: ['Significant respiratory distress', 'Mild cold only', 'No oxygen need', 'Discharge readiness'], correct: 0, explanation: 'Accessory signs indicate increased work of breathing.' },
+        { question: 'After first-hour bronchodilator therapy, reassessment should include:', options: ['SpO₂, work of breathing, and ability to speak', 'Only temperature', 'Discharge planning only', 'No repeat assessment'], correct: 0, explanation: 'Reassess severity after each treatment cycle in acute asthma.' },
+        { question: 'High-flow oxygen in life-threatening asthma is used to:', options: ['Treat hypoxaemia while continuing bronchodilators', 'Replace salbutamol', 'Cause hypercapnia intentionally', 'Avoid steroids'], correct: 0, explanation: 'Oxygen treats hypoxia; bronchodilators and steroids treat obstruction.' },
+        { question: 'Wheeze that is expiratory in asthma indicates:', options: ['Lower airway obstruction', 'Upper airway stridor only', 'Normal finding', 'Cardiac arrhythmia'], correct: 0, explanation: 'Expiratory wheeze localises obstruction to bronchi.' },
+        { question: 'Escalation to Asthma II course is appropriate when:', options: ['SpO₂ <90%, silent chest, or altered consciousness', 'Mild cough only', 'Normal peak flow', 'First wheeze ever without distress'], correct: 0, explanation: 'Severe features require advanced management pathway.' },
+        { question: 'Paracetamol in asthma is used for:', options: ['Fever or discomfort — not as bronchodilator', 'Primary bronchodilation', 'Replacing salbutamol', 'Sedation for intubation only'], correct: 0, explanation: 'Treat fever/discomfort; core asthma drugs remain bronchodilator and steroid.' }
       ]
     }
   },
@@ -132,7 +196,42 @@ export const microCoursesMissingFellowship = [
             <li>Breathing: High-flow oxygen.</li>
             <li>Circulation: Check bedside glucose (exclude hypoglycemia).</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Status epilepticus includes recurrent seizures without:",
+            options: [
+              "Recovery of consciousness between events",
+              "Any fever",
+              "Any movement",
+              "Need for oxygen",
+            ],
+            correct: 0,
+            explanation: "SE = >5 min continuous seizure OR recurrent seizures without regaining consciousness.",
+          },
+          {
+            question: "Initial airway management during convulsion prioritises:",
+            options: [
+              "Recovery position, suction, and high-flow oxygen",
+              "Immediate intubation before positioning",
+              "Oral medications only",
+              "Delay until CT scan",
+            ],
+            correct: 0,
+            explanation: "Position, suction, oxygen — protect airway while preparing treatment.",
+          },
+          {
+            question: "Circulation assessment in active seizure must include:",
+            options: [
+              "Bedside blood glucose check",
+              "Only blood pressure",
+              "Weight measurement only",
+              "No vascular access ever",
+            ],
+            correct: 0,
+            explanation: "Hypoglycaemia is a reversible cause — check glucose in every seizing child.",
+          },
+        ],
       },
       {
         title: 'Module 2: Pharmacological Control',
@@ -141,8 +240,43 @@ export const microCoursesMissingFellowship = [
           ${SE_BENZO_CONFLICT}
           ${NEONATE_CALLOUT}
           <p>Repeat one benzodiazepine dose after 5 minutes if seizure continues (non-neonate). Max two benzo doses before second-line agents.</p>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "After two adequate benzodiazepine doses without seizure control, next step is:",
+            options: [
+              "Second-line anticonvulsants and senior help",
+              "Unlimited benzodiazepine repeats",
+              "Discharge home",
+              "Wait 24 hours",
+            ],
+            correct: 0,
+            explanation: "Max two benzo doses then escalate to second-line agents per protocol.",
+          },
+          {
+            question: "Neonatal status epilepticus requires:",
+            options: [
+              "Specialist pathway — benzodiazepines not routine first-line",
+              "Same unlimited benzo protocol as adolescents",
+              "No pharmacological treatment",
+              "Oral paracetamol only",
+            ],
+            correct: 0,
+            explanation: "Neonates need specialist assessment; avoid routine benzos first-line.",
+          },
+          {
+            question: "If first benzodiazepine dose fails in non-neonate SE, you may:",
+            options: [
+              "Repeat one dose after 5 minutes before second-line",
+              "Never repeat benzodiazepine",
+              "Give insulin",
+              "Stop all treatment",
+            ],
+            correct: 0,
+            explanation: "Repeat one benzo after 5 min if seizure continues — then second-line.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Status Epilepticus I Quiz',
@@ -183,7 +317,16 @@ export const microCoursesMissingFellowship = [
           options: ['Unlimited repeats', 'Two doses then escalate', 'One dose only ever', 'None until ICU arrival'],
           correct: 1,
           explanation: 'After two adequate benzo doses, move to second-line anticonvulsants and senior help.'
-        }
+        },
+        { question: 'High-flow oxygen during active seizure is given to:', options: ['Correct hypoxia during resuscitation', 'Terminate seizure directly', 'Replace benzodiazepines', 'Avoid glucose check'], correct: 0, explanation: 'Oxygen supports ABCs; drugs treat the seizure.' },
+        { question: 'Suction during seizure is used to:', options: ['Clear secretions and protect airway', 'Induce vomiting', 'Measure glucose', 'Replace IV access'], correct: 0, explanation: 'Suction helps maintain airway patency in the recovery position.' },
+        { question: 'Fever in a seizing child should prompt:', options: ['Search for infection but not delay seizure treatment', 'Withhold all anticonvulsants', 'Immediate LP before any treatment', 'Discharge without workup'], correct: 0, explanation: 'Treat seizure first; evaluate cause including meningitis when stable.' },
+        { question: 'Second-line agents after failed benzodiazepines may include:', options: ['Levetiracetam or phenytoin per protocol', 'Oral paracetamol only', 'No further drugs', 'Insulin infusion'], correct: 0, explanation: 'Escalate to second-line anticonvulsants per Status Epilepticus II pathway.' },
+        { question: 'Prolonged seizure increases risk of:', options: ['Hypoxia, hyperthermia, and rhabdomyolysis', 'Only mild fatigue', 'No metabolic effects', 'Immediate full recovery always'], correct: 0, explanation: 'Prolonged convulsion causes systemic complications — treat urgently.' },
+        { question: 'IV access during status epilepticus should be obtained:', options: ['Early for glucose check and anticonvulsants', 'Only after 24 hours', 'Never in children', 'After CT only'], correct: 0, explanation: 'Obtain access for labs and second-line drugs without delaying benzos.' },
+        { question: 'Post-ictal confusion after brief seizure:', options: ['May be normal but requires monitoring', 'Proves meningitis', 'Means no further treatment', 'Requires immediate discharge'], correct: 0, explanation: 'Monitor post-ictal recovery; investigate cause if atypical or prolonged.' },
+        { question: 'Temperature management in prolonged seizure includes:', options: ['Treat hyperthermia if present', 'Cool with ice packs only', 'Ignore fever always', 'Antipyretics as sole therapy'], correct: 0, explanation: 'Hyperthermia worsens brain injury — treat fever when safe to do so.' },
+        { question: 'Family history of epilepsy in a seizing child:', options: ['Is relevant to workup but does not delay acute treatment', 'Contraindicates benzodiazepines', 'Rules out hypoglycaemia', 'Means outpatient care only'], correct: 0, explanation: 'Treat acute seizure first; history guides later investigation.' }
       ]
     }
   },

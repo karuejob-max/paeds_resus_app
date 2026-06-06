@@ -57,7 +57,37 @@ export const microCoursesBatch1To5 = [
             <li>Pneumothorax (acute onset, unilateral breath sounds)</li>
             <li>Acute coronary syndrome (rare in children, chest pain)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Status asthmaticus is defined as severe asthma unresponsive to therapy for:",
+            options: ["≥1 hour", "5 minutes", "24 hours only", "Never requires ICU"],
+            correct: 0,
+            explanation: "Status asthmaticus = no adequate response to standard therapy for ≥1 hour.",
+          },
+          {
+            question: "Silent chest in asthma indicates:",
+            options: [
+              "Imminent respiratory failure — escalate immediately",
+              "Mild disease",
+              "Resolved asthma",
+              "Normal finding",
+            ],
+            correct: 0,
+            explanation: "Silent chest with effort = severe air trapping and exhaustion.",
+          },
+          {
+            question: "Anaphylaxis must be distinguished from severe asthma by looking for:",
+            options: [
+              "Urticaria, angioedema, or hypotension",
+              "Only wheeze",
+              "Fever alone",
+              "Normal blood pressure always",
+            ],
+            correct: 0,
+            explanation: "Anaphylaxis has multi-system allergic features beyond bronchospasm alone.",
+          },
+        ],
       },
       {
         title: 'Module 2: Aggressive First-Hour Management',
@@ -87,7 +117,27 @@ export const microCoursesBatch1To5 = [
             <li>Reassess breath sounds every 15 min</li>
             <li>Watch for pneumothorax (sudden deterioration)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Continuous salbutamol nebulisation in severe asthma is typically:",
+            options: ["15 mg continuously", "2.5 mg once only", "Oral salbutamol only", "Withheld until ICU"],
+            correct: 0,
+            explanation: "Continuous 15 mg nebulised salbutamol in status asthmaticus first hour.",
+          },
+          {
+            question: "Magnesium sulfate dose in severe asthma is:",
+            options: ["40 mg/kg IV over 20 min (max 2 g)", "400 mg/kg bolus", "Oral only", "Never in children"],
+            correct: 0,
+            explanation: "40 mg/kg IV over 20 minutes when severe — max 2 g total.",
+          },
+          {
+            question: "Sudden deterioration with unilateral absent breath sounds suggests:",
+            options: ["Pneumothorax", "Improved asthma", "Normal variant", "Discharge readiness"],
+            correct: 0,
+            explanation: "Tension pneumothorax can complicate severe asthma — urgent assessment.",
+          },
+        ],
       },
       {
         title: 'Module 3: Escalation and ICU Readiness',
@@ -117,8 +167,43 @@ export const microCoursesBatch1To5 = [
             <li>Sedation: propofol (bronchodilation) preferred over benzodiazepines</li>
             <li>Avoid barotrauma: low tidal volumes (6-8 ml/kg), permissive hypercapnia</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Ketamine is preferred for asthma intubation because it:",
+            options: [
+              "Preserves airway tone and provides bronchodilation",
+              "Causes histamine release",
+              "Is contraindicated in asthma",
+              "Eliminates need for ventilation",
+            ],
+            correct: 0,
+            explanation: "Ketamine 1–2 mg/kg IV preserves airway tone — useful in difficult asthma airways.",
+          },
+          {
+            question: "ICU transfer for asthma is indicated when:",
+            options: [
+              "Altered mental status or inadequate response after 1–2 hours aggressive therapy",
+              "Mild wheeze only",
+              "SpO₂ >98% on room air",
+              "First salbutamol dose given",
+            ],
+            correct: 0,
+            explanation: "Escalate for CO₂ retention, hypoxaemia, or failed first-hour therapy.",
+          },
+          {
+            question: "Post-intubation asthma ventilation should use:",
+            options: [
+              "Low tidal volumes with permissive hypercapnia",
+              "Very high tidal volumes",
+              "No PEEP ever",
+              "Immediate extubation",
+            ],
+            correct: 0,
+            explanation: "6–8 mL/kg tidal volume and permissive hypercapnia reduce barotrauma.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Asthma II Quiz',
@@ -183,7 +268,12 @@ export const microCoursesBatch1To5 = [
           options: ['>95%', '>90%', '>85%', '>80%'],
           correct: 1,
           explanation: '>90% target. Accept mild hyperoxia initially; avoid aggressive hyperoxia but prioritize oxygenation in severe exacerbation.'
-        }
+        },
+        { question: 'Continuous salbutamol nebulisation dose in status asthmaticus is typically:', options: ['15 mg continuously', '2.5 mg once', 'Oral only', 'Withheld until ICU'], correct: 0, explanation: 'Continuous nebulised salbutamol in severe first-hour protocol.' },
+        { question: 'Hydrocortisone IV dose for severe asthma is approximately:', options: ['4–5 mg/kg', '40 mg/kg bolus', '0.1 mg/kg only', 'Never in children'], correct: 0, explanation: 'High-dose steroid early in severe exacerbation per protocol.' },
+        { question: 'Permissive hypercapnia after intubation for asthma targets PaCO₂:', options: ['45–55 mmHg', '<30 mmHg', '>80 mmHg', 'Not measured'], correct: 0, explanation: 'Allow mild hypercapnia to reduce barotrauma.' },
+        { question: 'Propofol is preferred post-intubation in some asthma protocols because:', options: ['It provides bronchodilation', 'It causes bronchospasm', 'It replaces PEEP', 'It is contraindicated always'], correct: 0, explanation: 'Propofol has bronchodilatory properties useful in ventilated asthma.' },
+        { question: 'Foreign body aspiration is suggested by:', options: ['Sudden onset unilateral wheeze', 'Bilateral chronic wheeze only', 'Fever always', 'Normal exam'], correct: 0, explanation: 'Sudden unilateral findings warrant aspiration assessment.' }
       ]
     }
   },
@@ -222,7 +312,42 @@ export const microCoursesBatch1To5 = [
             <li>Neurological sequelae: cognitive decline, new-onset epilepsy, movement disorders</li>
             <li>Time-dependent: each hour of uncontrolled seizure increases mortality</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Refractory status epilepticus (RSE) is SE unresponsive to:",
+            options: [
+              "≥2 first-line agents (benzodiazepines + second-line anticonvulsant)",
+              "Paracetamol only",
+              "One dose of oral glucose",
+              "No treatment ever",
+            ],
+            correct: 0,
+            explanation: "RSE = failure of benzos plus phenytoin/levetiracetam or equivalent second-line.",
+          },
+          {
+            question: "Super-refractory status epilepticus (SRSE) persists:",
+            options: [
+              "≥24 hours despite ICU-level anesthetic therapy",
+              "5 minutes only",
+              "Never in children",
+              "Only with fever",
+            ],
+            correct: 0,
+            explanation: "SRSE = RSE continuing ≥24 h despite propofol/midazolam/pentobarbital.",
+          },
+          {
+            question: "Autonomic instability during RSE may include:",
+            options: [
+              "Hypertension, tachycardia, and hyperthermia",
+              "Bradycardia only always",
+              "Normal temperature always",
+              "No metabolic effects",
+            ],
+            correct: 0,
+            explanation: "Prolonged seizures cause autonomic and metabolic derangement — monitor closely.",
+          },
+        ],
       },
       {
         title: 'Module 2: Third-Line & ICU-Level Seizure Control',
@@ -250,7 +375,32 @@ export const microCoursesBatch1To5 = [
             <li>Vital signs: BP, HR, SpO2, temperature (manage autonomic instability)</li>
             <li>Metabolic: glucose, electrolytes, liver function, CK (rhabdomyolysis)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Valproic acid loading dose for RSE is typically:",
+            options: ["15–20 mg/kg IV over 5–10 min", "200 mg/kg bolus", "Oral only", "Never in children"],
+            correct: 0,
+            explanation: "Valproate 15–20 mg/kg IV — monitor for hepatotoxicity.",
+          },
+          {
+            question: "Continuous EEG during anesthetic therapy for SRSE is used to:",
+            options: [
+              "Detect electrographic seizures under anaesthesia",
+              "Replace clinical examination entirely",
+              "Diagnose asthma",
+              "Measure blood glucose only",
+            ],
+            correct: 0,
+            explanation: "EEG detects non-convulsive seizures when patient is anaesthetised.",
+          },
+          {
+            question: "Propofol infusion for SRSE carries risk of:",
+            options: ["Hypotension", "Hyperkalaemia from propofol push", "Insulin resistance only", "No side effects"],
+            correct: 0,
+            explanation: "Propofol causes hypotension — prepare vasopressor support and monitoring.",
+          },
+        ],
       },
       {
         title: 'Module 3: SRSE Escalation & Long-Term Management',
@@ -279,8 +429,38 @@ export const microCoursesBatch1To5 = [
             <li>Seizure precautions and safety measures</li>
             <li>Family counseling on prognosis and long-term care needs</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Autoimmune encephalitis in SRSE may be treated with:",
+            options: ["IVIG or plasma exchange per specialist protocol", "Oral paracetamol only", "No immunotherapy ever", "Immediate discharge"],
+            correct: 0,
+            explanation: "Consider IVIG or plasmapheresis when autoimmune encephalitis suspected.",
+          },
+          {
+            question: "Weaning anaesthetics after SRSE should be:",
+            options: [
+              "Slow — reduce 10–20% every 12–24 hours with EEG monitoring",
+              "Stopped abruptly at 24 hours",
+              "Never attempted",
+              "Replaced with benzodiazepine bolus only",
+            ],
+            correct: 0,
+            explanation: "Gradual wean with EEG to detect recurrence of electrographic seizures.",
+          },
+          {
+            question: "MRI in SRSE helps identify:",
+            options: [
+              "Structural lesions such as tumour, malformation, or stroke",
+              "Only electrolyte levels",
+              "Asthma severity",
+              "Burn TBSA",
+            ],
+            correct: 0,
+            explanation: "Neuroimaging identifies treatable structural causes of refractory seizures.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Status Epilepticus II Quiz',
@@ -345,7 +525,12 @@ export const microCoursesBatch1To5 = [
           options: ['Always', 'Autoimmune encephalitis suspected', 'Never', 'Only with fever'],
           correct: 1,
           explanation: 'Immunotherapy considered if autoimmune encephalitis suspected (paraneoplastic, anti-NMDA receptor, etc.).'
-        }
+        },
+        { question: 'Lacosamide loading dose for RSE in a 20 kg child is approximately:', options: ['200 mg IV over 15 min (10 mg/kg)', '20 mg total', '2 g bolus', 'Oral only'], correct: 0, explanation: 'Lacosamide 10 mg/kg IV — check local max dose.' },
+        { question: 'Burst suppression on EEG during anaesthesia targets:', options: ['1–2 bursts per minute', 'Continuous seizure activity', 'Flat line only always', 'No EEG needed'], correct: 0, explanation: 'Burst suppression indicates adequate anaesthetic seizure control.' },
+        { question: 'Midazolam infusion is sometimes chosen over propofol because:', options: ['Longer half-life and easier maintenance', 'It never causes hypotension', 'It replaces EEG', 'It is oral first-line'], correct: 0, explanation: 'Midazolam has longer duration — titrate in ICU with monitoring.' },
+        { question: 'Rhabdomyolysis monitoring in prolonged SE includes:', options: ['Creatine kinase (CK) levels', 'Only temperature', 'No labs', 'Peak flow'], correct: 0, explanation: 'Prolonged convulsion causes muscle breakdown — monitor CK and renal function.' },
+        { question: 'LP in SRSE may be indicated when:', options: ['Infectious or autoimmune encephalitis suspected', 'All seizures regardless of cause', 'Never in children', 'Before any benzodiazepine'], correct: 0, explanation: 'CSF analysis when meningitis/encephalitis is in differential.' }
       ]
     }
   },
@@ -387,7 +572,37 @@ export const microCoursesBatch1To5 = [
             <li>Symptom-free interval (30 min to 72 hours)</li>
             <li>Recurrence of symptoms (10-20% of cases)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Anaphylaxis is a rapid-onset reaction involving:",
+            options: [
+              "≥2 organ systems",
+              "Skin only always",
+              "GI symptoms only",
+              "Chronic daily symptoms",
+            ],
+            correct: 0,
+            explanation: "Anaphylaxis = rapid systemic allergic reaction with ≥2 organ systems.",
+          },
+          {
+            question: "Common food triggers of anaphylaxis in children include:",
+            options: ["Peanuts and tree nuts", "Rice only", "Water", "Vitamin C"],
+            correct: 0,
+            explanation: "Peanuts, tree nuts, shellfish, eggs, and milk are common paediatric triggers.",
+          },
+          {
+            question: "Biphasic anaphylaxis refers to:",
+            options: [
+              "Symptom recurrence after a symptom-free interval",
+              "Only one organ involved",
+              "Chronic urticaria",
+              "Immediate discharge after epinephrine",
+            ],
+            correct: 0,
+            explanation: "10–20% may recur after 30 min–72 h — observe minimum 4–6 hours.",
+          },
+        ],
       },
       {
         title: 'Module 2: First-Dose Epinephrine Administration',
@@ -422,7 +637,32 @@ export const microCoursesBatch1To5 = [
             <li>Can repeat every 5-15 min as needed</li>
             <li>Most cases respond to 1-2 doses</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "IM epinephrine concentration for anaphylaxis is:",
+            options: ["1:1000 (1 mg/mL)", "1:10,000 only", "Oral solution", "Topical cream"],
+            correct: 0,
+            explanation: "0.01 mg/kg IM using 1:1000 solution — anterolateral thigh.",
+          },
+          {
+            question: "Maximum single IM epinephrine dose in anaphylaxis is:",
+            options: ["0.5 mg", "5 mg", "0.05 mg", "10 mg"],
+            correct: 0,
+            explanation: "0.01 mg/kg IM capped at 0.5 mg per dose.",
+          },
+          {
+            question: "IV epinephrine in anaphylaxis is reserved for:",
+            options: [
+              "Cardiovascular collapse when IM has failed — not first-line",
+              "All mild urticaria",
+              "Prophylaxis before meals",
+              "Oral administration failure only",
+            ],
+            correct: 0,
+            explanation: "IM first-line; IV only for refractory cardiovascular collapse with caution.",
+          },
+        ],
       },
       {
         title: 'Module 3: Adjunctive Therapy & Observation',
@@ -458,8 +698,43 @@ export const microCoursesBatch1To5 = [
             <li>Wear medical alert bracelet</li>
             <li>Follow-up with allergy specialist</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "After epinephrine, positioning should be:",
+            options: [
+              "Flat with legs elevated 30° unless vomiting or respiratory distress",
+              "Upright always",
+              "Prone position",
+              "Ambulatory immediately",
+            ],
+            correct: 0,
+            explanation: "Flat with leg elevation improves venous return — unless airway compromise.",
+          },
+          {
+            question: "Antihistamines in anaphylaxis are:",
+            options: [
+              "Adjunctive after epinephrine — not first-line",
+              "Definitive first-line treatment",
+              "Contraindicated always",
+              "Replace epinephrine entirely",
+            ],
+            correct: 0,
+            explanation: "Epinephrine is definitive; antihistamines are adjunctive only.",
+          },
+          {
+            question: "Hypotension in anaphylaxis may require:",
+            options: [
+              "20 mL/kg isotonic fluid bolus with repeat epinephrine as needed",
+              "Oral fluids only",
+              "Withhold all fluids",
+              "Immediate discharge",
+            ],
+            correct: 0,
+            explanation: "Fluids plus repeat IM epinephrine treat anaphylactic shock.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Anaphylaxis I Quiz',
@@ -569,7 +844,42 @@ export const microCoursesBatch1To5 = [
             <li><strong>Septic shock:</strong> Fever, infection source, gradual onset</li>
             <li><strong>Anaphylactoid reaction to contrast:</strong> Occurs during/after contrast injection</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Refractory anaphylaxis is defined as failure to respond after:",
+            options: [
+              "Standard epinephrine therapy (e.g. 2 IM doses)",
+              "Antihistamine alone",
+              "Oral steroids only",
+              "Observation without treatment",
+            ],
+            correct: 0,
+            explanation: "Refractory = inadequate response after 2 IM epinephrine doses or progression.",
+          },
+          {
+            question: "Beta-blocker use during anaphylaxis may:",
+            options: [
+              "Blunt epinephrine response — consider glucagon",
+              "Improve epinephrine effect",
+              "Replace epinephrine entirely",
+              "Have no clinical effect",
+            ],
+            correct: 0,
+            explanation: "Beta-blockers blunt beta-adrenergic response — glucagon may help.",
+          },
+          {
+            question: "Anaphylactoid reactions differ from IgE-mediated anaphylaxis by:",
+            options: [
+              "Non-IgE direct mast cell degranulation",
+              "Never requiring epinephrine",
+              "Only affecting skin",
+              "Always being mild",
+            ],
+            correct: 0,
+            explanation: "Anaphylactoid = direct mast cell activation (contrast, NSAIDs) — treat same as anaphylaxis.",
+          },
+        ],
       },
       {
         title: 'Module 2: Advanced Management of Refractory Anaphylaxis',
@@ -605,7 +915,37 @@ export const microCoursesBatch1To5 = [
             <li>Avoid histamine-releasing agents (atracurium, mivacurium)</li>
             <li>Consider emergency cricothyrotomy if airway obstruction imminent</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "IV epinephrine for refractory anaphylaxis uses concentration:",
+            options: ["1:10,000 (0.1 mg/mL)", "1:1000 undiluted bolus", "Oral solution", "Topical only"],
+            correct: 0,
+            explanation: "IV epinephrine is diluted 1:10,000 — not 1:1000 IM strength.",
+          },
+          {
+            question: "Glucagon in refractory anaphylaxis is useful when:",
+            options: [
+              "Patient is on beta-blockers",
+              "No hypotension is present",
+              "Only urticaria occurs",
+              "Epinephrine is contraindicated in all anaphylaxis",
+            ],
+            correct: 0,
+            explanation: "Glucagon bypasses beta-receptor blockade from beta-blocker use.",
+          },
+          {
+            question: "Airway angioedema in anaphylaxis may require:",
+            options: [
+              "Early intubation with ketamine — prepare for difficult airway",
+              "Discharge without observation",
+              "Antihistamine as sole therapy",
+              "Delay until complete obstruction",
+            ],
+            correct: 0,
+            explanation: "Angioedema involving tongue/epiglottis needs urgent airway planning.",
+          },
+        ],
       },
       {
         title: 'Module 3: Anaphylactoid Reactions & Long-Term Management',
@@ -637,8 +977,43 @@ export const microCoursesBatch1To5 = [
             <li><strong>Immunotherapy:</strong> Consider venom immunotherapy if insect sting anaphylaxis</li>
             <li><strong>Family education:</strong> Recognize symptoms, when to use auto-injector</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Contrast-induced anaphylactoid reaction prevention may include:",
+            options: [
+              "Pre-medication with corticosteroid and antihistamine in high-risk patients",
+              "No preparation ever",
+              "Oral epinephrine prophylaxis",
+              "Withholding all contrast always without assessment",
+            ],
+            correct: 0,
+            explanation: "High-risk patients may receive steroid + antihistamine pre-medication and low-osmolar contrast.",
+          },
+          {
+            question: "Long-term management after anaphylaxis includes:",
+            options: [
+              "Allergy testing, trigger avoidance, and epinephrine auto-injector",
+              "No follow-up needed",
+              "Avoid all future medical care",
+              "Daily oral epinephrine",
+            ],
+            correct: 0,
+            explanation: "Identify trigger, prescribe auto-injector, and educate family on use.",
+          },
+          {
+            question: "Venom immunotherapy may be considered after:",
+            options: [
+              "Insect sting anaphylaxis",
+              "Mild food intolerance only",
+              "All viral illnesses",
+              "Normal urticaria without systemic features",
+            ],
+            correct: 0,
+            explanation: "Venom immunotherapy reduces recurrence risk after sting anaphylaxis.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Anaphylaxis II Quiz',
@@ -749,7 +1124,27 @@ export const microCoursesBatch1To5 = [
             <li>Positive serum/urine ketones</li>
             <li>Anion gap metabolic acidosis (AG >12)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Mild DKA is classified by pH in the range:",
+            options: ["7.25–7.30", "<7.15", ">7.45", "7.40–7.50"],
+            correct: 0,
+            explanation: "Mild DKA: pH 7.25–7.30 with alert mental status per severity classification.",
+          },
+          {
+            question: "Common gastrointestinal features of DKA include:",
+            options: ["Nausea, vomiting, and abdominal pain", "Only diarrhoea", "No GI symptoms", "Hematemesis always"],
+            correct: 0,
+            explanation: "Nausea, vomiting, and abdominal pain are frequent presenting features of DKA.",
+          },
+          {
+            question: "Moderate DKA typically presents with pH:",
+            options: ["7.15–7.24", ">7.40", "<7.00", "7.35–7.45"],
+            correct: 0,
+            explanation: "Moderate DKA: pH 7.15–7.24 with mild lethargy.",
+          },
+        ],
       },
       {
         title: 'Module 2: First-Hour Resuscitation',
@@ -785,7 +1180,37 @@ export const microCoursesBatch1To5 = [
             <li><strong>Sodium:</strong> Correct hypernatremia cautiously (max 10 mEq/L/24h)</li>
             <li><strong>Magnesium:</strong> Often depleted; supplement if <1.7 mg/dL</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Initial paediatric DKA insulin strategy is:",
+            options: [
+              "Contraindicated — use continuous infusion only",
+              "Standard first-line",
+              "Given before fluids",
+              "10 units/kg IV push",
+            ],
+            correct: 0,
+            explanation: "No IV loading dose in children — 0.05–0.1 units/kg/h infusion after K⁺ >3.5 mmol/L.",
+          },
+          {
+            question: "Fluid deficit replacement in DKA should be spread over:",
+            options: ["24–48 hours per ISPAD", "First 30 minutes entirely", "One week", "Never replace"],
+            correct: 0,
+            explanation: "Slow deficit replacement over 24–48 h reduces cerebral oedema risk.",
+          },
+          {
+            question: "Initial DKA bolus (10 mL/kg) is given only when:",
+            options: [
+              "Perfusion is compromised — not routinely to all",
+              "Every child regardless of perfusion",
+              "Glucose is normal",
+              "After insulin IV loading dose",
+            ],
+            correct: 0,
+            explanation: "Bolus 10 mL/kg over 15–30 min only if haemodynamic compromise — avoid large rapid boluses.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complications & Ongoing Management',
@@ -822,8 +1247,38 @@ export const microCoursesBatch1To5 = [
             <li>Start PO intake: clear fluids → regular diet</li>
             <li>Diabetes education and follow-up with endocrinology</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Early warning signs of cerebral oedema in DKA include:",
+            options: ["Headache and altered mental status", "Only hyperglycaemia", "Normal GCS always", "Bradycardia as first sign only"],
+            correct: 0,
+            explanation: "Headache, vomiting, and declining GCS warn of cerebral oedema — act urgently.",
+          },
+          {
+            question: "Potassium replacement in DKA must:",
+            options: [
+              "Never be given as IV push — add to fluids or slow infusion",
+              "Always be IV push for speed",
+              "Be withheld until discharge",
+              "Use oral KCl only in coma",
+            ],
+            correct: 0,
+            explanation: "Never KCl IV push — replace via fluids with monitoring.",
+          },
+          {
+            question: "Cerebral oedema treatment may include:",
+            options: [
+              "Hypertonic saline (3%) and head elevation 30°",
+              "Rapid large hypotonic bolus",
+              "Large insulin IV push first-line",
+              "Withhold all fluids",
+            ],
+            correct: 0,
+            explanation: "Hypertonic saline, head elevation, and airway protection treat cerebral oedema.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'DKA I Quiz',
@@ -888,7 +1343,12 @@ export const microCoursesBatch1To5 = [
           options: ['As soon as glucose is normal', 'When ketosis is resolving and acidosis improving', 'After one hour', 'Never'],
           correct: 1,
           explanation: 'Continue insulin until ketosis resolves and acidosis improves — not glucose alone.'
-        }
+        },
+        { question: 'Dry mucous membranes in DKA reflect:', options: ['Dehydration from osmotic diuresis', 'Normal hydration', 'Hypervolaemia', 'Only infection'], correct: 0, explanation: 'Hyperglycaemia causes osmotic diuresis and dehydration.' },
+        { question: 'Tachycardia in DKA is often due to:', options: ['Dehydration and acidosis', 'Bradycardia from insulin', 'Normal sleep', 'Hyperkalaemia only'], correct: 0, explanation: 'Compensatory tachycardia from volume loss and acidosis.' },
+        { question: 'Venous pH is preferred over arterial for DKA monitoring because:', options: ['Less painful with acceptable correlation for trend', 'It is always normal in DKA', 'Arterial is contraindicated always', 'pH is not useful'], correct: 0, explanation: 'Venous pH trends adequately for DKA management in many settings.' },
+        { question: 'Urine ketones in DKA should be monitored until:', options: ['Negative or clearing with resolving acidosis', 'Never checked', 'Only at discharge', 'Positive always is acceptable at discharge'], correct: 0, explanation: 'Continue insulin until ketosis clears — not glucose alone.' },
+        { question: 'Anion gap in DKA is typically:', options: ['Elevated (>12)', 'Zero', 'Negative always', 'Unrelated to acidosis'], correct: 0, explanation: 'DKA causes high anion gap metabolic acidosis from ketones.' }
       ]
     }
   },
@@ -938,7 +1398,32 @@ export const microCoursesBatch1To5 = [
             <li>Intense exercise</li>
             <li>Recent illness or infection</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Euglycaemic DKA is suspected when glucose is low but:",
+            options: [
+              "Ketones and acidosis (pH <7.3) are present",
+              "No ketones are ever found",
+              "pH is always normal",
+              "Only fever is present",
+            ],
+            correct: 0,
+            explanation: "Confirm ketonaemia and acidosis despite glucose <14 mmol/L.",
+          },
+          {
+            question: "A common medication associated with euglycaemic DKA is:",
+            options: ["SGLT2 inhibitors", "Paracetamol only", "Salbutamol only", "Iron supplements"],
+            correct: 0,
+            explanation: "SGLT2 inhibitors increase glycosuria and can precipitate eGDKA.",
+          },
+          {
+            question: "eGDKA accounts for approximately what proportion of DKA cases:",
+            options: ["5–10%", "50%", "90%", "Never occurs in children"],
+            correct: 0,
+            explanation: "eGDKA is 5–10% of cases — often misdiagnosed as gastroenteritis.",
+          },
+        ],
       },
       {
         title: 'Module 2: Cerebral Edema Management',
@@ -982,7 +1467,37 @@ export const microCoursesBatch1To5 = [
             <li><strong>Intubation:</strong> If coma or unable to protect airway</li>
             <li><strong>Seizure precautions:</strong> Diazepam 0.1 mg/kg IV if seizures occur</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Hypertonic saline (3%) for cerebral oedema is given as:",
+            options: [
+              "0.25–1 g/kg IV over 15–20 minutes",
+              "Oral bolus",
+              "Unlimited repeat without reassessment",
+              "Only after discharge",
+            ],
+            correct: 0,
+            explanation: "3% saline 0.25–1 g/kg IV over 15–20 min; may repeat per protocol.",
+          },
+          {
+            question: "A risk factor for cerebral oedema in DKA is age:",
+            options: ["Under 5 years", "Over 18 years only", "Any age equally without risk", "Neonates never"],
+            correct: 0,
+            explanation: "Young age, new-onset diabetes, and rapid fluid/glucose shifts increase risk.",
+          },
+          {
+            question: "Prevention of cerebral oedema includes:",
+            options: [
+              "Slow fluid replacement and gradual glucose reduction",
+              "Rapid correction of entire fluid deficit in 1 hour",
+              "Hypotonic fluids first-line",
+              "Large insulin IV push on arrival",
+            ],
+            correct: 0,
+            explanation: "Slow fluids and gradual glucose drop (3–6 mmol/L/hr) reduce oedema risk.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complex Electrolyte Management & ICU Transition',
@@ -1024,8 +1539,38 @@ export const microCoursesBatch1To5 = [
             <li>Follow-up with endocrinology</li>
             <li>Psychological support for new-onset diabetes</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Severe hypokalaemia (K⁺ <2.5 mmol/L) in DKA requires:",
+            options: [
+              "Hold insulin and replace K⁺ slowly — never IV push",
+              "Continue insulin without K⁺ replacement",
+              "KCl IV push for speed",
+              "Discharge without monitoring",
+            ],
+            correct: 0,
+            explanation: "Hold insulin when K⁺ <2.5; replace via fluids slowly with cardiac monitoring.",
+          },
+          {
+            question: "Hypernatraemia correction in DKA should not exceed:",
+            options: ["10 mEq/L per 24 hours", "30 mEq/L per hour", "No limit", "Never correct"],
+            correct: 0,
+            explanation: "Correct sodium slowly — max 10 mEq/L/24 h to avoid cerebral oedema.",
+          },
+          {
+            question: "ICU transfer is indicated in DKA when:",
+            options: [
+              "Altered mental status, seizures, or pH <7.1 despite treatment",
+              "Mild hyperglycaemia only",
+              "Normal GCS always",
+              "First presentation of diabetes only",
+            ],
+            correct: 0,
+            explanation: "Escalate for neurological compromise, refractory acidosis, or haemodynamic instability.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'DKA II Quiz',
@@ -1090,7 +1635,12 @@ export const microCoursesBatch1To5 = [
           options: ['They cause hyperglycemia', 'They increase glycosuria → euglycemic DKA risk', 'They cause hypoglycemia', 'They are ineffective'],
           correct: 1,
           explanation: 'SGLT2 inhibitors increase glycosuria and euglycemic DKA risk. Avoid during acute illness.'
-        }
+        },
+        { question: 'Mannitol for cerebral oedema in DKA is given at:', options: ['0.25–1 g/kg IV if 3% saline unavailable', 'Oral dose only', 'Unlimited repeat without monitoring', 'Same as high-dose insulin IV push'], correct: 0, explanation: 'Mannitol is alternative osmotic therapy when hypertonic saline not available.' },
+        { question: 'Phosphate supplementation is considered when level is:', options: ['<2 mg/dL', '>10 mg/dL always', 'Never in DKA', 'Only in adults'], correct: 0, explanation: 'Low phosphate risks weakness and rhabdomyolysis — supplement per protocol.' },
+        { question: 'Magnesium repletion in DKA is indicated when Mg is:', options: ['<1.7 mg/dL', '>5 mg/dL', 'Not measured', 'Always normal'], correct: 0, explanation: 'Magnesium often depleted in DKA — replete when low.' },
+        { question: 'Bradycardia and hypertension in DKA may warn of:', options: ['Cerebral oedema (late sign)', 'Mild dehydration only', 'Ready for discharge', 'Hypoglycaemia always'], correct: 0, explanation: 'Cushing triad components suggest raised ICP — act urgently.' },
+        { question: 'Starvation is a risk factor for eGDKA because:', options: ['It reduces hepatic gluconeogenesis while ketosis persists', 'It increases insulin secretion only', 'It prevents ketones', 'It raises glucose always'], correct: 0, explanation: 'Starvation + ketosis can produce euglycaemic DKA picture.' }
       ]
     }
   },
@@ -1139,7 +1689,42 @@ export const microCoursesBatch1To5 = [
             <li><strong>Viral:</strong> RSV, influenza, parainfluenza, rhinovirus</li>
             <li><strong>Atypical:</strong> Mycoplasma, Chlamydia</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "WHO severe pneumonia includes cough with:",
+            options: [
+              "Chest indrawing OR stridor at rest",
+              "Only mild fever",
+              "Normal breathing rate only",
+              "No respiratory signs",
+            ],
+            correct: 0,
+            explanation: "Severe pneumonia = cough + chest indrawing or stridor at rest (WHO).",
+          },
+          {
+            question: "Very severe pneumonia adds danger signs such as:",
+            options: [
+              "Lethargy or inability to drink",
+              "Mild cough only",
+              "Normal mental status always",
+              "Isolated rash",
+            ],
+            correct: 0,
+            explanation: "Very severe = severe pneumonia plus danger signs (lethargy, cannot drink, malnutrition).",
+          },
+          {
+            question: "ARDS Berlin criteria require bilateral infiltrates and:",
+            options: [
+              "Respiratory failure not fully explained by cardiac failure alone",
+              "Only unilateral CXR changes",
+              "Chronic lung disease only",
+              "Normal oxygenation",
+            ],
+            correct: 0,
+            explanation: "ARDS = acute bilateral infiltrates + hypoxaemia not explained by heart failure/fluid overload.",
+          },
+        ],
       },
       {
         title: 'Module 2: First-Hour Stabilization',
@@ -1176,7 +1761,37 @@ export const microCoursesBatch1To5 = [
             <li>Fever management: Paracetamol 15 mg/kg Q4-6H (max 60 mg/kg/day)</li>
             <li>Nutritional support: Continue feeding if tolerating PO</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Patient positioning for severe pneumonia should favour:",
+            options: [
+              "Upright or semi-upright to improve oxygenation",
+              "Flat supine always",
+              "Prone without monitoring",
+              "Trendelenburg",
+            ],
+            correct: 0,
+            explanation: "Upright positioning improves ventilation and oxygenation in respiratory failure.",
+          },
+          {
+            question: "Empiric antibiotics for severe pneumonia should start within:",
+            options: ["1 hour of diagnosis", "48 hours", "After all cultures return", "Only if MRSA confirmed"],
+            correct: 0,
+            explanation: "Start ceftriaxone ± azithromycin within 1 hour when severe pneumonia diagnosed.",
+          },
+          {
+            question: "Continuous pulse oximetry in severe pneumonia is important to:",
+            options: [
+              "Titrate oxygen to maintain target SpO₂",
+              "Replace clinical assessment entirely",
+              "Diagnose meningitis",
+              "Measure glucose only",
+            ],
+            correct: 0,
+            explanation: "Monitor SpO₂ continuously — target >90% (>94% if ARDS).",
+          },
+        ],
       },
       {
         title: 'Module 3: Monitoring & Escalation Criteria',
@@ -1212,8 +1827,33 @@ export const microCoursesBatch1To5 = [
             <li>Target SpO2 88-95%, PaCO2 35-45 mmHg</li>
             <li>Avoid barotrauma: limit plateau pressure <30 cm H2O</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "ICU escalation for pneumonia is indicated when SpO₂ remains:",
+            options: [
+              "<90% despite high-flow oxygen (FiO₂ >0.6)",
+              ">98% on room air",
+              "Stable on nasal cannula only always",
+              "Unmeasured",
+            ],
+            correct: 0,
+            explanation: "Refractory hypoxaemia despite high FiO₂ warrants ICU-level care.",
+          },
+          {
+            question: "Target urine output monitoring in severe pneumonia is:",
+            options: [">1 mL/kg/hr", "<0.1 mL/kg/hr", "No urine output needed", "Only at discharge"],
+            correct: 0,
+            explanation: "Track fluid balance — oliguria suggests shock or dehydration.",
+          },
+          {
+            question: "Lung-protective ventilation limits plateau pressure to:",
+            options: ["<30 cm H₂O", ">50 cm H₂O", "No limit", "Only PEEP without tidal volume control"],
+            correct: 0,
+            explanation: "6–8 mL/kg tidal volume with plateau pressure <30 cm H₂O reduces barotrauma.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Severe Pneumonia & ARDS I Quiz',
@@ -1328,7 +1968,27 @@ export const microCoursesBatch1To5 = [
             <li>Hemodynamically stable</li>
             <li>Adequate respiratory drive</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "When SpO₂ is below 88% in ventilated ARDS, first titration step is:",
+            options: ["Increase PEEP by 2–3 cm H₂O before raising FiO₂", "Decrease PEEP to zero", "Stop ventilation", "Only increase tidal volume to 15 mL/kg"],
+            correct: 0,
+            explanation: "Increase PEEP first, then FiO₂ — lung-protective strategy.",
+          },
+          {
+            question: "Prone positioning in moderate-severe ARDS is recommended for:",
+            options: ["Up to 16 hours per day when feasible", "Never in children", "5 minutes only", "Only after extubation"],
+            correct: 0,
+            explanation: "Prone positioning improves V/Q matching in moderate-severe ARDS.",
+          },
+          {
+            question: "Weaning from ventilator may begin when FiO₂ is below:",
+            options: ["0.4 with PEEP <5", "1.0 always", "0.9 with zero PEEP required", "Never wean in ARDS"],
+            correct: 0,
+            explanation: "Improving oxygenation and lung mechanics allow gradual weaning.",
+          },
+        ],
       },
       {
         title: 'Module 2: ARDS Complications & Management',
@@ -1368,7 +2028,27 @@ export const microCoursesBatch1To5 = [
             <li>Risk factors: Prolonged ARDS, high FiO2 exposure, barotrauma</li>
             <li>Management: Minimize ventilator-induced injury, consider corticosteroids in late phase</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Ventilator-associated pneumonia prevention includes:",
+            options: ["Head elevation 30° and oral hygiene", "Supine flat positioning always", "No suctioning", "Early extubation without assessment"],
+            correct: 0,
+            explanation: "VAP bundle: head up, oral care, subglottic suction when available.",
+          },
+          {
+            question: "Barotrauma in ARDS manifests as:",
+            options: ["Pneumothorax or subcutaneous emphysema", "Only fever", "Normal CXR always", "Improved compliance only"],
+            correct: 0,
+            explanation: "Excessive pressures cause alveolar rupture — reduce tidal volume and optimise PEEP.",
+          },
+          {
+            question: "AKI complicating ARDS requires:",
+            options: ["Avoidance of nephrotoxins and perfusion optimisation", "Large aminoglycoside doses always", "No urine monitoring", "Immediate discharge"],
+            correct: 0,
+            explanation: "Optimise MAP, avoid nephrotoxins, consider RRT if indicated.",
+          },
+        ],
       },
       {
         title: 'Module 3: Extracorporeal Support & Long-Term Outcomes',
@@ -1404,8 +2084,28 @@ export const microCoursesBatch1To5 = [
             <li>Family support and counseling</li>
             <li>Follow-up with pulmonology at 2-4 weeks post-discharge</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "ECMO for refractory ARDS may be considered when PaO₂/FiO₂ is:",
+            options: ["<100 despite maximal ventilator support", ">400", "Not measured", "Only in mild disease"],
+            correct: 0,
+            explanation: "Refractory hypoxaemia despite lung-protective ventilation — ECMO when available.",
+          },
+          {
+            question: "VV-ECMO is used for:",
+            options: ["Respiratory failure without primary cardiac failure", "Isolated arrhythmia only", "Mild cough", "Always VA configuration"],
+            correct: 0,
+            explanation: "Veno-venous ECMO supports gas exchange in isolated respiratory failure.",
+          },
+          {
+            question: "Paediatric ARDS survivors may need follow-up for:",
+            options: ["Pulmonary function testing at 3–6 months", "No follow-up ever", "Only dental care", "Immediate return to contact sport without assessment"],
+            correct: 0,
+            explanation: "30–50% may have long-term pulmonary sequelae — schedule pulmonary follow-up.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Severe Pneumonia & ARDS II Quiz',

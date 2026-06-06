@@ -51,7 +51,27 @@ export const microCoursesBurns = [
             <li>Carbonaceous sputum</li>
             <li>Altered mental status (CO poisoning)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Partial-thickness (2nd degree) burns characteristically:",
+            options: ["Have blistering and are painful", "Are painless and leathery", "Involve epidermis only without blistering", "Never need fluid resuscitation"],
+            correct: 0,
+            explanation: "Partial-thickness burns blister and remain painful.",
+          },
+          {
+            question: "In children, head TBSA by Rule of 9s is approximately:",
+            options: ["18%", "9%", "27%", "4.5%"],
+            correct: 0,
+            explanation: "Paediatric Rule of 9s: head 18% — larger proportion than adults.",
+          },
+          {
+            question: "Enclosed space fire with singed nasal hairs suggests:",
+            options: ["Possible inhalation injury", "Superficial burn only", "No airway risk", "Discharge without observation"],
+            correct: 0,
+            explanation: "Inhalation injury red flags: soot, hoarseness, stridor, enclosed space fire.",
+          },
+        ],
       },
       {
         title: 'Module 2: First-Hour Fluid Resuscitation',
@@ -89,7 +109,27 @@ export const microCoursesBurns = [
             <li>Tetanus prophylaxis: Td if >5 years since last dose</li>
             <li>Pain control: Morphine 0.1 mg/kg IV (titrate to effect)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Parkland formula total 24-hour fluids equals:",
+            options: ["4 mL × weight (kg) × %TBSA", "10 mL/kg once only", "2 mL × weight only", "No formula needed"],
+            correct: 0,
+            explanation: "Parkland: 4 mL/kg/%TBSA over 24 h — half in first 8 h from time of burn.",
+          },
+          {
+            question: "Burn resuscitation urine output target in children is:",
+            options: ["0.5 mL/kg/hr", "5 mL/kg/hr", "No catheter needed always", "0.1 mL/kg/hr"],
+            correct: 0,
+            explanation: "Titrate fluids to 0.5 mL/kg/hr (1 mL/kg/hr in infants <30 kg).",
+          },
+          {
+            question: "If urine output is low during burn resuscitation, IV rate should:",
+            options: ["Increase by approximately 25%", "Stop all fluids", "Halve rate always", "Switch to oral only"],
+            correct: 0,
+            explanation: "Oliguria suggests under-resuscitation — increase rate and reassess.",
+          },
+        ],
       },
       {
         title: 'Module 3: Airway Management and Transfer',
@@ -136,8 +176,28 @@ export const microCoursesBurns = [
             <li>NPO status (risk of aspiration)</li>
             <li>Arrange urgent transport to burn center</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Succinylcholine is avoided in burn airway management because:",
+            options: ["Hyperkalaemia risk in burns", "It improves airway tone too much", "It is oral only", "It replaces morphine"],
+            correct: 0,
+            explanation: "Avoid succinylcholine — hyperkalaemia risk; use rocuronium/vecuronium.",
+          },
+          {
+            question: "Circumferential burns pose risk of:",
+            options: ["Compartment syndrome", "No special monitoring", "Only cosmetic issues", "Immediate discharge"],
+            correct: 0,
+            explanation: "Circumferential burns need escharotomy monitoring for compartment syndrome.",
+          },
+          {
+            question: "Pre-transfer burn dressing should be:",
+            options: ["Clean and dry — not ice", "Ice packed directly on wound", "Dirty wet wraps", "No dressing"],
+            correct: 0,
+            explanation: "Cover with clean dry dressing; continue Parkland resuscitation during transfer.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Burns I Quiz',

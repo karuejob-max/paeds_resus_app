@@ -8,6 +8,7 @@ import {
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
 import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-helpers";
+import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like, or } from "drizzle-orm";
@@ -334,7 +335,10 @@ export async function seedFellowshipContent(options: {
       const firstModuleId = moduleIds[0]!;
       // Module-native formatives only — never pull stems from summative bank (governance §3.3).
       const formativeByModule = courseData.modules.map((mod) => mod.questions ?? []);
-      const bankQuestions = uniqueFormativeQuestions(courseData.quiz.questions);
+      const bankQuestions = uniqueFormativeQuestions([
+        ...courseData.quiz.questions,
+        ...getFellowshipSummativeExpansion(catalogSlug),
+      ]);
 
       for (let i = 0; i < moduleIds.length; i++) {
         const moduleFormative = formativeByModule[i] ?? [];

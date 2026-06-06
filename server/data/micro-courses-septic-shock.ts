@@ -29,6 +29,26 @@ export const microCoursesSepticShock = [
           </ul>
           <p><strong>Cool extremities ≠ shock alone</strong> — always assess CRT, pulse, and mental status together.</p>
         `,
+        questions: [
+          {
+            question: "Septic shock requires both infection and:",
+            options: ["Fever above 38°C only", "Perfusion failure (not fever alone)", "Positive blood culture", "Rash"],
+            correct: 1,
+            explanation: "Septic shock = infection plus perfusion failure — fever alone is insufficient.",
+          },
+          {
+            question: "Capillary refill time greater than 3 seconds in a febrile child indicates:",
+            options: ["Normal perfusion", "Possible perfusion impairment — assess with pulse and mental status", "Only dehydration", "No further action needed"],
+            correct: 1,
+            explanation: "Prolonged CRT is a perfusion sign — combine with pulse and mental status.",
+          },
+          {
+            question: "Compensated septic shock in children may present with:",
+            options: ["Normal blood pressure despite poor perfusion", "Always obvious hypotension", "No tachycardia", "Normal mental status always"],
+            correct: 0,
+            explanation: "Children may maintain BP while perfusion fails — do not wait for hypotension.",
+          },
+        ],
       },
       {
         title: "Module 2: First-Hour Fluids and Antibiotics",
@@ -45,6 +65,26 @@ export const microCoursesSepticShock = [
           ${SHOCK_FLUIDS_FEAST}
           <p>After <strong>40 mL/kg</strong> without improvement → escalate; consider inotropes and ICU (Septic Shock 2 course).</p>
         `,
+        questions: [
+          {
+            question: "SpO₂ target for a septic child with respiratory distress is:",
+            options: [">80%", ">94%", "100% always", "No oxygen needed"],
+            correct: 1,
+            explanation: "Target SpO₂ >94% when respiratory distress is present during sepsis resuscitation.",
+          },
+          {
+            question: "IV/IO access in septic shock should:",
+            options: ["Delay fluid bolus until central line placed", "Not delay fluid resuscitation — obtain access promptly", "Use oral fluids only", "Wait for senior review before any access"],
+            correct: 1,
+            explanation: "Do not delay fluids for perfect access — IV or IO promptly.",
+          },
+          {
+            question: "Isotonic bolus administration should be:",
+            options: ["Given over 10–20 minutes with reassessment after each bolus", "Given as fast push without monitoring", "Oral rehydration only", "Colloid first-line always"],
+            correct: 0,
+            explanation: "10–20 mL/kg isotonic boluses over 10–20 min with reassessment — FEAST-aware.",
+          },
+        ],
       },
       {
         title: "Module 3: Escalation and Referral",
@@ -58,6 +98,26 @@ export const microCoursesSepticShock = [
           </ul>
           <p>Use SBAR handover: age, weight, fluids given, antibiotics, perfusion status, and suspected source.</p>
         `,
+        questions: [
+          {
+            question: "SBAR handover for septic shock should include:",
+            options: ["Age, weight, fluids given, antibiotics, perfusion status, suspected source", "Only the child's name", "Family history only", "Discharge plan only"],
+            correct: 0,
+            explanation: "Structured handover includes resuscitation details and suspected infection source.",
+          },
+          {
+            question: "Need for mechanical ventilation in septic shock indicates:",
+            options: ["Mild illness", "Escalation — persistent shock or respiratory failure", "Discharge readiness", "Antibiotics can be stopped"],
+            correct: 1,
+            explanation: "Ventilation need signals escalation alongside fluid-refractory shock.",
+          },
+          {
+            question: "Suspected necrotising infection or peritonitis requires:",
+            options: ["Antibiotics alone without surgical review", "Surgical source control alongside resuscitation", "Discharge home", "Oral fluids only"],
+            correct: 1,
+            explanation: "Some septic sources need urgent surgical review for source control.",
+          },
+        ],
       },
     ],
     quiz: {
@@ -158,6 +218,26 @@ export const microCoursesSepticShock = [
           ${SHOCK_VASOPRESSORS}
           <p>Start vasopressor when shock persists after 40 mL/kg isotonic fluid — do not delay if fluid-refractory.</p>
         `,
+        questions: [
+          {
+            question: "Refractory septic shock is defined as:",
+            options: ["Shock resolving with first bolus", "Persistent hypotension or poor perfusion despite adequate fluids and antibiotics", "Fever without tachycardia", "Normal perfusion after 10 mL/kg"],
+            correct: 1,
+            explanation: "Refractory shock persists despite fluid resuscitation and appropriate antibiotics.",
+          },
+          {
+            question: "Warm vasodilatory septic shock typically responds first to:",
+            options: ["Atropine", "Noradrenaline (norepinephrine)", "Oral fluids", "Antihistamine"],
+            correct: 1,
+            explanation: "Noradrenaline is first-line for vasodilatory septic shock when fluids are inadequate.",
+          },
+          {
+            question: "Cold shock with poor cardiac output may prefer:",
+            options: ["Adrenaline (epinephrine) over noradrenaline in some protocols", "No vasopressors ever", "Large fluid bolus without reassessment", "Discharge"],
+            correct: 0,
+            explanation: "Cold shock with low cardiac output may respond to adrenaline per local protocol.",
+          },
+        ],
       },
       {
         title: "Module 2: Ventilation and Sedation Readiness",
@@ -171,6 +251,26 @@ export const microCoursesSepticShock = [
           </ul>
           <p>In low-resource settings: prepare intubation equipment early; call senior help before decompensation.</p>
         `,
+        questions: [
+          {
+            question: "Intubation is indicated in septic shock when:",
+            options: ["GCS <8, airway not protected, or rising work of breathing", "Mild fever only", "Normal oxygen saturation always", "After discharge planning"],
+            correct: 0,
+            explanation: "Protect airway when GCS is low, work of breathing is failing, or oxygenation inadequate.",
+          },
+          {
+            question: "After starting vasopressors, ventilation strategy if ARDS develops should be:",
+            options: ["Large tidal volumes", "Sedated lung-protective ventilation", "No sedation", "Hyperventilate to alkalosis"],
+            correct: 1,
+            explanation: "Lung-protective ventilation with adequate sedation when ARDS complicates sepsis.",
+          },
+          {
+            question: "In low-resource settings, intubation preparation should:",
+            options: ["Wait until cardiac arrest", "Begin early — call senior help before decompensation", "Never intubate septic children", "Delay until 48 hours of antibiotics"],
+            correct: 1,
+            explanation: "Prepare equipment and senior support early before the child decompensates.",
+          },
+        ],
       },
       {
         title: "Module 3: Multi-Organ Failure and Coagulopathy",
@@ -185,6 +285,26 @@ export const microCoursesSepticShock = [
           </ul>
           <p>Source control (drain abscess, remove infected lines) remains essential alongside supportive care.</p>
         `,
+        questions: [
+          {
+            question: "Paediatric ARDS in sepsis is managed with:",
+            options: ["Low tidal volume and adequate PEEP where available", "Very high tidal volumes", "No PEEP ever", "Only antibiotics"],
+            correct: 0,
+            explanation: "Lung-protective ventilation reduces barotrauma in paediatric ARDS.",
+          },
+          {
+            question: "Oliguria in septic multi-organ failure requires:",
+            options: ["Fluid balance tracking and renal support planning", "Unlimited fluid boluses", "No monitoring", "Immediate discharge"],
+            correct: 0,
+            explanation: "Track urine output and plan renal support including RRT when available.",
+          },
+          {
+            question: "Hypoglycaemia monitoring in septic MODS uses glucose units of:",
+            options: ["mg/dL only without conversion", "mmol/L at bedside", "Never checked", "Urine dipstick only"],
+            correct: 1,
+            explanation: "Monitor bedside glucose in mmol/L — treat hypoglycaemia promptly in critical illness.",
+          },
+        ],
       },
     ],
     quiz: {
