@@ -19,7 +19,7 @@ import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
 //   Module 4: Opioid-Associated Emergencies
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BLS_MODULES = [
+export const BLS_MODULES = [
   {
     title: "Module 1: Adult BLS — Recognition & High-Quality CPR",
     description: "Recognize cardiac arrest, activate EMS, and deliver high-quality CPR for adults.",
@@ -283,7 +283,7 @@ const BLS_MODULES = [
 //   Module 7: Bradycardia & Tachycardia Algorithms
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ACLS_MODULES = [
+export const ACLS_MODULES = [
   {
     title: "Module 1: Systematic Approach & BLS Foundation for ACLS",
     description: "Apply the BLS survey and ACLS primary survey to any critically ill patient.",

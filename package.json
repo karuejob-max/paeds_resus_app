@@ -69,6 +69,8 @@
     "seed:aha-diagnostic": "tsx --import dotenv/config scripts/seed-aha-diagnostic.ts",
     "audit:fellowship-assessments": "tsx scripts/audit-fellowship-assessments.ts",
     "audit:fellowship-assessments:strict": "tsx scripts/audit-fellowship-assessments.ts --strict",
+    "audit:aha-assessments": "tsx --import dotenv/config scripts/audit-aha-assessments.ts",
+    "audit:aha-assessments:strict": "tsx --import dotenv/config scripts/audit-aha-assessments.ts --strict",
     "audit:fellowship-seed-static": "tsx scripts/audit-fellowship-seed-static.ts",
     "audit:fellowship-quiz-duplicates": "tsx scripts/audit-fellowship-quiz-duplicates.ts --seed-only --strict",
     "audit:fellowship-bank-size": "tsx scripts/audit-fellowship-bank-size.ts",
