@@ -38,5 +38,23 @@ export async function isPalsEnrollmentModulesComplete(db: any, enrollmentId: num
       .limit(1);
     if (rows.length === 0) return false;
   }
+
+  // Capstone Check: Virtual moduleId -1
+  const capstoneRows = await db
+    .select()
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.enrollmentId, enrollmentId),
+        eq(userProgress.userId, userId),
+        eq(userProgress.moduleId, -1),
+        eq(userProgress.status, "completed")
+      )
+    )
+    .limit(1);
+
+  if (capstoneRows.length === 0) return false;
+  if ((capstoneRows[0].score ?? 0) < 80) return false;
+
   return true;
 }

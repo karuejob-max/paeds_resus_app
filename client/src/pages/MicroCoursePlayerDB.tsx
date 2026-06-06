@@ -20,6 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
+import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -80,6 +81,7 @@ export default function MicroCoursePlayerDB() {
   const [showFormativeQuiz, setShowFormativeQuiz] = useState(false);
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false);
   const [showSummativeExam, setShowSummativeExam] = useState(false);
+  const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
@@ -586,9 +588,10 @@ export default function MicroCoursePlayerDB() {
   };
 
   const goToPreviousStep = (exitAtStart: boolean) => {
-    if (showCertificateReady || showSummativeExam) {
+    if (showCertificateReady || showSummativeExam || showCapstoneSim) {
       setShowCertificateReady(false);
       setShowSummativeExam(false);
+      setShowCapstoneSim(false);
       setShowFormativeQuiz(false);
       resetQuizState();
       setCurrentModuleIndex(Math.max(0, modules.length - 1));
@@ -1117,6 +1120,35 @@ export default function MicroCoursePlayerDB() {
             isAhaCourse={isAhaCourse}
             ahaProgramType={ahaProgramForUi}
           />
+        ) : showCapstoneSim ? (
+          <PalsCapstoneSimulation 
+            patientAge={2}
+            patientWeight={12}
+            onComplete={(score, passed) => {
+              if (passed) {
+                // Virtual moduleId -1 for capstone
+                submitQuizMutation.mutate({
+                  enrollmentId: enrollment!.id,
+                  moduleId: -1,
+                  quizId: -1,
+                  score,
+                  answers: { simReady: true },
+                }, {
+                  onSuccess: () => {
+                    setShowCapstoneSim(false);
+                    setShowCertificateReady(true);
+                    void utils.learning.getMicroCourseExamState.invalidate();
+                  }
+                });
+              } else {
+                toast.error(`Simulation failed with score ${score}%. You need 80% to pass.`);
+              }
+            }}
+            onClose={() => {
+              setShowCapstoneSim(false);
+              setShowSummativeExam(true);
+            }}
+          />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
             <FormativeQuizView 
             moduleTitle={
@@ -1142,7 +1174,11 @@ export default function MicroCoursePlayerDB() {
               }
               if (showSummativeExam || isSummativeExamActive) {
                 setShowSummativeExam(false);
-                setShowCertificateReady(true);
+                if (examState?.capstoneRequired && !examState?.capstonePassed) {
+                  setShowCapstoneSim(true);
+                } else {
+                  setShowCertificateReady(true);
+                }
                 resetQuizState();
                 void utils.learning.getMicroCourseExamState.invalidate();
                 return;
