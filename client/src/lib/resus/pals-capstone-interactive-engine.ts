@@ -241,7 +241,7 @@ export function validateLearnerInput(
       : (state.instructorFinding.failureMessage || 'Not quite right. Try again or ask for a hint.'),
   };
 
-  const newState = {
+    const newState: InteractiveScenarioState = {
     ...state,
     learnerInputs: [...state.learnerInputs, input],
     isPhaseComplete: correct,
@@ -266,21 +266,21 @@ export function advanceToNextPhase(state: InteractiveScenarioState): Interactive
       ...state,
       isPhaseComplete: true,
       feedback: 'Scenario complete! You successfully managed a pediatric septic shock case.',
-      feedbackType: 'success',
+      feedbackType: 'success' as const,
     };
   }
 
   const nextPhase = INTERACTIVE_SCENARIO_PHASES[nextPhaseIndex];
-  return {
-    ...state,
-    currentPhaseIndex: nextPhaseIndex,
-    currentPage: nextPhase.page,
-    instructorFinding: nextPhase,
-    isPhaseComplete: false,
-    feedback: nextPhase.clinicalObjective,
-    feedbackType: 'info',
-    showHint: false,
-  };
+    return {
+      ...state,
+      currentPhaseIndex: nextPhaseIndex,
+      currentPage: nextPhase.page,
+      instructorFinding: nextPhase,
+      isPhaseComplete: false,
+      feedback: nextPhase.clinicalObjective,
+      feedbackType: 'info' as const,
+      showHint: false,
+    };
 }
 
 /**
@@ -298,7 +298,7 @@ export function showHintForPhase(state: InteractiveScenarioState): InteractiveSc
     ...state,
     showHint: true,
     feedback: hint,
-    feedbackType: 'hint',
+    feedbackType: 'hint' as const,
   };
 }
 

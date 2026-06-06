@@ -10,7 +10,7 @@ import {
   validateIntervention,
   advancePhase,
   type PracticalScenarioState,
-} from '@/lib/resus/pals-capstone-practical-engine';
+} from '../lib/resus/pals-capstone-practical-engine';
 
 interface PalsCapstonePracticalExamProps {
   onComplete?: (score: number, simReadyBadge: boolean) => void;
