@@ -20,7 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
+import { PalsCapstoneScenarioHarness } from "@/components/PalsCapstoneScenarioHarness";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -1121,7 +1121,7 @@ export default function MicroCoursePlayerDB() {
             ahaProgramType={ahaProgramForUi}
           />
         ) : showCapstoneSim ? (
-          <PalsCapstoneSimulation 
+          <PalsCapstoneScenarioHarness 
             patientAge={2}
             patientWeight={12}
             onComplete={(score, passed) => {
