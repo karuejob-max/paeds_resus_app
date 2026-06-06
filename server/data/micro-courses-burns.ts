@@ -520,6 +520,24 @@ export const microCoursesBurns = [
           options: ['Physiotherapy and splinting in functional positions', 'Immobilisation in flexion always', 'No rehab', 'Discharge without follow-up'],
           correct: 0,
           explanation: 'Rehabilitation prevents long-term contractures and functional limitation.'
+        },
+        {
+          question: 'Colloid use in burn resuscitation after first 24 hours may include:',
+          options: ['Albumin or FFP per burn centre protocol when indicated', 'Hypotonic dextrose only', 'No colloid ever in children', 'Oral fluids alone'],
+          correct: 0,
+          explanation: 'Colloids may be used after 24 h in selected major burns — titrate to endpoints.'
+        },
+        {
+          question: 'Rhabdomyolysis complicating major burns requires urine output:',
+          options: ['>1 mL/kg/hr to flush myoglobin', '0.1 mL/kg/hr acceptable', 'Anuria is normal', 'No Foley needed'],
+          correct: 0,
+          explanation: 'Aggressive urine output targets reduce myoglobinuric AKI risk.'
+        },
+        {
+          question: 'Early enteral nutrition in major burns should start:',
+          options: ['Within 24–48 hours when gut viable', 'After 2 weeks only', 'Never via NG tube', 'Only after grafting complete'],
+          correct: 0,
+          explanation: 'Early enteral feeding reduces infection and supports hypermetabolic recovery.'
         }
       ]
     }

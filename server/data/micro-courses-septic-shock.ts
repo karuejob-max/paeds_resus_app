@@ -2,7 +2,8 @@
  * Septic Shock I & II — Pass 2 clinical content (CST §4, Surviving Sepsis paediatric, FEAST-aware).
  */
 
-import { SHOCK_FLUIDS_FEAST, SHOCK_VASOPRESSORS } from "./clinical-content-helpers";
+import { SHOCK_FLUIDS_FEAST, SHOCK_VASOPRESSORS, SPO2_TARGET_NOTE } from "./clinical-content-helpers";
+import { buildInternationalModuleHtml } from "./micro-course-module-template";
 
 export const microCoursesSepticShock = [
   {
@@ -19,15 +20,38 @@ export const microCoursesSepticShock = [
         duration: 15,
         content: `
           <h2>Septic Shock Recognition</h2>
-          <p>Septic shock = infection + <strong>perfusion failure</strong> (not fever alone).</p>
-          <h3>Bedside signs (any combination):</h3>
-          <ul>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Septic shock is infection plus perfusion failure — not fever alone. Children compensate until late; recognise poor perfusion before hypotension.",
+            objectives: [
+              "Define septic shock as infection with perfusion failure",
+              "Recognise compensated shock before hypotension appears",
+              "Combine CRT, pulse, and mental status at the bedside",
+            ],
+            sections: [
+              {
+                heading: "Bedside perfusion signs",
+                bodyHtml: `<ul>
             <li>Altered mental status — irritable, lethargic, or unresponsive</li>
-            <li>Weak or thready pulse, hypotension for age (or absent in compensated shock)</li>
+            <li>Weak or thready pulse; hypotension for age (or absent in compensated shock)</li>
             <li>Prolonged capillary refill (&gt;3 s) — cool or mottled extremities</li>
             <li>Tachypnoea, poor feeding, reduced urine output</li>
-          </ul>
-          <p><strong>Cool extremities ≠ shock alone</strong> — always assess CRT, pulse, and mental status together.</p>
+          </ul>`,
+              },
+              {
+                heading: "Compensated shock pattern",
+                bodyHtml: `<p><strong>Cool extremities ≠ shock alone</strong> — always assess CRT, pulse, and mental status together. Tachycardia often precedes hypotension in children.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Treat perfusion failure urgently — do not wait for positive blood culture or obvious hypotension.</p>",
+            bedsideActions: [
+              "Assess CRT, pulse volume, and mental status together",
+              "Start sepsis clock — antibiotics within 1 hour when shock suspected",
+              "Obtain IV/IO access without delaying first bolus",
+              "Check bedside glucose in mmol/L",
+            ],
+          })}
         `,
         questions: [
           {
@@ -55,15 +79,39 @@ export const microCoursesSepticShock = [
         duration: 20,
         content: `
           <h2>First-Hour Safe Actions</h2>
-          <ol>
-            <li><strong>Airway &amp; oxygen</strong> — target SpO₂ &gt;94% if respiratory distress</li>
+          ${buildInternationalModuleHtml({
+            overview:
+              "The first hour bundles airway support, isotonic fluids with reassessment, and early antibiotics. FEAST-aware practice means reassess after every bolus.",
+            objectives: [
+              "Deliver 10–20 mL/kg isotonic boluses with reassessment",
+              "Start empiric antibiotics within 1 hour of recognition",
+              "Titrate oxygen toward SpO₂ ≥90% when hypoxic",
+            ],
+            sections: [
+              {
+                heading: "First-hour bundle",
+                bodyHtml: `<ol>
+            <li><strong>Airway &amp; oxygen</strong> — ${SPO2_TARGET_NOTE.replace(/<\/?p>/g, "")}</li>
             <li><strong>IV/IO access</strong> — do not delay fluids for perfect access</li>
             <li><strong>Isotonic bolus</strong> — 10–20 mL/kg over 10–20 min; reassess after each bolus</li>
-            <li><strong>Antibiotics within 1 hour</strong> — ceftriaxone 50–80 mg/kg/day IV (max 2 g/dose) or per local MOH chart</li>
+            <li><strong>Antibiotics within 1 hour</strong> — ceftriaxone per local MOH chart</li>
             <li><strong>Bedside glucose</strong> — treat hypoglycaemia (mmol/L) if present</li>
-          </ol>
-          ${SHOCK_FLUIDS_FEAST}
-          <p>After <strong>40 mL/kg</strong> without improvement → escalate; consider inotropes and ICU (Septic Shock 2 course).</p>
+          </ol>`,
+              },
+              {
+                heading: "Fluid strategy (FEAST-aware)",
+                bodyHtml: `${SHOCK_FLUIDS_FEAST}<p>After <strong>40 mL/kg</strong> without improvement → escalate to Septic Shock II (inotropes, ICU).</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Antibiotics + measured boluses with reassessment — not unmonitored large volumes.</p>",
+            bedsideActions: [
+              "10–20 mL/kg isotonic bolus over 10–20 min; reassess perfusion",
+              "Ceftriaxone IV within 1 hour when septic shock suspected",
+              "Repeat bolus only if perfusion still poor and no overload signs",
+              "Escalate if shock persists after 40 mL/kg",
+            ],
+          })}
         `,
         questions: [
           {
@@ -91,12 +139,37 @@ export const microCoursesSepticShock = [
         duration: 10,
         content: `
           <h2>When to Escalate</h2>
-          <ul>
-            <li>Persistent shock after 40 mL/kg isotonic fluid</li>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Fluid-refractory septic shock needs vasopressors, source control, and ICU-level support. Structured handover prevents treatment gaps during transfer.",
+            objectives: [
+              "Identify fluid-refractory shock after 40 mL/kg with reassessment",
+              "Request surgical source control when indicated",
+              "Deliver SBAR handover for Septic Shock II / PICU",
+            ],
+            sections: [
+              {
+                heading: "Escalation triggers",
+                bodyHtml: `<ul>
+            <li>Persistent shock after 40 mL/kg isotonic fluid with reassessment</li>
             <li>Need for vasopressors or mechanical ventilation</li>
             <li>Suspected source requiring surgery (peritonitis, necrotising infection)</li>
-          </ul>
-          <p>Use SBAR handover: age, weight, fluids given, antibiotics, perfusion status, and suspected source.</p>
+          </ul>`,
+              },
+              {
+                heading: "SBAR handover elements",
+                bodyHtml: `<p>Include age, weight, fluids given (mL/kg), antibiotics and times, perfusion status (CRT, lactate if available), and suspected source.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Source control + pressors — fluids alone are not enough in refractory septic shock.</p>",
+            bedsideActions: [
+              "Call senior when shock persists after 40 mL/kg",
+              "Blood culture before antibiotics when possible — never delay if critical",
+              "SBAR handover with fluid and antibiotic timeline",
+              "Activate Septic Shock II pathway for vasopressor-ready transfer",
+            ],
+          })}
         `,
         questions: [
           {
@@ -214,9 +287,33 @@ export const microCoursesSepticShock = [
         duration: 20,
         content: `
           <h2>When Fluids Are Not Enough</h2>
-          <p>Refractory shock = persistent hypotension / poor perfusion despite adequate fluid resuscitation and antibiotics.</p>
-          ${SHOCK_VASOPRESSORS}
-          <p>Start vasopressor when shock persists after 40 mL/kg isotonic fluid — do not delay if fluid-refractory.</p>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Refractory septic shock persists despite adequate fluids and antibiotics. Vasopressor choice depends on warm vs cold shock physiology and what is available in your unit.",
+            objectives: [
+              "Define fluid-refractory septic shock",
+              "Select noradrenaline vs adrenaline based on shock type",
+              "Start vasopressors without undue delay when perfusion fails",
+            ],
+            sections: [
+              {
+                heading: "Refractory shock definition",
+                bodyHtml: `<p>Persistent hypotension or poor perfusion despite adequate fluid resuscitation and appropriate antibiotics.</p>`,
+              },
+              {
+                heading: "Vasopressor selection",
+                bodyHtml: `${SHOCK_VASOPRESSORS}<p>Start vasopressor when shock persists after 40 mL/kg isotonic fluid — do not delay if fluid-refractory.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Warm vasodilatory shock → noradrenaline first-line internationally; adrenaline often available in Kenya/LMIC for cold shock.</p>",
+            bedsideActions: [
+              "Confirm adequate fluid resuscitation before calling shock refractory",
+              "Prepare noradrenaline or adrenaline infusion per ICU protocol",
+              "Prefer central access for vasopressors when feasible",
+              "Reassess perfusion and lactate trend after starting pressor",
+            ],
+          })}
         `,
         questions: [
           {
@@ -244,12 +341,41 @@ export const microCoursesSepticShock = [
         duration: 20,
         content: `
           <h2>Airway and Ventilation in Septic Shock</h2>
-          <ul>
-            <li>Intubate for airway protection, rising work of breathing, or GCS &lt;8</li>
-            <li>After vasopressors: use sedated, lung-protective ventilation if ARDS develops</li>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Septic children may need intubation for airway protection or respiratory failure. Haemodynamic preparation before induction reduces arrest risk.",
+            objectives: [
+              "Identify intubation indications in septic shock",
+              "Apply lung-protective ventilation if ARDS develops",
+              "Prepare early in low-resource settings before decompensation",
+            ],
+            sections: [
+              {
+                heading: "Intubation indications",
+                bodyHtml: `<ul>
+            <li>Airway not protected, rising work of breathing, or GCS &lt;8</li>
+            <li>Refractory hypoxia despite oxygen and treatment of sepsis</li>
+            <li>Need for procedural sedation during unstable resuscitation</li>
+          </ul>`,
+              },
+              {
+                heading: "Ventilation and haemodynamics",
+                bodyHtml: `<ul>
+            <li>After vasopressors: sedated, lung-protective ventilation if ARDS develops</li>
             <li>Maintain MAP targets per local ICU protocol; avoid hypotension during induction</li>
-          </ul>
-          <p>In low-resource settings: prepare intubation equipment early; call senior help before decompensation.</p>
+            <li>In LMIC: prepare intubation equipment early; call senior help before decompensation</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Have vasopressor running or drawn before induction in fluid-refractory shock.</p>",
+            bedsideActions: [
+              "Prepare intubation kit when GCS falling or work of breathing rising",
+              "Pre-induction fluid/pressor plan with senior",
+              "Lung-protective tidal volumes if ventilated",
+              "Post-intubation perfusion and sedation reassessment",
+            ],
+          })}
         `,
         questions: [
           {
@@ -277,13 +403,38 @@ export const microCoursesSepticShock = [
         duration: 20,
         content: `
           <h2>MODS in Paediatric Sepsis</h2>
-          <ul>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Multi-organ dysfunction complicates refractory sepsis. Treat the infection source while supporting failing organs — lungs, kidneys, coagulation, and metabolism.",
+            objectives: [
+              "Recognise ARDS, AKI, DIC, and metabolic derangement in septic MODS",
+              "Maintain source control alongside organ support",
+              "Monitor glucose in mmol/L during critical illness",
+            ],
+            sections: [
+              {
+                heading: "Organ support priorities",
+                bodyHtml: `<ul>
             <li><strong>Respiratory:</strong> ARDS — low tidal volume, adequate PEEP where available</li>
             <li><strong>Renal:</strong> oliguria — fluid balance, consider RRT if available</li>
             <li><strong>Haematological:</strong> DIC — treat underlying sepsis; transfuse per triggers</li>
             <li><strong>Metabolic:</strong> hypoglycaemia and acidosis — monitor glucose in mmol/L</li>
-          </ul>
-          <p>Source control (drain abscess, remove infected lines) remains essential alongside supportive care.</p>
+          </ul>`,
+              },
+              {
+                heading: "Source control",
+                bodyHtml: `<p>Drain abscess, remove infected lines, and obtain surgical review for necrotising infection or peritonitis — antibiotics alone are insufficient when source persists.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>MODS management = treat infection + support organs + control source.</p>",
+            bedsideActions: [
+              "Track urine output and fluid balance hourly",
+              "Trend lactate and glucose (mmol/L)",
+              "Transfuse per local triggers for DIC/bleeding",
+              "Escalate for RRT if AEIOU indications met",
+            ],
+          })}
         `,
         questions: [
           {
