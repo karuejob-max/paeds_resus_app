@@ -1183,7 +1183,7 @@ export const microCoursesBatch1To5 = [
         `,
         questions: [
           {
-            question: "Insulin bolus in paediatric DKA is:",
+            question: "Initial paediatric DKA insulin strategy is:",
             options: [
               "Contraindicated — use continuous infusion only",
               "Standard first-line",
@@ -1191,7 +1191,7 @@ export const microCoursesBatch1To5 = [
               "10 units/kg IV push",
             ],
             correct: 0,
-            explanation: "No insulin bolus in children — 0.05–0.1 units/kg/h IV infusion after K⁺ >3.5 mmol/L.",
+            explanation: "No IV loading dose in children — 0.05–0.1 units/kg/h infusion after K⁺ >3.5 mmol/L.",
           },
           {
             question: "Fluid deficit replacement in DKA should be spread over:",
@@ -1205,7 +1205,7 @@ export const microCoursesBatch1To5 = [
               "Perfusion is compromised — not routinely to all",
               "Every child regardless of perfusion",
               "Glucose is normal",
-              "After insulin bolus",
+              "After insulin IV loading dose",
             ],
             correct: 0,
             explanation: "Bolus 10 mL/kg over 15–30 min only if haemodynamic compromise — avoid large rapid boluses.",
@@ -1271,7 +1271,7 @@ export const microCoursesBatch1To5 = [
             options: [
               "Hypertonic saline (3%) and head elevation 30°",
               "Rapid large hypotonic bolus",
-              "Insulin bolus",
+              "Large insulin IV push first-line",
               "Withhold all fluids",
             ],
             correct: 0,
@@ -1492,7 +1492,7 @@ export const microCoursesBatch1To5 = [
               "Slow fluid replacement and gradual glucose reduction",
               "Rapid correction of entire fluid deficit in 1 hour",
               "Hypotonic fluids first-line",
-              "Insulin bolus on arrival",
+              "Large insulin IV push on arrival",
             ],
             correct: 0,
             explanation: "Slow fluids and gradual glucose drop (3–6 mmol/L/hr) reduce oedema risk.",
@@ -1636,7 +1636,7 @@ export const microCoursesBatch1To5 = [
           correct: 1,
           explanation: 'SGLT2 inhibitors increase glycosuria and euglycemic DKA risk. Avoid during acute illness.'
         },
-        { question: 'Mannitol for cerebral oedema in DKA is given at:', options: ['0.25–1 g/kg IV if 3% saline unavailable', 'Oral dose only', 'Unlimited repeat without monitoring', 'Same as insulin bolus'], correct: 0, explanation: 'Mannitol is alternative osmotic therapy when hypertonic saline not available.' },
+        { question: 'Mannitol for cerebral oedema in DKA is given at:', options: ['0.25–1 g/kg IV if 3% saline unavailable', 'Oral dose only', 'Unlimited repeat without monitoring', 'Same as high-dose insulin IV push'], correct: 0, explanation: 'Mannitol is alternative osmotic therapy when hypertonic saline not available.' },
         { question: 'Phosphate supplementation is considered when level is:', options: ['<2 mg/dL', '>10 mg/dL always', 'Never in DKA', 'Only in adults'], correct: 0, explanation: 'Low phosphate risks weakness and rhabdomyolysis — supplement per protocol.' },
         { question: 'Magnesium repletion in DKA is indicated when Mg is:', options: ['<1.7 mg/dL', '>5 mg/dL', 'Not measured', 'Always normal'], correct: 0, explanation: 'Magnesium often depleted in DKA — replete when low.' },
         { question: 'Bradycardia and hypertension in DKA may warn of:', options: ['Cerebral oedema (late sign)', 'Mild dehydration only', 'Ready for discharge', 'Hypoglycaemia always'], correct: 0, explanation: 'Cushing triad components suggest raised ICP — act urgently.' },
