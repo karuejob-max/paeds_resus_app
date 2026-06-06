@@ -27,7 +27,6 @@ export function useAuth(options?: UseAuthOptions) {
     ...(cachedMe !== undefined ? { placeholderData: () => cachedMe } : {}),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
-    refetchOnMount: "always",
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -55,18 +54,28 @@ export function useAuth(options?: UseAuthOptions) {
     }
   }, [logoutMutation, utils]);
 
+  const hasCachedSession = cachedMe !== undefined;
   const sessionSettled = meQuery.isFetchedAfterMount;
 
   const state = useMemo(() => {
+    const effectiveUser = sessionSettled
+      ? (meQuery.data ?? null)
+      : hasCachedSession
+        ? cachedMe
+        : null;
+
     return {
-      user: sessionSettled ? (meQuery.data ?? null) : null,
-      /** Wait for server auth.me before trusting session (avoids stale localStorage lock-out). */
-      loading: !sessionSettled || logoutMutation.isPending,
+      user: effectiveUser,
+      /** Block only when there is no cached snapshot and auth.me has not returned yet. */
+      loading: (!hasCachedSession && !sessionSettled) || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: sessionSettled && Boolean(meQuery.data),
+      isAuthenticated: Boolean(effectiveUser),
+      /** Server-confirmed session — use for redirects and legal gates, not fast paint. */
       sessionSettled,
     };
   }, [
+    cachedMe,
+    hasCachedSession,
     meQuery.data,
     meQuery.error,
     logoutMutation.error,

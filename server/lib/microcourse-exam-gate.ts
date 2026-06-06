@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import {
   courses,
   enrollments,
@@ -52,15 +52,74 @@ export type MicrocourseExamState = {
   summativePassPercent: number;
 };
 
+export function isDiagnosticProgressComplete(progress: {
+  completedAt?: Date | null;
+  status?: string | null;
+} | null | undefined): boolean {
+  return !!progress?.completedAt || progress?.status === "completed";
+}
+
+/** Resolve fellowship `courses.id` from catalog micro-course row (title + order fallback). */
 export async function resolveFellowshipCourseId(
   db: Db,
-  microCourseTitle: string
+  microCourse: { title: string; order?: number | null; courseId?: string | null }
 ): Promise<number | null> {
-  const row = await db.query.courses.findFirst({
-    where: and(eq(courses.title, microCourseTitle), eq(courses.programType, "fellowship")),
+  const exact = await db.query.courses.findFirst({
+    where: and(eq(courses.title, microCourse.title), eq(courses.programType, "fellowship")),
     columns: { id: true },
   } as never);
-  return row?.id ?? null;
+  if (exact?.id) return exact.id;
+
+  const titlePrefix = microCourse.title.split(":")[0]?.trim();
+  if (!titlePrefix) return null;
+
+  const fallback = await db.query.courses.findFirst({
+    where: and(
+      eq(courses.programType, "fellowship"),
+      or(
+        like(courses.title, `%${titlePrefix}%`),
+        microCourse.order != null ? eq(courses.order, microCourse.order) : undefined
+      )
+    ),
+    columns: { id: true },
+  } as never);
+  return fallback?.id ?? null;
+}
+
+export function resolveDiagnosticCompleted(params: {
+  firstModuleId: number;
+  diagnosticQuizId: number | null;
+  quizRows: { id: number; moduleId: number; title: string }[];
+  progressRows: {
+    moduleId: number;
+    quizId: number | null;
+    status: string | null;
+    completedAt: Date | null;
+  }[];
+}): boolean {
+  const { firstModuleId, diagnosticQuizId, quizRows, progressRows } = params;
+  const diagnosticQuizIds = new Set(
+    quizRows
+      .filter(
+        (q) => q.moduleId === firstModuleId && examKindFromQuizTitle(q.title) === "diagnostic"
+      )
+      .map((q) => q.id)
+  );
+  if (diagnosticQuizId != null) diagnosticQuizIds.add(diagnosticQuizId);
+
+  if (diagnosticQuizIds.size === 0) {
+    return progressRows.some(
+      (p) => p.moduleId === firstModuleId && isDiagnosticProgressComplete(p)
+    );
+  }
+
+  return progressRows.some(
+    (p) =>
+      p.moduleId === firstModuleId &&
+      p.quizId != null &&
+      diagnosticQuizIds.has(p.quizId) &&
+      isDiagnosticProgressComplete(p)
+  );
 }
 
 export async function getMicrocourseExamState(
@@ -73,12 +132,16 @@ export async function getMicrocourseExamState(
   } as never);
   if (!enrollment || enrollment.userId !== userId) return null;
 
-  const microCourse = await db.query.microCourses.findFirst({
+  const microCourse = (await db.query.microCourses.findFirst({
     where: eq(microCourses.id, enrollment.microCourseId),
-  } as never);
+  } as never)) as { title: string; order?: number | null; courseId?: string | null } | undefined;
   if (!microCourse?.title) return null;
 
-  const fellowshipCourseId = await resolveFellowshipCourseId(db, microCourse.title);
+  const fellowshipCourseId = await resolveFellowshipCourseId(db, {
+    title: microCourse.title,
+    order: microCourse.order,
+    courseId: microCourse.courseId,
+  });
   if (!fellowshipCourseId) return null;
 
   const moduleRows = (await (db as any)
@@ -139,15 +202,16 @@ export async function getMicrocourseExamState(
     completedAt: Date | null;
   }[];
 
-  const diagnosticProgress = diagnosticQuiz
-    ? progressRows.find((p) => p.quizId === diagnosticQuiz.id)
-    : progressRows.find((p) => p.moduleId === firstModuleId && p.status === "completed");
-
   const summativeProgress = summativeQuiz
     ? progressRows.find((p) => p.quizId === summativeQuiz.id)
     : undefined;
 
-  const diagnosticCompleted = !!diagnosticProgress?.completedAt || diagnosticProgress?.status === "completed";
+  const diagnosticCompleted = resolveDiagnosticCompleted({
+    firstModuleId,
+    diagnosticQuizId: diagnosticQuiz?.id ?? null,
+    quizRows,
+    progressRows,
+  });
   const summativeAttempts = summativeProgress?.attempts ?? 0;
   const lastAttemptAt = summativeProgress?.updatedAt ?? summativeProgress?.completedAt ?? null;
   const retryCheck = canAttemptSummative({
@@ -317,8 +381,14 @@ export async function getAhaCourseExamState(
     ? progressRows.find((p) => p.quizId === summativeQuizId)
     : undefined;
 
-  const diagnosticCompleted =
-    !!diagnosticProgress?.completedAt || diagnosticProgress?.status === "completed";
+  const diagnosticCompleted = firstModuleId
+    ? resolveDiagnosticCompleted({
+        firstModuleId,
+        diagnosticQuizId: diagnosticQuizId ?? null,
+        quizRows,
+        progressRows,
+      })
+    : isDiagnosticProgressComplete(diagnosticProgress);
   const summativeAttempts = summativeProgress?.attempts ?? 0;
   const lastAttemptAt = summativeProgress?.updatedAt ?? summativeProgress?.completedAt ?? null;
   const retryCheck = canAttemptSummative({

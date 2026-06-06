@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -8,9 +8,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Stethoscope, Building2, Heart } from "lucide-react";
-import ProviderDashboard from "./ProviderDashboard";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getLoginUrl } from "@/const";
+
+const ProviderDashboard = lazy(() => import("./ProviderDashboard"));
 
 type UserType = "individual" | "parent" | "institutional";
 
@@ -139,7 +140,27 @@ export default function Home() {
 
   // Provider home — Fellowship vs AHA hub (include hospital admins who switched to Healthcare Provider in the menu)
   if (userType === "individual" || role === "provider") {
-    return <ProviderDashboard />;
+    return (
+      <Suspense
+        fallback={
+          <div className="max-w-5xl mx-auto px-4 py-12">
+            <Card>
+              <CardHeader>
+                <CardTitle>Loading provider home…</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Preparing your dashboard and next steps.
+                </p>
+                <div className="h-24 rounded-lg bg-muted animate-pulse" />
+              </CardContent>
+            </Card>
+          </div>
+        }
+      >
+        <ProviderDashboard />
+      </Suspense>
+    );
   }
 
   // Fallback (shouldn't reach here)

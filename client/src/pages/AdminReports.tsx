@@ -263,6 +263,16 @@ export default function AdminReports() {
     },
     onError: (e) => toast.error(e.message || "Summative reset failed"),
   });
+
+  const resetDiagnosticMutation = trpc.adminLearning.resetDiagnosticAttempts.useMutation({
+    onSuccess: (result) => {
+      toast.success(
+        `Diagnostic reset (quiz #${result.quizId}; previous score ${result.previousScore ?? "—"})`
+      );
+      void utils.adminStats.getEnrollmentLedger.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Diagnostic reset failed"),
+  });
   const dispatchLifecycleBatchMutation = trpc.notifications.dispatchLifecycleNudgesBatch.useMutation({
     onSuccess: (result) => {
       const normalized = normalizeLifecycleBatchResult(result);
@@ -2364,28 +2374,52 @@ export default function AdminReports() {
                                 </td>
                                 <td className="p-2">
                                   {SUMMATIVE_RESET_PROGRAMS.has(row.programType) ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs"
-                                      disabled={resetSummativeMutation.isPending}
-                                      onClick={() => {
-                                        if (
-                                          !window.confirm(
-                                            `Reset summative attempts for enrollment #${row.enrollmentId} (user ${row.userId}, ${row.programType})?`
-                                          )
-                                        ) {
-                                          return;
-                                        }
-                                        resetSummativeMutation.mutate({
-                                          enrollmentId: row.enrollmentId,
-                                          userId: row.userId,
-                                        });
-                                      }}
-                                    >
-                                      Reset summative
-                                    </Button>
+                                    <div className="flex flex-col gap-1">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                        disabled={resetSummativeMutation.isPending}
+                                        onClick={() => {
+                                          if (
+                                            !window.confirm(
+                                              `Reset summative attempts for enrollment #${row.enrollmentId} (user ${row.userId}, ${row.programType})?`
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          resetSummativeMutation.mutate({
+                                            enrollmentId: row.enrollmentId,
+                                            userId: row.userId,
+                                          });
+                                        }}
+                                      >
+                                        Reset summative
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                        disabled={resetDiagnosticMutation.isPending}
+                                        onClick={() => {
+                                          if (
+                                            !window.confirm(
+                                              `Reset diagnostic baseline for enrollment #${row.enrollmentId} (user ${row.userId}, ${row.programType})?`
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          resetDiagnosticMutation.mutate({
+                                            enrollmentId: row.enrollmentId,
+                                            userId: row.userId,
+                                          });
+                                        }}
+                                      >
+                                        Reset diagnostic
+                                      </Button>
+                                    </div>
                                   ) : (
                                     <span className="text-muted-foreground">—</span>
                                   )}
@@ -2439,28 +2473,52 @@ export default function AdminReports() {
                                   {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
                                 </td>
                                 <td className="p-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    disabled={resetSummativeMutation.isPending}
-                                    onClick={() => {
-                                      if (
-                                        !window.confirm(
-                                          `Reset summative for micro enrollment #${row.microEnrollmentId} (user ${row.userId})?`
-                                        )
-                                      ) {
-                                        return;
-                                      }
-                                      resetSummativeMutation.mutate({
-                                        enrollmentId: row.microEnrollmentId,
-                                        userId: row.userId,
-                                      });
-                                    }}
-                                  >
-                                    Reset summative
-                                  </Button>
+                                  <div className="flex flex-col gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      disabled={resetSummativeMutation.isPending}
+                                      onClick={() => {
+                                        if (
+                                          !window.confirm(
+                                            `Reset summative for micro enrollment #${row.microEnrollmentId} (user ${row.userId})?`
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        resetSummativeMutation.mutate({
+                                          enrollmentId: row.microEnrollmentId,
+                                          userId: row.userId,
+                                        });
+                                      }}
+                                    >
+                                      Reset summative
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      disabled={resetDiagnosticMutation.isPending}
+                                      onClick={() => {
+                                        if (
+                                          !window.confirm(
+                                            `Reset diagnostic for micro enrollment #${row.microEnrollmentId} (user ${row.userId}, ${row.microCourseTitle})?`
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        resetDiagnosticMutation.mutate({
+                                          enrollmentId: row.microEnrollmentId,
+                                          userId: row.userId,
+                                        });
+                                      }}
+                                    >
+                                      Reset diagnostic
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}

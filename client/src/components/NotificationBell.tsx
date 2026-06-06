@@ -21,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/lib/trpc';
 import { useLocation } from 'wouter';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
+import { useAfterFirstPaint } from '@/hooks/useAfterFirstPaint';
 import {
   buildCourseProgressAlerts,
   type CourseProgressEnrollmentInput,
@@ -52,12 +53,15 @@ function daysUntilExpiry(expiryDate: string | Date | null | undefined): number |
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [, navigate] = useLocation();
+  const afterPaint = useAfterFirstPaint();
+  const queryReady = afterPaint || open;
 
-  // Remote: Care Signal notifications
+  // Remote: Care Signal notifications — defer until after first paint (or panel open)
   const { data: countData, refetch: refetchCount } = trpc.careSignalReview.getUnreadCount.useQuery(
     undefined,
     {
-      refetchInterval: 60_000,
+      enabled: queryReady,
+      refetchInterval: queryReady ? 60_000 : false,
       retry: false,
       staleTime: 30_000,
     }
@@ -67,17 +71,20 @@ export function NotificationBell() {
     { enabled: open }
   );
 
-  // Local: Fellowship micro-course + AHA enrollments
+  // Local: Fellowship micro-course + AHA enrollments — defer to avoid mount waterfall
   const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
-    refetchInterval: 120_000,
+    enabled: queryReady,
+    refetchInterval: queryReady ? 120_000 : false,
   });
   const { data: ahaEnrollmentsData } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
-    refetchInterval: 120_000,
+    enabled: queryReady,
+    refetchInterval: queryReady ? 120_000 : false,
   });
 
   // Local: Certificates
   const { data: certResponse } = trpc.certificates.getMyCertificates.useQuery(undefined, {
-    refetchInterval: 120_000,
+    enabled: queryReady,
+    refetchInterval: queryReady ? 120_000 : false,
   });
   const certData = certResponse?.certificates ?? [];
 
