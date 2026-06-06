@@ -789,10 +789,10 @@ export const microCoursesBatch1To5 = [
           explanation: 'Minimum 4-6 hours observation to detect biphasic reaction or recurrence.'
         },
         {
-          question: 'Antihistamines in anaphylaxis are:',
-          options: ['First-line treatment', 'Adjunctive (after epinephrine)', 'Contraindicated', 'Sufficient monotherapy'],
-          correct: 1,
-          explanation: 'Antihistamines adjunctive only. Epinephrine is definitive first-line; antihistamines given after.'
+          question: 'Epinephrine auto-injector should be prescribed at discharge because:',
+          options: ['Future episodes may recur — immediate IM adrenaline saves lives', 'Antihistamines replace adrenaline', 'Observation is never needed', 'Triggers cannot be identified'],
+          correct: 0,
+          explanation: 'Prescribe auto-injector, teach technique, action plan, and allergy follow-up before discharge.'
         },
         {
           question: 'Corticosteroids in anaphylaxis prevent:',
@@ -2136,10 +2136,10 @@ export const microCoursesBatch1To5 = [
           explanation: 'Prone positioning 16 hours/day improves V/Q matching in moderate-severe ARDS.'
         },
         {
-          question: 'Barotrauma in ARDS manifests as:',
-          options: ['Fever', 'Pneumothorax or pneumomediastinum', 'Hypoglycemia', 'Infection'],
-          correct: 1,
-          explanation: 'Barotrauma = alveolar rupture → pneumothorax, pneumomediastinum, subcutaneous emphysema.'
+          question: 'SpO₂ target during ARDS ventilation is typically:',
+          options: ['88–95%', '100% always', '70–75%', 'No monitoring needed'],
+          correct: 0,
+          explanation: 'Titrate FiO₂ and PEEP to SpO₂ 88–95% — avoid hyperoxia while maintaining perfusion.'
         },
         {
           question: 'VAP (Ventilator-Associated Pneumonia) prevention:',
@@ -2154,10 +2154,10 @@ export const microCoursesBatch1To5 = [
           explanation: 'ECMO for refractory hypoxemia (PaO2/FiO2 <100), severe hypercapnia, or hemodynamic instability.'
         },
         {
-          question: 'VV-ECMO is used for:',
-          options: ['Cardiac failure only', 'Respiratory failure only', 'Both respiratory and cardiac failure', 'Sepsis only'],
-          correct: 1,
-          explanation: 'VV-ECMO (veno-venous) for respiratory failure. VA-ECMO for respiratory + cardiac failure.'
+          question: 'Inhaled nitric oxide in severe ARDS may be used when:',
+          options: ['Pulmonary hypertension complicates refractory hypoxemia', 'Mild cough only', 'Normal oxygenation', 'Outpatient follow-up'],
+          correct: 0,
+          explanation: 'iNO 10–20 ppm may improve V/Q matching in selected severe ARDS with pulmonary hypertension.'
         },
         {
           question: 'Mortality in pediatric ARDS:',

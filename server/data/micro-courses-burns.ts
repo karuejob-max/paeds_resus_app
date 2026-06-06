@@ -468,10 +468,34 @@ export const microCoursesBurns = [
       passingScore: 80,
       questions: [
         {
-          question: 'Parkland formula overestimates fluid needs in:',
-          options: ['<5% of cases', '20-30% of cases', '>50% of cases', 'Never'],
-          correct: 1,
-          explanation: 'Parkland overestimates in 20-30% of cases. Solution: titrate to urine output, not just formula.'
+          question: 'Abdominal compartment syndrome is diagnosed when IAP exceeds:',
+          options: ['20 mmHg with organ dysfunction', '5 mmHg always', '50 mmHg only in adults', 'No measurement needed'],
+          correct: 0,
+          explanation: 'IAP >20 mmHg with distension and oliguria defines abdominal compartment syndrome in burns.'
+        },
+        {
+          question: 'Burn shock ebb phase typically lasts:',
+          options: ['0–36 hours', '1–2 weeks', '6 months', 'No ebb phase exists'],
+          correct: 0,
+          explanation: 'Ebb phase (0–36 h): hypovolaemic shock requiring aggressive resuscitation.'
+        },
+        {
+          question: 'Protein requirement in major burn patients is:',
+          options: ['1.5–2 g/kg/day', '0.5 g/kg/day', '5 g/kg/day', 'No protein needed'],
+          correct: 0,
+          explanation: '1.5–2 g/kg/day supports wound healing in hypermetabolic flow phase.'
+        },
+        {
+          question: 'Topical mafenide is preferred over silver sulfadiazine when:',
+          options: ['Deep/eschar penetration is needed', 'Superficial sunburn only', 'No wound care required', 'Oral antibiotics sufficient'],
+          correct: 0,
+          explanation: 'Mafenide penetrates eschar; silver sulfadiazine is broad-spectrum surface prophylaxis.'
+        },
+        {
+          question: 'Inhalation injury increases burn mortality by approximately:',
+          options: ['3–4×', 'No increase', '10% only', 'Only in adults'],
+          correct: 0,
+          explanation: 'Inhalation injury increases mortality 3–4× — early airway assessment and intubation if needed.'
         },
         {
           question: 'Compartment syndrome signs:',
@@ -480,52 +504,22 @@ export const microCoursesBurns = [
           explanation: 'Compartment syndrome: pain out of proportion, paresthesias, pallor, pulselessness (late).'
         },
         {
-          question: 'Escharotomy is performed for:',
-          options: ['Infection', 'Compartment syndrome (circumferential burns)', 'Pain only', 'Fever'],
-          correct: 1,
-          explanation: 'Escharotomy = surgical incision through burned skin to relieve compartment pressure.'
-        },
-        {
           question: 'Abdominal compartment syndrome diagnosis:',
           options: ['Fever only', 'Intra-abdominal pressure >20 mmHg + abdominal distension + oliguria', 'Cough', 'Diarrhea'],
           correct: 1,
           explanation: 'Abdominal compartment syndrome: IAP >20 mmHg, distension, oliguria, elevated airway pressures.'
         },
         {
-          question: 'Urine output target if myoglobinuria present:',
-          options: ['0.5 mL/kg/hr', '1 mL/kg/hr', '>1 mL/kg/hr (aggressive)', '0.1 mL/kg/hr'],
-          correct: 2,
-          explanation: 'Myoglobinuria (dark urine) = rhabdomyolysis. Target >1 mL/kg/hr to flush myoglobin and prevent AKI.'
+          question: 'Burn wound sepsis may present with:',
+          options: ['Fever, thrombocytopenia, hyperglycaemia, graft discolouration', 'Improved appetite only', 'Normal WBC always', 'No treatment change'],
+          correct: 0,
+          explanation: 'Sepsis is leading cause of death in major burns — surgical and antibiotic review.'
         },
         {
-          question: 'Caloric requirement in burn flow phase:',
-          options: ['10 kcal/kg', '25 kcal/kg + 40 kcal/%TBSA', '50 kcal/kg', '100 kcal/kg'],
-          correct: 1,
-          explanation: 'Hypermetabolic state: 25 kcal/kg + 40 kcal/%TBSA (metabolic rate 1.5-2× normal).'
-        },
-        {
-          question: 'Protein requirement in burn patients:',
-          options: ['0.5 g/kg/day', '1-1.5 g/kg/day', '1.5-2 g/kg/day', '>3 g/kg/day'],
-          correct: 2,
-          explanation: '1.5-2 g/kg/day for wound healing and protein synthesis.'
-        },
-        {
-          question: 'When to start enteral feeding in burns:',
-          options: ['After 1 week', 'Within 24-48 hours', 'Never', 'Only if able to eat PO'],
-          correct: 1,
-          explanation: 'Start feeding within 24-48 hours (reduces infection, maintains gut barrier).'
-        },
-        {
-          question: 'Leading cause of death in major burns (>20% TBSA):',
-          options: ['Hypovolemia', 'Infection/sepsis', 'Pain', 'Dehydration'],
-          correct: 1,
-          explanation: 'Burn wound infection/sepsis is leading cause of death in major burns.'
-        },
-        {
-          question: 'Mortality increase with inhalation injury:',
-          options: ['No increase', '1-2×', '3-4×', '>10×'],
-          correct: 2,
-          explanation: 'Inhalation injury increases mortality 3-4× in burn patients.'
+          question: 'Contracture prevention after burns includes:',
+          options: ['Physiotherapy and splinting in functional positions', 'Immobilisation in flexion always', 'No rehab', 'Discharge without follow-up'],
+          correct: 0,
+          explanation: 'Rehabilitation prevents long-term contractures and functional limitation.'
         }
       ]
     }

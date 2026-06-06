@@ -119,7 +119,7 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
   const bankFallback = raw.modules.some((m) => (m.questions?.length ?? 0) === 0);
   const expandDuplicates = withinQuizDuplicateCount(seededSummative);
   const allFormative = materialized.modules.flatMap((m) => m.questions ?? []);
-  const summFormOverlap = overlap(uniqueSummative, allFormative);
+  const summFormOverlap = overlap(seededSummative, allFormative);
   const crossModuleFormDups = crossModuleFormativeDups(materialized.modules);
   const diagSummOverlap = overlap(diagnostic, seededSummative);
 
@@ -147,7 +147,7 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
     if (severity === "OK") severity = "MEDIUM";
   }
   if (summFormOverlap > 0) {
-    notes.push(`${summFormOverlap} summative stems overlap module-native formatives`);
+    notes.push(`${summFormOverlap} seeded summative stems overlap module-native formatives`);
     if (severity === "OK") severity = "MEDIUM";
   }
   for (let i = 0; i < materialized.modules.length; i++) {
@@ -259,6 +259,10 @@ function main() {
     `| Summative→formative overlaps | ${totalSummFormOverlap} |`,
     `| Cross-module formative duplicates | ${totalCrossMod} |`,
     "",
+    "## Remediation (2026-06-06)",
+    "",
+    "Replaced **17** duplicate authored summative stems in `quiz.questions` across 7 courses (anaphylaxis-i, pneumonia-ii, hypovolemic-shock-ii, cardiogenic-shock-ii, malaria-ii, burns-ii, meningitis-i) with course-wide unique stems. CI strict gate now fails on any `summFormOverlap > 0`; `verify-fellowship-seed.ts` asserts `summFormOverlap=0` per course.",
+    "",
     "## Per-course table",
     "",
     "| Course | Mods | Diag | Form/mod | Sum auth | Sum uniq | Expand dup | Sum→Form | X-mod | Severity | Notes |",
@@ -277,6 +281,10 @@ function main() {
 
   if (process.argv.includes("--strict")) {
     if (totalExpandDups > 0 || bankFallbackCount > 0) process.exit(1);
+    if (totalSummFormOverlap > 0) {
+      console.error(`Strict audit failed: summative→formative overlap=${totalSummFormOverlap}`);
+      process.exit(1);
+    }
     if (totalDiagSummOverlap > 0) {
       console.error(`Strict audit failed: diagnostic↔summative overlap=${totalDiagSummOverlap}`);
       process.exit(1);

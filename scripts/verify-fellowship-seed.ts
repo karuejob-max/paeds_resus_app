@@ -74,9 +74,11 @@ async function main() {
     let thinFormativeModules = 0;
     let withinQuizDuplicateStems = 0;
     let diagnosticSummativeOverlap = 0;
+    let summFormOverlap = 0;
     const missingFormative: number[] = [];
     const diagnosticStems = new Set<string>();
     const summativeStems = new Set<string>();
+    const formativeStems = new Set<string>();
 
     for (const mod of mods) {
       const qs = await db.select({ id: quizzes.id, title: quizzes.title }).from(quizzes).where(eq(quizzes.moduleId, mod.id));
@@ -102,7 +104,10 @@ async function main() {
           for (const s of stemSet) summativeStems.add(s);
         } else if (kind === "formative") {
           modFormative++;
-          for (const s of stemSet) moduleFormativeStems.add(s);
+          for (const s of stemSet) {
+            moduleFormativeStems.add(s);
+            formativeStems.add(s);
+          }
         }
       }
       if (modFormative > 0) {
@@ -114,10 +119,14 @@ async function main() {
     for (const s of diagnosticStems) {
       if (summativeStems.has(s)) diagnosticSummativeOverlap++;
     }
+    for (const s of summativeStems) {
+      if (formativeStems.has(s)) summFormOverlap++;
+    }
 
     const summativeBankOk = summativeQuestionCount >= MICROCOURSE_MIN_QUESTION_BANK_SIZE;
     const formativeDepthOk = thinFormativeModules === 0;
     const noWithinQuizDups = withinQuizDuplicateStems === 0;
+    const noSummFormOverlap = summFormOverlap === 0;
     const summativeOk = summative >= 1;
     const examOk =
       diagnostic >= 1 &&
@@ -125,14 +134,15 @@ async function main() {
       formativeModules === mods.length &&
       summativeBankOk &&
       formativeDepthOk &&
-      noWithinQuizDups;
+      noWithinQuizDups &&
+      noSummFormOverlap;
     const titleOk = !hasLevelInTitle;
     const ok = hasFooter && examOk && titleOk;
 
     if (!ok) failures++;
 
     rows.push(
-      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} withinQuizDups=${withinQuizDuplicateStems} diagSummOverlap=${diagnosticSummativeOverlap} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}${!noWithinQuizDups ? " | withinQuizDups" : ""}`
+      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} withinQuizDups=${withinQuizDuplicateStems} diagSummOverlap=${diagnosticSummativeOverlap} summFormOverlap=${summFormOverlap} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}${!noWithinQuizDups ? " | withinQuizDups" : ""}${!noSummFormOverlap ? " | summFormOverlap" : ""}`
     );
   }
 
