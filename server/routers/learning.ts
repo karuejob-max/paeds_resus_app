@@ -47,10 +47,23 @@ import {
   dedupeQuizRowsByStem,
   examKindFromQuizTitle,
   shuffleQuestionIndices,
+  summativePassed,
 } from "../../shared/microcourse-exam-policy";
 import { formatSummativeForbiddenMessage } from "../../shared/summative-retry-display";
 import { TRPCError } from "@trpc/server";
 import { trackEvent } from "../services/analytics.service";
+
+const SUMMATIVE_IDEMPOTENT_WINDOW_MS = 30_000;
+
+function scheduleMicroEnrollmentProgressSync(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+  enrollmentId: number
+) {
+  void syncMicroCourseEnrollmentProgress(db as any, userId, enrollmentId).catch((err) => {
+    console.error("[learning.recordQuizAttempt] syncMicroCourseEnrollmentProgress", err);
+  });
+}
 
 export const learningRouter = router({
   // Get all courses
@@ -431,7 +444,7 @@ export const learningRouter = router({
 
       if (examKind === "diagnostic") {
         if (existingRow?.completedAt) {
-          await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+          scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
           return {
             success: true,
             score: existingRow.score ?? input.score,
@@ -468,7 +481,7 @@ export const learningRouter = router({
             updatedAt: now,
           });
         }
-        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
         return {
           success: true,
           score: input.score,
@@ -482,17 +495,61 @@ export const learningRouter = router({
       let passingScore = Math.min(100, Math.max(0, Number(quizMeta[0]?.passingScore ?? 70)));
       let score = input.score;
       let questionResults: Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"] | undefined;
+      let progressRow = existingRow as typeof existingRow | undefined;
+
       if (examKind === "summative") {
         passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
+
+        if (progressRow && summativePassed(progressRow.score)) {
+          const graded = await computeQuizScoreFromDb(
+            db as any,
+            input.quizId,
+            input.answers as Record<string | number, string>
+          );
+          if (isMicro) {
+            scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+          }
+          return {
+            success: true,
+            score: progressRow.score ?? graded.score,
+            passed: true,
+            passingScore,
+            examKind,
+            questionResults: graded.questionResults,
+            alreadyCompleted: true,
+          };
+        }
+
+        if (progressRow?.updatedAt && (progressRow.attempts ?? 0) > 0) {
+          const elapsed = Date.now() - new Date(progressRow.updatedAt).getTime();
+          if (elapsed < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
+            const graded = await computeQuizScoreFromDb(
+              db as any,
+              input.quizId,
+              input.answers as Record<string | number, string>
+            );
+            const replayScore = progressRow.score ?? graded.score;
+            return {
+              success: true,
+              score: replayScore,
+              passed: summativePassed(replayScore),
+              passingScore,
+              examKind,
+              questionResults: graded.questionResults,
+              idempotentReplay: true,
+            };
+          }
+        }
+
         const retry = canAttemptSummative({
-          attempts: existingRow?.attempts ?? 0,
-          lastAttemptAt: existingRow?.updatedAt ?? existingRow?.completedAt ?? null,
+          attempts: progressRow?.attempts ?? 0,
+          lastAttemptAt: progressRow?.updatedAt ?? progressRow?.completedAt ?? null,
         });
         if (!retry.allowed) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: formatSummativeForbiddenMessage({
-              attempts: existingRow?.attempts ?? 0,
+              attempts: progressRow?.attempts ?? 0,
               blockKind: retry.blockKind,
               retryAvailableAt: retry.retryAvailableAt ?? null,
             }),
@@ -509,17 +566,32 @@ export const learningRouter = router({
 
       const passed = score >= passingScore;
 
-      if (existingRow) {
+      if (!progressRow) {
+        const reread = await (db as any)
+          .select()
+          .from(userProgress)
+          .where(
+            and(
+              eq(userProgress.userId, ctx.user.id),
+              eq(userProgress.enrollmentId, input.enrollmentId),
+              eq(userProgress.moduleId, input.moduleId),
+              eq(userProgress.quizId, input.quizId)
+            )
+          );
+        progressRow = reread?.[0] as typeof progressRow;
+      }
+
+      if (progressRow) {
         await (db as any)
           .update(userProgress)
           .set({
             score,
-            attempts: (existingRow.attempts || 0) + 1,
+            attempts: (progressRow.attempts || 0) + 1,
             status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : existingRow.completedAt,
+            completedAt: passed ? new Date() : progressRow.completedAt,
             updatedAt: new Date(),
           })
-          .where(eq(userProgress.id, existingRow.id));
+          .where(eq(userProgress.id, progressRow.id));
       } else {
         await (db as any).insert(userProgress).values({
           userId: ctx.user.id,
@@ -536,7 +608,7 @@ export const learningRouter = router({
       }
 
       if (isMicro) {
-        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
       }
 
       if (examKind === "summative") {
@@ -550,7 +622,7 @@ export const learningRouter = router({
             enrollmentId: input.enrollmentId,
             score,
             passed,
-            attemptNumber: (existingRow?.attempts ?? 0) + 1,
+            attemptNumber: (progressRow?.attempts ?? 0) + 1,
           },
         });
       }

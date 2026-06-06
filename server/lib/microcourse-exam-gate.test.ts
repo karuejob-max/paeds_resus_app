@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { examKindFromQuizTitle, summativePassed } from "../../shared/microcourse-exam-policy";
 import {
+  assertMicrocourseCompletionAllowed,
   isDiagnosticProgressComplete,
   resolveDiagnosticCompleted,
 } from "./microcourse-exam-gate";
@@ -61,5 +62,18 @@ describe("microcourse-exam-gate helpers", () => {
       ],
     });
     expect(completed).toBe(false);
+  });
+
+  it("assertMicrocourseCompletionAllowed fails closed when exam state is unavailable", async () => {
+    const db = {
+      query: {
+        microCourseEnrollments: { findFirst: async () => undefined },
+      },
+    };
+    const result = await assertMicrocourseCompletionAllowed(db as never, 1, 999);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/verify exam completion/i);
+    }
   });
 });
