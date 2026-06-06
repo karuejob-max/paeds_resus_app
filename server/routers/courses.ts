@@ -24,13 +24,14 @@ import { syncFellowshipProgressForUser } from "../services/fellowship-progress.s
 import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-enrollment-progress";
 import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate";
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
+import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-progress";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
 
 async function fetchMyAhaEnrollments(userId: number) {
   const database = await getDb();
   if (!database) return [];
-  return database
+  const rows = await database
     .select({
       id: enrollments.id,
       userId: enrollments.userId,
@@ -53,6 +54,7 @@ async function fetchMyAhaEnrollments(userId: number) {
       )
     )
     .orderBy(desc(enrollments.createdAt));
+  return enrichAhaEnrollmentsWithProgress(database, userId, rows);
 }
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
