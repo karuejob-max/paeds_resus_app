@@ -28,9 +28,9 @@ export const microCoursesMissingFellowship = [
     id: 'asthma-i',
     title: 'Paediatric Asthma 1: Recognition, 1st & 2nd Line',
     level: 'beginner',
-    duration: 45,
+    duration: 50,
     price: 800,
-    description: 'Recognize acute asthma severity and implement first-line bronchodilator therapy.',
+    description: 'Recognize acute asthma severity, deliver first-hour bronchodilator therapy, and escalate safely when failing.',
     modules: [
       {
         title: 'Module 1: Asthma Severity Assessment',
@@ -182,6 +182,90 @@ export const microCoursesMissingFellowship = [
           },
         ],
       },
+      {
+        title: 'Module 3: Escalation, Second-Line & Discharge',
+        duration: 15,
+        content: `
+          <h2>When First-Line Is Not Enough</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Most children improve with salbutamol, ipratropium, and early steroid. When SpO₂ stays low, work of breathing worsens, or the chest goes quiet — escalate immediately and prepare the Asthma II pathway.",
+            objectives: [
+              "Identify failure of first-hour therapy and life-threatening red flags",
+              "Apply second-line options available at ward level (magnesium, continuous nebs, senior help)",
+              "Decide safe discharge vs admission using reassessment criteria",
+              "Teach spacer technique and return precautions before discharge",
+            ],
+            sections: [
+              {
+                heading: "Escalation triggers",
+                bodyHtml: `<ul>
+            <li>SpO₂ &lt;90% despite oxygen and repeated salbutamol</li>
+            <li>Silent chest, exhaustion, or altered consciousness</li>
+            <li>No improvement after two salbutamol cycles in moderate/severe asthma</li>
+            <li>Hypotension — consider anaphylaxis mimic</li>
+          </ul>
+          <p>Call senior help early; prepare continuous nebulisation and IV access if Asthma II criteria met.</p>`,
+              },
+              {
+                heading: "Second-line options (when available)",
+                bodyHtml: `<ul>
+            <li><strong>Magnesium sulfate</strong> 40 mg/kg IV over 20 min (max 2 g) if severe and IV access available</li>
+            <li><strong>Continuous salbutamol</strong> 15 mg nebulised — bridge to Asthma II / ICU</li>
+            <li><strong>High-flow oxygen</strong> while continuing bronchodilators — oxygen treats hypoxia, not obstruction</li>
+          </ul>
+          ${ASTHMA_LMIC_SPACER}`,
+              },
+              {
+                heading: "Discharge vs admission",
+                bodyHtml: `<ul>
+            <li><strong>Consider discharge</strong> when speaking in sentences, SpO₂ stable on room air, minimal wheeze, steroid given, and caregiver can use spacer</li>
+            <li><strong>Admit</strong> if any severe feature, poor response, social concerns, or first severe attack in young child</li>
+            <li>Document spacer teach-back and written action plan when discharging</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Reassess after <em>every</em> treatment cycle. Escalate on red flags — do not discharge a child with silent chest or exhaustion.</p>",
+            bedsideActions: [
+              "If failing first hour → call senior and start Asthma II pathway",
+              "Give magnesium 40 mg/kg IV if severe and access available",
+              "Reassess speech, SpO₂, and air entry before discharge decision",
+              "Teach spacer 6–10 puffs technique; document return precautions",
+            ],
+          })}
+        `,
+        questions: [
+          {
+            question: "Escalation to Asthma II is appropriate when:",
+            options: [
+              "SpO₂ <90%, silent chest, or no improvement after two salbutamol cycles",
+              "Mild cough only",
+              "First wheeze ever without distress",
+              "Normal peak flow after one puff",
+            ],
+            correct: 0,
+            explanation: "Persistent severe features or treatment failure require advanced pathway.",
+          },
+          {
+            question: "Magnesium sulfate in severe acute asthma (when IV available) is:",
+            options: ["40 mg/kg IV over 20 min (max 2 g)", "400 mg/kg bolus", "Oral only always", "Contraindicated in all children"],
+            correct: 0,
+            explanation: "Magnesium 40 mg/kg IV over 20 minutes is second-line for severe asthma.",
+          },
+          {
+            question: "Safe discharge after acute asthma requires:",
+            options: [
+              "Stable SpO₂, speaking in sentences, steroid given, and caregiver spacer teach-back",
+              "Single salbutamol puff only",
+              "Silent chest improving to exhaustion",
+              "No follow-up ever",
+            ],
+            correct: 0,
+            explanation: "Discharge when clinically stable with education and action plan.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Asthma I Quiz',
@@ -239,22 +323,47 @@ export const microCoursesMissingFellowship = [
     id: 'status-epilepticus-i',
     title: 'Status Epilepticus 1: Recognition & First-Line',
     level: 'beginner',
-    duration: 45,
+    duration: 50,
     price: 800,
-    description: 'Immediate management of the convulsing child and stabilization techniques.',
+    description: 'Recognize status epilepticus, stabilize ABCs, and deliver first-line anticonvulsant therapy.',
     modules: [
       {
         title: 'Module 1: Definition and Initial ABCs',
         duration: 15,
         content: `
           <h2>Status Epilepticus Definition</h2>
-          <p>Continuous seizure activity for >5 minutes OR recurrent seizures without recovery of consciousness.</p>
-          <h3>Initial Steps (0-5 mins):</h3>
-          <ul>
-            <li>Airway: Position (recovery), suction, oral airway if needed.</li>
-            <li>Breathing: High-flow oxygen.</li>
-            <li>Circulation: Check bedside glucose (exclude hypoglycemia).</li>
-          </ul>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Status epilepticus (SE) is continuous seizure activity ≥5 minutes or recurrent seizures without recovery of consciousness. Treat as a time-critical emergency — brain injury risk rises with duration.",
+            objectives: [
+              "Define status epilepticus at 5 minutes of continuous or recurrent seizure",
+              "Protect airway and deliver oxygen during active convulsion",
+              "Check bedside glucose in every seizing child",
+            ],
+            sections: [
+              {
+                heading: "Definition and urgency",
+                bodyHtml: `<p>Continuous seizure ≥5 minutes <strong>or</strong> recurrent seizures without regaining consciousness between events.</p>
+          <p>Start the treatment clock at 5 minutes — do not wait for 30 minutes.</p>`,
+              },
+              {
+                heading: "Initial ABCs (0–5 minutes)",
+                bodyHtml: `<ul>
+            <li><strong>Airway:</strong> Recovery position, suction secretions, airway adjunct if needed</li>
+            <li><strong>Breathing:</strong> High-flow oxygen — treat hypoxia during resuscitation</li>
+            <li><strong>Circulation:</strong> IV/IO access when safe; check glucose in <strong>mmol/L</strong></li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Position + oxygen + glucose check happen <strong>while</strong> preparing benzodiazepine — never delay treatment for perfect access.</p>",
+            bedsideActions: [
+              "Start timer at 5 minutes of continuous seizure",
+              "Recovery position with suction; high-flow oxygen",
+              "Bedside glucose — treat hypoglycaemia if <3.3 mmol/L",
+              "Prepare first-line benzodiazepine weight-based dose",
+            ],
+          })}
         `,
         questions: [
           {
@@ -293,12 +402,45 @@ export const microCoursesMissingFellowship = [
         ],
       },
       {
-        title: 'Module 2: Pharmacological Control',
+        title: 'Module 2: First-Line Anticonvulsants',
         duration: 20,
         content: `
-          ${SE_BENZO_CONFLICT}
-          ${NEONATE_CALLOUT}
-          <p>Repeat one benzodiazepine dose after 5 minutes if seizure continues (non-neonate). Max two benzo doses before second-line agents.</p>
+          <h2>Pharmacological Control</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "First-line treatment is a weight-based benzodiazepine at 5 minutes. Kenya/low-resource settings often use diazepam; international teaching favours midazolam or lorazepam when available.",
+            objectives: [
+              "Select first-line benzodiazepine per local availability and age",
+              "Repeat one benzodiazepine dose if seizure continues after 5 minutes",
+              "Recognise neonatal pathway — avoid routine benzos first-line",
+            ],
+            sections: [
+              {
+                heading: "First-line benzodiazepine options",
+                bodyHtml: SE_BENZO_CONFLICT,
+              },
+              {
+                heading: "Dosing and repeat limits",
+                bodyHtml: `<ul>
+            <li>Give first-line benzo at <strong>5 minutes</strong> of continuous seizure</li>
+            <li>Repeat <strong>one</strong> dose after 5 minutes if seizure continues (non-neonate)</li>
+            <li>Maximum <strong>two</strong> adequate benzodiazepine doses before second-line agents</li>
+          </ul>`,
+              },
+              {
+                heading: "Neonatal exception",
+                bodyHtml: NEONATE_CALLOUT,
+              },
+            ],
+            keyTakeaway:
+              "<p>After two benzo doses without control → second-line anticonvulsants and senior help (Status Epilepticus II pathway).</p>",
+            bedsideActions: [
+              "Midazolam buccal/IV or lorazepam IV if stocked; otherwise diazepam IV/PR",
+              "Time each dose — repeat once at +5 min if still seizing",
+              "Screen for meningitis, trauma, and metabolic cause while treating",
+              "Prepare second-line agents if second benzo fails",
+            ],
+          })}
         `,
         questions: [
           {
@@ -333,6 +475,83 @@ export const microCoursesMissingFellowship = [
             ],
             correct: 0,
             explanation: "Repeat one benzo after 5 min if seizure continues — then second-line.",
+          },
+        ],
+      },
+      {
+        title: 'Module 3: Escalation and Handover',
+        duration: 15,
+        content: `
+          <h2>When First-Line Fails</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "If seizures continue after two benzodiazepine doses, escalate to second-line agents, secure airway planning, and investigate cause. Structured handover saves time in PICU transfer.",
+            objectives: [
+              "Escalate to second-line anticonvulsants after failed benzodiazepines",
+              "Identify reversible causes: hypoglycaemia, hyponatraemia, meningitis, trauma",
+              "Deliver SBAR handover for PICU or Status Epilepticus II",
+            ],
+            sections: [
+              {
+                heading: "Second-line escalation",
+                bodyHtml: `<ul>
+            <li>Levetiracetam or phenytoin/fosphenytoin per local protocol after two benzo doses</li>
+            <li>Prepare intubation if airway not protected or seizure persists</li>
+            <li>Continuous monitoring — treat hyperthermia and rhabdomyolysis risk</li>
+          </ul>`,
+              },
+              {
+                heading: "Reversible causes to treat concurrently",
+                bodyHtml: `<ul>
+            <li><strong>Hypoglycaemia</strong> — dextrose 0.5 g/kg; recheck in 15 min</li>
+            <li><strong>Meningitis</strong> — antibiotics after ABCs if suspected</li>
+            <li><strong>Electrolytes</strong> — sodium, calcium, magnesium when access available</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Time-stamped drug chart + SBAR handover (weight, doses given, glucose, suspected cause) speeds safe escalation.</p>",
+            bedsideActions: [
+              "Start second-line anticonvulsant per protocol after two benzo doses",
+              "Document seizure start time and all drug times",
+              "SBAR: age, weight, seizure duration, drugs given, glucose, suspected cause",
+              "Activate Status Epilepticus II / PICU if refractory",
+            ],
+          })}
+        `,
+        questions: [
+          {
+            question: "After two failed benzodiazepine doses in SE, next step is:",
+            options: [
+              "Second-line anticonvulsant and senior help",
+              "Unlimited benzodiazepine repeats",
+              "Discharge home",
+              "Wait 24 hours",
+            ],
+            correct: 0,
+            explanation: "Escalate to second-line agents and senior support after two adequate benzo doses.",
+          },
+          {
+            question: "SBAR handover in status epilepticus should include:",
+            options: [
+              "Seizure duration, drugs given with times, glucose, and suspected cause",
+              "Only patient name",
+              "Family history only",
+              "Discharge plan only",
+            ],
+            correct: 0,
+            explanation: "Structured handover includes timing, treatment, and working diagnosis.",
+          },
+          {
+            question: "Reversible cause that must be treated during active seizure:",
+            options: [
+              "Hypoglycaemia — give dextrose while continuing anticonvulsants",
+              "Hypertension only",
+              "Normal glucose rules out all metabolic causes",
+              "Defer all labs until seizure stops for 24 h",
+            ],
+            correct: 0,
+            explanation: "Treat hypoglycaemia immediately — it is a common reversible seizure cause.",
           },
         ],
       },
@@ -393,7 +612,7 @@ export const microCoursesMissingFellowship = [
     id: 'meningitis-i',
     title: 'Paediatric Meningitis 1: Recognition and Early Antibiotics',
     level: 'beginner',
-    duration: 45,
+    duration: 50,
     price: 800,
     description: 'Identify clinical signs of meningitis and implement life-saving empiric therapy.',
     modules: [
@@ -402,12 +621,37 @@ export const microCoursesMissingFellowship = [
         duration: 15,
         content: `
           <h2>Meningitis Signs</h2>
-          <ul>
-            <li>Infants: Bulging fontanelle, irritability, poor feeding, fever, seizures.</li>
-            <li>Older children: Neck stiffness, photophobia, headache, Kernig/Brudzinski signs.</li>
-            <li><strong>Non-blanching rash:</strong> Suggests meningococcal septicaemia — treat immediately.</li>
-          </ul>
-          ${SPO2_TARGET_NOTE}
+          ${buildInternationalModuleHtml({
+            overview:
+              "Bacterial meningitis is a time-critical CNS infection. Recognition differs by age — infants may lack neck stiffness; non-blanching rash demands immediate treatment.",
+            objectives: [
+              "Recognise meningitis signs in infants vs older children",
+              "Identify meningococcal septicaemia by non-blanching rash",
+              "Titrate oxygen toward SpO₂ ≥90% in severe illness",
+            ],
+            sections: [
+              {
+                heading: "Age-specific presentation",
+                bodyHtml: `<ul>
+            <li><strong>Infants:</strong> Bulging fontanelle, irritability, poor feeding, fever, seizures</li>
+            <li><strong>Older children:</strong> Neck stiffness, photophobia, headache, Kernig/Brudzinski signs</li>
+          </ul>`,
+              },
+              {
+                heading: "Meningococcal emergency",
+                bodyHtml: `<p><strong>Non-blanching petechial/purpuric rash</strong> with fever suggests meningococcal septicaemia — give antibiotics immediately.</p>
+          ${SPO2_TARGET_NOTE}`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Do not withhold treatment while waiting for LP — antibiotics first when meningitis is suspected.</p>",
+            bedsideActions: [
+              "Assess fontanelle, neck stiffness, rash, and mental status",
+              "Give oxygen if hypoxic — target SpO₂ ≥90%",
+              "Obtain IV access and blood culture when possible",
+              "Start empiric antibiotics without delaying for LP",
+            ],
+          })}
         `,
         questions: [
           {
@@ -434,13 +678,38 @@ export const microCoursesMissingFellowship = [
         title: 'Module 2: Empiric Antibiotics Before LP',
         duration: 15,
         content: `
-          ${MENINGITIS_ABX_EARLY}
-          <h3>Empiric regimens (hospital)</h3>
-          <ul>
-            <li><strong>Ceftriaxone</strong> 100 mg/kg/day (max 4 g) IV — common first-line</li>
+          <h2>Antibiotics Before LP</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Empiric antibiotics must not wait for lumbar puncture when meningitis is suspected. LP may be deferred if the child is unstable or has raised ICP signs.",
+            objectives: [
+              "Give empiric antibiotics immediately when meningitis suspected",
+              "Select age-appropriate regimen including neonatal Listeria cover",
+              "Know when to defer LP safely",
+            ],
+            sections: [
+              {
+                heading: "Do not delay antibiotics",
+                bodyHtml: MENINGITIS_ABX_EARLY,
+              },
+              {
+                heading: "Empiric regimens (hospital)",
+                bodyHtml: `<ul>
+            <li><strong>Ceftriaxone</strong> 100 mg/kg/day (max 4 g) IV — common first-line in older infants/children</li>
             <li><strong>Neonates:</strong> Cefotaxime + ampicillin (Listeria cover) per local protocol</li>
             <li>Blood culture before antibiotics when possible — do not delay if critically ill</li>
-          </ul>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>LP informs diagnosis but must not block life-saving antibiotics in suspected bacterial meningitis.</p>",
+            bedsideActions: [
+              "Draw blood culture if possible without delaying antibiotics",
+              "Give ceftriaxone IV (or neonatal regimen) immediately",
+              "Defer LP if unstable, coagulopathic, or herniation signs",
+              "Add dexamethasone with or before first antibiotic dose when indicated",
+            ],
+          })}
         `,
         questions: [
           {
@@ -467,12 +736,37 @@ export const microCoursesMissingFellowship = [
         title: 'Module 3: Airway, Oxygen and Dexamethasone',
         duration: 15,
         content: `
-          <h3>Supportive care</h3>
-          <ul>
-            <li>Airway: position, suction; intubate if GCS falling or failing to protect airway</li>
-            <li>Oxygen: ${SPO2_TARGET_NOTE.replace(/<\/?p>/g, '')}</li>
-            <li><strong>Dexamethasone</strong> 0.15 mg/kg (max 10 mg) IV with or before first antibiotic dose — reduces neurological sequelae (non-neonatal bacterial meningitis)</li>
-          </ul>
+          <h2>Supportive Care Bundle</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Airway protection, oxygen, and early dexamethasone reduce harm in bacterial meningitis. Intubate when consciousness is impaired.",
+            objectives: [
+              "Protect airway and intubate when GCS falling",
+              "Give dexamethasone with or before first antibiotic dose",
+              "Maintain SpO₂ ≥90% during resuscitation",
+            ],
+            sections: [
+              {
+                heading: "Airway and oxygen",
+                bodyHtml: `<ul>
+            <li>Position and suction; intubate if GCS falling or failing to protect airway</li>
+            <li>${SPO2_TARGET_NOTE.replace(/<\/?p>/g, "")}</li>
+          </ul>`,
+              },
+              {
+                heading: "Dexamethasone timing",
+                bodyHtml: `<p><strong>Dexamethasone</strong> 0.15 mg/kg (max 10 mg) IV with or before first antibiotic dose — reduces neurological sequelae in non-neonatal bacterial meningitis per protocol.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Dexamethasone timing matters — give with or before first antibiotic, not days later.</p>",
+            bedsideActions: [
+              "Intubate if unable to protect airway",
+              "Dexamethasone 0.15 mg/kg IV with first antibiotic dose",
+              "Hourly neuro checks if conscious; escalate if GCS falls",
+              "Plan audiology follow-up after bacterial meningitis",
+            ],
+          })}
         `,
         questions: [
           {
@@ -559,6 +853,12 @@ export const microCoursesMissingFellowship = [
           options: ['LP first', 'Protect airway — intubate if needed', 'Oral fluids', 'Discharge'],
           correct: 1,
           explanation: 'Airway protection takes priority over diagnostic procedures.'
+        },
+        {
+          question: 'Photophobia in suspected meningitis indicates:',
+          options: ['Meningeal irritation requiring urgent treatment', 'Normal behaviour in all febrile children', 'Contraindication to antibiotics', 'Mild viral illness only'],
+          correct: 0,
+          explanation: 'Photophobia with fever is a classic meningeal sign — treat as meningitis until proven otherwise.'
         }
       ]
     }
@@ -742,7 +1042,7 @@ export const microCoursesMissingFellowship = [
     id: 'trauma-i',
     title: 'Paediatric Trauma I: Primary Survey and Stabilization',
     level: 'beginner',
-    duration: 45,
+    duration: 50,
     price: 800,
     description: 'The ABCDE approach to the injured child.',
     modules: [
@@ -750,15 +1050,40 @@ export const microCoursesMissingFellowship = [
         title: 'Module 1: ABCDE Primary Survey',
         duration: 15,
         content: `
-          ${TRAUMA_ABCDE}
           <h2>The ABCDE Approach</h2>
-          <ul>
-            <li><strong>A:</strong> Airway with C-spine protection.</li>
-            <li><strong>B:</strong> Breathing and ventilation — ${SPO2_TARGET_NOTE.replace(/<\/?p>/g, '')}</li>
-            <li><strong>C:</strong> Circulation with haemorrhage control.</li>
-            <li><strong>D:</strong> Disability (GCS, pupils, glucose).</li>
-            <li><strong>E:</strong> Exposure — prevent hypothermia.</li>
-          </ul>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Paediatric trauma resuscitation follows ABCDE — treat life threats as you find them. C-spine protection accompanies every airway intervention.",
+            objectives: [
+              "Perform primary survey in A-B-C-D-E order",
+              "Protect cervical spine during airway management",
+              "Treat hypoxia with SpO₂ target ≥90%",
+            ],
+            sections: [
+              {
+                heading: "Primary survey sequence",
+                bodyHtml: `${TRAUMA_ABCDE}<ul>
+            <li><strong>A:</strong> Airway with C-spine protection</li>
+            <li><strong>B:</strong> Breathing — ${SPO2_TARGET_NOTE.replace(/<\/?p>/g, "")}</li>
+            <li><strong>C:</strong> Circulation with haemorrhage control</li>
+            <li><strong>D:</strong> Disability (GCS, pupils, glucose)</li>
+            <li><strong>E:</strong> Exposure — prevent hypothermia</li>
+          </ul>`,
+              },
+              {
+                heading: "Treat as you go",
+                bodyHtml: `<p>Do not complete the full survey before fixing ABC problems — reassess after each intervention.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Airway + C-spine together; warm the child during exposure to prevent coagulopathy.</p>",
+            bedsideActions: [
+              "Manual inline stabilisation during airway manoeuvres",
+              "High-flow oxygen if hypoxic",
+              "Two large-bore IV/IO access when circulation compromised",
+              "Check GCS, pupils, and glucose at disability step",
+            ],
+          })}
         `,
         questions: [
           {
@@ -785,13 +1110,38 @@ export const microCoursesMissingFellowship = [
         title: 'Module 2: Haemorrhage Control and Circulation',
         duration: 15,
         content: `
-          ${TRAUMA_HEMORRHAGE}
-          <h3>Paediatric considerations</h3>
-          <ul>
+          <h2>Haemorrhage Control</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Exsanguination kills in minutes. Direct pressure first; children compensate with tachycardia before hypotension appears.",
+            objectives: [
+              "Apply direct pressure as first-line haemorrhage control",
+              "Give 10–20 mL/kg crystalloid boluses with reassessment",
+              "Recognise early compensated shock by tachycardia",
+            ],
+            sections: [
+              {
+                heading: "Haemorrhage control steps",
+                bodyHtml: TRAUMA_HEMORRHAGE,
+              },
+              {
+                heading: "Paediatric circulation pearls",
+                bodyHtml: `<ul>
             <li>Children compensate until late — tachycardia before hypotension</li>
             <li>10–20 mL/kg crystalloid boluses with reassessment; blood early if massive haemorrhage</li>
             <li>Two large-bore IV/IO access; warm all fluids</li>
-          </ul>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Direct pressure → tourniquet if limb haemorrhage uncontrolled → blood products early in massive bleeding.</p>",
+            bedsideActions: [
+              "Direct pressure on external bleeding",
+              "Tourniquet for life-threatening limb haemorrhage not controlled by pressure",
+              "10–20 mL/kg warmed crystalloid; reassess after each bolus",
+              "Activate massive haemorrhage protocol if ongoing blood loss",
+            ],
+          })}
         `,
         questions: [
           {
@@ -818,13 +1168,38 @@ export const microCoursesMissingFellowship = [
         title: 'Module 3: Head Injury Red Flags',
         duration: 15,
         content: `
-          ${TRAUMA_HEAD_INJURY}
-          <h3>Disability (D)</h3>
-          <ul>
-            <li>GCS, pupils, glucose at bedside</li>
+          <h2>Traumatic Brain Injury</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Head injury red flags predict intracranial catastrophe. Prevent secondary brain injury by avoiding hypoxia and hypotension.",
+            objectives: [
+              "Identify head injury red flags in children",
+              "Prevent secondary brain injury with oxygenation and BP support",
+              "Activate trauma team for high-energy mechanism",
+            ],
+            sections: [
+              {
+                heading: "Red flags",
+                bodyHtml: TRAUMA_HEAD_INJURY,
+              },
+              {
+                heading: "Disability assessment (D)",
+                bodyHtml: `<ul>
+            <li>GCS, pupils, glucose at bedside — repeat serially</li>
             <li>Prevent secondary brain injury: avoid hypoxia and hypotension</li>
             <li>Activate trauma team for high-energy mechanism or red flags</li>
-          </ul>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Falling GCS or post-traumatic seizure → urgent imaging and neurosurgical review per protocol.</p>",
+            bedsideActions: [
+              "Serial GCS and pupil checks",
+              "Maintain SpO₂ ≥90% and age-appropriate BP",
+              "CT head per local protocol when red flags present",
+              "Consider non-accidental injury safeguarding when mechanism inconsistent",
+            ],
+          })}
         `,
         questions: [
           {
@@ -927,13 +1302,38 @@ export const microCoursesMissingFellowship = [
         title: 'Module 1: Massive Haemorrhage and MTP',
         duration: 20,
         content: `
-          ${TRAUMA_HEMORRHAGE}
-          <h3>Massive transfusion protocol (MTP)</h3>
-          <ul>
+          <h2>Massive Haemorrhage</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Massive haemorrhage requires early massive transfusion protocol activation and correction of the lethal triad: hypothermia, acidosis, and coagulopathy.",
+            objectives: [
+              "Activate MTP early in ongoing massive haemorrhage",
+              "Deliver balanced blood products per local protocol",
+              "Prevent and correct hypothermia during resuscitation",
+            ],
+            sections: [
+              {
+                heading: "Haemorrhage control recap",
+                bodyHtml: TRAUMA_HEMORRHAGE,
+              },
+              {
+                heading: "Massive transfusion protocol (MTP)",
+                bodyHtml: `<ul>
             <li>Activate early when ongoing haemorrhage — do not wait for haemodynamic collapse</li>
             <li>Balanced blood products (packed cells : plasma : platelets) per local protocol</li>
             <li>Correct hypothermia, acidosis, coagulopathy — damage control resuscitation</li>
-          </ul>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>MTP early + warm blood/products — hypothermia worsens coagulopathy in trauma.</p>",
+            bedsideActions: [
+              "Activate MTP when ongoing massive haemorrhage suspected",
+              "Pelvic binder if pelvic fracture with shock",
+              "Warm patient and all IV fluids/blood products",
+              "Reassess perfusion after each product administration",
+            ],
+          })}
         `,
         questions: [
           {
@@ -960,12 +1360,42 @@ export const microCoursesMissingFellowship = [
         title: 'Module 2: Abdominal and Thoracic Trauma',
         duration: 20,
         content: `
-          <h2>Blunt Abdominal Trauma</h2>
-          <p>Children have less abdominal wall protection — spleen and liver commonly injured.</p>
+          <h2>Blunt Abdominal and Thoracic Trauma</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Children's compliant abdominal walls leave solid organs vulnerable. Thoracic injuries can kill rapidly — tension pneumothorax needs immediate decompression.",
+            objectives: [
+              "Recognise spleen and liver as commonly injured organs",
+              "Decompress tension pneumothorax immediately",
+              "Select operative vs non-operative management based on stability",
+            ],
+            sections: [
+              {
+                heading: "Blunt abdominal trauma",
+                bodyHtml: `<p>Children have less abdominal wall protection — <strong>spleen and liver</strong> commonly injured.</p>
           <ul>
-            <li>Conservative management if stable; surgery if refractory shock or peritonitis</li>
-            <li>Thoracic: tension pneumothorax → immediate decompression; haemothorax → chest drain</li>
-          </ul>
+            <li>Conservative management if stable with serial monitoring</li>
+            <li>Surgery if refractory shock, peritonitis, or free air per protocol</li>
+          </ul>`,
+              },
+              {
+                heading: "Thoracic emergencies",
+                bodyHtml: `<ul>
+            <li><strong>Tension pneumothorax</strong> → immediate needle decompression then chest drain</li>
+            <li><strong>Haemothorax</strong> → chest drain when indicated</li>
+            <li><strong>Open pneumothorax</strong> → three-sided occlusive dressing then definitive drain</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Tension pneumothorax before CT — decompress first when clinically diagnosed.</p>",
+            bedsideActions: [
+              "FAST or clinical assessment for free fluid when available",
+              "Needle decompression for tension pneumothorax before imaging delay",
+              "Serial abdominal exam if managed non-operatively",
+              "Activate surgery when refractory shock or peritonitis",
+            ],
+          })}
         `,
         questions: [
           {
@@ -992,13 +1422,38 @@ export const microCoursesMissingFellowship = [
         title: 'Module 3: Damage Control Surgery and Head Injury',
         duration: 20,
         content: `
-          ${TRAUMA_HEAD_INJURY}
-          <h3>Damage control surgery</h3>
-          <ul>
+          <h2>Damage Control and TBI</h2>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Damage control surgery prioritises survival over definitive repair. Concurrent traumatic brain injury demands strict avoidance of hypoxia and hypotension.",
+            objectives: [
+              "Explain damage control surgery principles",
+              "Prevent secondary brain injury with SpO₂ and BP targets",
+              "Know when to transfer to trauma centre",
+            ],
+            sections: [
+              {
+                heading: "Head injury priorities",
+                bodyHtml: TRAUMA_HEAD_INJURY,
+              },
+              {
+                heading: "Damage control surgery",
+                bodyHtml: `<ul>
             <li>Abbreviated operation to control haemorrhage and contamination — definitive repair later</li>
-            <li>Transfer to trauma centre when resources exceeded</li>
-            <li>Prevent secondary brain injury: maintain SpO₂ ≥90% and age-appropriate BP</li>
-          </ul>
+            <li>Transfer to trauma centre when local resources exceeded</li>
+            <li>Maintain SpO₂ ≥90% and age-appropriate BP during operative resuscitation</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Survival first — abbreviated surgery, then ICU stabilisation, then definitive repair.</p>",
+            bedsideActions: [
+              "Avoid hypotension and hypoxia during OR and transfer",
+              "Document mechanism and safeguarding concerns if NAI suspected",
+              "SBAR for trauma centre transfer with imaging and transfusion summary",
+              "Serial neuro checks if concurrent head injury",
+            ],
+          })}
         `,
         questions: [
           {
