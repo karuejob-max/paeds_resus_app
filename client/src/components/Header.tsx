@@ -5,6 +5,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
@@ -271,8 +272,9 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Right Section: Notifications + Account */}
+          {/* Right Section: Search + Notifications + Account */}
           <div className="flex items-center gap-2 ml-auto">
+            <GlobalSearch />
             {/* Notifications */}
             {isAuthenticated && (
               <NotificationBell />
@@ -310,6 +312,14 @@ export default function Header() {
 
                       {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
+                        <Link href="/feedback">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            Send feedback
+                          </div>
+                        </Link>
                         <Link href="/account">
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
@@ -405,7 +415,7 @@ export default function Header() {
         </div>
 
         {/* Mobile Navigation */}
-        {mobileMenuOpen && (
+            {mobileMenuOpen && (
           <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t border-border pt-4" aria-label="Mobile navigation">
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
