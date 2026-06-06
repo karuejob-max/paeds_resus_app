@@ -123,6 +123,7 @@ import { fellowshipRouter } from "./routers/fellowship";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { legalRouter } from "./routers/legal";
 import { contentSafetyRouter } from "./routers/content-safety";
+import { adminFeedbackRouter } from "./routers/platform-feedback";
 import { adminLearningRouter } from "./routers/admin-learning";
 
 export const appRouter = router({
@@ -512,6 +513,7 @@ export const appRouter = router({
   fellowship: fellowshipRouter,
   legal: legalRouter,
   contentSafety: contentSafetyRouter,
+  adminFeedback: adminFeedbackRouter,
 });
 
 export type AppRouter = typeof appRouter;

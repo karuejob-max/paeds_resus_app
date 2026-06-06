@@ -31,6 +31,8 @@ const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconcilia
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 const AdminMpesaWebhooks = lazy(() => import("./pages/AdminMpesaWebhooks"));
 const AdminFacilityCareSignal = lazy(() => import("./pages/AdminFacilityCareSignal"));
+const AdminFeedback = lazy(() => import("./pages/AdminFeedback"));
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const Help = lazy(() => import("./pages/Help"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
@@ -160,6 +162,7 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/account" component={AccountSettings} />
+          <Route path="/feedback" component={FeedbackPage} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/care-signal">{() => (
@@ -193,6 +196,11 @@ function Router() {
           <Route path="/admin/ops">{() => (
             <AdminGate>
               <AdminOps />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/feedback">{() => (
+            <AdminGate>
+              <AdminFeedback />
             </AdminGate>
           )}</Route>
           <Route path="/admin/mpesa-webhooks">{() => (

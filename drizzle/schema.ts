@@ -2753,3 +2753,29 @@ export const contentSafetyReports = mysqlTable("contentSafetyReports", {
 
 export type ContentSafetyReport = typeof contentSafetyReports.$inferSelect;
 export type InsertContentSafetyReport = typeof contentSafetyReports.$inferInsert;
+
+export const platformFeedbackTickets = mysqlTable("platformFeedbackTickets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  category: mysqlEnum("category", [
+    "course_content",
+    "resus_gps",
+    "care_signal",
+    "payment_technical",
+    "safety_concern",
+    "other",
+  ]).notNull(),
+  subject: varchar("subject", { length: 255 }),
+  message: text("message").notNull(),
+  contextJson: json("contextJson"),
+  status: mysqlEnum("status", ["open", "in_progress", "resolved", "wont_fix"]).default("open").notNull(),
+  priority: mysqlEnum("priority", ["normal", "safety"]).default("normal").notNull(),
+  adminResponse: text("adminResponse"),
+  respondedAt: timestamp("respondedAt"),
+  respondedBy: int("respondedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PlatformFeedbackTicket = typeof platformFeedbackTickets.$inferSelect;
+export type InsertPlatformFeedbackTicket = typeof platformFeedbackTickets.$inferInsert;
