@@ -31,6 +31,7 @@ export default defineConfig({
       "server/routers/events.trackEvent.test.ts",
       "server/lib/**/*.test.ts",
       "server/routers/fellowship-care-signal-streak.test.ts",
+      "server/routers/platform-feedback.test.ts",
       "server/_core/**/*.test.ts",
     ],
     exclude: [

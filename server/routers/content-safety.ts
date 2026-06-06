@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { contentSafetyReports } from "../../drizzle/schema";
+import { createPlatformFeedbackTicket } from "../lib/platform-feedback-tickets";
 import { trackEvent } from "../services/analytics.service";
 
 export const contentSafetyRouter = router({
@@ -12,15 +13,28 @@ export const contentSafetyRouter = router({
         courseId: z.string().min(1).max(64),
         moduleId: z.number().int().positive().optional(),
         message: z.string().min(10).max(4000),
-        /** UI surface for analytics (fellowship player, AHA player, ResusGPS). */
         surface: z.enum(["fellowship_player", "aha_player", "resus_gps"]).optional(),
+        pageUrl: z.string().max(512).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) {
-        return { success: false as const, error: "Database not available" };
-      }
+      if (!db) return { success: false as const, error: "Database not available" };
+
+      const ticketResult = await createPlatformFeedbackTicket({
+        userId: ctx.user.id,
+        category: "safety_concern",
+        message: input.message.trim(),
+        contextJson: {
+          pageUrl: input.pageUrl,
+          courseId: input.courseId,
+          courseSlug: input.courseId,
+          moduleId: input.moduleId,
+          surface: input.surface,
+        },
+        priority: "safety",
+      });
+      if (!ticketResult.success) return { success: false as const, error: ticketResult.error };
 
       await db.insert(contentSafetyReports).values({
         userId: ctx.user.id,
@@ -34,15 +48,11 @@ export const contentSafetyRouter = router({
         userId: ctx.user.id,
         eventType: "content_safety",
         eventName: "unsafe_content_reported",
-        eventData: {
-          courseId: input.courseId,
-          moduleId: input.moduleId,
-          surface: input.surface,
-        },
+        eventData: { courseId: input.courseId, moduleId: input.moduleId, surface: input.surface, ticketId: ticketResult.ticketId },
         sessionId: `content_safety_${input.courseId}`,
       });
 
-      return { success: true as const };
+      return { success: true as const, ticketId: ticketResult.ticketId };
     }),
 
   listReports: adminProcedure
@@ -50,11 +60,6 @@ export const contentSafetyRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      const limit = input?.limit ?? 50;
-      return db
-        .select()
-        .from(contentSafetyReports)
-        .orderBy(desc(contentSafetyReports.createdAt))
-        .limit(limit);
+      return db.select().from(contentSafetyReports).orderBy(desc(contentSafetyReports.createdAt)).limit(input?.limit ?? 50);
     }),
 });

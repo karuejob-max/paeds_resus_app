@@ -41,6 +41,7 @@ import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { canDisplayFellowTitle } from "@shared/fellowship-launch-gate";
 import { FellowshipGraduationCard } from "@/components/fellowship/FellowshipGraduationCard";
 import { AssessmentPolicyBanner } from "@/components/AssessmentPolicyBanner";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
@@ -293,12 +294,12 @@ export default function FellowshipDashboard() {
                 Care Signal.
               </p>
             </div>
-            <Link href="/fellowship/about">
-              <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
-                <HelpCircle className="h-4 w-4" />
-                Fellowship guide
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Link href="/fellowship/about">
+                <Button variant="outline" size="sm" className="gap-1.5"><HelpCircle className="h-4 w-4" />Fellowship guide</Button>
+              </Link>
+              <FeedbackDialog defaultCategory="course_content" contextJson={{ pageUrl: "/fellowship" }} trigger={<Button variant="ghost" size="sm">Send feedback</Button>} />
+            </div>
           </div>
         </div>
 

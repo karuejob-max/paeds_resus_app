@@ -110,6 +110,13 @@ export default function AdminHub() {
             </CardHeader>
           </Card>
 
+          <Card className="cursor-pointer hover:border-primary/50" onClick={() => setLocation("/admin/feedback")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5" />Feedback inbox</CardTitle>
+              <CardDescription>User feedback tickets — courses, ResusGPS, Care Signal, agent export</CardDescription>
+            </CardHeader>
+          </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors border-orange-200 hover:border-orange-400"
             onClick={() => setLocation("/admin/ops")}
