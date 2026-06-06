@@ -125,6 +125,7 @@ import { legalRouter } from "./routers/legal";
 import { contentSafetyRouter } from "./routers/content-safety";
 import { adminFeedbackRouter } from "./routers/platform-feedback";
 import { adminLearningRouter } from "./routers/admin-learning";
+import { practiceLabRouter } from "./routers/practice-lab";
 
 export const appRouter = router({
   system: systemRouter,
@@ -514,6 +515,7 @@ export const appRouter = router({
   legal: legalRouter,
   contentSafety: contentSafetyRouter,
   adminFeedback: adminFeedbackRouter,
+  practiceLab: practiceLabRouter,
 });
 
 export type AppRouter = typeof appRouter;

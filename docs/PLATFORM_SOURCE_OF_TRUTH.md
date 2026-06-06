@@ -462,6 +462,13 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Receives from:** None (standalone track â€” not part of Fellowship pathway)
 - **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
 - **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
+#### AHA Practice Lab (supplemental simulation)
+- **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief — **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
+- **Route:** /aha-courses/practice (linked from AHA hub for enrolled providers)
+- **Feeds:** haPracticeLabAttempts (per-track scores, event logs), admin Practice Lab rollup on /admin/reports
+- **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode — no Fellowship case save)
+- **Integration note:** Standalone under the AHA training track (same non-Fellowship rule as certificated courses). Reuses simulation UI patterns but must never be marketed or logged as ResusGPS clinical guidance.
+- **Schema:** drizzle/0049_aha_practice_lab_attempts.sql; apply via pnpm run db:apply-0049 post-deploy
 
 #### Safe-Truth (Parent / Guardian)
 - **Feeds:** Community voice layer, upstream gap detection, institutional accountability signal

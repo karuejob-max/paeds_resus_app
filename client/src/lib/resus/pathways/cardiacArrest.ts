@@ -70,7 +70,7 @@ export const cardiacArrestPathway: Pathway = {
             route: 'IV/IO',
             concentration: '1:10,000 (0.1 mg/mL)',
             preparation: 'Draw up 0.1 mL/kg of 1:10,000 solution',
-            frequency: 'Repeat every 3-5 minutes',
+            frequency: 'AHA 2025: as soon as feasible after 2nd shock attempt, then every 3-5 minutes',
           },
           critical: true,
         },
@@ -92,7 +92,7 @@ export const cardiacArrestPathway: Pathway = {
             route: 'Defibrillator pads',
             preparation: 'Use pediatric pads if <10kg, adult pads if >10kg',
           },
-          detail: 'Immediately resume CPR after shock. Do NOT check pulse. Continue for 2 more minutes.',
+          detail: 'AHA 2025: 2 J/kg first shock, 4 J/kg second shock, then max 10 J/kg or 360 J. Immediately resume CPR after shock.',
           critical: true,
         },
         {
