@@ -3,9 +3,8 @@ import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
-  expandQuestionBank,
   materializeModuleNativeFormatives,
-  resolveModuleFormativeQuestions,
+  uniqueFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
 import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-helpers";
@@ -333,11 +332,9 @@ export async function seedFellowshipContent(options: {
     if (courseData.quiz && courseData.quiz.questions.length > 0) {
       const lastModuleId = moduleIds[moduleIds.length - 1]!;
       const firstModuleId = moduleIds[0]!;
-      const bankQuestions = expandQuestionBank(courseData.quiz.questions);
-      const formativeByModule = resolveModuleFormativeQuestions(
-        courseData.modules,
-        bankQuestions
-      );
+      // Module-native formatives only — never pull stems from summative bank (governance §3.3).
+      const formativeByModule = courseData.modules.map((mod) => mod.questions ?? []);
+      const bankQuestions = uniqueFormativeQuestions(courseData.quiz.questions);
 
       for (let i = 0; i < moduleIds.length; i++) {
         const moduleFormative = formativeByModule[i] ?? [];

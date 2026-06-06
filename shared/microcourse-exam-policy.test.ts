@@ -65,9 +65,9 @@ describe("microcourse-exam-policy", () => {
     expect(perMod.every((m) => m.length >= 1)).toBe(true);
   });
 
-  it("expands question bank to minimum size", () => {
+  it("expands question bank to minimum size when duplicates allowed", () => {
     const qs = [{ q: 1 }, { q: 2 }];
-    const expanded = expandQuestionBank(qs, 5);
+    const expanded = expandQuestionBank(qs, 5, true);
     expect(expanded).toHaveLength(5);
   });
 
@@ -88,11 +88,17 @@ describe("microcourse-exam-policy", () => {
     expect(perMod.every((m) => m.length >= MIN_FORMATIVE_QUESTIONS_PER_MODULE)).toBe(true);
   });
 
-  it("materializes unique native formatives per module from summative bank", () => {
+  it("materializes module-native formatives without summative bank fallback", () => {
     const course = materializeModuleNativeFormatives({
-      modules: [{ title: "M1" }, { title: "M2" }, { title: "M3" }],
+      modules: [
+        {
+          title: "M1",
+          questions: [{ question: "Q1", options: ["a"], correct: 0, explanation: "e" }],
+        },
+        { title: "M2", questions: [] },
+      ],
       quiz: {
-        questions: Array.from({ length: 10 }, (_, i) => ({
+        questions: Array.from({ length: 15 }, (_, i) => ({
           question: `Stem ${i}`,
           options: ["a", "b"],
           correct: 0,
@@ -100,9 +106,8 @@ describe("microcourse-exam-policy", () => {
         })),
       },
     });
-    expect(course.modules.every((m) => (m.questions?.length ?? 0) >= 3)).toBe(true);
-    const allStems = course.modules.flatMap((m) => m.questions!.map((q) => q.question));
-    expect(uniqueFormativeQuestions(allStems.map((question) => ({ question, options: [], correct: 0, explanation: "" }))).length).toBeGreaterThanOrEqual(9);
+    expect(course.modules[0]!.questions!.length).toBe(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
+    expect(course.modules[1]!.questions!.length).toBe(0);
   });
 
   it("prefers module-native questions over summative bank", () => {
