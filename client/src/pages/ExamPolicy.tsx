@@ -10,6 +10,7 @@ import {
   EXAM_POLICY_COMPARE_ROWS,
   EXAM_POLICY_PAGE,
   EXAM_POLICY_SECTIONS,
+  EXAM_POLICY_TRACK_INTROS,
 } from "@shared/exam-policy-learner-content";
 
 export default function ExamPolicy() {
@@ -43,6 +44,26 @@ export default function ExamPolicy() {
           </h1>
           <p className="text-muted-foreground text-lg">{EXAM_POLICY_PAGE.description}</p>
         </div>
+
+        {EXAM_POLICY_TRACK_INTROS.map((track) => (
+          <section key={track.id} id={track.id} className="scroll-mt-20 space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">{track.title}</h2>
+            <Card>
+              <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
+                {track.paragraphs.map((p) => (
+                  <p key={p.slice(0, 40)}>{p}</p>
+                ))}
+                <ul className="list-disc list-inside space-y-2">
+                  {track.bullets.map((b) => (
+                    <li key={b.slice(0, 40)}>{b}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </section>
+        ))}
+
+        <h2 className="text-xl font-semibold text-foreground">Shared assessment rules</h2>
 
         {EXAM_POLICY_SECTIONS.map((section) => (
           <Card key={section.id} id={section.id}>

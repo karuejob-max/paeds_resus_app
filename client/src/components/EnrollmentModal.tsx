@@ -9,6 +9,7 @@ import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAna
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { cn } from "@/lib/utils";
 import { microCourseTrackLabel, type MicroCourseTier } from "@shared/micro-course-display";
+import { examPolicyHref } from "@shared/exam-policy-learner-content";
 
 /** High-contrast panels — readable on light and dark backgrounds (no pastel-on-pastel). */
 const panelClass = "rounded-lg border p-3 sm:p-4 text-sm text-foreground";
@@ -148,7 +149,7 @@ export function EnrollmentModal({
                     Paeds Resus Fellowship
                   </Link>{" "}
                   — not AHA certification.{" "}
-                  <Link href="/learning/exam-policy" className="text-primary underline-offset-2 hover:underline">
+                  <Link href={examPolicyHref("fellowship")} className="text-primary underline-offset-2 hover:underline">
                     Assessment policy
                   </Link>
                 </p>
@@ -162,6 +163,17 @@ export function EnrollmentModal({
                   no payment required. Click below to enroll instantly.
                 </p>
               </div>
+
+              <p className="text-center text-sm text-muted-foreground">
+                <Link
+                  href={examPolicyHref("fellowship")}
+                  className="text-primary font-medium underline-offset-2 hover:underline"
+                >
+                  Read assessment policy
+                </Link>
+                {" "}
+                before you enroll.
+              </p>
 
               <Button
                 onClick={handleEnroll}

@@ -23,6 +23,7 @@ import { AlertCircle, Clock, DollarSign, Lock, CheckCircle2, BookOpen, Award, Za
 import { useLocation } from 'wouter';
 import { useEffect, useState, useMemo } from 'react';
 import { EnrollmentModal } from '@/components/EnrollmentModal';
+import { AssessmentPolicyBanner } from '@/components/AssessmentPolicyBanner';
 import { microCourseTrackLabel, type MicroCourseTier } from '@shared/micro-course-display';
 
 type EmergencyType =
@@ -218,6 +219,8 @@ export default function MicroCoursesLanding() {
             paths. ResusGPS supports emergency bedside steps; complete Foundational courses before Advanced tracks.
           </AlertDescription>
         </Alert>
+
+        <AssessmentPolicyBanner track="fellowship" className="mb-6" />
 
         {/* Filters */}
         <Card className="mb-8">

@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Loader2, ArrowLeft, BookOpen, Award, AlertCircle, 
   CheckCircle2, Download, ChevronRight, ChevronLeft,
-  GraduationCap, ListChecks, Lock
+  GraduationCap, ListChecks, Lock, HelpCircle
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ import {
 } from "@shared/micro-course-display";
 import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyFooter";
 import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedBanner";
-import { EXAM_POLICY_LEARNER_PATH } from "@shared/summative-retry-display";
+import { examPolicyHref } from "@shared/exam-policy-learner-content";
 import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
@@ -983,7 +983,7 @@ export default function MicroCoursePlayerDB() {
               certificateIssued={ahaCertState.certificateIssued}
             />
             <p className="text-xs text-muted-foreground">
-              <Link href={EXAM_POLICY_LEARNER_PATH} className="text-primary underline-offset-2 hover:underline">
+              <Link href={examPolicyHref("aha")} className="text-primary underline-offset-2 hover:underline">
                 How assessments work
               </Link>
               {" "}
@@ -993,7 +993,7 @@ export default function MicroCoursePlayerDB() {
         )}
         {!isAhaCourse && (
           <p className="mb-4 text-xs text-muted-foreground">
-            <Link href={EXAM_POLICY_LEARNER_PATH} className="text-primary underline-offset-2 hover:underline">
+            <Link href={examPolicyHref("fellowship")} className="text-primary underline-offset-2 hover:underline">
               Assessment policy
             </Link>
             {" "}
@@ -1120,6 +1120,7 @@ export default function MicroCoursePlayerDB() {
             summativeAttempts={examState?.summativeAttempts ?? 0}
             summativeMaxAttempts={examState?.summativeMaxAttempts ?? 3}
             retryAvailableAt={examState?.retryAvailableAt ?? null}
+            isAhaCourse={isAhaCourse}
           />
         ) : (
           <div className="space-y-6">
@@ -1223,7 +1224,7 @@ function FormativeQuizView({
   moduleTitle, quiz, answers, setAnswers, onSubmit, 
   submitted, score, questionResults, onNext, onRetry, isPending, isEnsuring, isFinalExam,
   isDiagnostic, summativeRetryBlocked, summativeBlockKind, summativeAttempts, summativeMaxAttempts,
-  retryAvailableAt,
+  retryAvailableAt, isAhaCourse,
 }: any) {
   if (!quiz) return null;
 
@@ -1252,8 +1253,18 @@ function FormativeQuizView({
             {isDiagnostic ? "Diagnostic baseline" : isFinalExam ? "Summative exam" : "Knowledge Check"}
           </span>
         </div>
-        <CardTitle className="text-2xl font-bold">
-          {isDiagnostic ? "Before you start" : isFinalExam ? "Summative knowledge check" : `Review: ${moduleTitle}`}
+        <CardTitle className="text-2xl font-bold flex items-center gap-2">
+          <span>{isDiagnostic ? "Before you start" : isFinalExam ? "Summative knowledge check" : `Review: ${moduleTitle}`}</span>
+          {isDiagnostic && (
+            <Link
+              href={examPolicyHref(isAhaCourse ? "aha" : "fellowship")}
+              className="inline-flex rounded-full p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              title="How assessments work"
+              aria-label="How assessments work — read assessment policy"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </Link>
+          )}
         </CardTitle>
         <p className="text-white/70 text-sm mt-2">
           {isDiagnostic
@@ -1266,7 +1277,10 @@ function FormativeQuizView({
         </p>
         {isFinalExam && (
           <p className="text-white/60 text-xs mt-3">
-            <Link href={EXAM_POLICY_LEARNER_PATH} className="underline underline-offset-2 hover:text-white">
+            <Link
+              href={examPolicyHref(isAhaCourse ? "aha" : "fellowship")}
+              className="underline underline-offset-2 hover:text-white"
+            >
               View assessment policy
             </Link>
           </p>

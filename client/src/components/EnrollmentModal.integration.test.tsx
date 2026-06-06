@@ -74,6 +74,10 @@ describe("EnrollmentModal Integration Tests", () => {
     expect(screen.getByText(/Free access/i)).toBeInTheDocument();
     expect(screen.getByText(/foundational/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Enroll Now — Free/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Read assessment policy/i })).toHaveAttribute(
+      "href",
+      "/learning/exam-policy#fellowship-microcourses"
+    );
   });
 
   it("enrolls via enrollWithPayment and shows success", async () => {

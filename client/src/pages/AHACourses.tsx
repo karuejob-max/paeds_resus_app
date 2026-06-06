@@ -9,6 +9,7 @@ import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRo
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import { AhaHubProviderCourseCard } from "@/components/AhaHubProviderCourseCard";
+import { AssessmentPolicyBanner } from "@/components/AssessmentPolicyBanner";
 import { buildAhaHubEnrollmentMap } from "@/lib/pick-aha-hub-enrollment";
 import { toast } from "sonner";
 
@@ -144,6 +145,8 @@ export default function AHACourses() {
             </p>
           </div>
         </div>
+
+        <AssessmentPolicyBanner track="aha" />
 
         {anyEnrolled && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
