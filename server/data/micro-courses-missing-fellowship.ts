@@ -4,6 +4,8 @@
  */
 
 import {
+  ASTHMA_LMIC_SPACER,
+  ASTHMA_SEVERITY_TABLE,
   ASTHMA_STEROIDS,
   BURNS_FLUID_ESCHAR,
   BURNS_INFECTION,
@@ -19,6 +21,7 @@ import {
   TRAUMA_HEAD_INJURY,
   TRAUMA_HEMORRHAGE,
 } from './clinical-content-helpers';
+import { buildInternationalModuleHtml } from './micro-course-module-template';
 
 export const microCoursesMissingFellowship = [
   {
@@ -34,19 +37,47 @@ export const microCoursesMissingFellowship = [
         duration: 15,
         content: `
           <h2>Acute Asthma Recognition</h2>
-          <h3>Clinical Features:</h3>
-          <ul>
-            <li>Wheezing (expiratory), cough, chest tightness</li>
-            <li>Increased work of breathing (recessions, nasal flaring)</li>
-            <li>Prolonged expiratory phase</li>
-          </ul>
-          <h3>Severity Classification:</h3>
-          <ul>
-            <li><strong>Mild:</strong> Able to speak in sentences, SpO2 >94%, mild wheeze.</li>
-            <li><strong>Moderate:</strong> Speaking in phrases, SpO2 90-94%, accessory muscle use.</li>
-            <li><strong>Severe:</strong> Speaking in single words, SpO2 <90%, marked recessions, agitated.</li>
-            <li><strong>Life-threatening:</strong> Silent chest, cyanosis, exhaustion, altered consciousness.</li>
-          </ul>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Acute asthma is lower-airway obstruction from bronchospasm and inflammation. Your first task is to classify severity at the bedside — this drives every treatment decision in the next hour.",
+            objectives: [
+              "Recognise core features of acute asthma (wheeze, cough, increased work of breathing)",
+              "Classify severity as mild, moderate, severe, or life-threatening",
+              "Identify red flags that require immediate escalation to Asthma II",
+            ],
+            sections: [
+              {
+                heading: "Clinical features",
+                bodyHtml: `<ul>
+            <li><strong>Wheeze</strong> — expiratory, localises obstruction to bronchi</li>
+            <li><strong>Cough</strong> and chest tightness from bronchospasm</li>
+            <li><strong>Increased work of breathing</strong> — recessions, nasal flaring, prolonged expiration</li>
+            <li><strong>Speech pattern</strong> — sentences (mild) → phrases (moderate) → words (severe)</li>
+          </ul>`,
+              },
+              {
+                heading: "Severity classification",
+                bodyHtml: ASTHMA_SEVERITY_TABLE,
+              },
+              {
+                heading: "Life-threatening red flags",
+                bodyHtml: `<div class="clinical-note border-l-4 border-rose-500 pl-3 my-3"><ul>
+            <li><strong>Silent chest</strong> — no air entry despite effort (impending respiratory failure)</li>
+            <li><strong>Exhaustion</strong>, drowsiness, or agitation with hypoxia</li>
+            <li><strong>Cyanosis</strong> despite oxygen</li>
+            <li><strong>Hypotension</strong> — think anaphylaxis mimic or impending arrest</li>
+          </ul></div>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Severity is a <strong>bundle</strong> of speech, work of breathing, and SpO₂ — not wheeze alone. A quiet chest with exhaustion is more dangerous than loud wheeze.</p>",
+            bedsideActions: [
+              "Listen for wheeze quality and air entry bilaterally",
+              "Note speech pattern and accessory muscle use",
+              "Attach SpO₂ probe; record baseline",
+              "If life-threatening features → call senior and prepare Asthma II pathway",
+            ],
+          })}
         `,
         questions: [
           {
@@ -89,18 +120,46 @@ export const microCoursesMissingFellowship = [
         duration: 20,
         content: `
           <h2>First-Hour Protocol</h2>
-          <h3>Oxygen:</h3>
-          <ul>
-            <li>Target SpO2 94-98%. Use high-flow if life-threatening.</li>
+          ${buildInternationalModuleHtml({
+            overview:
+              "First-line treatment for acute asthma is inhaled bronchodilator plus early systemic steroid. Oxygen treats hypoxia — it does not replace salbutamol.",
+            objectives: [
+              "Administer salbutamol and ipratropium per severity in the first hour",
+              "Titrate oxygen toward SpO₂ 94–98% without routine hyperoxia",
+              "Give early systemic steroid (dexamethasone, prednisolone, or hydrocortisone)",
+              "Reassess after each treatment cycle and escalate when failing",
+            ],
+            sections: [
+              {
+                heading: "Oxygen",
+                bodyHtml: `${SPO2_TARGET_NOTE}<p>In life-threatening asthma, accept briefly higher targets while continuing bronchodilators — reassess every 15 minutes.</p>`,
+              },
+              {
+                heading: "Bronchodilators (first hour)",
+                bodyHtml: `<ul>
+            <li><strong>Salbutamol:</strong> 2.5–5 mg nebulised OR <strong>6–10 puffs via spacer</strong> every 20 minutes</li>
+            <li><strong>Ipratropium bromide:</strong> 250–500 mcg nebulised every 20 minutes in <strong>moderate/severe</strong> first hour</li>
           </ul>
-          <h3>Bronchodilators:</h3>
-          <ul>
-            <li><strong>Salbutamol:</strong> 2.5-5mg via nebulizer OR 6-10 puffs via spacer every 20 mins.</li>
-            <li><strong>Ipratropium Bromide:</strong> 250-500mcg nebulized every 20 mins for the first hour in severe cases.</li>
-          </ul>
-          ${ASTHMA_STEROIDS}
-          <h3>When to escalate:</h3>
-          <p>SpO₂ &lt;90%, silent chest, or altered consciousness → treat as severe; prepare for Asthma 2 / status asthmaticus course.</p>
+          ${ASTHMA_LMIC_SPACER}`,
+              },
+              {
+                heading: "Systemic steroids — give early",
+                bodyHtml: ASTHMA_STEROIDS,
+              },
+              {
+                heading: "When to escalate",
+                bodyHtml: `<p>Escalate to <strong>Asthma II / status asthmaticus</strong> when SpO₂ &lt;90%, silent chest, altered consciousness, or no improvement after two salbutamol cycles.</p>`,
+              },
+            ],
+            keyTakeaway:
+              "<p><strong>Salbutamol + steroid early</strong> reduces admission and relapse. Reassess work of breathing and SpO₂ after <em>every</em> treatment — do not discharge on first improvement alone.</p>",
+            bedsideActions: [
+              "Salbutamol neb or spacer 6–10 puffs; repeat every 20 min if moderate/severe",
+              "Add ipratropium 250–500 mcg if moderate/severe",
+              "Give dexamethasone 0.6 mg/kg PO/IM or prednisolone 1–2 mg/kg PO early",
+              "Reassess SpO₂, speech, and chest auscultation after each cycle",
+            ],
+          })}
         `,
         questions: [
           {
