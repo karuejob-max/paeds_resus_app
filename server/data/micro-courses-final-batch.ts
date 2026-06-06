@@ -498,10 +498,10 @@ export const microCoursesFinalBatch = [
           explanation: '10-30% of cerebral malaria survivors have cognitive impairment or seizure disorder.'
         },
         {
-          question: 'Cerebral malaria pathophysiology involves:',
-          options: ['Infection only', 'Sequestration of infected RBCs + blood-brain barrier disruption', 'Fever only', 'Dehydration'],
-          correct: 1,
-          explanation: 'Infected RBCs sequester in cerebral vessels → cytoadherence → BBB disruption → cerebral edema.'
+          question: 'Artesunate reduces mortality in severe malaria by approximately:',
+          options: ['35% compared with quinine', 'No benefit', '100% cure rate', 'Only in adults'],
+          correct: 0,
+          explanation: 'WHO: IV/IM artesunate preferred — ~35% mortality reduction vs quinine in severe malaria.'
         },
         {
           question: 'Post-malaria epilepsy occurs in:',

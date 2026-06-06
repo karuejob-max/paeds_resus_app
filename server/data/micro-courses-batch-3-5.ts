@@ -471,10 +471,10 @@ export const microCoursesBatch3To5 = [
           explanation: 'Massive transfusion protocol (1:1:1 RBC:FFP:platelets) for >50% blood volume loss.'
         },
         {
-          question: 'Elevated lactate (>4 mmol/L) in shock indicates:',
-          options: ['Infection only', 'Anaerobic metabolism (tissue hypoxia)', 'Hyperglycemia', 'Dehydration'],
-          correct: 1,
-          explanation: 'Elevated lactate = anaerobic metabolism from inadequate tissue perfusion.'
+          question: 'Permissive hypotension in trauma aims to maintain SBP of:',
+          options: ['50–60 mmHg until bleeding controlled', '>120 mmHg always', 'No BP target', 'Diastolic >100 mmHg'],
+          correct: 0,
+          explanation: 'Permissive hypotension limits dilution coagulopathy until surgical haemorrhage control — protocol guided.'
         },
         {
           question: 'Tourniquet application in hemorrhage should be:',
@@ -947,22 +947,34 @@ export const microCoursesBatch3To5 = [
           explanation: 'Nitroprusside risk of cyanide toxicity with prolonged use (>4 hours). Monitor thiocyanate levels.'
         },
         {
-          question: 'VA-ECMO target flow in cardiogenic shock:',
-          options: ['50 mL/kg/min', '100-150 mL/kg/min', '200 mL/kg/min', '>300 mL/kg/min'],
-          correct: 1,
-          explanation: 'VA-ECMO target flow 100-150 mL/kg/min for adequate systemic perfusion.'
+          question: 'Dopamine combined with milrinone is used when:',
+          options: ['BP support needed plus afterload reduction', 'Mild dehydration only', 'Antibiotics alone', 'No inotropes available'],
+          correct: 0,
+          explanation: 'Dopamine supports BP; milrinone adds inotropy and afterload reduction in refractory shock.'
         },
         {
-          question: 'Anticoagulation target during ECMO:',
-          options: ['ACT 100-120 sec', 'ACT 180-220 sec', 'ACT 300+ sec', 'No anticoagulation'],
-          correct: 1,
-          explanation: 'ECMO anticoagulation target ACT 180-220 sec (heparin) to prevent thrombosis.'
+          question: 'Heparin anticoagulation during ECMO prevents:',
+          options: ['Circuit thrombosis', 'Hypotension only', 'Infection', 'Arrhythmia always'],
+          correct: 0,
+          explanation: 'ECMO requires anticoagulation (ACT 180–220 sec) to prevent thrombosis in the circuit.'
         },
         {
-          question: 'Fulminant myocarditis mortality without ECMO:',
-          options: ['<5%', '10-20%', '50-80%', '>90%'],
-          correct: 2,
-          explanation: 'Fulminant myocarditis mortality high without ECMO (50-80%); 60-70% survive with ECMO.'
+          question: 'Fulminant myocarditis often presents with:',
+          options: ['Rapid-onset cardiogenic shock after viral prodrome', 'Chronic stable murmur only', 'Isolated fever without cardiac signs', 'Normal echocardiography always'],
+          correct: 0,
+          explanation: 'Fulminant myocarditis: hours-to-days onset of severe pump failure — aggressive inotropes and ECMO if refractory.'
+        },
+        {
+          question: 'Post-operative cardiogenic shock may require:',
+          options: ['Inotropes and urgent surgical re-exploration if mechanical cause', 'Large fluid boluses only', 'Discharge home', 'Antibiotics alone'],
+          correct: 0,
+          explanation: 'Post-op shock: poor myocardial protection, residual lesion, or arrhythmia — surgery if mechanical issue.'
+        },
+        {
+          question: 'Cardiology follow-up after myocarditis is needed because:',
+          options: ['80–90% recover but some need long-term monitoring', 'All patients require transplant', 'No follow-up ever', 'Only if fever persists'],
+          correct: 0,
+          explanation: 'Most myocarditis survivors recover normal function — serial echo and medication review.'
         },
         {
           question: 'Weaning from ECMO is indicated when:',
@@ -975,24 +987,6 @@ export const microCoursesBatch3To5 = [
           options: ['Dopamine + dobutamine + milrinone', 'Dopamine + atropine + epinephrine', 'Dopamine + nitroglycerin + adenosine', 'Dopamine + morphine + oxygen'],
           correct: 0,
           explanation: 'Triple therapy: dopamine (BP) + dobutamine (contractility) + milrinone (afterload reduction).'
-        },
-        {
-          question: 'Post-operative cardiogenic shock causes:',
-          options: ['Infection only', 'Poor myocardial protection, residual lesion, arrhythmia', 'Fever only', 'Bleeding only'],
-          correct: 1,
-          explanation: 'Post-op cardiogenic shock: poor myocardial protection, residual lesion, arrhythmia.'
-        },
-        {
-          question: 'Septic cardiomyopathy management includes:',
-          options: ['Inotropes only', 'Antibiotics + fluids + inotropes', 'Antibiotics only', 'No treatment'],
-          correct: 1,
-          explanation: 'Septic cardiomyopathy: antibiotics (treat infection) + fluids + inotropes (as in septic shock).'
-        },
-        {
-          question: 'Long-term cardiac function recovery in myocarditis survivors:',
-          options: ['<10%', '30-50%', '80-90%', '>95%'],
-          correct: 2,
-          explanation: '80-90% of myocarditis survivors recover normal cardiac function with treatment.'
         }
       ]
     }

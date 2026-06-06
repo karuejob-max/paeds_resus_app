@@ -301,10 +301,10 @@ export const microCoursesMissingFellowship = [
           explanation: 'Treat at 5 minutes; repeat once if seizure continues before second-line agents.'
         },
         {
-          question: 'Airway management during active convulsion prioritises:',
-          options: ['Immediate intubation without positioning', 'Recovery position, suction, oxygen', 'Oral glucose only', 'Delay all treatment for labs'],
-          correct: 1,
-          explanation: 'Position, protect airway, oxygen, and treat reversible causes while preparing drugs.'
+          question: 'Recovery position during active convulsion helps to:',
+          options: ['Protect airway and aid drainage of secretions', 'Stop seizure immediately', 'Replace benzodiazepines', 'Avoid oxygen delivery'],
+          correct: 0,
+          explanation: 'Recovery position with suction and oxygen protects airway while preparing treatment.'
         },
         {
           question: 'Neonates with prolonged seizures:',
@@ -442,10 +442,10 @@ export const microCoursesMissingFellowship = [
       passingScore: 80,
       questions: [
         {
-          question: 'A bulging fontanelle in a febrile infant suggests:',
-          options: ['Dehydration', 'Meningitis', 'Normal growth', 'Teething'],
-          correct: 1,
-          explanation: 'Increased intracranial pressure from meningitis often causes a bulging fontanelle.'
+          question: 'CSF analysis in bacterial meningitis typically shows:',
+          options: ['Elevated protein, low glucose, neutrophilic pleocytosis', 'Normal glucose and protein', 'Lymphocytes only always', 'No cells'],
+          correct: 0,
+          explanation: 'Bacterial meningitis CSF: high WBC (neutrophils), low glucose, elevated protein.'
         },
         {
           question: 'Antibiotics in suspected meningitis should be given:',

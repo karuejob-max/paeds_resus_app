@@ -12,6 +12,7 @@ import {
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   MICROCOURSE_FULL_QUESTION_BANK_SIZE,
   expandQuestionBank,
+  normalizeQuestionStem,
   resolveExamQuestionBanks,
   uniqueFormativeQuestions,
   type FormativeQuestion,
@@ -23,6 +24,31 @@ export const SERIOUSLY_ILL_CHILD_COURSE_TITLE =
   "The systematic approach to a seriously ill child";
 
 const DISCLAIMER = `<p class="text-sm border-l-4 border-amber-500 pl-3 py-1 my-4 bg-amber-50 dark:bg-amber-950/30"><strong>Educational use only.</strong> Apply your facility protocol and senior review. This module supports structured assessment training—not bedside decision-making alone.</p>`;
+
+/** Module-native formatives — disjoint from diagnostic/summative exam bank (rawBank). */
+const NATIVE_MODULE_FORMATIVES: FormativeQuestion[] = [
+  { question: "In primary assessment, which finding needs immediate airway action first?", options: ["Silent chest with exhaustion", "Mild nasal congestion", "Normal cry", "Isolated rash"], correct: 0, explanation: "Silent chest and fatigue suggest impending respiratory failure." },
+  { question: "Grunting in a young child often indicates:", options: ["Increased work of breathing", "Normal sleep", "Resolved illness", "Hypervolaemia only"], correct: 0, explanation: "Grunting is a sign of respiratory distress requiring assessment." },
+  { question: "Nasal flaring in respiratory distress suggests:", options: ["Accessory muscle use and increased work of breathing", "Normal variant always", "Cardiac failure only", "No urgency"], correct: 0, explanation: "Nasal flaring is a paediatric sign of respiratory compromise." },
+  { question: "Head bobbing in an infant with respiratory illness indicates:", options: ["Severe increased work of breathing", "Normal feeding behaviour", "Dehydration only", "Resolved obstruction"], correct: 0, explanation: "Head bobbing signals significant respiratory effort — escalate care." },
+  { question: "Mottled skin with delayed cap refill in a febrile child suggests:", options: ["Poor perfusion needing urgent circulation assessment", "Normal after play", "Hyperthermia only without shock risk", "Isolated skin finding"], correct: 0, explanation: "Perfusion markers help detect compensated shock early." },
+  { question: "Weak peripheral pulses with tachycardia suggest:", options: ["Possible shock — reassess after fluid bolus if indicated", "Normal in all febrile children", "Hypervolaemia", "No treatment needed"], correct: 0, explanation: "Peripheral pulse quality reflects perfusion status." },
+  { question: "Altered mental status during ABCDE assessment requires:", options: ["Disability evaluation and airway protection planning", "Deferral until discharge", "Only antipyretics", "No glucose check"], correct: 0, explanation: "Disability assessment includes AVPU/GCS and reversible causes." },
+  { question: "Pinpoint pupils with altered consciousness may suggest:", options: ["Opioid exposure or brainstem pathology — urgent review", "Normal neonatal finding always", "Asthma only", "No clinical relevance"], correct: 0, explanation: "Pupil abnormalities guide neuro and toxicology workup." },
+  { question: "Unequal pupils after head injury require:", options: ["Urgent neurosurgical/ICU escalation", "Outpatient review in 1 week", "Oral fluids only", "No imaging ever"], correct: 0, explanation: "Anisocoria after trauma is a red flag for intracranial pathology." },
+  { question: "Exposure step in paediatric assessment should occur:", options: ["After immediate ABC threats are addressed", "Before any airway assessment", "Only at discharge", "Never in infants"], correct: 0, explanation: "Complete exposure once life threats are stabilised." },
+  { question: "Hidden blood loss on exposure may present as:", options: ["Pale skin, tachycardia, and abdominal distension", "Isolated cough only", "Normal perfusion always", "Only adult trauma"], correct: 0, explanation: "Look for concealed haemorrhage during systematic exposure." },
+  { question: "Petechiae discovered on exposure in febrile child requires:", options: ["Emergency sepsis/meningitis assessment", "Topical cream only", "Delayed antibiotics", "Home observation"], correct: 0, explanation: "Non-blanching rash with fever is an emergency." },
+  { question: "Weight-based drug dosing in critical illness needs:", options: ["Actual or estimated weight documented before calculation", "Adult dose halving always", "No weight in infants", "Guesswork acceptable"], correct: 0, explanation: "Accurate weight supports safe medication dosing." },
+  { question: "Oxygen saturation probe placement in a child should use:", options: ["Appropriate probe size on well-perfused site", "Any adult probe on toe always", "No SpO₂ monitoring", "Only during sleep"], correct: 0, explanation: "Correct probe size and site improve signal quality." },
+  { question: "Bag-mask ventilation in apnoeic child requires:", options: ["Effective seal and age-appropriate rate with chest rise", "High pressure without reassessment", "Only nasal cannula", "Delay until intubation team arrives always"], correct: 0, explanation: "BVM is a core airway rescue skill while preparing definitive airway." },
+  { question: "Cry quality assessment in infants helps evaluate:", options: ["Airway patency and respiratory effort", "Only hydration status", "Renal function", "No clinical information"], correct: 0, explanation: "Weak or absent cry may signal airway or respiratory compromise." },
+  { question: "Work of breathing assessment includes:", options: ["Retractions, nasal flaring, grunting, and head bobbing", "Temperature only", "Blood culture results", "Discharge planning first"], correct: 0, explanation: "Accessory signs quantify respiratory distress severity." },
+  { question: "Early warning score trend worsening should trigger:", options: ["Senior review and escalation per local protocol", "Automatic discharge", "No change in plan", "Only parental reassurance"], correct: 0, explanation: "Deteriorating PEWS/MEWS supports timely escalation." },
+  { question: "Hypothermia in critically ill child worsens outcomes by:", options: ["Increasing metabolic demand and impairing clotting", "Improving perfusion always", "Lowering heart rate beneficially always", "No effect on resuscitation"], correct: 0, explanation: "Prevent heat loss during resuscitation and transport." },
+  { question: "Structured reassessment after each intervention should include:", options: ["Repeat ABC and response to treatment", "Only final diagnosis documentation", "No vital signs", "Immediate discharge"], correct: 0, explanation: "Reassess after every intervention — treat response guides next steps." },
+  { question: "Caregiver history in acute illness should capture:", options: ["Onset, feeding, urine output, and red-flag symptoms", "Only billing information", "School grades", "No collateral history"], correct: 0, explanation: "Targeted history supports diagnosis and safety netting." },
+];
 
 export async function getSeriouslyIllChildFellowshipCourseId(db: any): Promise<number | null> {
   await ensureSeriouslyIllChildFellowshipCatalog(db);
@@ -454,6 +480,19 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
     )
   );
 
+  const { diagnostic: diagnosticBank, summative: summativeBank } = resolveExamQuestionBanks(BANK);
+  const examStems = new Set(
+    [...diagnosticBank, ...summativeBank].map((q) => normalizeQuestionStem(q.question))
+  );
+  const formativePool = uniqueFormativeQuestions(
+    NATIVE_MODULE_FORMATIVES.filter((q) => !examStems.has(normalizeQuestionStem(q.question)))
+  );
+  const requiredFormatives = moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
+  if (formativePool.length < requiredFormatives) {
+    throw new Error(
+      `seriously-ill-child-i: need ${requiredFormatives} native formatives disjoint from exam bank, have ${formativePool.length}`
+    );
+  }
   const upsertQuizOnModule = async (
     modId: number,
     title: string,
@@ -502,16 +541,8 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
 
   for (let m = 0; m < moduleRows.length; m++) {
     const modId = moduleRows[m]!.id;
-    const slice: FormativeQuestion[] = [];
-    let cursor = m * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
-    while (slice.length < MIN_FORMATIVE_QUESTIONS_PER_MODULE && BANK.length > 0) {
-      const candidate = BANK[cursor % BANK.length]!;
-      cursor++;
-      if (!slice.some((q) => q.question.trim() === candidate.question.trim())) {
-        slice.push(candidate);
-      }
-      if (cursor > BANK.length * moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE) break;
-    }
+    const sliceStart = m * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
+    const slice = formativePool.slice(sliceStart, sliceStart + MIN_FORMATIVE_QUESTIONS_PER_MODULE);
     const formativeTitle =
       moduleRows.length > 1
         ? `${MICROCOURSE_FORMATIVE_QUIZ_TITLE}: Module ${m + 1}`
@@ -524,7 +555,6 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
   const lastModId = moduleRows[moduleRows.length - 1]!.id;
 
   const diagnosticId = await upsertQuizOnModule(firstModId, MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, 0);
-  const { diagnostic: diagnosticBank, summative: summativeBank } = resolveExamQuestionBanks(BANK);
   await upsertQuestions(diagnosticId, diagnosticBank);
 
   const summativeId = await upsertQuizOnModule(lastModId, MICROCOURSE_SUMMATIVE_QUIZ_TITLE, 80);
