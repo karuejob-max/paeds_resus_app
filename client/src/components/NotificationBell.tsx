@@ -3,7 +3,7 @@
  *
  * Unified notification bell for the Header.
  * Shows an unread count badge and opens a dropdown sheet with:
- *   1. Course progress alerts (in-progress courses, not-started enrolled courses)
+ *   1. Course progress alerts — one actionable row per enrollment (micro + AHA), not aggregate counts
  *   2. Certificate expiry warnings (expiring within 90 days)
  *   3. Care Signal review responses
  */
@@ -21,12 +21,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/lib/trpc';
 import { useLocation } from 'wouter';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
+import {
+  buildCourseProgressAlerts,
+  type CourseProgressEnrollmentInput,
+} from '@shared/course-progress-notifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type LocalNotification = {
   id: string;
-  type: 'course_resume' | 'course_start' | 'cert_expiry' | 'care_signal' | 'achievement' | 'alert' | 'system';
+  type: 'course_resume' | 'course_start' | 'course_overflow' | 'cert_expiry' | 'care_signal' | 'achievement' | 'alert' | 'system';
   title: string;
   body: string;
   actionUrl?: string;
@@ -63,8 +67,11 @@ export function NotificationBell() {
     { enabled: open }
   );
 
-  // Local: Course enrollments
+  // Local: Fellowship micro-course + AHA enrollments
   const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
+    refetchInterval: 120_000,
+  });
+  const { data: ahaEnrollmentsData } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
     refetchInterval: 120_000,
   });
 
@@ -84,42 +91,40 @@ export function NotificationBell() {
   // ── Build local notifications from enrollments + certs ─────────────────────
   const localNotifications = useMemo<LocalNotification[]>(() => {
     const items: LocalNotification[] = [];
-    const enrollments = enrollmentsData ?? [];
 
-    // In-progress courses (up to 3)
-    const inProgress = enrollments.filter(
-      (e) =>
-        e.enrollmentStatus === 'active' &&
-        (e.progressPercentage ?? 0) > 0 &&
-        (e.progressPercentage ?? 0) < 100
-    );
-    inProgress.slice(0, 3).forEach((e) => {
-      items.push({
-        id: `resume-${e.id}`,
-        type: 'course_resume',
-        title: `Continue: ${e.course?.title ?? 'Course'}`,
-        body: `${e.progressPercentage ?? 0}% complete — pick up where you left off`,
-        actionUrl: `/micro-course/${e.course?.courseId}`,
-        createdAt: new Date(),
-        read: false,
-      });
-    });
+    const progressInputs: CourseProgressEnrollmentInput[] = [
+      ...(enrollmentsData ?? []).map((e) => ({
+        id: e.id,
+        source: 'micro' as const,
+        title: e.course?.title ?? 'Course',
+        courseSlug: e.course?.courseId ?? '',
+        progressPercentage: Number(e.progressPercentage ?? 0),
+        enrollmentStatus: e.enrollmentStatus,
+      })),
+      ...(ahaEnrollmentsData ?? []).map((e) => ({
+        id: e.id,
+        source: 'aha' as const,
+        title: e.courseTitle ?? e.programType.toUpperCase(),
+        courseSlug: e.programType,
+        courseDbId: e.courseId,
+        progressPercentage: Number(e.progressPercentage ?? 0),
+        cognitiveModulesComplete: e.cognitiveModulesComplete,
+      })),
+    ].filter((row) => row.courseSlug.length > 0);
 
-    // Not-started enrolled courses
-    const notStarted = enrollments.filter(
-      (e) => e.enrollmentStatus === 'active' && (e.progressPercentage ?? 0) === 0
+    buildCourseProgressAlerts(progressInputs, { overflowDestination: '/learner-dashboard' }).forEach(
+      (alert) => {
+        items.push({
+          id: alert.id,
+          type: alert.type,
+          title: alert.title,
+          body: alert.body,
+          actionUrl: alert.actionUrl,
+          createdAt: new Date(),
+          read: false,
+        });
+      }
     );
-    if (notStarted.length > 0) {
-      items.push({
-        id: 'not-started',
-        type: 'course_start',
-        title: `${notStarted.length} enrolled course${notStarted.length > 1 ? 's' : ''} not yet started`,
-        body: 'Start learning to earn your certificate',
-        actionUrl: '/fellowship',
-        createdAt: new Date(),
-        read: false,
-      });
-    }
 
     // Certificates expiring within 90 days
     const certs = certData ?? [];
@@ -146,7 +151,7 @@ export function NotificationBell() {
     }
 
     return items;
-  }, [enrollmentsData, certData]); // certData is already the array from certResponse?.certificates ?? []
+  }, [enrollmentsData, ahaEnrollmentsData, certData]); // certData is already the array from certResponse?.certificates ?? []
 
   // ── Merge remote + local notifications ─────────────────────────────────────
   const allNotifications = useMemo<LocalNotification[]>(() => {
@@ -187,6 +192,7 @@ export function NotificationBell() {
   const typeIcon: Record<LocalNotification['type'], React.ReactNode> = {
     course_resume: <BookOpen className="h-4 w-4 text-violet-500 flex-shrink-0 mt-0.5" />,
     course_start:  <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />,
+    course_overflow: <BookOpen className="h-4 w-4 text-slate-500 flex-shrink-0 mt-0.5" />,
     cert_expiry:   <Award className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />,
     care_signal:   <Activity className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />,
     achievement:   <Award className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />,
@@ -197,6 +203,7 @@ export function NotificationBell() {
   const typeBg: Record<LocalNotification['type'], string> = {
     course_resume: 'bg-violet-50/60',
     course_start:  'bg-blue-50/40',
+    course_overflow: 'bg-slate-50/40',
     cert_expiry:   'bg-amber-50/60',
     care_signal:   'bg-blue-50/60',
     achievement:   'bg-green-50/40',
