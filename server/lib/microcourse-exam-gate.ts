@@ -242,7 +242,13 @@ export async function assertMicrocourseCompletionAllowed(
   microCourseEnrollmentId: number
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const state = await getMicrocourseExamState(db, userId, microCourseEnrollmentId);
-  if (!state) return { ok: true };
+  if (!state) {
+    return {
+      ok: false,
+      message:
+        "Could not verify exam completion for this course. Refresh the page and try again, or contact support if this persists.",
+    };
+  }
   if (state.diagnosticRequired && !state.diagnosticCompleted) {
     return { ok: false, message: "Complete the diagnostic baseline before claiming your certificate." };
   }
@@ -429,12 +435,23 @@ export async function loadSummativeQuestionBank(
   }[];
 
   return dedupeQuizRowsByStem(
-    rows.map((r) => ({
-      id: r.id,
-      question: r.question,
-      options: r.options ? (JSON.parse(r.options) as string[]) : [],
-      explanation: r.explanation,
-    }))
+    rows.map((r) => {
+      let options: string[] = [];
+      if (r.options) {
+        try {
+          const parsed = JSON.parse(r.options);
+          options = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          options = [];
+        }
+      }
+      return {
+        id: r.id,
+        question: r.question,
+        options,
+        explanation: r.explanation,
+      };
+    })
   );
 }
 

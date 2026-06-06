@@ -11,6 +11,7 @@ import {
   userProgress,
 } from "../../drizzle/schema";
 import type { getDb } from "../db";
+import { resolveFellowshipCourseId } from "./microcourse-exam-gate";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -37,9 +38,16 @@ export async function computeMicroCourseEnrollmentProgress(
     return Number(enrollment.progressPercentage ?? 0);
   }
 
-  const fellowshipCourse = await db.query.courses.findFirst({
-    where: and(eq(courses.title, microCourse.title), eq(courses.programType, "fellowship")),
+  const fellowshipCourseId = await resolveFellowshipCourseId(db as never, {
+    title: microCourse.title,
+    order: microCourse.order,
+    courseId: microCourse.courseId,
   });
+  const fellowshipCourse = fellowshipCourseId
+    ? await db.query.courses.findFirst({
+        where: eq(courses.id, fellowshipCourseId),
+      })
+    : undefined;
 
   let pct: number;
   if (!fellowshipCourse) {

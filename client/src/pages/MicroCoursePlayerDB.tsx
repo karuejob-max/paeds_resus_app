@@ -467,13 +467,17 @@ export default function MicroCoursePlayerDB() {
     passingScore: number;
     alreadyCompleted?: boolean;
     examKind?: string;
+    idempotentReplay?: boolean;
     questionResults?: Array<{
       questionId: number;
       correct: boolean;
       correctOption: string;
     }>;
   }) => {
-    if (!result.success) return;
+    if (!result.success) {
+      toast.error("Could not save your quiz attempt. Please try again.");
+      return;
+    }
     const resultsMap: Record<number, { correct: boolean; correctOption: string }> = {};
     for (const r of result.questionResults ?? []) {
       resultsMap[r.questionId] = { correct: r.correct, correctOption: r.correctOption };
@@ -510,6 +514,16 @@ export default function MicroCoursePlayerDB() {
       toast.error(err.message || "Could not submit quiz. Please try again.");
     },
   });
+
+  useEffect(() => {
+    if (!submitQuizMutation.isPending) return;
+    const timeoutId = window.setTimeout(() => {
+      toast.error(
+        "Submit is taking longer than expected. Check your connection — your answers may still be saving."
+      );
+    }, 45_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [submitQuizMutation.isPending]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const modules = (courseDetails?.modules ?? []) as CourseModuleRow[];
@@ -673,7 +687,10 @@ export default function MicroCoursePlayerDB() {
 
   const doSubmitQuiz = (enrollmentId: number) => {
     const quiz = displayQuiz;
-    if (!quiz) return;
+    if (!quiz) {
+      toast.error("Quiz is not ready yet. Please wait a moment and try again.");
+      return;
+    }
     const moduleIdForQuiz = showDiagnosticQuiz
       ? (firstModuleId ?? currentModuleId!)
       : showSummativeExam
@@ -712,10 +729,8 @@ export default function MicroCoursePlayerDB() {
     if (!quiz) return;
 
     if (enrollment?.id) {
-      // Enrollment already exists — submit directly
       doSubmitQuiz(enrollment.id);
     } else if (isAhaCourse) {
-      // First visit: auto-create enrollment then submit
       const pt = (dbCourse as any)?.programType ?? programType ?? 'bls';
       ensureAhaEnrollmentMutation.mutate(
         { programType: pt as any },
@@ -725,6 +740,21 @@ export default function MicroCoursePlayerDB() {
               doSubmitQuiz(result.enrollmentId);
             } else {
               toast.error('Could not create enrollment. Please try again.');
+            }
+          },
+          onError: () => toast.error('Enrollment setup failed. Please try again.'),
+        }
+      );
+    } else if (slug) {
+      ensureMicroEnrollment.mutate(
+        { courseId: slug },
+        {
+          onSuccess: (result) => {
+            if (result.success && result.enrollmentId) {
+              void utils.courses.getUserEnrollments.invalidate();
+              doSubmitQuiz(result.enrollmentId);
+            } else {
+              toast.error(result.error || 'Could not create enrollment. Please try again.');
             }
           },
           onError: () => toast.error('Enrollment setup failed. Please try again.'),
@@ -1128,7 +1158,7 @@ export default function MicroCoursePlayerDB() {
               }
             }}
             isPending={submitQuizMutation.isPending}
-            isEnsuring={ensureAhaEnrollmentMutation.isPending}
+            isEnsuring={ensureAhaEnrollmentMutation.isPending || ensureMicroEnrollment.isPending}
             isFinalExam={isFinalExamModule}
             isDiagnostic={showDiagnosticQuiz}
             summativeRetryBlocked={
