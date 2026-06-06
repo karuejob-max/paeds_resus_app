@@ -1,6 +1,9 @@
-/** Fail if any fellowship catalog course has <15 unique summative stems after expansions. */
+/** Fail if any fellowship catalog course has <25 unique summative stems after expansions. */
 import { getAllFellowshipSeedContent, resolveCatalogSlug } from "./fellowship-seed-lib";
-import { uniqueFormativeQuestions, MICROCOURSE_MIN_QUESTION_BANK_SIZE } from "../shared/microcourse-exam-policy";
+import {
+  uniqueFormativeQuestions,
+  MICROCOURSE_FULL_QUESTION_BANK_SIZE,
+} from "../shared/microcourse-exam-policy";
 import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
 import {
   isFellowshipPillarMicroCourse,
@@ -23,8 +26,8 @@ for (const slug of catalogSlugs) {
     ...(c.quiz?.questions ?? []),
     ...getFellowshipSummativeExpansion(slug),
   ]);
-  if (bank.length < MICROCOURSE_MIN_QUESTION_BANK_SIZE) {
-    console.log(`[THIN BANK] ${slug} unique=${bank.length}`);
+  if (bank.length < MICROCOURSE_FULL_QUESTION_BANK_SIZE) {
+    console.log(`[THIN BANK] ${slug} unique=${bank.length} need=${MICROCOURSE_FULL_QUESTION_BANK_SIZE}`);
     failed++;
   }
 }

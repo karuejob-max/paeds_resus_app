@@ -10,6 +10,7 @@ import {
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
+  MICROCOURSE_FULL_QUESTION_BANK_SIZE,
   expandQuestionBank,
   resolveExamQuestionBanks,
   uniqueFormativeQuestions,
@@ -400,12 +401,56 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
       correct: 0,
       explanation: "Contemporaneous notes support continuity and medicolegal safety.",
     },
+    {
+      question: "Modified early warning score (MEWS/PEWS) in paediatrics helps:",
+      options: [
+        "Trigger escalation when vital trends worsen",
+        "Replace clinical assessment entirely",
+        "Delay senior review until arrest",
+        "Only apply in adults",
+      ],
+      correct: 0,
+      explanation: "Early warning scores support timely escalation in deteriorating children.",
+    },
+    {
+      question: "Bronchodilator trial in wheezy infant with distress should:",
+      options: [
+        "Be given while monitoring response — wheeze is not always asthma",
+        "Never be used under 12 months",
+        "Replace ABCDE assessment",
+        "Delay until ICU admission always",
+      ],
+      correct: 0,
+      explanation: "Trial bronchodilator with reassessment while completing systematic assessment.",
+    },
+    {
+      question: "Sepsis screening in febrile unwell child includes:",
+      options: [
+        "Perfusion assessment, rash check, and source evaluation",
+        "Temperature alone",
+        "Antibiotics only after culture returns",
+        "Discharge if playful momentarily",
+      ],
+      correct: 0,
+      explanation: "Combine clinical perfusion and danger signs with appropriate cultures and antibiotics when indicated.",
+    },
+    {
+      question: "Inter-facility transport of critically ill child requires:",
+      options: [
+        "Stabilised ABC, documented handover, and appropriate escort/equipment",
+        "Transport without IV access always",
+        "Parent alone without clinical escort in all cases",
+        "No monitoring during transfer",
+      ],
+      correct: 0,
+      explanation: "Safe transfer needs stabilisation, SBAR handover, and trained escort per referral protocol.",
+    },
   ];
 
   const BANK = uniqueFormativeQuestions(
     expandQuestionBank(
       rawBank,
-      Math.max(15, moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE)
+      Math.max(MICROCOURSE_FULL_QUESTION_BANK_SIZE, moduleRows.length * MIN_FORMATIVE_QUESTIONS_PER_MODULE)
     )
   );
 

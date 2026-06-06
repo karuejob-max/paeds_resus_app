@@ -143,6 +143,19 @@ describe("microcourse-exam-policy", () => {
     expect(overlap.length).toBe(5);
   });
 
+  it("zero diagnostic-summative overlap at full bank size (25)", () => {
+    const bank = Array.from({ length: 25 }, (_, i) => ({
+      question: `Full bank stem ${i}`,
+      options: ["a"],
+      correct: 0,
+      explanation: "e",
+    }));
+    const { diagnostic, summative } = resolveExamQuestionBanks(bank);
+    const diagStems = new Set(diagnostic.map((q) => normalizeQuestionStem(q.question)));
+    expect(summative.every((q) => !diagStems.has(normalizeQuestionStem(q.question)))).toBe(true);
+    expect(diagStems.size + summative.length).toBe(25);
+  });
+
   it("prefers module-native questions over summative bank", () => {
     const modules = [
       { questions: [{ question: "M1", options: ["a"], correct: 0, explanation: "e" }] },

@@ -277,6 +277,10 @@ function main() {
 
   if (process.argv.includes("--strict")) {
     if (totalExpandDups > 0 || bankFallbackCount > 0) process.exit(1);
+    if (totalDiagSummOverlap > 0) {
+      console.error(`Strict audit failed: diagnostic↔summative overlap=${totalDiagSummOverlap}`);
+      process.exit(1);
+    }
     const formativeDupCourses = audits.filter((a) =>
       a.notes.some((n) => n.includes("duplicate formative stems") || n.includes("duplicate stem(s)"))
     ).length;
