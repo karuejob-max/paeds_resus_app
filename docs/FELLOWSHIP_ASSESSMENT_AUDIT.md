@@ -2,11 +2,13 @@
 
 **Generated:** 2026-06-06 · **Scope:** 29 fellowship pillar micro-courses
 
-## Post-remediation status (2026-06-06)
+## Post-remediation status (2026-06-06, PR #176)
 
-- **Module-native formatives:** 29/29 courses pass static audit (`audit:fellowship-seed-static` — `Courses needing formative depth work: 0/29`). Prior NO_NATIVE debt (20 courses) cleared via module-native questions in source data (≥3 per module).
+- **Module-native formatives:** 29/29 pass static audit (`Courses needing formative depth work: 0/29`). Prior NO_NATIVE debt (20 courses) cleared.
+- **Prod verify:** `verify-fellowship-seed.ts` → **29 courses, 0 failures**; all `thinFormative=0`; all `summQs≥15` on prod DB (host `public-*.aivencloud.com`).
 - **Seed policy:** `bankFallbackCount=0`, `expandQuestionBank` duplicate stems = 0.
-- **Remaining debt:** 22 courses still below 15 unique summative stems in source (HIGH severity); 17 summative→formative stem overlaps (acceptable where stems differ in context; no bank fallback reintroduced). P0 verify courses (asthma, DKA, SE) now at 15 summative stems.
+- **Summative authored stems:** 22 courses still have &lt;15 unique stems in course source files; `fellowship-summative-expansions.ts` supplies additional unique stems at seed (not bank fallback). **Remaining P2:** fold expansions into authored `quiz.questions` over time.
+- **Summative→formative overlap:** 17 stems (acceptable where context differs; no formative bank fallback).
 
 ## Executive summary (after remediation)
 
