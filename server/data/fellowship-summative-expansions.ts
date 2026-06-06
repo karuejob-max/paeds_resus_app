@@ -40,6 +40,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Signs of fluid overload during resuscitation include:", options: ["Hepatomegaly, crackles, rising JVP", "Improved perfusion only", "Falling HR always", "Normal exam always"], correct: 0, explanation: "Stop boluses if overload develops — escalate alternative support." },
     { question: "Haemorrhagic shock requires:", options: ["Haemorrhage control plus blood products when available", "Hypotonic fluids only", "No IV access", "Oral fluids alone in severe shock"], correct: 0, explanation: "Control bleeding and transfuse per massive haemorrhage protocol." },
     { question: "Dehydration shock from gastroenteritis uses:", options: ["Isotonic boluses if perfusion poor, then deficit replacement plan", "Free water bolus", "No fluids until ORT fails only in shock", "Hypertonic saline first-line always"], correct: 0, explanation: "Isotonic resuscitation when shock present; ORT when perfusion adequate." },
+    { question: "Tachycardia with weak pulses and delayed cap refill in hypovolaemia indicates:", options: ["Compensated shock requiring urgent volume resuscitation", "Normal variant", "Primary cardiogenic shock always", "No treatment needed"], correct: 0, explanation: "Tachycardia and poor perfusion are early shock signs — reassess after each bolus." },
   ],
   "hypovolemic-shock-ii": [
     { question: "Massive transfusion protocol activates when:", options: ["Ongoing haemorrhage with shock despite initial resuscitation", "Mild anaemia only", "Single unit transfusion always", "Normal Hb"], correct: 0, explanation: "MTP balances RBC, plasma, and platelets in ongoing major haemorrhage." },
@@ -96,6 +97,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Circumferential full-thickness limb burn with distal ischaemia needs:", options: ["Escharotomy", "Routine discharge", "Topical cream only", "Oral antibiotics only"], correct: 0, explanation: "Escharotomy relieves compartment pressure from circumferential eschar." },
     { question: "Inhalation injury suspicion increases when:", options: ["Facial burns, soot in mouth, or stridor", "Small hand burn only", "No history", "Normal voice always"], correct: 0, explanation: "Airway oedema can develop — early intubation if concern." },
     { question: "Referral criteria for paediatric burns include:", options: [">10% partial-thickness or face/hands/perineum involvement", "Any minor scratch", "Sunburn only", "No referral ever"], correct: 0, explanation: "Major or special-site burns need burn centre/specialist care." },
+    { question: "Initial cooling of small thermal burns should use:", options: ["Cool running water for 20 minutes", "Ice directly on skin", "Butter or oil application", "No first aid"], correct: 0, explanation: "Cool running water reduces depth progression — avoid ice burns." },
   ],
   "burns-ii": [
     { question: "Burn wound sepsis may present with:", options: ["Fever, thrombocytopenia, hyperglycaemia, graft discolouration", "Improved appetite only", "Normal WBC always", "No treatment change"], correct: 0, explanation: "Sepsis is leading cause of death in major burns — surgical and antibiotic review." },
@@ -103,6 +105,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Hypermetabolic response in major burns causes:", options: ["Increased caloric needs and catabolism", "Reduced nutrition needs", "No protein loss", "Hypothermia only"], correct: 0, explanation: "Early enteral nutrition and protein support improve outcomes." },
     { question: "Contracture prevention after burns includes:", options: ["Physiotherapy and splinting in functional positions", "Immobilisation in flexion always", "No rehab", "Discharge without follow-up"], correct: 0, explanation: "Rehabilitation prevents long-term contractures." },
     { question: "Toxic shock syndrome in burns is treated with:", options: ["Broad-spectrum antibiotics and source control", "Topical water only", "No blood cultures", "Delay debridement always"], correct: 0, explanation: "TSS requires antibiotics and aggressive wound/source management." },
+    { question: "Electrical burns require extra monitoring because:", options: ["Deep tissue injury may exceed visible skin wound", "Only surface injury occurs", "No cardiac risk", "No admission needed"], correct: 0, explanation: "Electrical injury can cause arrhythmia and deep necrosis — ECG and admission." },
   ],
   "trauma-i": [
     { question: "Primary survey order in trauma is:", options: ["ABCDE", "ECBA", "DEFG", "History first always"], correct: 0, explanation: "Airway, Breathing, Circulation, Disability, Exposure — treat as you go." },
@@ -110,6 +113,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Two large-bore IV cannulae in trauma allow:", options: ["Rapid blood product and fluid administration", "Oral medication only", "No lab tests", "Delayed resuscitation"], correct: 0, explanation: "Adequate access for resuscitation and sampling." },
     { question: "GCS falling after head injury suggests:", options: ["Expanding intracranial pathology — urgent escalation", "Benign course always", "Discharge", "No imaging ever"], correct: 0, explanation: "Declining GCS is a red flag for intracranial injury." },
     { question: "Prevent hypothermia in trauma because:", options: ["Coagulopathy worsens with cold", "It improves clotting", "No effect on outcomes", "Only cosmetic concern"], correct: 0, explanation: "Hypothermia contributes to trauma coagulopathy triad." },
+    { question: "Pelvic fracture with haemodynamic instability may need:", options: ["Pelvic binder and haemorrhage control protocol", "Immediate discharge", "Oral fluids only", "No imaging"], correct: 0, explanation: "Pelvic binder stabilises fracture and reduces venous bleeding while resuscitating." },
   ],
   "trauma-ii": [
     { question: "Focused Assessment with Sonography for Trauma (FAST) helps detect:", options: ["Free fluid in abdomen/pericardium", "Exact bowel injury always", "C-spine fracture detail", "Malaria parasitaemia"], correct: 0, explanation: "FAST identifies haemoperitoneum/pericardial fluid — triage to surgery." },
@@ -117,6 +121,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Spinal immobilisation in paediatric trauma:", options: ["Maintain neutral alignment when mechanism concerning", "Never needed", "Hyperextend neck always", "Only for adults"], correct: 0, explanation: "Limit movement when cervical injury suspected per protocol." },
     { question: "Non-accidental injury suspicion requires:", options: ["Safeguarding referral and documented skeletal survey per protocol", "Discharge without documentation", "Ignore inconsistent history", "No social work"], correct: 0, explanation: "NAI workup and safeguarding are mandatory when suspected." },
     { question: "Damage control surgery in exsanguinating trauma aims to:", options: ["Control haemorrhage and contamination quickly; plan relook", "Complete all definitive repairs in one long operation always", "Avoid ICU", "No blood products"], correct: 0, explanation: "Damage control prioritises survival — definitive repair later." },
+    { question: "Open pneumothorax (sucking chest wound) is managed with:", options: ["Occlusive dressing taped on three sides then chest drain", "Leave wound open to air always", "Oral antibiotics only", "No oxygen"], correct: 0, explanation: "Three-sided occlusive dressing converts open to tension risk — then definitive drain." },
   ],
   "aki-i": [
     { question: "Paediatric AKI staging uses:", options: ["KDIGO creatinine and urine output criteria", "Adult GFR only", "No staging", "Temperature"], correct: 0, explanation: "KDIGO AKI criteria adapted for children guide severity." },
@@ -131,6 +136,20 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Hyperkalaemia ECG changes include:", options: ["Peaked T waves and widened QRS", "ST elevation only from ACS always", "Normal ECG always", "Prolonged QT only"], correct: 0, explanation: "Treat ECG changes urgently — calcium, insulin-glucose, salbutamol." },
     { question: "HUS after diarrhoeal illness causes AKI by:", options: ["Thrombotic microangiopathy", "Isolated prerenal dehydration only", "Asthma", "No renal involvement"], correct: 0, explanation: "STEC-HUS causes microangiopathic haemolytic anaemia and AKI." },
     { question: "Contrast-induced AKI prevention includes:", options: ["Avoid unnecessary contrast; hydrate per protocol", "NSAIDs before scan", "Withhold all fluids", "Routine HD after all CTs"], correct: 0, explanation: "Risk-stratify and hydrate when contrast necessary." },
+  ],
+  "meningitis-i": [
+    { question: "Kernig sign in meningitis indicates:", options: ["Hip flexion pain on knee extension", "Normal finding", "Asthma", "Dehydration only"], correct: 0, explanation: "Kernig sign reflects meningeal irritation." },
+    { question: "Photophobia in meningitis means:", options: ["Light worsens headache — meningeal irritation", "No light sensitivity", "Normal in all febrile children", "Contraindication to antibiotics"], correct: 0, explanation: "Photophobia is a classic meningeal sign." },
+    { question: "Neonatal meningitis empiric cover often includes ampicillin for:", options: ["Listeria cover", "Asthma", "Viral URI only", "No bacterial cover"], correct: 0, explanation: "Ampicillin covers Listeria in neonates per local protocol." },
+    { question: "Meningococcal rash that does not blanch is:", options: ["Petechiae/purpura — treat as emergency", "Allergic urticaria only", "Normal viral rash", "No urgency"], correct: 0, explanation: "Non-blanching rash with fever requires immediate treatment." },
+    { question: "CSF analysis in bacterial meningitis typically shows:", options: ["High WBC, low glucose, high protein", "Normal glucose always", "No cells", "Only viral pattern always"], correct: 0, explanation: "Bacterial meningitis CSF: neutrophilic pleocytosis, low glucose, high protein." },
+  ],
+  "meningitis-ii": [
+    { question: "SIADH in meningitis can cause:", options: ["Hyponatraemia and seizures", "Hypernatraemia always", "No electrolyte change", "Isolated hyperkalaemia"], correct: 0, explanation: "Monitor sodium — SIADH is a known complication." },
+    { question: "Status epilepticus in meningitis requires:", options: ["Benzodiazepine per seizure protocol and treat cause", "Oral fluids only", "Delay anticonvulsants", "Discharge"], correct: 0, explanation: "Treat seizures urgently while managing underlying meningitis." },
+    { question: "Hearing assessment after meningitis is important because:", options: ["Sensorineural hearing loss is a common sequel", "No hearing risk", "Only adults affected", "Optional only in neonates"], correct: 0, explanation: "Audiology follow-up is recommended after bacterial meningitis." },
+    { question: "Cerebral perfusion pressure depends on:", options: ["MAP minus ICP", "Heart rate only", "Temperature only", "Urine output only"], correct: 0, explanation: "CPP = MAP − ICP — avoid hypotension and raised ICP." },
+    { question: "Procalcitonin may support:", options: ["Differentiating bacterial vs viral CNS infection in selected cases", "Replacing LP always", "Avoiding antibiotics always", "Diagnosing asthma"], correct: 0, explanation: "Biomarkers may aid decision-making per local protocol." },
   ],
   "anaemia-i": [
     { question: "WHO transfusion threshold in children includes Hb:", options: ["<4 g/dL regardless of symptoms", ">12 g/dL always", "Only if asymptomatic at 8 g/dL", "Never transfuse"], correct: 0, explanation: "WHO: transfuse if Hb <4 g/dL or 4–6 with shock/heart failure/consciousness change." },

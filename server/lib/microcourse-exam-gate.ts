@@ -14,6 +14,7 @@ import {
   MICROCOURSE_SUMMATIVE_MAX_ATTEMPTS,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
   canAttemptSummative,
+  dedupeQuizRowsByStem,
   examKindFromQuizTitle,
   summativePassed,
   type SummativeBlockKind,
@@ -357,12 +358,14 @@ export async function loadSummativeQuestionBank(
     explanation: string | null;
   }[];
 
-  return rows.map((r) => ({
-    id: r.id,
-    question: r.question,
-    options: r.options ? (JSON.parse(r.options) as string[]) : [],
-    explanation: r.explanation,
-  }));
+  return dedupeQuizRowsByStem(
+    rows.map((r) => ({
+      id: r.id,
+      question: r.question,
+      options: r.options ? (JSON.parse(r.options) as string[]) : [],
+      explanation: r.explanation,
+    }))
+  );
 }
 
 function resolveCorrectOptionText(
@@ -394,11 +397,16 @@ export async function computeQuizScoreFromDb(
     .where(eq(quizQuestions.quizId, quizId))
     .orderBy(asc(quizQuestions.order))) as {
     id: number;
+    question: string;
     correctAnswer: string | null;
     options: string | null;
   }[];
 
-  if (rows.length === 0) {
+  const dedupedRows = dedupeQuizRowsByStem(
+    rows.map((r) => ({ id: r.id, question: r.question, correctAnswer: r.correctAnswer, options: r.options }))
+  );
+
+  if (dedupedRows.length === 0) {
     return { score: 0, correctCount: 0, totalQuestions: 0, questionResults: [] };
   }
 
@@ -406,7 +414,8 @@ export async function computeQuizScoreFromDb(
   let correctCount = 0;
   const questionResults: SummativeQuestionResult[] = [];
 
-  for (const q of rows) {
+  for (const q of dedupedRows) {
+    const fullRow = rows.find((r) => r.id === q.id)!;
     const userAnswer =
       answerMap[q.id] ??
       answerMap[String(q.id)] ??
@@ -414,17 +423,17 @@ export async function computeQuizScoreFromDb(
         ? (answerMap as Record<string, string>)[String(q.id)]
         : undefined);
     let options: string[] = [];
-    if (q.options) {
+    if (fullRow.options) {
       try {
-        const parsed = JSON.parse(q.options);
+        const parsed = JSON.parse(fullRow.options);
         options = Array.isArray(parsed) ? parsed : [];
       } catch {
         options = [];
       }
     }
-    const correctOption = resolveCorrectOptionText(q.correctAnswer, options);
+    const correctOption = resolveCorrectOptionText(fullRow.correctAnswer, options);
     const correct = userAnswer
-      ? gradeQuizAnswerAgainstStored(userAnswer, q.correctAnswer, options)
+      ? gradeQuizAnswerAgainstStored(userAnswer, fullRow.correctAnswer, options)
       : false;
     if (correct) correctCount++;
     questionResults.push({
@@ -435,8 +444,8 @@ export async function computeQuizScoreFromDb(
     });
   }
 
-  const score = Math.round((correctCount / rows.length) * 100);
-  return { score, correctCount, totalQuestions: rows.length, questionResults };
+  const score = Math.round((correctCount / dedupedRows.length) * 100);
+  return { score, correctCount, totalQuestions: dedupedRows.length, questionResults };
 }
 
 export { MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, MICROCOURSE_SUMMATIVE_QUIZ_TITLE };

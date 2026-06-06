@@ -44,6 +44,7 @@ import {
 import {
   MICROCOURSE_SUMMATIVE_PASS_PERCENT,
   canAttemptSummative,
+  dedupeQuizRowsByStem,
   examKindFromQuizTitle,
   shuffleQuestionIndices,
 } from "../../shared/microcourse-exam-policy";
@@ -262,24 +263,26 @@ export const learningRouter = router({
           .from(quizQuestions)
           .where(eq(quizQuestions.quizId, quiz.id))
           .orderBy(quizQuestions.order);
-        const questions = raw.map((q: Record<string, unknown>) => {
-          let options: string[] = [];
-          if (q.options) {
-            try {
-              const parsed = JSON.parse(q.options as string);
-              options = Array.isArray(parsed) ? parsed : [];
-            } catch {
-              options = [];
+        const questions = dedupeQuizRowsByStem(
+          raw.map((q: Record<string, unknown>) => {
+            let options: string[] = [];
+            if (q.options) {
+              try {
+                const parsed = JSON.parse(q.options as string);
+                options = Array.isArray(parsed) ? parsed : [];
+              } catch {
+                options = [];
+              }
             }
-          }
-          const kind = examKindFromQuizTitle(quiz.title as string);
-          const base = { ...q, options };
-          if (kind === "summative") {
-            const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
-            return withoutAnswer;
-          }
-          return base;
-        });
+            const kind = examKindFromQuizTitle(quiz.title as string);
+            const base = { ...q, question: String(q.question ?? ""), options };
+            if (kind === "summative") {
+              const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
+              return withoutAnswer;
+            }
+            return base;
+          }) as { id?: number; question: string }[]
+        );
         return { ...quiz, questions };
       };
 
@@ -374,7 +377,7 @@ export const learningRouter = router({
       if (state.summativeQuizId && state.summativeQuizId !== input.summativeQuizId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid summative quiz for this course" });
       }
-      const bank = await loadSummativeQuestionBank(db as any, input.summativeQuizId);
+      const bank = dedupeQuizRowsByStem(await loadSummativeQuestionBank(db as any, input.summativeQuizId));
       const order = shuffleQuestionIndices(bank.length, input.shuffleSeed);
       return {
         questions: order.map((i) => bank[i]),

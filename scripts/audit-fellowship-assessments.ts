@@ -10,9 +10,11 @@ import {
   materializeModuleNativeFormatives,
   MICROCOURSE_MIN_QUESTION_BANK_SIZE,
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
+  resolveExamQuestionBanks,
   uniqueFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
+import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
 import {
   isFellowshipPillarMicroCourse,
   MICRO_COURSE_CATALOG,
@@ -98,17 +100,28 @@ type CourseAudit = {
   notes: string[];
 };
 
+function withinQuizDuplicateCount(questions: FormativeQuestion[]): number {
+  const stems = questions.map((q) => normStem(q.question));
+  return stems.length - new Set(stems).size;
+}
+
 function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
   const slug = resolveCatalogSlug(raw.id);
   const materialized = materializeModuleNativeFormatives(raw);
   const authoredSummative = raw.quiz?.questions ?? [];
   const uniqueSummative = uniqueFormativeQuestions(authoredSummative);
+  const fullBank = uniqueFormativeQuestions([
+    ...authoredSummative,
+    ...getFellowshipSummativeExpansion(slug),
+  ]);
+  const { diagnostic, summative: seededSummative } = resolveExamQuestionBanks(fullBank);
 
   const bankFallback = raw.modules.some((m) => (m.questions?.length ?? 0) === 0);
-  const expandDuplicates = 0;
+  const expandDuplicates = withinQuizDuplicateCount(seededSummative);
   const allFormative = materialized.modules.flatMap((m) => m.questions ?? []);
   const summFormOverlap = overlap(uniqueSummative, allFormative);
   const crossModuleFormDups = crossModuleFormativeDups(materialized.modules);
+  const diagSummOverlap = overlap(diagnostic, seededSummative);
 
   const notes: string[] = [];
   let severity: Severity = "OK";
@@ -118,8 +131,12 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
     severity = "HIGH";
   }
   if (expandDuplicates > 0) {
-    notes.push(`expandQuestionBank cycles ${expandDuplicates} duplicate stem(s)`);
+    notes.push(`summative seed has ${expandDuplicates} duplicate stem(s)`);
     if (severity === "OK") severity = "MEDIUM";
+  }
+  if (diagSummOverlap > 0) {
+    notes.push(`${diagSummOverlap} diagnostic↔summative stem overlap (seed split)`);
+    if (severity === "OK") severity = "LOW";
   }
   if (uniqueSummative.length < MICROCOURSE_MIN_QUESTION_BANK_SIZE) {
     notes.push(`Only ${uniqueSummative.length} unique summative stems (need ${MICROCOURSE_MIN_QUESTION_BANK_SIZE})`);
@@ -135,8 +152,12 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
   }
   for (let i = 0; i < materialized.modules.length; i++) {
     const qs = materialized.modules[i]!.questions ?? [];
+    if (withinQuizDuplicateCount(qs) > 0) {
+      notes.push(`Module ${i + 1}: duplicate formative stems in seed`);
+      if (severity === "OK") severity = "MEDIUM";
+    }
     if (uniqueStemCount(qs) < MIN_FORMATIVE_QUESTIONS_PER_MODULE) {
-      notes.push(`Module ${i + 1}: padded duplicate formatives`);
+      notes.push(`Module ${i + 1}: fewer than ${MIN_FORMATIVE_QUESTIONS_PER_MODULE} unique formative stems`);
       if (severity === "OK") severity = "LOW";
     }
   }
@@ -208,6 +229,16 @@ function main() {
   const totalExpandDups = audits.reduce((s, a) => s + a.expandDuplicates, 0);
   const totalSummFormOverlap = audits.reduce((s, a) => s + a.summFormOverlap, 0);
   const totalCrossMod = audits.reduce((s, a) => s + a.crossModuleFormDups, 0);
+  const totalDiagSummOverlap = audits.reduce((s, a) => {
+    const raw = bySlug.get(a.slug);
+    if (!raw) return s;
+    const fullBank = uniqueFormativeQuestions([
+      ...(raw.quiz?.questions ?? []),
+      ...getFellowshipSummativeExpansion(a.slug),
+    ]);
+    const { diagnostic, summative } = resolveExamQuestionBanks(fullBank);
+    return s + overlap(diagnostic, summative);
+  }, 0);
   const bankFallbackCount = audits.filter((a) => a.bankFallback).length;
   const criticalCount = audits.filter((a) => severityRank(a.severity) >= 3).length;
 
@@ -224,6 +255,7 @@ function main() {
     `| HIGH/CRITICAL severity | ${criticalCount} |`,
     `| Bank-fallback courses | ${bankFallbackCount} |`,
     `| expandQuestionBank duplicate stems | ${totalExpandDups} |`,
+    `| Diagnostic↔summative overlaps (seed split) | ${totalDiagSummOverlap} |`,
     `| Summative→formative overlaps | ${totalSummFormOverlap} |`,
     `| Cross-module formative duplicates | ${totalCrossMod} |`,
     "",
@@ -244,7 +276,11 @@ function main() {
   console.log(JSON.stringify({ criticalCount, totalExpandDups, totalSummFormOverlap, bankFallbackCount }, null, 2));
 
   if (process.argv.includes("--strict")) {
-    if (criticalCount > 0 || totalExpandDups > 0 || bankFallbackCount > 0) process.exit(1);
+    if (totalExpandDups > 0 || bankFallbackCount > 0) process.exit(1);
+    const formativeDupCourses = audits.filter((a) =>
+      a.notes.some((n) => n.includes("duplicate formative stems") || n.includes("duplicate stem(s)"))
+    ).length;
+    if (formativeDupCourses > 0) process.exit(1);
   }
 }
 

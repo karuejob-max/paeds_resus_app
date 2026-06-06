@@ -3,7 +3,10 @@ import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+  examKindFromQuizTitle,
   materializeModuleNativeFormatives,
+  resolveExamQuestionBanks,
+  resolveSummativeQuestionBank,
   uniqueFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
@@ -11,7 +14,7 @@ import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-
 import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
 import { getDb } from "../server/db";
 import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
-import { eq, and, desc, like, or } from "drizzle-orm";
+import { eq, and, desc, like, or, inArray } from "drizzle-orm";
 
 import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
 import { microCoursesBatch3To5 } from "../server/data/micro-courses-batch-3-5";
@@ -335,10 +338,15 @@ export async function seedFellowshipContent(options: {
       const firstModuleId = moduleIds[0]!;
       // Module-native formatives only — never pull stems from summative bank (governance §3.3).
       const formativeByModule = courseData.modules.map((mod) => mod.questions ?? []);
-      const bankQuestions = uniqueFormativeQuestions([
+      const fullBank = uniqueFormativeQuestions([
         ...courseData.quiz.questions,
         ...getFellowshipSummativeExpansion(catalogSlug),
       ]);
+      const summativeBank = resolveSummativeQuestionBank(fullBank);
+      const { diagnostic: diagnosticBank, summative: seededSummativeBank } =
+        resolveExamQuestionBanks(summativeBank);
+
+      const formativeQuizIds: number[] = [];
 
       for (let i = 0; i < moduleIds.length; i++) {
         const moduleFormative = formativeByModule[i] ?? [];
@@ -348,6 +356,7 @@ export async function seedFellowshipContent(options: {
             ? `${MICROCOURSE_FORMATIVE_QUIZ_TITLE}: Module ${i + 1}`
             : MICROCOURSE_FORMATIVE_QUIZ_TITLE;
         const formativeQuizId = await ensureQuizOnModule(moduleIds[i]!, formativeTitle, 70);
+        formativeQuizIds.push(formativeQuizId);
         await upsertQuizQuestions(formativeQuizId, moduleFormative);
       }
 
@@ -356,16 +365,51 @@ export async function seedFellowshipContent(options: {
         MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
         80
       );
-      await upsertQuizQuestions(summativeQuizId, bankQuestions);
+      await upsertQuizQuestions(summativeQuizId, seededSummativeBank);
 
       const diagnosticQuizId = await ensureQuizOnModule(
         firstModuleId,
         MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
         0
       );
-      await upsertQuizQuestions(diagnosticQuizId, bankQuestions);
+      await upsertQuizQuestions(diagnosticQuizId, diagnosticBank);
+
+      await pruneOrphanExamQuizzes(db, moduleIds, {
+        diagnosticQuizId,
+        summativeQuizId,
+        formativeQuizIds,
+      });
     }
   }
 
   console.log("Seeding complete!");
+}
+
+/** Remove legacy duplicate diagnostic/summative/formative quizzes after re-seed. */
+async function pruneOrphanExamQuizzes(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  moduleIds: number[],
+  keep: { diagnosticQuizId: number; summativeQuizId: number; formativeQuizIds: number[] }
+): Promise<void> {
+  const keepIds = new Set([
+    keep.diagnosticQuizId,
+    keep.summativeQuizId,
+    ...keep.formativeQuizIds,
+  ]);
+
+  const rows = await db
+    .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
+    .from(quizzes)
+    .where(inArray(quizzes.moduleId, moduleIds));
+
+  for (const row of rows) {
+    const kind = examKindFromQuizTitle(row.title);
+    if (kind === "formative" && !row.title?.includes(MICROCOURSE_FORMATIVE_QUIZ_TITLE)) continue;
+    if (kind === "formative" || kind === "diagnostic" || kind === "summative") {
+      if (!keepIds.has(row.id)) {
+        await db.delete(quizQuestions).where(eq(quizQuestions.quizId, row.id));
+        await db.delete(quizzes).where(eq(quizzes.id, row.id));
+      }
+    }
+  }
 }
