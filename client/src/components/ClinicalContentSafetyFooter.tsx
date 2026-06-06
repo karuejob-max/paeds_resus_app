@@ -20,6 +20,8 @@ import { trpc } from "@/lib/trpc";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
+import type { FeedbackCategory } from "@shared/platform-feedback";
 
 export type ClinicalContentSafetySurface = "fellowship_player" | "aha_player" | "resus_gps";
 
@@ -46,7 +48,10 @@ export function ClinicalContentSafetyFooter({
   const trackProductActivity = trpc.events.trackEvent.useMutation();
   const reportUnsafeMutation = trpc.contentSafety.reportUnsafeContent.useMutation({
     onSuccess: (res) => {
-      if (res.success) toast.success("Report submitted — thank you for helping keep content safe.");
+      if (res.success) {
+        const ref = "ticketId" in res && res.ticketId ? ` — reference #${res.ticketId}` : "";
+        toast.success(`Report submitted${ref}.`);
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -57,6 +62,8 @@ export function ClinicalContentSafetyFooter({
 
   const resolvedPageUrl =
     pageUrl ?? (typeof window !== "undefined" ? window.location.pathname : "/");
+
+  const feedbackCategory: FeedbackCategory = surface === "resus_gps" ? "resus_gps" : "course_content";
 
   useEffect(() => {
     if (contentVersionTracked.current || !surfaceId || !clinicalVersion?.version) return;
@@ -139,6 +146,7 @@ export function ClinicalContentSafetyFooter({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <FeedbackDialog defaultCategory={feedbackCategory} contextJson={{ pageUrl: resolvedPageUrl, courseSlug: surfaceId, courseId: surfaceId, moduleId, surface }} compact />
       <p className="text-[10px]">Educational use only — apply your facility protocol and senior review.</p>
     </footer>
   );

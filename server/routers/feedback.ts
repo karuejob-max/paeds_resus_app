@@ -1,11 +1,60 @@
 import { z } from "zod";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { submitFeedback, submitNpsSurvey, getUserFeedbackHistory, calculateFeedbackAnalytics, generateFeedbackReport } from "../services/feedback.service";
+import { protectedProcedure, router } from "../_core/trpc";
+import {
+  submitFeedback,
+  submitNpsSurvey,
+  getUserFeedbackHistory,
+  calculateFeedbackAnalytics,
+  generateFeedbackReport,
+} from "../services/feedback.service";
+import { FEEDBACK_CATEGORIES } from "../../shared/platform-feedback";
+import { createPlatformFeedbackTicket, listUserFeedbackTickets } from "../lib/platform-feedback-tickets";
+import { trackEvent } from "../services/analytics.service";
+
+const contextSchema = z
+  .object({
+    pageUrl: z.string().max(512).optional(),
+    courseSlug: z.string().max(64).optional(),
+    courseId: z.string().max(64).optional(),
+    moduleId: z.number().int().positive().optional(),
+    resusSessionId: z.string().max(128).optional(),
+    surface: z.string().max(64).optional(),
+  })
+  .optional();
 
 export const feedbackRouter = router({
-  /**
-   * Submit user feedback
-   */
+  submit: protectedProcedure
+    .input(
+      z.object({
+        category: z.enum(FEEDBACK_CATEGORIES),
+        message: z.string().min(10).max(4000),
+        subject: z.string().max(255).optional(),
+        contextJson: contextSchema,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await createPlatformFeedbackTicket({
+        userId: ctx.user.id,
+        category: input.category,
+        message: input.message,
+        subject: input.subject,
+        contextJson: input.contextJson,
+      });
+      if (!result.success) return { success: false as const, error: result.error };
+      void trackEvent({
+        userId: ctx.user.id,
+        eventType: "platform_feedback",
+        eventName: "feedback_submitted",
+        eventData: { ticketId: result.ticketId, category: input.category },
+        sessionId: input.contextJson?.resusSessionId ?? `feedback_${result.ticketId}`,
+      });
+      return { success: true as const, ticketId: result.ticketId };
+    }),
+
+  listMine: protectedProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(50).default(20) }).optional())
+    .query(async ({ ctx, input }) => listUserFeedbackTickets(ctx.user.id, input?.limit ?? 20)),
+
   submitFeedback: protectedProcedure
     .input(
       z.object({
@@ -14,18 +63,10 @@ export const feedbackRouter = router({
         comment: z.string().optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      return await submitFeedback({
-        userId: ctx.user.id,
-        feedbackType: input.feedbackType,
-        rating: input.rating,
-        comment: input.comment,
-      });
-    }),
+    .mutation(async ({ ctx, input }) =>
+      submitFeedback({ userId: ctx.user.id, feedbackType: input.feedbackType, rating: input.rating, comment: input.comment })
+    ),
 
-  /**
-   * Submit NPS survey
-   */
   submitNpsSurvey: protectedProcedure
     .input(
       z.object({
@@ -34,48 +75,21 @@ export const feedbackRouter = router({
         followUpEmail: z.string().email().optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      return await submitNpsSurvey({
-        userId: ctx.user.id,
-        score: input.score,
-        feedback: input.feedback,
-        followUpEmail: input.followUpEmail,
-      });
-    }),
+    .mutation(async ({ ctx, input }) =>
+      submitNpsSurvey({ userId: ctx.user.id, score: input.score, feedback: input.feedback, followUpEmail: input.followUpEmail })
+    ),
 
-  /**
-   * Get user's feedback history
-   */
-  getUserFeedback: protectedProcedure.query(async ({ ctx }) => {
-    return await getUserFeedbackHistory(ctx.user.id);
-  }),
+  getUserFeedback: protectedProcedure.query(async ({ ctx }) => getUserFeedbackHistory(ctx.user.id)),
 
-  /**
-   * Get feedback analytics (admin only)
-   */
   getAnalytics: protectedProcedure.query(async ({ ctx }) => {
-    // Check if user is admin
-    if (ctx.user.role !== "admin") {
-      throw new Error("Unauthorized");
-    }
-    return await calculateFeedbackAnalytics();
+    if (ctx.user.role !== "admin") throw new Error("Unauthorized");
+    return calculateFeedbackAnalytics();
   }),
 
-  /**
-   * Generate feedback report (admin only)
-   */
   generateReport: protectedProcedure
-    .input(
-      z.object({
-        startDate: z.date(),
-        endDate: z.date(),
-      })
-    )
+    .input(z.object({ startDate: z.date(), endDate: z.date() }))
     .query(async ({ ctx, input }) => {
-      // Check if user is admin
-      if (ctx.user.role !== "admin") {
-        throw new Error("Unauthorized");
-      }
-      return await generateFeedbackReport(input.startDate, input.endDate);
+      if (ctx.user.role !== "admin") throw new Error("Unauthorized");
+      return generateFeedbackReport(input.startDate, input.endDate);
     }),
 });

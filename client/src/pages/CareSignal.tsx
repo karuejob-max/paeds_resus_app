@@ -13,6 +13,7 @@ import { CareSignalAudienceGate } from "@/components/CareSignalAudienceGate";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { CARE_SIGNAL_V2_STEP_GUIDE } from "@/lib/care-signal-v2";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 
 export default function CareSignal() {
   const loggerRef = useRef<HTMLDivElement>(null);
@@ -186,9 +187,8 @@ export default function CareSignal() {
           <p className={cn("mb-6 max-w-2xl mx-auto", CS_PAGE_MUTED)}>
             Every event you log contributes to our understanding of how to improve pediatric emergency care and save more children&apos;s lives.
           </p>
-          <Button size="lg" className="bg-brand-teal hover:bg-[#143333] text-white" onClick={scrollToLogger}>
-            Start a Care Signal report
-          </Button>
+          <Button size="lg" className="bg-brand-teal hover:bg-[#143333] text-white" onClick={scrollToLogger}>Start a Care Signal report</Button>
+          <div className="mt-4"><FeedbackDialog defaultCategory="care_signal" contextJson={{ pageUrl: "/care-signal" }} /></div>
         </div>
       </div>
     </div>
