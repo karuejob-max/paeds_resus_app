@@ -10,7 +10,6 @@ const CS_SECTION_KICKER = "text-xs font-semibold uppercase tracking-wide text-sl
 import CareSignalFormV2 from "@/components/CareSignalFormV2";
 import { CareSignalConsentGate } from "@/components/CareSignalConsentGate";
 import { CareSignalAudienceGate } from "@/components/CareSignalAudienceGate";
-import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { CARE_SIGNAL_V2_STEP_GUIDE } from "@/lib/care-signal-v2";
@@ -190,12 +189,6 @@ export default function CareSignal() {
           <Button size="lg" className="bg-brand-teal hover:bg-[#143333] text-white" onClick={scrollToLogger}>
             Start a Care Signal report
           </Button>
-          <div className="mt-4">
-            <FeedbackDialog
-              defaultCategory="care_signal"
-              contextJson={{ pageUrl: "/care-signal", surface: "care_signal" }}
-            />
-          </div>
         </div>
       </div>
     </div>
