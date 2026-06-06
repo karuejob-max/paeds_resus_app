@@ -59,6 +59,8 @@
     "db:apply-0045": "node scripts/apply-0045-nrp-program-type.mjs",
     "db:apply-0046": "node scripts/apply-0046-certificate-expiry.mjs",
     "db:apply-0047": "node scripts/apply-0047-content-safety-reports.mjs",
+    "db:apply-0048": "node scripts/apply-0048-platform-feedback-tickets.mjs",
+    "export:feedback-tickets": "node scripts/export-feedback-tickets.mjs",
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "seed:pals": "tsx --import dotenv/config server/seed.ts",
     "seed:pals-2025": "tsx --import dotenv/config seed-pals-2025.ts",
