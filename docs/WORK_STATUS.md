@@ -15,7 +15,7 @@
 
 ---
 
-| 2026-06-06 | Cursor | **Platform feedback tickets (0048):** Unified `platformFeedbackTickets` + `feedback.submit` / `adminFeedback.*`; `FeedbackDialog` on header, players, ResusGPS, Care Signal, fellowship; `/feedback`, `/admin/feedback`; `reportUnsafeContent` auto-creates safety ticket; agent export via `export:feedback-tickets` + `docs/FEEDBACK_TICKET_WORKFLOW.md`. Verified: `check`, `test:unit` (platform-feedback). Post-merge: `pnpm run db:apply-0048`. | PR TBD |
+| 2026-06-06 | Cursor | **Platform feedback tickets (0048):** Unified `platformFeedbackTickets` + `feedback.submit` / `adminFeedback.*`; `FeedbackDialog` on header, players, ResusGPS, Care Signal, fellowship; `/feedback`, `/admin/feedback`; `reportUnsafeContent` auto-creates safety ticket; agent export via `export:feedback-tickets` + `docs/FEEDBACK_TICKET_WORKFLOW.md`. Verified: `check`, `test:unit` (platform-feedback), CI gate. Post-merge: `pnpm run db:apply-0048`. | PR [#172](https://github.com/karuejob-max/paeds_resus_app/pull/172) · merge `66455a9` |
 
 | 2026-06-03 | Cursor | **AHA diagnostic + admin summative reset (additive):** Diagnostic baseline on module 1 for BLS/ACLS/PALS/NRP/Heartsaver (`ensure-aha-diagnostic-quiz`, `seed:aha-diagnostic`); `getAhaCourseExamState` + player gate; `adminLearning.resetSummativeAttempts` + Admin Reports ledger button; exam policy updated. **Preserved:** PALS 2025 modules/summative/hypoglycemia (`ensure-pals-2025-content` untouched). Verified: `check`, `test:unit`, `build`, CI gate. | PR [#164](https://github.com/karuejob-max/paeds_resus_app/pull/164) · `e0b600b` |
 

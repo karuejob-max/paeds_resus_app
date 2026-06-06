@@ -120,61 +120,51 @@ export type CourseWithModuleFormatives = {
 };
 
 /**
- * Ensure every module has ≥3 unique native formatives before seed/static audit.
- * Distributes from expanded summative bank when modules lack `questions[]`.
+ * Pad module-native formatives only — never pull from summative bank (governance §3.3).
  */
 export function materializeModuleNativeFormatives<T extends CourseWithModuleFormatives>(course: T): T {
-  const moduleCount = course.modules.length;
-  if (moduleCount === 0 || !course.quiz?.questions?.length) return course;
+  if (course.modules.length === 0) return course;
 
-  const minBank = Math.max(
-    MICROCOURSE_MIN_QUESTION_BANK_SIZE,
-    moduleCount * MIN_FORMATIVE_QUESTIONS_PER_MODULE
-  );
-  const bank = uniqueFormativeQuestions(expandQuestionBank(course.quiz.questions, minBank));
-
-  const modules = course.modules.map((mod, modIndex) => {
-    const existing = mod.questions ?? [];
-    if (existing.length >= MIN_FORMATIVE_QUESTIONS_PER_MODULE) {
-      return { ...mod, questions: padModuleFormativeQuestions(existing) };
-    }
-
-    const assigned: FormativeQuestion[] = [...existing];
-    let cursor = modIndex * MIN_FORMATIVE_QUESTIONS_PER_MODULE;
-    let guard = 0;
-    while (
-      assigned.length < MIN_FORMATIVE_QUESTIONS_PER_MODULE &&
-      bank.length > 0 &&
-      guard < bank.length * moduleCount * MIN_FORMATIVE_QUESTIONS_PER_MODULE
-    ) {
-      const candidate = bank[cursor % bank.length]!;
-      cursor++;
-      guard++;
-      if (!assigned.some((a) => a.question.trim() === candidate.question.trim())) {
-        assigned.push(candidate);
-      }
-    }
-
-    return {
-      ...mod,
-      questions: padModuleFormativeQuestions(
-        assigned.length > 0 ? assigned : [bank[modIndex % bank.length]!]
-      ),
-    };
-  });
+  const modules = course.modules.map((mod) => ({
+    ...mod,
+    questions: padModuleFormativeQuestions(uniqueFormativeQuestions(mod.questions ?? [])),
+  }));
 
   return { ...course, modules };
 }
 
-/** Pad bank to minimum size by cycling existing items (same content, shuffled order at runtime). */
-export function expandQuestionBank<T>(questions: T[], minSize = MICROCOURSE_MIN_QUESTION_BANK_SIZE): T[] {
+/** Return unique stems; cycle only when allowDuplicates — prefer authoring ≥minSize unique items. */
+export function expandQuestionBank<T extends { question?: string }>(
+  questions: T[],
+  minSize = MICROCOURSE_MIN_QUESTION_BANK_SIZE,
+  allowDuplicates = false
+): T[] {
   if (questions.length === 0) return [];
-  if (questions.length >= minSize) return questions;
-  const expanded = [...questions];
+  const unique =
+    questions[0] && "question" in questions[0]
+      ? (uniqueFormativeQuestions(questions as unknown as FormativeQuestion[]) as unknown as T[])
+      : questions;
+  if (unique.length >= minSize) return unique;
+  if (!allowDuplicates) return unique;
+  const expanded = [...unique];
   while (expanded.length < minSize) {
-    expanded.push(questions[expanded.length % questions.length]!);
+    expanded.push(unique[expanded.length % unique.length]!);
   }
   return expanded;
+}
+
+/** Summative/diagnostic bank: unique stems only; throws if below governance minimum. */
+export function resolveSummativeQuestionBank(
+  questions: FormativeQuestion[],
+  minSize = MICROCOURSE_MIN_QUESTION_BANK_SIZE
+): FormativeQuestion[] {
+  const unique = uniqueFormativeQuestions(questions);
+  if (unique.length < minSize) {
+    throw new Error(
+      `Summative bank has ${unique.length} unique stem(s); need ≥${minSize} (CLINICAL_CONTENT_GOVERNANCE §3.4).`
+    );
+  }
+  return unique;
 }
 
 export function examKindFromQuizTitle(title: string | null | undefined): MicrocourseExamKind {

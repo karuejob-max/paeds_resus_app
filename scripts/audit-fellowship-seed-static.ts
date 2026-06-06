@@ -1,10 +1,10 @@
 /** Static audit: catalog vs seed TS + module-native formative coverage (no DB). */
 import { getAllFellowshipSeedContent, resolveCatalogSlug } from "./fellowship-seed-lib";
-import { resolveModuleFormativeQuestions, MIN_FORMATIVE_QUESTIONS_PER_MODULE } from "../shared/microcourse-exam-policy";
+import { MIN_FORMATIVE_QUESTIONS_PER_MODULE } from "../shared/microcourse-exam-policy";
 import {
   isFellowshipPillarMicroCourse,
   MICRO_COURSE_CATALOG,
-} from "../server/lib/micro-course-catalog";
+} from "../shared/micro-course-catalog";
 
 const catalogSlugs = MICRO_COURSE_CATALOG.filter(isFellowshipPillarMicroCourse).map(
   (c) => c.courseId
@@ -38,14 +38,14 @@ for (const slug of catalogSlugs.sort()) {
     continue;
   }
   const nativeCount = c.modules.filter((m) => (m.questions?.length ?? 0) > 0).length;
-  const bank = resolveModuleFormativeQuestions(c.modules, c.quiz?.questions ?? []);
-  const thinModules = bank.filter(
-    (qs) => qs.length > 0 && new Set(qs.map((x) => x.question)).size < MIN_FORMATIVE_QUESTIONS_PER_MODULE
-  ).length;
+  const thinModules = c.modules.filter((m) => {
+    const qs = m.questions ?? [];
+    return qs.length > 0 && new Set(qs.map((x) => x.question)).size < MIN_FORMATIVE_QUESTIONS_PER_MODULE;
+  }).length;
   const summativeQs = c.quiz?.questions?.length ?? 0;
   const flag =
     nativeCount < c.modules.length
-      ? "BANK_FALLBACK"
+      ? "NO_NATIVE"
       : thinModules > 0
         ? "NATIVE_THIN"
         : "OK";
