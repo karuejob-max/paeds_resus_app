@@ -128,6 +128,7 @@ async function main() {
   console.log(`Fellowship verify: ${FELLOWSHIP_SLUGS.length} courses, ${failures} failure(s)\n`);
   for (const r of rows) console.log(r);
   if (failures > 0) process.exit(1);
+  process.exit(0);
 }
 
 main().catch((e) => {

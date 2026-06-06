@@ -1,0 +1,153 @@
+import type { FormativeQuestion } from "../../shared/microcourse-exam-policy";
+
+/** Additional unique summative stems per catalog slug — pads banks to governance minimum (15). */
+export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]> = {
+  "pneumonia-i": [
+    { question: "WHO danger sign in child pneumonia requiring urgent referral:", options: ["Mild cough only", "Chest indrawing", "Runny nose", "Low-grade fever"], correct: 1, explanation: "Chest indrawing is a danger sign of severe pneumonia." },
+    { question: "First-line outpatient pneumonia antibiotic (WHO IMCI):", options: ["High-dose amoxicillin", "Metronidazole only", "Topical cream", "No antibiotics"], correct: 0, explanation: "High-dose amoxicillin is WHO IMCI first-line for non-severe pneumonia." },
+    { question: "Oxygen in severe pneumonia should target SpO₂:", options: ["≥90%", "≥70%", "100% always", "No monitoring"], correct: 0, explanation: "WHO severe illness target SpO₂ ≥90%." },
+    { question: "Hospital empiric therapy for severe pneumonia often includes:", options: ["Ampicillin + gentamicin or ceftriaxone", "Oral vitamins only", "Antihistamine first", "Delay antibiotics 24 h"], correct: 0, explanation: "Kenya MOH common: ampicillin + gentamicin or ceftriaxone IV." },
+    { question: "Silent chest in asthma/pneumonia overlap suggests:", options: ["Mild disease", "Impending respiratory failure — urgent escalation", "Ready for discharge", "Normal finding"], correct: 1, explanation: "Silent chest may indicate severe bronchospasm or exhaustion." },
+  ],
+  "pneumonia-ii": [
+    { question: "ARDS in paediatric pneumonia is managed with:", options: ["Low tidal volume lung-protective ventilation", "Large tidal volumes always", "No PEEP", "Hypotonic fluids only"], correct: 0, explanation: "Lung-protective ventilation with appropriate PEEP is ARDS standard." },
+    { question: "Empiric atypical cover in severe community pneumonia may add:", options: ["Macrolide (e.g. azithromycin)", "Topical steroid only", "Oral zinc alone", "No change to regimen"], correct: 0, explanation: "Macrolide covers atypical organisms when clinically indicated." },
+    { question: "Pleural effusion with pneumonia may require:", options: ["Chest drain if large or loculated empyema", "Ignore if fever present", "Oral fluids only", "Discharge home"], correct: 0, explanation: "Complicated effusion/empyema needs drainage and surgical review." },
+    { question: "Ventilator-associated pneumonia prevention includes:", options: ["Head elevation and oral care bundle", "Prone only", "No suctioning", "Hyperoxia always"], correct: 0, explanation: "VAP bundles include head elevation and oral hygiene." },
+    { question: "Failure to improve on first-line IV antibiotics suggests:", options: ["Review culture, resistance, and complications", "Stop all antibiotics", "Discharge immediately", "Switch to antiviral only"], correct: 0, explanation: "Escalate workup for resistant organism, empyema, or alternate diagnosis." },
+  ],
+  "septic-shock-i": [
+    { question: "Sepsis recognition in children includes:", options: ["Suspected infection + perfusion abnormality", "Fever alone always", "Normal HR acceptable", "No need for lactate"], correct: 0, explanation: "Sepsis = infection with organ dysfunction or shock physiology." },
+    { question: "First fluid bolus in septic shock is typically:", options: ["10–20 mL/kg isotonic with reassessment", "50 mL/kg without monitoring", "Hypotonic dextrose", "Oral rehydration only"], correct: 0, explanation: "Isotonic boluses with reassessment — FEAST-aware practice." },
+    { question: "Antibiotics in septic shock should start within:", options: ["1 hour of recognition", "48 hours", "After all imaging", "Only if culture positive"], correct: 0, explanation: "Surviving Sepsis: antibiotics within 1 hour when shock suspected." },
+    { question: "Warm vasodilatory septic shock first-line vasopressor (international):", options: ["Noradrenaline", "Oral paracetamol", "High-dose steroids always first", "No vasopressor ever"], correct: 0, explanation: "Noradrenaline first-line for warm shock where available." },
+    { question: "Cold shock with poor perfusion may respond to:", options: ["Adrenaline infusion per ICU protocol", "Large hypotonic bolus", "Withhold fluids always", "Oral antipyretic only"], correct: 0, explanation: "Cold shock may need inotrope/vasopressor support after fluids." },
+    { question: "Lactate in sepsis is useful to:", options: ["Track perfusion response to resuscitation", "Diagnose viral URI only", "Replace blood culture", "Avoid antibiotics"], correct: 0, explanation: "Rising or persistently high lactate suggests ongoing shock." },
+    { question: "Central venous access for vasopressors is preferred because:", options: ["Extravasation risk is lower with central line", "Peripheral is always safer", "No monitoring needed", "Vasopressors never used in children"], correct: 0, explanation: "Central access preferred; peripheral only short-term with monitoring." },
+  ],
+  "septic-shock-ii": [
+    { question: "Hydrocortisone stress dose in refractory septic shock is considered when:", options: ["Fluid-refractory shock despite vasopressors", "Mild fever only", "First bolus given", "Always at admission"], correct: 0, explanation: "Stress-dose steroids per protocol when shock refractory to fluids and pressors." },
+    { question: "PICU monitoring in septic shock includes:", options: ["MAP, urine output, lactate trend", "Temperature only", "No BP needed", "Discharge planning first"], correct: 0, explanation: "Hemodynamic and perfusion endpoints guide resuscitation." },
+    { question: "Source control in sepsis means:", options: ["Drain abscess / remove infected device when feasible", "Antibiotics alone always sufficient", "Ignore focal infection", "Delay surgery 1 week"], correct: 0, explanation: "Source control improves outcomes alongside antibiotics." },
+    { question: "Disseminated intravascular coagulation in sepsis may present with:", options: ["Thrombocytopenia and prolonged PT/aPTT", "Isolated hypertension", "Normal platelets always", "Hyperglycaemia only"], correct: 0, explanation: "DIC causes consumptive coagulopathy — monitor FBC and coagulation." },
+    { question: "Renal replacement in septic AKI is indicated for:", options: ["Refractory hyperkalaemia or fluid overload", "Mild creatinine rise only", "Fever", "Normal urine output"], correct: 0, explanation: "RRT for AEIOU indications — refractory electrolytes or overload." },
+    { question: "Procalcitonin may help to:", options: ["Guide antibiotic duration in selected cases", "Replace blood culture always", "Diagnose asthma", "Avoid all antibiotics"], correct: 0, explanation: "Biomarkers may support de-escalation per local protocol." },
+    { question: "Family communication in paediatric septic shock should include:", options: ["Severity, plan, and escalation options", "No updates until discharge", "Guaranteed outcome", "Withhold diagnosis"], correct: 0, explanation: "Clear communication supports shared decision-making in critical illness." },
+  ],
+  "hypovolemic-shock-i": [
+    { question: "Hypovolemic shock is caused by:", options: ["Inadequate intravascular volume", "Primary pump failure only", "Anaphylaxis always", "Isolated fever"], correct: 0, explanation: "Hypovolaemia from haemorrhage, dehydration, or burns reduces preload." },
+    { question: "After each fluid bolus in hypovolaemic shock you should:", options: ["Reassess perfusion and lung signs", "Give next bolus automatically", "Stop all fluids permanently", "Ignore urine output"], correct: 0, explanation: "Reassess after each bolus — FEAST-aware practice." },
+    { question: "Signs of fluid overload during resuscitation include:", options: ["Hepatomegaly, crackles, rising JVP", "Improved perfusion only", "Falling HR always", "Normal exam always"], correct: 0, explanation: "Stop boluses if overload develops — escalate alternative support." },
+    { question: "Haemorrhagic shock requires:", options: ["Haemorrhage control plus blood products when available", "Hypotonic fluids only", "No IV access", "Oral fluids alone in severe shock"], correct: 0, explanation: "Control bleeding and transfuse per massive haemorrhage protocol." },
+    { question: "Dehydration shock from gastroenteritis uses:", options: ["Isotonic boluses if perfusion poor, then deficit replacement plan", "Free water bolus", "No fluids until ORT fails only in shock", "Hypertonic saline first-line always"], correct: 0, explanation: "Isotonic resuscitation when shock present; ORT when perfusion adequate." },
+  ],
+  "hypovolemic-shock-ii": [
+    { question: "Massive transfusion protocol activates when:", options: ["Ongoing haemorrhage with shock despite initial resuscitation", "Mild anaemia only", "Single unit transfusion always", "Normal Hb"], correct: 0, explanation: "MTP balances RBC, plasma, and platelets in ongoing major haemorrhage." },
+    { question: "Tranexamic acid in trauma haemorrhage should be given:", options: ["Within 3 hours of injury when indicated", "Day 7 only", "Never in children", "Only if Hb normal"], correct: 0, explanation: "TXA within 3 h may reduce mortality in significant haemorrhage." },
+    { question: "Pelvic binder is used for:", options: ["Suspected pelvic fracture with haemorrhage", "Isolated finger injury", "Asthma", "Meningitis"], correct: 0, explanation: "Pelvic binder stabilises fracture and reduces venous bleeding." },
+    { question: "Permissive hypotension in trauma (where protocol allows) aims to:", options: ["Limit dilution coagulopathy before surgical control", "Maximise MAP always >110", "Withhold all fluids", "Use hypotonic fluids"], correct: 0, explanation: "Permissive hypotension until bleeding controlled — senior/protocol guided." },
+    { question: "Hypothermia in trauma worsens outcome by:", options: ["Impairing coagulation", "Improving clotting", "Lowering lactate always", "No effect"], correct: 0, explanation: "Trauma triad: hypothermia, acidosis, coagulopathy — prevent heat loss." },
+  ],
+  "cardiogenic-shock-i": [
+    { question: "Cardiogenic shock features include:", options: ["Poor perfusion with signs of pump failure", "Warm flushed extremities always", "Normal lactate always", "Unlimited fluid responsiveness"], correct: 0, explanation: "Low cardiac output with hypotension or poor perfusion defines cardiogenic shock." },
+    { question: "Repeated large fluid boluses in cardiogenic shock:", options: ["May worsen pulmonary oedema — avoid", "Are always first-line", "Replace inotropes", "Cure pump failure"], correct: 0, explanation: "Avoid fluid overload in pump failure; use inotropes per ICU protocol." },
+    { question: "Dobutamine is used in cardiogenic shock to:", options: ["Increase contractility", "Cause bronchospasm", "Treat anaphylaxis", "Lower HR always"], correct: 0, explanation: "Dobutamine supports contractility where available." },
+    { question: "ECG in cardiogenic shock helps identify:", options: ["Arrhythmia or ischaemia contributing to shock", "Asthma only", "Malaria species", "Normal variant always"], correct: 0, explanation: "Arrhythmia or structural heart disease may cause cardiogenic shock." },
+    { question: "Non-invasive ventilation may help when:", options: ["Work of breathing high without immediate intubation need", "GCS 3 only", "Normal oxygenation", "Anaphylaxis"], correct: 0, explanation: "NIV can reduce work of breathing in selected cardiogenic pulmonary oedema." },
+  ],
+  "cardiogenic-shock-ii": [
+    { question: "Milrinone in paediatric cardiogenic shock:", options: ["May reduce afterload but cause hypotension — monitor BP", "Is first-line in all shock", "Replaces antibiotics", "Contraindicated always"], correct: 0, explanation: "Milrinone is inodilator — watch for hypotension." },
+    { question: "ECMO may be considered when:", options: ["Refractory cardiogenic shock despite maximal medical therapy", "Mild dehydration", "First bolus given", "Outpatient follow-up"], correct: 0, explanation: "ECMO is rescue for refractory cardiac failure at ECMO centres." },
+    { question: "Myocarditis presenting with shock requires:", options: ["Inotrope support and cardiology/ICU referral", "Large fluid boluses only", "No monitoring", "Discharge"], correct: 0, explanation: "Myocarditis can cause acute pump failure — ICU and specialist care." },
+    { question: "Afterload reduction in single-ventricle physiology needs:", options: ["Specialist cardiology protocol — cautious vasodilation", "Standard septic shock bolus protocol", "No BP monitoring", "Oral fluids only"], correct: 0, explanation: "Complex congenital heart disease requires specialist hemodynamic management." },
+    { question: "Arrhythmia-induced cardiogenic shock is treated with:", options: ["Cardioversion/antiarrhythmic per ACLS/PALS and cardiology", "Adrenaline IM only", "Antibiotics alone", "Ignore rhythm"], correct: 0, explanation: "Restore effective rhythm and cardiac output urgently." },
+  ],
+  "anaphylaxis-i": [
+    { question: "First-line drug for anaphylaxis is:", options: ["IM adrenaline (epinephrine)", "Oral antihistamine alone", "IV steroid only", "Salbutamol only"], correct: 0, explanation: "IM adrenaline 0.01 mg/kg anterolateral thigh is first-line." },
+    { question: "Adrenaline IM dose may be repeated:", options: ["Every 5–15 minutes if no improvement", "Once only ever", "Every 4 hours routinely", "Never in children"], correct: 0, explanation: "Repeat IM adrenaline if symptoms persist or recur." },
+    { question: "Positioning during anaphylaxis should be:", options: ["Supine with legs elevated if tolerated", "Upright walking", "Prone always", "Head-down Trendelenburg only"], correct: 0, explanation: "Supine with leg elevation supports venous return — unless vomiting/obstructed airway." },
+    { question: "Biphasic anaphylaxis means:", options: ["Recurrence of symptoms after initial improvement", "Two allergens only", "No second dose needed", "Always mild"], correct: 0, explanation: "Observe for biphasic reaction — may need prolonged monitoring/admission." },
+    { question: "Glucagon may be used in anaphylaxis when:", options: ["Patient on beta-blockers with refractory hypotension", "First-line always", "Mild urticaria only", "No adrenaline available ever"], correct: 0, explanation: "Glucagon helps when beta-blockade limits adrenaline response." },
+  ],
+  "anaphylaxis-ii": [
+    { question: "IV adrenaline infusion for anaphylaxis is reserved for:", options: ["Refractory shock under ICU monitoring", "First-line in all cases", "Outpatient clinic", "Oral allergy only"], correct: 0, explanation: "IV adrenaline requires continuous monitoring — not first-line IM substitute." },
+    { question: "Kounis syndrome refers to:", options: ["Allergic acute coronary syndrome", "Asthma only", "DKA", "Sepsis"], correct: 0, explanation: "Anaphylaxis can trigger allergic ACS — cardiology involvement." },
+    { question: "Prolonged observation after anaphylaxis is indicated when:", options: ["Severe reaction, asthma, or biphasic risk", "Single hives only", "Immediate discharge always", "No adrenaline given"], correct: 0, explanation: "High-risk patients need extended observation." },
+    { question: "Angioedema without urticaria may suggest:", options: ["Bradykinin-mediated angioedema — adrenaline less effective", "Typical IgE anaphylaxis always", "No airway risk", "Oral antihistamine cures all"], correct: 0, explanation: "ACE-inhibitor or hereditary angioedema needs different pathway." },
+    { question: "Discharge after anaphylaxis must include:", options: ["Adrenaline auto-injector teach-back and allergy follow-up", "No action plan", "Avoid all future healthcare", "Steroid taper only"], correct: 0, explanation: "Action plan, auto-injector training, and specialist follow-up are essential." },
+  ],
+  "malaria-i": [
+    { question: "Severe malaria criteria include:", options: ["Impaired consciousness or prostration", "Mild cough only", "Isolated rash", "Normal glucose always"], correct: 0, explanation: "Cerebral malaria, severe anaemia, acidosis, and shock are severe criteria." },
+    { question: "First-line treatment for severe malaria is:", options: ["IV/IM artesunate", "Oral chloroquine only", "Quinine PO first", "Paracetamol alone"], correct: 0, explanation: "WHO: artesunate preferred over quinine for severe malaria." },
+    { question: "Hypoglycaemia in severe malaria should be checked in:", options: ["mmol/L and treated promptly", "mg/dL only without treatment", "Never checked", "Weekly only"], correct: 0, explanation: "Hypoglycaemia is common and dangerous — monitor glucose in mmol/L." },
+    { question: "Artesunate dosing schedule (WHO) includes doses at:", options: ["0, 12, and 24 hours then daily", "Once only", "Every week", "After discharge only"], correct: 0, explanation: "Loading then daily artesunate per weight until oral transition." },
+    { question: "Transition from IV artesunate to oral ACT occurs when:", options: ["Patient tolerating oral intake and clinically improving", "Immediately at admission", "Never", "Only if parasite negative on day 1"], correct: 0, explanation: "Complete full ACT course after IV phase when able to swallow." },
+  ],
+  "malaria-ii": [
+    { question: "Blackwater fever in malaria refers to:", options: ["Haemoglobinuria from severe haemolysis", "Clear urine always", "Dehydration only", "Normal finding"], correct: 0, explanation: "Massive haemolysis causes dark urine — monitor renal function." },
+    { question: "Exchange transfusion in severe malaria may be considered for:", options: ["Very high parasitaemia or refractory shock per specialist protocol", "All positive RDTs", "Mild fever", "Outpatient"], correct: 0, explanation: "Rescue therapy at specialist centres for extreme parasitaemia." },
+    { question: "Artesunate delayed haemolysis (PADH) requires:", options: ["Follow-up FBC after treatment", "No monitoring", "Stop all antimalarials always", "Ignore anaemia"], correct: 0, explanation: "Late haemolysis can occur — schedule post-treatment blood count." },
+    { question: "Renal impairment in severe malaria is managed with:", options: ["Avoid nephrotoxins; RRT if indicated", "Large hypotonic bolus", "NSAIDs first-line", "No fluid plan"], correct: 0, explanation: "AKI common — careful fluids and RRT per indications." },
+    { question: "Cerebral malaria seizures are treated with:", options: ["Benzodiazepines per SE protocol; correct glucose", "Oral rehydration only", "No anticonvulsant", "Immediate discharge"], correct: 0, explanation: "Treat seizures and hypoglycaemia — avoid neurotoxicity from delays." },
+  ],
+  "burns-i": [
+    { question: "Parkland formula estimates:", options: ["24-hour fluid resuscitation volume for major burns", "Antibiotic dose", "TBSA only without fluids", "Discharge timing"], correct: 0, explanation: "Parkland guides initial fluid plan — titrate to urine output." },
+    { question: "Urine output target in major burn resuscitation is typically:", options: ["0.5–1 mL/kg/hr", "10 mL/kg/hr always", "No urine needed", "Anuria acceptable"], correct: 0, explanation: "Titrate fluids to perfusion and urine output endpoints." },
+    { question: "Circumferential full-thickness limb burn with distal ischaemia needs:", options: ["Escharotomy", "Routine discharge", "Topical cream only", "Oral antibiotics only"], correct: 0, explanation: "Escharotomy relieves compartment pressure from circumferential eschar." },
+    { question: "Inhalation injury suspicion increases when:", options: ["Facial burns, soot in mouth, or stridor", "Small hand burn only", "No history", "Normal voice always"], correct: 0, explanation: "Airway oedema can develop — early intubation if concern." },
+    { question: "Referral criteria for paediatric burns include:", options: [">10% partial-thickness or face/hands/perineum involvement", "Any minor scratch", "Sunburn only", "No referral ever"], correct: 0, explanation: "Major or special-site burns need burn centre/specialist care." },
+  ],
+  "burns-ii": [
+    { question: "Burn wound sepsis may present with:", options: ["Fever, thrombocytopenia, hyperglycaemia, graft discolouration", "Improved appetite only", "Normal WBC always", "No treatment change"], correct: 0, explanation: "Sepsis is leading cause of death in major burns — surgical and antibiotic review." },
+    { question: "Topical silver sulfadiazine is used to:", options: ["Reduce wound colonisation", "Replace fluid resuscitation", "Treat anaphylaxis", "Lower TBSA"], correct: 0, explanation: "Topical antimicrobials reduce colonisation pending definitive care." },
+    { question: "Hypermetabolic response in major burns causes:", options: ["Increased caloric needs and catabolism", "Reduced nutrition needs", "No protein loss", "Hypothermia only"], correct: 0, explanation: "Early enteral nutrition and protein support improve outcomes." },
+    { question: "Contracture prevention after burns includes:", options: ["Physiotherapy and splinting in functional positions", "Immobilisation in flexion always", "No rehab", "Discharge without follow-up"], correct: 0, explanation: "Rehabilitation prevents long-term contractures." },
+    { question: "Toxic shock syndrome in burns is treated with:", options: ["Broad-spectrum antibiotics and source control", "Topical water only", "No blood cultures", "Delay debridement always"], correct: 0, explanation: "TSS requires antibiotics and aggressive wound/source management." },
+  ],
+  "trauma-i": [
+    { question: "Primary survey order in trauma is:", options: ["ABCDE", "ECBA", "DEFG", "History first always"], correct: 0, explanation: "Airway, Breathing, Circulation, Disability, Exposure — treat as you go." },
+    { question: "External haemorrhage control first step is:", options: ["Direct pressure", "Tourniquet immediately for all wounds", "Oral fluids", "CT scan first"], correct: 0, explanation: "Direct pressure first; tourniquet for life-threatening limb haemorrhage not controlled." },
+    { question: "Two large-bore IV cannulae in trauma allow:", options: ["Rapid blood product and fluid administration", "Oral medication only", "No lab tests", "Delayed resuscitation"], correct: 0, explanation: "Adequate access for resuscitation and sampling." },
+    { question: "GCS falling after head injury suggests:", options: ["Expanding intracranial pathology — urgent escalation", "Benign course always", "Discharge", "No imaging ever"], correct: 0, explanation: "Declining GCS is a red flag for intracranial injury." },
+    { question: "Prevent hypothermia in trauma because:", options: ["Coagulopathy worsens with cold", "It improves clotting", "No effect on outcomes", "Only cosmetic concern"], correct: 0, explanation: "Hypothermia contributes to trauma coagulopathy triad." },
+  ],
+  "trauma-ii": [
+    { question: "Focused Assessment with Sonography for Trauma (FAST) helps detect:", options: ["Free fluid in abdomen/pericardium", "Exact bowel injury always", "C-spine fracture detail", "Malaria parasitaemia"], correct: 0, explanation: "FAST identifies haemoperitoneum/pericardial fluid — triage to surgery." },
+    { question: "Tension pneumothorax is treated with:", options: ["Immediate decompression then chest drain", "Observation only", "Oral antibiotics", "CT before any treatment"], correct: 0, explanation: "Needle decompression if decompensating — then definitive chest tube." },
+    { question: "Spinal immobilisation in paediatric trauma:", options: ["Maintain neutral alignment when mechanism concerning", "Never needed", "Hyperextend neck always", "Only for adults"], correct: 0, explanation: "Limit movement when cervical injury suspected per protocol." },
+    { question: "Non-accidental injury suspicion requires:", options: ["Safeguarding referral and documented skeletal survey per protocol", "Discharge without documentation", "Ignore inconsistent history", "No social work"], correct: 0, explanation: "NAI workup and safeguarding are mandatory when suspected." },
+    { question: "Damage control surgery in exsanguinating trauma aims to:", options: ["Control haemorrhage and contamination quickly; plan relook", "Complete all definitive repairs in one long operation always", "Avoid ICU", "No blood products"], correct: 0, explanation: "Damage control prioritises survival — definitive repair later." },
+  ],
+  "aki-i": [
+    { question: "Paediatric AKI staging uses:", options: ["KDIGO creatinine and urine output criteria", "Adult GFR only", "No staging", "Temperature"], correct: 0, explanation: "KDIGO AKI criteria adapted for children guide severity." },
+    { question: "Prerenal AKI often improves with:", options: ["Volume resuscitation when hypovolaemic", "Nephrotoxic NSAIDs", "ACE inhibitor load", "Ignore oliguria"], correct: 0, explanation: "Restore perfusion in prerenal AKI — treat cause." },
+    { question: "Nephrotoxic drugs to hold in AKI include:", options: ["NSAIDs and aminoglycosides", "Oxygen", "Glucose", "Antipyretics only"], correct: 0, explanation: "Review and dose-adjust nephrotoxins in AKI." },
+    { question: "Oliguria in AKI is defined approximately as:", options: ["Urine output <0.5 mL/kg/hr for 6–12 h", ">2 mL/kg/hr always", "No urine ever normal", "Only in adults"], correct: 0, explanation: "Urine output criteria are part of KDIGO AKI definition." },
+    { question: "Fluid management in AKI without overload should:", options: ["Match insensible losses and ongoing losses — avoid overload", "Unlimited boluses", "Hypotonic dextrose only", "Fluid restrict all patients always"], correct: 0, explanation: "Individualise fluids — overload worsens renal perfusion and oxygenation." },
+  ],
+  "aki-ii": [
+    { question: "Indication for RRT in AKI (AEIOU) includes:", options: ["Refractory hyperkalaemia", "Mild creatinine rise only", "Fever alone", "Normal ECG with K+ 7"], correct: 0, explanation: "AEIOU: Acidosis, Electrolytes, Intoxication, Overload, Uraemia." },
+    { question: "Peritoneal dialysis in LMIC may be used when:", options: ["Haemodialysis unavailable and RRT indicated", "First-line always over HD", "Mild dehydration", "No training team"], correct: 0, explanation: "PD is rescue when HD/ICU unavailable — requires trained team." },
+    { question: "Hyperkalaemia ECG changes include:", options: ["Peaked T waves and widened QRS", "ST elevation only from ACS always", "Normal ECG always", "Prolonged QT only"], correct: 0, explanation: "Treat ECG changes urgently — calcium, insulin-glucose, salbutamol." },
+    { question: "HUS after diarrhoeal illness causes AKI by:", options: ["Thrombotic microangiopathy", "Isolated prerenal dehydration only", "Asthma", "No renal involvement"], correct: 0, explanation: "STEC-HUS causes microangiopathic haemolytic anaemia and AKI." },
+    { question: "Contrast-induced AKI prevention includes:", options: ["Avoid unnecessary contrast; hydrate per protocol", "NSAIDs before scan", "Withhold all fluids", "Routine HD after all CTs"], correct: 0, explanation: "Risk-stratify and hydrate when contrast necessary." },
+  ],
+  "anaemia-i": [
+    { question: "WHO transfusion threshold in children includes Hb:", options: ["<4 g/dL regardless of symptoms", ">12 g/dL always", "Only if asymptomatic at 8 g/dL", "Never transfuse"], correct: 0, explanation: "WHO: transfuse if Hb <4 g/dL or 4–6 with shock/heart failure/consciousness change." },
+    { question: "Packed red cell volume for transfusion in heart failure risk is often:", options: ["10 mL/kg over 3–4 hours", "20 mL/kg as fast as possible always", "1 mL/kg", "Oral iron only in shock"], correct: 0, explanation: "Slow transfusion with monitoring reduces overload in vulnerable patients." },
+    { question: "Oral iron for anaemia rebuilds stores over:", options: ["Weeks to months", "Single dose", "Hours only", "Never effective"], correct: 0, explanation: "Iron therapy is maintenance/repletion — transfusion treats acute threat." },
+    { question: "Severe malaria with anaemia requires:", options: ["Artesunate plus transfusion per threshold", "Iron only", "Delay antimalarial", "No glucose check"], correct: 0, explanation: "Treat malaria urgently; transfuse when Hb threatens perfusion." },
+    { question: "Acute splenic sequestration in sickle cell presents with:", options: ["Sudden pallor, enlarged spleen, and shock", "Chronic stable Hb", "No spleen enlargement", "Isolated rash"], correct: 0, explanation: "Splenic sequestration is emergency — urgent transfusion and senior review." },
+  ],
+  "anaemia-ii": [
+    { question: "Exchange transfusion in sickle stroke may:", options: ["Reduce sickle Hb fraction per specialist protocol", "Replace artesunate", "Never use blood products", "Treat asthma"], correct: 0, explanation: "Exchange transfusion for selected sickle complications — specialist guided." },
+    { question: "Transfusion reaction first step is:", options: ["Stop transfusion and maintain IV access", "Speed up infusion", "Discharge", "No documentation"], correct: 0, explanation: "Stop blood, support ABC, notify blood bank, manage per protocol." },
+    { question: "Iron overload from chronic transfusion is prevented with:", options: ["Chelation therapy when indicated", "More oral iron always", "No monitoring", "Stop all transfusions always"], correct: 0, explanation: "Chronic transfusion programmes need ferritin monitoring and chelation." },
+    { question: "Haemolytic anaemia workup may include:", options: ["Reticulocyte count, LDH, haptoglobin, direct Coombs", "Chest X-ray only", "No labs", "Urinalysis for malaria only"], correct: 0, explanation: "Differentiate production vs destruction vs loss." },
+    { question: "Delayed haemolytic transfusion reaction:", options: ["May present days later with falling Hb and jaundice", "Always at minute 1 only", "Never in children", "Requires no blood bank notification"], correct: 0, explanation: "DHTR needs blood bank investigation and clinical monitoring." },
+  ],
+};
+
+export function getFellowshipSummativeExpansion(catalogSlug: string): FormativeQuestion[] {
+  return FELLOWSHIP_SUMMATIVE_EXPANSIONS[catalogSlug] ?? [];
+}
