@@ -21,6 +21,7 @@ import { BookOpen, ArrowRight } from "lucide-react";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
 
 import { AhaHubCourseCard } from "@/components/AhaHubCourseCard";
+import { AssessmentPolicyBanner } from "@/components/AssessmentPolicyBanner";
 
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
 
@@ -85,6 +86,8 @@ export default function AHACoursesPublic() {
 
 
         <div className="max-w-4xl mx-auto px-4 pb-12 space-y-6">
+
+          <AssessmentPolicyBanner track="aha" />
 
           <div className="grid sm:grid-cols-2 gap-4">
 

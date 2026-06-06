@@ -10,6 +10,56 @@ export const EXAM_POLICY_PAGE = {
     "Diagnostic, formative, and summative exams — pass marks, attempt limits, and retries for Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP).",
 } as const;
 
+/** Deep-link anchors for Fellowship vs AHA sections on the learner policy page. */
+export const EXAM_POLICY_ANCHOR_FELLOWSHIP = "fellowship-microcourses";
+export const EXAM_POLICY_ANCHOR_AHA = "aha-courses";
+
+export type ExamPolicyTrack = "fellowship" | "aha";
+
+export function examPolicyHref(track?: ExamPolicyTrack): string {
+  if (track === "fellowship") return `${EXAM_POLICY_PAGE.path}#${EXAM_POLICY_ANCHOR_FELLOWSHIP}`;
+  if (track === "aha") return `${EXAM_POLICY_PAGE.path}#${EXAM_POLICY_ANCHOR_AHA}`;
+  return EXAM_POLICY_PAGE.path;
+}
+
+export type ExamPolicyTrackIntro = {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  bullets: string[];
+};
+
+export const EXAM_POLICY_TRACK_INTROS: ExamPolicyTrackIntro[] = [
+  {
+    id: EXAM_POLICY_ANCHOR_FELLOWSHIP,
+    title: "Fellowship micro-courses",
+    paragraphs: [
+      "Each condition-focused micro-course in the Paeds Resus Fellowship uses the same three-step assessment flow: diagnostic baseline, per-module formatives, and a final summative exam.",
+      "Completing the summative issues a Fellowship certificate for that course and counts toward Pillar A when all catalog courses are done.",
+    ],
+    bullets: [
+      "Foundational before Advanced sequencing — prerequisites apply per condition pair.",
+      "Diagnostic once at start (no pass mark); modules unlock after diagnostic.",
+      "Summative: 80% pass, up to 3 attempts, 24 hours between retries.",
+      "Not AHA certification — separate from BLS/ACLS/PALS.",
+    ],
+  },
+  {
+    id: EXAM_POLICY_ANCHOR_AHA,
+    title: "AHA courses (BLS, ACLS, PALS, NRP)",
+    paragraphs: [
+      "AHA cognitive courses follow the same diagnostic → modules → summative flow. Passing the summative completes the online portion and issues a gatepass certificate.",
+      "Full AHA certification still requires practical skills sign-off with an instructor at a hands-on session.",
+    ],
+    bullets: [
+      "Diagnostic once at start (no pass mark); modules unlock after diagnostic.",
+      "Per-module knowledge checks per course structure.",
+      "Summative: 80% pass, up to 3 attempts, 24 hours between retries.",
+      "Separate track — does not count toward Fellowship Pillar A.",
+    ],
+  },
+];
+
 export type ExamPolicySection = {
   id: string;
   title: string;

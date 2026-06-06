@@ -40,6 +40,7 @@ import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownl
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { canDisplayFellowTitle } from "@shared/fellowship-launch-gate";
 import { FellowshipGraduationCard } from "@/components/fellowship/FellowshipGraduationCard";
+import { AssessmentPolicyBanner } from "@/components/AssessmentPolicyBanner";
 
 export default function FellowshipDashboard() {
   const { user, loading } = useAuth();
@@ -492,6 +493,7 @@ export default function FellowshipDashboard() {
 
           {/* Courses Tab - All 26 Courses */}
           <TabsContent value="courses" className="space-y-4">
+            <AssessmentPolicyBanner track="fellowship" />
             <Card>
               <CardHeader>
                 <CardTitle>Fellowship micro-courses</CardTitle>

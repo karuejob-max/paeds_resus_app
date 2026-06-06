@@ -14,6 +14,8 @@ import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { AhaEnrollCertificationPreview } from "@/components/AhaEnrollCertificationPreview";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
+import { Link } from "wouter";
+import { examPolicyHref } from "@shared/exam-policy-learner-content";
 
 export default function Enroll() {
   useScrollToTop();
@@ -433,6 +435,21 @@ export default function Enroll() {
                     </label>
                   </div>
                 </div>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  <Link
+                    href={
+                      isAhaProgramSlug(selectedCourse)
+                        ? examPolicyHref("aha")
+                        : examPolicyHref()
+                    }
+                    className="text-primary font-medium underline-offset-2 hover:underline"
+                  >
+                    Read assessment policy
+                  </Link>
+                  {" "}
+                  before you enroll.
+                </p>
 
                 {/* Submit Button */}
                 <Button

@@ -2,6 +2,10 @@
 
 **Public route:** `/learning/exam-policy` (alias `/courses/how-it-works` → redirect)
 
+**Deep links:** `#fellowship-microcourses`, `#aha-courses` (H2 track intros at top of page)
+
+**Entry-point banners:** `AssessmentPolicyBanner` on Fellowship dashboard, micro-courses landing, AHA hub (provider + public); enrollment modals link before enroll.
+
 **Source of truth for copy:** `shared/exam-policy-learner-content.ts` (rendered by `client/src/pages/ExamPolicy.tsx`)
 
 **Engineering policy:** `shared/microcourse-exam-policy.ts`, `server/lib/microcourse-exam-gate.ts`
