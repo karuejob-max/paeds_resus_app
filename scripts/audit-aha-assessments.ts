@@ -23,13 +23,15 @@ import {
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
 import { getAhaDiagnosticBank } from "../server/data/aha-diagnostic-banks";
+import {
+  AHA_MIN_SUMMATIVE_SIZE,
+  AHA_TARGET_SUMMATIVE_SIZE,
+  getAhaSummativeBank,
+  getAhaSummativeQuizTitle,
+} from "../server/lib/aha-summative-banks";
 import { BLS_MODULES, ACLS_MODULES } from "../server/lib/ensure-bls-acls-catalog";
 import { HEARTSAVER_MODULES } from "../server/lib/heartsaver-modules-data";
 import { NRP_MODULES } from "../server/lib/nrp-modules-data";
-import {
-  PALS_2025_SUMMATIVE_QUESTIONS,
-  type PalsSummativeQuestionSeed,
-} from "../server/lib/pals-2025-summative-bank";
 import type { AhaAnchorProgramType } from "../server/lib/resolve-aha-course-anchor";
 import { getDb } from "../server/db";
 import { modules, quizzes, quizQuestions } from "../drizzle/schema";
@@ -200,12 +202,13 @@ function loadStaticQuizzes(program: AhaAnchorProgramType): QuizBucket[] {
     },
   ];
 
-  if (program === "pals") {
-    const summative = PALS_2025_SUMMATIVE_QUESTIONS.map((q: PalsSummativeQuestionSeed, i) =>
+  const summativeBank = getAhaSummativeBank(program);
+  if (summativeBank.length > 0) {
+    const summative = summativeBank.map((q, i) =>
       toFormative(q.question, q.options, q.correctAnswer, `${program}:summative:${i + 1}`)
     );
     buckets.push({
-      title: "PALS Summative Exam",
+      title: getAhaSummativeQuizTitle(program),
       kind: "summative",
       questions: summative,
     });
@@ -224,7 +227,13 @@ function loadStaticQuizzes(program: AhaAnchorProgramType): QuizBucket[] {
   return buckets;
 }
 
-function auditBuckets(program: AhaAnchorProgramType, buckets: QuizBucket[], source: CourseAudit["source"], courseId?: number): CourseAudit {
+function auditBuckets(
+  program: AhaAnchorProgramType,
+  buckets: QuizBucket[],
+  source: CourseAudit["source"],
+  courseId?: number,
+  strict = false
+): CourseAudit {
   const diagnostic = buckets.find((b) => b.kind === "diagnostic")?.questions ?? [];
   const summative = buckets.find((b) => b.kind === "summative")?.questions ?? [];
   const formatives = buckets.filter((b) => b.kind === "formative").flatMap((b) => b.questions);
@@ -269,9 +278,15 @@ function auditBuckets(program: AhaAnchorProgramType, buckets: QuizBucket[], sour
   if (duplicateStemPairs.length > 0) {
     issues.push(`${duplicateStemPairs.length} duplicate summative stem pair(s)`);
   }
-  if (summative.length > 0 && summativeUnique.length < MICROCOURSE_MIN_QUESTION_BANK_SIZE) {
+  if (summative.length === 0) {
+    issues.push("No summative quiz — all AHA courses require a summative exam");
+  } else if (summativeUnique.length < AHA_MIN_SUMMATIVE_SIZE) {
     issues.push(
-      `Summative bank has ${summativeUnique.length} unique stems (need ${MICROCOURSE_MIN_QUESTION_BANK_SIZE})`
+      `Summative bank has ${summativeUnique.length} unique stems (minimum ${AHA_MIN_SUMMATIVE_SIZE})`
+    );
+  } else if (strict && summativeUnique.length < AHA_TARGET_SUMMATIVE_SIZE) {
+    issues.push(
+      `Summative bank has ${summativeUnique.length} unique stems (target ${AHA_TARGET_SUMMATIVE_SIZE})`
     );
   }
 
@@ -376,14 +391,14 @@ async function main() {
 
   for (const program of PROGRAMS) {
     const staticBuckets = loadStaticQuizzes(program);
-    const staticAudit = auditBuckets(program, staticBuckets, "static");
+    const staticAudit = auditBuckets(program, staticBuckets, "static", undefined, strict);
     staticAudits.push(staticAudit);
 
     let dbAudit: CourseAudit | null = null;
     try {
       const dbLoad = await loadDbQuizzes(program);
       if (dbLoad) {
-        dbAudit = auditBuckets(program, dbLoad.buckets, "db", dbLoad.courseId);
+        dbAudit = auditBuckets(program, dbLoad.buckets, "db", dbLoad.courseId, strict);
       }
     } catch (err) {
       console.warn(`[warn] DB audit skipped for ${program}:`, (err as Error).message);
@@ -424,7 +439,8 @@ async function main() {
     "|-------|----------|-------|",
     "| Diagnostic vs summative | Disjoint (PR #164) | Separate `aha-diagnostic-banks.ts` + course summative |",
     "| Within-quiz dupes | 0 | Per quiz bank |",
-    "| Summative vs module formative | 0 overlap when summative exists | PALS has course summative; BLS/ACLS/NRP/HS use module KC only |",
+    "| Summative vs module formative | 0 overlap when summative exists | Course summative on last module; module formatives separate |",
+    "| Summative bank size | ≥15 (strict target 25) | Static `aha-summative-banks.ts` + prod DB |",
     "| expandQuestionBank padding | 0 dupes | Unique stems only (PR #171) |",
     "| Client/server grading | Server grades summative | `recordQuizAttempt` + `getSummativeExamQuestions` (PR #158/#160) |",
     "",
@@ -468,8 +484,15 @@ async function main() {
       lines.push("");
     }
     if (a.summativeCount === 0) {
+      lines.push("_ERROR: No course-level summative quiz — learner cannot complete certification flow._", "");
+    } else if (a.summativeCount < AHA_MIN_SUMMATIVE_SIZE) {
       lines.push(
-        "_No course-level summative quiz in seed — certification uses module knowledge checks + diagnostic baseline._",
+        `_ERROR: Summative has ${a.summativeCount} questions (minimum ${AHA_MIN_SUMMATIVE_SIZE})._`,
+        ""
+      );
+    } else if (a.summativeCount < AHA_TARGET_SUMMATIVE_SIZE) {
+      lines.push(
+        `_Note: Summative has ${a.summativeCount} questions (target ${AHA_TARGET_SUMMATIVE_SIZE})._`,
         ""
       );
     }

@@ -21,7 +21,8 @@
 |-------|----------|-------|
 | Diagnostic vs summative | Disjoint (PR #164) | Separate `aha-diagnostic-banks.ts` + course summative |
 | Within-quiz dupes | 0 | Per quiz bank |
-| Summative vs module formative | 0 overlap when summative exists | PALS has course summative; BLS/ACLS/NRP/HS use module KC only |
+| Summative vs module formative | 0 overlap when summative exists | Course summative on last module; module formatives separate |
+| Summative bank size | ≥15 (strict target 25) | Static `aha-summative-banks.ts` + prod DB |
 | expandQuestionBank padding | 0 dupes | Unique stems only (PR #171) |
 | Client/server grading | Server grades summative | `recordQuizAttempt` + `getSummativeExamQuestions` (PR #158/#160) |
 
@@ -29,11 +30,11 @@
 
 | Course | Status | Diag | Summ | Form | Diag↔Sum | Sum↔Form | Dups | Expand | Leaks | Source | Issues |
 |--------|--------|-----:|-----:|-----:|---------:|---------:|-----:|-------:|------:|--------|--------|
-| BLS | OK | 12 | 0 | 16 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=32 | — |
-| ACLS | OK | 12 | 0 | 38 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=2 | — |
+| BLS | OK | 12 | 25 | 16 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=32 | — |
+| ACLS | OK | 12 | 25 | 18 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=2 | — |
 | PALS | OK | 12 | 25 | 26 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=40 | — |
-| NRP | OK | 12 | 0 | 12 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=42 | — |
-| HEARTSAVER | OK | 12 | 0 | 27 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=30 | — |
+| NRP | OK | 12 | 25 | 12 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=42 | — |
+| HEARTSAVER | OK | 12 | 25 | 12 | 0 (0%) | 0 | 0 | 0 | 0 | static+db id=30 | — |
 
 ## Detail by course
 
@@ -41,13 +42,9 @@
 
 - All checks passed.
 
-_No course-level summative quiz in seed — certification uses module knowledge checks + diagnostic baseline._
-
 ### ACLS — OK
 
 - All checks passed.
-
-_No course-level summative quiz in seed — certification uses module knowledge checks + diagnostic baseline._
 
 ### PALS — OK
 
@@ -57,23 +54,19 @@ _No course-level summative quiz in seed — certification uses module knowledge 
 
 - All checks passed.
 
-_No course-level summative quiz in seed — certification uses module knowledge checks + diagnostic baseline._
-
 ### HEARTSAVER — OK
 
 - All checks passed.
-
-_No course-level summative quiz in seed — certification uses module knowledge checks + diagnostic baseline._
 
 ## Prod verify (anchor course IDs)
 
 | Course | courseId | diagnostic | summative | module formatives |
 |--------|--------:|-----------:|----------:|------------------:|
-| BLS | 32 | 12 | 0 | 16 |
-| ACLS | 2 | 12 | 0 | 38 |
+| BLS | 32 | 12 | 25 | 16 |
+| ACLS | 2 | 12 | 25 | 18 |
 | PALS | 40 | 12 | 25 | 26 |
-| NRP | 42 | 12 | 0 | 12 |
-| HEARTSAVER | 30 | 12 | 0 | 27 |
+| NRP | 42 | 12 | 25 | 12 |
+| HEARTSAVER | 30 | 12 | 25 | 12 |
 
 PALS summative bank verified post PR #158/#160: 25 unique stems, PAT Q14 no answer leak, no duplicate Q2/Q19.
 
