@@ -2779,3 +2779,22 @@ export const platformFeedbackTickets = mysqlTable("platformFeedbackTickets", {
 
 export type PlatformFeedbackTicket = typeof platformFeedbackTickets.$inferSelect;
 export type InsertPlatformFeedbackTicket = typeof platformFeedbackTickets.$inferInsert;
+
+/** AHA Practice Lab simulation attempts (migration 0049) */
+export const ahaPracticeLabAttempts = mysqlTable("ahaPracticeLabAttempts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "heartsaver", "nrp"]).notNull(),
+  trackId: varchar("trackId", { length: 64 }).notNull(),
+  scenarioId: varchar("scenarioId", { length: 64 }).notNull(),
+  score: int("score").notNull(),
+  passed: boolean("passed").default(false).notNull(),
+  eventLog: json("eventLog"),
+  isBooster: boolean("isBooster").default(false).notNull(),
+  durationSeconds: int("durationSeconds"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferSelect;
+export type InsertAhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferInsert;

@@ -37,14 +37,43 @@ import {
 
 interface Props {
   onClose: () => void;
+  /** Embedded in Practice Lab — no fullscreen overlay */
+  embedded?: boolean;
+  /** Filter scenarios (e.g. PALS vs ACLS) */
+  scenariosFilter?: (scenarios: SimulationScenario[]) => SimulationScenario[];
+  initialScenarioId?: string;
+  /** Called when simulation ends with performance metrics */
+  onAttemptComplete?: (
+    metrics: PerformanceMetrics,
+    scenario: SimulationScenario,
+    state: SimulationState
+  ) => void;
 }
 
 type SimulationPhase = 'scenario_selection' | 'active' | 'debriefing';
 
-export function CPRSimulation({ onClose }: Props) {
-  const [phase, setPhase] = useState<SimulationPhase>('scenario_selection');
-  const [selectedScenario, setSelectedScenario] = useState<SimulationScenario | null>(null);
-  const [simulationState, setSimulationState] = useState<SimulationState | null>(null);
+export function CPRSimulation({
+  onClose,
+  embedded = false,
+  scenariosFilter,
+  initialScenarioId,
+  onAttemptComplete,
+}: Props) {
+  const filteredScenarios = scenariosFilter ? scenariosFilter(getAllScenarios()) : getAllScenarios();
+  const [phase, setPhase] = useState<SimulationPhase>(
+    initialScenarioId ? "active" : "scenario_selection"
+  );
+  const [selectedScenario, setSelectedScenario] = useState<SimulationScenario | null>(() =>
+    initialScenarioId ? filteredScenarios.find((s) => s.id === initialScenarioId) ?? null : null
+  );
+  const [simulationState, setSimulationState] = useState<SimulationState | null>(() =>
+    initialScenarioId
+      ? (() => {
+          const s = filteredScenarios.find((sc) => sc.id === initialScenarioId);
+          return s ? initializeSimulation(s) : null;
+        })()
+      : null
+  );
   const [showHints, setShowHints] = useState(true);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
@@ -77,9 +106,10 @@ export function CPRSimulation({ onClose }: Props) {
 
   // Handle simulation end
   const handleEndSimulation = () => {
-    if (simulationState) {
+    if (simulationState && selectedScenario) {
       const metrics = calculatePerformanceMetrics(simulationState);
       setPerformanceMetrics(metrics);
+      onAttemptComplete?.(metrics, selectedScenario, simulationState);
       setPhase('debriefing');
     }
   };
@@ -93,24 +123,29 @@ export function CPRSimulation({ onClose }: Props) {
     setPerformanceMetrics(null);
   };
 
+  const overlayClass = embedded
+    ? "relative bg-background rounded-lg border overflow-hidden"
+    : "fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 overflow-y-auto";
+
   // Scenario Selection Phase
   if (phase === 'scenario_selection') {
-    const scenarios = getAllScenarios();
+    const scenarios = filteredScenarios;
 
     return (
-      <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <Card className="w-full max-w-4xl bg-slate-900 border-slate-700">
-          <CardHeader className="border-b border-slate-700">
+      <div className={overlayClass}>
+        <Card className={embedded ? "w-full border-border" : "w-full max-w-4xl bg-slate-900 border-slate-700"}>
+          <CardHeader className={embedded ? "" : "border-b border-slate-700"}>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl text-white flex items-center gap-2">
+                <CardTitle className={embedded ? "text-xl flex items-center gap-2" : "text-2xl text-white flex items-center gap-2"}>
                   <BookOpen className="w-6 h-6" />
                   CPR Simulation Training
                 </CardTitle>
-                <p className="text-slate-400 mt-2">
+                <p className={embedded ? "text-muted-foreground mt-2 text-sm" : "text-slate-400 mt-2"}>
                   Practice cardiac arrest management with realistic scenarios
                 </p>
               </div>
+              {!embedded && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -119,6 +154,7 @@ export function CPRSimulation({ onClose }: Props) {
               >
                 <X className="w-6 h-6" />
               </Button>
+              )}
             </div>
           </CardHeader>
 
@@ -201,7 +237,7 @@ export function CPRSimulation({ onClose }: Props) {
   // Active Simulation Phase
   if (phase === 'active' && selectedScenario && simulationState) {
     return (
-      <div className="fixed inset-0 bg-black z-50">
+      <div className={embedded ? "relative" : "fixed inset-0 bg-black z-50"}>
         {/* Simulation Banner */}
         <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-purple-600 p-3 z-50">
           <div className="container mx-auto flex items-center justify-between">
@@ -269,9 +305,12 @@ export function CPRSimulation({ onClose }: Props) {
 
   // Debriefing Phase
   if (phase === 'debriefing' && performanceMetrics && selectedScenario) {
+    if (embedded && onAttemptComplete) {
+      return null;
+    }
     return (
-      <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <Card className="w-full max-w-4xl bg-slate-900 border-slate-700">
+      <div className={overlayClass}>
+        <Card className={embedded ? "w-full" : "w-full max-w-4xl bg-slate-900 border-slate-700"}>
           <CardHeader className="border-b border-slate-700">
             <div className="flex items-center justify-between">
               <div>

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award } from "lucide-react";
+import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award, FlaskConical } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
@@ -147,6 +147,31 @@ export default function AHACourses() {
         </div>
 
         <AssessmentPolicyBanner track="aha" />
+
+        {anyEnrolled && (
+          <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
+            <CardContent className="pt-5 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-semibold text-foreground flex items-center gap-2">
+                  <FlaskConical className="h-5 w-5 text-violet-600" />
+                  AHA Practice Lab
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Self-guided simulation — shock/no-shock, ABCDE, cardiac arrest, and rhythm drills. Supplemental to
+                  your course, not certification.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="shrink-0 gap-2 border-violet-300"
+                onClick={() => setLocation("/aha-courses/practice")}
+              >
+                <FlaskConical className="h-4 w-4" />
+                Open Practice Lab
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {anyEnrolled && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">

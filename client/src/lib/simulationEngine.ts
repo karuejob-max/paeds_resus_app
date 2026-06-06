@@ -83,7 +83,7 @@ const scenarios: SimulationScenario[] = [
     learningObjectives: [
       'Immediate defibrillation for witnessed VF',
       'High-quality CPR with minimal interruptions',
-      'Epinephrine timing after 2nd shock'
+      'Epinephrine as soon as feasible after second shock (AHA 2025), then every 3-5 min'
     ]
   },
   {
@@ -158,6 +158,15 @@ const scenarios: SimulationScenario[] = [
     ]
   }
 ];
+
+/**
+ * AHA 2025 pediatric shock energy escalation: 2 J/kg → 4 J/kg → max 10 J/kg or 360 J
+ */
+export function getShockEnergyJoules(shockNumber: number, weightKg: number): number {
+  if (shockNumber <= 1) return Math.min(Math.round(weightKg * 2), 360);
+  if (shockNumber === 2) return Math.min(Math.round(weightKg * 4), 360);
+  return Math.min(Math.round(weightKg * 10), 360);
+}
 
 /**
  * Generate a random simulation scenario
@@ -300,10 +309,13 @@ export function calculatePerformanceMetrics(state: SimulationState): Performance
     feedback.push(`⚠️ First shock delayed (${timeToFirstShock}s). Should shock within 60 seconds for witnessed VF.`);
   }
 
-  // Penalty for delayed epinephrine
-  if (timeToFirstEpinephrine > 180) {
+  // Penalty for delayed epinephrine (AHA 2025: after 2nd shock for shockable rhythms)
+  if (timeToFirstEpinephrine > 240 && (state.scenario.initialRhythm === 'VF' || state.scenario.initialRhythm === 'pVT')) {
     adherenceScore -= 10;
-    feedback.push(`⚠️ Epinephrine delayed (${Math.floor(timeToFirstEpinephrine / 60)} min). Should give within 3 minutes.`);
+    feedback.push(`⚠️ Epinephrine delayed (${Math.floor(timeToFirstEpinephrine / 60)} min). AHA 2025: give as soon as feasible after 2nd shock.`);
+  } else if (timeToFirstEpinephrine > 180 && state.scenario.initialRhythm !== 'VF' && state.scenario.initialRhythm !== 'pVT') {
+    adherenceScore -= 10;
+    feedback.push(`⚠️ Epinephrine delayed (${Math.floor(timeToFirstEpinephrine / 60)} min). Give within 3 minutes for non-shockable rhythms.`);
   }
 
   // Bonus for identifying complications
@@ -373,7 +385,7 @@ export function getSimulationHint(state: SimulationState): string | null {
   }
 
   if (epiDoses === 0 && timeElapsed > 180) {
-    return "💡 Hint: Consider epinephrine - it's been 3 minutes.";
+    return "💡 Hint: Epinephrine — AHA 2025: give as soon as feasible after 2nd shock attempt (shockable rhythms), then every 3-5 min.";
   }
 
   if (complications.length > 0 && resolvedComplications.length === 0 && timeElapsed > 120) {

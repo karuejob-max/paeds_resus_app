@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Loader2,
   GraduationCap,
+  FlaskConical,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,11 @@ export default function AdminReports() {
 
   const { data: fellowshipChecklist } = trpc.adminStats.getFellowshipLaunchChecklist.useQuery(
     undefined,
+    { enabled: adminRoleOk && reportTab === "maturity" }
+  );
+
+  const { data: practiceLabStats } = trpc.practiceLab.getAdminSimAttemptsByProgram.useQuery(
+    {},
     { enabled: adminRoleOk && reportTab === "maturity" }
   );
 
@@ -1129,6 +1135,40 @@ export default function AdminReports() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Individual providers with completed payment in rolling last 30 days
                   </p>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {practiceLabStats && practiceLabStats.total > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FlaskConical className="h-5 w-5" />
+                    AHA Practice Lab — simulation attempts
+                  </CardTitle>
+                  <CardDescription>All-time attempts by program and track</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-medium mb-2">By program ({practiceLabStats.total} total)</p>
+                    <ul className="text-sm space-y-1">
+                      {practiceLabStats.byProgram.map((row) => (
+                        <li key={row.programType}>
+                          {String(row.programType).toUpperCase()}: {row.count} attempts (avg {Math.round(row.avgScore ?? 0)}%)
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-2">By track</p>
+                    <ul className="text-sm space-y-1">
+                      {practiceLabStats.byTrack.map((row) => (
+                        <li key={row.trackId}>
+                          {row.trackId.replace(/_/g, " ")}: {row.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </CardContent>
               </Card>
             ) : null}
