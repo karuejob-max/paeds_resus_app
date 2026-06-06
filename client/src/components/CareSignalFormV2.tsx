@@ -45,6 +45,11 @@ import {
 } from "@/lib/care-signal-v2";
 import type { SafeTruthAgeBand } from "@/lib/safetruth-age";
 import { cn } from "@/lib/utils";
+import {
+  getTrpcErrorMessage,
+  isCareSignalParentRedirectMessage,
+} from "@/lib/trpc-errors";
+import { Link } from "wouter";
 
 const STEPS = CARE_SIGNAL_V2_STEP_GUIDE.map((step, id) => ({ id, title: step.title }));
 
@@ -178,7 +183,7 @@ export default function CareSignalFormV2() {
       setForm(initialCareSignalV2State());
       setStep(0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Submission failed");
+      setError(getTrpcErrorMessage(err, "Submission failed"));
     }
   };
 
@@ -752,7 +757,14 @@ export default function CareSignalFormV2() {
           {error ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="space-y-2">
+                <p>{error}</p>
+                {isCareSignalParentRedirectMessage(error) ? (
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href="/parent-safe-truth">Go to Parent Safe-Truth</Link>
+                  </Button>
+                ) : null}
+              </AlertDescription>
             </Alert>
           ) : null}
 

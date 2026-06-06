@@ -17,6 +17,7 @@ import {
 } from "../services/facility-registry.service";
 import { evaluateCareSignalSubmissionGuard } from "../lib/care-signal-rate-limit";
 import { handleCareSignalInstitutionalFollowUp } from "../lib/care-signal-institutional-action";
+import { assertCareSignalProviderOrAdmin } from "../lib/care-signal-access";
 
 /**
  * Care Signal — provider incident & near-miss reporting (fellowship / QI pillar).
@@ -221,15 +222,9 @@ export const careSignalEventsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        assertCareSignalProviderOrAdmin(ctx.user);
         const isParentStory =
           input.eventType === "parent-observation" && ctx.user.userType === "parent";
-        if (!ctx.user.providerType && ctx.user.role !== "admin" && !isParentStory) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth to share your story.",
-          });
-        }
 
         const db = await getDb();
         if (!db) {
@@ -443,13 +438,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
@@ -522,13 +511,7 @@ export const careSignalEventsRouter = router({
    */
   getEventStats: protectedProcedure.query(async ({ ctx }) => {
     try {
-      if (!ctx.user.providerType && ctx.user.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
-        });
-      }
+      assertCareSignalProviderOrAdmin(ctx.user);
 
       const db = await getDb();
       if (!db) {
@@ -652,13 +635,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
@@ -754,13 +731,7 @@ export const careSignalEventsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
@@ -855,13 +826,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth for your story.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const recommendations = buildRecommendations(
           input.systemGaps,
@@ -896,12 +861,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Care Signal is for healthcare providers.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
@@ -972,12 +932,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Care Signal is for healthcare providers.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
@@ -1082,12 +1037,7 @@ export const careSignalEventsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        if (!ctx.user.providerType && ctx.user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Care Signal export is for healthcare providers.",
-          });
-        }
+        assertCareSignalProviderOrAdmin(ctx.user);
 
         const db = await getDb();
         if (!db) {
