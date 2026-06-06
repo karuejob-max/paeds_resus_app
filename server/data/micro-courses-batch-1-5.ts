@@ -12,12 +12,16 @@
 
 import {
   ANAPHYLAXIS_ADRENALINE,
+  ASTHMA_IV_SALBUTAMOL,
+  ASTHMA_STEROIDS,
   DKA_FLUIDS_CONFLICT,
   DKA_INSULIN_KETONES,
   DKA_POTASSIUM_SAFETY,
   GLUCOSE_MMOL_NOTE,
   PNEUMONIA_WHO_KENYA,
+  SPO2_TARGET_NOTE,
 } from './clinical-content-helpers';
+import { buildInternationalModuleHtml } from './micro-course-module-template';
 
 export const microCoursesBatch1To5 = [
   // ============================================
@@ -38,25 +42,48 @@ export const microCoursesBatch1To5 = [
         duration: 20,
         content: `
           <h2>Life-Threatening Asthma Recognition</h2>
-<div className="clinical-note"><h4>Red Flags (Immediate Escalation)</h4>
-	          <ul>
-	            <li>Silent chest (no air movement despite respiratory effort)</li>
-	            <li>Altered mental status, drowsiness, confusion</li>
-	            <li>Inability to speak full sentences (exhaustion)</li>
-	            <li>Severe accessory muscle use with paradoxical breathing</li>
-	            <li>Cyanosis despite oxygen</li>
-	            <li>Hypotension or shock</li>
-	            <li>Peak flow <25% predicted or unmeasurable</li>
-	          </ul></div>
-          <h3>Status Asthmaticus Definition:</h3>
-          <p>Severe asthma exacerbation unresponsive to standard therapy for ≥1 hour, requiring ICU-level care.</p>
-          <h3>Differential Diagnosis in Severe Asthma:</h3>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Status asthmaticus is severe asthma failing standard therapy — it kills from exhaustion and hypoxia, not from wheeze volume. Recognise impending respiratory failure before the chest goes silent.",
+            objectives: [
+              "Define status asthmaticus (≥1 hour without adequate response)",
+              "Identify silent chest, altered GCS, and exhaustion as red flags",
+              "Differentiate anaphylaxis, pneumothorax, and foreign body from severe asthma",
+            ],
+            sections: [
+              {
+                heading: "Red flags — immediate escalation",
+                bodyHtml: `<div class="clinical-note border-l-4 border-rose-500 pl-3 my-3"><h4>Red flags</h4>
           <ul>
-            <li>Foreign body aspiration (unilateral findings)</li>
-            <li>Anaphylaxis (urticaria, angioedema, hypotension)</li>
-            <li>Pneumothorax (acute onset, unilateral breath sounds)</li>
-            <li>Acute coronary syndrome (rare in children, chest pain)</li>
-          </ul>
+            <li>Silent chest (no air movement despite respiratory effort)</li>
+            <li>Altered mental status — drowsiness, confusion (CO₂ retention)</li>
+            <li>Inability to speak; exhaustion and paradoxical breathing</li>
+            <li>Cyanosis despite oxygen; hypotension</li>
+            <li>Peak flow &lt;25% predicted or unmeasurable</li>
+          </ul></div>`,
+              },
+              {
+                heading: "Status asthmaticus definition",
+                bodyHtml: `<p>Severe asthma exacerbation <strong>unresponsive to standard therapy for ≥1 hour</strong>, requiring ICU-level bronchodilator strategy and airway planning.</p>`,
+              },
+              {
+                heading: "Important mimics",
+                bodyHtml: `<ul>
+            <li><strong>Foreign body</strong> — sudden onset, unilateral wheeze or absent breath sounds</li>
+            <li><strong>Anaphylaxis</strong> — urticaria, angioedema, hypotension; give IM adrenaline if suspected</li>
+            <li><strong>Pneumothorax</strong> — sudden deterioration, unilateral absent breath sounds</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Silent chest + altered consciousness = treat as <strong>impending respiratory arrest</strong>. Start continuous bronchodilator therapy and prepare intubation equipment.</p>",
+            bedsideActions: [
+              "Call senior help and prepare airway cart",
+              "Continuous pulse oximetry and cardiac monitoring if available",
+              "Listen for unilateral absent breath sounds (pneumothorax)",
+              "If anaphylaxis features → IM adrenaline before pure asthma pathway",
+            ],
+          })}
         `,
         questions: [
           {
@@ -94,29 +121,53 @@ export const microCoursesBatch1To5 = [
         duration: 25,
         content: `
           <h2>Severe Asthma First-Hour Protocol</h2>
-          <h3>Oxygen & Ventilation:</h3>
-          <ul>
-            <li>Target SpO2 >90% (accept mild hyperoxia initially)</li>
-            <li>High-flow oxygen via non-rebreather mask</li>
-            <li>Prepare for intubation (difficult airway: hyperinflation, mucus plugging)</li>
-            <li>Avoid sedation if possible; use ketamine if intubation needed</li>
+          ${buildInternationalModuleHtml({
+            overview:
+              "In status asthmaticus, intermittent nebulisers are often insufficient — use continuous salbutamol, add ipratropium and magnesium, and give high-dose steroids early while preparing for ICU.",
+            objectives: [
+              "Deliver continuous salbutamol nebulisation and high-flow oxygen",
+              "Administer magnesium sulfate 40 mg/kg IV over 20 minutes when severe",
+              "Apply steroid options including IV hydrocortisone when NPO or critical",
+              "Monitor for pneumothorax and treatment complications",
+            ],
+            sections: [
+              {
+                heading: "Oxygen and ventilation support",
+                bodyHtml: `${SPO2_TARGET_NOTE}<ul>
+            <li>High-flow oxygen via non-rebreather — target SpO₂ &gt;90%</li>
+            <li>Prepare intubation: difficult airway from hyperinflation and secretions</li>
+            <li>If intubation needed: <strong>ketamine 1–2 mg/kg IV</strong> preserves airway tone</li>
+          </ul>`,
+              },
+              {
+                heading: "Medications — first hour",
+                bodyHtml: `<ul>
+            <li><strong>Salbutamol:</strong> 15 mg nebulised <strong>continuously</strong></li>
+            <li><strong>Ipratropium:</strong> 0.5 mg nebulised — synergistic with salbutamol</li>
+            <li><strong>Steroids:</strong> Dexamethasone, prednisolone, or hydrocortisone IV if severe/NPO</li>
+            <li><strong>Magnesium sulfate:</strong> 40 mg/kg IV over 20 min (max 2 g) if severe</li>
           </ul>
-          <h3>Medications (First Hour):</h3>
-          <ul>
-            <li><strong>Salbutamol:</strong> 15 mg nebulized continuously (not intermittent)</li>
-            <li><strong>Ipratropium:</strong> 0.5 mg nebulized (synergistic with salbutamol)</li>
-            <li><strong>Steroids:</strong> Dexamethasone 0.6 mg/kg (max 16 mg) PO/IM, prednisolone 1–2 mg/kg PO, or hydrocortisone 4–5 mg/kg IV if severe / NPO</li>
-            <li><strong>IV salbutamol:</strong> Where continuous nebulisation fails and monitoring available — per local ICU protocol (taught in Asthma 2)</li>
-            <li><strong>Magnesium sulfate:</strong> 40 mg/kg IV over 20 min (max 2g) if severe</li>
-            <li><strong>Avoid:</strong> Anticholinergics (atropine) unless intubated</li>
-          </ul>
-          <h3>Monitoring:</h3>
-          <ul>
-            <li>Continuous pulse oximetry</li>
-            <li>Peak flow every 15 min (if measurable)</li>
-            <li>Reassess breath sounds every 15 min</li>
-            <li>Watch for pneumothorax (sudden deterioration)</li>
-          </ul>
+          ${ASTHMA_STEROIDS}
+          ${ASTHMA_IV_SALBUTAMOL}`,
+              },
+              {
+                heading: "Monitoring during first hour",
+                bodyHtml: `<ul>
+            <li>Reassess breath sounds and work of breathing every 15 minutes</li>
+            <li>Peak flow when measurable; watch for sudden unilateral deterioration</li>
+            <li>Serial mental status — rising CO₂ causes drowsiness before arrest</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p><strong>Continuous salbutamol + magnesium + early high-dose steroid</strong> is the core first-hour bundle. Sudden unilateral silence → think pneumothorax, not improvement.</p>",
+            bedsideActions: [
+              "Start continuous salbutamol 15 mg neb; add ipratropium 0.5 mg",
+              "Magnesium 40 mg/kg IV over 20 min if severe (max 2 g)",
+              "Hydrocortisone 4–5 mg/kg IV or dexamethasone PO/IM",
+              "Reassess every 15 min; prepare ICU if no response in 1 hour",
+            ],
+          })}
         `,
         questions: [
           {
@@ -144,29 +195,52 @@ export const microCoursesBatch1To5 = [
         duration: 15,
         content: `
           <h2>When to Escalate: ICU Criteria</h2>
-<div className="clinical-note"><h4>Indications for ICU Transfer</h4>
-	          <ul>
-	            <li>Inadequate response after 1-2 hours of aggressive therapy</li>
-	            <li>Altered mental status (CO2 retention, exhaustion)</li>
-	            <li>Hypoxemia despite high-flow oxygen</li>
-	            <li>Hypercapnia (PaCO2 >45 mmHg)</li>
-	            <li>Respiratory failure requiring intubation</li>
-	          </ul></div>
-          <h3>Intubation Considerations:</h3>
+          ${buildInternationalModuleHtml({
+            overview:
+              "Intubation in asthma is high-risk — hyperinflation, mucus plugging, and barotrauma cause harm. Escalate early to ICU when CO₂ rises or therapy fails.",
+            objectives: [
+              "List ICU transfer criteria after failed first-hour therapy",
+              "Select ketamine and rocuronium for asthma intubation; avoid histamine-releasing agents",
+              "Apply permissive hypercapnia and low tidal volume ventilation post-intubation",
+            ],
+            sections: [
+              {
+                heading: "ICU transfer indications",
+                bodyHtml: `<div class="clinical-note"><h4>Escalate when</h4>
           <ul>
-            <li>Use ketamine 1-2 mg/kg IV (preserves airway tone)</li>
-            <li>Avoid histamine-releasing agents (atracurium, mivacurium)</li>
-            <li>Use rocuronium 1.2 mg/kg for paralysis</li>
-            <li>Expect difficult intubation (hyperinflation, secretions)</li>
-            <li>Post-intubation: permissive hypercapnia (PaCO2 45-55 acceptable)</li>
-          </ul>
-          <h3>Ongoing ICU Management:</h3>
-          <ul>
-            <li>Continue aggressive bronchodilators (salbutamol + ipratropium)</li>
-            <li>High-dose corticosteroids (hydrocortisone 4-5 mg/kg Q6H)</li>
-            <li>Sedation: propofol (bronchodilation) preferred over benzodiazepines</li>
-            <li>Avoid barotrauma: low tidal volumes (6-8 ml/kg), permissive hypercapnia</li>
-          </ul>
+            <li>Inadequate response after 1–2 hours of aggressive therapy</li>
+            <li>Altered mental status (CO₂ retention, exhaustion)</li>
+            <li>Hypoxaemia despite high-flow oxygen</li>
+            <li>Hypercapnia (PaCO₂ &gt;45 mmHg) or rising CO₂ on gas</li>
+            <li>Respiratory failure requiring intubation</li>
+          </ul></div>`,
+              },
+              {
+                heading: "Intubation considerations",
+                bodyHtml: `<ul>
+            <li><strong>Ketamine 1–2 mg/kg IV</strong> — preserves airway tone and bronchodilates</li>
+            <li><strong>Rocuronium 1.2 mg/kg</strong> — avoid atracurium/mivacurium (histamine release)</li>
+            <li>Expect difficult intubation: hyperinflation, copious secretions</li>
+          </ul>`,
+              },
+              {
+                heading: "Post-intubation ventilation",
+                bodyHtml: `<ul>
+            <li>Low tidal volumes <strong>6–8 mL/kg</strong>; permissive hypercapnia PaCO₂ 45–55 mmHg</li>
+            <li>Continue bronchodilators; propofol may aid bronchodilation vs benzodiazepines</li>
+            <li>High-dose hydrocortisone 4–5 mg/kg q6h while critical</li>
+          </ul>`,
+              },
+            ],
+            keyTakeaway:
+              "<p>Post-intubation asthma ventilation prioritises <strong>barotrauma prevention</strong> over normalising CO₂ immediately.</p>",
+            bedsideActions: [
+              "Discuss ICU transfer early — do not wait for arrest",
+              "Prepare ketamine and rocuronium; avoid atracurium",
+              "Set ventilator 6–8 mL/kg tidal volume if intubated",
+              "Continue bronchodilators and steroids in ICU",
+            ],
+          })}
         `,
         questions: [
           {

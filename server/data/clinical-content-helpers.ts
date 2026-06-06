@@ -2,6 +2,9 @@
  * Shared HTML snippets for fellowship micro-course modules (clinical governance).
  */
 
+import { getModuleEnrichment } from "./fellowship-international-enrichment";
+import { injectLearningObjectivesIfMissing } from "./micro-course-module-template";
+
 export const CLINICAL_EDUCATION_DISCLAIMER = `<p class="text-sm border-l-4 border-amber-500 pl-3 py-1 my-4 bg-amber-50 dark:bg-amber-950/30"><strong>Educational use only.</strong> Apply your facility protocol and senior review. Recommendations + choices — not a substitute for local MOH policy.</p>`;
 
 export const NEONATE_CALLOUT = `<div class="clinical-note border-l-4 border-rose-500 pl-3 my-3"><h4>Neonates (&lt;28 days or corrected gestation &lt;44 weeks)</h4><p><strong>Do not use benzodiazepines as first-line for seizures in neonates.</strong> Treat hypoglycaemia, infection, and electrolytes; use phenobarbital per local protocol and senior/paediatric neurology advice.</p></div>`;
@@ -19,6 +22,12 @@ export const SE_BENZO_CONFLICT = `<div class="clinical-note"><h4>First-line anti
 export const HYPOGLYCEMIA_MMOL_NOTE = `<p><strong>Hypoglycaemia:</strong> Treat when glucose &lt;3.3 mmol/L (&lt;60 mg/dL). Give 0.5 g/kg dextrose (2 mL/kg of 25% dextrose or equivalent) and recheck in 15 min.</p>`;
 
 export const ASTHMA_STEROIDS = `<div class="clinical-note"><h4>Systemic steroids (acute asthma)</h4><ul><li><strong>Dexamethasone</strong> 0.6 mg/kg (max 16 mg) PO/IM — long action, single dose option.</li><li><strong>Prednisolone</strong> 1–2 mg/kg (max 40 mg) PO daily.</li><li><strong>Hydrocortisone</strong> 4 mg/kg IV if unable to take oral or severe — not the only steroid taught.</li></ul></div>`;
+
+export const ASTHMA_SEVERITY_TABLE = `<div class="clinical-note"><h4>Severity at a glance</h4><table class="w-full text-sm my-2"><thead><tr><th>Severity</th><th>Speech / effort</th><th>SpO₂</th><th>Action</th></tr></thead><tbody><tr><td>Mild</td><td>Full sentences, mild wheeze</td><td>&gt;94%</td><td>Spacer/neb salbutamol; steroid if indicated</td></tr><tr><td>Moderate</td><td>Phrases, accessory muscles</td><td>90–94%</td><td>Repeat salbutamol + ipratropium; early steroid</td></tr><tr><td>Severe</td><td>Single words, marked recessions</td><td>&lt;90%</td><td>First-hour protocol; prepare Asthma II pathway</td></tr><tr><td>Life-threatening</td><td>Silent chest, exhaustion, altered GCS</td><td>Variable</td><td>High-flow O₂; continuous nebs; senior/ICU</td></tr></tbody></table></div>`;
+
+export const ASTHMA_LMIC_SPACER = `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have a spacer (no nebuliser)</h4><p><strong>6–10 puffs salbutamol via spacer with mask</strong> every 20 minutes for moderate/severe asthma — evidence supports spacer non-inferior to nebuliser for many children. Teach caregiver technique before discharge.</p></div>`;
+
+export const ASTHMA_IV_SALBUTAMOL = `<div class="clinical-note"><h4>IV salbutamol: international vs ICU reality</h4><ol><li><strong>International / ICU:</strong> Continuous IV salbutamol when nebulised therapy fails and cardiac monitoring available — specialist protocol only.</li><li><strong>Kenya / LMIC:</strong> Often unavailable outside PICU — maximise continuous nebulisation and magnesium; transfer early if failing.</li><li><strong>Our recommendation:</strong> Do not start IV salbutamol without monitoring — escalate to Asthma II / status asthmaticus pathway.</li></ol></div>`;
 
 export const SHOCK_FLUIDS_FEAST = `<div class="clinical-note"><h4>Fluids: international vs FEAST-aware practice</h4><ol><li><strong>International (Surviving Sepsis):</strong> 10–20 mL/kg isotonic boluses with reassessment; up to 40–60 mL/kg in first hour if shock persists.</li><li><strong>FEAST context (Africa):</strong> In some febrile children without clear hypovolaemia, large unmonitored boluses may harm — <strong>reassess after each bolus</strong>.</li><li><strong>Our recommendation:</strong> Give boluses when perfusion is poor; stop and escalate if no improvement or signs of fluid overload.</li></ol></div>`;
 
@@ -70,13 +79,15 @@ export type LmicsResourceTopic =
   | "insulin_no_pump"
   | "diazepam"
   | "fluids"
-  | "hypoglycemia";
+  | "hypoglycemia"
+  | "spacer_only";
 
 const LMIC_CALLOUT_BODIES: Record<LmicsResourceTopic, string> = {
   insulin_no_pump: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have insulin (no pump)</h4><p>Use <strong>IV insulin infusion</strong> 0.05–0.1 units/kg/h via syringe driver or calibrated drip — <strong>no bolus in children</strong>. If only subcutaneous insulin is available, this course teaches infusion-first; follow senior/MOH protocol and transfer when infusion unavailable.</p></div>`,
   diazepam: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have diazepam</h4><p><strong>IV/PR diazepam</strong> 0.2–0.3 mg/kg (max 10 mg) may be used when midazolam/lorazepam are unavailable — monitor respiratory depression and repeat limits. Prefer midazolam when stocked.</p></div>`,
   fluids: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have crystalloid (limited blood products)</h4><p><strong>10–20 mL/kg isotonic bolus</strong> (0.9% NaCl or balanced crystalloid) with reassessment after each bolus. Stop if fluid overload; escalate vasopressors/transfer per local ICU capability.</p></div>`,
   hypoglycemia: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have dextrose for hypoglycaemia</h4><p>Treat glucose &lt;3.3 mmol/L with <strong>0.5 g/kg dextrose</strong> (2 mL/kg of 25% dextrose or equivalent) and recheck in 15 min. Monitor in mmol/L — severe malaria and DKA pathways overlap.</p></div>`,
+  spacer_only: `<div class="clinical-note border-l-4 border-sky-600 pl-3 my-3"><h4>If you only have a spacer (no nebuliser)</h4><p><strong>6–10 puffs salbutamol via spacer with mask</strong> every 20 minutes for moderate/severe asthma — evidence supports spacer non-inferior to nebuliser for many children. Teach caregiver technique before discharge.</p></div>`,
 };
 
 /** Reusable “If you only have X” callout for LMIC resource constraints (platform safety B3). */
@@ -179,6 +190,8 @@ export const LMIC_CALLOUTS_BY_SLUG: Record<string, LmicsResourceTopic[]> = {
   "malaria-ii": ["hypoglycemia"],
   "trauma-i": ["fluids"],
   "pneumonia-i": ["fluids"],
+  "asthma-i": ["spacer_only"],
+  "asthma-ii": ["spacer_only"],
 };
 
 export function appendClinicalFooter(html: string, extras: string[] = []): string {
@@ -186,13 +199,16 @@ export function appendClinicalFooter(html: string, extras: string[] = []): strin
   return parts.filter(Boolean).join("\n");
 }
 
-/** Seed helper: LMIC callouts on module 1; ward checklist on final module for P0 slugs. */
+/** Seed helper: objectives injection, LMIC callouts, ward checklist, HTML normalization. */
 export function enhanceFellowshipModuleContent(
   catalogSlug: string,
   moduleIndex: number,
   totalModules: number,
   html: string
 ): string {
+  const enrichment = getModuleEnrichment(catalogSlug, moduleIndex);
+  let body = injectLearningObjectivesIfMissing(html, enrichment?.objectives ?? []);
+
   const extras: string[] = [];
   const lmicTopics = LMIC_CALLOUTS_BY_SLUG[catalogSlug];
   if (moduleIndex === 0 && lmicTopics?.length) {
@@ -202,5 +218,5 @@ export function enhanceFellowshipModuleContent(
   if (wardActions && moduleIndex === totalModules - 1) {
     extras.push(wardActionsChecklistHtml(wardActions));
   }
-  return appendClinicalFooter(html, extras);
+  return appendClinicalFooter(body, extras);
 }
