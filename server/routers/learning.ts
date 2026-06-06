@@ -423,6 +423,7 @@ export const learningRouter = router({
 
       const existingRow = existing?.[0] as {
         id: number;
+        score?: number | null;
         attempts?: number;
         completedAt?: Date | null;
         updatedAt?: Date | null;
@@ -430,10 +431,16 @@ export const learningRouter = router({
 
       if (examKind === "diagnostic") {
         if (existingRow?.completedAt) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Diagnostic baseline cannot be retaken.",
-          });
+          await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+          return {
+            success: true,
+            score: existingRow.score ?? input.score,
+            passed: true,
+            passingScore: 0,
+            examKind: "diagnostic" as const,
+            noRetake: true,
+            alreadyCompleted: true,
+          };
         }
         const now = new Date();
         if (existingRow) {

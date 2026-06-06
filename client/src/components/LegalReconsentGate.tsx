@@ -12,12 +12,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { isLegalDocumentPath } from "@/lib/legal-routes";
 
 /** Blocks stale Terms/Privacy until user re-accepts current versions. */
 export function LegalReconsentGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, sessionSettled } = useAuth();
+  const afterPaint = useAfterFirstPaint();
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -25,7 +27,7 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
   const utils = trpc.useUtils();
 
   const { data: status, isLoading } = trpc.legal.getMyConsentStatus.useQuery(undefined, {
-    enabled: isAuthenticated && sessionSettled,
+    enabled: isAuthenticated && sessionSettled && afterPaint,
   });
 
   const acceptTermsAndPrivacy = trpc.legal.acceptTermsAndPrivacy.useMutation();

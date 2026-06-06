@@ -465,6 +465,8 @@ export default function MicroCoursePlayerDB() {
     score: number;
     passed: boolean;
     passingScore: number;
+    alreadyCompleted?: boolean;
+    examKind?: string;
     questionResults?: Array<{
       questionId: number;
       correct: boolean;
@@ -480,6 +482,15 @@ export default function MicroCoursePlayerDB() {
     setQuizScore(typeof result.score === "number" ? result.score : 0);
     setQuizSubmitted(true);
     void utils.courses.getUserEnrollments.invalidate();
+    void utils.learning.getMicroCourseExamState.invalidate();
+    if (result.examKind === "diagnostic" || showDiagnosticQuiz) {
+      if (result.alreadyCompleted) {
+        setShowDiagnosticQuiz(false);
+        resetQuizState();
+        toast.success("Diagnostic already complete — modules unlocked.");
+        return;
+      }
+    }
     if (result.passed) {
       toast.success(
         showSummativeExam

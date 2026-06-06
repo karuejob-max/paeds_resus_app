@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
+import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
@@ -37,6 +38,7 @@ function daysUntilExpiry(expiryDate: string | Date | null | undefined): number |
 
 export default function ProviderDashboard({ defaultShowCertificates = false }: { defaultShowCertificates?: boolean }) {
   const { user, loading, isAuthenticated } = useAuth();
+  const afterPaint = useAfterFirstPaint();
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/home/provider");
   const [showCertificates, setShowCertificates] = useState(defaultShowCertificates);
@@ -60,16 +62,16 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
   });
 
   const { data: enrollmentsData } = trpc.courses.getUserEnrollments.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && afterPaint,
   });
 
   const { data: fellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && afterPaint,
     staleTime: 30_000,
   });
 
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && afterPaint,
   });
 
   const myCertificates = certData?.success ? (certData.certificates ?? []) : [];
@@ -87,8 +89,8 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
   const prefetchAhaHub = usePrefetchAhaHub();
 
   useEffect(() => {
-    if (isAuthenticated) prefetchAhaHub();
-  }, [isAuthenticated, prefetchAhaHub]);
+    if (isAuthenticated && afterPaint) prefetchAhaHub();
+  }, [afterPaint, isAuthenticated, prefetchAhaHub]);
 
   const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
   const [feedbackDialog, setFeedbackDialog] = useState<{

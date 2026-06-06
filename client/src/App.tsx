@@ -15,7 +15,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
-import AHACourses from "./pages/AHACourses";
 
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -103,6 +102,7 @@ const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const AHACourses = lazy(() => import("./pages/AHACourses"));
 
 /** Redirects to target path (for routes that have no dedicated page). */
 function Redirect({ to }: { to: string }) {
