@@ -11,6 +11,7 @@ import {
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   expandQuestionBank,
+  resolveExamQuestionBanks,
   uniqueFormativeQuestions,
   type FormativeQuestion,
 } from "../../shared/microcourse-exam-policy";
@@ -478,8 +479,9 @@ export async function ensureSeriouslyIllChildFellowshipCatalog(db: any): Promise
   const lastModId = moduleRows[moduleRows.length - 1]!.id;
 
   const diagnosticId = await upsertQuizOnModule(firstModId, MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE, 0);
-  await upsertQuestions(diagnosticId, BANK);
+  const { diagnostic: diagnosticBank, summative: summativeBank } = resolveExamQuestionBanks(BANK);
+  await upsertQuestions(diagnosticId, diagnosticBank);
 
   const summativeId = await upsertQuizOnModule(lastModId, MICROCOURSE_SUMMATIVE_QUIZ_TITLE, 80);
-  await upsertQuestions(summativeId, BANK);
+  await upsertQuestions(summativeId, summativeBank);
 }

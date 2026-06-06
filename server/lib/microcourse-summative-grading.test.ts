@@ -3,12 +3,13 @@ import { shuffleQuestionIndices } from "../../shared/microcourse-exam-policy";
 import { encodeQuizCorrectAnswerForStorage } from "../../shared/quiz-answer-contract";
 import { computeQuizScoreFromDb } from "./microcourse-exam-gate";
 
-function mockDb(rows: { id: number; correctAnswer: string | null; options?: string | null }[]) {
+function mockDb(rows: { id: number; question?: string; correctAnswer: string | null; options?: string | null }[]) {
   return {
     select: () => ({
       from: () => ({
         where: () => ({
-          orderBy: async () => rows,
+          orderBy: async () =>
+            rows.map((r) => ({ ...r, question: r.question ?? `Question ${r.id}` })),
         }),
       }),
     }),

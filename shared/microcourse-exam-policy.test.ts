@@ -7,7 +7,9 @@ import {
   expandQuestionBank,
   examKindFromQuizTitle,
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
+  normalizeQuestionStem,
   padModuleFormativeQuestions,
+  resolveExamQuestionBanks,
   resolveModuleFormativeQuestions,
   materializeModuleNativeFormatives,
   shuffleQuestionIndices,
@@ -71,10 +73,11 @@ describe("microcourse-exam-policy", () => {
     expect(expanded).toHaveLength(5);
   });
 
-  it("pads module-native formatives to minimum per module", () => {
+  it("pads module-native formatives without cycling duplicate stems", () => {
     const qs = [{ question: "Q1", options: ["a"], correct: 0, explanation: "e1" }];
     const padded = padModuleFormativeQuestions(qs);
-    expect(padded).toHaveLength(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
+    expect(padded).toHaveLength(1);
+    expect(padded[0]!.question).toBe("Q1");
   });
 
   it("assigns contiguous chunks with min 3 per module", () => {
@@ -106,8 +109,38 @@ describe("microcourse-exam-policy", () => {
         })),
       },
     });
-    expect(course.modules[0]!.questions!.length).toBe(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
+    expect(course.modules[0]!.questions!.length).toBe(1);
     expect(course.modules[1]!.questions!.length).toBe(0);
+  });
+
+  it("splits diagnostic and summative banks with minimal overlap when bank is large", () => {
+    const bank = Array.from({ length: 25 }, (_, i) => ({
+      question: `Stem ${i}`,
+      options: ["a"],
+      correct: 0,
+      explanation: "e",
+    }));
+    const { diagnostic, summative } = resolveExamQuestionBanks(bank);
+    expect(diagnostic).toHaveLength(10);
+    expect(summative).toHaveLength(15);
+    const diagStems = new Set(diagnostic.map((q) => normalizeQuestionStem(q.question)));
+    expect(summative.every((q) => !diagStems.has(normalizeQuestionStem(q.question)))).toBe(true);
+  });
+
+  it("reduces diagnostic overlap for 15-stem banks", () => {
+    const bank = Array.from({ length: 15 }, (_, i) => ({
+      question: `Stem ${i}`,
+      options: ["a"],
+      correct: 0,
+      explanation: "e",
+    }));
+    const { diagnostic, summative } = resolveExamQuestionBanks(bank);
+    expect(diagnostic).toHaveLength(5);
+    expect(summative).toHaveLength(15);
+    const overlap = summative.filter((q) =>
+      diagnostic.some((d) => normalizeQuestionStem(d.question) === normalizeQuestionStem(q.question))
+    );
+    expect(overlap.length).toBe(5);
   });
 
   it("prefers module-native questions over summative bank", () => {
@@ -118,6 +151,6 @@ describe("microcourse-exam-policy", () => {
     const bank = [{ question: "B1", options: ["a"], correct: 0, explanation: "e" }];
     const resolved = resolveModuleFormativeQuestions(modules, bank);
     expect(resolved[0]![0]!.question).toBe("M1");
-    expect(resolved[0]!.length).toBe(MIN_FORMATIVE_QUESTIONS_PER_MODULE);
+    expect(resolved[0]!.length).toBe(1);
   });
 });

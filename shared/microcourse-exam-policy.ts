@@ -13,6 +13,9 @@ export const MICROCOURSE_FORMATIVE_QUIZ_TITLE = "Knowledge check";
 /** Minimum bank size so summative shuffle remains meaningful (governance §3.4). */
 export const MICROCOURSE_MIN_QUESTION_BANK_SIZE = 15;
 
+/** Diagnostic baseline size — disjoint from summative when bank is large enough. */
+export const MICROCOURSE_DIAGNOSTIC_BANK_SIZE = 10;
+
 export type MicrocourseExamKind = "diagnostic" | "summative" | "formative";
 
 export type FormativeQuestion = {
@@ -29,18 +32,17 @@ export type ModuleWithFormativeQuestions = {
   questions?: FormativeQuestion[];
 };
 
-/** Pad a module's own question set to minimum size (never pull from summative bank). */
+/** Normalize question stem for dedupe comparisons. */
+export function normalizeQuestionStem(question: string | null | undefined): string {
+  return (question ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** Stable dedupe by stem — keeps first occurrence (never cycle-pad duplicates). */
 export function padModuleFormativeQuestions(
   questions: FormativeQuestion[],
-  minSize = MIN_FORMATIVE_QUESTIONS_PER_MODULE
+  _minSize = MIN_FORMATIVE_QUESTIONS_PER_MODULE
 ): FormativeQuestion[] {
-  if (questions.length === 0) return [];
-  if (questions.length >= minSize) return questions;
-  const padded = [...questions];
-  while (padded.length < minSize) {
-    padded.push(questions[padded.length % questions.length]!);
-  }
-  return padded;
+  return uniqueFormativeQuestions(questions);
 }
 
 /** Distribute course quiz questions across modules (1+ per module, round-robin if needed). */
@@ -106,12 +108,65 @@ export function uniqueFormativeQuestions(questions: FormativeQuestion[]): Format
   const seen = new Set<string>();
   const out: FormativeQuestion[] = [];
   for (const q of questions) {
-    const key = q.question.trim();
+    const key = normalizeQuestionStem(q.question);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(q);
   }
   return out;
+}
+
+export type QuizRowWithStem = { id?: number; question: string };
+
+/** Dedupe quiz rows by stem for player/exam delivery (stable order, first wins). */
+export function dedupeQuizRowsByStem<T extends QuizRowWithStem>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const key = normalizeQuestionStem(row.question);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+/**
+ * Split a course bank into diagnostic + summative with minimal overlap.
+ * When the bank is large enough, summative excludes diagnostic stems entirely.
+ */
+export function resolveExamQuestionBanks(questions: FormativeQuestion[]): {
+  diagnostic: FormativeQuestion[];
+  summative: FormativeQuestion[];
+} {
+  const unique = uniqueFormativeQuestions(questions);
+  if (unique.length === 0) {
+    return { diagnostic: [], summative: [] };
+  }
+
+  let diagnosticCount = 0;
+  if (unique.length >= MICROCOURSE_MIN_QUESTION_BANK_SIZE + MICROCOURSE_DIAGNOSTIC_BANK_SIZE) {
+    diagnosticCount = MICROCOURSE_DIAGNOSTIC_BANK_SIZE;
+  } else if (unique.length >= 20) {
+    diagnosticCount = 5;
+  } else if (unique.length >= MICROCOURSE_MIN_QUESTION_BANK_SIZE) {
+    diagnosticCount = 5;
+  } else if (unique.length > 1) {
+    diagnosticCount = Math.min(3, unique.length - 1);
+  }
+
+  const diagnostic = unique.slice(0, diagnosticCount);
+  const diagnosticStems = new Set(diagnostic.map((q) => normalizeQuestionStem(q.question)));
+  const disjointSummative = unique.filter(
+    (q) => !diagnosticStems.has(normalizeQuestionStem(q.question))
+  );
+
+  const summative =
+    disjointSummative.length >= MICROCOURSE_MIN_QUESTION_BANK_SIZE
+      ? disjointSummative
+      : unique;
+
+  return { diagnostic, summative };
 }
 
 export type CourseWithModuleFormatives = {

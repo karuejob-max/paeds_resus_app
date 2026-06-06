@@ -21,7 +21,7 @@ import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
-import { examKindFromQuizTitle } from "@shared/microcourse-exam-policy";
+import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
   formatPrerequisiteHint,
   microCourseTrackLabel,
@@ -530,6 +530,18 @@ export default function MicroCoursePlayerDB() {
     : showSummativeExam
       ? summativeQuiz
       : quizzes.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "formative");
+
+  const displayQuiz = useMemo(() => {
+    if (!activeQuiz?.questions?.length) return activeQuiz;
+    const deduped = dedupeQuizRowsByStem(
+      activeQuiz.questions.map((q: { id?: number; question?: string }) => ({
+        ...q,
+        question: q.question ?? "",
+      }))
+    );
+    if (deduped.length === activeQuiz.questions.length) return activeQuiz;
+    return { ...activeQuiz, questions: deduped };
+  }, [activeQuiz]);
   const isSummativeExamActive =
     showSummativeExam || examKindFromQuizTitle(activeQuiz?.title) === "summative";
 
@@ -649,7 +661,7 @@ export default function MicroCoursePlayerDB() {
   };
 
   const doSubmitQuiz = (enrollmentId: number) => {
-    const quiz = activeQuiz;
+    const quiz = displayQuiz;
     if (!quiz) return;
     const moduleIdForQuiz = showDiagnosticQuiz
       ? (firstModuleId ?? currentModuleId!)
@@ -685,7 +697,7 @@ export default function MicroCoursePlayerDB() {
   };
 
   const handleQuizSubmit = () => {
-    const quiz = activeQuiz;
+    const quiz = displayQuiz;
     if (!quiz) return;
 
     if (enrollment?.id) {
@@ -1073,7 +1085,7 @@ export default function MicroCoursePlayerDB() {
                   ? "Summative knowledge check"
                   : (currentModule?.title ?? "")
             }
-            quiz={activeQuiz}
+            quiz={displayQuiz}
             answers={quizAnswers}
             setAnswers={setQuizAnswers}
             onSubmit={handleQuizSubmit}

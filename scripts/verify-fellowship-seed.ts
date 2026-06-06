@@ -11,6 +11,7 @@ import {
   MICROCOURSE_MIN_QUESTION_BANK_SIZE,
   MIN_FORMATIVE_QUESTIONS_PER_MODULE,
   examKindFromQuizTitle,
+  normalizeQuestionStem,
 } from "../shared/microcourse-exam-policy";
 import {
   isFellowshipPillarMicroCourse,
@@ -71,7 +72,11 @@ async function main() {
     let formativeModules = 0;
     let summativeQuestionCount = 0;
     let thinFormativeModules = 0;
+    let withinQuizDuplicateStems = 0;
+    let diagnosticSummativeOverlap = 0;
     const missingFormative: number[] = [];
+    const diagnosticStems = new Set<string>();
+    const summativeStems = new Set<string>();
 
     for (const mod of mods) {
       const qs = await db.select({ id: quizzes.id, title: quizzes.title }).from(quizzes).where(eq(quizzes.moduleId, mod.id));
@@ -79,25 +84,25 @@ async function main() {
       const moduleFormativeStems = new Set<string>();
       for (const q of qs) {
         const kind = examKindFromQuizTitle(q.title);
+        const fq = await db
+          .select({ question: quizQuestions.question })
+          .from(quizQuestions)
+          .where(eq(quizQuestions.quizId, q.id));
+        const stems = fq.map((row) => row.question?.trim()).filter(Boolean) as string[];
+        const stemSet = new Set(stems.map(normalizeQuestionStem));
+        if (stems.length !== stemSet.size) withinQuizDuplicateStems++;
+
         if (kind === "diagnostic") {
           diagnostic++;
+          for (const s of stemSet) diagnosticStems.add(s);
         } else if (kind === "summative") {
           summative++;
-          const qCount = await db
-            .select({ id: quizQuestions.id })
-            .from(quizQuestions)
-            .where(eq(quizQuestions.quizId, q.id));
-          summativeQuestionCount = Math.max(summativeQuestionCount, qCount.length);
+          const qCount = stems.length;
+          summativeQuestionCount = Math.max(summativeQuestionCount, qCount);
+          for (const s of stemSet) summativeStems.add(s);
         } else if (kind === "formative") {
           modFormative++;
-          const fq = await db
-            .select({ question: quizQuestions.question })
-            .from(quizQuestions)
-            .where(eq(quizQuestions.quizId, q.id));
-          for (const row of fq) {
-            const stem = row.question?.trim();
-            if (stem) moduleFormativeStems.add(stem);
-          }
+          for (const s of stemSet) moduleFormativeStems.add(s);
         }
       }
       if (modFormative > 0) {
@@ -106,22 +111,28 @@ async function main() {
       } else missingFormative.push(mod.order ?? 0);
     }
 
+    for (const s of diagnosticStems) {
+      if (summativeStems.has(s)) diagnosticSummativeOverlap++;
+    }
+
     const summativeBankOk = summativeQuestionCount >= MICROCOURSE_MIN_QUESTION_BANK_SIZE;
     const formativeDepthOk = thinFormativeModules === 0;
+    const noWithinQuizDups = withinQuizDuplicateStems === 0;
     const summativeOk = summative >= 1;
     const examOk =
       diagnostic >= 1 &&
       summativeOk &&
       formativeModules === mods.length &&
       summativeBankOk &&
-      formativeDepthOk;
+      formativeDepthOk &&
+      noWithinQuizDups;
     const titleOk = !hasLevelInTitle;
     const ok = hasFooter && examOk && titleOk;
 
     if (!ok) failures++;
 
     rows.push(
-      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}`
+      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} withinQuizDups=${withinQuizDuplicateStems} diagSummOverlap=${diagnosticSummativeOverlap} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}${!noWithinQuizDups ? " | withinQuizDups" : ""}`
     );
   }
 
