@@ -5,6 +5,7 @@
  * Runs all six `seed:fellowship-content:*` batches + seriously-ill-child + verify.
  * Idempotent — safe on every deploy. Exits non-zero if verify fails after retries.
  */
+import "dotenv/config";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

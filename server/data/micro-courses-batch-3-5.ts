@@ -55,7 +55,27 @@ export const microCoursesBatch3To5 = [
             <li><strong>Class 3:</strong> 30-40% loss (decompensated)</li>
             <li><strong>Class 4:</strong> >40% loss (irreversible)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Hypovolemic shock causes include:",
+            options: ["Hemorrhage, dehydration, and third-spacing", "Primary cardiac failure only", "Isolated fever", "Normal blood volume"],
+            correct: 0,
+            explanation: "Volume loss from bleeding, GI losses, or third-spacing causes hypovolaemic shock.",
+          },
+          {
+            question: "Decompensated hypovolemic shock may present with:",
+            options: ["Hypotension and altered mental status", "Always normal blood pressure", "Bradycardia as first sign only", "No tachycardia"],
+            correct: 0,
+            explanation: "Decompensated shock: hypotension, weak pulses, altered mental status.",
+          },
+          {
+            question: "Oliguria in shock is defined as urine output:",
+            options: ["<1 mL/kg/hr", ">5 mL/kg/hr", "Exactly 2 mL/kg/hr always", "Not measured"],
+            correct: 0,
+            explanation: "Oliguria <1 mL/kg/hr indicates inadequate renal perfusion.",
+          },
+        ],
       },
       {
         title: 'Module 2: Rapid Fluid Resuscitation',
@@ -93,7 +113,27 @@ export const microCoursesBatch3To5 = [
             <li>Urine output: target >1 mL/kg/hr</li>
             <li>Blood pressure: should normalize</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "First-line fluid for hypovolemic shock resuscitation is:",
+            options: ["0.9% NaCl isotonic crystalloid", "5% dextrose alone", "Hypotonic 0.45% NaCl first-line", "Oral rehydration only in decompensated shock"],
+            correct: 0,
+            explanation: "Isotonic 0.9% NaCl — avoid hypotonic fluids in shock resuscitation.",
+          },
+          {
+            question: "Initial hypovolemic shock bolus volume is:",
+            options: ["20 mL/kg over 15–20 minutes", "100 mL/kg without reassessment", "5 mL/kg only ever", "No bolus in children"],
+            correct: 0,
+            explanation: "20 mL/kg bolus with reassessment — repeat up to 60 mL/kg total if needed.",
+          },
+          {
+            question: "Reassessment after fluid bolus should show improving:",
+            options: ["Heart rate, capillary refill, and mental status", "Only temperature", "Weight only", "No parameters"],
+            correct: 0,
+            explanation: "HR should fall, CRT improve, and mental status recover with effective resuscitation.",
+          },
+        ],
       },
       {
         title: 'Module 3: Ongoing Management & Complications',
@@ -127,8 +167,28 @@ export const microCoursesBatch3To5 = [
             <li>Multi-organ failure</li>
             <li>Death if not rapidly corrected</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "Deficit replacement after initial hypovolemic resuscitation should occur over:",
+            options: ["24–48 hours — not all in the first hour", "First 5 minutes entirely", "One week minimum", "Never replace"],
+            correct: 0,
+            explanation: "Maintenance plus deficit over 24–48 h; replace ongoing losses mL-for-mL.",
+          },
+          {
+            question: "Permissive hypotension in paediatric hemorrhagic shock targets SBP:",
+            options: ["50–60 mmHg (age <5) until bleeding controlled", "120 mmHg immediately", "No blood pressure target", "30 mmHg always"],
+            correct: 0,
+            explanation: "Limit over-resuscitation until hemorrhage controlled — permissive hypotension per protocol.",
+          },
+          {
+            question: "Vasopressors in hypovolemic shock are indicated after:",
+            options: ["Persistent hypotension despite ~60 mL/kg fluids", "First 5 mL/kg only", "Normal perfusion", "Discharge planning"],
+            correct: 0,
+            explanation: "Fluid-refractory shock needs vasopressors and source control.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Hypovolemic Shock I Quiz',
@@ -237,7 +297,27 @@ export const microCoursesBatch3To5 = [
             <li><strong>3rd:</strong> Repeat 20 mL/kg bolus (total 60 mL/kg)</li>
             <li><strong>If still inadequate:</strong> Vasopressors + surgical consultation</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Refractory hypovolemic shock is shock unresponsive to:",
+            options: ["60 mL/kg fluid resuscitation", "5 mL/kg only", "Oral fluids", "No fluids ever"],
+            correct: 0,
+            explanation: "Refractory = persistent shock after 60 mL/kg crystalloid.",
+          },
+          {
+            question: "Elevated lactate (>4 mmol/L) in shock indicates:",
+            options: ["Anaerobic metabolism from inadequate perfusion", "Normal finding", "Hyperglycaemia only", "Resolved shock"],
+            correct: 0,
+            explanation: "High lactate reflects tissue hypoperfusion — trend with resuscitation.",
+          },
+          {
+            question: "Ongoing hemorrhage as cause of refractory shock requires:",
+            options: ["Surgical or procedural source control urgently", "More oral fluids only", "Discharge", "Antibiotics alone"],
+            correct: 0,
+            explanation: "Control bleeding — fluids and vasopressors cannot succeed with uncorrected hemorrhage.",
+          },
+        ],
       },
       {
         title: 'Module 2: Vasopressor Management & Hemorrhage Control',
@@ -274,7 +354,27 @@ export const microCoursesBatch3To5 = [
             <li><strong>Cryoprecipitate:</strong> 1 unit/5 kg if fibrinogen <100 mg/dL</li>
             <li><strong>Tranexamic acid (TXA):</strong> 15 mg/kg IV (if available, within 3 hours of injury)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Target MAP during vasopressor therapy in a child age >5 is typically:",
+            options: [">60 mmHg", "<30 mmHg", "No target", "Only diastolic pressure"],
+            correct: 0,
+            explanation: "Target MAP >50 mmHg (age <5) or >60 mmHg (age >5) per protocol.",
+          },
+          {
+            question: "Tourniquet application for uncontrolled limb hemorrhage should be:",
+            options: ["Proximal to the wound when direct pressure fails", "Never used in children", "On the distal limb only", "Left for days without monitoring"],
+            correct: 0,
+            explanation: "Tourniquet proximal to wound when pressure insufficient — document time applied.",
+          },
+          {
+            question: "Tranexamic acid in trauma is most beneficial when given:",
+            options: ["Within 3 hours of injury", "After 48 hours only", "Orally before injury", "Never in paediatrics"],
+            correct: 0,
+            explanation: "TXA 15 mg/kg IV within 3 h of injury reduces mortality in hemorrhagic shock.",
+          },
+        ],
       },
       {
         title: 'Module 3: Complications & ICU Management',
@@ -313,8 +413,28 @@ export const microCoursesBatch3To5 = [
             <li>Rehabilitation: Physical therapy for trauma survivors</li>
             <li>Psychological support for trauma-related PTSD</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "DIC in refractory shock is managed by:",
+            options: ["Treating underlying cause and replacing clotting factors as indicated", "Heparin for all children routinely", "Withholding all blood products", "Oral iron only"],
+            correct: 0,
+            explanation: "Address cause; transfuse FFP/platelets/cryoprecipitate per triggers.",
+          },
+          {
+            question: "AKI from prolonged hypoperfusion requires:",
+            options: ["Optimised perfusion and avoidance of nephrotoxins", "Large fluid bolus without assessment", "Immediate discharge", "NSAIDs first-line"],
+            correct: 0,
+            explanation: "Restore perfusion; avoid nephrotoxic drugs; monitor creatinine and urine output.",
+          },
+          {
+            question: "ARDS complicating shock is ventilated with:",
+            options: ["Lung-protective strategy 6–8 mL/kg and PEEP", "Very high tidal volumes", "No PEEP", "Hyperventilation to pH 7.6"],
+            correct: 0,
+            explanation: "Low tidal volume ventilation reduces ventilator-induced lung injury.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Hypovolemic Shock II Quiz',
@@ -427,7 +547,27 @@ export const microCoursesBatch3To5 = [
             <li>Echocardiography: Reduced ejection fraction, wall motion abnormalities</li>
             <li>Troponin: Elevated (myocardial injury)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "Cardiogenic shock results from:",
+            options: ["Inadequate cardiac output despite adequate preload", "Blood loss only", "Isolated dehydration", "Normal heart function"],
+            correct: 0,
+            explanation: "Pump failure — not primary volume depletion.",
+          },
+          {
+            question: "Compared to hypovolemic shock, cardiogenic shock often has:",
+            options: ["Elevated JVP and pulmonary crackles", "Flat neck veins and dry lungs", "Rapid improvement with 20 mL/kg bolus always", "No hepatomegaly"],
+            correct: 0,
+            explanation: "Cardiogenic: elevated JVP, crackles, hepatomegaly — fluids may worsen.",
+          },
+          {
+            question: "Common paediatric causes of cardiogenic shock include:",
+            options: ["Myocarditis and arrhythmias", "Isolated asthma", "Mild dehydration only", "Normal variants"],
+            correct: 0,
+            explanation: "Myocarditis, congenital heart disease, and arrhythmias are key causes.",
+          },
+        ],
       },
       {
         title: 'Module 2: Initial Stabilization',
@@ -462,7 +602,27 @@ export const microCoursesBatch3To5 = [
             <li><strong>Nitroglycerin:</strong> 0.5-10 mcg/kg/min (venous + arterial vasodilation)</li>
             <li><strong>ACE inhibitors:</strong> Enalapril 0.1 mg/kg/dose (chronic management)</li>
           </ul>
-        `
+        `,
+        questions: [
+          {
+            question: "In cardiogenic shock, aggressive fluid boluses should be:",
+            options: ["Avoided — they worsen pulmonary oedema", "Given as 60 mL/kg always", "Oral only", "First-line always"],
+            correct: 0,
+            explanation: "Avoid large boluses; cautious 5–10 mL/kg only if hypotensive without pulmonary oedema.",
+          },
+          {
+            question: "Furosemide in cardiogenic shock with pulmonary oedema is:",
+            options: ["1 mg/kg IV to reduce preload", "Contraindicated always", "Oral only in coma", "Given before all fluids"],
+            correct: 0,
+            explanation: "Diurese when pulmonary oedema present — do not flood the failing ventricle.",
+          },
+          {
+            question: "Dobutamine acts primarily as a:",
+            options: ["Positive inotrope with vasodilation", "Pure alpha agonist only", "Antibiotic", "Diuretic"],
+            correct: 0,
+            explanation: "Dobutamine 5–20 mcg/kg/min improves contractility.",
+          },
+        ],
       },
       {
         title: 'Module 3: Specific Conditions & Escalation',
@@ -496,8 +656,28 @@ export const microCoursesBatch3To5 = [
             <li>Arrhythmias unresponsive to treatment</li>
             <li>Consider ECMO if refractory cardiogenic shock</li>
           </ul>
-        `
-      }
+        `,
+        questions: [
+          {
+            question: "SVT causing cardiogenic shock may be treated with:",
+            options: ["Adenosine 0.1 mg/kg IV (max 6 mg) first dose", "Immediate defibrillation without rhythm check", "Oral salbutamol", "Large fluid bolus only"],
+            correct: 0,
+            explanation: "Adenosine for SVT — restore rhythm to improve cardiac output.",
+          },
+          {
+            question: "Myocarditis management includes:",
+            options: ["Inotropes and afterload reduction; avoid NSAIDs", "NSAIDs first-line", "No monitoring", "Discharge immediately"],
+            correct: 0,
+            explanation: "Supportive inotropic care; NSAIDs may worsen myocarditis.",
+          },
+          {
+            question: "ECMO may be considered when:",
+            options: ["Refractory cardiogenic shock despite maximal medical therapy", "Mild dehydration", "Normal echocardiogram", "First presentation of fever"],
+            correct: 0,
+            explanation: "ECMO for refractory pump failure when available and indicated.",
+          },
+        ],
+      },
     ],
     quiz: {
       title: 'Cardiogenic Shock I Quiz',
