@@ -134,6 +134,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["pat-appearance", "pat-wob", "pat-circulation", "pat-call-help"],
+    // Shuffled for display (learners must reorder)
+    shuffledOrder: ["pat-call-help", "pat-appearance", "pat-circulation", "pat-wob"],
     passingScore: 80,
     feedback: {
       "pat-appearance": "TICLS is the first visual clue to overall status",
@@ -178,6 +180,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["airway-position", "airway-clear", "airway-maneuver", "airway-oxygen"],
+    // Shuffled for display
+    shuffledOrder: ["airway-oxygen", "airway-maneuver", "airway-position", "airway-clear"],
     passingScore: 80,
     feedback: {
       "airway-position": "Proper positioning is the foundation of airway management",
@@ -229,6 +233,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["breath-auscultate", "breath-rate", "breath-wob", "breath-ventilate", "breath-capno"],
+    // Shuffled for display
+    shuffledOrder: ["breath-capno", "breath-ventilate", "breath-auscultate", "breath-wob", "breath-rate"],
     passingScore: 80,
     feedback: {
       "breath-auscultate": "Auscultation reveals the underlying pathology",
@@ -288,6 +294,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["circ-pulse", "circ-crt", "circ-skin", "circ-bp", "circ-iv", "circ-fluid"],
+    // Shuffled for display
+    shuffledOrder: ["circ-fluid", "circ-bp", "circ-iv", "circ-skin", "circ-pulse", "circ-crt"],
     passingScore: 80,
     feedback: {
       "circ-pulse": "Pulse quality is the first sign of shock",
@@ -334,6 +342,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["dis-avpu", "dis-pupils", "dis-glucose", "dis-posture"],
+    // Shuffled for display
+    shuffledOrder: ["dis-posture", "dis-glucose", "dis-avpu", "dis-pupils"],
     passingScore: 80,
     feedback: {
       "dis-avpu": "AVPU quickly categorizes neurological status",
@@ -385,6 +395,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["exp-undress", "exp-rash", "exp-temp", "exp-injuries", "exp-prevent-loss"],
+    // Shuffled for display
+    shuffledOrder: ["exp-prevent-loss", "exp-injuries", "exp-undress", "exp-temp", "exp-rash"],
     passingScore: 80,
     feedback: {
       "exp-undress": "Full exposure is essential for complete assessment",
@@ -444,6 +456,8 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["sample-signs", "sample-allergies", "sample-meds", "sample-pmd", "sample-last-meal", "sample-events"],
+    // Shuffled for display
+    shuffledOrder: ["sample-events", "sample-last-meal", "sample-signs", "sample-meds", "sample-pmd", "sample-allergies"],
     passingScore: 80,
     feedback: {
       "sample-signs": "Chief complaint guides your differential diagnosis",
@@ -543,6 +557,19 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       "arrest-epi",
       "arrest-reversible"
     ],
+    // Shuffled for display
+    shuffledOrder: [
+      "arrest-reversible",
+      "arrest-shock",
+      "arrest-epi",
+      "arrest-shout",
+      "arrest-charge",
+      "arrest-cpr-start",
+      "arrest-resume",
+      "arrest-defib",
+      "arrest-airway",
+      "arrest-pulse"
+    ],
     passingScore: 80,
     feedback: {
       "arrest-shout": "Early activation of help is critical",
@@ -621,6 +648,16 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       "rosc-glucose",
       "rosc-seizures",
       "rosc-icu"
+    ],
+    // Shuffled for display
+    shuffledOrder: [
+      "rosc-icu",
+      "rosc-glucose",
+      "rosc-airway",
+      "rosc-seizures",
+      "rosc-breathing",
+      "rosc-cooling",
+      "rosc-circulation"
     ],
     passingScore: 80,
     feedback: {

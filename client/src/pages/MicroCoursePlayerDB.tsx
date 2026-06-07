@@ -119,12 +119,13 @@ export default function MicroCoursePlayerDB() {
   }, [capstoneInProgress, progressKey]);
 
   // Restore capstone state on mount — if capstone was in progress, show it immediately
-  useEffect(() => {
-    const savedCapstoneState = localStorage.getItem(progressKey + '-capstone-in-progress') === 'true';
-    if (savedCapstoneState) {
-      setShowCapstoneSim(true);
-    }
-  }, []);
+  // DISABLED: Removed automatic redirect to capstone to allow viewing full module list
+  // useEffect(() => {
+  //   const savedCapstoneState = localStorage.getItem(progressKey + '-capstone-in-progress') === 'true';
+  //   if (savedCapstoneState) {
+  //     setShowCapstoneSim(true);
+  //   }
+  // }, []);
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
