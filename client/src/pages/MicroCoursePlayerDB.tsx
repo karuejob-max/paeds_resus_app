@@ -103,10 +103,20 @@ export default function MicroCoursePlayerDB() {
   const [maxReachedSectionIndex, setMaxReachedSectionIndex] = useState(0);
   const [backToLastSectionOfModule, setBackToLastSectionOfModule] = useState(false);
 
+  // Capstone state persistence
+  const [capstoneInProgress, setCapstoneInProgress] = useState(() => {
+    try { return localStorage.getItem(progressKey + '-capstone-in-progress') === 'true'; } catch { return false; }
+  });
+
   // Persist maxReachedModuleIndex whenever it advances
   useEffect(() => {
     try { localStorage.setItem(progressKey + '-module', String(maxReachedModuleIndex)); } catch {}
   }, [maxReachedModuleIndex, progressKey]);
+
+  // Persist capstone state
+  useEffect(() => {
+    try { localStorage.setItem(progressKey + '-capstone-in-progress', String(capstoneInProgress)); } catch {}
+  }, [capstoneInProgress, progressKey]);
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -1134,6 +1144,7 @@ export default function MicroCoursePlayerDB() {
                 }, {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
+                    setCapstoneInProgress(false);
                     setShowCertificateReady(true);
                     void utils.learning.getMicroCourseExamState.invalidate();
                   }
@@ -1169,6 +1180,7 @@ export default function MicroCoursePlayerDB() {
               if (showSummativeExam || isSummativeExamActive) {
                 setShowSummativeExam(false);
                 if (examState?.capstoneRequired && !examState?.capstonePassed) {
+                  setCapstoneInProgress(true);
                   setShowCapstoneSim(true);
                 } else {
                   setShowCertificateReady(true);
