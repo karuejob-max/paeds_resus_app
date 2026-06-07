@@ -20,7 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import { PalsCapstonePriorityExam } from "@/components/PalsCapstonePriorityExam";
+import { PalsCapstoneClean } from "@/components/PalsCapstoneClean";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -1161,7 +1161,7 @@ export default function MicroCoursePlayerDB() {
             ahaProgramType={ahaProgramForUi}
           />
         ) : showCapstoneSim ? (
-          <PalsCapstonePriorityExam 
+          <PalsCapstoneClean 
             onComplete={(score, passed) => {
               if (passed) {
                 // Virtual moduleId -1 for capstone
@@ -1188,6 +1188,14 @@ export default function MicroCoursePlayerDB() {
               } else {
                 toast.error(`Simulation failed with score ${score}%. You need 80% to pass.`);
               }
+            }}
+            onClose={() => {
+              setShowCapstoneSim(false);
+              setCapstoneInProgress(false);
+              localStorage.removeItem(`capstone-in-progress-${slug}`);
+              // Go back to the last module
+              setCurrentModuleIndex(Math.max(0, modules.length - 1));
+              setBackToLastSectionOfModule(true);
             }}
           />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (

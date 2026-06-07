@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { AlertCircle, CheckCircle2, GripVertical } from "lucide-react";
 import {
   PALS_CAPSTONE_SCENARIOS,
   calculatePriorityScore,
   type ClinicalPhase,
   type PriorityIntervention,
-} from "@/lib/resus/pals-capstone-clean";
+} from "../lib/resus/pals-capstone-clean";
 
 interface PalsCapstoneCleanProps {
   onComplete: (score: number, passed: boolean) => void;
@@ -73,6 +73,9 @@ export function PalsCapstoneClean({ onComplete, onClose }: PalsCapstoneCleanProp
     setFeedback(result.feedback);
 
     if (result.passed) {
+      const updatedScores = { ...phaseScores, [currentPhase]: result.score };
+      setPhaseScores(updatedScores);
+      
       // Move to next phase after a short delay
       setTimeout(() => {
         if (currentPhaseIndex < phases.length - 1) {
@@ -82,7 +85,7 @@ export function PalsCapstoneClean({ onComplete, onClose }: PalsCapstoneCleanProp
         } else {
           // All phases completed
           const totalScore = Math.round(
-            Object.values(phaseScores).reduce((a, b) => a + b, 0) / phases.length
+            Object.values(updatedScores).reduce((a, b) => a + b, 0) / phases.length
           );
           onComplete(totalScore, totalScore >= 80);
         }
