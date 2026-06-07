@@ -118,6 +118,14 @@ export default function MicroCoursePlayerDB() {
     try { localStorage.setItem(progressKey + '-capstone-in-progress', String(capstoneInProgress)); } catch {}
   }, [capstoneInProgress, progressKey]);
 
+  // Restore capstone state on mount — if capstone was in progress, show it immediately
+  useEffect(() => {
+    const savedCapstoneState = localStorage.getItem(progressKey + '-capstone-in-progress') === 'true';
+    if (savedCapstoneState) {
+      setShowCapstoneSim(true);
+    }
+  }, []);
+
   // ── Queries ────────────────────────────────────────────────────────────────
 
   // Path A: Fellowship courses — look up via catalog + title match
