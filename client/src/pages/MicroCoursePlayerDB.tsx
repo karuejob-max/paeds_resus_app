@@ -20,7 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import PalsCapstonePracticalExam from "@/components/PalsCapstonePracticalExam";
+import { PalsCapstonePriorityExam } from "@/components/PalsCapstonePriorityExam";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -1139,7 +1139,7 @@ export default function MicroCoursePlayerDB() {
             ahaProgramType={ahaProgramForUi}
           />
         ) : showCapstoneSim ? (
-          <PalsCapstonePracticalExam 
+          <PalsCapstonePriorityExam 
             onComplete={(score, passed) => {
               if (passed) {
                 // Virtual moduleId -1 for capstone
