@@ -84,6 +84,14 @@ export default function MicroCoursePlayerDB() {
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
   
+  // Persistence for capstone
+  useEffect(() => {
+    const inProgress = localStorage.getItem(`capstone-in-progress-${slug}`);
+    if (inProgress === "true" && !showCertificateReady && !showCapstoneSim) {
+      setShowCapstoneSim(true);
+    }
+  }, [slug, showCertificateReady, showCapstoneSim]);
+  
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
@@ -686,7 +694,10 @@ export default function MicroCoursePlayerDB() {
       });
     }
 
-    if (currentModuleIndex < modules.length - 1) {
+    const isPals = programType === "pals";
+    const totalModules = modules.length;
+
+    if (currentModuleIndex < totalModules - 1) {
       const nextIdx = currentModuleIndex + 1;
       setCurrentModuleIndex(nextIdx);
       setCurrentSectionIndex(0);
@@ -697,8 +708,19 @@ export default function MicroCoursePlayerDB() {
       }
       window.scrollTo(0, 0);
     } else {
+      // All cognitive modules finished
+      if (isPals && !examState?.capstonePassed) {
+        // Step 10: Practical Exam (Simulation)
+        setCurrentModuleIndex(9);
+        setShowCapstoneSim(true);
+        localStorage.setItem(`capstone-in-progress-${slug}`, "true");
+        window.scrollTo(0, 0);
+        return;
+      }
+      
+      // Step 11: Summative Exam
       setShowSummativeExam(true);
-      setCurrentModuleIndex(modules.length - 1);
+      setCurrentModuleIndex(isPals ? 10 : totalModules - 1);
       setQuizAnswers({});
       setQuizSubmitted(false);
       setQuizScore(null);
@@ -1153,7 +1175,13 @@ export default function MicroCoursePlayerDB() {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
                     setCapstoneInProgress(false);
-                    setShowCertificateReady(true);
+                    localStorage.removeItem(`capstone-in-progress-${slug}`);
+                    // After Capstone (Module 10), move to Summative Exam (Module 11)
+                    setCurrentModuleIndex(10);
+                    setShowSummativeExam(true);
+                    setQuizAnswers({});
+                    setQuizSubmitted(false);
+                    setQuizScore(null);
                     void utils.learning.getMicroCourseExamState.invalidate();
                   }
                 });

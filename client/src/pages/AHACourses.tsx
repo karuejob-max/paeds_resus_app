@@ -17,13 +17,19 @@ export default function AHACourses() {
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/aha-courses");
 
-  const { data: dashboard, isLoading: dashboardLoading } = trpc.courses.getAhaHubDashboard.useQuery(
+  const { data: dashboard, isLoading: dashboardLoading, refetch: refetchDashboard } = trpc.courses.getAhaHubDashboard.useQuery(
     undefined,
     {
       staleTime: AHA_HUB_STALE_MS,
       refetchOnWindowFocus: false,
     }
   );
+
+  // Manual refresh helper
+  const handleRefresh = useCallback(() => {
+    void refetchDashboard();
+    toast.success("Dashboard refreshed");
+  }, [refetchDashboard]);
 
   const ahaCourses = dashboard?.programs;
   const ahaEnrollments = dashboard?.enrollments;
@@ -130,20 +136,25 @@ export default function AHACourses() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/home")} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Hub
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <BookOpen className="h-8 w-8" />
-              AHA Certification
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              BLS, ACLS, PALS, Heartsaver, and NRP. Fellowship micro-courses are managed in the Fellowship section.
-            </p>
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/home")} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Hub
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <BookOpen className="h-8 w-8" />
+                AHA Certification
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                BLS, ACLS, PALS, Heartsaver, and NRP. Fellowship micro-courses are managed in the Fellowship section.
+              </p>
+            </div>
           </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2">
+            Refresh Dashboard
+          </Button>
         </div>
 
         <AssessmentPolicyBanner track="aha" />

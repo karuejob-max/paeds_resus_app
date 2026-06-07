@@ -126,7 +126,8 @@ export function formatAhaRecommendedDurationLabel(programType: AhaProgramType): 
 
 /** e.g. "Cognitive coursework: ~10 hours online" */
 export function formatCognitiveCourseworkDurationLabel(programType: AhaProgramType): string {
-  return `Cognitive coursework: ${formatCognitiveCourseworkDuration(programType)}`;
+  const moduleCount = programType === 'pals' ? 10 : 6;
+  return `Cognitive coursework: ${moduleCount} modules • ${formatCognitiveCourseworkDuration(programType)}`;
 }
 
 /** @deprecated Use formatAhaRecommendedDuration — kept for schema.org and legacy copy */

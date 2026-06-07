@@ -34,6 +34,7 @@ export interface PriorityOrderingChallenge {
   scenario: string; // Instructor description of what's happening
   interventions: PriorityIntervention[];
   correctOrder: string[]; // Array of intervention IDs in correct sequence
+  shuffledOrder?: string[]; // Randomized order for display (learners must reorder)
   passingScore: number; // Percentage correct to pass
   feedback: {
     [interventionId: string]: string; // Why this intervention is at this priority
@@ -134,6 +135,7 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["pat-appearance", "pat-wob", "pat-circulation", "pat-call-help"],
+    shuffledOrder: ["pat-call-help", "pat-appearance", "pat-circulation", "pat-wob"],
     passingScore: 80,
     feedback: {
       "pat-appearance": "TICLS is the first visual clue to overall status",
@@ -178,6 +180,7 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["airway-position", "airway-clear", "airway-maneuver", "airway-oxygen"],
+    shuffledOrder: ["airway-oxygen", "airway-maneuver", "airway-position", "airway-clear"],
     passingScore: 80,
     feedback: {
       "airway-position": "Proper positioning is the foundation of airway management",
@@ -229,6 +232,7 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       }
     ],
     correctOrder: ["breath-auscultate", "breath-rate", "breath-wob", "breath-ventilate", "breath-capno"],
+    shuffledOrder: ["breath-capno", "breath-ventilate", "breath-auscultate", "breath-wob", "breath-rate"],
     passingScore: 80,
     feedback: {
       "breath-auscultate": "Auscultation reveals the underlying pathology",
@@ -543,6 +547,18 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       "arrest-epi",
       "arrest-reversible"
     ],
+    shuffledOrder: [
+      "arrest-reversible",
+      "arrest-epi",
+      "arrest-resume",
+      "arrest-shock",
+      "arrest-charge",
+      "arrest-defib",
+      "arrest-airway",
+      "arrest-cpr-start",
+      "arrest-pulse",
+      "arrest-shout"
+    ],
     passingScore: 80,
     feedback: {
       "arrest-shout": "Early activation of help is critical",
@@ -619,8 +635,17 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       "rosc-circulation",
       "rosc-cooling",
       "rosc-glucose",
-      "rosc-seizures",
-      "rosc-icu"
+      "rosc-seizure",
+      "rosc-transfer"
+    ],
+    shuffledOrder: [
+      "rosc-transfer",
+      "rosc-seizure",
+      "rosc-glucose",
+      "rosc-cooling",
+      "rosc-circulation",
+      "rosc-breathing",
+      "rosc-airway"
     ],
     passingScore: 80,
     feedback: {
