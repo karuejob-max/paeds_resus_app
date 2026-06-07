@@ -166,25 +166,25 @@ export default function PalsCapstonePracticalExam({
                   onClick={() => handleAssessmentToggle(finding.name)}
                   className={`p-3 rounded-lg border-2 text-left transition-all ${
                     selectedAssessments.includes(finding.name)
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-300 bg-white hover:border-gray-400'
-                  } ${finding.critical ? 'ring-2 ring-red-300' : ''}`}
+                      ? 'border-blue-600 bg-blue-600 text-white dark:bg-blue-700 dark:border-blue-500'
+                      : 'border-gray-300 bg-white hover:border-gray-400 dark:bg-slate-800 dark:border-slate-600 dark:text-white dark:hover:border-slate-500'
+                  } ${finding.critical ? 'ring-2 ring-red-300 dark:ring-red-500' : ''}`}
                 >
                   <div className="flex items-start gap-2">
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                       selectedAssessments.includes(finding.name)
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-gray-400'
+                        ? 'bg-white border-white dark:bg-blue-400 dark:border-blue-400'
+                        : 'border-gray-400 dark:border-slate-500'
                     }`}>
                       {selectedAssessments.includes(finding.name) && (
-                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-700" />
                       )}
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900">{finding.name}</div>
-                      <div className="text-sm text-gray-600">{finding.description}</div>
+                      <div className={`font-semibold ${selectedAssessments.includes(finding.name) ? 'text-white dark:text-white' : 'text-gray-900 dark:text-white'}`}>{finding.name}</div>
+                      <div className={`text-sm ${selectedAssessments.includes(finding.name) ? 'text-blue-100 dark:text-blue-200' : 'text-gray-600 dark:text-slate-400'}`}>{finding.description}</div>
                       {finding.critical && (
-                        <div className="text-xs text-red-600 font-semibold mt-1">Critical Finding</div>
+                        <div className={`text-xs font-semibold mt-1 ${selectedAssessments.includes(finding.name) ? 'text-red-200 dark:text-red-300' : 'text-red-600 dark:text-red-400'}`}>Critical Finding</div>
                       )}
                     </div>
                   </div>
@@ -238,30 +238,30 @@ export default function PalsCapstonePracticalExam({
                   disabled={isPhaseComplete}
                   className={`p-3 rounded-lg border-2 text-left transition-all ${
                     selectedInterventions.includes(intervention.name)
-                      ? 'border-emerald-600 bg-emerald-50'
-                      : 'border-gray-300 bg-white hover:border-gray-400'
-                  } ${intervention.required ? 'ring-2 ring-orange-300' : ''} ${
+                      ? 'border-emerald-600 bg-emerald-600 text-white dark:bg-emerald-700 dark:border-emerald-500'
+                      : 'border-gray-300 bg-white hover:border-gray-400 dark:bg-slate-800 dark:border-slate-600 dark:text-white dark:hover:border-slate-500'
+                  } ${intervention.required ? 'ring-2 ring-orange-300 dark:ring-orange-500' : ''} ${
                     isPhaseComplete ? 'opacity-75 cursor-not-allowed' : ''
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                       selectedInterventions.includes(intervention.name)
-                        ? 'bg-emerald-600 border-emerald-600'
-                        : 'border-gray-400'
+                        ? 'bg-white border-white dark:bg-emerald-400 dark:border-emerald-400'
+                        : 'border-gray-400 dark:border-slate-500'
                     }`}>
                       {selectedInterventions.includes(intervention.name) && (
-                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-700" />
                       )}
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900">{intervention.name}</div>
-                      <div className="text-sm text-gray-600">{intervention.description}</div>
+                      <div className={`font-semibold ${selectedInterventions.includes(intervention.name) ? 'text-white dark:text-white' : 'text-gray-900 dark:text-white'}`}>{intervention.name}</div>
+                      <div className={`text-sm ${selectedInterventions.includes(intervention.name) ? 'text-emerald-100 dark:text-emerald-200' : 'text-gray-600 dark:text-slate-400'}`}>{intervention.description}</div>
                       {intervention.dose && (
-                        <div className="text-xs text-blue-600 font-semibold mt-1">Dose: {intervention.dose}</div>
+                        <div className={`text-xs font-semibold mt-1 ${selectedInterventions.includes(intervention.name) ? 'text-blue-200 dark:text-blue-300' : 'text-blue-600 dark:text-blue-400'}`}>Dose: {intervention.dose}</div>
                       )}
                       {intervention.required && (
-                        <div className="text-xs text-orange-600 font-semibold mt-1">Required</div>
+                        <div className={`text-xs font-semibold mt-1 ${selectedInterventions.includes(intervention.name) ? 'text-orange-200 dark:text-orange-300' : 'text-orange-600 dark:text-orange-400'}`}>Required</div>
                       )}
                     </div>
                   </div>
