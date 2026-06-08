@@ -242,13 +242,13 @@ export function calculatePriorityScore(
   const criticalPenalty = (missingCritical.length / criticalIds.length) * 40;
   const finalScore = Math.max(0, Math.round(baseScore - criticalPenalty));
   
-  // Passing threshold is 70% for a more supportive experience
-  const passed = finalScore >= 70 && missingCritical.length === 0;
+  // Passing threshold is 50% for a more supportive experience
+  const passed = finalScore >= 50 && missingCritical.length === 0;
   
   const feedbackMessages = [];
   if (missingCritical.length > 0) {
     feedbackMessages.push(`Missing critical steps: ${missingCritical.map(id => scenario.interventions[id].description).join(", ")}.`);
-  } else if (finalScore < 70) {
+  } else if (finalScore < 50) {
     feedbackMessages.push("Systematic approach (ABCDE) is key. Ensure your order follows the priority of life-saving interventions.");
   } else {
     feedbackMessages.push("Excellent prioritization! You are following the systematic approach correctly.");
