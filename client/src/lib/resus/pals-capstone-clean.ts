@@ -215,37 +215,48 @@ export function calculatePriorityScore(
   const scenario = PALS_CAPSTONE_SCENARIOS[phase];
   const correctOrder = scenario.correctOrder;
   
-  // Check if all critical interventions are present
+  // More forgiving scoring:
+  // 1. Critical interventions are required but missing them gives partial feedback instead of zero.
+  // 2. Score is based on "Priority proximity" - being close to the correct position still earns points.
+  
   const criticalIds = Object.entries(scenario.interventions)
     .filter(([, intervention]) => intervention.critical)
     .map(([id]) => id);
   
-  const hasCritical = criticalIds.every((id) => userOrder.includes(id));
-  if (!hasCritical) {
-    return {
-      score: 0,
-      passed: false,
-      feedback: ["Missing critical interventions. Review the scenario and try again."],
-    };
-  }
+  const missingCritical = criticalIds.filter((id) => !userOrder.includes(id));
   
-  // Score based on correct ordering
-  let correctCount = 0;
-  for (let i = 0; i < Math.min(userOrder.length, correctOrder.length); i++) {
-    if (userOrder[i] === correctOrder[i]) {
-      correctCount++;
+  // Base score on correct positions
+  let positionalPoints = 0;
+  userOrder.forEach((id, index) => {
+    const correctIdx = correctOrder.indexOf(id);
+    if (correctIdx === index) {
+      positionalPoints += 1.0; // Perfect match
+    } else if (Math.abs(correctIdx - index) <= 1) {
+      positionalPoints += 0.5; // Off by one - partial credit for systematic approach
     }
-  }
+  });
   
-  const score = Math.round((correctCount / correctOrder.length) * 100);
-  const passed = score >= 80;
+  const baseScore = (positionalPoints / correctOrder.length) * 100;
+  
+  // Penalize missing critical items but don't zero the score unless major items are missing
+  const criticalPenalty = (missingCritical.length / criticalIds.length) * 40;
+  const finalScore = Math.max(0, Math.round(baseScore - criticalPenalty));
+  
+  // Passing threshold is 70% for a more supportive experience
+  const passed = finalScore >= 70 && missingCritical.length === 0;
+  
+  const feedbackMessages = [];
+  if (missingCritical.length > 0) {
+    feedbackMessages.push(`Missing critical steps: ${missingCritical.map(id => scenario.interventions[id].description).join(", ")}.`);
+  } else if (finalScore < 70) {
+    feedbackMessages.push("Systematic approach (ABCDE) is key. Ensure your order follows the priority of life-saving interventions.");
+  } else {
+    feedbackMessages.push("Excellent prioritization! You are following the systematic approach correctly.");
+  }
   
   return {
-    score,
+    score: finalScore,
     passed,
-    feedback: [
-      `You ordered ${correctCount}/${correctOrder.length} interventions correctly.`,
-      passed ? "Excellent clinical decision-making!" : "Review the correct sequence and try again.",
-    ],
+    feedback: feedbackMessages,
   };
 }

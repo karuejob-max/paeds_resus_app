@@ -267,7 +267,7 @@ export async function assertMicrocourseCompletionAllowed(
   if (state.capstoneRequired && !state.capstonePassed) {
     return {
       ok: false,
-      message: "Complete and pass the PALS Capstone Simulation (80%) to unlock your certificate.",
+      message: "Complete and pass the PALS Capstone Simulation (70%) to unlock your certificate.",
     };
   }
   return { ok: true };
@@ -430,7 +430,7 @@ export async function getAhaCourseExamState(
     summativePassPercent: 80,
     capstoneRequired: enrollment.programType === "pals",
     capstonePassed: enrollment.programType === "pals" 
-      ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 80 && p.moduleId === -1)
+      ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 70 && p.moduleId === -1)
       : true,
   };
 }
