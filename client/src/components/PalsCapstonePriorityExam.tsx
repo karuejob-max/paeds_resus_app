@@ -39,9 +39,9 @@ export function PalsCapstonePriorityExam({ onComplete }: PalsCapstonePriorityExa
   const isSubmitted = submittedPhases.has(currentPhase);
 
   // Initialize ordering with shuffled intervention IDs
-  const availableInterventions = useMemo(() => {
+  const availableInterventions = useMemo<string[]>(() => {
     if (currentOrdering.length === 0) {
-      return challenge.shuffledOrder;
+      return challenge.shuffledOrder || [];
     }
     return currentOrdering;
   }, [challenge, currentOrdering]);

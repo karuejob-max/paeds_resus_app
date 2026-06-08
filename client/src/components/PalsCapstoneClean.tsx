@@ -36,8 +36,8 @@ export function PalsCapstoneClean({ onComplete, onClose }: PalsCapstoneCleanProp
   const currentPhase = phases[currentPhaseIndex];
   const scenario = PALS_CAPSTONE_SCENARIOS[currentPhase];
   const availableInterventions = scenario.shuffledOrder.map((id) => ({
-    id,
     ...scenario.interventions[id],
+    id,
   }));
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
