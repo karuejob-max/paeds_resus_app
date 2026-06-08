@@ -705,7 +705,7 @@ export default function MicroCoursePlayerDB() {
     } else {
       // All cognitive modules finished
       // If PALS, show Capstone as the next step after the last module
-      if (isPals && !examState?.capstonePassed) {
+      if (isPals) {
         setShowCapstoneSim(true);
         window.scrollTo(0, 0);
       } else {
@@ -1104,12 +1104,13 @@ export default function MicroCoursePlayerDB() {
                     setCurrentSectionIndex(0);
                     setShowFormativeQuiz(false);
                     setShowSummativeExam(false);
+                    setShowCapstoneSim(false);
                     setShowCertificateReady(false);
                   }
                 }}
                 className={cn(
                   "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
-                  idx === currentModuleIndex 
+                  idx === currentModuleIndex && !showCapstoneSim && !showSummativeExam && !showCertificateReady
                     ? "bg-primary text-white ring-4 ring-primary/20" 
                     : idx < currentModuleIndex || idx <= maxReachedModuleIndex
                       ? "bg-emerald-100 text-emerald-700"
@@ -1118,21 +1119,51 @@ export default function MicroCoursePlayerDB() {
               >
                 {idx < currentModuleIndex ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
               </button>
-              {idx < modules.length - 1 && (
-                <div className={cn(
-                  "w-4 h-0.5 mx-1",
-                  idx < currentModuleIndex ? "bg-emerald-200" : "bg-slate-200"
-                )} />
-              )}
+              <div className={cn(
+                "w-4 h-0.5 mx-1",
+                idx < currentModuleIndex ? "bg-emerald-200" : "bg-slate-200"
+              )} />
             </div>
           ))}
-          <div className="mx-2 text-slate-300">|</div>
+          
+          {/* Capstone Simulation Step (Module 10 for PALS) */}
+          {examState?.capstoneRequired && (
+            <div className="flex items-center">
+              <button
+                onClick={() => {
+                  if (isReviewMode || examState?.capstonePassed || (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1)) {
+                    setShowCapstoneSim(true);
+                    setShowSummativeExam(false);
+                    setShowCertificateReady(false);
+                    setShowFormativeQuiz(false);
+                  }
+                }}
+                className={cn(
+                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+                  showCapstoneSim
+                    ? "bg-primary text-white ring-4 ring-primary/20" 
+                    : examState?.capstonePassed
+                      ? "bg-emerald-100 text-emerald-700"
+                      : (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1) || isReviewMode
+                        ? "bg-slate-100 text-slate-600"
+                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                )}
+              >
+                {examState?.capstonePassed ? <CheckCircle2 className="w-4 h-4" /> : modules.length + 1}
+              </button>
+              <div className={cn(
+                "w-4 h-0.5 mx-1",
+                examState?.capstonePassed ? "bg-emerald-200" : "bg-slate-200"
+              )} />
+            </div>
+          )}
+
           <div 
             className={cn(
               "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
               showSummativeExam || showCertificateReady
                 ? "bg-primary text-white ring-4 ring-primary/20" 
-                : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)
+                : (examState?.capstoneRequired ? examState?.capstonePassed : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode))
                   ? "bg-slate-100 text-slate-600"
                   : "bg-slate-200 text-slate-400 cursor-not-allowed"
             )}
@@ -1218,14 +1249,15 @@ export default function MicroCoursePlayerDB() {
               }
               if (showSummativeExam || isSummativeExamActive) {
                 setShowSummativeExam(false);
-                if (examState?.capstoneRequired && !examState?.capstonePassed) {
-                  setCapstoneInProgress(true);
-                  setShowCapstoneSim(true);
-                } else {
-                  setShowCertificateReady(true);
-                }
+                setShowCertificateReady(true);
                 resetQuizState();
                 void utils.learning.getMicroCourseExamState.invalidate();
+                return;
+              }
+              if (showCapstoneSim) {
+                setShowCapstoneSim(false);
+                setShowSummativeExam(true);
+                resetQuizState();
                 return;
               }
               handleModuleTransition();
