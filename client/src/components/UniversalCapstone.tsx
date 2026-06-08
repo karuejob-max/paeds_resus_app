@@ -145,9 +145,15 @@ export function UniversalCapstone({ programType, onComplete, onClose }: Universa
         </div>
 
         {feedback.length > 0 && (
-          <Card className={`mb-6 p-4 border-l-4 ${phaseScores[currentPhase] >= 50 ? "bg-green-50 border-l-green-600" : "bg-red-50 border-l-red-600"}`}>
+          <Card className={`mb-6 p-4 border-l-4 ${
+            phaseScores[currentPhase] >= 50 
+              ? "bg-green-50 dark:bg-green-900/20 border-l-green-600 text-green-900 dark:text-green-100" 
+              : "bg-red-50 dark:bg-red-900/20 border-l-red-600 text-red-900 dark:text-red-100"
+          }`}>
             <div className="flex gap-3">
-              {phaseScores[currentPhase] >= 50 ? <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" /> : <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />}
+              {phaseScores[currentPhase] >= 50 
+                ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" /> 
+                : <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />}
               <div>
                 <p className="font-semibold mb-2">Score: {phaseScores[currentPhase]}%</p>
                 {feedback.map((msg, idx) => <p key={idx} className="text-sm">{msg}</p>)}
