@@ -41,7 +41,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | Offering | Role |
 |----------|------|
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
-| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours)**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
+| **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours), Heartsaver, NRP**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Paeds Resus Fellowship** | The canonical name for the **narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall—learners pay per course/SKU. Completion of the three pillars (Courses, ResusGPS, Care Signal) earns the title **Paeds Resus Fellow**. |
 | **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. |
 | **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives the **automated** **Paeds Resus Fellowship** **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
@@ -463,10 +463,10 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
 - **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
 #### AHA Practice Lab (supplemental simulation)
-- **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief � **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
+- **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief � **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
 - **Route:** /aha-courses/practice (linked from AHA hub for enrolled providers)
 - **Feeds:** haPracticeLabAttempts (per-track scores, event logs), admin Practice Lab rollup on /admin/reports
-- **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode � no Fellowship case save)
+- **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode � no Fellowship case save)
 - **Integration note:** Standalone under the AHA training track (same non-Fellowship rule as certificated courses). Reuses simulation UI patterns but must never be marketed or logged as ResusGPS clinical guidance.
 - **Schema:** drizzle/0049_aha_practice_lab_attempts.sql; apply via pnpm run db:apply-0049 post-deploy
 
@@ -646,13 +646,16 @@ This section is **binding for every AI agent, developer, designer, and contribut
 - **Never combine** Fellowship pillar data across pillars in a single metric
 - **Never add** patient identifiers to any Care Signal submission schema
 - **Never grant** employer-visible individual Care Signal data without explicit provider consent
-- **Never treat** AHA courses (BLS/ACLS/PALS) as part of the Fellowship pathway
+- **Never treat** AHA courses (BLS/ACLS/PALS/Heartsaver/NRP) as part of the Fellowship pathway
 - **Never create** a new canonical document without linking it in §21
 - **Never make** a canonical decision in WORK_STATUS.md — that file is for execution updates only
 - **Never say** “one paediatric nurse covers all wards” — departments run with **~2 nurses per shift**; during Code Blue one responds while a colleague holds the department ([§24.3](#243-staffing-reality-during-code-blue))
 - **Never lead** institutional GTM with bulk PALS/ACLS seat bundles — lead with **Hospital ERS** readiness ([§24.2](#242-canonical-name-and-scope))
 - **Never name** pilot hospitals in public copy without **CEO approval** — pilot sites are confidential until MOU ([§24.6](#246-geography-and-pilot-confidentiality))
 - **Never claim** mortality reduction or “Paeds Resus replaces AHA” in public marketing — AHA-aligned training **supports** ERS; outcome claims require governed evaluation ([§24.5](#245-aha-relationship-and-public-marketing-rules))
+- **Never allow skipping steps** in AHA courses — learners must follow the journey: Diagnostic → Modules → Capstone Simulation → Summative Exam.
+- **Never use 80% pass mark for Capstone Simulations** — the threshold is fixed at **50% (Supportive)** to focus on systematic approach appreciation.
+- **Never overlook 2025 PCAC updates** — Post-Cardiac Arrest Care must prioritize **fever prevention (>37.5°C) for 36-72 hours** as the primary neuro-protective strategy.
 
 ### 22.4 The Global Ambition Mandate
 

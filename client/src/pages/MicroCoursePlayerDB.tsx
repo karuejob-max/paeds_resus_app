@@ -1131,11 +1131,19 @@ export default function MicroCoursePlayerDB() {
 		            <div className="flex items-center">
 		              <button
 		                onClick={() => {
-		                  if (isReviewMode || examState?.capstonePassed || (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1)) {
+		                  // Journey Enforcement: Only allow Capstone if all cognitive modules are completed
+		                  const allCognitiveCompleted = modules.every((m, idx) => {
+		                    const modStatus = examState?.moduleStatus?.find(s => s.moduleId === m.id);
+		                    return modStatus?.completed;
+		                  });
+
+		                  if (isReviewMode || examState?.capstonePassed || allCognitiveCompleted) {
 		                    setShowCapstoneSim(true);
 		                    setShowSummativeExam(false);
 		                    setShowCertificateReady(false);
 		                    setShowFormativeQuiz(false);
+		                  } else {
+		                    toast.error("Please complete all preceding modules before starting the simulation.");
 		                  }
 		                }}
 		                className={cn(
@@ -1144,7 +1152,7 @@ export default function MicroCoursePlayerDB() {
 		                    ? "bg-primary text-white ring-4 ring-primary/20" 
 		                    : examState?.capstonePassed
 		                      ? "bg-emerald-100 text-emerald-700"
-		                      : (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1) || isReviewMode
+		                      : (modules.every((m, idx) => examState?.moduleStatus?.find(s => s.moduleId === m.id)?.completed)) || isReviewMode
 		                        ? "bg-slate-100 text-slate-600"
 		                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
 		                )}
