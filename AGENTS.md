@@ -191,6 +191,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 - **No hardcoded credentials.** Use env vars and document in `.env.example`.
 - **Never break the core emergency flow:** open app → enter findings → get priority next actions → reassessment prompts.
 - **Small, reviewable changes only.** No big rewrites unless absolutely necessary.
+- **Extend, Don't Replace:** Never remove detailed content to add "improved" but simplified versions. "Improvement" must always result in a net increase in clinical depth and detail.
 - **Clinical content changes** require explicit approval from Job Karue before merging.
 - **All changes must be pushed to GitHub** for Cursor and other developers to access.
 - **Brand naming:** Always use "Paeds Resus" in user-facing copy. "ResusGPS" is reserved for the bedside clinical tool only.

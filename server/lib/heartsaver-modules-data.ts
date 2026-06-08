@@ -1,6 +1,6 @@
 /**
  * Exhaustive Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
- * This course contains all original content plus new First Aid, Epi-pen, and Bleeding Control modules.
+ * This file restores the original detailed coursework and adds First Aid/Epi-pen/Bleeding Control.
  */
 
 export interface HeartsaverModuleDef {
@@ -45,7 +45,7 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li><strong>High-Quality CPR:</strong> Early chest compressions to maintain vital organ perfusion.</li>
   <li><strong>Rapid Defibrillation:</strong> Early use of AED or manual defibrillator.</li>
   <li><strong>Advanced Resuscitation:</strong> High-performance team interventions and medications.</li>
-  <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection.</li>
+  <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
   <li><strong>Recovery:</strong> Long-term rehabilitation and support.</li>
 </ol>`,
       },
@@ -90,6 +90,17 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
       },
       {
         order: 2,
+        title: "30:2 CPR and Ventilation",
+        content: `<h2>Compressions and Breaths</h2>
+<p>When you have a barrier device, use the 30:2 ratio: 30 compressions followed by 2 breaths.</p>
+<ul>
+  <li>Open the airway using the head-tilt, chin-lift maneuver.</li>
+  <li>Give 2 breaths (1 second each) and look for chest rise.</li>
+  <li>Resume compressions immediately.</li>
+</ul>`,
+      },
+      {
+        order: 3,
         title: "Using an AED",
         content: `<h2>AED Operation</h2>
 <ol>
@@ -118,29 +129,33 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   {
     order: 3,
     title: "Module 3: Infant & Child CPR",
-    description: "Specific techniques for pediatric resuscitation.",
-    duration: 40,
-    content: "How to perform high-quality CPR on infants and children.",
+    description: "Detailed pediatric resuscitation including the 2025 1-hand/2-thumb updates.",
+    duration: 50,
+    content: "Exhaustive guide to pediatric life support.",
     sections: [
       {
         order: 1,
-        title: "Child CPR",
-        content: `<h2>Child CPR (1 Year to Puberty)</h2>
+        title: "Child CPR (1 Year to Puberty)",
+        content: `<h2>High-Quality Child CPR</h2>
 <ul>
   <li>Compression depth: About 2 inches (1/3 depth of chest).</li>
-  <li>Ratio: 30 compressions to 2 breaths.</li>
+  <li>Ratio: 30 compressions to 2 breaths (1 rescuer).</li>
   <li>Use 1 or 2 hands depending on the size of the child.</li>
 </ul>`,
       },
       {
         order: 2,
-        title: "Infant CPR",
-        content: `<h2>Infant CPR (Under 1 Year)</h2>
+        title: "Infant CPR (Under 1 Year)",
+        content: `<h2>High-Quality Infant CPR</h2>
 <ul>
+  <li><strong>1 Rescuer:</strong> Heel of 1 hand on the lower half of the sternum (2025 Guideline).</li>
+  <li><strong>2 Rescuers:</strong> Two-thumb encircling technique.</li>
   <li>Compression depth: About 1.5 inches (1/3 depth of chest).</li>
-  <li>Technique: 2 fingers in the center of the chest, just below the nipple line.</li>
-  <li>Ratio: 30 compressions to 2 breaths.</li>
-</ul>`,
+  <li>Ratio: 30:2 (1 rescuer); 15:2 (2 rescuers).</li>
+</ul>
+<div class="warning-note">
+  <strong>2025 Update:</strong> The 2-finger technique for infant CPR has been eliminated because it produces insufficient depth.
+</div>`,
       }
     ],
     quiz: {
@@ -149,10 +164,10 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
       questions: [
         {
           order: 1,
-          questionText: "What is the correct compression depth for an infant?",
-          options: JSON.stringify(["About 1 inch", "About 1.5 inches", "At least 2 inches", "2.4 inches"]),
-          correctAnswer: "About 1.5 inches",
-          explanation: "For infants, compress to a depth of approximately 1.5 inches (1/3 the depth of the chest).",
+          questionText: "What is the correct compression technique for a single rescuer performing infant CPR according to 2025 guidelines?",
+          options: JSON.stringify(["Two fingers", "Heel of one hand", "Knuckle of one hand", "Flat of both hands"]),
+          correctAnswer: "Heel of one hand",
+          explanation: "The 2025 guidelines eliminate the 2-finger technique for infants; use the heel of 1 hand for single-rescuer infant CPR.",
         }
       ],
     },
@@ -272,3 +287,4 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     },
   },
 ];
+export type HeartsaverModuleDef = (typeof HEARTSAVER_MODULES)[number];
