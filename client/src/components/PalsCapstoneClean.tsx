@@ -87,7 +87,7 @@ export function PalsCapstoneClean({ onComplete, onClose }: PalsCapstoneCleanProp
           const totalScore = Math.round(
             Object.values(updatedScores).reduce((a, b) => a + b, 0) / phases.length
           );
-          onComplete(totalScore, totalScore >= 70);
+          onComplete(totalScore, totalScore >= 50);
         }
       }, 2000);
     }
@@ -195,13 +195,13 @@ export function PalsCapstoneClean({ onComplete, onClose }: PalsCapstoneCleanProp
         {feedback.length > 0 && (
           <Card
             className={`mb-6 p-4 border-l-4 ${
-              Object.values(phaseScores)[currentPhaseIndex] >= 70
+              Object.values(phaseScores)[currentPhaseIndex] >= 50
                 ? "bg-green-50 dark:bg-green-900/20 border-l-green-600"
                 : "bg-red-50 dark:bg-red-900/20 border-l-red-600"
             }`}
           >
             <div className="flex gap-3">
-              {Object.values(phaseScores)[currentPhaseIndex] >= 70 ? (
+              {Object.values(phaseScores)[currentPhaseIndex] >= 50 ? (
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
