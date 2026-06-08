@@ -1167,17 +1167,22 @@ export default function MicroCoursePlayerDB() {
                     setShowCapstoneSim(false);
                     setCapstoneInProgress(false);
                     localStorage.removeItem(`capstone-in-progress-${slug}`);
-                    // After Capstone (Module 10), move to Summative Exam (Module 11)
-                    setCurrentModuleIndex(10);
+                    
+                    // After Capstone, move to Summative Exam
                     setShowSummativeExam(true);
                     setQuizAnswers({});
                     setQuizSubmitted(false);
                     setQuizScore(null);
+                    
+                    // Invalidate state to ensure the backend recognizes capstone is passed
                     void utils.learning.getMicroCourseExamState.invalidate();
+                    void utils.learning.getAhaCourseExamState.invalidate();
+                    
+                    window.scrollTo(0, 0);
                   }
                 });
               } else {
-                toast.error(`Simulation failed with score ${score}%. You need 80% to pass.`);
+                toast.error(`Simulation failed with score ${score}%. You need 50% to pass.`);
               }
             }}
             onClose={() => {
