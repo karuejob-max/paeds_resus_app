@@ -287,4 +287,5 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     },
   },
 ];
-export type HeartsaverModuleDef = (typeof HEARTSAVER_MODULES)[number];
+// Module type derived from the HEARTSAVER_MODULES constant
+export type HeartsaverModuleInstance = (typeof HEARTSAVER_MODULES)[number];
