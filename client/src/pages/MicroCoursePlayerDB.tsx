@@ -22,7 +22,11 @@ import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoute
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
-import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
+import {
+  examKindFromQuizTitle,
+  dedupeQuizRowsByStem,
+  shuffleQuestionsDisplayOptions,
+} from "@shared/microcourse-exam-policy";
 import { resolveFellowshipCourseFromCandidates } from "@shared/resolve-fellowship-course";
 import {
   formatPrerequisiteHint,
@@ -262,6 +266,7 @@ export default function MicroCoursePlayerDB() {
   );
 
   const [summativeShuffleSeed, setSummativeShuffleSeed] = useState<number | null>(null);
+  const [quizOptionShuffleSeed, setQuizOptionShuffleSeed] = useState<number | null>(null);
 
   useEffect(() => {
     if (showSummativeExam && summativeShuffleSeed === null) {
@@ -271,6 +276,16 @@ export default function MicroCoursePlayerDB() {
       setSummativeShuffleSeed(null);
     }
   }, [showSummativeExam, summativeShuffleSeed]);
+
+  useEffect(() => {
+    const quizOpen = showDiagnosticQuiz || showFormativeQuiz;
+    if (quizOpen && quizOptionShuffleSeed === null) {
+      setQuizOptionShuffleSeed(Date.now());
+    }
+    if (!quizOpen) {
+      setQuizOptionShuffleSeed(null);
+    }
+  }, [showDiagnosticQuiz, showFormativeQuiz, quizOptionShuffleSeed]);
 
   const { data: shuffledSummative } = trpc.learning.getSummativeExamQuestions.useQuery(
     {
@@ -585,9 +600,17 @@ export default function MicroCoursePlayerDB() {
         question: q.question ?? "",
       }))
     );
-    if (deduped.length === activeQuiz.questions.length) return activeQuiz;
-    return { ...activeQuiz, questions: deduped };
-  }, [activeQuiz]);
+    const base =
+      deduped.length === activeQuiz.questions.length
+        ? activeQuiz
+        : { ...activeQuiz, questions: deduped };
+    // Summative options are shuffled server-side via getSummativeExamQuestions.
+    if (showSummativeExam || !quizOptionShuffleSeed) return base;
+    return {
+      ...base,
+      questions: shuffleQuestionsDisplayOptions(base.questions, quizOptionShuffleSeed),
+    };
+  }, [activeQuiz, showSummativeExam, quizOptionShuffleSeed]);
   const isSummativeExamActive =
     showSummativeExam || examKindFromQuizTitle(activeQuiz?.title) === "summative";
 
@@ -1288,6 +1311,8 @@ export default function MicroCoursePlayerDB() {
               setQuizScore(null);
               if (showSummativeExam || isSummativeExamActive) {
                 setSummativeShuffleSeed(Date.now());
+              } else if (showDiagnosticQuiz || showFormativeQuiz) {
+                setQuizOptionShuffleSeed(Date.now());
               }
             }}
             isPending={submitQuizMutation.isPending}

@@ -13,9 +13,12 @@ import {
   resolveModuleFormativeQuestions,
   materializeModuleNativeFormatives,
   shuffleQuestionIndices,
+  shuffleQuestionsDisplayOptions,
+  shuffleQuizOptions,
   summativePassed,
   uniqueFormativeQuestions,
 } from "./microcourse-exam-policy";
+import { encodeQuizCorrectAnswerForStorage, gradeQuizAnswerAgainstStored } from "./quiz-answer-contract";
 
 describe("microcourse-exam-policy", () => {
   it("classifies quiz titles", () => {
@@ -30,6 +33,38 @@ describe("microcourse-exam-policy", () => {
     const b = shuffleQuestionIndices(5, 42);
     expect(a).toEqual(b);
     expect(a.sort()).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("shuffles quiz options deterministically per question", () => {
+    const opts = ["A", "B", "C", "D"];
+    const a = shuffleQuizOptions(opts, 101, 999);
+    const b = shuffleQuizOptions(opts, 101, 999);
+    expect(a).toEqual(b);
+    expect(a.sort()).toEqual(opts);
+    expect(shuffleQuizOptions(opts, 102, 999)).not.toEqual(a);
+  });
+
+  it("shuffleQuestionsDisplayOptions varies correct position across stems", () => {
+    const sessionSeed = 4242;
+    const questions = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      question: `Stem ${i}`,
+      options: ["Alpha", "Bravo", "Charlie", "Delta"],
+      correctAnswer: encodeQuizCorrectAnswerForStorage(0, ["Alpha", "Bravo", "Charlie", "Delta"]),
+    }));
+    const shuffled = shuffleQuestionsDisplayOptions(questions, sessionSeed);
+    const correctPositions = shuffled.map((q) => q.options!.indexOf("Alpha"));
+    expect(new Set(correctPositions).size).toBeGreaterThan(1);
+    expect(correctPositions.every((p) => p >= 0 && p <= 3)).toBe(true);
+  });
+
+  it("grading still works when learner picks shuffled option text", () => {
+    const opts = ["200 mL", "400 mL", "800 mL", "1200 mL"];
+    const stored = encodeQuizCorrectAnswerForStorage(0, opts);
+    const displayOpts = shuffleQuizOptions(opts, 7, 12345);
+    const correctText = "200 mL";
+    const learnerPick = displayOpts[displayOpts.indexOf(correctText)];
+    expect(gradeQuizAnswerAgainstStored(learnerPick, stored, opts)).toBe(true);
   });
 
   it("enforces summative pass at 80%", () => {

@@ -51,6 +51,7 @@ import {
   dedupeQuizRowsByStem,
   examKindFromQuizTitle,
   shuffleQuestionIndices,
+  shuffleQuestionsDisplayOptions,
   summativePassed,
 } from "../../shared/microcourse-exam-policy";
 import { formatSummativeForbiddenMessage } from "../../shared/summative-retry-display";
@@ -406,9 +407,12 @@ export const learningRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid summative quiz for this course" });
       }
       const bank = dedupeQuizRowsByStem(await loadSummativeQuestionBank(db as any, input.summativeQuizId));
-      const order = shuffleQuestionIndices(bank.length, input.shuffleSeed);
+      const sessionSeed = input.shuffleSeed ?? Date.now();
+      const order = shuffleQuestionIndices(bank.length, sessionSeed);
+      const ordered = order.map((i) => bank[i]!);
+      const withShuffledOptions = shuffleQuestionsDisplayOptions(ordered, sessionSeed);
       return {
-        questions: order.map((i) => bank[i]),
+        questions: withShuffledOptions,
         passPercent: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
       };
     }),
