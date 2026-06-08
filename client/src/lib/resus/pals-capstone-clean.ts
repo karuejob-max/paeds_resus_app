@@ -189,21 +189,21 @@ export const PALS_CAPSTONE_SCENARIOS: Record<ClinicalPhase, ClinicalScenario> = 
   post_rosc: {
     phase: "post_rosc",
     description: "After 2 minutes of CPR and one shock, child has return of spontaneous circulation (ROSC). HR 110/min, BP 95/60, SpO2 95%.",
-    correctOrder: ["secure-airway", "optimize-ventilation", "establish-access", "give-epinephrine", "therapeutic-hypothermia"],
-    shuffledOrder: ["therapeutic-hypothermia", "establish-access", "secure-airway", "give-epinephrine", "optimize-ventilation"],
+    correctOrder: ["secure-airway", "optimize-ventilation", "establish-access", "give-epinephrine", "prevent-fever"],
+    shuffledOrder: ["prevent-fever", "establish-access", "secure-airway", "give-epinephrine", "optimize-ventilation"],
     interventions: {
       "secure-airway": { id: "secure-airway", description: "Secure airway (intubate if trained)", priority: 1, critical: true },
       "optimize-ventilation": { id: "optimize-ventilation", description: "Optimize ventilation (ETCO2 35-45 mmHg)", priority: 2, critical: true },
       "establish-access": { id: "establish-access", description: "Establish central line if not done", priority: 3, critical: true },
       "give-epinephrine": { id: "give-epinephrine", description: "Give epinephrine 0.01 mg/kg IV", priority: 4, critical: true },
-      "therapeutic-hypothermia": { id: "therapeutic-hypothermia", description: "Initiate therapeutic hypothermia (32-34°C)", priority: 5, critical: false },
+      "prevent-fever": { id: "prevent-fever", description: "Actively prevent fever (>37.5°C) for 36-72 hours PCA", priority: 5, critical: true },
     },
     feedback: {
       "secure-airway": "Endotracheal tube placed; breath sounds confirmed bilaterally.",
       "optimize-ventilation": "Ventilation optimized; ETCO2 40 mmHg.",
       "establish-access": "Central line established.",
       "give-epinephrine": "Epinephrine 0.1 mg (0.01 mg/kg) given IV.",
-      "therapeutic-hypothermia": "Cooling protocol initiated; target 33°C over 6 hours.",
+      "prevent-fever": "Temperature management initiated; actively preventing fever (>37.5°C) as per 2025 guidelines.",
     },
   },
 };
