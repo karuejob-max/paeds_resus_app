@@ -1176,7 +1176,6 @@ export default function MicroCoursePlayerDB() {
                     
                     // Invalidate state to ensure the backend recognizes capstone is passed
                     void utils.learning.getMicroCourseExamState.invalidate();
-                    void utils.learning.getAhaCourseExamState.invalidate();
                     
                     window.scrollTo(0, 0);
                   }
