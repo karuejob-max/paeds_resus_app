@@ -1,6 +1,6 @@
 /**
- * Exhaustive BLS Provider Course Data (AHA 2025 Guidelines)
- * This course literally merges all Heartsaver content and adds healthcare-provider (HCP) rigor.
+ * Exhaustive BLS Provider Course Data — AHA 2025 Guidelines.
+ * This course literally merges all exhaustive Heartsaver content and adds healthcare-provider (HCP) rigor.
  */
 
 export interface BLSModule {
@@ -45,20 +45,47 @@ export const BLS_MODULES: BLSModule[] = [
   <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
   <li><strong>Recovery:</strong> Long-term rehabilitation and psychological support.</li>
 </ol>
-<div class="hcp-note">
-  <strong>HCP Depth:</strong> Healthcare providers must also coordinate with a high-performance team and consider advanced resuscitation links early.
+<div class="clinical-note">
+  <strong>Why bystander CPR matters:</strong> Survival from out-of-hospital cardiac arrest drops by 7–10% for every minute without CPR. Bystander CPR doubles or triples survival rates. High-quality CPR started within 2 minutes of collapse is the single most important intervention a bystander can provide.
 </div>`,
         order: 1,
       },
       {
-        title: "Personal Safety & Scene Assessment",
-        content: `<h2>Safety First</h2>
-<p>The first step in saving a life is recognising that someone needs help and calling for emergency services immediately. However, you must ensure the scene is safe for you and the victim.</p>
+        title: "Recognising Cardiac Arrest",
+        content: `<h2>Recognising Cardiac Arrest</h2>
+<p>Cardiac arrest must be recognised quickly. Every second without CPR reduces the chance of survival.</p>
+<h3>Signs of Cardiac Arrest</h3>
 <ul>
-  <li>Check for traffic, fire, or environmental hazards.</li>
-  <li>Use personal protective equipment (PPE) if available.</li>
-</ul>`,
+  <li><strong>Unresponsive:</strong> No response to tapping shoulders and shouting "Are you OK?"</li>
+  <li><strong>Not breathing normally:</strong> No breathing, or only gasping (agonal breathing)</li>
+</ul>
+<div class="warning-note">
+  <strong>Agonal breathing:</strong> Agonal breathing (gasping, snoring, or irregular breathing) is a sign of cardiac arrest — NOT normal breathing. Do not mistake it for normal breathing and delay CPR. If in doubt, begin CPR.
+</div>
+<h3>What to Do When You Find Someone Collapsed</h3>
+<ol>
+  <li><strong>Check for danger:</strong> Is the scene safe? Do not put yourself at risk.</li>
+  <li><strong>Check for response:</strong> Tap shoulders firmly; shout "Are you OK?"</li>
+  <li><strong>Check for pulse (HCP Depth):</strong> Simultaneously check for breathing and a carotid pulse (Adult/Child) or brachial pulse (Infant) for 5–10 seconds.</li>
+  <li><strong>If no normal breathing and no pulse:</strong> Begin CPR immediately.</li>
+</ol>`,
         order: 2,
+      },
+      {
+        order: 3,
+        title: "Activating Emergency Services",
+        content: `<h2>Activating Emergency Services</h2>
+<p>Calling emergency services immediately is a critical link in the Chain of Survival. Do not delay calling — call while beginning CPR if you are alone.</p>
+<h3>What to Tell the Dispatcher</h3>
+<ul>
+  <li>Your exact location (address, landmarks, floor/room number)</li>
+  <li>What happened ("I found someone collapsed and not breathing")</li>
+  <li>Number of people affected</li>
+  <li>Stay on the line — the dispatcher will guide you through CPR</li>
+</ul>
+<div class="clinical-note">
+  <strong>Dispatcher-assisted CPR:</strong> Emergency dispatchers are trained to guide bystanders through CPR over the phone. Studies show dispatcher-assisted CPR significantly improves survival. Always stay on the line with the dispatcher.
+</div>`,
       }
     ],
     quiz: {
@@ -103,6 +130,7 @@ export const BLS_MODULES: BLSModule[] = [
         order: 2,
       },
       {
+        order: 3,
         title: "Using an AED",
         content: `<h2>AED Operation</h2>
 <ol>
@@ -111,8 +139,10 @@ export const BLS_MODULES: BLSModule[] = [
   <li>Stay clear while the AED analyzes the rhythm.</li>
   <li>If a shock is advised, ensure everyone is clear and press the shock button.</li>
   <li>Immediately resume CPR starting with chest compressions.</li>
-</ol>`,
-        order: 3,
+</ol>
+<div class="clinical-note">
+  <strong>Why AEDs Work:</strong> VF is the most common initial rhythm in adult cardiac arrest. Defibrillation within 3–5 minutes can achieve survival rates of 50–70%.
+</div>`,
       }
     ],
     quiz: {
@@ -120,38 +150,38 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "How long should a healthcare provider check for a pulse in an unresponsive adult?",
-          options: ["At least 5 but no more than 10 seconds", "Exactly 15 seconds", "No more than 5 seconds", "30 seconds"],
-          correctAnswer: "At least 5 but no more than 10 seconds",
-          explanation: "Healthcare providers must check for a pulse for at least 5 but no more than 10 seconds to avoid delaying compressions.",
+          question: "What is the correct compression depth for an adult?",
+          options: ["At least 1 inch", "At least 2 inches", "Exactly 3 inches", "At least 4 inches"],
+          correctAnswer: "At least 2 inches",
+          explanation: "Adult compressions must be at least 2 inches (5 cm) to be effective.",
         }
       ],
     },
   },
   {
-    title: "Module 3: Pediatric BLS (Infant & Child)",
+    title: "Module 3: Infant & Child CPR (HCP Standards)",
     description: "Resuscitation for infants and children with HCP 15:2 ratios and 2025 technique updates.",
     duration: 50,
     order: 3,
     sections: [
       {
-        title: "Infant & Child CPR",
-        content: `<h2>High-Quality Pediatric CPR</h2>
-<p>Pediatric cardiac arrest is often respiratory in nature. Ventilation is critical.</p>
-<ul>
-  <li><strong>Child:</strong> 1 or 2 hands, at least 1/3 depth of chest (approx 2 inches).</li>
-  <li><strong>Infant:</strong> Heel of 1 hand (1-rescuer) or 2 thumb-encircling hands (2-rescuer), at least 1/3 depth (approx 1.5 inches).</li>
-</ul>
-<div class="warning-note">
-  <strong>2025 Update:</strong> The 2-finger technique for infant CPR has been eliminated because it produces insufficient depth.
-</div>`,
+        title: "Pediatric Key Differences",
+        content: `<h2>Ventilation is Priority</h2>
+<p>Pediatric cardiac arrest is usually respiratory. Ventilation is critical.</p>
+<table>
+  <thead><tr><th>Feature</th><th>Child (1yr-Puberty)</th><th>Infant (<1yr)</th></tr></thead>
+  <tbody>
+    <tr><td>Compression depth</td><td>1/3 AP diameter (~5cm)</td><td>1/3 AP diameter (~4cm)</td></tr>
+    <tr><td>Ratio (1 rescuer)</td><td>30:2</td><td>30:2</td></tr>
+    <tr><td>Ratio (2 rescuers)</td><td>15:2</td><td>15:2</td></tr>
+  </tbody>
+</table>`,
         order: 1,
       },
       {
-        title: "HCP Depth: 15:2 Ratios",
-        content: `<h2>Multi-Rescuer Pediatric Ratios</h2>
-<p>For healthcare providers, the 2-rescuer ratio for children and infants is <strong>15:2</strong> to provide more frequent ventilations.</p>
-<p>1-rescuer ratio remains 30:2 for all ages.</p>`,
+        title: "Infant Technique: 2-Thumb Encircling",
+        content: `<h2>The Gold Standard for Infants</h2>
+<p>When two rescuers are present, use the two-thumb encircling technique for infants. It generates higher coronary perfusion pressure.</p>`,
         order: 2,
       }
     ],
@@ -160,32 +190,29 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "What is the 2-rescuer compression-to-ventilation ratio for a child?",
+          question: "What is the compression-to-ventilation ratio for 2-rescuer pediatric CPR?",
           options: ["30:2", "15:2", "15:1", "5:1"],
           correctAnswer: "15:2",
-          explanation: "15:2 is the healthcare provider standard for 2-rescuer pediatric BLS to prioritize ventilation.",
+          explanation: "Healthcare providers use a 15:2 ratio for children and infants when two rescuers are present.",
         }
       ],
     },
   },
   {
-    title: "Module 4: Choking Relief (Adult, Child, Infant)",
-    description: "2025 Guidelines for choking management using the 5 and 5 approach.",
+    title: "Module 4: Choking Relief (Unified 5 & 5)",
+    description: "2025 Guidelines for choking management across all ages.",
     duration: 30,
     order: 4,
     sections: [
       {
         title: "The 5 and 5 Approach",
-        content: `<h2>5 Back Blows, 5 Thrusts</h2>
-<p>The 2025 Guidelines emphasize the 5 and 5 approach for choking victims who cannot breathe or cough:</p>
+        content: `<h2>Back Blows and Thrusts</h2>
+<p>The 2025 Guidelines emphasize the 5 and 5 approach for severe obstruction:</p>
 <ol>
-  <li>Give 5 firm back blows between the shoulder blades.</li>
-  <li>Give 5 abdominal thrusts (Heimlich maneuver).</li>
-  <li>Repeat until the object comes out or the victim passes out.</li>
-</ol>
-<div class="warning-note">
-  <strong>Infants:</strong> Use 5 back blows and 5 <strong>chest thrusts</strong> (not abdominal thrusts).
-</div>`,
+  <li>5 firm back blows.</li>
+  <li>5 abdominal thrusts (Adult/Child) or 5 chest thrusts (Infant).</li>
+  <li>Repeat until cleared or unconscious.</li>
+</ol>`,
         order: 1,
       }
     ],
@@ -194,35 +221,30 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "What is the correct sequence for a choking victim according to 2025 guidelines?",
-          options: ["10 abdominal thrusts", "5 back blows and 5 abdominal thrusts", "Just start CPR", "Wait for the victim to pass out"],
+          question: "What is the sequence for a conscious choking adult?",
+          options: ["Abdominal thrusts only", "5 back blows and 5 abdominal thrusts", "Chest thrusts only", "CPR immediately"],
           correctAnswer: "5 back blows and 5 abdominal thrusts",
-          explanation: "The 2025 guidelines emphasize the combination of 5 back blows followed by 5 abdominal thrusts.",
+          explanation: "The 2025 guidelines emphasize alternating 5 back blows and 5 abdominal thrusts.",
         }
       ],
     },
   },
   {
-    title: "Module 5: First Aid - Epi-pen & Allergic Reactions",
-    description: "Recognizing and treating severe allergies with HCP depth.",
+    title: "Module 5: First Aid, Anaphylaxis & Epi-pen",
+    description: "Complete Heartsaver First Aid content with HCP depth.",
     duration: 40,
     order: 5,
     sections: [
       {
-        title: "Using an Epi-pen",
-        content: `<h2>Blue to the Sky, Orange to the Thigh</h2>
-<ol>
-  <li>Remove the safety cap.</li>
-  <li>Press the tip firmly against the outer thigh.</li>
-  <li>Hold for 10 seconds.</li>
-  <li>Call 911 immediately.</li>
-</ol>`,
+        title: "Recognizing Anaphylaxis",
+        content: `<h2>Severe Allergic Reactions</h2>
+<p>Recognize signs: wheezing, swelling, hives, and low blood pressure.</p>`,
         order: 1,
       },
       {
-        title: "HCP Depth: IM Epinephrine",
-        content: `<h2>Emergency Medication Administration</h2>
-<p>Healthcare providers should be proficient in using auto-injectors as well as drawing up epinephrine for IM injection (1:1000) if protocols allow.</p>`,
+        title: "Epi-pen Administration",
+        content: `<h2>Action Steps</h2>
+<p>Inject into the outer thigh, hold for 10 seconds, and call 911.</p>`,
         order: 2,
       }
     ],
@@ -231,30 +253,30 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "Where is the preferred site for an epinephrine injection for anaphylaxis?",
-          options: ["The arm (Deltoid)", "The outer thigh (Vastus Lateralis)", "The stomach", "The buttocks"],
-          correctAnswer: "The outer thigh (Vastus Lateralis)",
-          explanation: "The outer thigh provides the most reliable absorption for epinephrine in anaphylaxis.",
+          question: "How long should you hold an Epi-pen in place?",
+          options: ["1 second", "3 seconds", "10 seconds", "30 seconds"],
+          correctAnswer: "10 seconds",
+          explanation: "Holding for 10 seconds ensures full medication delivery.",
         }
       ],
     },
   },
   {
-    title: "Module 6: First Aid - Bleeding Control",
-    description: "Stopping life-threatening bleeding with HCP depth.",
-    duration: 40,
+    title: "Module 6: Bleeding Control & Tourniquets",
+    description: "Stopping life-threatening bleeding for healthcare providers.",
+    duration: 30,
     order: 6,
     sections: [
       {
-        title: "Direct Pressure",
+        title: "Direct Pressure & Packing",
         content: `<h2>Stop the Bleed</h2>
-<p>Apply firm, direct pressure on the wound with a clean cloth or gauze. If the bleeding doesn't stop, apply more pressure. Do not remove the first cloth.</p>`,
+<p>Apply firm pressure. For deep wounds, pack with gauze.</p>`,
         order: 1,
       },
       {
-        title: "HCP Depth: Tourniquets & Wound Packing",
-        content: `<h2>Advanced Bleeding Control</h2>
-<p>Healthcare providers should use tourniquets for life-threatening limb bleeding that cannot be controlled by direct pressure. Pack deep wounds with hemostatic gauze if available.</p>`,
+        title: "Tourniquet Use",
+        content: `<h2>Life-Saving Intervention</h2>
+<p>Apply 2-3 inches above the wound. Tighten until bleeding stops and pulse disappears.</p>`,
         order: 2,
       }
     ],
@@ -263,17 +285,17 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "What is the first step to stop heavy bleeding?",
-          options: ["Apply a tourniquet", "Apply direct pressure", "Wash the wound", "Elevate the limb"],
-          correctAnswer: "Apply direct pressure",
-          explanation: "Direct pressure is the most effective first step for stopping most bleeding.",
+          question: "Where should a tourniquet be placed?",
+          options: ["Directly on the wound", "On a joint", "2-3 inches above the wound", "Below the wound"],
+          correctAnswer: "2-3 inches above the wound",
+          explanation: "Placement above the wound on a single bone (humerus or femur) is most effective.",
         }
       ],
     },
   },
   {
-    title: "Module 7: Team Dynamics & Multi-Rescuer Coordination",
-    description: "Operating in a high-performance team to maximize survival.",
+    title: "Module 7: Team Dynamics & Multi-Rescuer CPR",
+    description: "HCP-specific coordination for high-performance teams.",
     duration: 40,
     order: 7,
     sections: [
