@@ -2,7 +2,31 @@
  * Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
  * Shared by seed-heartsaver.ts and runtime ensure-heartsaver-catalog.
  */
-export const HEARTSAVER_MODULES = [
+export interface HeartsaverModuleDef {
+  order: number;
+  title: string;
+  description: string;
+  duration: number;
+  content: string;
+  sections: {
+    order: number;
+    title: string;
+    content: string;
+  }[];
+  quiz: {
+    title: string;
+    passingScore: number;
+    questions: {
+      order: number;
+      questionText: string;
+      options: string;
+      correctAnswer: string;
+      explanation: string;
+    }[];
+  };
+}
+
+export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   {
     order: 1,
     title: "Module 1: Foundations & The Unified Chain of Survival",
