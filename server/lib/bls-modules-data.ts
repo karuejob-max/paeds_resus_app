@@ -1,7 +1,7 @@
 /**
  * Enriched BLS Provider Course Data (AHA 2025 Guidelines)
- * This course merges the accessibility of Heartsaver with the clinical rigor of BLS Provider.
- * Unified 2025 Chain of Survival integrated throughout.
+ * This course literally merges all Heartsaver content and adds healthcare-provider (HCP) rigor.
+ * A BLS instructor can teach Heartsaver using this curriculum.
  */
 
 export interface BLSModule {
@@ -30,23 +30,36 @@ export interface BLSModule {
 export const BLS_MODULES: BLSModule[] = [
   {
     title: "Module 1: Foundations & The Unified Chain of Survival",
-    description: "Introduction to the 2025 Unified Chain of Survival, personal safety, and scene assessment.",
+    description: "2025 Unified Chain of Survival, safety, and HCP-level scene assessment.",
     duration: 30,
     order: 1,
     sections: [
       {
         title: "The Unified 2025 Chain of Survival",
-        content: `<h2>The Unified Framework</h2>
-<p>The AHA 2025 Guidelines introduce a <strong>single, unified Chain of Survival</strong> that applies across all ages and settings (Adult, Pediatric, In-Hospital, and Out-of-Hospital).</p>
+        content: `<h2>One Chain for Everyone</h2>
+<p>The 2025 Guidelines unify the Chain of Survival. Whether at home, in a mall, or in a hospital, the steps to save a life are the same.</p>
 <ol>
-  <li><strong>Activation of Emergency Response:</strong> Immediate recognition and calling for help (911).</li>
+  <li><strong>Activation:</strong> Recognition and immediate call for help (911/Emergency Response).</li>
   <li><strong>High-Quality CPR:</strong> Early chest compressions to maintain vital organ perfusion.</li>
-  <li><strong>Rapid Defibrillation:</strong> Early use of AED or manual defibrillator to treat shockable rhythms.</li>
+  <li><strong>Rapid Defibrillation:</strong> Early use of AED or manual defibrillator.</li>
   <li><strong>Advanced Resuscitation:</strong> High-performance team interventions, medications, and advanced airway.</li>
   <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
-  <li><strong>Recovery:</strong> Long-term rehabilitation, psychological support, and survivorship.</li>
-</ol>`,
+  <li><strong>Recovery:</strong> Long-term rehabilitation and psychological support.</li>
+</ol>
+<div class="hcp-note">
+  <strong>HCP Depth:</strong> Healthcare providers must also coordinate with a high-performance team and consider advanced resuscitation links early.
+</div>`,
         order: 1,
+      },
+      {
+        title: "Personal Safety & Scene Assessment",
+        content: `<h2>Safety First</h2>
+<p>The first step in saving a life is recognising that someone needs help and calling for emergency services immediately. However, you must ensure the scene is safe for you and the victim.</p>
+<ul>
+  <li>Check for traffic, fire, or environmental hazards.</li>
+  <li>Use personal protective equipment (PPE) if available.</li>
+</ul>`,
+        order: 2,
       }
     ],
     quiz: {
@@ -54,37 +67,50 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "Which statement best describes the 2025 AHA Chain of Survival?",
-          options: ["Separate chains for IHCA and OHCA", "Adult and Pediatric chains remain distinct", "A single, unified chain applies to all ages and settings", "The chain no longer includes the Recovery link"],
-          correctAnswer: "A single, unified chain applies to all ages and settings",
-          explanation: "The 2025 guidelines unified the chain to simplify the framework and emphasize consistent high-quality care across all scenarios.",
+          question: "What is the first link in the Unified 2025 Chain of Survival?",
+          options: ["Start CPR", "Call for help / Activation", "Use an AED", "Advanced Care"],
+          correctAnswer: "Call for help / Activation",
+          explanation: "Early activation of the emergency response system is the critical first step in the unified chain.",
         }
       ],
     },
   },
   {
     title: "Module 2: Adult CPR, AED & Healthcare Provider Depth",
-    description: "Healthcare-provider level recognition and execution of adult CPR and AED use.",
+    description: "Hands-only and 30:2 CPR for adults with HCP pulse check rigor.",
     duration: 50,
     order: 2,
     sections: [
       {
-        title: "Recognition & Pulse Check",
+        title: "Hands-Only & 30:2 CPR",
+        content: `<h2>Push Hard and Fast</h2>
+<p>If you see an adult collapse, call 911 and push hard and fast in the center of the chest.</p>
+<ul>
+  <li>Rate: 100-120 beats per minute.</li>
+  <li>Depth: At least 2 inches (5 cm).</li>
+  <li>Allow full chest recoil.</li>
+  <li>Minimize interruptions (less than 10 seconds).</li>
+</ul>`,
+        order: 1,
+      },
+      {
+        title: "HCP Depth: Pulse Check & Recognition",
         content: `<h2>Healthcare Provider Assessment</h2>
 <p>Healthcare providers must perform a simultaneous check for responsiveness, breathing, and pulse in <strong>no more than 10 seconds</strong>.</p>
 <ul>
   <li><strong>Pulse Check (Adult):</strong> Locate the carotid pulse in the neck. Feel for at least 5 but no more than 10 seconds.</li>
+  <li>If no pulse or breathing, start CPR immediately.</li>
 </ul>`,
-        order: 1,
+        order: 2,
       }
     ],
     quiz: {
       title: "Module 2 Quiz",
-      passingScore: 80,
+      passingScore: 100,
       questions: [
         {
           question: "How long should a healthcare provider check for a pulse in an unresponsive adult?",
-          options: ["At least 5 but no more than 10 seconds", "Exactly 15 seconds", "No more than 5 seconds", "Lay rescuers and HCPs do not check pulses"],
+          options: ["At least 5 but no more than 10 seconds", "Exactly 15 seconds", "No more than 5 seconds", "30 seconds"],
           correctAnswer: "At least 5 but no more than 10 seconds",
           explanation: "Healthcare providers must check for a pulse for at least 5 but no more than 10 seconds to avoid delaying compressions.",
         }
@@ -92,10 +118,47 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 3: Choking Relief (Adult, Child, Infant)",
+    title: "Module 3: Pediatric BLS (Infant & Child)",
+    description: "Resuscitation for infants and children with HCP 15:2 ratios.",
+    duration: 50,
+    order: 3,
+    sections: [
+      {
+        title: "Infant & Child CPR",
+        content: `<h2>High-Quality Pediatric CPR</h2>
+<p>Pediatric cardiac arrest is often respiratory in nature. Ventilation is critical.</p>
+<ul>
+  <li><strong>Child:</strong> 1 or 2 hands, at least 1/3 depth of chest (approx 2 inches).</li>
+  <li><strong>Infant:</strong> 2 fingers (1-rescuer) or 2 thumb-encircling hands (2-rescuer), at least 1/3 depth (approx 1.5 inches).</li>
+</ul>`,
+        order: 1,
+      },
+      {
+        title: "HCP Depth: 15:2 Ratios",
+        content: `<h2>Multi-Rescuer Pediatric Ratios</h2>
+<p>For healthcare providers, the 2-rescuer ratio for children and infants is <strong>15:2</strong> to provide more frequent ventilations.</p>
+<p>1-rescuer ratio remains 30:2 for all ages.</p>`,
+        order: 2,
+      }
+    ],
+    quiz: {
+      title: "Module 3 Quiz",
+      passingScore: 100,
+      questions: [
+        {
+          question: "What is the 2-rescuer compression-to-ventilation ratio for a child?",
+          options: ["30:2", "15:2", "15:1", "5:1"],
+          correctAnswer: "15:2",
+          explanation: "15:2 is the healthcare provider standard for 2-rescuer pediatric BLS to prioritize ventilation.",
+        }
+      ],
+    },
+  },
+  {
+    title: "Module 4: Choking Relief (Adult, Child, Infant)",
     description: "2025 Guidelines for choking management using the 5 and 5 approach.",
     duration: 30,
-    order: 3,
+    order: 4,
     sections: [
       {
         title: "The 5 and 5 Approach",
@@ -105,12 +168,15 @@ export const BLS_MODULES: BLSModule[] = [
   <li>Give 5 firm back blows between the shoulder blades.</li>
   <li>Give 5 abdominal thrusts (Heimlich maneuver).</li>
   <li>Repeat until the object comes out or the victim passes out.</li>
-</ol>`,
+</ol>
+<div class="warning-note">
+  If the victim passes out, start CPR immediately.
+</div>`,
         order: 1,
       }
     ],
     quiz: {
-      title: "Module 3 Quiz",
+      title: "Module 4 Quiz",
       passingScore: 100,
       questions: [
         {
@@ -123,42 +189,27 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 4: Pediatric BLS (Infant & Child)",
-    description: "Resuscitation for infants and children with a focus on respiratory etiology.",
-    duration: 50,
-    order: 4,
-    sections: [
-      {
-        title: "Pediatric Ratios",
-        content: `<h2>15:2 for 2-Rescuers</h2>
-<p>For healthcare providers, the 2-rescuer ratio for children and infants is 15:2 to provide more frequent ventilations.</p>`,
-        order: 1,
-      }
-    ],
-    quiz: {
-      title: "Module 4 Quiz",
-      passingScore: 80,
-      questions: [
-        {
-          question: "What is the 2-rescuer compression-to-ventilation ratio for a child?",
-          options: ["30:2", "15:2", "15:1", "5:1"],
-          correctAnswer: "15:2",
-          explanation: "15:2 is the healthcare provider standard for 2-rescuer pediatric BLS.",
-        }
-      ],
-    },
-  },
-  {
-    title: "Module 5: First Aid - Epi-pen & Bleeding Control",
-    description: "Merging Heartsaver First Aid into the BLS Provider course.",
+    title: "Module 5: First Aid - Epi-pen & Allergic Reactions",
+    description: "Recognizing and treating severe allergies with HCP depth.",
     duration: 40,
     order: 5,
     sections: [
       {
-        title: "Epi-pen & Allergic Reactions",
-        content: `<h2>Emergency Medication Administration</h2>
-<p>Healthcare providers should be proficient in using auto-injectors as well as drawing up epinephrine for IM injection if protocols allow.</p>`,
+        title: "Using an Epi-pen",
+        content: `<h2>Blue to the Sky, Orange to the Thigh</h2>
+<ol>
+  <li>Remove the safety cap.</li>
+  <li>Press the tip firmly against the outer thigh.</li>
+  <li>Hold for 10 seconds.</li>
+  <li>Call 911 immediately.</li>
+</ol>`,
         order: 1,
+      },
+      {
+        title: "HCP Depth: IM Epinephrine",
+        content: `<h2>Emergency Medication Administration</h2>
+<p>Healthcare providers should be proficient in using auto-injectors as well as drawing up epinephrine for IM injection (1:1000) if protocols allow.</p>`,
+        order: 2,
       }
     ],
     quiz: {
@@ -175,10 +226,42 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 6: Team Dynamics & Multi-Rescuer Coordination",
-    description: "Operating in a high-performance team to maximize survival.",
+    title: "Module 6: First Aid - Bleeding Control",
+    description: "Stopping life-threatening bleeding with HCP depth.",
     duration: 40,
     order: 6,
+    sections: [
+      {
+        title: "Direct Pressure",
+        content: `<h2>Stop the Bleed</h2>
+<p>Apply firm, direct pressure on the wound with a clean cloth or gauze. If the bleeding doesn't stop, apply more pressure. Do not remove the first cloth.</p>`,
+        order: 1,
+      },
+      {
+        title: "HCP Depth: Tourniquets & Wound Packing",
+        content: `<h2>Advanced Bleeding Control</h2>
+<p>Healthcare providers should use tourniquets for life-threatening limb bleeding that cannot be controlled by direct pressure. Pack deep wounds with hemostatic gauze if available.</p>`,
+        order: 2,
+      }
+    ],
+    quiz: {
+      title: "Module 6 Quiz",
+      passingScore: 100,
+      questions: [
+        {
+          question: "What is the first step to stop heavy bleeding?",
+          options: ["Apply a tourniquet", "Apply direct pressure", "Wash the wound", "Elevate the limb"],
+          correctAnswer: "Apply direct pressure",
+          explanation: "Direct pressure is the most effective first step for stopping most bleeding.",
+        }
+      ],
+    },
+  },
+  {
+    title: "Module 7: Team Dynamics & Multi-Rescuer Coordination",
+    description: "Operating in a high-performance team to maximize survival.",
+    duration: 40,
+    order: 7,
     sections: [
       {
         title: "High-Performance Team Roles",
@@ -188,7 +271,7 @@ export const BLS_MODULES: BLSModule[] = [
       }
     ],
     quiz: {
-      title: "Module 6 Quiz",
+      title: "Module 7 Quiz",
       passingScore: 100,
       questions: [
         {
@@ -201,10 +284,10 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 7: Airway Management & Special Situations",
+    title: "Module 8: Airway Management & Special Situations",
     description: "Advanced techniques and resuscitation in unique environments.",
     duration: 50,
-    order: 7,
+    order: 8,
     sections: [
       {
         title: "Advanced Airway CPR",
@@ -214,12 +297,12 @@ export const BLS_MODULES: BLSModule[] = [
       }
     ],
     quiz: {
-      title: "Module 7 Quiz",
+      title: "Module 8 Quiz",
       passingScore: 100,
       questions: [
         {
           question: "What is the compression technique once an advanced airway is in place?",
-          options: ["Continue 30:2 cycles", "Switch to 15:2 cycles", "Continuous compressions without pauses for breaths", "Stop compressions for 10 seconds for each breath"],
+          options: ["Continue 30:2 cycles", "Switch to 15:2 cycles", "Continuous compressions without pauses for breaths", "Stop compressions for breaths"],
           correctAnswer: "Continuous compressions without pauses for breaths",
           explanation: "Continuous compressions maximize coronary perfusion once the airway is secured.",
         }

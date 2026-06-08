@@ -501,6 +501,10 @@ async function ensureCatalog(
     throw new Error(`Failed to resolve ${programType.toUpperCase()} course catalog row`);
   }
 
+  // Delete modules that are no longer in the definition
+  const maxOrder = Math.max(...moduleDefinitions.map(m => m.order));
+  await db.delete(modules).where(and(eq(modules.courseId, courseId), gt(modules.order, maxOrder)));
+
   // Ensure each module
   for (const modDef of moduleDefinitions) {
     const modExisting = await db
