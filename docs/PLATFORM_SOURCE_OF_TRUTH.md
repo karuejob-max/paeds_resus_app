@@ -134,9 +134,13 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 ## 9. Course funnel (data meaning)
 
-- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` \| `acls` \| `pals` \| `fellowship` \| `instructor`), `paymentStatus`, etc. There is **no** strict enforced state machine in code yet; metrics are **counts by date** unless we add a formal funnel later.
+- **Applied / enrolled:** A row in **`enrollments`** = one application. Authoritative fields include `createdAt`, `programType` (`bls` | `acls` | `pals` | `heartsaver` | `nrp` | `fellowship` | `instructor`), `paymentStatus`, etc.
+- **Capstone Simulation (AHA Courses):** For PALS (and eventually ACLS/BLS/NRP/Heartsaver), a practical simulation (Module 10) is required before the summative exam. 
+  - **Passmark:** 50% (supportive, non-blocking threshold).
+  - **Reviewable:** Once passed, the simulation remains accessible as a module for review.
+  - **Guideline Alignment:** All simulations follow the **2025 AHA ECC and CPR Guidelines** (e.g., PCAC emphasizes fever prevention >36-72 hrs PCA rather than therapeutic hypothermia).
 - **Certified:** A row in **`certificates`** = one certificate. Authoritative fields include `issueDate`, `programType`.
-- **Certification Strategy (Incentives):** To maintain high learner motivation and clinical rigor, certificates are issued for **every** successfully completed micro-course, every AHA course (BLS, ACLS, PALS), and finally the **Fellowship Diploma** upon graduation. Certificates must be verifiable and downloadable on-demand from the provider dashboard.
+- **Certification Strategy (Incentives):** To maintain high learner motivation and clinical rigor, certificates are issued for **every** successfully completed micro-course, every AHA course, and finally the **Fellowship Diploma** upon graduation. Certificates must be verifiable and downloadable on-demand from the provider dashboard.
 - **Instructor journey:** Completing the **Instructor Course** (`programType` = `instructor`) issues a certificate and sets **`users.instructorNumber`** + **`users.instructorCertifiedAt`**. **B2B teaching** on institutional schedules still requires **`users.instructorApprovedAt`** (platform admin under Admin â†’ Reports) so hospitals only assign certified, approved instructors.
 
 ---
@@ -463,10 +467,10 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
 - **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
 #### AHA Practice Lab (supplemental simulation)
-- **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief — **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
+- **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief ï¿½ **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
 - **Route:** /aha-courses/practice (linked from AHA hub for enrolled providers)
 - **Feeds:** haPracticeLabAttempts (per-track scores, event logs), admin Practice Lab rollup on /admin/reports
-- **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode — no Fellowship case save)
+- **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode ï¿½ no Fellowship case save)
 - **Integration note:** Standalone under the AHA training track (same non-Fellowship rule as certificated courses). Reuses simulation UI patterns but must never be marketed or logged as ResusGPS clinical guidance.
 - **Schema:** drizzle/0049_aha_practice_lab_attempts.sql; apply via pnpm run db:apply-0049 post-deploy
 

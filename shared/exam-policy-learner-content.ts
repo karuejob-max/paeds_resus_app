@@ -6,8 +6,8 @@
 export const EXAM_POLICY_PAGE = {
   path: "/learning/exam-policy",
   title: "How assessments work",
-  description:
-    "Diagnostic, formative, and summative exams — pass marks, attempt limits, and retries for Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP).",
+    description:
+    "Diagnostic, formative, capstone simulations, and summative exams — pass marks, attempt limits, and retries for Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP, Heartsaver).",
 } as const;
 
 /** Deep-link anchors for Fellowship vs AHA sections on the learner policy page. */
@@ -46,14 +46,15 @@ export const EXAM_POLICY_TRACK_INTROS: ExamPolicyTrackIntro[] = [
   },
   {
     id: EXAM_POLICY_ANCHOR_AHA,
-    title: "AHA courses (BLS, ACLS, PALS, NRP)",
+    title: "AHA courses (BLS, ACLS, PALS, NRP, Heartsaver)",
     paragraphs: [
-      "AHA cognitive courses follow the same diagnostic → modules → summative flow. Passing the summative completes the online portion and issues a gatepass certificate.",
+      "AHA cognitive courses follow a diagnostic → modules → capstone simulation → summative flow. Passing both the simulation and the summative exam completes the online portion and issues a gatepass certificate.",
       "Full AHA certification still requires practical skills sign-off with an instructor at a hands-on session.",
     ],
     bullets: [
       "Diagnostic once at start (no pass mark); modules unlock after diagnostic.",
       "Per-module knowledge checks per course structure.",
+      "Capstone Simulation: Practical scenario (Module 10) requiring a 50% pass mark.",
       "Summative: 80% pass, up to 3 attempts, 24 hours between retries.",
       "Separate track — does not count toward Fellowship Pillar A.",
     ],
@@ -72,7 +73,7 @@ export const EXAM_POLICY_SECTIONS: ExamPolicySection[] = [
     id: "overview",
     title: "Overview",
     paragraphs: [
-      "Paeds Resus uses three assessment types on cognitive courses: a diagnostic baseline at course start, module knowledge checks (formative), and a final summative exam. Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP) follow the same flow: diagnostic → modules → summative.",
+      "Paeds Resus uses four assessment types on cognitive courses: a diagnostic baseline at course start, module knowledge checks (formative), practical capstone simulations (AHA tracks), and a final summative exam. AHA courses (BLS, ACLS, PALS, NRP, Heartsaver) follow the full flow: diagnostic → modules → capstone simulation → summative.",
       "Scores for summative exams are calculated on the server — your result is based on stored correct answers, not self-reported marks.",
     ],
   },
@@ -146,6 +147,7 @@ export const EXAM_POLICY_COMPARE_ROWS: ExamPolicyCompareRow[] = [
   { rule: "Diagnostic baseline", fellowship: "Yes — once, no pass mark", aha: "Yes — once, no pass mark" },
   { rule: "Per-module formative checks", fellowship: "Yes — taught-before-tested", aha: "Yes — per course structure" },
   { rule: "Summative final exam", fellowship: "Yes — shuffled bank", aha: "Yes — shuffled bank" },
+  { rule: "Capstone Simulation (Module 10)", fellowship: "N/A", aha: "Yes — 50% pass mark" },
   { rule: "Summative pass mark", fellowship: "80%", aha: "80%" },
   { rule: "Summative max attempts", fellowship: "3 (1 + 2 retries)", aha: "3 (1 + 2 retries)" },
   { rule: "24h between summative attempts", fellowship: "Yes", aha: "Yes" },
