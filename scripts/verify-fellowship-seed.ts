@@ -3,8 +3,9 @@
  * Fails on thinFormative (>0 modules with <3 unique formative stems).
  */
 import { getDb } from "../server/db";
-import { microCourses, courses, modules, quizzes, quizQuestions } from "../drizzle/schema";
+import { microCourses, courses, modules, moduleSections, quizzes, quizQuestions } from "../drizzle/schema";
 import { eq, like, and, or } from "drizzle-orm";
+import { moduleSectionsStale } from "../shared/split-module-html-sections";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
@@ -63,6 +64,15 @@ async function main() {
       .select({ id: modules.id, order: modules.order, content: modules.content })
       .from(modules)
       .where(eq(modules.courseId, course.id));
+
+    let staleSectionModules = 0;
+    for (const mod of mods) {
+      const secs = await db
+        .select({ content: moduleSections.content })
+        .from(moduleSections)
+        .where(eq(moduleSections.moduleId, mod.id));
+      if (moduleSectionsStale(mod.content ?? "", secs)) staleSectionModules++;
+    }
 
     const hasFooter = mods.some((m) => m.content?.includes("Educational use only"));
     const hasLevelInTitle = hasLegacyCourseNumberTitle(row.title);
@@ -137,12 +147,13 @@ async function main() {
       noWithinQuizDups &&
       noSummFormOverlap;
     const titleOk = !hasLevelInTitle;
-    const ok = hasFooter && examOk && titleOk;
+    const sectionsOk = staleSectionModules === 0;
+    const ok = hasFooter && examOk && titleOk && sectionsOk;
 
     if (!ok) failures++;
 
     rows.push(
-      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} withinQuizDups=${withinQuizDuplicateStems} diagSummOverlap=${diagnosticSummativeOverlap} summFormOverlap=${summFormOverlap} | footer=${hasFooter} | levelTitle=${hasLevelInTitle}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}${!noWithinQuizDups ? " | withinQuizDups" : ""}${!noSummFormOverlap ? " | summFormOverlap" : ""}`
+      `${ok ? "[OK]" : "[FAIL]"} ${slug} | mods=${mods.length} | diag=${diagnostic} summ=${summative} summQs=${summativeQuestionCount} formativeMods=${formativeModules}/${mods.length} thinFormative=${thinFormativeModules} withinQuizDups=${withinQuizDuplicateStems} diagSummOverlap=${diagnosticSummativeOverlap} summFormOverlap=${summFormOverlap} | footer=${hasFooter} | levelTitle=${hasLevelInTitle} | staleSections=${staleSectionModules}${missingFormative.length ? ` | missingFormativeOrders=${missingFormative.join(",")}` : ""}${!summativeBankOk ? " | summBank<15" : ""}${!formativeDepthOk ? " | thinFormative" : ""}${!noWithinQuizDups ? " | withinQuizDups" : ""}${!noSummFormOverlap ? " | summFormOverlap" : ""}${!sectionsOk ? " | staleSections" : ""}`
     );
   }
 

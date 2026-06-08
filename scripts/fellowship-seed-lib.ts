@@ -12,8 +12,9 @@ import {
 } from "../shared/microcourse-exam-policy";
 import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-helpers";
 import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
+import { splitModuleHtmlIntoSections } from "../shared/split-module-html-sections";
 import { getDb } from "../server/db";
-import { courses, modules, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
+import { courses, modules, moduleSections, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
 import { eq, and, desc, like, or, inArray } from "drizzle-orm";
 
 import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
@@ -143,6 +144,30 @@ export function parseSeedCliArgs(argv: string[]): { onlySlugs?: Set<string>; bat
   }
 
   return { onlySlugs, batch };
+}
+
+/** Replace legacy moduleSections so the player shows seeded modules.content (not stale rows). */
+async function syncModuleSectionsFromHtml(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  moduleId: number,
+  html: string
+): Promise<void> {
+  await db.delete(moduleSections).where(eq(moduleSections.moduleId, moduleId));
+
+  const parsed = splitModuleHtmlIntoSections(html);
+  if (parsed.length === 0) return;
+
+  const now = new Date();
+  for (const section of parsed) {
+    await db.insert(moduleSections).values({
+      moduleId,
+      title: section.title,
+      content: section.content,
+      order: section.order,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
 }
 
 export async function seedFellowshipContent(options: {
@@ -313,6 +338,7 @@ export async function seedFellowshipContent(options: {
             duration: modData.duration,
           })
           .where(eq(modules.id, moduleId));
+        await syncModuleSectionsFromHtml(db, moduleId, content);
       } else {
         await db.insert(modules).values({
           courseId: targetCourseId,
@@ -329,6 +355,7 @@ export async function seedFellowshipContent(options: {
           .orderBy(desc(modules.id))
           .limit(1);
         moduleId = newMod!.id;
+        await syncModuleSectionsFromHtml(db, moduleId, content);
       }
       moduleIds.push(moduleId);
     }
