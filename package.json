@@ -47,6 +47,7 @@
     "seed:fellowship-content:infectious": "tsx --import dotenv/config scripts/seed-fellowship-content.ts --batch=infectious",
     "seed:fellowship-content:trauma": "tsx --import dotenv/config scripts/seed-fellowship-content.ts --batch=trauma",
     "seed:fellowship-content:metabolic": "tsx --import dotenv/config scripts/seed-fellowship-content.ts --batch=metabolic",
+    "archive:stale-fellowship-courses": "tsx --import dotenv/config scripts/archive-stale-fellowship-courses.ts",
     "seed:seriously-ill-child-course": "tsx server/seed-seriously-ill-child-fellowship-course.ts",
     "seed:micro-courses": "tsx server/seed-micro-courses.ts",
     "seed:bls-acls": "tsx --import dotenv/config server/seed-bls-acls-courses.ts",

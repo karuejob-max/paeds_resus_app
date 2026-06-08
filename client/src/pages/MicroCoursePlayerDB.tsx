@@ -23,6 +23,7 @@ import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
+import { resolveFellowshipCourseFromCandidates } from "@shared/resolve-fellowship-course";
 import {
   formatPrerequisiteHint,
   microCourseTrackLabel,
@@ -153,13 +154,10 @@ export default function MicroCoursePlayerDB() {
   );
   const fellowshipDbCourse = useMemo(() => {
     if (!microCourseRow || !fellowshipCourses?.length) return undefined;
-    const byOrder = fellowshipCourses.find(
-      (c: FellowshipCatalogRow) => c.order === microCourseRow.order
-    );
-    if (byOrder) return byOrder;
-    return fellowshipCourses.find(
-      (c: FellowshipCatalogRow) => c.title === microCourseRow.title
-    );
+    return resolveFellowshipCourseFromCandidates<FellowshipCatalogRow>(fellowshipCourses, {
+      title: microCourseRow.title,
+      order: microCourseRow.order,
+    });
   }, [fellowshipCourses, microCourseRow]);
 
   const ahaProgram = programType ?? ahaProgramFromSlug;

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import {
   courses,
   enrollments,
@@ -19,6 +19,7 @@ import {
   summativePassed,
   type SummativeBlockKind,
 } from "../../shared/microcourse-exam-policy";
+import { fellowshipTitlePrefix } from "../../shared/resolve-fellowship-course";
 import { gradeQuizAnswerAgainstStored, parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 
 export type SummativeQuestionResult = {
@@ -61,7 +62,7 @@ export function isDiagnosticProgressComplete(progress: {
   return !!progress?.completedAt || progress?.status === "completed";
 }
 
-/** Resolve fellowship `courses.id` from catalog micro-course row (title + order fallback). */
+/** Resolve fellowship `courses.id` from catalog micro-course row (title → order → prefix). */
 export async function resolveFellowshipCourseId(
   db: Db,
   microCourse: { title: string; order?: number | null; courseId?: string | null }
@@ -72,20 +73,22 @@ export async function resolveFellowshipCourseId(
   } as never);
   if (exact?.id) return exact.id;
 
-  const titlePrefix = microCourse.title.split(":")[0]?.trim();
+  if (microCourse.order != null) {
+    const byOrder = await db.query.courses.findFirst({
+      where: and(eq(courses.programType, "fellowship"), eq(courses.order, microCourse.order)),
+      columns: { id: true },
+    } as never);
+    if (byOrder?.id) return byOrder.id;
+  }
+
+  const titlePrefix = fellowshipTitlePrefix(microCourse.title);
   if (!titlePrefix) return null;
 
-  const fallback = await db.query.courses.findFirst({
-    where: and(
-      eq(courses.programType, "fellowship"),
-      or(
-        like(courses.title, `%${titlePrefix}%`),
-        microCourse.order != null ? eq(courses.order, microCourse.order) : undefined
-      )
-    ),
+  const byPrefix = await db.query.courses.findFirst({
+    where: and(eq(courses.programType, "fellowship"), like(courses.title, `%${titlePrefix}%`)),
     columns: { id: true },
   } as never);
-  return fallback?.id ?? null;
+  return byPrefix?.id ?? null;
 }
 
 export function resolveDiagnosticCompleted(params: {
