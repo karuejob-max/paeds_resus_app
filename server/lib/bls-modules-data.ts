@@ -1,5 +1,5 @@
 /**
- * Enriched BLS Provider Course Data (AHA 2025 Guidelines)
+ * Exhaustive BLS Provider Course Data (AHA 2025 Guidelines)
  * This course literally merges all Heartsaver content and adds healthcare-provider (HCP) rigor.
  * A BLS instructor can teach Heartsaver using this curriculum.
  */
@@ -102,6 +102,18 @@ export const BLS_MODULES: BLSModule[] = [
   <li>If no pulse or breathing, start CPR immediately.</li>
 </ul>`,
         order: 2,
+      },
+      {
+        title: "Using an AED",
+        content: `<h2>AED Operation</h2>
+<ol>
+  <li>Turn on the AED and follow the voice prompts.</li>
+  <li>Attach pads to the victim's bare chest.</li>
+  <li>Stay clear while the AED analyzes the rhythm.</li>
+  <li>If a shock is advised, ensure everyone is clear and press the shock button.</li>
+  <li>Immediately resume CPR starting with chest compressions.</li>
+</ol>`,
+        order: 3,
       }
     ],
     quiz: {
@@ -170,7 +182,7 @@ export const BLS_MODULES: BLSModule[] = [
   <li>Repeat until the object comes out or the victim passes out.</li>
 </ol>
 <div class="warning-note">
-  If the victim passes out, start CPR immediately.
+  <strong>Infants:</strong> Use 5 back blows and 5 <strong>chest thrusts</strong> (not abdominal thrusts).
 </div>`,
         order: 1,
       }
