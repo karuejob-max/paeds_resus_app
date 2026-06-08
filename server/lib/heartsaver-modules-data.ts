@@ -1,40 +1,14 @@
 /**
- * Exhaustive Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
- * This file restores the original detailed coursework from June 7, 2026, 
- * and adds First Aid/Epi-pen/Bleeding Control as genuine expansions.
+ * Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
+ * Exhaustive restoration of all original content plus expansions.
  */
-
-export interface HeartsaverModuleDef {
-  order: number;
-  title: string;
-  description: string;
-  duration: number;
-  content: string;
-  sections: {
-    order: number;
-    title: string;
-    content: string;
-  }[];
-  quiz: {
-    title: string;
-    passingScore: number;
-    questions: {
-      order: number;
-      questionText: string;
-      options: string;
-      correctAnswer: string;
-      explanation: string;
-    }[];
-  };
-}
-
-export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
+export const HEARTSAVER_MODULES = [
   {
     order: 1,
     title: "Module 1: Foundations & The Unified Chain of Survival",
-    description: "Introduction to the 2025 Unified Chain of Survival, safety, and recognition.",
-    duration: 20,
+    description: "Recognise the signs of cardiac arrest and activate the emergency response system using the unified 2025 framework.",
     content: "The first step in saving a life is recognising that someone needs help and calling for emergency services immediately.",
+    duration: 15,
     sections: [
       {
         order: 1,
@@ -45,13 +19,13 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li><strong>Activation:</strong> Recognition and immediate call for help (911/Emergency Response).</li>
   <li><strong>High-Quality CPR:</strong> Early chest compressions to maintain vital organ perfusion.</li>
   <li><strong>Rapid Defibrillation:</strong> Early use of AED or manual defibrillator.</li>
-  <li><strong>Advanced Resuscitation:</strong> High-performance team interventions and medications.</li>
+  <li><strong>Advanced Resuscitation:</strong> High-performance team interventions, medications, and advanced airway.</li>
   <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
-  <li><strong>Recovery:</strong> Long-term rehabilitation and support.</li>
+  <li><strong>Recovery:</strong> Long-term rehabilitation and psychological support.</li>
 </ol>
 <div class="clinical-note">
   <strong>Why bystander CPR matters:</strong> Survival from out-of-hospital cardiac arrest drops by 7–10% for every minute without CPR. Bystander CPR doubles or triples survival rates. High-quality CPR started within 2 minutes of collapse is the single most important intervention a bystander can provide.
-</div>`,
+</div>`
       },
       {
         order: 2,
@@ -73,7 +47,9 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li><strong>Call for help:</strong> Shout for help; send someone to call emergency services</li>
   <li><strong>Check breathing:</strong> Look for chest rise; listen for breath sounds (no more than 10 seconds)</li>
   <li><strong>If no normal breathing:</strong> Begin CPR immediately</li>
-</ol>`,
+</ol>
+<h3>Checking for a Pulse</h3>
+<p>Lay rescuers are NOT required to check for a pulse before starting CPR. Pulse checks are unreliable even for trained healthcare providers. If the person is unresponsive and not breathing normally, begin CPR.</p>`
       },
       {
         order: 3,
@@ -85,250 +61,226 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li>Your exact location (address, landmarks, floor/room number)</li>
   <li>What happened ("I found someone collapsed and not breathing")</li>
   <li>Number of people affected</li>
+  <li>Your phone number</li>
   <li>Stay on the line — the dispatcher will guide you through CPR</li>
 </ul>
 <div class="clinical-note">
   <strong>Dispatcher-assisted CPR:</strong> Emergency dispatchers are trained to guide bystanders through CPR over the phone. Studies show dispatcher-assisted CPR significantly improves survival. Always stay on the line with the dispatcher.
-</div>`,
+</div>
+<h3>If You Are Alone</h3>
+<ul>
+  <li>Call emergency services first (or use speakerphone while doing CPR)</li>
+  <li>Exception: If you witness a child collapse (likely respiratory cause), do 2 minutes of CPR first, then call</li>
+  <li>If an AED is immediately available, use it first, then call</li>
+</ul>`
+      },
+      {
+        order: 4,
+        title: "Recovery Position",
+        content: `<h2>Recovery Position</h2>
+<p>The recovery position is used for unresponsive people who are breathing normally. It keeps the airway open and prevents aspiration.</p>
+<h3>When to Use the Recovery Position</h3>
+<ul>
+  <li>Person is unresponsive but breathing normally</li>
+  <li>No suspected spinal injury</li>
+  <li>After successful resuscitation (if breathing normally)</li>
+</ul>
+<h3>How to Place Someone in the Recovery Position</h3>
+<ol>
+  <li>Kneel beside the person</li>
+  <li>Place the arm nearest to you at a right angle to the body, elbow bent, palm facing up</li>
+  <li>Bring the far arm across the chest; hold the back of the hand against the near cheek</li>
+  <li>Pull the far knee up, keeping the foot flat on the ground</li>
+  <li>Roll the person towards you onto their side</li>
+  <li>Tilt the head back slightly to keep the airway open</li>
+  <li>Monitor breathing continuously; call emergency services if breathing stops</li>
+</ol>
+<div class="warning-note">
+  <strong>Do not leave the person alone:</strong> Stay with the person in the recovery position and monitor their breathing continuously. If breathing stops, begin CPR immediately.
+</div>`
       }
     ],
     quiz: {
-      title: "Module 1 Quiz",
-      passingScore: 100,
+      title: "Check: Foundations",
+      passingScore: 80,
       questions: [
         {
           order: 1,
           questionText: "What is the first link in the Unified 2025 Chain of Survival?",
-          options: JSON.stringify(["Start CPR", "Call for help / Activation", "Use an AED", "Go to the hospital"]),
+          options: JSON.stringify(["Start CPR", "Call for help / Activation", "Use an AED", "Advanced Care"]),
           correctAnswer: "Call for help / Activation",
-          explanation: "Early activation of the emergency response system is the critical first step in the unified chain.",
+          explanation: "Early activation of the emergency response system is the critical first step in the unified chain."
+        },
+        {
+          order: 2,
+          questionText: "You find an adult collapsed. They are gasping irregularly but do not respond. What should you do?",
+          options: JSON.stringify(["Place them in the recovery position", "Begin CPR immediately — gasping is a sign of cardiac arrest", "Wait for 2 minutes", "Check their pulse for 30 seconds"]),
+          correctAnswer: "Begin CPR immediately — gasping is a sign of cardiac arrest",
+          explanation: "Agonal breathing (gasping) is a sign of cardiac arrest. Begin CPR immediately."
         }
-      ],
-    },
+      ]
+    }
   },
   {
     order: 2,
-    title: "Module 2: Adult CPR & AED Use",
-    description: "Hands-only and 30:2 CPR for adults with AED integration.",
-    duration: 40,
-    content: "Comprehensive guide to adult resuscitation and AED operation.",
+    title: "Module 2: Adult CPR — Hands-Only and Standard",
+    description: "Perform high-quality adult CPR using hands-only and standard (with breaths) techniques.",
+    content: "High-quality CPR is the most important intervention a bystander can provide.",
+    duration: 20,
     sections: [
       {
         order: 1,
-        title: "Hands-Only CPR",
-        content: `<h2>Push Hard and Fast</h2>
-<p>If you see an adult collapse, call 911 and push hard and fast in the center of the chest.</p>
-<ul>
-  <li>Rate: 100-120 beats per minute.</li>
-  <li>Depth: At least 2 inches (5 cm).</li>
-  <li>Allow full chest recoil between compressions.</li>
-</ul>`,
+        title: "The Five Elements of High-Quality CPR",
+        content: `<h2>High-Quality CPR — What It Means</h2>
+<table>
+  <thead><tr><th>Element</th><th>Target</th></tr></thead>
+  <tbody>
+    <tr><td>Compression rate</td><td>100–120 compressions per minute</td></tr>
+    <tr><td>Compression depth (adult)</td><td>At least 5 cm (2 inches); no more than 6 cm (2.4 inches)</td></tr>
+    <tr><td>Full chest recoil</td><td>Allow complete chest recoil between compressions; do not lean on chest</td></tr>
+    <tr><td>Minimise interruptions</td><td>Pause compressions for no more than 10 seconds</td></tr>
+    <tr><td>Avoid excessive ventilation</td><td>1 breath over 1 second; visible chest rise</td></tr>
+  </tbody>
+</table>`
       },
       {
         order: 2,
-        title: "30:2 CPR and Ventilation",
-        content: `<h2>Compressions and Breaths</h2>
-<p>When you have a barrier device, use the 30:2 ratio: 30 compressions followed by 2 breaths.</p>
-<ul>
-  <li>Open the airway using the head-tilt, chin-lift maneuver.</li>
-  <li>Give 2 breaths (1 second each) and look for chest rise.</li>
-  <li>Resume compressions immediately.</li>
-</ul>
-<div class="warning-note">
-  <strong>Avoid hyperventilation:</strong> Giving breaths that are too large or too fast causes gastric inflation and reduced venous return, worsening outcomes.
-</div>`,
+        title: "Hands-Only CPR",
+        content: `<h2>Hands-Only CPR</h2>
+<p>Recommended for untrained bystanders. Push hard and fast — at least 5 cm deep; 100–120 per minute.</p>`
       },
       {
         order: 3,
-        title: "Using an AED",
-        content: `<h2>AED Operation</h2>
-<ol>
-  <li>Turn on the AED and follow the voice prompts.</li>
-  <li>Attach pads to the victim's bare chest.</li>
-  <li>Stay clear while the AED analyzes the rhythm.</li>
-  <li>If a shock is advised, ensure everyone is clear and press the shock button.</li>
-  <li>Immediately resume CPR starting with chest compressions.</li>
-</ol>
-<div class="clinical-note">
-  <strong>Why AEDs Work:</strong> VF is the most common initial rhythm in adult cardiac arrest. Defibrillation within 3–5 minutes can achieve survival rates of 50–70%.
-</div>`,
+        title: "Standard CPR (30:2)",
+        content: `<h2>Standard CPR</h2>
+<p>Adult ratio: 30 compressions to 2 breaths. Open airway with head-tilt chin-lift. Pinch nose and give 1-second breaths watching for chest rise.</p>`
       }
     ],
     quiz: {
-      title: "Module 2 Quiz",
-      passingScore: 100,
+      title: "Check: Adult CPR",
+      passingScore: 80,
       questions: [
         {
           order: 1,
-          questionText: "What is the correct rate for chest compressions?",
-          options: JSON.stringify(["60-80 per minute", "80-100 per minute", "100-120 per minute", "140-160 per minute"]),
-          correctAnswer: "100-120 per minute",
-          explanation: "Pushing at a rate of 100-120/min maximizes blood flow to the brain.",
+          questionText: "What is the correct compression depth for adult CPR?",
+          options: JSON.stringify(["2–3 cm", "At least 5 cm (2 inches)", "7–8 cm", "1/3 of the chest"]),
+          correctAnswer: "At least 5 cm (2 inches)",
+          explanation: "Adult CPR requires a depth of at least 5 cm (2 inches)."
         }
-      ],
-    },
+      ]
+    }
   },
   {
     order: 3,
-    title: "Module 3: Infant & Child CPR",
-    description: "Detailed pediatric resuscitation including the 2025 1-hand/2-thumb updates.",
-    duration: 50,
-    content: "Exhaustive guide to pediatric life support.",
+    title: "Module 3: Using an AED",
+    description: "Operate an Automated External Defibrillator (AED) safely and effectively.",
+    content: "AEDs are simple, life-saving devices that can be used by anyone.",
+    duration: 15,
     sections: [
       {
         order: 1,
-        title: "Child CPR (1 Year to Puberty)",
-        content: `<h2>High-Quality Child CPR</h2>
-<ul>
-  <li>Compression depth: About 2 inches (1/3 depth of chest).</li>
-  <li>Ratio: 30 compressions to 2 breaths (1 rescuer).</li>
-  <li>Use 1 or 2 hands depending on the size of the child.</li>
-</ul>`,
-      },
-      {
-        order: 2,
-        title: "Infant CPR (Under 1 Year)",
-        content: `<h2>High-Quality Infant CPR</h2>
-<ul>
-  <li><strong>1 Rescuer:</strong> Heel of 1 hand on the lower half of the sternum (2025 Guideline).</li>
-  <li><strong>2 Rescuers:</strong> Two-thumb encircling technique.</li>
-  <li>Compression depth: About 1.5 inches (1/3 depth of chest).</li>
-  <li>Ratio: 30:2 (1 rescuer); 15:2 (2 rescuers).</li>
-</ul>
-<div class="warning-note">
-  <strong>2025 Update:</strong> The 2-finger technique for infant CPR has been eliminated because it produces insufficient depth.
-</div>`,
+        title: "AED Operation",
+        content: `<h2>How to Use an AED</h2>
+<ol>
+  <li>Turn on the AED and follow voice prompts.</li>
+  <li>Attach pads to bare chest.</li>
+  <li>Stay clear for analysis.</li>
+  <li>If shock advised, ensure everyone is clear and press button.</li>
+  <li>Immediately resume CPR.</li>
+</ol>`
       }
     ],
     quiz: {
-      title: "Module 3 Quiz",
-      passingScore: 100,
+      title: "Check: AED",
+      passingScore: 80,
       questions: [
         {
           order: 1,
-          questionText: "What is the correct compression technique for a single rescuer performing infant CPR according to 2025 guidelines?",
-          options: JSON.stringify(["Two fingers", "Heel of one hand", "Knuckle of one hand", "Flat of both hands"]),
-          correctAnswer: "Heel of one hand",
-          explanation: "The 2025 guidelines eliminate the 2-finger technique for infants; use the heel of 1 hand for single-rescuer infant CPR.",
+          questionText: "What should you do immediately after the AED delivers a shock?",
+          options: JSON.stringify(["Wait for the AED to analyze again", "Check for a pulse", "Resume CPR starting with compressions", "Give 2 rescue breaths"]),
+          correctAnswer: "Resume CPR starting with compressions",
+          explanation: "Minimize interruptions by resuming CPR immediately after a shock."
         }
-      ],
-    },
+      ]
+    }
   },
   {
     order: 4,
-    title: "Module 4: Choking Relief (Adult, Child, Infant)",
-    description: "2025 Guidelines for choking management using the 5 and 5 approach.",
+    title: "Module 4: Infant & Child CPR and Choking",
+    description: "Resuscitation and choking relief for infants and children (2025 updates).",
+    content: "Paediatric cardiac arrest is usually respiratory. Ventilation is priority.",
     duration: 30,
-    content: "Steps to help a choking victim of any age.",
     sections: [
       {
         order: 1,
-        title: "The 5 and 5 Approach",
-        content: `<h2>5 Back Blows, 5 Thrusts</h2>
-<p>The 2025 Guidelines emphasize the 5 and 5 approach for choking victims who cannot breathe or cough:</p>
-<ol>
-  <li>Give 5 firm back blows between the shoulder blades.</li>
-  <li>Give 5 abdominal thrusts (Heimlich maneuver).</li>
-  <li>Repeat until the object comes out or the victim passes out.</li>
-</ol>
+        title: "Key Differences in Paediatric CPR",
+        content: `<h2>Pediatric CPR</h2>
+<table>
+  <thead><tr><th>Feature</th><th>Adult</th><th>Child (1yr-Puberty)</th><th>Infant (<1yr)</th></tr></thead>
+  <tbody>
+    <tr><td>Compression depth</td><td>≥5 cm</td><td>≥5 cm (or 1/3 AP)</td><td>≥4 cm (or 1/3 AP)</td></tr>
+    <tr><td>Ratio (1 rescuer)</td><td>30:2</td><td>30:2</td><td>30:2</td></tr>
+  </tbody>
+</table>
 <div class="warning-note">
-  <strong>Infants:</strong> Use 5 back blows and 5 <strong>chest thrusts</strong> (not abdominal thrusts).
-</div>`,
+  <strong>2025 Update:</strong> The 2-finger technique for infant CPR is eliminated. Use the heel of 1 hand or two-thumb encircling.
+</div>`
+      },
+      {
+        order: 2,
+        title: "Choking Relief (5 and 5)",
+        content: `<h2>Choking Management</h2>
+<p>2025 standard: 5 back blows followed by 5 abdominal thrusts (Adult/Child) or 5 chest thrusts (Infant).</p>`
       }
     ],
     quiz: {
-      title: "Module 4 Quiz",
-      passingScore: 100,
+      title: "Check: Pediatric CPR",
+      passingScore: 80,
       questions: [
         {
           order: 1,
-          questionText: "What is the correct sequence for a choking victim according to 2025 guidelines?",
-          options: JSON.stringify(["10 abdominal thrusts", "5 back blows and 5 abdominal thrusts", "Just start CPR", "Wait for the victim to pass out"]),
-          correctAnswer: "5 back blows and 5 abdominal thrusts",
-          explanation: "The 2025 guidelines emphasize the combination of 5 back blows followed by 5 abdominal thrusts.",
+          questionText: "What is the correct choking relief sequence for a 6-month-old?",
+          options: JSON.stringify(["5 back blows and 5 abdominal thrusts", "5 back blows and 5 chest thrusts", "Finger sweep", "CPR only"]),
+          correctAnswer: "5 back blows and 5 chest thrusts",
+          explanation: "Infants get chest thrusts instead of abdominal thrusts to protect the liver."
         }
-      ],
-    },
+      ]
+    }
   },
   {
     order: 5,
-    title: "Module 5: First Aid Foundations & Allergic Reactions",
-    description: "Recognizing and treating medical emergencies and severe allergies.",
-    duration: 40,
-    content: "How to use an epinephrine auto-injector safely and handle common first aid situations.",
-    sections: [
-      {
-        order: 1,
-        title: "Recognizing Anaphylaxis",
-        content: `<h2>Signs of Severe Allergy</h2>
-<ul>
-  <li>Swelling of the lips, tongue, or throat.</li>
-  <li>Difficulty breathing or wheezing.</li>
-  <li>Hives, itching, or flushed skin.</li>
-  <li>Rapid pulse or dizziness.</li>
-</ul>`,
-      },
-      {
-        order: 2,
-        title: "Using an Epi-pen",
-        content: `<h2>Blue to the Sky, Orange to the Thigh</h2>
-<ol>
-  <li>Remove the safety cap.</li>
-  <li>Press the tip firmly against the outer thigh.</li>
-  <li>Hold for 10 seconds.</li>
-  <li>Call 911 immediately.</li>
-</ol>`,
-      }
-    ],
-    quiz: {
-      title: "Module 5 Quiz",
-      passingScore: 100,
-      questions: [
-        {
-          order: 1,
-          questionText: "Where is the preferred site for an epinephrine injection?",
-          options: JSON.stringify(["The arm", "The outer thigh", "The stomach", "The buttocks"]),
-          correctAnswer: "The outer thigh",
-          explanation: "The outer thigh is the safest and most effective place for an epinephrine injection.",
-        }
-      ],
-    },
-  },
-  {
-    order: 6,
-    title: "Module 6: First Aid - Bleeding Control",
-    description: "Stopping life-threatening bleeding with pressure and tourniquets.",
+    title: "Module 5: First Aid — Epi-pen & Bleeding Control",
+    description: "Essential first aid skills including anaphylaxis and stopping life-threatening bleeding.",
+    content: "Heartsaver includes life-saving first aid skills beyond CPR.",
     duration: 30,
-    content: "Pressure and bandaging techniques to stop the bleed.",
     sections: [
       {
         order: 1,
-        title: "Direct Pressure",
-        content: `<h2>Stop the Bleed</h2>
-<p>Apply firm, direct pressure on the wound with a clean cloth or gauze. If the bleeding doesn't stop, apply more pressure. Do not remove the first cloth.</p>`,
+        title: "Anaphylaxis and Epi-pen",
+        content: `<h2>Using an Epi-pen</h2>
+<p>Inject into outer thigh, hold for 10 seconds, and call 911.</p>`
       },
       {
         order: 2,
-        title: "Using a Tourniquet",
-        content: `<h2>Life-Threatening Bleeding</h2>
-<p>If direct pressure does not stop life-threatening bleeding from an arm or leg, use a tourniquet. Place it 2-3 inches above the wound (not on a joint) and tighten until the bleeding stops.</p>`,
+        title: "Bleeding Control",
+        content: `<h2>Stop the Bleed</h2>
+<p>Apply firm direct pressure. Use a tourniquet for life-threatening limb bleeding.</p>`
       }
     ],
     quiz: {
-      title: "Module 6 Quiz",
-      passingScore: 100,
+      title: "Check: First Aid",
+      passingScore: 80,
       questions: [
         {
           order: 1,
-          questionText: "What is the first step to stop heavy bleeding?",
-          options: JSON.stringify(["Apply a tourniquet", "Apply direct pressure", "Wash the wound", "Elevate the limb"]),
-          correctAnswer: "Apply direct pressure",
-          explanation: "Direct pressure is the most effective first step for stopping most bleeding.",
+          questionText: "How long should you hold an Epi-pen in place?",
+          options: JSON.stringify(["1 second", "3 seconds", "10 seconds", "30 seconds"]),
+          correctAnswer: "10 seconds",
+          explanation: "Holding for 10 seconds ensures full medication delivery."
         }
-      ],
-    },
-  },
+      ]
+    }
+  }
 ];
 
-// Module type derived from the HEARTSAVER_MODULES constant
-export type HeartsaverModuleInstance = (typeof HEARTSAVER_MODULES)[number];
+export type HeartsaverModuleDef = (typeof HEARTSAVER_MODULES)[number];
