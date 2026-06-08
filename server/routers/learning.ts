@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  splitModuleHtmlIntoSections,
+  moduleSectionsStale,
+} from "../../shared/split-module-html-sections";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { eq, and, desc } from "drizzle-orm";
@@ -258,11 +262,22 @@ export const learningRouter = router({
       }
 
       // Fetch sections for this module
-      const sections = await (db as any)
+      let sections = await (db as any)
         .select()
         .from(moduleSections)
         .where(eq(moduleSections.moduleId, input.moduleId))
         .orderBy(moduleSections.order);
+
+      const moduleHtml = String(module[0].content ?? "");
+      if (moduleSectionsStale(moduleHtml, sections)) {
+        sections = splitModuleHtmlIntoSections(moduleHtml).map((section, index) => ({
+          id: index + 1,
+          moduleId: input.moduleId,
+          title: section.title,
+          content: section.content,
+          order: section.order,
+        }));
+      }
 
       const moduleQuizzes = await (db as any)
         .select()
