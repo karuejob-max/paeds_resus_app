@@ -698,6 +698,8 @@ export default function MicroCoursePlayerDB() {
       setCurrentSectionIndex(0);
       setMaxReachedSectionIndex(0);
       setShowFormativeQuiz(false);
+      setShowSummativeExam(false);
+      setShowCapstoneSim(false);
       if (nextIdx > maxReachedModuleIndex) {
         setMaxReachedModuleIndex(nextIdx);
       }
@@ -707,10 +709,14 @@ export default function MicroCoursePlayerDB() {
       // Show Capstone as the next step after the last module for all AHA courses
       if (isAhaCourse && (isPals || programType === "acls" || programType === "bls" || programType === "nrp" || programType === "heartsaver")) {
         setShowCapstoneSim(true);
+        setShowFormativeQuiz(false);
+        setShowSummativeExam(false);
         window.scrollTo(0, 0);
       } else {
         // Otherwise go straight to Summative Exam
         setShowSummativeExam(true);
+        setShowFormativeQuiz(false);
+        setShowCapstoneSim(false);
         setQuizAnswers({});
         setQuizSubmitted(false);
         setQuizScore(null);
@@ -1106,6 +1112,8 @@ export default function MicroCoursePlayerDB() {
                     setShowSummativeExam(false);
                     setShowCapstoneSim(false);
                     setShowCertificateReady(false);
+                    setCapstoneInProgress(false);
+                    localStorage.removeItem(`capstone-in-progress-${slug}`);
                   }
                 }}
                 className={cn(
