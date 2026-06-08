@@ -68,6 +68,7 @@
     "seed:pals-2025-content": "tsx --import dotenv/config scripts/seed-pals-2025-content.ts",
     "seed:aha-diagnostic": "tsx --import dotenv/config scripts/seed-aha-diagnostic.ts",
     "seed:aha-summative": "tsx --import dotenv/config scripts/seed-aha-summative.ts",
+    "seed:aha-courses": "tsx scripts/seed-aha-courses.ts",
     "audit:fellowship-assessments": "tsx scripts/audit-fellowship-assessments.ts",
     "audit:fellowship-assessments:strict": "tsx scripts/audit-fellowship-assessments.ts --strict",
     "audit:aha-assessments": "tsx --import dotenv/config scripts/audit-aha-assessments.ts",

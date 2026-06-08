@@ -22,6 +22,8 @@ export default function AHACourses() {
     {
       staleTime: AHA_HUB_STALE_MS,
       refetchOnWindowFocus: false,
+      // Ensure the UI is snappy by not showing loading state if we have stale data
+      placeholderData: (prev) => prev,
     }
   );
 

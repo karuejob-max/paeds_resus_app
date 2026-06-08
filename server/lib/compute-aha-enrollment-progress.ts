@@ -29,7 +29,8 @@ export async function computeAhaEnrollmentProgress(
   if (catalogCourseId == null) {
     const anchor = await resolveAhaCourseAnchor(
       db,
-      enrollment.programType as AhaAnchorProgramType
+      enrollment.programType as AhaAnchorProgramType,
+      { skipEnsure: true }
     );
     catalogCourseId = anchor?.id ?? null;
   }
