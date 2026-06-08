@@ -7,7 +7,7 @@
  *   - learning.getCourses when the BLS/ACLS catalog is empty
  *   - isAhaCognitiveComplete (before checking module completion)
  */
-import { asc, desc, eq, and } from "drizzle-orm";
+import { asc, desc, eq, and, gt } from "drizzle-orm";
 import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
