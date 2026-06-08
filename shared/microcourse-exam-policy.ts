@@ -233,18 +233,71 @@ export function examKindFromQuizTitle(title: string | null | undefined): Microco
   return "formative";
 }
 
-export function shuffleQuestionIndices(count: number, seed?: number): number[] {
-  const indices = Array.from({ length: count }, (_, i) => i);
-  let s = seed ?? Date.now();
-  const rand = () => {
+/** LCG PRNG — same algorithm used for question-order shuffle. */
+export function createSeededRandom(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 0x100000000;
   };
-  for (let i = indices.length - 1; i > 0; i--) {
+}
+
+/** Fisher–Yates shuffle with deterministic seed (stable across client/server). */
+export function shuffleWithSeed<T>(items: readonly T[], seed: number): T[] {
+  const result = [...items];
+  const rand = createSeededRandom(seed);
+  for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
+    [result[i], result[j]] = [result[j]!, result[i]!];
   }
-  return indices;
+  return result;
+}
+
+export function shuffleQuestionIndices(count: number, seed?: number): number[] {
+  return shuffleWithSeed(
+    Array.from({ length: count }, (_, i) => i),
+    seed ?? Date.now()
+  );
+}
+
+/** Per-question seed so each stem gets an independent option order. */
+export function deriveOptionShuffleSeed(
+  sessionSeed: number,
+  questionKey: number | string
+): number {
+  const keyPart =
+    typeof questionKey === "number"
+      ? questionKey >>> 0
+      : [...questionKey].reduce((h, c) => ((h * 31 + c.charCodeAt(0)) >>> 0), 0);
+  return (sessionSeed ^ (keyPart * 2654435761)) >>> 0;
+}
+
+/** Shuffle MCQ options for display. Grading uses option text, not index. */
+export function shuffleQuizOptions(
+  options: string[],
+  questionKey: number | string,
+  sessionSeed: number
+): string[] {
+  if (options.length <= 1) return options;
+  return shuffleWithSeed(options, deriveOptionShuffleSeed(sessionSeed, questionKey));
+}
+
+export type QuizQuestionWithOptions = {
+  id?: number;
+  options?: string[];
+};
+
+/** Apply per-question option shuffle for an exam attempt. */
+export function shuffleQuestionsDisplayOptions<T extends QuizQuestionWithOptions>(
+  questions: T[],
+  sessionSeed: number
+): T[] {
+  return questions.map((q, idx) => {
+    const opts = q.options;
+    if (!opts?.length) return q;
+    const key = q.id ?? idx;
+    return { ...q, options: shuffleQuizOptions(opts, key, sessionSeed) };
+  });
 }
 
 export type SummativeBlockKind = "none" | "max_attempts" | "cooldown";
