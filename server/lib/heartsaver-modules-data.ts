@@ -1,6 +1,7 @@
 /**
  * Exhaustive Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
- * This file restores the original detailed coursework and adds First Aid/Epi-pen/Bleeding Control.
+ * This file restores the original detailed coursework from June 7, 2026, 
+ * and adds First Aid/Epi-pen/Bleeding Control as genuine expansions.
  */
 
 export interface HeartsaverModuleDef {
@@ -31,7 +32,7 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   {
     order: 1,
     title: "Module 1: Foundations & The Unified Chain of Survival",
-    description: "Introduction to the 2025 Unified Chain of Survival and safety.",
+    description: "Introduction to the 2025 Unified Chain of Survival, safety, and recognition.",
     duration: 20,
     content: "The first step in saving a life is recognising that someone needs help and calling for emergency services immediately.",
     sections: [
@@ -47,13 +48,48 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li><strong>Advanced Resuscitation:</strong> High-performance team interventions and medications.</li>
   <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
   <li><strong>Recovery:</strong> Long-term rehabilitation and support.</li>
-</ol>`,
+</ol>
+<div class="clinical-note">
+  <strong>Why bystander CPR matters:</strong> Survival from out-of-hospital cardiac arrest drops by 7–10% for every minute without CPR. Bystander CPR doubles or triples survival rates. High-quality CPR started within 2 minutes of collapse is the single most important intervention a bystander can provide.
+</div>`,
       },
       {
         order: 2,
-        title: "Personal Safety & Scene Assessment",
-        content: `<h2>Safety First</h2>
-<p>Ensure the scene is safe for you and the victim before approaching. Check for traffic, fire, or environmental hazards.</p>`,
+        title: "Recognising Cardiac Arrest",
+        content: `<h2>Recognising Cardiac Arrest</h2>
+<p>Cardiac arrest must be recognised quickly. Every second without CPR reduces the chance of survival.</p>
+<h3>Signs of Cardiac Arrest</h3>
+<ul>
+  <li><strong>Unresponsive:</strong> No response to tapping shoulders and shouting "Are you OK?"</li>
+  <li><strong>Not breathing normally:</strong> No breathing, or only gasping (agonal breathing)</li>
+</ul>
+<div class="warning-note">
+  <strong>Agonal breathing:</strong> Agonal breathing (gasping, snoring, or irregular breathing) is a sign of cardiac arrest — NOT normal breathing. Do not mistake it for normal breathing and delay CPR. If in doubt, begin CPR.
+</div>
+<h3>What to Do When You Find Someone Collapsed</h3>
+<ol>
+  <li><strong>Check for danger:</strong> Is the scene safe? Do not put yourself at risk.</li>
+  <li><strong>Check for response:</strong> Tap shoulders firmly; shout "Are you OK?"</li>
+  <li><strong>Call for help:</strong> Shout for help; send someone to call emergency services</li>
+  <li><strong>Check breathing:</strong> Look for chest rise; listen for breath sounds (no more than 10 seconds)</li>
+  <li><strong>If no normal breathing:</strong> Begin CPR immediately</li>
+</ol>`,
+      },
+      {
+        order: 3,
+        title: "Activating Emergency Services",
+        content: `<h2>Activating Emergency Services</h2>
+<p>Calling emergency services immediately is a critical link in the Chain of Survival. Do not delay calling — call while beginning CPR if you are alone.</p>
+<h3>What to Tell the Dispatcher</h3>
+<ul>
+  <li>Your exact location (address, landmarks, floor/room number)</li>
+  <li>What happened ("I found someone collapsed and not breathing")</li>
+  <li>Number of people affected</li>
+  <li>Stay on the line — the dispatcher will guide you through CPR</li>
+</ul>
+<div class="clinical-note">
+  <strong>Dispatcher-assisted CPR:</strong> Emergency dispatchers are trained to guide bystanders through CPR over the phone. Studies show dispatcher-assisted CPR significantly improves survival. Always stay on the line with the dispatcher.
+</div>`,
       }
     ],
     quiz: {
@@ -73,7 +109,7 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   {
     order: 2,
     title: "Module 2: Adult CPR & AED Use",
-    description: "Hands-only and 30:2 CPR for adults.",
+    description: "Hands-only and 30:2 CPR for adults with AED integration.",
     duration: 40,
     content: "Comprehensive guide to adult resuscitation and AED operation.",
     sections: [
@@ -97,7 +133,10 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li>Open the airway using the head-tilt, chin-lift maneuver.</li>
   <li>Give 2 breaths (1 second each) and look for chest rise.</li>
   <li>Resume compressions immediately.</li>
-</ul>`,
+</ul>
+<div class="warning-note">
+  <strong>Avoid hyperventilation:</strong> Giving breaths that are too large or too fast causes gastric inflation and reduced venous return, worsening outcomes.
+</div>`,
       },
       {
         order: 3,
@@ -109,7 +148,10 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   <li>Stay clear while the AED analyzes the rhythm.</li>
   <li>If a shock is advised, ensure everyone is clear and press the shock button.</li>
   <li>Immediately resume CPR starting with chest compressions.</li>
-</ol>`,
+</ol>
+<div class="clinical-note">
+  <strong>Why AEDs Work:</strong> VF is the most common initial rhythm in adult cardiac arrest. Defibrillation within 3–5 minutes can achieve survival rates of 50–70%.
+</div>`,
       }
     ],
     quiz: {
@@ -210,10 +252,10 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   },
   {
     order: 5,
-    title: "Module 5: First Aid - Epi-pen & Allergic Reactions",
-    description: "Recognizing and treating severe allergies.",
-    duration: 30,
-    content: "How to use an epinephrine auto-injector safely.",
+    title: "Module 5: First Aid Foundations & Allergic Reactions",
+    description: "Recognizing and treating medical emergencies and severe allergies.",
+    duration: 40,
+    content: "How to use an epinephrine auto-injector safely and handle common first aid situations.",
     sections: [
       {
         order: 1,
@@ -255,7 +297,7 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   {
     order: 6,
     title: "Module 6: First Aid - Bleeding Control",
-    description: "Stopping life-threatening bleeding.",
+    description: "Stopping life-threatening bleeding with pressure and tourniquets.",
     duration: 30,
     content: "Pressure and bandaging techniques to stop the bleed.",
     sections: [
@@ -287,5 +329,6 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     },
   },
 ];
+
 // Module type derived from the HEARTSAVER_MODULES constant
 export type HeartsaverModuleInstance = (typeof HEARTSAVER_MODULES)[number];

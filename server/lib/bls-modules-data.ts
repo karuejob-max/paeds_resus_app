@@ -1,6 +1,6 @@
 /**
  * Exhaustive BLS Provider Course Data (AHA 2025 Guidelines)
- * This course literally merges all Heartsaver content and adds healthcare-provider (HCP) rigor.
+ * This course literally merges all exhaustive Heartsaver content and adds healthcare-provider (HCP) rigor.
  */
 
 export interface BLSModule {
@@ -45,19 +45,23 @@ export const BLS_MODULES: BLSModule[] = [
   <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection (fever prevention).</li>
   <li><strong>Recovery:</strong> Long-term rehabilitation and psychological support.</li>
 </ol>
-<div class="hcp-note">
-  <strong>HCP Depth:</strong> Healthcare providers must also coordinate with a high-performance team and consider advanced resuscitation links early.
+<div class="clinical-note">
+  <strong>Why bystander CPR matters:</strong> Survival from out-of-hospital cardiac arrest drops by 7–10% for every minute without CPR. Bystander CPR doubles or triples survival rates. High-quality CPR started within 2 minutes of collapse is the single most important intervention a bystander can provide.
 </div>`,
         order: 1,
       },
       {
-        title: "Personal Safety & Scene Assessment",
-        content: `<h2>Safety First</h2>
-<p>The first step in saving a life is recognising that someone needs help and calling for emergency services immediately. However, you must ensure the scene is safe for you and the victim.</p>
+        title: "Recognising Cardiac Arrest",
+        content: `<h2>Recognising Cardiac Arrest</h2>
+<p>Cardiac arrest must be recognised quickly. Every second without CPR reduces the chance of survival.</p>
+<h3>Signs of Cardiac Arrest</h3>
 <ul>
-  <li>Check for traffic, fire, or environmental hazards.</li>
-  <li>Use personal protective equipment (PPE) if available.</li>
-</ul>`,
+  <li><strong>Unresponsive:</strong> No response to tapping shoulders and shouting "Are you OK?"</li>
+  <li><strong>Not breathing normally:</strong> No breathing, or only gasping (agonal breathing)</li>
+</ul>
+<div class="warning-note">
+  <strong>Agonal breathing:</strong> Agonal breathing (gasping, snoring, or irregular breathing) is a sign of cardiac arrest — NOT normal breathing. Do not mistake it for normal breathing and delay CPR. If in doubt, begin CPR.
+</div>`,
         order: 2,
       }
     ],
