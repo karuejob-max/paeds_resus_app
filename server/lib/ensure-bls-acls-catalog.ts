@@ -594,7 +594,7 @@ async function ensureCatalog(
 
 	    for (let i = 0; i < modDef.quiz.questions.length; i++) {
 	      const q = modDef.quiz.questions[i];
-	      const qOrder = q.order || i + 1;
+	      const qOrder = (q as any).order || i + 1;
 	      const existingQ = await db
 	        .select({ id: quizQuestions.id })
 	        .from(quizQuestions)
