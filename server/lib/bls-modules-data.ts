@@ -1,7 +1,6 @@
 /**
  * Exhaustive BLS Provider Course Data (AHA 2025 Guidelines)
  * This course literally merges all Heartsaver content and adds healthcare-provider (HCP) rigor.
- * A BLS instructor can teach Heartsaver using this curriculum.
  */
 
 export interface BLSModule {
@@ -131,7 +130,7 @@ export const BLS_MODULES: BLSModule[] = [
   },
   {
     title: "Module 3: Pediatric BLS (Infant & Child)",
-    description: "Resuscitation for infants and children with HCP 15:2 ratios.",
+    description: "Resuscitation for infants and children with HCP 15:2 ratios and 2025 technique updates.",
     duration: 50,
     order: 3,
     sections: [
@@ -141,8 +140,11 @@ export const BLS_MODULES: BLSModule[] = [
 <p>Pediatric cardiac arrest is often respiratory in nature. Ventilation is critical.</p>
 <ul>
   <li><strong>Child:</strong> 1 or 2 hands, at least 1/3 depth of chest (approx 2 inches).</li>
-  <li><strong>Infant:</strong> 2 fingers (1-rescuer) or 2 thumb-encircling hands (2-rescuer), at least 1/3 depth (approx 1.5 inches).</li>
-</ul>`,
+  <li><strong>Infant:</strong> Heel of 1 hand (1-rescuer) or 2 thumb-encircling hands (2-rescuer), at least 1/3 depth (approx 1.5 inches).</li>
+</ul>
+<div class="warning-note">
+  <strong>2025 Update:</strong> The 2-finger technique for infant CPR has been eliminated because it produces insufficient depth.
+</div>`,
         order: 1,
       },
       {
