@@ -9,6 +9,7 @@ import { ensureHeartsaverCatalog } from "./ensure-heartsaver-catalog";
 import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "./ensure-nrp-catalog";
 import { ensureAhaDiagnosticQuiz } from "./ensure-aha-diagnostic-quiz";
+import { ensureAhaSummativeQuiz } from "./ensure-aha-summative-quiz";
 
 export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
 
@@ -97,5 +98,6 @@ export async function resolveAhaCourseAnchor(
   }
 
   await ensureAhaDiagnosticQuiz(db, best.id, programType);
+  await ensureAhaSummativeQuiz(db, best.id, programType);
   return best;
 }

@@ -6,6 +6,17 @@ import type { AhaSummativeQuestionSeed } from "./aha-summative-types";
 
 export const BLS_SUMMATIVE_QUESTIONS: AhaSummativeQuestionSeed[] = [
   {
+    question: "Which statement best describes the 2025 AHA Chain of Survival?",
+    options: [
+      "There are separate chains for IHCA and OHCA",
+      "Adult and Pediatric chains remain distinct",
+      "A single, unified chain applies to all ages and settings",
+      "The chain no longer includes the Recovery link"
+    ],
+    correctAnswer: 2,
+    explanation: "The 2025 guidelines unified the chain to simplify the framework and emphasize consistent high-quality care across all scenarios.",
+  },
+  {
     question: "When you find an unresponsive adult, what is the first action?",
     options: [
       "Begin chest compressions immediately",
@@ -257,17 +268,5 @@ export const BLS_SUMMATIVE_QUESTIONS: AhaSummativeQuestionSeed[] = [
     correctAnswer: 1,
     explanation:
       "Adult BLS uses 30:2 regardless of number of rescuers when no advanced airway is in place.",
-  },
-  {
-    question: "The primary goal of high-quality CPR is to:",
-    options: [
-      "Achieve immediate ROSC on first cycle",
-      "Generate adequate coronary and cerebral perfusion",
-      "Maximize ventilation rate above 30/min",
-      "Avoid all chest recoil for stability",
-    ],
-    correctAnswer: 1,
-    explanation:
-      "Quality compressions with adequate rate, depth, and minimal interruptions sustain perfusion during arrest.",
   },
 ];

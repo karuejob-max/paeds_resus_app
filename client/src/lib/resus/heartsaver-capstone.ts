@@ -74,19 +74,21 @@ export const HEARTSAVER_CAPSTONE_SCENARIOS: Record<HeartsaverPhase, HeartsaverSc
   choking_victim: {
     phase: "choking_victim",
     description: "A friend at lunch is choking and cannot breathe or cough.",
-    correctOrder: ["ask-if-choking", "get-consent", "give-thrusts", "repeat-until-out"],
-    shuffledOrder: ["repeat-until-out", "give-thrusts", "ask-if-choking", "get-consent"],
+    correctOrder: ["ask-if-choking", "get-consent", "give-back-blows", "give-thrusts", "repeat-5-and-5"],
+    shuffledOrder: ["give-thrusts", "ask-if-choking", "repeat-5-and-5", "get-consent", "give-back-blows"],
     interventions: {
       "ask-if-choking": { id: "ask-if-choking", description: "Ask 'Are you choking? Can I help you?'", priority: 1, critical: true },
       "get-consent": { id: "get-consent", description: "Tell them you are going to help", priority: 2, critical: true },
-      "give-thrusts": { id: "give-thrusts", description: "Give abdominal thrusts (slightly above the belly button)", priority: 3, critical: true },
-      "repeat-until-out": { id: "repeat-until-out", description: "Keep giving thrusts until the object comes out or they pass out", priority: 4, critical: true },
+      "give-back-blows": { id: "give-back-blows", description: "Give 5 back blows between the shoulder blades", priority: 3, critical: true },
+      "give-thrusts": { id: "give-thrusts", description: "Give 5 abdominal thrusts (Heimlich maneuver)", priority: 4, critical: true },
+      "repeat-5-and-5": { id: "repeat-5-and-5", description: "Repeat 5 back blows and 5 thrusts until the object comes out or they pass out", priority: 5, critical: true },
     },
     feedback: {
       "ask-if-choking": "Victim nods 'yes'.",
       "get-consent": "You are helping.",
-      "give-thrusts": "Thrusts delivered.",
-      "repeat-until-out": "Object expelled! Victim is breathing.",
+      "give-back-blows": "5 firm back blows delivered.",
+      "give-thrusts": "5 abdominal thrusts delivered.",
+      "repeat-5-and-5": "Object expelled! Victim is breathing.",
     },
   },
   bleeding_control: {
