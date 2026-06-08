@@ -284,70 +284,95 @@ export const microCoursesBatch1To5 = [
       passingScore: 80,
       questions: [
         {
-          question: 'A 5-year-old with severe asthma has silent chest, drowsiness, and peak flow unmeasurable. What is the FIRST intervention?',
-          options: ['Intermittent salbutamol', 'Continuous salbutamol + oxygen', 'Oral prednisolone', 'Discharge home'],
-          correct: 1,
-          explanation: 'Silent chest + altered mental status = status asthmaticus. Continuous salbutamol + high-flow oxygen immediately. Prepare for intubation.'
-        },
-        {
-          question: 'What is the correct magnesium sulfate dose for severe asthma in a 20 kg child?',
-          options: ['10 mg', '200 mg', '800 mg', '2000 mg'],
-          correct: 2,
-          explanation: '40 mg/kg = 40 × 20 = 800 mg IV over 20 minutes. Max 2g total.'
-        },
-        {
-          question: 'Which medication is AVOIDED in severe asthma intubation?',
-          options: ['Ketamine', 'Rocuronium', 'Atracurium', 'Propofol'],
-          correct: 2,
-          explanation: 'Atracurium releases histamine → bronchospasm. Use ketamine (preserves airway) + rocuronium (no histamine).'
-        },
-        {
           question: 'Status asthmaticus is defined as:',
-          options: ['Any asthma exacerbation', 'Severe exacerbation unresponsive to therapy for ≥1 hour', 'Mild persistent asthma', 'Asthma with fever'],
-          correct: 1,
+          options: ['Severe exacerbation unresponsive to therapy for ≥1 hour', 'Any asthma exacerbation', 'Mild persistent asthma', 'Asthma with fever'],
+          correct: 0,
           explanation: 'Status asthmaticus = severe exacerbation unresponsive to standard therapy for ≥1 hour, requiring ICU-level care.'
         },
         {
-          question: 'In intubated asthma patients, permissive hypercapnia target is:',
-          options: ['PaCO2 <35 mmHg', 'PaCO2 45-55 mmHg', 'PaCO2 >60 mmHg', 'PaCO2 30-40 mmHg'],
-          correct: 1,
-          explanation: 'Permissive hypercapnia (PaCO2 45-55) reduces barotrauma risk. Avoid aggressive hyperventilation.'
-        },
-        {
-          question: 'First-hour corticosteroid dose for severe asthma:',
-          options: ['10 mg/kg', '25 mg/kg', '4-5 mg/kg', '100 mg/kg'],
-          correct: 2,
-          explanation: 'Hydrocortisone 4-5 mg/kg IV (max 1g) or methylprednisolone 1-2 mg/kg. High-dose for rapid anti-inflammatory effect.'
-        },
-        {
-          question: 'What is a red flag for pneumothorax during asthma exacerbation?',
-          options: ['Improved breath sounds', 'Sudden deterioration with unilateral findings', 'Increased peak flow', 'Fever'],
-          correct: 1,
-          explanation: 'Sudden deterioration + unilateral absent breath sounds = pneumothorax. Requires immediate chest imaging and possible drainage.'
-        },
-        {
-          question: 'Ipratropium in asthma is given because:',
-          options: ['It dilates airways faster than salbutamol', 'It is synergistic with salbutamol', 'It prevents infection', 'It reduces fever'],
-          correct: 1,
-          explanation: 'Ipratropium (anticholinergic) + salbutamol (beta-2 agonist) = synergistic bronchodilation. Combined effect >either alone.'
+          question: 'Silent chest in asthma with ongoing respiratory effort indicates:',
+          options: ['Imminent respiratory failure — escalate immediately', 'Mild disease resolving', 'Normal finding', 'Ready for discharge'],
+          correct: 0,
+          explanation: 'Silent chest with effort = severe air trapping and exhaustion — red flag from Module 1.'
         },
         {
           question: 'Altered mental status in severe asthma indicates:',
-          options: ['Anxiety', 'CO2 retention and respiratory failure', 'Hypoglycemia', 'Infection'],
-          correct: 1,
-          explanation: 'Drowsiness/confusion = CO2 retention (PaCO2 >45) and respiratory exhaustion. Requires immediate escalation and possible intubation.'
+          options: ['CO2 retention and respiratory failure', 'Anxiety only', 'Hypoglycemia always', 'Benign finding'],
+          correct: 0,
+          explanation: 'Drowsiness/confusion = CO2 retention (PaCO2 >45) and respiratory exhaustion — requires immediate escalation.'
+        },
+        {
+          question: 'Anaphylaxis must be distinguished from severe asthma by looking for:',
+          options: ['Urticaria, angioedema, or hypotension', 'Only wheeze', 'Fever alone', 'Normal blood pressure always'],
+          correct: 0,
+          explanation: 'Anaphylaxis has multi-system allergic features — give IM adrenaline if suspected (Module 1 mimics).'
+        },
+        {
+          question: 'Foreign body aspiration is suggested by:',
+          options: ['Sudden onset unilateral wheeze or absent breath sounds', 'Bilateral chronic wheeze only', 'Fever always', 'Normal exam'],
+          correct: 0,
+          explanation: 'Sudden unilateral findings warrant aspiration assessment (Module 1 mimics).'
+        },
+        {
+          question: 'What is a red flag for pneumothorax during asthma exacerbation?',
+          options: ['Sudden deterioration with unilateral absent breath sounds', 'Improved breath sounds bilaterally', 'Increased peak flow', 'Fever'],
+          correct: 0,
+          explanation: 'Sudden unilateral silence = pneumothorax — urgent assessment (Module 2 monitoring).'
+        },
+        {
+          question: 'A 5-year-old with severe asthma has silent chest, drowsiness, and peak flow unmeasurable. What is the FIRST intervention?',
+          options: ['Continuous salbutamol + high-flow oxygen', 'Intermittent salbutamol only', 'Oral prednisolone alone', 'Discharge home'],
+          correct: 0,
+          explanation: 'Silent chest + altered mental status = status asthmaticus. Continuous salbutamol + oxygen immediately (Module 2).'
+        },
+        {
+          question: 'Continuous salbutamol nebulisation dose in status asthmaticus is typically:',
+          options: ['15 mg continuously', '2.5 mg once only', 'Oral salbutamol only', 'Withheld until ICU'],
+          correct: 0,
+          explanation: 'Continuous 15 mg nebulised salbutamol in status asthmaticus first hour (Module 2).'
+        },
+        {
+          question: 'Magnesium sulfate dose in severe asthma is:',
+          options: ['40 mg/kg IV over 20 min (max 2 g)', '400 mg/kg bolus', 'Oral only', 'Never in children'],
+          correct: 0,
+          explanation: '40 mg/kg IV over 20 minutes when severe — max 2 g total (Module 2).'
         },
         {
           question: 'Target SpO2 in severe asthma is:',
-          options: ['>95%', '>90%', '>85%', '>80%'],
-          correct: 1,
-          explanation: '>90% target. Accept mild hyperoxia initially; avoid aggressive hyperoxia but prioritize oxygenation in severe exacerbation.'
+          options: ['>90%', '>95% always', '>85%', '>80% only'],
+          correct: 0,
+          explanation: '>90% target with high-flow oxygen in severe exacerbation (Module 2).'
         },
-        { question: 'Continuous salbutamol nebulisation dose in status asthmaticus is typically:', options: ['15 mg continuously', '2.5 mg once', 'Oral only', 'Withheld until ICU'], correct: 0, explanation: 'Continuous nebulised salbutamol in severe first-hour protocol.' },
-        { question: 'Hydrocortisone IV dose for severe asthma is approximately:', options: ['4–5 mg/kg', '40 mg/kg bolus', '0.1 mg/kg only', 'Never in children'], correct: 0, explanation: 'High-dose steroid early in severe exacerbation per protocol.' },
-        { question: 'Permissive hypercapnia after intubation for asthma targets PaCO₂:', options: ['45–55 mmHg', '<30 mmHg', '>80 mmHg', 'Not measured'], correct: 0, explanation: 'Allow mild hypercapnia to reduce barotrauma.' },
-        { question: 'Propofol is preferred post-intubation in some asthma protocols because:', options: ['It provides bronchodilation', 'It causes bronchospasm', 'It replaces PEEP', 'It is contraindicated always'], correct: 0, explanation: 'Propofol has bronchodilatory properties useful in ventilated asthma.' },
-        { question: 'Foreign body aspiration is suggested by:', options: ['Sudden onset unilateral wheeze', 'Bilateral chronic wheeze only', 'Fever always', 'Normal exam'], correct: 0, explanation: 'Sudden unilateral findings warrant aspiration assessment.' }
+        {
+          question: 'Which medication is AVOIDED in severe asthma intubation?',
+          options: ['Atracurium', 'Ketamine', 'Rocuronium', 'Propofol'],
+          correct: 0,
+          explanation: 'Atracurium releases histamine → bronchospasm. Use ketamine + rocuronium (Module 3).'
+        },
+        {
+          question: 'In intubated asthma patients, permissive hypercapnia target is:',
+          options: ['PaCO2 45-55 mmHg', 'PaCO2 <35 mmHg', 'PaCO2 >60 mmHg', 'PaCO2 30-40 mmHg'],
+          correct: 0,
+          explanation: 'Permissive hypercapnia (PaCO2 45-55) reduces barotrauma risk (Module 3 ventilation).'
+        },
+        {
+          question: 'First-hour corticosteroid dose for severe asthma:',
+          options: ['4-5 mg/kg hydrocortisone IV (or dexamethasone per protocol)', '10 mg/kg always', '100 mg/kg', 'Never in children'],
+          correct: 0,
+          explanation: 'Hydrocortisone 4-5 mg/kg IV or dexamethasone early in severe exacerbation (Module 2).'
+        },
+        {
+          question: 'Ipratropium in asthma is given because:',
+          options: ['It is synergistic with salbutamol', 'It dilates airways faster than salbutamol alone always', 'It prevents infection', 'It reduces fever'],
+          correct: 0,
+          explanation: 'Ipratropium + salbutamol = synergistic bronchodilation in first hour (Module 2).'
+        },
+        {
+          question: 'For rapid sequence intubation in status asthmaticus, ketamine is preferred because it:',
+          options: ['Preserves airway tone and provides bronchodilation', 'Causes histamine release', 'Is contraindicated in asthma', 'Eliminates need for ventilation'],
+          correct: 0,
+          explanation: 'Ketamine 1-2 mg/kg IV preserves airway tone — useful in difficult asthma airways (Module 3).'
+        }
       ]
     }
   },

@@ -125,7 +125,7 @@ export const microCoursesMissingFellowship = [
               "First-line treatment for acute asthma is inhaled bronchodilator plus early systemic steroid. Oxygen treats hypoxia — it does not replace salbutamol.",
             objectives: [
               "Administer salbutamol and ipratropium per severity in the first hour",
-              "Titrate oxygen toward SpO₂ 94–98% without routine hyperoxia",
+              "Titrate oxygen toward ≥90% (90–94% when monitoring allows) without routine hyperoxia",
               "Give early systemic steroid (dexamethasone, prednisolone, or hydrocortisone)",
               "Reassess after each treatment cycle and escalate when failing",
             ],
@@ -170,9 +170,9 @@ export const microCoursesMissingFellowship = [
           },
           {
             question: "Oxygen target in acute asthma when monitoring allows:",
-            options: ["94–98%", "100% hyperoxia for all", "<80%", "No oxygen ever"],
+            options: ["≥90% with titration toward 90–94% (briefly 94–98% if life-threatening)", "100% hyperoxia for all", "<80%", "No oxygen ever"],
             correct: 0,
-            explanation: "Target SpO₂ 94–98%; use high-flow if life-threatening.",
+            explanation: "WHO severe illness target ≥90%; titrate toward 90–94%; accept 94–98% briefly in life-threatening asthma.",
           },
           {
             question: "Ipratropium dose in severe asthma first hour (typical) is:",
@@ -237,32 +237,37 @@ export const microCoursesMissingFellowship = [
         `,
         questions: [
           {
-            question: "Escalation to Asthma II is appropriate when:",
+            question: "No improvement after two salbutamol cycles in moderate/severe asthma requires:",
             options: [
-              "SpO₂ <90%, silent chest, or no improvement after two salbutamol cycles",
-              "Mild cough only",
-              "First wheeze ever without distress",
-              "Normal peak flow after one puff",
+              "Escalation — call senior and prepare Asthma II pathway",
+              "Discharge home immediately",
+              "Stop all bronchodilators",
+              "Oral antibiotics only",
             ],
             correct: 0,
-            explanation: "Persistent severe features or treatment failure require advanced pathway.",
+            explanation: "Treatment failure after two cycles is an escalation trigger taught in Module 3.",
           },
           {
-            question: "Magnesium sulfate in severe acute asthma (when IV available) is:",
-            options: ["40 mg/kg IV over 20 min (max 2 g)", "400 mg/kg bolus", "Oral only always", "Contraindicated in all children"],
-            correct: 0,
-            explanation: "Magnesium 40 mg/kg IV over 20 minutes is second-line for severe asthma.",
-          },
-          {
-            question: "Safe discharge after acute asthma requires:",
+            question: "Continuous salbutamol 15 mg nebulised during escalation is used to:",
             options: [
-              "Stable SpO₂, speaking in sentences, steroid given, and caregiver spacer teach-back",
-              "Single salbutamol puff only",
-              "Silent chest improving to exhaustion",
-              "No follow-up ever",
+              "Bridge to Asthma II / ICU while reassessing every 15 minutes",
+              "Replace systemic steroid permanently",
+              "Treat mild intermittent wheeze only",
+              "Avoid oxygen supplementation",
             ],
             correct: 0,
-            explanation: "Discharge when clinically stable with education and action plan.",
+            explanation: "Continuous nebulised salbutamol is second-line when first-hour therapy fails.",
+          },
+          {
+            question: "Before discharging after acute asthma, you must confirm:",
+            options: [
+              "Caregiver spacer teach-back, steroid given, and stable SpO₂ on room air",
+              "Silent chest with exhaustion",
+              "Single salbutamol puff without follow-up",
+              "No written action plan needed",
+            ],
+            correct: 0,
+            explanation: "Discharge criteria include clinical stability, education, and action plan.",
           },
         ],
       },
@@ -303,19 +308,20 @@ export const microCoursesMissingFellowship = [
         },
         {
           question: 'SpO2 target in acute asthma when monitoring allows:',
-          options: ['≥90% with titration toward 90–94%', '100% hyperoxia for all', 'No oxygen ever', '<80%'],
+          options: ['≥90% with titration toward 90–94% (briefly 94–98% if life-threatening)', '100% hyperoxia for all', 'No oxygen ever', '<80%'],
           correct: 0,
-          explanation: 'Treat hypoxia; titrate toward 90–94% and avoid routine hyperoxia.'
+          explanation: 'WHO target ≥90%; titrate toward 90–94%; accept 94–98% briefly in life-threatening asthma.'
         },
         { question: 'Accessory muscle use in asthma indicates:', options: ['Increased work of breathing', 'Normal breathing', 'Resolved asthma', 'Bradycardia'], correct: 0, explanation: 'Intercostal recession and nasal flaring signal moderate/severe disease.' },
-        { question: 'Prolonged expiratory phase in asthma reflects:', options: ['Airflow obstruction', 'Normal physiology', 'Cardiac failure only', 'Sepsis'], correct: 0, explanation: 'Wheeze and prolonged expiration are hallmark obstructive features.' },
-        { question: 'Chest tightness in acute asthma is caused by:', options: ['Bronchospasm and airway inflammation', 'Only fever', 'Pneumothorax always', 'Normal variant'], correct: 0, explanation: 'Inflammation and bronchoconstriction produce tightness and wheeze.' },
-        { question: 'Nasal flaring in a wheezy child suggests:', options: ['Significant respiratory distress', 'Mild cold only', 'No oxygen need', 'Discharge readiness'], correct: 0, explanation: 'Accessory signs indicate increased work of breathing.' },
+        { question: 'Salbutamol first-hour dosing via spacer is typically:', options: ['6–10 puffs every 20 minutes', 'One puff only', 'Oral salbutamol only', 'Never repeat'], correct: 0, explanation: 'Salbutamol 6–10 puffs via spacer every 20 min in acute asthma.' },
+        { question: 'Ipratropium dose in severe asthma first hour (typical) is:', options: ['250–500 mcg nebulised every 20 min', '5 mg oral only', 'Never combined with salbutamol', 'Once daily only'], correct: 0, explanation: 'Add ipratropium 250–500 mcg nebulised every 20 min in moderate/severe first hour.' },
+        { question: 'Moderate acute asthma is characterised by:', options: ['Speaking in phrases, SpO₂ 90–94%, accessory muscle use', 'Normal speech and SpO₂', 'Silent chest only', 'Bradycardia as first sign'], correct: 0, explanation: 'Moderate asthma: phrases, SpO₂ 90–94%, increased work of breathing.' },
+        { question: 'Magnesium sulfate in severe acute asthma (when IV available) is:', options: ['40 mg/kg IV over 20 min (max 2 g)', '400 mg/kg bolus', 'Oral only always', 'Contraindicated in all children'], correct: 0, explanation: 'Magnesium 40 mg/kg IV over 20 minutes is second-line for severe asthma.' },
+        { question: 'Hypotension during acute asthma should prompt consideration of:', options: ['Anaphylaxis mimic — assess for urticaria and angioedema', 'Normal asthma variant only', 'Discharge readiness', 'Stopping all treatment'], correct: 0, explanation: 'Hypotension may indicate anaphylaxis — escalation trigger in Module 3.' },
         { question: 'After first-hour bronchodilator therapy, reassessment should include:', options: ['SpO₂, work of breathing, and ability to speak', 'Only temperature', 'Discharge planning only', 'No repeat assessment'], correct: 0, explanation: 'Reassess severity after each treatment cycle in acute asthma.' },
         { question: 'High-flow oxygen in life-threatening asthma is used to:', options: ['Treat hypoxaemia while continuing bronchodilators', 'Replace salbutamol', 'Cause hypercapnia intentionally', 'Avoid steroids'], correct: 0, explanation: 'Oxygen treats hypoxia; bronchodilators and steroids treat obstruction.' },
-        { question: 'Wheeze that is expiratory in asthma indicates:', options: ['Lower airway obstruction', 'Upper airway stridor only', 'Normal finding', 'Cardiac arrhythmia'], correct: 0, explanation: 'Expiratory wheeze localises obstruction to bronchi.' },
-        { question: 'Escalation to Asthma II course is appropriate when:', options: ['SpO₂ <90%, silent chest, or altered consciousness', 'Mild cough only', 'Normal peak flow', 'First wheeze ever without distress'], correct: 0, explanation: 'Severe features require advanced management pathway.' },
-        { question: 'Paracetamol in asthma is used for:', options: ['Fever or discomfort — not as bronchodilator', 'Primary bronchodilation', 'Replacing salbutamol', 'Sedation for intubation only'], correct: 0, explanation: 'Treat fever/discomfort; core asthma drugs remain bronchodilator and steroid.' }
+        { question: 'Escalation to Asthma II is appropriate when:', options: ['SpO₂ <90%, silent chest, or no improvement after two salbutamol cycles', 'Mild cough only', 'Normal peak flow after one puff', 'First wheeze ever without distress'], correct: 0, explanation: 'Persistent severe features or treatment failure require advanced pathway.' },
+        { question: 'Safe discharge after acute asthma requires:', options: ['Stable SpO₂, speaking in sentences, steroid given, and caregiver spacer teach-back', 'Single salbutamol puff only', 'Silent chest with exhaustion', 'No follow-up ever'], correct: 0, explanation: 'Discharge when clinically stable with education and action plan.' }
       ]
     }
   },

@@ -1,6 +1,6 @@
 # Fellowship assessment audit
 
-**Generated:** 2026-06-06 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-06-08 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Executive summary (after remediation)
 
@@ -29,14 +29,14 @@ Replaced **17** duplicate authored summative stems in `quiz.questions` across 7 
 | anaphylaxis-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | anaphylaxis-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | burns-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
-| burns-ii | 3 | 9 | 3/3/3 | 9 | 9 | 0 | 0 | 0 | HIGH | Only 9 unique summative stems (need 15) |
+| burns-ii | 3 | 12 | 3/3/3 | 12 | 12 | 0 | 0 | 0 | HIGH | Only 12 unique summative stems (need 15) |
 | cardiogenic-shock-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | cardiogenic-shock-ii | 3 | 9 | 3/3/3 | 9 | 9 | 0 | 0 | 0 | HIGH | Only 9 unique summative stems (need 15) |
 | hypovolemic-shock-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | hypovolemic-shock-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | malaria-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | malaria-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
-| meningitis-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
+| meningitis-i | 3 | 11 | 3/3/3 | 11 | 11 | 0 | 0 | 0 | HIGH | Only 11 unique summative stems (need 15) |
 | meningitis-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | pneumonia-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | pneumonia-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
@@ -44,10 +44,10 @@ Replaced **17** duplicate authored summative stems in `quiz.questions` across 7 
 | septic-shock-ii | 3 | 8 | 3/3/3 | 8 | 8 | 0 | 0 | 0 | HIGH | Only 8 unique summative stems (need 15) |
 | trauma-i | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
 | trauma-ii | 3 | 10 | 3/3/3 | 10 | 10 | 0 | 0 | 0 | HIGH | Only 10 unique summative stems (need 15) |
-| asthma-i | 2 | 15 | 3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
+| asthma-i | 3 | 16 | 3/3/3 | 16 | 16 | 0 | 0 | 0 | OK | — |
 | asthma-ii | 3 | 15 | 3/3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
 | dka-i | 3 | 15 | 3/3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
 | dka-ii | 3 | 15 | 3/3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
 | seriously-ill-child-i | 7 | 21 | 3/3/3/3/3/3/3 | 21 | 21 | 0 | 0 | 0 | OK | Separate seed — native formatives per module |
-| status-epilepticus-i | 2 | 15 | 3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
+| status-epilepticus-i | 3 | 15 | 3/3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
 | status-epilepticus-ii | 3 | 15 | 3/3/3 | 15 | 15 | 0 | 0 | 0 | OK | — |
