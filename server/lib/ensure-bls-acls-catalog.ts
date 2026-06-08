@@ -8,7 +8,7 @@
  *   - isAhaCognitiveComplete (before checking module completion)
  */
 import { asc, desc, eq, and } from "drizzle-orm";
-import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
+import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BLS CATALOG
@@ -19,257 +19,7 @@ import { courses, modules, quizzes, quizQuestions } from "../../drizzle/schema";
 //   Module 4: Opioid-Associated Emergencies
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const BLS_MODULES = [
-  {
-    title: "Module 1: Adult BLS — Recognition & High-Quality CPR",
-    description: "Recognize cardiac arrest, activate EMS, and deliver high-quality CPR for adults.",
-    content: `
-      <h2>Recognizing Cardiac Arrest</h2>
-      <p>Cardiac arrest is identified by the absence of a normal pulse and absence of normal breathing (no breathing or only gasping). Immediately activate your emergency response system and retrieve an AED.</p>
-      <h2>High-Quality CPR — Adult</h2>
-      <ul>
-        <li><strong>Rate:</strong> 100–120 compressions per minute.</li>
-        <li><strong>Depth:</strong> At least 2 inches (5 cm), not exceeding 2.4 inches (6 cm).</li>
-        <li><strong>Recoil:</strong> Allow full chest recoil between compressions. Do not lean on the chest.</li>
-        <li><strong>Interruptions:</strong> Minimize interruptions. Target a chest compression fraction (CCF) &gt;80%.</li>
-        <li><strong>Ventilation:</strong> Avoid excessive ventilation. 30 compressions : 2 breaths (1-rescuer or 2-rescuer without advanced airway). With advanced airway: 1 breath every 6 seconds (10 breaths/min) asynchronously.</li>
-      </ul>
-      <h2>Compression-Only CPR</h2>
-      <p>Untrained bystanders should perform compression-only CPR. Trained rescuers should provide both compressions and ventilations.</p>
-      <h2>Switching Roles</h2>
-      <p>Switch compressor every 2 minutes (or sooner if fatigued) to maintain compression quality. Minimize the pause during the switch to &lt;10 seconds.</p>
-    `,
-    duration: 45,
-    order: 1,
-    quiz: {
-      title: "Knowledge Check: Adult BLS",
-      passingScore: 84,
-      questions: [
-        {
-          question: "What is the recommended compression rate for adult BLS?",
-          options: ["60–80 per minute", "80–100 per minute", "100–120 per minute", "120–140 per minute"],
-          correctAnswer: "100–120 per minute",
-          explanation: "AHA 2020 guidelines specify 100–120 compressions per minute for all ages.",
-        },
-        {
-          question: "What is the recommended compression depth for an adult?",
-          options: ["At least 1 inch", "At least 1.5 inches", "At least 2 inches (5 cm)", "At least 3 inches"],
-          correctAnswer: "At least 2 inches (5 cm)",
-          explanation: "Adult compression depth should be at least 2 inches (5 cm) but not more than 2.4 inches (6 cm).",
-        },
-        {
-          question: "With an advanced airway in place, what is the correct ventilation rate during CPR?",
-          options: ["1 breath every 2 seconds", "1 breath every 6 seconds", "2 breaths every 30 compressions", "1 breath every 10 seconds"],
-          correctAnswer: "1 breath every 6 seconds",
-          explanation: "With an advanced airway, deliver 1 breath every 6 seconds (10 breaths/min) asynchronously with compressions.",
-        },
-        {
-          question: "What is the recommended compression-to-ventilation ratio for 2-rescuer adult BLS WITHOUT an advanced airway?",
-          options: ["15:2", "30:2", "30:1", "15:1"],
-          correctAnswer: "30:2",
-          explanation: "For adult BLS without an advanced airway, the ratio is 30:2 regardless of the number of rescuers.",
-        },
-        {
-          question: "How often should compressors switch roles during prolonged CPR?",
-          options: ["Every 5 minutes", "Every 2 minutes", "Every 10 compressions", "Only when fatigued"],
-          correctAnswer: "Every 2 minutes",
-          explanation: "Switch compressors every 2 minutes (or every 5 cycles) to prevent fatigue and maintain compression quality.",
-        },
-      ],
-    },
-  },
-  {
-    title: "Module 2: Infant & Child BLS",
-    description: "Recognize and manage cardiac arrest in infants (< 1 year) and children (1 year to puberty).",
-    content: `
-      <h2>Key Differences: Pediatric vs. Adult BLS</h2>
-      <p>Pediatric cardiac arrests are most commonly caused by respiratory failure, not primary cardiac events. Early, high-quality ventilation is therefore critical.</p>
-      <h2>Compression Technique</h2>
-      <ul>
-        <li><strong>Infant (< 1 year):</strong> 2-finger technique (1 rescuer) or 2-thumb encircling hands technique (2 rescuers). Depth: at least 1.5 inches (4 cm).</li>
-        <li><strong>Child (1 year to puberty):</strong> 1 or 2 hands on the lower half of the sternum. Depth: at least 2 inches (5 cm).</li>
-      </ul>
-      <h2>Compression-to-Ventilation Ratio</h2>
-      <ul>
-        <li><strong>1 rescuer (any age):</strong> 30:2</li>
-        <li><strong>2 rescuers (infant/child):</strong> 15:2</li>
-        <li><strong>With advanced airway:</strong> 1 breath every 2–3 seconds (20–30 breaths/min) asynchronously.</li>
-      </ul>
-      <h2>Activation Sequence</h2>
-      <p>For a witnessed collapse in a child: activate EMS first, then begin CPR. For an unwitnessed collapse or respiratory arrest: provide 2 minutes of CPR first, then activate EMS (if alone).</p>
-      <h2>Pulse Check</h2>
-      <p>Infant: brachial artery. Child: carotid or femoral artery. Spend no more than 10 seconds on a pulse check.</p>
-    `,
-    duration: 45,
-    order: 2,
-    quiz: {
-      title: "Knowledge Check: Infant & Child BLS",
-      passingScore: 84,
-      questions: [
-        {
-          question: "What is the correct compression-to-ventilation ratio for 2-rescuer infant/child CPR WITHOUT an advanced airway?",
-          options: ["30:2", "15:2", "15:1", "30:1"],
-          correctAnswer: "15:2",
-          explanation: "2-rescuer pediatric CPR uses a 15:2 ratio. 1-rescuer uses 30:2.",
-        },
-        {
-          question: "Where is the pulse checked in an infant?",
-          options: ["Carotid artery", "Radial artery", "Brachial artery", "Femoral artery"],
-          correctAnswer: "Brachial artery",
-          explanation: "In infants, the brachial artery (inner upper arm) is used for pulse checks.",
-        },
-        {
-          question: "What is the recommended compression depth for a child (1 year to puberty)?",
-          options: ["At least 1 inch", "At least 1.5 inches", "At least 2 inches (5 cm)", "At least 2.5 inches"],
-          correctAnswer: "At least 2 inches (5 cm)",
-          explanation: "Child compression depth should be at least 2 inches (5 cm), approximately one-third the depth of the chest.",
-        },
-        {
-          question: "For an unwitnessed cardiac arrest in a child when you are alone, what is the correct sequence?",
-          options: [
-            "Call EMS first, then start CPR",
-            "Start CPR for 2 minutes, then call EMS",
-            "Start CPR and call EMS simultaneously",
-            "Give 5 rescue breaths, then call EMS",
-          ],
-          correctAnswer: "Start CPR for 2 minutes, then call EMS",
-          explanation: "For unwitnessed pediatric arrest when alone, provide 2 minutes of CPR before leaving to activate EMS.",
-        },
-        {
-          question: "With an advanced airway in a child, what is the correct ventilation rate?",
-          options: ["1 breath every 6 seconds (10/min)", "1 breath every 2–3 seconds (20–30/min)", "2 breaths every 30 compressions", "1 breath every 5 seconds (12/min)"],
-          correctAnswer: "1 breath every 2–3 seconds (20–30/min)",
-          explanation: "Pediatric ventilation with an advanced airway: 1 breath every 2–3 seconds (20–30/min), asynchronous with compressions.",
-        },
-      ],
-    },
-  },
-  {
-    title: "Module 3: AED Use & Team Dynamics",
-    description: "Operate an AED safely and effectively, and understand high-performance team roles.",
-    content: `
-      <h2>AED Operation</h2>
-      <ol>
-        <li>Power on the AED.</li>
-        <li>Attach pads to the patient's bare, dry chest (right clavicle / left axilla).</li>
-        <li>Clear the patient and allow the AED to analyze the rhythm.</li>
-        <li>If shock advised: clear all rescuers and deliver the shock.</li>
-        <li>Immediately resume CPR starting with compressions after the shock.</li>
-      </ol>
-      <h2>Pediatric AED Use</h2>
-      <ul>
-        <li>Use pediatric pads or a pediatric dose attenuator for children &lt; 8 years / &lt; 25 kg if available.</li>
-        <li>If pediatric pads are unavailable, use adult pads — ensure pads do not touch each other.</li>
-        <li>AED may be used for infants if no manual defibrillator is available.</li>
-      </ul>
-      <h2>High-Performance Team Roles</h2>
-      <ul>
-        <li><strong>Team Leader:</strong> Assigns roles, monitors quality, makes decisions.</li>
-        <li><strong>Compressor:</strong> Delivers high-quality compressions, switches every 2 minutes.</li>
-        <li><strong>Airway Manager:</strong> Maintains airway, delivers ventilations.</li>
-        <li><strong>IV/IO Access:</strong> Establishes access, prepares and administers medications.</li>
-        <li><strong>Recorder:</strong> Documents interventions, times, medications.</li>
-      </ul>
-      <h2>Closed-Loop Communication</h2>
-      <p>All orders should be acknowledged verbally by the recipient. The recorder reads back drug doses and times. The team leader summarizes the situation at each rhythm check.</p>
-    `,
-    duration: 40,
-    order: 3,
-    quiz: {
-      title: "Knowledge Check: AED & Team Dynamics",
-      passingScore: 84,
-      questions: [
-        {
-          question: "Immediately after delivering an AED shock, what should the team do?",
-          options: [
-            "Check the pulse for 10 seconds",
-            "Wait for the AED to reanalyze",
-            "Immediately resume CPR starting with compressions",
-            "Check the rhythm on a monitor",
-          ],
-          correctAnswer: "Immediately resume CPR starting with compressions",
-          explanation: "After a shock, immediately resume CPR — do not wait for a pulse check. The next rhythm check is after 2 minutes of CPR.",
-        },
-        {
-          question: "For a child under 8 years, which AED pads should be used if available?",
-          options: ["Adult pads only", "Pediatric pads or a dose attenuator", "No pads — manual defibrillation only", "Either adult or pediatric pads — no difference"],
-          correctAnswer: "Pediatric pads or a dose attenuator",
-          explanation: "Pediatric pads or a dose attenuator reduce energy delivery for children under 8 years / under 25 kg.",
-        },
-        {
-          question: "In a resuscitation team, who is responsible for documenting drug doses and times?",
-          options: ["Team Leader", "Compressor", "Airway Manager", "Recorder"],
-          correctAnswer: "Recorder",
-          explanation: "The Recorder documents all interventions, drug doses, and times during the resuscitation.",
-        },
-      ],
-    },
-  },
-  {
-    title: "Module 4: Opioid-Associated Emergencies & Special Situations",
-    description: "Manage opioid-associated respiratory arrest and understand BLS in special circumstances.",
-    content: `
-      <h2>Opioid-Associated Respiratory Arrest</h2>
-      <p>Opioid overdose typically causes respiratory depression before cardiac arrest. The priority is ventilation and naloxone administration.</p>
-      <ol>
-        <li>Stimulate the patient and shout for help.</li>
-        <li>If unresponsive and not breathing normally: activate EMS.</li>
-        <li>Administer naloxone if available (intranasal or IM) while providing rescue breaths.</li>
-        <li>If no pulse: begin CPR and use AED as soon as available.</li>
-      </ol>
-      <h2>Naloxone Dosing</h2>
-      <ul>
-        <li><strong>Adult:</strong> 0.4–2 mg IV/IM/IN. May repeat every 2–3 minutes.</li>
-        <li><strong>Pediatric:</strong> 0.01 mg/kg IV/IO/IM (max 0.4 mg per dose). Intranasal: 0.1 mg/kg (max 2 mg).</li>
-      </ul>
-      <h2>Drowning</h2>
-      <p>Drowning victims often have respiratory arrest before cardiac arrest. Begin with 5 rescue breaths before starting standard CPR. Activate EMS immediately.</p>
-      <h2>Pregnancy</h2>
-      <p>Perform CPR with the patient supine. Use manual left uterine displacement (LUD) to relieve aortocaval compression. Standard compression depth and rate apply. Early obstetric team involvement is critical.</p>
-    `,
-    duration: 35,
-    order: 4,
-    quiz: {
-      title: "Knowledge Check: Special Situations",
-      passingScore: 84,
-      questions: [
-        {
-          question: "In a suspected opioid overdose with respiratory arrest but a palpable pulse, what is the priority intervention?",
-          options: [
-            "Start chest compressions immediately",
-            "Administer naloxone and provide rescue breaths",
-            "Apply AED pads",
-            "Place in recovery position",
-          ],
-          correctAnswer: "Administer naloxone and provide rescue breaths",
-          explanation: "Opioid overdose with a pulse requires rescue breathing and naloxone. Compressions are only started if there is no pulse.",
-        },
-        {
-          question: "For a drowning victim, what modification is made to the standard BLS sequence?",
-          options: [
-            "No modifications — follow standard BLS",
-            "Begin with 5 rescue breaths before compressions",
-            "Use compression-only CPR",
-            "Begin with 30 compressions before any breaths",
-          ],
-          correctAnswer: "Begin with 5 rescue breaths before compressions",
-          explanation: "Drowning victims typically have respiratory arrest first. Begin with 5 rescue breaths before starting the standard CPR cycle.",
-        },
-        {
-          question: "During CPR in a pregnant patient, what maneuver helps relieve aortocaval compression?",
-          options: [
-            "Tilt the patient to the left at 30 degrees",
-            "Manual left uterine displacement (LUD) with the patient supine",
-            "Elevate the patient's legs",
-            "Place a wedge under the right hip",
-          ],
-          correctAnswer: "Manual left uterine displacement (LUD) with the patient supine",
-          explanation: "Manual LUD is performed with the patient supine to maintain effective compressions while relieving aortocaval compression.",
-        },
-      ],
-    },
-  },
-];
+import { BLS_MODULES } from "./bls-modules-data";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACLS CATALOG
@@ -308,6 +58,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 1,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Systematic Approach",
       passingScore: 84,
@@ -354,6 +105,7 @@ export const ACLS_MODULES = [
     `,
     duration: 50,
     order: 2,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Cardiac Arrest Algorithms",
       passingScore: 84,
@@ -440,6 +192,7 @@ export const ACLS_MODULES = [
     `,
     duration: 45,
     order: 3,
+    sections: [],
     quiz: {
       title: "Knowledge Check: ACLS Pharmacology",
       passingScore: 84,
@@ -495,6 +248,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 4,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Post-ROSC Care",
       passingScore: 84,
@@ -544,6 +298,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 5,
+    sections: [],
     quiz: {
       title: "Knowledge Check: ACS",
       passingScore: 84,
@@ -595,6 +350,7 @@ export const ACLS_MODULES = [
     `,
     duration: 35,
     order: 6,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Stroke",
       passingScore: 84,
@@ -639,6 +395,7 @@ export const ACLS_MODULES = [
     `,
     duration: 45,
     order: 7,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Bradycardia & Tachycardia",
       passingScore: 84,
@@ -745,12 +502,21 @@ async function ensureCatalog(
     let moduleId: number;
     if (modExisting.length > 0) {
       moduleId = modExisting[0].id;
+      // Update existing module to ensure latest content/description
+      await db.update(modules)
+        .set({
+          title: modDef.title,
+          description: modDef.description,
+          content: modDef.content || "",
+          duration: modDef.duration,
+        })
+        .where(eq(modules.id, moduleId));
     } else {
       await db.insert(modules).values({
         courseId,
         title: modDef.title,
         description: modDef.description,
-        content: modDef.content,
+        content: modDef.content || "",
         duration: modDef.duration,
         order: modDef.order,
       });
@@ -764,6 +530,34 @@ async function ensureCatalog(
       console.log(`[Catalog] Created module: ${modDef.title} (id=${moduleId})`);
     }
 
+	    // Ensure sections if present
+	    if (modDef.sections && modDef.sections.length > 0) {
+	      for (const section of modDef.sections) {
+	        const existing = await db
+	          .select({ id: moduleSections.id })
+	          .from(moduleSections)
+	          .where(and(eq(moduleSections.moduleId, moduleId), eq(moduleSections.order, section.order)))
+	          .limit(1);
+
+	        if (existing.length > 0) {
+	          await db.update(moduleSections)
+	            .set({
+	              title: section.title,
+	              content: section.content,
+	            })
+	            .where(eq(moduleSections.id, existing[0].id));
+	        } else {
+	          await db.insert(moduleSections).values({
+	            moduleId,
+	            title: section.title,
+	            content: section.content,
+	            order: section.order,
+	          });
+	        }
+	      }
+	      console.log(`[Catalog] Synchronized ${modDef.sections.length} sections for module: ${modDef.title}`);
+	    }
+
     // Ensure the quiz for this module
     const quizExisting = await db
       .select({ id: quizzes.id })
@@ -774,6 +568,13 @@ async function ensureCatalog(
     let quizId: number;
     if (quizExisting.length > 0) {
       quizId = quizExisting[0].id;
+      await db.update(quizzes)
+        .set({
+          title: modDef.quiz.title,
+          description: `Knowledge check for ${modDef.title}`,
+          passingScore: modDef.quiz.passingScore,
+        })
+        .where(eq(quizzes.id, quizId));
     } else {
       await db.insert(quizzes).values({
         moduleId,
@@ -791,28 +592,39 @@ async function ensureCatalog(
       quizId = q[0]!.id;
     }
 
-    // Ensure questions
-    const qCount = await db
-      .select({ id: quizQuestions.id })
-      .from(quizQuestions)
-      .where(eq(quizQuestions.quizId, quizId))
-      .limit(1);
+	    // Ensure questions
+	    const qCount = await db
+	      .select({ id: quizQuestions.id })
+	      .from(quizQuestions)
+	      .where(eq(quizQuestions.quizId, quizId))
+	      .limit(1);
 
-    if (qCount.length === 0) {
-      for (let i = 0; i < modDef.quiz.questions.length; i++) {
-        const q = modDef.quiz.questions[i];
-        await db.insert(quizQuestions).values({
-          quizId,
-          question: q.question,
-          questionType: "multiple_choice",
-          options: JSON.stringify(q.options),
-          correctAnswer: JSON.stringify(q.correctAnswer),
-          explanation: q.explanation,
-          order: i + 1,
-        });
-      }
-      console.log(`[Catalog] Seeded ${modDef.quiz.questions.length} questions for quiz: ${modDef.quiz.title}`);
-    }
+	    for (let i = 0; i < modDef.quiz.questions.length; i++) {
+	      const q = modDef.quiz.questions[i];
+	      const qOrder = (q as any).order || i + 1;
+	      const existingQ = await db
+	        .select({ id: quizQuestions.id })
+	        .from(quizQuestions)
+	        .where(and(eq(quizQuestions.quizId, quizId), eq(quizQuestions.order, qOrder)))
+	        .limit(1);
+
+	      const values = {
+	        quizId,
+	        question: q.question || (q as any).questionText,
+	        questionType: "multiple_choice",
+	        options: typeof q.options === "string" ? q.options : JSON.stringify(q.options),
+	        correctAnswer: typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer),
+	        explanation: q.explanation,
+	        order: qOrder,
+	      };
+
+	      if (existingQ.length > 0) {
+	        await db.update(quizQuestions).set(values).where(eq(quizQuestions.id, existingQ[0].id));
+	      } else {
+	        await db.insert(quizQuestions).values(values);
+	      }
+	    }
+	    console.log(`[Catalog] Synchronized ${modDef.quiz.questions.length} questions for quiz: ${modDef.quiz.title}`);
   }
 }
 
@@ -821,16 +633,16 @@ async function ensureCatalog(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function ensureBlsCatalog(db: any): Promise<void> {
-  await ensureCatalog(
-    db,
-    "bls",
-    "BLS Provider Course — AHA 2020 Guidelines",
-    "American Heart Association Basic Life Support (BLS) Provider Course. Covers high-quality CPR for adults, children, and infants, AED use, and relief of foreign-body airway obstruction.",
-    180,
-    "beginner",
-    BLS_MODULES
-  );
-}
+	  await ensureCatalog(
+	    db,
+	    "bls",
+	    "BLS Provider Course — AHA 2025 Guidelines",
+	    "American Heart Association Basic Life Support (BLS) Provider Course. Covers healthcare-provider level high-quality CPR for adults, children, and infants, multi-rescuer coordination, AED use, and advanced airway CPR updates.",
+	    240,
+	    "intermediate",
+	    BLS_MODULES
+	  );
+	}
 
 export async function ensureAclsCatalog(db: any): Promise<void> {
   await ensureCatalog(

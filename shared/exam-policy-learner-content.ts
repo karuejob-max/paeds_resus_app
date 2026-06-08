@@ -48,12 +48,13 @@ export const EXAM_POLICY_TRACK_INTROS: ExamPolicyTrackIntro[] = [
     id: EXAM_POLICY_ANCHOR_AHA,
     title: "AHA courses (BLS, ACLS, PALS, NRP)",
     paragraphs: [
-      "AHA cognitive courses follow the same diagnostic → modules → summative flow. Passing the summative completes the online portion and issues a gatepass certificate.",
+      "AHA cognitive courses follow a four-stage journey: Diagnostic → Modules → Capstone Simulation → Summative Exam. Passing the summative completes the online portion and issues a gatepass certificate.",
       "Full AHA certification still requires practical skills sign-off with an instructor at a hands-on session.",
     ],
     bullets: [
       "Diagnostic once at start (no pass mark); modules unlock after diagnostic.",
       "Per-module knowledge checks per course structure.",
+      "Capstone Simulation (Module 10): 50% pass mark, mandatory practical bridge.",
       "Summative: 80% pass, up to 3 attempts, 24 hours between retries.",
       "Separate track — does not count toward Fellowship Pillar A.",
     ],
@@ -72,8 +73,8 @@ export const EXAM_POLICY_SECTIONS: ExamPolicySection[] = [
     id: "overview",
     title: "Overview",
     paragraphs: [
-      "Paeds Resus uses three assessment types on cognitive courses: a diagnostic baseline at course start, module knowledge checks (formative), and a final summative exam. Fellowship micro-courses and AHA courses (BLS, ACLS, PALS, NRP) follow the same flow: diagnostic → modules → summative.",
-      "Scores for summative exams are calculated on the server — your result is based on stored correct answers, not self-reported marks.",
+      "Paeds Resus uses four assessment types on cognitive courses: a diagnostic baseline, module knowledge checks (formative), a practical Capstone Simulation (AHA courses only), and a final summative exam. Fellowship micro-courses follow a diagnostic → modules → summative flow, while AHA courses (BLS, ACLS, PALS, NRP, Heartsaver) follow diagnostic → modules → capstone → summative.",
+      "Scores for simulations and summative exams are calculated on the server — your result is based on stored correct answers, not self-reported marks.",
     ],
   },
   {
@@ -101,10 +102,22 @@ export const EXAM_POLICY_SECTIONS: ExamPolicySection[] = [
     ],
   },
   {
+    id: "capstone",
+    title: "Capstone Simulation (AHA only)",
+    paragraphs: [
+      "A mandatory, interactive practical simulation (Module 10) that bridges cognitive learning and the final exam. It focuses on the systematic ABCDE approach and priority interventions.",
+    ],
+    bullets: [
+      "Pass mark: 50% (Supportive scoring).",
+      "Must be completed after all core modules to unlock the Summative Exam.",
+      "Can be reviewed at any time once unlocked.",
+    ],
+  },
+  {
     id: "summative",
     title: "Summative (final) exam",
     paragraphs: [
-      "Taken after you complete all modules. The same question bank is used each time, but question and answer order are shuffled.",
+      "Taken after you complete all modules (and the Capstone Simulation for AHA courses). The same question bank is used each time, but question and answer order are shuffled.",
     ],
     bullets: [
       "Pass mark: 80%.",
@@ -145,6 +158,8 @@ export type ExamPolicyCompareRow = {
 export const EXAM_POLICY_COMPARE_ROWS: ExamPolicyCompareRow[] = [
   { rule: "Diagnostic baseline", fellowship: "Yes — once, no pass mark", aha: "Yes — once, no pass mark" },
   { rule: "Per-module formative checks", fellowship: "Yes — taught-before-tested", aha: "Yes — per course structure" },
+  { rule: "Capstone Simulation (Module 10)", fellowship: "No", aha: "Yes — mandatory practical" },
+  { rule: "Capstone pass mark", fellowship: "N/A", aha: "50% (Supportive)" },
   { rule: "Summative final exam", fellowship: "Yes — shuffled bank", aha: "Yes — shuffled bank" },
   { rule: "Summative pass mark", fellowship: "80%", aha: "80%" },
   { rule: "Summative max attempts", fellowship: "3 (1 + 2 retries)", aha: "3 (1 + 2 retries)" },
