@@ -79,14 +79,19 @@ export async function ensurePalsAhaCatalog(db: any): Promise<void> {
   const moduleBlueprint = [
     {
       order: 1,
-      title: "Module 1: PALS systematic approach and initial stabilization",
-      description: "Primary survey (ABCDE), shock recognition, and immediate interventions.",
-      content: "<h2>PALS systematic approach</h2><p>Use initial impression, ABCDE, and rapid reassessment to identify and treat life threats.</p>",
-      quizTitle: "Check: PALS systematic approach",
-      question: "In PALS, the primary assessment follows which sequence?",
-      options: ["Airway → Breathing → Circulation → Disability → Exposure", "Exposure → Disability → Circulation → Breathing → Airway", "Labs before stabilization", "Disposition first"],
-      answer: "Airway → Breathing → Circulation → Disability → Exposure",
-      explanation: "Life-threatening problems are addressed in ABCDE order.",
+      title: "Module 1: Foundations & The Unified Chain of Survival",
+      description: "Introduction to the 2025 Unified Chain of Survival and the PALS Systematic Approach.",
+      content: "<h2>The Unified 2025 Chain of Survival</h2><p>The AHA 2025 Guidelines introduce a <strong>single, unified Chain of Survival</strong> that applies across all ages and settings (Adult, Pediatric, In-Hospital, and Out-of-Hospital).</p><h3>The 6 Links</h3><ol><li>Activation of Emergency Response</li><li>High-Quality CPR</li><li>Rapid Defibrillation</li><li>Advanced Resuscitation</li><li>Post-Cardiac Arrest Care (PCAC)</li><li>Recovery</li></ol><h2>PALS systematic approach</h2><p>Use initial impression, ABCDE, and rapid reassessment to identify and treat life threats.</p>",
+      quizTitle: "Check: Foundations & Unified Chain",
+      question: "Which statement best describes the 2025 AHA Chain of Survival?",
+      options: [
+        "There are separate chains for IHCA and OHCA",
+        "Adult and Pediatric chains remain distinct",
+        "A single, unified chain applies to all ages and settings",
+        "The chain no longer includes the Recovery link"
+      ],
+      answer: "A single, unified chain applies to all ages and settings",
+      explanation: "The 2025 guidelines unified the chain to simplify the framework and emphasize consistent high-quality care across all scenarios.",
     },
     {
       order: 2,

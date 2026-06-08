@@ -6,6 +6,17 @@ import type { AhaSummativeQuestionSeed } from "./aha-summative-types";
 
 export const ACLS_SUMMATIVE_QUESTIONS: AhaSummativeQuestionSeed[] = [
   {
+    question: "Which statement best describes the 2025 AHA Chain of Survival?",
+    options: [
+      "There are separate chains for IHCA and OHCA",
+      "Adult and Pediatric chains remain distinct",
+      "A single, unified chain applies to all ages and settings",
+      "The chain no longer includes the Recovery link"
+    ],
+    correctAnswer: 2,
+    explanation: "The 2025 guidelines unified the chain to simplify the framework and emphasize consistent high-quality care across all scenarios.",
+  },
+  {
     question: "The first treatment for witnessed ventricular fibrillation is:",
     options: [
       "Amiodarone 300 mg IV",

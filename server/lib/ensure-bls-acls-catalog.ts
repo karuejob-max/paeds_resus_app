@@ -35,9 +35,19 @@ import { BLS_MODULES } from "./bls-modules-data";
 
 export const ACLS_MODULES = [
   {
-    title: "Module 1: Systematic Approach & BLS Foundation for ACLS",
-    description: "Apply the BLS survey and ACLS primary survey to any critically ill patient.",
+    title: "Module 1: Unified Chain of Survival & Systematic Approach",
+    description: "Overview of the 2025 Unified Chain of Survival and the ACLS Systematic Approach.",
     content: `
+      <h2>The Unified 2025 Chain of Survival</h2>
+      <p>The AHA 2025 Guidelines unify the Chain of Survival into a single framework for all ages and settings (Adult, Pediatric, IHCA, and OHCA).</p>
+      <ol>
+        <li>Activation of Emergency Response</li>
+        <li>High-Quality CPR</li>
+        <li>Rapid Defibrillation</li>
+        <li>Advanced Resuscitation</li>
+        <li>Post-Cardiac Arrest Care</li>
+        <li>Recovery</li>
+      </ol>
       <h2>The BLS Survey (ACLS Context)</h2>
       <p>Before any ACLS intervention, confirm the BLS survey is complete:</p>
       <ul>
@@ -633,23 +643,23 @@ async function ensureCatalog(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function ensureBlsCatalog(db: any): Promise<void> {
-	  await ensureCatalog(
-	    db,
-	    "bls",
-	    "BLS Provider Course — AHA 2025 Guidelines",
-	    "American Heart Association Basic Life Support (BLS) Provider Course. Covers healthcare-provider level high-quality CPR for adults, children, and infants, multi-rescuer coordination, AED use, and advanced airway CPR updates.",
-	    240,
-	    "intermediate",
-	    BLS_MODULES
-	  );
-	}
+  await ensureCatalog(
+    db,
+    "bls",
+    "BLS Provider Course — AHA 2025 Guidelines",
+    "American Heart Association Basic Life Support (BLS) Provider Course. Deeply enriched with 2025 Unified Chain of Survival, Heartsaver-level accessibility, healthcare-provider depth, and advanced life-saving skills.",
+    350,
+    "intermediate",
+    BLS_MODULES
+  );
+}
 
 export async function ensureAclsCatalog(db: any): Promise<void> {
   await ensureCatalog(
     db,
     "acls",
-    "ACLS Provider Course — AHA 2020 Guidelines",
-    "American Heart Association Advanced Cardiovascular Life Support (ACLS) Provider Course. Covers cardiac arrest algorithms, pharmacology, post-ROSC care, ACS, stroke, and arrhythmia management.",
+    "ACLS Provider Course — AHA 2025 Guidelines",
+    "American Heart Association Advanced Cardiovascular Life Support (ACLS) Provider Course. Fully updated to 2025 guidelines including the Unified Chain of Survival and Post-Cardiac Arrest Care neuro-protection protocols.",
     480,
     "advanced",
     ACLS_MODULES

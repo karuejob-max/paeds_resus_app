@@ -12,17 +12,17 @@ export const HEARTSAVER_MODULES = [
     sections: [
       {
         order: 1,
-        title: "Overview: The Chain of Survival",
-        content: `<h2>The Chain of Survival</h2>
-<p>The Chain of Survival describes the sequence of actions that maximise survival from cardiac arrest. Each link in the chain is critical â€” a weak link reduces survival.</p>
-<h3>Out-of-Hospital Chain of Survival (Adult)</h3>
+        title: "Overview: The Unified Chain of Survival (2025)",
+        content: `<h2>The Unified Chain of Survival</h2>
+<p>The AHA 2025 Guidelines introduce a single, unified Chain of Survival that applies across all ages and settings (Adult, Pediatric, In-Hospital, and Out-of-Hospital).</p>
+<h3>The 6 Links of the Unified Chain</h3>
 <ol>
-  <li><strong>Recognition and activation:</strong> Recognise cardiac arrest; call emergency services (999/112/911)</li>
-  <li><strong>Early CPR:</strong> High-quality CPR by bystander</li>
-  <li><strong>Rapid defibrillation:</strong> Use AED as soon as available</li>
-  <li><strong>Advanced resuscitation:</strong> Emergency medical services (EMS) take over</li>
-  <li><strong>Post-cardiac arrest care:</strong> Hospital-based care</li>
-  <li><strong>Recovery:</strong> Rehabilitation and psychological support</li>
+  <li><strong>Activation of Emergency Response:</strong> Immediate recognition and calling for help</li>
+  <li><strong>High-Quality CPR:</strong> Early chest compressions to maintain perfusion</li>
+  <li><strong>Rapid Defibrillation:</strong> Use AED as soon as available</li>
+  <li><strong>Advanced Resuscitation:</strong> High-performance team interventions</li>
+  <li><strong>Post-Cardiac Arrest Care:</strong> Hospital-based care focusing on neuro-protection</li>
+  <li><strong>Recovery:</strong> Long-term rehabilitation and survivorship support</li>
 </ol>
 <div class="clinical-note">
   <strong>Why bystander CPR matters:</strong> Survival from out-of-hospital cardiac arrest drops by 7â€“10% for every minute without CPR. Bystander CPR doubles or triples survival rates. High-quality CPR started within 2 minutes of collapse is the single most important intervention a bystander can provide.
