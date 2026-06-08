@@ -38,10 +38,10 @@ export function PalsCapstonePriorityExam({ onComplete }: PalsCapstonePriorityExa
   const currentOrdering = userOrderings[currentPhase] || [];
   const isSubmitted = submittedPhases.has(currentPhase);
 
-  // Initialize ordering with all intervention IDs (unordered)
-  const availableInterventions = useMemo(() => {
+  // Initialize ordering with shuffled intervention IDs
+  const availableInterventions = useMemo<string[]>(() => {
     if (currentOrdering.length === 0) {
-      return challenge.interventions.map((i) => i.id);
+      return challenge.shuffledOrder || [];
     }
     return currentOrdering;
   }, [challenge, currentOrdering]);

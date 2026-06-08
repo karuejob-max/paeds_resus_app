@@ -20,7 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import { PalsCapstonePriorityExam } from "@/components/PalsCapstonePriorityExam";
+import { PalsCapstoneClean } from "@/components/PalsCapstoneClean";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -83,6 +83,14 @@ export default function MicroCoursePlayerDB() {
   const [showSummativeExam, setShowSummativeExam] = useState(false);
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
+  
+  // Persistence for capstone
+  useEffect(() => {
+    const inProgress = localStorage.getItem(`capstone-in-progress-${slug}`);
+    if (inProgress === "true" && !showCertificateReady && !showCapstoneSim) {
+      setShowCapstoneSim(true);
+    }
+  }, [slug, showCertificateReady, showCapstoneSim]);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -686,7 +694,10 @@ export default function MicroCoursePlayerDB() {
       });
     }
 
-    if (currentModuleIndex < modules.length - 1) {
+    const isPals = programType === "pals";
+    const totalModules = modules.length;
+
+    if (currentModuleIndex < totalModules - 1) {
       const nextIdx = currentModuleIndex + 1;
       setCurrentModuleIndex(nextIdx);
       setCurrentSectionIndex(0);
@@ -697,8 +708,19 @@ export default function MicroCoursePlayerDB() {
       }
       window.scrollTo(0, 0);
     } else {
+      // All cognitive modules finished
+      if (isPals && !examState?.capstonePassed) {
+        // Step 10: Practical Exam (Simulation)
+        setCurrentModuleIndex(9);
+        setShowCapstoneSim(true);
+        localStorage.setItem(`capstone-in-progress-${slug}`, "true");
+        window.scrollTo(0, 0);
+        return;
+      }
+      
+      // Step 11: Summative Exam
       setShowSummativeExam(true);
-      setCurrentModuleIndex(modules.length - 1);
+      setCurrentModuleIndex(isPals ? 10 : totalModules - 1);
       setQuizAnswers({});
       setQuizSubmitted(false);
       setQuizScore(null);
@@ -1139,7 +1161,7 @@ export default function MicroCoursePlayerDB() {
             ahaProgramType={ahaProgramForUi}
           />
         ) : showCapstoneSim ? (
-          <PalsCapstonePriorityExam 
+          <PalsCapstoneClean 
             onComplete={(score, passed) => {
               if (passed) {
                 // Virtual moduleId -1 for capstone
@@ -1153,13 +1175,27 @@ export default function MicroCoursePlayerDB() {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
                     setCapstoneInProgress(false);
-                    setShowCertificateReady(true);
+                    localStorage.removeItem(`capstone-in-progress-${slug}`);
+                    // After Capstone (Module 10), move to Summative Exam (Module 11)
+                    setCurrentModuleIndex(10);
+                    setShowSummativeExam(true);
+                    setQuizAnswers({});
+                    setQuizSubmitted(false);
+                    setQuizScore(null);
                     void utils.learning.getMicroCourseExamState.invalidate();
                   }
                 });
               } else {
                 toast.error(`Simulation failed with score ${score}%. You need 80% to pass.`);
               }
+            }}
+            onClose={() => {
+              setShowCapstoneSim(false);
+              setCapstoneInProgress(false);
+              localStorage.removeItem(`capstone-in-progress-${slug}`);
+              // Go back to the last module
+              setCurrentModuleIndex(Math.max(0, modules.length - 1));
+              setBackToLastSectionOfModule(true);
             }}
           />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (

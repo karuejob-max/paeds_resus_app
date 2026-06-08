@@ -87,6 +87,6 @@ describe("AhaHubProviderCourseCard", () => {
     );
 
     expect(screen.getByText("Total time (AHA recommendation): 16 hours")).toBeTruthy();
-    expect(screen.getByText("Cognitive coursework: ~10 hours online")).toBeTruthy();
+    expect(screen.getByText("Cognitive coursework: 10 modules • ~10 hours online")).toBeTruthy();
   });
 });
