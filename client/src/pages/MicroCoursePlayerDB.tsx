@@ -1166,18 +1166,30 @@ export default function MicroCoursePlayerDB() {
 		            </div>
 		          )}
 
-          <div 
-            className={cn(
-              "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
-              showSummativeExam || showCertificateReady
-                ? "bg-primary text-white ring-4 ring-primary/20" 
-                : (examState?.capstoneRequired ? examState?.capstonePassed : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode))
-                  ? "bg-slate-100 text-slate-600"
-                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
-            )}
-          >
-            <GraduationCap className="w-4 h-4" />
-          </div>
+	          <button 
+                onClick={() => {
+                  if (examState?.capstoneRequired && !examState?.capstonePassed && !isReviewMode) {
+                    toast.error("Please complete the Capstone Simulation before starting the final exam.");
+                    return;
+                  }
+                  if (isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)) {
+                    setShowSummativeExam(true);
+                    setShowCapstoneSim(false);
+                    setShowFormativeQuiz(false);
+                    setShowCertificateReady(false);
+                  }
+                }}
+	            className={cn(
+	              "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+	              showSummativeExam || showCertificateReady
+	                ? "bg-primary text-white ring-4 ring-primary/20" 
+	                : (examState?.capstoneRequired ? examState?.capstonePassed : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode))
+	                  ? "bg-slate-100 text-slate-600"
+	                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+	            )}
+	          >
+	            <GraduationCap className="w-4 h-4" />
+	          </button>
         </div>
 
         {/* Content Area */}

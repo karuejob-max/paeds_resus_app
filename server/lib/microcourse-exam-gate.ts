@@ -428,8 +428,8 @@ export async function getAhaCourseExamState(
     canRetrySummative: retryCheck.allowed,
     retryAvailableAt: retryCheck.retryAvailableAt?.toISOString() ?? null,
     summativePassPercent: 80,
-    capstoneRequired: enrollment.programType === "pals",
-    capstonePassed: enrollment.programType === "pals" 
+    capstoneRequired: ["pals", "acls", "bls", "nrp", "heartsaver"].includes(enrollment.programType ?? ""),
+    capstonePassed: ["pals", "acls", "bls", "nrp", "heartsaver"].includes(enrollment.programType ?? "")
       ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 50 && p.moduleId === -1)
       : true,
   };
