@@ -20,8 +20,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
-import { PalsCapstoneClean } from "@/components/PalsCapstoneClean";
-import { AclsCapstone } from "@/components/AclsCapstone";
+import { UniversalCapstone } from "@/components/UniversalCapstone";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import { examKindFromQuizTitle, dedupeQuizRowsByStem } from "@shared/microcourse-exam-policy";
 import {
@@ -705,8 +704,8 @@ export default function MicroCoursePlayerDB() {
       window.scrollTo(0, 0);
     } else {
       // All cognitive modules finished
-      // If PALS or ACLS, show Capstone as the next step after the last module
-      if (isPals || programType === "acls") {
+      // Show Capstone as the next step after the last module for all AHA courses
+      if (isAhaCourse && (isPals || programType === "acls" || programType === "bls" || programType === "nrp" || programType === "heartsaver")) {
         setShowCapstoneSim(true);
         window.scrollTo(0, 0);
       } else {
@@ -1127,37 +1126,37 @@ export default function MicroCoursePlayerDB() {
             </div>
           ))}
           
-	          {/* Capstone Simulation Step (Module 10 for PALS/ACLS) */}
-	          {(examState?.capstoneRequired || programType === "acls") && (
-	            <div className="flex items-center">
-	              <button
-	                onClick={() => {
-	                  if (isReviewMode || examState?.capstonePassed || (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1)) {
-	                    setShowCapstoneSim(true);
-	                    setShowSummativeExam(false);
-	                    setShowCertificateReady(false);
-	                    setShowFormativeQuiz(false);
-	                  }
-	                }}
-	                className={cn(
-	                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
-	                  showCapstoneSim
-	                    ? "bg-primary text-white ring-4 ring-primary/20" 
-	                    : examState?.capstonePassed
-	                      ? "bg-emerald-100 text-emerald-700"
-	                      : (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1) || isReviewMode
-	                        ? "bg-slate-100 text-slate-600"
-	                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
-	                )}
-	              >
-	                {examState?.capstonePassed ? <CheckCircle2 className="w-4 h-4" /> : modules.length + 1}
-	              </button>
-	              <div className={cn(
-	                "w-4 h-0.5 mx-1",
-	                examState?.capstonePassed ? "bg-emerald-200" : "bg-slate-200"
-	              )} />
-	            </div>
-	          )}
+	          {/* Capstone Simulation Step (Module 10 for AHA courses) */}
+		          {(examState?.capstoneRequired || (isAhaCourse && ["acls", "bls", "nrp", "heartsaver"].includes(programType ?? ""))) && (
+		            <div className="flex items-center">
+		              <button
+		                onClick={() => {
+		                  if (isReviewMode || examState?.capstonePassed || (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1)) {
+		                    setShowCapstoneSim(true);
+		                    setShowSummativeExam(false);
+		                    setShowCertificateReady(false);
+		                    setShowFormativeQuiz(false);
+		                  }
+		                }}
+		                className={cn(
+		                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+		                  showCapstoneSim
+		                    ? "bg-primary text-white ring-4 ring-primary/20" 
+		                    : examState?.capstonePassed
+		                      ? "bg-emerald-100 text-emerald-700"
+		                      : (currentModuleIndex === modules.length - 1 && maxReachedSectionIndex >= sections.length - 1) || isReviewMode
+		                        ? "bg-slate-100 text-slate-600"
+		                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+		                )}
+		              >
+		                {examState?.capstonePassed ? <CheckCircle2 className="w-4 h-4" /> : modules.length + 1}
+		              </button>
+		              <div className={cn(
+		                "w-4 h-0.5 mx-1",
+		                examState?.capstonePassed ? "bg-emerald-200" : "bg-slate-200"
+		              )} />
+		            </div>
+		          )}
 
           <div 
             className={cn(
@@ -1184,77 +1183,41 @@ export default function MicroCoursePlayerDB() {
             ahaProgramType={ahaProgramForUi}
           />
         ) : showCapstoneSim ? (
-          programType === "acls" ? (
-            <AclsCapstone
-              onComplete={(score, passed) => {
-                if (passed) {
-                  submitQuizMutation.mutate({
-                    enrollmentId: enrollment!.id,
-                    moduleId: -1,
-                    quizId: -1,
-                    score,
-                    answers: { simReady: true },
-                  }, {
-                    onSuccess: () => {
-                      setShowCapstoneSim(false);
-                      setCapstoneInProgress(false);
-                      localStorage.removeItem(`capstone-in-progress-${slug}`);
-                      setShowSummativeExam(true);
-                      setQuizAnswers({});
-                      setQuizSubmitted(false);
-                      setQuizScore(null);
-                      void utils.learning.getMicroCourseExamState.invalidate();
-                      window.scrollTo(0, 0);
-                    }
-                  });
-                } else {
-                  toast.error(`Megacode failed with score ${score}%. You need 50% to pass.`);
-                }
-              }}
-              onClose={() => {
-                setShowCapstoneSim(false);
-                setCapstoneInProgress(false);
-                localStorage.removeItem(`capstone-in-progress-${slug}`);
-                setCurrentModuleIndex(Math.max(0, modules.length - 1));
-                setBackToLastSectionOfModule(true);
-              }}
-            />
-          ) : (
-            <PalsCapstoneClean 
-              onComplete={(score, passed) => {
-                if (passed) {
-                  submitQuizMutation.mutate({
-                    enrollmentId: enrollment!.id,
-                    moduleId: -1,
-                    quizId: -1,
-                    score,
-                    answers: { simReady: true },
-                  }, {
-                    onSuccess: () => {
-                      setShowCapstoneSim(false);
-                      setCapstoneInProgress(false);
-                      localStorage.removeItem(`capstone-in-progress-${slug}`);
-                      setShowSummativeExam(true);
-                      setQuizAnswers({});
-                      setQuizSubmitted(false);
-                      setQuizScore(null);
-                      void utils.learning.getMicroCourseExamState.invalidate();
-                      window.scrollTo(0, 0);
-                    }
-                  });
-                } else {
-                  toast.error(`Simulation failed with score ${score}%. You need 50% to pass.`);
-                }
-              }}
-              onClose={() => {
-                setShowCapstoneSim(false);
-                setCapstoneInProgress(false);
-                localStorage.removeItem(`capstone-in-progress-${slug}`);
-                setCurrentModuleIndex(Math.max(0, modules.length - 1));
-                setBackToLastSectionOfModule(true);
-              }}
-            />
-          )
+          <UniversalCapstone
+            programType={programType as any}
+            onComplete={(score, passed) => {
+              if (passed) {
+                submitQuizMutation.mutate({
+                  enrollmentId: enrollment!.id,
+                  moduleId: -1,
+                  quizId: -1,
+                  score,
+                  answers: { simReady: true },
+                }, {
+                  onSuccess: () => {
+                    setShowCapstoneSim(false);
+                    setCapstoneInProgress(false);
+                    localStorage.removeItem(`capstone-in-progress-${slug}`);
+                    setShowSummativeExam(true);
+                    setQuizAnswers({});
+                    setQuizSubmitted(false);
+                    setQuizScore(null);
+                    void utils.learning.getMicroCourseExamState.invalidate();
+                    window.scrollTo(0, 0);
+                  }
+                });
+              } else {
+                toast.error(`Simulation failed with score ${score}%. You need 50% to pass.`);
+              }
+            }}
+            onClose={() => {
+              setShowCapstoneSim(false);
+              setCapstoneInProgress(false);
+              localStorage.removeItem(`capstone-in-progress-${slug}`);
+              setCurrentModuleIndex(Math.max(0, modules.length - 1));
+              setBackToLastSectionOfModule(true);
+            }}
+          />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
             <FormativeQuizView 
             moduleTitle={
