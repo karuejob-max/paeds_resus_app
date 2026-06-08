@@ -7,7 +7,7 @@
  *   - learning.getCourses when the BLS/ACLS catalog is empty
  *   - isAhaCognitiveComplete (before checking module completion)
  */
-import { asc, desc, eq, and } from "drizzle-orm";
+import { asc, desc, eq, and, gt } from "drizzle-orm";
 import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -500,6 +500,10 @@ async function ensureCatalog(
   if (courseId == null) {
     throw new Error(`Failed to resolve ${programType.toUpperCase()} course catalog row`);
   }
+
+  // Delete modules that are no longer in the definition
+  const maxOrder = Math.max(...moduleDefinitions.map(m => m.order));
+  await db.delete(modules).where(and(eq(modules.courseId, courseId), gt(modules.order, maxOrder)));
 
   // Ensure each module
   for (const modDef of moduleDefinitions) {
