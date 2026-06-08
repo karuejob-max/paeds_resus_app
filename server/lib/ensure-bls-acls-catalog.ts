@@ -58,6 +58,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 1,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Systematic Approach",
       passingScore: 84,
@@ -104,6 +105,7 @@ export const ACLS_MODULES = [
     `,
     duration: 50,
     order: 2,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Cardiac Arrest Algorithms",
       passingScore: 84,
@@ -190,6 +192,7 @@ export const ACLS_MODULES = [
     `,
     duration: 45,
     order: 3,
+    sections: [],
     quiz: {
       title: "Knowledge Check: ACLS Pharmacology",
       passingScore: 84,
@@ -245,6 +248,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 4,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Post-ROSC Care",
       passingScore: 84,
@@ -294,6 +298,7 @@ export const ACLS_MODULES = [
     `,
     duration: 40,
     order: 5,
+    sections: [],
     quiz: {
       title: "Knowledge Check: ACS",
       passingScore: 84,
@@ -345,6 +350,7 @@ export const ACLS_MODULES = [
     `,
     duration: 35,
     order: 6,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Stroke",
       passingScore: 84,
@@ -389,6 +395,7 @@ export const ACLS_MODULES = [
     `,
     duration: 45,
     order: 7,
+    sections: [],
     quiz: {
       title: "Knowledge Check: Bradycardia & Tachycardia",
       passingScore: 84,
