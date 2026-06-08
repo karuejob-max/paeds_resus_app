@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { examKindFromQuizTitle, summativePassed } from "../../shared/microcourse-exam-policy";
+import { resolveFellowshipCourseFromCandidates } from "../../shared/resolve-fellowship-course";
 import {
   assertMicrocourseCompletionAllowed,
   isDiagnosticProgressComplete,
   resolveDiagnosticCompleted,
+  resolveFellowshipCourseId,
 } from "./microcourse-exam-gate";
 
 describe("microcourse-exam-gate helpers", () => {
+  it("fellowship course resolution prefers exact title over order (duplicate rows)", () => {
+    const picked = resolveFellowshipCourseFromCandidates(
+      [
+        { id: 66, title: "Asthma I (legacy)", order: 1 },
+        { id: 6, title: "Asthma I: Recognition & Initial Management", order: 1 },
+      ],
+      { title: "Asthma I: Recognition & Initial Management", order: 1 }
+    );
+    expect(picked?.id).toBe(6);
+  });
+
   it("recognises governance quiz titles", () => {
     expect(examKindFromQuizTitle("Diagnostic baseline")).toBe("diagnostic");
     expect(examKindFromQuizTitle("Summative knowledge check")).toBe("summative");
@@ -62,6 +75,49 @@ describe("microcourse-exam-gate helpers", () => {
       ],
     });
     expect(completed).toBe(false);
+  });
+
+  it("resolveFellowshipCourseId prefers exact title before order duplicate", async () => {
+    let findCall = 0;
+    const db = {
+      query: {
+        courses: {
+          findFirst: async () => {
+            findCall++;
+            if (findCall === 1) return { id: 6 };
+            return undefined;
+          },
+        },
+      },
+    };
+    const id = await resolveFellowshipCourseId(db as never, {
+      title: "Paediatric Asthma: Foundational",
+      order: 1,
+    });
+    expect(id).toBe(6);
+    expect(findCall).toBe(1);
+  });
+
+  it("resolveFellowshipCourseId falls back to order when title misses", async () => {
+    let findCall = 0;
+    const db = {
+      query: {
+        courses: {
+          findFirst: async () => {
+            findCall++;
+            if (findCall === 1) return undefined;
+            if (findCall === 2) return { id: 12 };
+            return undefined;
+          },
+        },
+      },
+    };
+    const id = await resolveFellowshipCourseId(db as never, {
+      title: "DKA: Foundational",
+      order: 3,
+    });
+    expect(id).toBe(12);
+    expect(findCall).toBe(2);
   });
 
   it("assertMicrocourseCompletionAllowed fails closed when exam state is unavailable", async () => {

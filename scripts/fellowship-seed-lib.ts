@@ -15,7 +15,8 @@ import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summa
 import { splitModuleHtmlIntoSections } from "../shared/split-module-html-sections";
 import { getDb } from "../server/db";
 import { courses, modules, moduleSections, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
-import { eq, and, desc, like, or, inArray } from "drizzle-orm";
+import { fellowshipTitlePrefix } from "../shared/resolve-fellowship-course";
+import { eq, and, desc, inArray, like } from "drizzle-orm";
 
 import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
 import { microCoursesBatch3To5 } from "../server/data/micro-courses-batch-3-5";
@@ -146,6 +147,44 @@ export function parseSeedCliArgs(argv: string[]): { onlySlugs?: Set<string>; bat
   return { onlySlugs, batch };
 }
 
+type SeedDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+/** Exact catalog title first, then order — avoids stale duplicate `courses` rows. */
+export async function resolveFellowshipCourseRowForSeed(
+  db: SeedDb,
+  catalog: { title: string; order: number | null }
+): Promise<(typeof courses.$inferSelect) | undefined> {
+  const [byTitle] = await db
+    .select()
+    .from(courses)
+    .where(and(eq(courses.programType, "fellowship"), eq(courses.title, catalog.title)))
+    .limit(1);
+  if (byTitle) return byTitle;
+
+  if (catalog.order != null) {
+    const [byOrder] = await db
+      .select()
+      .from(courses)
+      .where(and(eq(courses.programType, "fellowship"), eq(courses.order, catalog.order)))
+      .limit(1);
+    if (byOrder) return byOrder;
+  }
+
+  const titlePrefix = fellowshipTitlePrefix(catalog.title);
+  if (titlePrefix) {
+    const [byPrefix] = await db
+      .select()
+      .from(courses)
+      .where(
+        and(eq(courses.programType, "fellowship"), like(courses.title, `%${titlePrefix}%`))
+      )
+      .limit(1);
+    if (byPrefix) return byPrefix;
+  }
+
+  return undefined;
+}
+
 /** Replace legacy moduleSections so the player shows seeded modules.content (not stale rows). */
 async function syncModuleSectionsFromHtml(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -210,17 +249,10 @@ export async function seedFellowshipContent(options: {
 
     let targetCourseId: number;
 
-    const titlePrefix = courseRow.title.split(":")[0]!.trim();
-    const [existingCourse] = await db
-      .select()
-      .from(courses)
-      .where(
-        and(
-          eq(courses.programType, "fellowship"),
-          or(like(courses.title, `%${titlePrefix}%`), eq(courses.order, courseRow.order))
-        )
-      )
-      .limit(1);
+    const existingCourse = await resolveFellowshipCourseRowForSeed(db, {
+      title: courseRow.title,
+      order: courseRow.order,
+    });
 
     const mappedLevel = courseData.level === "foundational" ? "beginner" : courseData.level;
 
