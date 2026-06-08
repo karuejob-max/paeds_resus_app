@@ -249,16 +249,4 @@ export const ACLS_SUMMATIVE_QUESTIONS: AhaSummativeQuestionSeed[] = [
     explanation:
       "Fibrinolysis within 30 minutes (door-to-needle) when PCI cannot occur within 120 minutes.",
   },
-  {
-    question: "The ACLS systematic approach prioritizes:",
-    options: [
-      "Medications before airway",
-      "Primary survey: airway, breathing, circulation, differential diagnosis",
-      "Immediate discharge planning",
-      "Laboratory tests before any intervention",
-    ],
-    correctAnswer: 1,
-    explanation:
-      "Systematic assessment and simultaneous treatment of life threats guide ACLS management.",
-  },
 ];

@@ -269,16 +269,4 @@ export const BLS_SUMMATIVE_QUESTIONS: AhaSummativeQuestionSeed[] = [
     explanation:
       "Adult BLS uses 30:2 regardless of number of rescuers when no advanced airway is in place.",
   },
-  {
-    question: "The primary goal of high-quality CPR is to:",
-    options: [
-      "Achieve immediate ROSC on first cycle",
-      "Generate adequate coronary and cerebral perfusion",
-      "Maximize ventilation rate above 30/min",
-      "Avoid all chest recoil for stability",
-    ],
-    correctAnswer: 1,
-    explanation:
-      "Quality compressions with adequate rate, depth, and minimal interruptions sustain perfusion during arrest.",
-  },
 ];
