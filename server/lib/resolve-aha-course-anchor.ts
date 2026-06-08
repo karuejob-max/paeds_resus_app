@@ -30,7 +30,7 @@ export async function ensureAhaProgramCatalog(
   }
 }
 
-const ANCHOR_CACHE_TTL_MS = 5 * 60 * 1000;
+const ANCHOR_CACHE_TTL_MS = 60 * 60 * 1000; // Increase to 1 hour
 const anchorCache = new Map<
   AhaAnchorProgramType,
   { anchor: (typeof courses.$inferSelect) | null; expiresAt: number }
@@ -39,20 +39,24 @@ const anchorCache = new Map<
 /** Cached wrapper — catalog anchors change rarely; avoids repeat ensure + module counts per request. */
 export async function resolveAhaCourseAnchorCached(
   db: any,
-  programType: AhaAnchorProgramType
+  programType: AhaAnchorProgramType,
+  options: { skipEnsure?: boolean } = { skipEnsure: true }
 ): Promise<(typeof courses.$inferSelect) | null> {
   const hit = anchorCache.get(programType);
-  if (hit && hit.expiresAt > Date.now()) return hit.anchor;
-  const anchor = await resolveAhaCourseAnchor(db, programType);
+  if (hit && hit.expiresAt > Date.now() && options.skipEnsure !== false) return hit.anchor;
+  const anchor = await resolveAhaCourseAnchor(db, programType, options);
   anchorCache.set(programType, { anchor, expiresAt: Date.now() + ANCHOR_CACHE_TTL_MS });
   return anchor;
 }
 
 export async function resolveAhaCourseAnchor(
   db: any,
-  programType: AhaAnchorProgramType
+  programType: AhaAnchorProgramType,
+  options: { skipEnsure?: boolean } = { skipEnsure: true }
 ): Promise<(typeof courses.$inferSelect) | null> {
-  await ensureAhaProgramCatalog(db, programType);
+  if (options.skipEnsure === false) {
+    await ensureAhaProgramCatalog(db, programType);
+  }
 
   const palsFilter =
     programType === "pals"
@@ -97,7 +101,9 @@ export async function resolveAhaCourseAnchor(
     }
   }
 
-  await ensureAhaDiagnosticQuiz(db, best.id, programType);
-  await ensureAhaSummativeQuiz(db, best.id, programType);
+  if (!options.skipEnsure) {
+    await ensureAhaDiagnosticQuiz(db, best.id, programType);
+    await ensureAhaSummativeQuiz(db, best.id, programType);
+  }
   return best;
 }

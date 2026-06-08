@@ -25,6 +25,7 @@ const SEED_STEPS = [
   { label: "batch trauma", npmScript: "seed:fellowship-content:trauma" },
   { label: "batch metabolic", npmScript: "seed:fellowship-content:metabolic" },
   { label: "seriously-ill-child", npmScript: "seed:seriously-ill-child-course" },
+  { label: "aha-courses", npmScript: "seed:aha-courses" },
 ];
 
 const VERIFY_STEP = {

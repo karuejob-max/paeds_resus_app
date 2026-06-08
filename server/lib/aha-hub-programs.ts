@@ -13,18 +13,21 @@ const HUB_PROGRAM_ORDER: readonly AhaAnchorProgramType[] = [
 ] as const;
 
 export async function fetchAhaHubPrograms(
-  database: NonNullable<Awaited<ReturnType<typeof import("../db").getDb>>>
+  database: NonNullable<Awaited<ReturnType<typeof import("../db").getDb>>>,
+  options: { skipEnsure?: boolean } = { skipEnsure: true }
 ): Promise<(typeof courses.$inferSelect)[]> {
+  // Parallel fetch using the cached resolver
   const resolved = await Promise.all(
     HUB_PROGRAM_ORDER.map(async (pt) => {
       try {
-        return await resolveAhaCourseAnchorCached(database, pt);
+        return await resolveAhaCourseAnchorCached(database, pt, options);
       } catch (programErr) {
         console.warn(`[aha-hub-programs] skipping ${pt}:`, programErr);
         return null;
       }
     })
   );
+
   return resolved.filter(
     (anchor): anchor is NonNullable<Awaited<ReturnType<typeof resolveAhaCourseAnchorCached>>> =>
       anchor != null
