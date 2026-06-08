@@ -56,7 +56,10 @@ describe("AHA course metadata (CEO durations)", () => {
     expect(formatCognitiveCourseworkDuration("bls")).toBe("~1.5 hours online");
     expect(formatCognitiveCourseworkDuration("pals")).toBe("~10 hours online");
     expect(formatCognitiveCourseworkDurationLabel("acls")).toBe(
-      "Cognitive coursework: ~3.5 hours online"
+      "Cognitive coursework: 6 modules • ~3.5 hours online"
+    );
+    expect(formatCognitiveCourseworkDurationLabel("pals")).toBe(
+      "Cognitive coursework: 10 modules • ~10 hours online"
     );
   });
 
@@ -72,7 +75,7 @@ describe("AHA course metadata (CEO durations)", () => {
         /^Total time \(AHA recommendation\): \d/
       );
       expect(formatCognitiveCourseworkDurationLabel(programType)).toMatch(
-        /^Cognitive coursework: ~/
+        /^Cognitive coursework: \d+ modules • ~/
       );
     }
   });
