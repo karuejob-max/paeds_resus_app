@@ -2,7 +2,7 @@
  * Idempotent: ensures Heartsaver course catalog exists with modules, sections,
  * and knowledge-check quizzes aligned to AHA Heartsaver CPR AED 2025 guideline updates.
  */
-import { asc, desc, eq, and } from "drizzle-orm";
+import { asc, desc, eq, and, gt } from "drizzle-orm";
 import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
 import { HEARTSAVER_MODULES, type HeartsaverModuleDef } from "./heartsaver-modules-data";
 
