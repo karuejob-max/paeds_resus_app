@@ -126,13 +126,8 @@ export default function MicroCoursePlayerDB() {
     try { localStorage.setItem(progressKey + '-capstone-in-progress', String(capstoneInProgress)); } catch {}
   }, [capstoneInProgress, progressKey]);
 
-  // Restore capstone state on mount — if capstone was in progress, show it immediately
-  useEffect(() => {
-    const savedCapstoneState = localStorage.getItem(progressKey + '-capstone-in-progress') === 'true';
-    if (savedCapstoneState) {
-      setShowCapstoneSim(true);
-    }
-  }, []);
+  // Capstone should not be auto-restored on mount to avoid trapping the user.
+  // It will be triggered manually when reaching the end of modules.
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -709,22 +704,18 @@ export default function MicroCoursePlayerDB() {
       window.scrollTo(0, 0);
     } else {
       // All cognitive modules finished
+      // If PALS, show Capstone as the next step after the last module
       if (isPals && !examState?.capstonePassed) {
-        // Step 10: Practical Exam (Simulation)
-        setCurrentModuleIndex(9);
         setShowCapstoneSim(true);
-        localStorage.setItem(`capstone-in-progress-${slug}`, "true");
         window.scrollTo(0, 0);
-        return;
+      } else {
+        // Otherwise go straight to Summative Exam
+        setShowSummativeExam(true);
+        setQuizAnswers({});
+        setQuizSubmitted(false);
+        setQuizScore(null);
+        window.scrollTo(0, 0);
       }
-      
-      // Step 11: Summative Exam
-      setShowSummativeExam(true);
-      setCurrentModuleIndex(isPals ? 10 : totalModules - 1);
-      setQuizAnswers({});
-      setQuizSubmitted(false);
-      setQuizScore(null);
-      window.scrollTo(0, 0);
     }
   };
 
