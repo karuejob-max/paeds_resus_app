@@ -1,7 +1,8 @@
 /**
- * Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
- * Shared by seed-heartsaver.ts and runtime ensure-heartsaver-catalog.
+ * Exhaustive Heartsaver module catalog — AHA Heartsaver CPR AED with 2025 guideline updates.
+ * This course contains all original content plus new First Aid, Epi-pen, and Bleeding Control modules.
  */
+
 export interface HeartsaverModuleDef {
   order: number;
   title: string;
@@ -31,7 +32,7 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     order: 1,
     title: "Module 1: Foundations & The Unified Chain of Survival",
     description: "Introduction to the 2025 Unified Chain of Survival and safety.",
-    duration: 15,
+    duration: 20,
     content: "The first step in saving a life is recognising that someone needs help and calling for emergency services immediately.",
     sections: [
       {
@@ -40,13 +41,19 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
         content: `<h2>One Chain for Everyone</h2>
 <p>The 2025 Guidelines unify the Chain of Survival. Whether at home, in a mall, or in a hospital, the steps to save a life are the same.</p>
 <ol>
-  <li><strong>Activation:</strong> Call for help (911).</li>
-  <li><strong>CPR:</strong> Start chest compressions.</li>
-  <li><strong>AED:</strong> Use a defibrillator.</li>
-  <li><strong>Advanced Care:</strong> Professional medical help.</li>
-  <li><strong>Post-Arrest Care:</strong> Hospital recovery.</li>
-  <li><strong>Recovery:</strong> Long-term support.</li>
+  <li><strong>Activation:</strong> Recognition and immediate call for help (911/Emergency Response).</li>
+  <li><strong>High-Quality CPR:</strong> Early chest compressions to maintain vital organ perfusion.</li>
+  <li><strong>Rapid Defibrillation:</strong> Early use of AED or manual defibrillator.</li>
+  <li><strong>Advanced Resuscitation:</strong> High-performance team interventions and medications.</li>
+  <li><strong>Post-Cardiac Arrest Care (PCAC):</strong> Integrated hospital care focusing on neuro-protection.</li>
+  <li><strong>Recovery:</strong> Long-term rehabilitation and support.</li>
 </ol>`,
+      },
+      {
+        order: 2,
+        title: "Personal Safety & Scene Assessment",
+        content: `<h2>Safety First</h2>
+<p>Ensure the scene is safe for you and the victim before approaching. Check for traffic, fire, or environmental hazards.</p>`,
       }
     ],
     quiz: {
@@ -55,10 +62,10 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
       questions: [
         {
           order: 1,
-          questionText: "What is the first link in the Unified Chain of Survival?",
-          options: JSON.stringify(["Start CPR", "Call for help (911)", "Use an AED", "Go to the hospital"]),
-          correctAnswer: "Call for help (911)",
-          explanation: "Early activation of the emergency response system is the critical first step.",
+          questionText: "What is the first link in the Unified 2025 Chain of Survival?",
+          options: JSON.stringify(["Start CPR", "Call for help / Activation", "Use an AED", "Go to the hospital"]),
+          correctAnswer: "Call for help / Activation",
+          explanation: "Early activation of the emergency response system is the critical first step in the unified chain.",
         }
       ],
     },
@@ -67,8 +74,8 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     order: 2,
     title: "Module 2: Adult CPR & AED Use",
     description: "Hands-only and 30:2 CPR for adults.",
-    duration: 30,
-    content: "How to perform CPR and use an AED on an adult.",
+    duration: 40,
+    content: "Comprehensive guide to adult resuscitation and AED operation.",
     sections: [
       {
         order: 1,
@@ -77,8 +84,21 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
 <p>If you see an adult collapse, call 911 and push hard and fast in the center of the chest.</p>
 <ul>
   <li>Rate: 100-120 beats per minute.</li>
-  <li>Depth: At least 2 inches.</li>
+  <li>Depth: At least 2 inches (5 cm).</li>
+  <li>Allow full chest recoil between compressions.</li>
 </ul>`,
+      },
+      {
+        order: 2,
+        title: "Using an AED",
+        content: `<h2>AED Operation</h2>
+<ol>
+  <li>Turn on the AED and follow the voice prompts.</li>
+  <li>Attach pads to the victim's bare chest.</li>
+  <li>Stay clear while the AED analyzes the rhythm.</li>
+  <li>If a shock is advised, ensure everyone is clear and press the shock button.</li>
+  <li>Immediately resume CPR starting with chest compressions.</li>
+</ol>`,
       }
     ],
     quiz: {
@@ -97,24 +117,30 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
   },
   {
     order: 3,
-    title: "Module 3: Choking Relief (Adult, Child, Infant)",
-    description: "2025 Guidelines for choking management.",
-    duration: 20,
-    content: "Steps to help a choking victim.",
+    title: "Module 3: Infant & Child CPR",
+    description: "Specific techniques for pediatric resuscitation.",
+    duration: 40,
+    content: "How to perform high-quality CPR on infants and children.",
     sections: [
       {
         order: 1,
-        title: "The 5 and 5 Approach",
-        content: `<h2>5 Back Blows, 5 Thrusts</h2>
-<p>For a choking victim who cannot breathe or cough:</p>
-<ol>
-  <li>Give 5 firm back blows between the shoulder blades.</li>
-  <li>Give 5 abdominal thrusts (Heimlich maneuver).</li>
-  <li>Repeat until the object comes out or the victim passes out.</li>
-</ol>
-<div class="warning-note">
-  If the victim passes out, start CPR immediately.
-</div>`,
+        title: "Child CPR",
+        content: `<h2>Child CPR (1 Year to Puberty)</h2>
+<ul>
+  <li>Compression depth: About 2 inches (1/3 depth of chest).</li>
+  <li>Ratio: 30 compressions to 2 breaths.</li>
+  <li>Use 1 or 2 hands depending on the size of the child.</li>
+</ul>`,
+      },
+      {
+        order: 2,
+        title: "Infant CPR",
+        content: `<h2>Infant CPR (Under 1 Year)</h2>
+<ul>
+  <li>Compression depth: About 1.5 inches (1/3 depth of chest).</li>
+  <li>Technique: 2 fingers in the center of the chest, just below the nipple line.</li>
+  <li>Ratio: 30 compressions to 2 breaths.</li>
+</ul>`,
       }
     ],
     quiz: {
@@ -123,8 +149,44 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
       questions: [
         {
           order: 1,
-          questionText: "What is the correct sequence for a choking victim?",
-          options: JSON.stringify(["10 back blows", "10 abdominal thrusts", "5 back blows and 5 abdominal thrusts", "Just wait for help"]),
+          questionText: "What is the correct compression depth for an infant?",
+          options: JSON.stringify(["About 1 inch", "About 1.5 inches", "At least 2 inches", "2.4 inches"]),
+          correctAnswer: "About 1.5 inches",
+          explanation: "For infants, compress to a depth of approximately 1.5 inches (1/3 the depth of the chest).",
+        }
+      ],
+    },
+  },
+  {
+    order: 4,
+    title: "Module 4: Choking Relief (Adult, Child, Infant)",
+    description: "2025 Guidelines for choking management using the 5 and 5 approach.",
+    duration: 30,
+    content: "Steps to help a choking victim of any age.",
+    sections: [
+      {
+        order: 1,
+        title: "The 5 and 5 Approach",
+        content: `<h2>5 Back Blows, 5 Thrusts</h2>
+<p>The 2025 Guidelines emphasize the 5 and 5 approach for choking victims who cannot breathe or cough:</p>
+<ol>
+  <li>Give 5 firm back blows between the shoulder blades.</li>
+  <li>Give 5 abdominal thrusts (Heimlich maneuver).</li>
+  <li>Repeat until the object comes out or the victim passes out.</li>
+</ol>
+<div class="warning-note">
+  <strong>Infants:</strong> Use 5 back blows and 5 <strong>chest thrusts</strong> (not abdominal thrusts).
+</div>`,
+      }
+    ],
+    quiz: {
+      title: "Module 4 Quiz",
+      passingScore: 100,
+      questions: [
+        {
+          order: 1,
+          questionText: "What is the correct sequence for a choking victim according to 2025 guidelines?",
+          options: JSON.stringify(["10 abdominal thrusts", "5 back blows and 5 abdominal thrusts", "Just start CPR", "Wait for the victim to pass out"]),
           correctAnswer: "5 back blows and 5 abdominal thrusts",
           explanation: "The 2025 guidelines emphasize the combination of 5 back blows followed by 5 abdominal thrusts.",
         }
@@ -132,14 +194,25 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     },
   },
   {
-    order: 4,
-    title: "Module 4: First Aid - Epi-pen & Allergic Reactions",
+    order: 5,
+    title: "Module 5: First Aid - Epi-pen & Allergic Reactions",
     description: "Recognizing and treating severe allergies.",
-    duration: 20,
-    content: "How to use an epinephrine auto-injector.",
+    duration: 30,
+    content: "How to use an epinephrine auto-injector safely.",
     sections: [
       {
         order: 1,
+        title: "Recognizing Anaphylaxis",
+        content: `<h2>Signs of Severe Allergy</h2>
+<ul>
+  <li>Swelling of the lips, tongue, or throat.</li>
+  <li>Difficulty breathing or wheezing.</li>
+  <li>Hives, itching, or flushed skin.</li>
+  <li>Rapid pulse or dizziness.</li>
+</ul>`,
+      },
+      {
+        order: 2,
         title: "Using an Epi-pen",
         content: `<h2>Blue to the Sky, Orange to the Thigh</h2>
 <ol>
@@ -151,13 +224,13 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
       }
     ],
     quiz: {
-      title: "Module 4 Quiz",
+      title: "Module 5 Quiz",
       passingScore: 100,
       questions: [
         {
           order: 1,
-          questionText: "Where should you inject an Epi-pen?",
-          options: JSON.stringify(["The arm", "The stomach", "The outer thigh", "The buttocks"]),
+          questionText: "Where is the preferred site for an epinephrine injection?",
+          options: JSON.stringify(["The arm", "The outer thigh", "The stomach", "The buttocks"]),
           correctAnswer: "The outer thigh",
           explanation: "The outer thigh is the safest and most effective place for an epinephrine injection.",
         }
@@ -165,21 +238,27 @@ export const HEARTSAVER_MODULES: HeartsaverModuleDef[] = [
     },
   },
   {
-    order: 5,
-    title: "Module 5: First Aid - Bleeding Control",
+    order: 6,
+    title: "Module 6: First Aid - Bleeding Control",
     description: "Stopping life-threatening bleeding.",
-    duration: 20,
-    content: "Pressure and bandaging techniques.",
+    duration: 30,
+    content: "Pressure and bandaging techniques to stop the bleed.",
     sections: [
       {
         order: 1,
         title: "Direct Pressure",
         content: `<h2>Stop the Bleed</h2>
 <p>Apply firm, direct pressure on the wound with a clean cloth or gauze. If the bleeding doesn't stop, apply more pressure. Do not remove the first cloth.</p>`,
+      },
+      {
+        order: 2,
+        title: "Using a Tourniquet",
+        content: `<h2>Life-Threatening Bleeding</h2>
+<p>If direct pressure does not stop life-threatening bleeding from an arm or leg, use a tourniquet. Place it 2-3 inches above the wound (not on a joint) and tighten until the bleeding stops.</p>`,
       }
     ],
     quiz: {
-      title: "Module 5 Quiz",
+      title: "Module 6 Quiz",
       passingScore: 100,
       questions: [
         {
