@@ -78,6 +78,9 @@ function buildDbMock(progressRows: Record<string, unknown>[]) {
         if (table === schema.modules) {
           return mockChain([{ id: 1, order: 1 }]);
         }
+        if (table === schema.courses) {
+          return mockChain([{ id: 1, courseId: "asthma-i" }]);
+        }
         return mockChain([]);
       }),
     })),

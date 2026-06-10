@@ -55,6 +55,7 @@ export type MicrocourseExamState = {
   capstoneRequired: boolean;
   capstonePassed: boolean;
   fellowshipSimPassed: boolean;
+  lastSummativeAttempt: Date | null;
 };
 
 export function isDiagnosticProgressComplete(progress: {
@@ -174,6 +175,7 @@ export async function getMicrocourseExamState(
       capstoneRequired: false,
       capstonePassed: true,
       fellowshipSimPassed: false,
+      lastSummativeAttempt: null,
     };
   }
 
@@ -274,6 +276,7 @@ export async function getMicrocourseExamState(
     capstoneRequired: false,
     capstonePassed: true,
     fellowshipSimPassed,
+    lastSummativeAttempt: lastAttemptAt,
   };
 }
 
@@ -474,6 +477,7 @@ export async function getAhaCourseExamState(
       ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 50 && p.moduleId === -1)
       : true,
     fellowshipSimPassed: false,
+    lastSummativeAttempt: lastAttemptAt,
   };
 }
 
