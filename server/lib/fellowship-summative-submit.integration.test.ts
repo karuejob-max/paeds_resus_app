@@ -5,7 +5,8 @@ import { appRouter } from "../routers";
 import { getDb } from "../db";
 import { MICROCOURSE_SUMMATIVE_QUIZ_TITLE } from "../../shared/microcourse-exam-policy";
 import * as examGate from "./microcourse-exam-gate";
-import { quizzes, userProgress } from "../../drizzle/schema";
+import * as schema from "../../drizzle/schema";
+const { quizzes, userProgress } = schema;
 
 vi.mock("../db", () => ({
   getDb: vi.fn(),
@@ -74,7 +75,7 @@ function buildDbMock(progressRows: Record<string, unknown>[]) {
         if (table === userProgress) {
           return mockChain(progressRows);
         }
-        if (table === modules) {
+        if (table === schema.modules) {
           return mockChain([{ id: 1, order: 1 }]);
         }
         return mockChain([]);
