@@ -14,6 +14,8 @@
 
 ---
 
+| 2026-06-10 | Manus | **Fellowship Microcourse Simulations & AHA 2025 Guidelines:** Implemented clinical simulations for all 29 fellowship microcourses following the systematic approach. Updated BLS diagnostic question 12 to align with 2025 AHA choking guidelines (back blows first). Added Heartsaver and BLS course seeding logic. Fixed fellowship simulation gating logic in `microcourse-exam-gate.ts`. Integrated `FellowshipSimulation.tsx` into `MicroCoursePlayerDB`. **Definition of Done:** All 29 simulations authored, database schema updated, seeding verified locally, PR created. **CEO sign-off: pending merge and production seed.** | PR [#231](https://github.com/karuejob-max/paeds_resus_app/pull/231) · Pending Merge | `pnpm run seed:fellowship-content:all` passed |
+
 | 2026-06-10 | Cursor | **Remove Course synthesis exam prefixes (global):** Stripped user-facing meta hints (`Course synthesis (Module N)`, `select the answer taught in this course`) from **239** fellowship P2 summative stems; clinical rephrase via `rephraseFormativeStemForSummative` / `stripExamMetaHints`; fixed `emit-module-native-p2.ts` generator; strict audit gate for forbidden meta hints. Hand-maintained asthma-i/ii + meningitis-i disjoint stems. AHA courses: no synthesis found in seed. **Prod seed post-deploy:** `pnpm run seed:fellowship-content:all` (AHA reseed not required). Verified: `check`, `audit:fellowship-assessments:strict` summFormOverlap=0, `audit:fellowship-bank-size` 0 failures, unit tests **20 pass** on exam policy. | PR [#232](https://github.com/karuejob-max/paeds_resus_app/pull/232) · merge pending |
 
 | 2026-06-10 | Cursor | **ResusGPS zero-ambiguity clinical UX (CEO mandate):** Phase order fixed — SAMPLE + structured symptoms → diagnostic evidence → diagnosis → definitive care. `shared/clinical-evidence.ts`, `fellowship-clinical-rigor.ts` (all 15 conditions, DKA gold), `secondary-survey-gating.ts`, `StructuredClinicalEvidencePanel`. Fluid bolus reassessment (overload + perfusion per sign). Vitals abnormal highlight during input (glucose, SpO₂, temp). No bulk skip on definitive care. PSOT §13.1 + AGENTS.md updated. **CEO sign-off: pending** clinical review. | PR pending · merge pending |
@@ -43,16 +45,3 @@
 | 2026-06-06 | Cursor | **Care Signal provider submit fix:** Gate on `userType` (individual/institutional), not optional `providerType`; `CareSignalAudienceGate` for parents → Safe-Truth; regression tests for `logEvent`. Verified: CI gate, `care-signal-log-event-access.test`. | PR [#169](https://github.com/karuejob-max/paeds_resus_app/pull/169) · merge `671f22c` |
 | 2026-06-06 | Cursor | **Global platform search (Ctrl+K):** Header search icon + command palette; role-aware index (courses, fellowship, ResusGPS, legal, admin); shared `micro-course-catalog` for client indexing; analytics `global_search_navigate`. Verified: CI gate, `platform-search-index.test`. | PR [#168](https://github.com/karuejob-max/paeds_resus_app/pull/168) · merge `4fdd742` |
 | 2026-06-06 | Cursor | **Platform feedback tickets (0048):** Unified `platformFeedbackTickets` + `feedback.submit` / `adminFeedback.*`; `FeedbackDialog` on header, players, ResusGPS, Care Signal, fellowship; `/feedback`, `/admin/feedback`; `reportUnsafeContent` auto-creates safety ticket; agent export via `export:feedback-tickets` + `docs/FEEDBACK_TICKET_WORKFLOW.md`. Verified: `check`, `test:unit` (platform-feedback), CI gate. Post-merge: `pnpm run db:apply-0048`. | PR [#172](https://github.com/karuejob-max/paeds_resus_app/pull/172) · merge `66455a9` |
-
-| 2026-06-03 | Cursor | **AHA diagnostic + admin summative reset (additive):** Diagnostic baseline on module 1 for BLS/ACLS/PALS/NRP/Heartsaver (`ensure-aha-diagnostic-quiz`, `seed:aha-diagnostic`); `getAhaCourseExamState` + player gate; `adminLearning.resetSummativeAttempts` + Admin Reports ledger button; exam policy updated. **Preserved:** PALS 2025 modules/summative/hypoglycemia (`ensure-pals-2025-content` untouched). Verified: `check`, `test:unit`, `build`, CI gate. | PR [#164](https://github.com/karuejob-max/paeds_resus_app/pull/164) · `e0b600b` |
-
-## Current priorities (from CEO)
-
-| 2026-06-01 | Manus | **PALS 2025 Course & End-to-End Mandate:** Comprehensive AHA PALS 2025 update (Course ID 40) seeded to production; `AGENTS.md` updated with end-to-end execution mandate (seeding confirmation required). | PR #131, #132 |
-| 2026-05-29 | Cursor | **Google Ads payment success page:** `/payment/success` thank-you route with server-paid validation, M-Pesa redirect from `Payment.tsx`, `payment_success_page_view` + chained `payment_completed_redirect`, `noindex` meta, PSOT §23 + SEO docs. Branch `feat/payment-success-page`. | PR TBD |
-
-
-1. Analytics instrumentation (ResusGPS and others to analyticsEvents; admin reports show real activity)
-2. Staging (develop to staging, main to production)
-3. Security baseline (password, session, audit logging)
-4. ResusGPS v4 (undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale)

@@ -21,6 +21,7 @@ import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
+import { FellowshipSimulation } from "@/components/FellowshipSimulation";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import {
   examKindFromQuizTitle,
@@ -87,6 +88,7 @@ export default function MicroCoursePlayerDB() {
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false);
   const [showSummativeExam, setShowSummativeExam] = useState(false);
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
+  const [showFellowshipSim, setShowFellowshipSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
   
   // Persistence for capstone
@@ -496,41 +498,14 @@ export default function MicroCoursePlayerDB() {
   // AHA-ENROLL-1: Upsert enrollment row before first quiz submit
   const ensureAhaEnrollmentMutation = trpc.courses.ensureAhaEnrollment.useMutation();
 
-  const applyQuizAttemptResult = (result: {
-    success: boolean;
-    score: number;
-    passed: boolean;
-    passingScore: number;
-    alreadyCompleted?: boolean;
-    examKind?: string;
-    idempotentReplay?: boolean;
-    questionResults?: Array<{
-      questionId: number;
-      correct: boolean;
-      correctOption: string;
-    }>;
-  }) => {
-    if (!result.success) {
-      toast.error("Could not save your quiz attempt. Please try again.");
-      return;
-    }
-    const resultsMap: Record<number, { correct: boolean; correctOption: string }> = {};
-    for (const r of result.questionResults ?? []) {
-      resultsMap[r.questionId] = { correct: r.correct, correctOption: r.correctOption };
-    }
-    setQuizQuestionResults(resultsMap);
-    setQuizScore(typeof result.score === "number" ? result.score : 0);
+  const applyQuizAttemptResult = (result: any) => {
+    // result is from trpc.learning.recordQuizAttempt
+    // The type is { score: number; passed: boolean; passingScore: number; correctAnswers: number; totalQuestions: number; }
+    setQuizScore(result.score);
     setQuizSubmitted(true);
     void utils.courses.getUserEnrollments.invalidate();
     void utils.learning.getMicroCourseExamState.invalidate();
-    if (result.examKind === "diagnostic" || showDiagnosticQuiz) {
-      if (result.alreadyCompleted) {
-        setShowDiagnosticQuiz(false);
-        resetQuizState();
-        toast.success("Diagnostic already complete — modules unlocked.");
-        return;
-      }
-    }
+
     if (result.passed) {
       toast.success(
         showSummativeExam
@@ -548,6 +523,15 @@ export default function MicroCoursePlayerDB() {
     onSuccess: applyQuizAttemptResult,
     onError: (err) => {
       toast.error(err.message || "Could not submit quiz. Please try again.");
+    },
+  });
+
+  const completeFellowshipSimulation = trpc.learning.completeFellowshipSimulation.useMutation({
+    onSuccess: () => {
+      void utils.learning.getMicroCourseExamState.invalidate();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Could not save simulation progress.");
     },
   });
 
@@ -630,10 +614,11 @@ export default function MicroCoursePlayerDB() {
   };
 
   const goToPreviousStep = (exitAtStart: boolean) => {
-    if (showCertificateReady || showSummativeExam || showCapstoneSim) {
+    if (showCertificateReady || showSummativeExam || showCapstoneSim || showFellowshipSim) {
       setShowCertificateReady(false);
       setShowSummativeExam(false);
       setShowCapstoneSim(false);
+      setShowFellowshipSim(false);
       setShowFormativeQuiz(false);
       resetQuizState();
       setCurrentModuleIndex(Math.max(0, modules.length - 1));
@@ -728,10 +713,17 @@ export default function MicroCoursePlayerDB() {
     } else {
       // All cognitive modules finished
       // Show Capstone as the next step after the last module for all AHA courses
-      if (isAhaCourse && (isPals || programType === "acls" || programType === "bls" || programType === "nrp" || programType === "heartsaver")) {
+      if (examState?.capstoneRequired && !examState.capstonePassed) {
         setShowCapstoneSim(true);
         setShowFormativeQuiz(false);
         setShowSummativeExam(false);
+        window.scrollTo(0, 0);
+      } else if (microCourseRow && !isAhaCourse && !examState?.fellowshipSimPassed) {
+        // For fellowship courses, show fellowship simulation after all modules
+        setShowFellowshipSim(true);
+        setShowFormativeQuiz(false);
+        setShowSummativeExam(false);
+        setShowCapstoneSim(false);
         window.scrollTo(0, 0);
       } else {
         // Otherwise go straight to Summative Exam
@@ -773,15 +765,11 @@ export default function MicroCoursePlayerDB() {
     const score = Math.round((correct / quiz.questions.length) * 100);
     submitQuizMutation.mutate({
       enrollmentId,
-      moduleId: moduleIdForQuiz,
       quizId: quiz.id,
-      score,
-      answers: Object.fromEntries(
-        quiz.questions.map((q: any, idx: number) => [
-          q.id,
-          quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
-        ])
-      ),
+      answers: quiz.questions.map((q: any, idx: number) => ({
+        questionId: q.id,
+        answer: quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
+      })),
     });
   };
 
@@ -1238,10 +1226,8 @@ export default function MicroCoursePlayerDB() {
               if (passed) {
                 submitQuizMutation.mutate({
                   enrollmentId: enrollment!.id,
-                  moduleId: -1,
                   quizId: -1,
-                  score,
-                  answers: { simReady: true },
+                  answers: [],
                 }, {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
@@ -1265,6 +1251,22 @@ export default function MicroCoursePlayerDB() {
               localStorage.removeItem(`capstone-in-progress-${slug}`);
               setCurrentModuleIndex(Math.max(0, modules.length - 1));
               setBackToLastSectionOfModule(true);
+            }}
+                              />
+        ) : showFellowshipSim && dbCourse && microCourseRow ? (
+          <FellowshipSimulation
+            courseId={microCourseRow.courseId}
+            level={microCourseRow.level as "foundational" | "advanced"}
+            onComplete={() => {
+              if (enrollment?.id && microCourseRow) {
+                completeFellowshipSimulation.mutate({
+                  enrollmentId: enrollment.id,
+                  courseId: microCourseRow.courseId,
+                  level: microCourseRow.level as any,
+                });
+              }
+              setShowFellowshipSim(false);
+              setShowSummativeExam(true);
             }}
           />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
@@ -1299,6 +1301,19 @@ export default function MicroCoursePlayerDB() {
               }
               if (showCapstoneSim) {
                 setShowCapstoneSim(false);
+                setShowSummativeExam(true);
+                resetQuizState();
+                return;
+              }
+              if (showFellowshipSim) {
+                if (enrollment?.id && microCourseRow) {
+                  completeFellowshipSimulation.mutate({
+                    enrollmentId: enrollment.id,
+                    courseId: microCourseRow.courseId,
+                    level: microCourseRow.level as any,
+                  });
+                }
+                setShowFellowshipSim(false);
                 setShowSummativeExam(true);
                 resetQuizState();
                 return;

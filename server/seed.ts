@@ -5,6 +5,8 @@
  *   pnpm run seed:pals
  */
 import { ensurePalsAhaCatalog } from "./lib/ensure-pals-aha-catalog";
+import { ensureHeartsaverAhaCatalog } from "./lib/ensure-heartsaver-aha-catalog";
+import { ensureBlsAhaCatalog } from "./lib/ensure-bls-aha-catalog";
 import { getDb } from "./db";
 
 const MAX_ATTEMPTS = Math.max(1, parseInt(process.env.SEED_MAX_RETRIES || "3", 10));
@@ -49,7 +51,7 @@ async function connectWithRetry() {
 }
 
 async function main() {
-  console.log("Starting PALS AHA catalog seed...");
+  console.log("Starting AHA catalog seed...");
 
   if (!process.env.DATABASE_URL) {
     console.error("CRITICAL: DATABASE_URL is not defined in the environment variables.");
@@ -62,6 +64,14 @@ async function main() {
   console.log("Seeding PALS AHA Catalog...");
   await ensurePalsAhaCatalog(db);
   console.log("PALS AHA Catalog seeded successfully.");
+
+  console.log("Seeding Heartsaver AHA Catalog...");
+  await ensureHeartsaverAhaCatalog(db);
+  console.log("Heartsaver AHA Catalog seeded successfully.");
+
+  console.log("Seeding BLS AHA Catalog...");
+  await ensureBlsAhaCatalog(db);
+  console.log("BLS AHA Catalog seeded successfully.");
 }
 
 main()

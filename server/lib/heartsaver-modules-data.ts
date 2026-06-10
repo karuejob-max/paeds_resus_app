@@ -249,34 +249,126 @@ export const HEARTSAVER_MODULES = [
   },
   {
     order: 5,
-    title: "Module 5: First Aid — Epi-pen & Bleeding Control",
-    description: "Essential first aid skills including anaphylaxis and stopping life-threatening bleeding.",
-    content: "Heartsaver includes life-saving first aid skills beyond CPR.",
-    duration: 30,
+    title: "Module 5: First Aid Foundations",
+    description: "Essential first aid skills: Scene safety, calling for help, and basic assessment.",
+    content: "First aid is the immediate care given to a person who has been injured or suddenly becomes ill.",
+    duration: 20,
     sections: [
       {
         order: 1,
-        title: "Anaphylaxis and Epi-pen",
-        content: `<h2>Using an Epi-pen</h2>
-<p>Inject into outer thigh, hold for 10 seconds, and call 911.</p>`
-      },
-      {
-        order: 2,
-        title: "Bleeding Control",
-        content: `<h2>Stop the Bleed</h2>
-<p>Apply firm direct pressure. Use a tourniquet for life-threatening limb bleeding.</p>`
+        title: "First Aid Basics",
+        content: `<h2>Your Role as a First Aid Provider</h2>
+<p>As a first aid provider, you are the first link in the Chain of Survival for non-cardiac emergencies.</p>
+<h3>Step-by-Step Action</h3>
+<ol>
+  <li><strong>Check the Scene:</strong> Is it safe for you and the victim?</li>
+  <li><strong>Call for Help:</strong> Activate the emergency response system.</li>
+  <li><strong>Check the Victim:</strong> Are they responsive? Are they breathing?</li>
+  <li><strong>Provide Care:</strong> Use your first aid skills until help arrives.</li>
+</ol>`
       }
     ],
     quiz: {
-      title: "Check: First Aid",
+      title: "Check: First Aid Basics",
       passingScore: 80,
       questions: [
         {
           order: 1,
-          questionText: "How long should you hold an Epi-pen in place?",
-          options: JSON.stringify(["1 second", "3 seconds", "10 seconds", "30 seconds"]),
-          correctAnswer: "10 seconds",
-          explanation: "Holding for 10 seconds ensures full medication delivery."
+          questionText: "What is the very first thing you should do when you find someone injured?",
+          options: JSON.stringify(["Call 911", "Check if the scene is safe", "Start CPR", "Give water"]),
+          correctAnswer: "Check if the scene is safe",
+          explanation: "Never put yourself in danger. Ensure the scene is safe before approaching."
+        }
+      ]
+    }
+  },
+  {
+    order: 6,
+    title: "Module 6: Allergic Reactions & Epi-pen",
+    description: "Recognizing and treating severe allergic reactions (Anaphylaxis).",
+    content: "Severe allergic reactions can be life-threatening and require immediate action.",
+    duration: 20,
+    sections: [
+      {
+        order: 1,
+        title: "Recognizing Anaphylaxis",
+        content: `<h2>Signs of a Severe Reaction</h2>
+<ul>
+  <li>Swelling of the tongue, throat, or face</li>
+  <li>Difficulty breathing or wheezing</li>
+  <li>Hives or widespread itching</li>
+  <li>Signs of shock (dizziness, fainting, pale skin)</li>
+</ul>`
+      },
+      {
+        order: 2,
+        title: "Using an Epi-pen",
+        content: `<h2>How to Use an Epinephrine Auto-injector</h2>
+<ol>
+  <li>Hold the pen firmly in your fist.</li>
+  <li>Remove the safety cap.</li>
+  <li>Press the tip firmly against the <strong>outer thigh</strong> (can be through clothes).</li>
+  <li>Listen for the "click" and <strong>hold for 10 seconds</strong>.</li>
+  <li>Remove the pen and rub the injection site for 10 seconds.</li>
+  <li>Call 911 immediately if not already done.</li>
+</ol>`
+      }
+    ],
+    quiz: {
+      title: "Check: Anaphylaxis",
+      passingScore: 80,
+      questions: [
+        {
+          order: 1,
+          questionText: "Where is the correct place to inject an Epi-pen?",
+          options: JSON.stringify(["The arm", "The stomach", "The outer thigh", "The chest"]),
+          correctAnswer: "The outer thigh",
+          explanation: "The outer thigh is the safest and most effective site for an epinephrine injection."
+        }
+      ]
+    }
+  },
+  {
+    order: 7,
+    title: "Module 7: Bleeding Control & Wounds",
+    description: "Stopping life-threatening bleeding and caring for common wounds.",
+    content: "Severe bleeding can lead to death within minutes. You must act fast.",
+    duration: 25,
+    sections: [
+      {
+        order: 1,
+        title: "Stopping Severe Bleeding",
+        content: `<h2>Direct Pressure</h2>
+<p>The most effective way to stop bleeding is firm, direct pressure.</p>
+<ol>
+  <li>Use a clean dressing (gauze) if available.</li>
+  <li>Press hard with both hands directly on the wound.</li>
+  <li>Do not remove the dressing if it becomes soaked; add more on top.</li>
+  <li>Keep pressure until help arrives.</li>
+</ol>`
+      },
+      {
+        order: 2,
+        title: "Using a Tourniquet",
+        content: `<h2>When Direct Pressure Fails</h2>
+<p>If bleeding from an arm or leg is life-threatening and cannot be stopped by direct pressure, use a tourniquet.</p>
+<ul>
+  <li>Place 2-3 inches above the wound (between the wound and the heart).</li>
+  <li>Tighten until the bleeding stops.</li>
+  <li>Note the time the tourniquet was applied.</li>
+</ul>`
+      }
+    ],
+    quiz: {
+      title: "Check: Bleeding Control",
+      passingScore: 80,
+      questions: [
+        {
+          order: 1,
+          questionText: "What should you do if blood soaks through your first gauze dressing?",
+          options: JSON.stringify(["Remove it and start over", "Wash the wound", "Add more gauze on top and keep pressing", "Apply a tourniquet immediately"]),
+          correctAnswer: "Add more gauze on top and keep pressing",
+          explanation: "Never remove the original dressing as it may disrupt a forming clot."
         }
       ]
     }

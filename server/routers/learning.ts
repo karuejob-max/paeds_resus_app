@@ -32,6 +32,7 @@ import {
 } from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
 import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
+import { fellowshipSimulations } from "../../drizzle/schema";
 import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
 import {
@@ -383,6 +384,28 @@ export const learningRouter = router({
       return getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
     }),
 
+  getFellowshipSimulation: protectedProcedure
+    .input(z.object({ courseId: z.string(), level: z.enum(["foundational", "advanced"]) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [simulation] = await db
+        .select()
+        .from(fellowshipSimulations)
+        .where(and(eq(fellowshipSimulations.courseId, input.courseId), eq(fellowshipSimulations.level, input.level)))
+        .limit(1);
+
+      if (!simulation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
+      }
+
+      return {
+        ...simulation,
+        scenarioData: JSON.parse(simulation.scenarioData as string),
+      };
+    }),
+
   getSummativeExamQuestions: protectedProcedure
     .input(
       z.object({
@@ -417,259 +440,126 @@ export const learningRouter = router({
       };
     }),
 
-  // Record quiz attempt
   recordQuizAttempt: protectedProcedure
     .input(
       z.object({
-        quizId: z.number(),
-        moduleId: z.number(),
         enrollmentId: z.number(),
-        score: z.number(),
-        answers: z.any(),
+        quizId: z.number(),
+        answers: z.array(
+          z.object({
+            questionId: z.number(),
+            answer: z.string(),
+          })
+        ),
+        shuffleSeed: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      let quizTitle: string | undefined;
-      let examKind: string | undefined;
-      let quizPassingScore: number | undefined;
-
-      if (input.quizId === -1 && input.moduleId === -1) {
-        quizTitle = "PALS Capstone Simulation";
-        examKind = "summative";
-        quizPassingScore = 80;
-      } else {
-        const quizMeta = await (db as any)
-          .select({ passingScore: quizzes.passingScore, title: quizzes.title })
-          .from(quizzes)
-          .where(eq(quizzes.id, input.quizId))
-          .limit(1);
-        quizTitle = quizMeta[0]?.title as string | undefined;
-        examKind = examKindFromQuizTitle(quizTitle);
-        quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
-      }
       const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
+      const state = isMicro
+        ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
+        : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
 
-      const existing = await (db as any)
-        .select()
-        .from(userProgress)
-        .where(
-          and(
-            eq(userProgress.userId, ctx.user.id),
-            eq(userProgress.enrollmentId, input.enrollmentId),
-            eq(userProgress.moduleId, input.moduleId),
-            eq(userProgress.quizId, input.quizId)
-          )
-        );
-
-      const existingRow = existing?.[0] as {
-        id: number;
-        score?: number | null;
-        attempts?: number;
-        completedAt?: Date | null;
-        updatedAt?: Date | null;
-      } | undefined;
-
-      if (examKind === "diagnostic") {
-        if (existingRow?.completedAt) {
-          scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
-          return {
-            success: true,
-            score: existingRow.score ?? input.score,
-            passed: true,
-            passingScore: 0,
-            examKind: "diagnostic" as const,
-            noRetake: true,
-            alreadyCompleted: true,
-          };
-        }
-        const now = new Date();
-        if (existingRow) {
-          await (db as any)
-            .update(userProgress)
-            .set({
-              score: input.score,
-              attempts: 1,
-              status: "completed",
-              completedAt: now,
-              updatedAt: now,
-            })
-            .where(eq(userProgress.id, existingRow.id));
-        } else {
-          await (db as any).insert(userProgress).values({
-            userId: ctx.user.id,
-            enrollmentId: input.enrollmentId,
-            moduleId: input.moduleId,
-            quizId: input.quizId,
-            score: input.score,
-            attempts: 1,
-            status: "completed",
-            completedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
-        return {
-          success: true,
-          score: input.score,
-          passed: true,
-          passingScore: 0,
-          examKind: "diagnostic" as const,
-          noRetake: true,
-        };
+      if (!state) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enrollment not found for quiz attempt" });
+      }
+      if (state.summativeQuizId && state.summativeQuizId !== input.quizId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid quiz for this course" });
       }
 
-      let passingScore = Math.min(100, Math.max(0, quizPassingScore ?? 70));
-      let score = input.score;
-      let questionResults: Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"] | undefined;
-      let progressRow = existingRow as typeof existingRow | undefined;
-
-      if (examKind === "summative") {
-        passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
-
-        if (progressRow && summativePassed(progressRow.score)) {
-          const graded = await computeQuizScoreFromDb(
-            db as any,
-            input.quizId,
-            input.answers as Record<string | number, string>
-          );
-          if (isMicro) {
-            scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
-          }
-          return {
-            success: true,
-            score: progressRow.score ?? graded.score,
-            passed: true,
-            passingScore,
-            examKind,
-            questionResults: graded.questionResults,
-            alreadyCompleted: true,
-          };
-        }
-
-        if (progressRow?.updatedAt && (progressRow.attempts ?? 0) > 0) {
-          const elapsed = Date.now() - new Date(progressRow.updatedAt).getTime();
-          if (elapsed < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
-            const graded = await computeQuizScoreFromDb(
-              db as any,
-              input.quizId,
-              input.answers as Record<string | number, string>
-            );
-            const replayScore = progressRow.score ?? graded.score;
-            return {
-              success: true,
-              score: replayScore,
-              passed: summativePassed(replayScore),
-              passingScore,
-              examKind,
-              questionResults: graded.questionResults,
-              idempotentReplay: true,
-            };
-          }
-        }
-
-        const retry = canAttemptSummative({
-          attempts: progressRow?.attempts ?? 0,
-          lastAttemptAt: progressRow?.updatedAt ?? progressRow?.completedAt ?? null,
-        });
-        if (!retry.allowed) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: formatSummativeForbiddenMessage({
-              attempts: progressRow?.attempts ?? 0,
-              blockKind: retry.blockKind,
-              retryAvailableAt: retry.retryAvailableAt ?? null,
-            }),
-          });
-        }
-        if (input.quizId === -1) {
-          score = input.score;
-          questionResults = [];
-        } else {
-          const graded = await computeQuizScoreFromDb(
-            db as any,
-            input.quizId,
-            input.answers as Record<string | number, string>
-          );
-          score = graded.score;
-          questionResults = graded.questionResults;
-        }
-      }
-
-      const passed = score >= passingScore;
-
-      if (!progressRow) {
-        const reread = await (db as any)
-          .select()
-          .from(userProgress)
-          .where(
-            and(
-              eq(userProgress.userId, ctx.user.id),
-              eq(userProgress.enrollmentId, input.enrollmentId),
-              eq(userProgress.moduleId, input.moduleId),
-              eq(userProgress.quizId, input.quizId)
-            )
-          );
-        progressRow = reread?.[0] as typeof progressRow;
-      }
-
-      if (progressRow) {
-        await (db as any)
-          .update(userProgress)
-          .set({
-            score,
-            attempts: (progressRow.attempts || 0) + 1,
-            status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : progressRow.completedAt,
-            updatedAt: new Date(),
-          })
-          .where(eq(userProgress.id, progressRow.id));
-      } else {
-        await (db as any).insert(userProgress).values({
-          userId: ctx.user.id,
-          enrollmentId: input.enrollmentId,
-          moduleId: input.moduleId,
-          quizId: input.quizId,
-          score,
-          attempts: 1,
-          status: passed ? "completed" : "in_progress",
-          completedAt: passed ? new Date() : null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+      const lastAttempt = state.lastSummativeAttempt;
+      if (lastAttempt && (Date.now() - new Date(lastAttempt).getTime()) < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: formatSummativeForbiddenMessage({
+            attempts: state.summativeAttempts,
+            maxAttempts: state.summativeMaxAttempts,
+            blockKind: state.summativeBlockKind as any,
+            retryAvailableAt: state.retryAvailableAt ? new Date(state.retryAvailableAt) : null,
+          }),
         });
       }
 
-      if (isMicro) {
-        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+      const answersMap: Record<number, string> = {};
+      for (const a of input.answers) {
+        answersMap[a.questionId] = a.answer;
       }
 
-      if (examKind === "summative") {
-        void trackEvent({
-          userId: ctx.user.id,
-          eventType: isMicro ? "micro_course" : "aha_course",
-          eventName: passed ? "Summative exam passed" : "Summative exam attempt",
-          pageUrl: isMicro ? "/micro-course" : "/course/pals",
-          eventData: {
-            quizId: input.quizId,
-            enrollmentId: input.enrollmentId,
-            score,
-            passed,
-            attemptNumber: (progressRow?.attempts ?? 0) + 1,
-          },
-        });
+      const { score, correctCount, totalQuestions, questionResults } = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+      const passed = summativePassed(score);
+
+      await (db as any).insert(userProgress).values({
+        userId: ctx.user.id,
+        enrollmentId: input.enrollmentId,
+        quizId: input.quizId,
+        score,
+        attempts: (state.summativeAttempts || 0) + 1,
+        status: passed ? "completed" : "failed",
+        completedAt: passed ? new Date() : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        moduleId: 0, // Micro-course summative is usually course-level, using 0 as placeholder if moduleId is not explicitly known
+      });
+
+      if (passed) {
+        await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
       }
+
+      scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
 
       return {
         success: true,
         score,
         passed,
-        passingScore,
-        examKind,
+        passingScore: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
+        correctAnswers: correctCount,
+        totalQuestions: totalQuestions,
         questionResults,
+        examKind: "summative" as const,
       };
+    }),
+
+  completeFellowshipSimulation: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number(),
+        courseId: z.string(),
+        level: z.enum(["foundational", "advanced"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Check if the simulation exists and is associated with the course/level
+      const [simulation] = await db
+        .select()
+        .from(fellowshipSimulations)
+        .where(and(eq(fellowshipSimulations.courseId, input.courseId), eq(fellowshipSimulations.level, input.level)))
+        .limit(1);
+
+      if (!simulation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
+      }
+
+      // Record completion in userProgress
+      await (db as any).insert(userProgress).values({
+        userId: ctx.user.id,
+        enrollmentId: input.enrollmentId,
+        fellowshipSimulationId: simulation.id,
+        status: "completed",
+        completedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        moduleId: 0, // Placeholder
+      });
+
+      scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+
+      return { success: true };
     }),
 
   // Get recommended courses based on performance
