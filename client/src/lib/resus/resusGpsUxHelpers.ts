@@ -296,19 +296,25 @@ export function getResusPhaseGuidance(session: ResusSession): { headline: string
     case 'ONGOING':
       if (!session.definitiveDiagnosis) {
         return {
-          headline: 'Set primary diagnosis — it drives fellowship credit',
-          detail: 'Co-diagnoses document complexity; primary maps to micro-course Pillar B',
+          headline: 'Set primary diagnosis — then complete definitive care',
+          detail: 'Co-diagnoses document complexity; fellowship credit follows definitive therapy',
         };
       }
-      if (session.phase === 'DEFINITIVE_CARE') {
+      if (session.definitiveCareProgress?.completedAt) {
         return {
-          headline: 'Definitive care — follow condition protocol steps below',
-          detail: '10 mL/kg fluid aliquots, reassess after each intervention (CST / micro-course aligned)',
+          headline: 'Definitive care complete — fellowship credit available',
+          detail: 'Save for fellowship or export clinical record when handoff is done',
+        };
+      }
+      if (session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') {
+        return {
+          headline: 'Definitive care — complete all condition protocol steps',
+          detail: 'Fellowship credit awards after definitive therapy (ISPAD / WHO / AHA aligned)',
         };
       }
       return {
         headline: 'Tap Start definitive care for condition-based therapy',
-        detail: 'Primary set — fellowship Save remains available',
+        detail: 'Primary set — complete definitive care before fellowship Save',
       };
     default:
       return null;
@@ -363,19 +369,32 @@ export function getPrimaryNextStepBanner(
     if (!session.definitiveDiagnosis) {
       return {
         kind: 'fellowship_primary',
-        message: 'Next step: set primary diagnosis for fellowship credit',
-        detail: 'Primary drives Pillar B; co-diagnoses are optional',
+        message: 'Next step: set primary diagnosis',
+        detail: 'Then start and complete definitive care for fellowship credit',
       };
     }
 
     if (
       isFellowshipMicrocourseResusCondition(normalizeToFellowshipResusConditionId(session.definitiveDiagnosis)) &&
-      !isSaved
+      !isSaved &&
+      !session.definitiveCareProgress?.completedAt
     ) {
       return {
         kind: 'fellowship_primary',
-        message: 'Tap Save for Fellowship credit when documentation is complete',
-        detail: 'Auto-save runs when primary + clinical activity are logged',
+        message: 'Complete definitive care steps for fellowship credit',
+        detail: 'Credit awards after condition-specific therapy — not on diagnosis alone',
+      };
+    }
+
+    if (
+      isFellowshipMicrocourseResusCondition(normalizeToFellowshipResusConditionId(session.definitiveDiagnosis)) &&
+      !isSaved &&
+      session.definitiveCareProgress?.completedAt
+    ) {
+      return {
+        kind: 'fellowship_primary',
+        message: 'Definitive care done — Save for Fellowship credit',
+        detail: 'Auto-save runs when all definitive-care steps are complete',
       };
     }
   }

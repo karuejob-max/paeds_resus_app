@@ -76,6 +76,8 @@ import {
   calcDose,
   setDefinitiveDiagnosis,
   startDefinitiveCare,
+  updateDefinitiveCareStep,
+  completeDefinitiveCare,
   addConcurrentDiagnosis,
   removeConcurrentDiagnosis,
   updateSAMPLE,
@@ -140,6 +142,7 @@ import {
   resolveFellowshipDiagnosisFromSession,
 } from '@shared/fellowship-microcourse-resus-conditions';
 import { isEligibleForFellowshipAutoCredit } from '@shared/fellowship-resus-auto-credit';
+import { resolveDefinitiveCare } from '@/lib/resus/definitive-care-engine';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
@@ -625,8 +628,33 @@ export default function ResusGPS() {
     });
   }, [serverSampleHistory, preFillSample]);
 
+  const enrichSessionForFellowshipCredit = useCallback((s: ResusSession) => {
+    const care = resolveDefinitiveCare(
+      s.definitiveDiagnosis,
+      s.patientWeight ?? 10,
+      s.patientAge,
+      s.concurrentDiagnoses ?? []
+    );
+    return {
+      ...s,
+      definitiveCareSteps: care?.allSteps,
+    };
+  }, []);
+
   const handleSaveSession = async (sessionOverride?: ResusSession) => {
     const activeSession = sessionOverride ?? session;
+    const enriched = enrichSessionForFellowshipCredit(activeSession);
+    if (
+      isFellowshipMicrocourseResusCondition(
+        normalizeToFellowshipResusConditionId(activeSession.definitiveDiagnosis ?? '')
+      ) &&
+      !isEligibleForFellowshipAutoCredit(enriched)
+    ) {
+      toast.error('Complete definitive care steps before saving for fellowship credit.', {
+        duration: 4000,
+      });
+      return;
+    }
     trackButtonClick('Save Session for Fellowship Credit');
     const fellowshipDiagnosis = resolveFellowshipDiagnosisFromSession(activeSession);
     const primaryDiagnosis =
@@ -727,14 +755,15 @@ export default function ResusGPS() {
     async (nextSession: ResusSession) => {
       if (fellowshipSavedSessionId === nextSession.id) return;
       if (fellowshipAutoSaveInFlightRef.current === nextSession.id) return;
-      if (!isEligibleForFellowshipAutoCredit(nextSession)) return;
+      const enriched = enrichSessionForFellowshipCredit(nextSession);
+      if (!isEligibleForFellowshipAutoCredit(enriched)) return;
 
       fellowshipAutoSaveInFlightRef.current = nextSession.id;
       await handleSaveSession(nextSession);
     },
     // handleSaveSession closes over session/timer/protocolsUsed — intentional for save payloads
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fellowshipSavedSessionId, session, timer.elapsed, protocolsUsed]
+    [fellowshipSavedSessionId, session, timer.elapsed, protocolsUsed, enrichSessionForFellowshipCredit]
   );
 
   const handleBolusReassessNow = useCallback((interventionId: string) => {
@@ -755,10 +784,31 @@ export default function ResusGPS() {
     (diagnosis: string) => {
       const nextSession = setDefinitiveDiagnosis(session, diagnosis as never);
       setSession(nextSession);
-      void maybeAutoSaveFellowshipCredit(nextSession);
     },
-    [session, maybeAutoSaveFellowshipCredit]
+    [session]
   );
+
+  const handleDefinitiveCareStepChange = useCallback(
+    (stepId: string, status: 'done' | 'skipped') => {
+      const care = resolveDefinitiveCare(
+        session.definitiveDiagnosis,
+        session.patientWeight ?? 10,
+        session.patientAge,
+        session.concurrentDiagnoses ?? []
+      );
+      if (!care) return;
+      const nextSession = updateDefinitiveCareStep(session, care.fellowshipId, stepId, status);
+      setSession(nextSession);
+    },
+    [session]
+  );
+
+  const handleDefinitiveCareComplete = useCallback(() => {
+    const nextSession = completeDefinitiveCare(session);
+    if (nextSession === session) return;
+    setSession(nextSession);
+    void maybeAutoSaveFellowshipCredit(nextSession);
+  }, [session, maybeAutoSaveFellowshipCredit]);
 
   const handleAddCoDiagnosis = useCallback(
     (diagnosis: string) => {
@@ -1165,6 +1215,8 @@ export default function ResusGPS() {
             onSetPrimaryDiagnosis={handleSetPrimaryDiagnosis}
             onAddCoDiagnosis={handleAddCoDiagnosis}
             onStartDefinitiveCare={handleStartDefinitiveCare}
+            onDefinitiveCareStepChange={handleDefinitiveCareStepChange}
+            onDefinitiveCareComplete={handleDefinitiveCareComplete}
             isSaving={recordSessionMutation.isPending || recordCaseMutation.isPending}
             fellowshipSavedSessionId={fellowshipSavedSessionId}
             savedCasesByCondition={savedCasesByCondition}
@@ -2327,6 +2379,8 @@ function PostPrimaryScreen({
   onSetPrimaryDiagnosis,
   onAddCoDiagnosis,
   onStartDefinitiveCare,
+  onDefinitiveCareStepChange,
+  onDefinitiveCareComplete,
   isSaving,
   fellowshipSavedSessionId,
   savedCasesByCondition,
@@ -2344,6 +2398,8 @@ function PostPrimaryScreen({
   onSetPrimaryDiagnosis: (diagnosis: string) => void;
   onAddCoDiagnosis: (diagnosis: string) => void;
   onStartDefinitiveCare: () => void;
+  onDefinitiveCareStepChange: (stepId: string, status: 'done' | 'skipped') => void;
+  onDefinitiveCareComplete: () => void;
   isSaving: boolean;
   fellowshipSavedSessionId: string | null;
   savedCasesByCondition: Record<string, number>;
@@ -2371,7 +2427,9 @@ function PostPrimaryScreen({
   const showDefinitiveCareCta =
     session.definitiveDiagnosis &&
     (session.phase === 'SECONDARY_SURVEY' || session.phase === 'ONGOING');
-  const inDefinitiveCare = session.phase === 'DEFINITIVE_CARE';
+  const inDefinitiveCare =
+    session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING';
+  const definitiveCareComplete = Boolean(session.definitiveCareProgress?.completedAt);
 
   const workingDiagnosisLabels = useMemo(() => {
     const raw = [
@@ -2545,7 +2603,13 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {inDefinitiveCare && <DefinitiveCarePanel session={session} />}
+      {inDefinitiveCare && (
+        <DefinitiveCarePanel
+          session={session}
+          onStepChange={onDefinitiveCareStepChange}
+          onComplete={onDefinitiveCareComplete}
+        />
+      )}
 
       {/* Differential diagnoses — always shown so fellows can pick primary for Pillar B */}
       <Card className="bg-card border-border">
@@ -2556,8 +2620,8 @@ function PostPrimaryScreen({
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
             <strong className="font-medium text-foreground">Primary drives fellowship credit</strong> — co-diagnoses
-            document complexity only (≥3 cases per condition across {fellowshipConditionTotal} micro-courses). Progress
-            saves automatically when you choose a primary; use Save below to retry if needed.
+            document complexity (e.g. DKA + sepsis). Complete definitive care below before fellowship credit
+            (≥3 cases per condition across {fellowshipConditionTotal} micro-courses).
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -2828,8 +2892,9 @@ function PostPrimaryScreen({
           </CardTitle>
           <p className="text-sm text-emerald-900/90 dark:text-emerald-100/90 leading-relaxed">
             Paeds Resus Fellowship requires <strong>≥3 ResusGPS cases per condition</strong> covered in the
-            fellowship micro-course catalog ({fellowshipConditionTotal} conditions). Choosing a primary diagnosis
-            above saves fellowship credit automatically; use the button below to retry if needed.
+            fellowship micro-course catalog ({fellowshipConditionTotal} conditions). Fellowship credit is awarded
+            only after you <strong>complete definitive care</strong> for the primary condition; use Save below to
+            retry if needed.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -2887,12 +2952,21 @@ function PostPrimaryScreen({
               await onSaveSession();
               void refetchFellowshipProgress();
             }}
-            disabled={isSaving || isSavedThisSession}
+            disabled={
+              isSaving ||
+              isSavedThisSession ||
+              (resolvedThisCase !== 'unknown' && !definitiveCareComplete)
+            }
           >
             {isSaving ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 Saving for fellowship…
+              </>
+            ) : resolvedThisCase !== 'unknown' && !definitiveCareComplete ? (
+              <>
+                <ListChecks className="h-5 w-5 mr-2" />
+                Complete definitive care first
               </>
             ) : isSavedThisSession ? (
               <>
