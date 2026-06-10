@@ -189,13 +189,14 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     const score = computeQuizScorePercent();
     const result = await recordQuizAttemptMutation.mutateAsync({
       quizId: moduleContentQuery.data?.quizzes?.[0]?.id || 0,
-      moduleId: selectedModule,
       enrollmentId,
-      score,
-      answers: quizAnswers,
+      answers: Object.entries(quizAnswers).map(([qId, ans]) => ({
+        questionId: parseInt(qId),
+        answer: ans as string,
+      })),
     });
 
-    if (result.success && "passed" in result && "passingScore" in result) {
+    if (result.passed) {
       setQuizResult({
         score: result.score,
         passed: result.passed,

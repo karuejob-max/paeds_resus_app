@@ -128,7 +128,7 @@ export async function ensureBlsAhaCatalog(db: any): Promise<void> {
         options: JSON.stringify(question.options),
         correctAnswer: JSON.stringify(question.correctAnswer),
         explanation: question.explanation,
-        order: question.order,
+        order: (question as any).order,
       });
     }
   }

@@ -783,15 +783,11 @@ export default function MicroCoursePlayerDB() {
     const score = Math.round((correct / quiz.questions.length) * 100);
     submitQuizMutation.mutate({
       enrollmentId,
-      moduleId: moduleIdForQuiz,
       quizId: quiz.id,
-      score,
-      answers: Object.fromEntries(
-        quiz.questions.map((q: any, idx: number) => [
-          q.id,
-          quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
-        ])
-      ),
+      answers: quiz.questions.map((q: any, idx: number) => ({
+        questionId: q.id,
+        answer: quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
+      })),
     });
   };
 
