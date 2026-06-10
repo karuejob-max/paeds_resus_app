@@ -5,9 +5,11 @@
 
 import {
   isClinicalEvidenceComplete,
+  type ClinicalEvidenceFieldDef,
   type ClinicalEvidenceRecord,
 } from "./clinical-evidence";
 import {
+  getFellowshipClinicalRigorPack,
   mergeClinicalRigorPacks,
   type SecondarySurveyStep,
 } from "./fellowship-clinical-rigor";
@@ -49,7 +51,19 @@ export function getSecondarySurveyFields(session: SecondarySurveySessionSlice) {
   const candidates = session.rigorConditionCandidates?.length
     ? session.rigorConditionCandidates
     : ["seriously_ill_child"];
-  return mergeClinicalRigorPacks(candidates);
+  const primaryPack = getFellowshipClinicalRigorPack(candidates[0]);
+  const mergedEvidence = mergeClinicalRigorPacks(candidates).diagnosticEvidence;
+  return {
+    symptoms: primaryPack.symptoms,
+    sampleFields: primaryPack.sampleFields,
+    diagnosticEvidence: mergedEvidence,
+  };
+}
+
+/** Unified SAMPLE step fields (S signs + AMPL E) — single panel, no duplicate headings. */
+export function getSampleStepFields(session: SecondarySurveySessionSlice): ClinicalEvidenceFieldDef[] {
+  const { symptoms, sampleFields } = getSecondarySurveyFields(session);
+  return [...symptoms, ...sampleFields];
 }
 
 export function isSampleStepComplete(session: SecondarySurveySessionSlice): boolean {

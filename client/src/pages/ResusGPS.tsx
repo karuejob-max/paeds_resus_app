@@ -149,6 +149,7 @@ import { isEligibleForFellowshipAutoCredit } from '@shared/fellowship-resus-auto
 import { resolveDefinitiveCare } from '@/lib/resus/definitive-care-engine';
 import {
   canShowDiagnosisSelection,
+  getSampleStepFields,
   getSecondarySurveyFields,
   isEvidenceStepComplete,
   isSampleStepComplete,
@@ -158,7 +159,11 @@ import {
   FLUID_OVERLOAD_EVIDENCE,
   FLUID_SHOCK_EVIDENCE,
 } from '@shared/fellowship-clinical-rigor';
-import { isClinicalEvidenceComplete } from '@shared/clinical-evidence';
+import {
+  applyVitalsAutofillToEvidence,
+  isClinicalEvidenceComplete,
+  type ClinicalEvidenceRecord,
+} from '@shared/clinical-evidence';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
@@ -171,6 +176,7 @@ import {
   getResusPhaseGuidance,
   isActiveResusPhase,
   isPostPrimaryPhase,
+  scrollResusViewToTop,
   parsePatientAgeYears,
   formatVitalWithAgeContext,
   evaluateSpO2,
@@ -380,11 +386,25 @@ export default function ResusGPS() {
 
   const fellowshipChipLabel = useMemo(() => {
     if (!isPostPrimaryPhase(session.phase) || !session.definitiveDiagnosis) return null;
+    if (!session.definitiveCareProgress?.completedAt && fellowshipSavedSessionId !== session.id)
+      return null;
     const id = normalizeToFellowshipResusConditionId(session.definitiveDiagnosis);
     if (!isFellowshipMicrocourseResusCondition(id)) return null;
     const count = savedCasesByCondition[id] ?? 0;
     return `${getFellowshipMicrocourseResusConditionLabel(id)} ${count}/3`;
-  }, [session.phase, session.definitiveDiagnosis, savedCasesByCondition]);
+  }, [
+    session.phase,
+    session.definitiveDiagnosis,
+    session.definitiveCareProgress?.completedAt,
+    fellowshipSavedSessionId,
+    session.id,
+    savedCasesByCondition,
+  ]);
+
+  const phaseScrollKey = `${session.phase}:${session.secondarySurveyStep ?? 'sample'}`;
+  useEffect(() => {
+    scrollResusViewToTop();
+  }, [phaseScrollKey]);
 
   // Auto-expand first threat with pending critical work when intervention panel opens
   useEffect(() => {
@@ -1221,7 +1241,8 @@ export default function ResusGPS() {
           />
         )}
 
-        {session.pendingFluidReassessment && (
+        {session.pendingFluidReassessment &&
+          (session.phase === 'INTERVENTION' || session.phase === 'PRIMARY_SURVEY') && (
           <Card className="border-amber-500/40 bg-amber-500/10 mb-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-foreground">Fluid bolus reassessment — document each finding</CardTitle>
@@ -2539,9 +2560,52 @@ function PostPrimaryScreen({
   const definitiveCareComplete = Boolean(session.definitiveCareProgress?.completedAt);
   const surveyStep = session.secondarySurveyStep ?? 'sample';
   const rigorFields = useMemo(() => getSecondarySurveyFields(session), [session.rigorConditionCandidates]);
+  const sampleStepFields = useMemo(() => getSampleStepFields(session), [session.rigorConditionCandidates]);
+  const combinedSampleRecord = useMemo(
+    () => ({ ...(session.structuredSymptoms ?? {}), ...(session.structuredSample ?? {}) }),
+    [session.structuredSymptoms, session.structuredSample]
+  );
   const sampleComplete = isSampleStepComplete(session);
   const evidenceComplete = isEvidenceStepComplete(session);
   const diagnosisUnlocked = canShowDiagnosisSelection(session) || Boolean(session.definitiveDiagnosis);
+
+  const handleUnifiedSampleChange = useCallback(
+    (rec: ClinicalEvidenceRecord) => {
+      const symptoms: ClinicalEvidenceRecord = {};
+      const sample: ClinicalEvidenceRecord = {};
+      for (const f of rigorFields.symptoms) {
+        if (rec[f.id]) symptoms[f.id] = rec[f.id];
+      }
+      for (const f of rigorFields.sampleFields) {
+        if (rec[f.id]) sample[f.id] = rec[f.id];
+      }
+      let next = setStructuredClinicalEvidence(session, 'structuredSymptoms', symptoms);
+      next = setStructuredClinicalEvidence(next, 'structuredSample', sample);
+      setSession(next);
+    },
+    [rigorFields.symptoms, rigorFields.sampleFields, session, setSession]
+  );
+
+  useEffect(() => {
+    if (surveyStep !== 'evidence') return;
+    const nextEvidence = applyVitalsAutofillToEvidence(
+      rigorFields.diagnosticEvidence,
+      session.diagnosticEvidence ?? {},
+      { glucose: session.vitalSigns?.glucose }
+    );
+    const prevJson = JSON.stringify(session.diagnosticEvidence ?? {});
+    const nextJson = JSON.stringify(nextEvidence);
+    if (prevJson !== nextJson) {
+      setSession(setStructuredClinicalEvidence(session, 'diagnosticEvidence', nextEvidence));
+    }
+  }, [
+    surveyStep,
+    session,
+    session.vitalSigns?.glucose,
+    rigorFields.diagnosticEvidence,
+    session.diagnosticEvidence,
+    setSession,
+  ]);
 
   const workingDiagnosisLabels = useMemo(() => {
     const raw = [
@@ -2683,18 +2747,11 @@ function PostPrimaryScreen({
             {surveyStep === 'sample' && (
               <>
                 <StructuredClinicalEvidencePanel
-                  title="Signs & symptoms"
-                  description="Document each symptom individually — adds diagnostic weight."
-                  fields={rigorFields.symptoms}
-                  record={session.structuredSymptoms ?? {}}
-                  onChange={(rec) => setSession(setStructuredClinicalEvidence(session, 'structuredSymptoms', rec))}
-                />
-                <StructuredClinicalEvidencePanel
                   title="SAMPLE history"
-                  description="Known T1DM, allergies, medications, and events — each field submitted separately."
-                  fields={rigorFields.sampleFields}
-                  record={session.structuredSample ?? {}}
-                  onChange={(rec) => setSession(setStructuredClinicalEvidence(session, 'structuredSample', rec))}
+                  description="Signs (S) and history (AMPL E) — each field: specific value or Not available (LMIC policy data)."
+                  fields={sampleStepFields}
+                  record={combinedSampleRecord}
+                  onChange={handleUnifiedSampleChange}
                 />
                 <Button className="w-full" disabled={!sampleComplete} onClick={() => setSession(advanceSecondarySurveyStep(session))}>
                   {sampleComplete ? 'Continue to diagnostic evidence' : 'Complete all SAMPLE fields above'}
@@ -2996,7 +3053,8 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {/* Fellowship save — primary action on the last screen */}
+      {/* Fellowship save — only after definitive therapy complete */}
+      {(definitiveCareComplete || isSavedThisSession) && (
       <Card className="border-2 border-emerald-500/50 bg-emerald-50/80 dark:bg-emerald-950/30 shadow-md">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
@@ -3095,6 +3153,7 @@ function PostPrimaryScreen({
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* Export / copy (HI-CLIN-1) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

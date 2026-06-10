@@ -30,6 +30,15 @@ function lab(id: string, label: string, unit: string, placeholder?: string): Cli
   return { id, label, type: "numeric", unit, placeholder, phase: "Diagnostic evidence" };
 }
 
+function labWithUnits(
+  id: string,
+  label: string,
+  unitOptions: string[],
+  placeholder?: string
+): ClinicalEvidenceFieldDef {
+  return { id, label, type: "numeric_with_units", unitOptions, placeholder, phase: "Diagnostic evidence" };
+}
+
 const DKA_PACK: FellowshipClinicalRigorPack = {
   fellowshipId: "dka",
   symptoms: [
@@ -49,13 +58,22 @@ const DKA_PACK: FellowshipClinicalRigorPack = {
     sample("dka_sample_events", "Events leading to presentation", "e.g. missed insulin, intercurrent illness"),
   ],
   diagnosticEvidence: [
-    lab("dka_ev_glucose", "Blood glucose", "mmol/L", "e.g. 28"),
-    lab("dka_ev_ketones", "Blood or urine ketones", "mmol/L or +", "e.g. 4.2 or 3+"),
+    {
+      id: "dka_ev_glucose",
+      label: "Blood glucose",
+      type: "glucose_vitals",
+      unit: "mmol/L",
+      placeholder: "e.g. 28",
+      phase: "Diagnostic evidence",
+      autofillFromVital: "glucose",
+    },
+    { id: "dka_ev_ketones", label: "Ketones", type: "ketones", phase: "Diagnostic evidence" },
     lab("dka_ev_ph", "Venous pH", "", "e.g. 7.15"),
     lab("dka_ev_hco3", "Bicarbonate (HCO₃)", "mmol/L", "e.g. 8"),
-    lab("dka_ev_hba1c", "HbA1c", "% or mmol/mol", "e.g. 11.5%"),
+    labWithUnits("dka_ev_hba1c", "HbA1c", ["%", "mmol/mol"], "e.g. 11.5"),
     lab("dka_ev_potassium", "Serum potassium", "mmol/L", "e.g. 4.8"),
-    lab("dka_ev_urea", "Urea / creatinine", "mmol/L", "Renal function"),
+    labWithUnits("dka_ev_urea", "Urea", ["mmol/L", "mg/dL"], "e.g. 12"),
+    labWithUnits("dka_ev_creatinine", "Creatinine", ["µmol/L", "mg/dL"], "e.g. 65"),
   ],
 };
 
