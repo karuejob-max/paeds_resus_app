@@ -82,9 +82,25 @@ const blsBank: AhaDiagnosticQuestionSeed[] = [
   },
   {
     question: "Relief of choking in a responsive adult begins with:",
-    options: ["Blind finger sweeps", "Abdominal thrusts (Heimlich)", "Immediate CPR", "Back blows only in all cases"],
-    correctAnswer: "Abdominal thrusts (Heimlich)",
-    explanation: "For responsive adults with severe airway obstruction, abdominal thrusts are recommended.",
+    options: [
+      "5 back blows followed by 5 abdominal thrusts",
+      "Abdominal thrusts (Heimlich) only",
+      "Immediate CPR",
+      "Blind finger sweeps",
+    ],
+    correctAnswer: "5 back blows followed by 5 abdominal thrusts",
+    explanation: "AHA 2025 guidelines now recommend 5 back blows followed by 5 abdominal thrusts for responsive choking victims.",
+  },
+  {
+    question: "What is the correct sequence for relieving choking in a conscious infant?",
+    options: [
+      "5 abdominal thrusts followed by 5 back blows",
+      "5 back blows followed by 5 chest thrusts",
+      "Immediate CPR",
+      "Blind finger sweeps",
+    ],
+    correctAnswer: "5 back blows followed by 5 chest thrusts",
+    explanation: "For conscious infants, the 2025 AHA guidelines recommend 5 back blows followed by 5 chest thrusts.",
   },
 ];
 

@@ -230,22 +230,25 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 5: First Aid, Anaphylaxis & Epi-pen",
-    description: "Complete Heartsaver First Aid content with HCP depth.",
+    title: "Module 5: First Aid Foundations (HCP)",
+    description: "HCP-level first aid: Scene safety, advanced assessment, and ethical considerations.",
     duration: 40,
     order: 5,
     sections: [
       {
-        title: "Recognizing Anaphylaxis",
-        content: `<h2>Severe Allergic Reactions</h2>
-<p>Recognize signs: wheezing, swelling, hives, and low blood pressure.</p>`,
+        title: "Your Role as a First Aid Provider (HCP)",
+        content: `<h2>HCP First Aid Principles</h2>
+<p>As a healthcare provider, your first aid role extends to advanced assessment and ethical considerations.</p>
+<h3>Step-by-Step Action (HCP Focus)</h3>
+<ol>
+  <li><strong>Scene Safety:</strong> Always ensure safety for yourself, your team, and the victim.</li>
+  <li><strong>Call for Advanced Help:</strong> Activate appropriate emergency medical services (e.g., ALS, hospital rapid response).</li>
+  <li><strong>Primary Assessment (ABCDE):</strong> Rapidly assess Airway, Breathing, Circulation, Disability, Exposure.</li>
+  <li><strong>Secondary Assessment:</strong> Perform a head-to-toe exam, SAMPLE history, and vital signs.</li>
+  <li><strong>Provide Care:</strong> Implement interventions based on assessment findings and scope of practice.</li>
+  <li><strong>Documentation & Handoff:</strong> Accurately document findings and interventions; provide clear handoff to higher-level care.</li>
+</ol>`,
         order: 1,
-      },
-      {
-        title: "Epi-pen Administration",
-        content: `<h2>Action Steps</h2>
-<p>Inject into the outer thigh, hold for 10 seconds, and call 911.</p>`,
-        order: 2,
       }
     ],
     quiz: {
@@ -253,30 +256,44 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "How long should you hold an Epi-pen in place?",
-          options: ["1 second", "3 seconds", "10 seconds", "30 seconds"],
-          correctAnswer: "10 seconds",
-          explanation: "Holding for 10 seconds ensures full medication delivery.",
+          question: "What is the very first thing an HCP should do when approaching an emergency scene?",
+          options: ["Begin CPR immediately", "Ensure scene safety", "Call for help", "Assess the patient"],
+          correctAnswer: "Ensure scene safety",
+          explanation: "Scene safety is paramount for healthcare providers to prevent further harm to themselves or others.",
         }
       ],
     },
   },
   {
-    title: "Module 6: Bleeding Control & Tourniquets",
-    description: "Stopping life-threatening bleeding for healthcare providers.",
-    duration: 30,
+    title: "Module 6: Allergic Reactions & Epi-pen (HCP Depth)",
+    description: "Recognizing and treating severe allergic reactions (Anaphylaxis) with HCP depth.",
+    duration: 40,
     order: 6,
     sections: [
       {
-        title: "Direct Pressure & Packing",
-        content: `<h2>Stop the Bleed</h2>
-<p>Apply firm pressure. For deep wounds, pack with gauze.</p>`,
+        title: "Recognizing Anaphylaxis (HCP)",
+        content: `<h2>Signs of a Severe Reaction (HCP Focus)</h2>
+<p>Anaphylaxis is a severe, life-threatening allergic reaction. Rapid recognition and intervention are critical.</p>
+<h3>Clinical Presentation</h3>
+<ul>
+  <li><strong>Skin:</strong> Hives, flushing, angioedema (swelling of lips, face, throat)</li>
+  <li><strong>Respiratory:</strong> Dyspnea, wheezing, stridor, hypoxia</li>
+  <li><strong>Cardiovascular:</strong> Hypotension, tachycardia, dizziness, syncope</li>
+  <li><strong>GI:</strong> Nausea, vomiting, abdominal pain</li>
+</ul>`,
         order: 1,
       },
       {
-        title: "Tourniquet Use",
-        content: `<h2>Life-Saving Intervention</h2>
-<p>Apply 2-3 inches above the wound. Tighten until bleeding stops and pulse disappears.</p>`,
+        title: "Epinephrine Administration (HCP)",
+        content: `<h2>How to Administer Epinephrine (HCP)</h2>
+<p>Epinephrine is the first-line treatment for anaphylaxis. Administer intramuscularly (IM).</p>
+<ol>
+  <li><strong>Dose:</strong> 0.01 mg/kg IM (max 0.5 mg) for both adults and children.</li>
+  <li><strong>Concentration:</strong> 1:1000 (1 mg/mL) for IM injection.</li>
+  <li><strong>Site:</strong> Anterolateral aspect of the mid-thigh.</li>
+  <li><strong>Repeat:</strong> May repeat every 5-15 minutes if symptoms persist.</li>
+  <li><strong>Adjuncts:</strong> Consider H1/H2 blockers, corticosteroids, and inhaled bronchodilators as adjuncts.</li>
+</ol>`,
         order: 2,
       }
     ],
@@ -285,19 +302,76 @@ export const BLS_MODULES: BLSModule[] = [
       passingScore: 100,
       questions: [
         {
-          question: "Where should a tourniquet be placed?",
-          options: ["Directly on the wound", "On a joint", "2-3 inches above the wound", "Below the wound"],
-          correctAnswer: "2-3 inches above the wound",
-          explanation: "Placement above the wound on a single bone (humerus or femur) is most effective.",
+          question: "What is the primary medication for anaphylaxis?",
+          options: ["Diphenhydramine", "Albuterol", "Epinephrine", "Corticosteroids"],
+          correctAnswer: "Epinephrine",
+          explanation: "Epinephrine is the first-line treatment for anaphylaxis due to its alpha and beta-adrenergic effects.",
+        },
+        {
+          question: "What is the recommended IM dose of epinephrine for anaphylaxis in a child?",
+          options: ["0.001 mg/kg", "0.01 mg/kg (max 0.5 mg)", "0.1 mg/kg", "1 mg fixed dose"],
+          correctAnswer: "0.01 mg/kg (max 0.5 mg)",
+          explanation: "The recommended IM dose is 0.01 mg/kg of 1:1000 epinephrine, with a maximum single dose of 0.5 mg.",
         }
       ],
     },
   },
   {
-    title: "Module 7: Team Dynamics & Multi-Rescuer CPR",
+    title: "Module 7: Bleeding Control & Wounds (HCP Depth)",
+    description: "Stopping life-threatening bleeding and caring for common wounds with HCP depth.",
+    duration: 30,
+    order: 7,
+    sections: [
+      {
+        title: "Stopping Severe Bleeding (HCP)",
+        content: `<h2>Direct Pressure & Wound Packing (HCP)</h2>
+<p>The most effective way to stop external bleeding is firm, direct pressure. For deep wounds, wound packing may be necessary.</p>
+<ol>
+  <li><strong>Direct Pressure:</strong> Apply firm, continuous pressure directly over the wound with a clean dressing.</li>
+  <li><strong>Wound Packing:</strong> For deep, compressible wounds, pack the wound cavity tightly with hemostatic gauze or regular gauze.</li>
+  <li><strong>Pressure Dressing:</strong> Apply a pressure dressing over the packed wound to maintain continuous pressure.</li>
+  <li><strong>Elevation:</strong> Elevate the injured limb above the heart if possible.</li>
+  <li><strong>Monitor:</strong> Continuously monitor for re-bleeding and signs of shock.</li>
+</ol>`,
+        order: 1,
+      },
+      {
+        title: "Tourniquet Use (HCP)",
+        content: `<h2>Tourniquet Application (HCP)</h2>
+<p>A tourniquet is a life-saving intervention for severe, life-threatening extremity hemorrhage that is not controlled by direct pressure.</p>
+<ol>
+  <li><strong>Placement:</strong> Apply 2-3 inches (5-7.5 cm) above the wound, directly on the skin if possible, avoiding joints.</li>
+  <li><strong>Tighten:</strong> Tighten the tourniquet until bleeding stops and the distal pulse is no longer palpable.</li>
+  <li><strong>Secure:</strong> Secure the windlass rod and document the time of application.</li>
+  <li><strong>Reassessment:</strong> Do not remove the tourniquet. Transport to definitive care immediately.</li>
+</ol>`,
+        order: 2,
+      }
+    ],
+    quiz: {
+      title: "Module 7 Quiz",
+      passingScore: 100,
+      questions: [
+        {
+          question: "What is the most effective initial method to control severe external bleeding?",
+          options: ["Elevation only", "Direct pressure", "Tourniquet immediately", "Cold compress"],
+          correctAnswer: "Direct pressure",
+          explanation: "Direct pressure is the most effective initial method to control severe external bleeding.",
+        },
+        {
+          question: "When should a tourniquet be applied for extremity bleeding?",
+          options: ["For any bleeding", "Only after 30 minutes of direct pressure", "When direct pressure fails to control life-threatening hemorrhage", "Never, it causes too much damage"],
+          correctAnswer: "When direct pressure fails to control life-threatening hemorrhage",
+          explanation: "Tourniquets are indicated for severe, life-threatening extremity bleeding not controlled by direct pressure.",
+        }
+      ],
+    },
+  },
+  {
+    title: "Module 8: Team Dynamics & Multi-Rescuer CPR",
     description: "HCP-specific coordination for high-performance teams.",
     duration: 40,
-    order: 7,
+    order: 8,
     sections: [
       {
         title: "High-Performance Team Roles",
@@ -307,7 +381,7 @@ export const BLS_MODULES: BLSModule[] = [
       }
     ],
     quiz: {
-      title: "Module 7 Quiz",
+      title: "Module 8 Quiz",
       passingScore: 100,
       questions: [
         {
@@ -320,10 +394,10 @@ export const BLS_MODULES: BLSModule[] = [
     },
   },
   {
-    title: "Module 8: Airway Management & Special Situations",
+    title: "Module 9: Airway Management & Special Situations",
     description: "Advanced techniques and resuscitation in unique environments.",
     duration: 50,
-    order: 8,
+    order: 9,
     sections: [
       {
         title: "Advanced Airway CPR",
@@ -333,7 +407,7 @@ export const BLS_MODULES: BLSModule[] = [
       }
     ],
     quiz: {
-      title: "Module 8 Quiz",
+      title: "Module 9 Quiz",
       passingScore: 100,
       questions: [
         {

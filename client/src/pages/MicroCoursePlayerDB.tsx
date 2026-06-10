@@ -21,6 +21,7 @@ import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
+import { FellowshipSimulation } from "@/components/FellowshipSimulation";
 import { formatCognitiveCourseworkDuration } from "@/const/aha-course-metadata";
 import {
   examKindFromQuizTitle,
@@ -87,6 +88,7 @@ export default function MicroCoursePlayerDB() {
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false);
   const [showSummativeExam, setShowSummativeExam] = useState(false);
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
+  const [showFellowshipSim, setShowFellowshipSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
   
   // Persistence for capstone
@@ -630,10 +632,11 @@ export default function MicroCoursePlayerDB() {
   };
 
   const goToPreviousStep = (exitAtStart: boolean) => {
-    if (showCertificateReady || showSummativeExam || showCapstoneSim) {
+    if (showCertificateReady || showSummativeExam || showCapstoneSim || showFellowshipSim) {
       setShowCertificateReady(false);
       setShowSummativeExam(false);
       setShowCapstoneSim(false);
+      setShowFellowshipSim(false);
       setShowFormativeQuiz(false);
       resetQuizState();
       setCurrentModuleIndex(Math.max(0, modules.length - 1));
@@ -728,10 +731,17 @@ export default function MicroCoursePlayerDB() {
     } else {
       // All cognitive modules finished
       // Show Capstone as the next step after the last module for all AHA courses
-      if (isAhaCourse && (isPals || programType === "acls" || programType === "bls" || programType === "nrp" || programType === "heartsaver")) {
+      if (examState?.capstoneRequired && !examState.capstonePassed) {
         setShowCapstoneSim(true);
         setShowFormativeQuiz(false);
         setShowSummativeExam(false);
+        window.scrollTo(0, 0);
+      } else if (microCourseRow && !isAhaCourse && !examState?.fellowshipSimPassed) {
+        // For fellowship courses, show fellowship simulation after all modules
+        setShowFellowshipSim(true);
+        setShowFormativeQuiz(false);
+        setShowSummativeExam(false);
+        setShowCapstoneSim(false);
         window.scrollTo(0, 0);
       } else {
         // Otherwise go straight to Summative Exam
@@ -1265,6 +1275,15 @@ export default function MicroCoursePlayerDB() {
               localStorage.removeItem(`capstone-in-progress-${slug}`);
               setCurrentModuleIndex(Math.max(0, modules.length - 1));
               setBackToLastSectionOfModule(true);
+            }}
+                              />
+        ) : showFellowshipSim && dbCourse && microCourseRow ? (
+          <FellowshipSimulation
+            courseId={microCourseRow.courseId}
+            level={microCourseRow.level as "foundational" | "advanced"}
+            onComplete={() => {
+              setShowFellowshipSim(false);
+              setShowSummativeExam(true);
             }}
           />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (

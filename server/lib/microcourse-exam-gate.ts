@@ -53,6 +53,7 @@ export type MicrocourseExamState = {
   summativePassPercent: number;
   capstoneRequired: boolean;
   capstonePassed: boolean;
+  fellowshipSimPassed: boolean;
 };
 
 export function isDiagnosticProgressComplete(progress: {
@@ -171,6 +172,7 @@ export async function getMicrocourseExamState(
       summativePassPercent: 80,
       capstoneRequired: false,
       capstonePassed: true,
+      fellowshipSimPassed: false,
     };
   }
 
@@ -227,6 +229,25 @@ export async function getMicrocourseExamState(
   });
   const passed = summativePassed(summativeProgress?.score ?? null);
 
+  // Check for fellowship simulation completion
+  const [simulation] = await db
+    .select()
+    .from(fellowshipSimulations)
+    .where(and(eq(fellowshipSimulations.courseId, microCourse.courseId), eq(fellowshipSimulations.level, microCourse.level)))
+    .limit(1);
+
+  let fellowshipSimPassed = false;
+  if (simulation) {
+    const fellowshipSimProgress = await db.query.userProgress.findFirst({
+      where: and(
+        eq(userProgress.userId, userId),
+        eq(userProgress.enrollmentId, microCourseEnrollmentId),
+        eq(userProgress.fellowshipSimulationId, simulation.id)
+      ),
+    });
+    fellowshipSimPassed = !!fellowshipSimProgress?.completedAt || fellowshipSimProgress?.status === "completed";
+  }
+
   return {
     diagnosticRequired: !!diagnosticQuiz,
     diagnosticCompleted: diagnosticQuiz ? diagnosticCompleted : true,
@@ -242,6 +263,7 @@ export async function getMicrocourseExamState(
     summativePassPercent: 80,
     capstoneRequired: false,
     capstonePassed: true,
+    fellowshipSimPassed,
   };
 }
 
@@ -271,6 +293,12 @@ export async function assertMicrocourseCompletionAllowed(
     return {
       ok: false,
       message: "Complete and pass the PALS Capstone Simulation (50%) to unlock your certificate.",
+    };
+  }
+  if (!state.fellowshipSimPassed) {
+    return {
+      ok: false,
+      message: "Complete the fellowship simulation to unlock your certificate.",
     };
   }
   return { ok: true };
