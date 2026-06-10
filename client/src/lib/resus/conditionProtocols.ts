@@ -1,3 +1,16 @@
+import {
+  buildSeriouslyIllChildProtocol,
+  buildHypovolemicShockProtocol,
+  buildCardiogenicShockProtocol,
+  buildSeverePneumoniaProtocol,
+  buildMeningitisProtocol,
+  buildSevereMalariaProtocol,
+  buildBurnsProtocol,
+  buildTraumaProtocol,
+  buildSevereAnaemiaProtocol,
+  buildAcuteKidneyInjuryProtocol,
+} from './fellowship-definitive-protocols';
+
 /**
  * conditionProtocols.ts
  *
@@ -30,6 +43,19 @@ export type ConditionId =
   | 'anaphylaxis'
   | 'severe_asthma';
 
+export type ExtendedConditionId =
+  | ConditionId
+  | 'seriously_ill_child'
+  | 'hypovolemic_shock'
+  | 'cardiogenic_shock'
+  | 'severe_pneumonia'
+  | 'meningitis'
+  | 'severe_malaria'
+  | 'burns'
+  | 'trauma'
+  | 'severe_anaemia'
+  | 'acute_kidney_injury';
+
 export type StepStatus = 'pending' | 'done' | 'skipped' | 'reassess';
 
 export interface ProtocolDose {
@@ -53,7 +79,7 @@ export interface ProtocolStep {
 }
 
 export interface ConditionProtocol {
-  id: ConditionId;
+  id: ExtendedConditionId;
   name: string;
   shortName: string;
   icon: string;
@@ -852,7 +878,15 @@ export function buildDKAProtocol(weight: number, ageCategory: string): Condition
 // ─── Protocol Registry ───────────────────────────────────────
 
 export function buildAllProtocols(weight: number, ageCategory: string): Record<ConditionId, ConditionProtocol> {
-  return buildAllExtendedProtocols(weight, ageCategory);
+  const all = buildAllExtendedProtocols(weight, ageCategory);
+  return {
+    septic_shock: all.septic_shock,
+    status_epilepticus: all.status_epilepticus,
+    dka: all.dka,
+    nrp: all.nrp,
+    anaphylaxis: all.anaphylaxis,
+    severe_asthma: all.severe_asthma,
+  };
 }
 
 export function buildProtocol(id: ConditionId, weight: number, ageCategory: string): ConditionProtocol {
@@ -1428,26 +1462,28 @@ function buildSevereAsthmaProtocol(weight: number, ageCategory: string): Conditi
 // functions. The original type in the file header is kept for backward compat;
 // consumers should use ExtendedConditionId for Phase 7+ protocols.
 
-export type ExtendedConditionId =
-  | 'septic_shock'
-  | 'status_epilepticus'
-  | 'dka'
-  | 'nrp'
-  | 'anaphylaxis'
-  | 'severe_asthma';
-
 export function buildExtendedProtocol(
   id: ExtendedConditionId,
   weight: number,
   ageCategory: string
 ): ConditionProtocol {
   switch (id) {
-    case 'septic_shock':      return buildSepticShockProtocol(weight, ageCategory);
+    case 'septic_shock':       return buildSepticShockProtocol(weight, ageCategory);
     case 'status_epilepticus': return buildStatusEpilepticusProtocol(weight, ageCategory);
-    case 'dka':               return buildDKAProtocol(weight, ageCategory);
-    case 'nrp':               return buildNRPProtocol(weight, ageCategory);
-    case 'anaphylaxis':       return buildAnaphylaxisProtocol(weight, ageCategory);
-    case 'severe_asthma':     return buildSevereAsthmaProtocol(weight, ageCategory);
+    case 'dka':                return buildDKAProtocol(weight, ageCategory);
+    case 'nrp':                return buildNRPProtocol(weight, ageCategory);
+    case 'anaphylaxis':        return buildAnaphylaxisProtocol(weight, ageCategory);
+    case 'severe_asthma':      return buildSevereAsthmaProtocol(weight, ageCategory);
+    case 'seriously_ill_child': return buildSeriouslyIllChildProtocol(weight, ageCategory);
+    case 'hypovolemic_shock':  return buildHypovolemicShockProtocol(weight, ageCategory);
+    case 'cardiogenic_shock':  return buildCardiogenicShockProtocol(weight, ageCategory);
+    case 'severe_pneumonia':   return buildSeverePneumoniaProtocol(weight, ageCategory);
+    case 'meningitis':         return buildMeningitisProtocol(weight, ageCategory);
+    case 'severe_malaria':     return buildSevereMalariaProtocol(weight, ageCategory);
+    case 'burns':              return buildBurnsProtocol(weight, ageCategory);
+    case 'trauma':             return buildTraumaProtocol(weight, ageCategory);
+    case 'severe_anaemia':     return buildSevereAnaemiaProtocol(weight, ageCategory);
+    case 'acute_kidney_injury': return buildAcuteKidneyInjuryProtocol(weight, ageCategory);
   }
 }
 
@@ -1456,12 +1492,22 @@ export function buildAllExtendedProtocols(
   ageCategory: string
 ): Record<ExtendedConditionId, ConditionProtocol> {
   return {
-    septic_shock:       buildSepticShockProtocol(weight, ageCategory),
+    septic_shock: buildSepticShockProtocol(weight, ageCategory),
     status_epilepticus: buildStatusEpilepticusProtocol(weight, ageCategory),
-    dka:                buildDKAProtocol(weight, ageCategory),
-    nrp:                buildNRPProtocol(weight, ageCategory),
-    anaphylaxis:        buildAnaphylaxisProtocol(weight, ageCategory),
-    severe_asthma:      buildSevereAsthmaProtocol(weight, ageCategory),
+    dka: buildDKAProtocol(weight, ageCategory),
+    nrp: buildNRPProtocol(weight, ageCategory),
+    anaphylaxis: buildAnaphylaxisProtocol(weight, ageCategory),
+    severe_asthma: buildSevereAsthmaProtocol(weight, ageCategory),
+    seriously_ill_child: buildSeriouslyIllChildProtocol(weight, ageCategory),
+    hypovolemic_shock: buildHypovolemicShockProtocol(weight, ageCategory),
+    cardiogenic_shock: buildCardiogenicShockProtocol(weight, ageCategory),
+    severe_pneumonia: buildSeverePneumoniaProtocol(weight, ageCategory),
+    meningitis: buildMeningitisProtocol(weight, ageCategory),
+    severe_malaria: buildSevereMalariaProtocol(weight, ageCategory),
+    burns: buildBurnsProtocol(weight, ageCategory),
+    trauma: buildTraumaProtocol(weight, ageCategory),
+    severe_anaemia: buildSevereAnaemiaProtocol(weight, ageCategory),
+    acute_kidney_injury: buildAcuteKidneyInjuryProtocol(weight, ageCategory),
   };
 }
 
@@ -1472,13 +1518,33 @@ export const EXTENDED_PROTOCOL_LIST: ExtendedConditionId[] = [
   'nrp',
   'anaphylaxis',
   'severe_asthma',
+  'seriously_ill_child',
+  'hypovolemic_shock',
+  'cardiogenic_shock',
+  'severe_pneumonia',
+  'meningitis',
+  'severe_malaria',
+  'burns',
+  'trauma',
+  'severe_anaemia',
+  'acute_kidney_injury',
 ];
 
 export const PROTOCOL_META: Record<ExtendedConditionId, { name: string; shortName: string; icon: string; color: string; bgColor: string }> = {
-  septic_shock:       { name: 'Septic Shock',                    shortName: 'Septic Shock',   icon: '🦠', color: 'text-orange-700', bgColor: 'bg-orange-50' },
-  status_epilepticus: { name: 'Status Epilepticus',              shortName: 'Status Epi',     icon: '⚡', color: 'text-purple-700', bgColor: 'bg-purple-50' },
-  dka:                { name: 'Diabetic Ketoacidosis (DKA)',      shortName: 'DKA',            icon: '🩸', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
-  nrp:                { name: 'Neonatal Resuscitation (NRP)',     shortName: 'NRP',            icon: '👶', color: 'text-pink-700',   bgColor: 'bg-pink-50'   },
-  anaphylaxis:        { name: 'Anaphylaxis',                     shortName: 'Anaphylaxis',    icon: '⚡', color: 'text-red-700',    bgColor: 'bg-red-50'    },
-  severe_asthma:      { name: 'Severe Asthma / Status Asthmaticus', shortName: 'Severe Asthma', icon: '🫁', color: 'text-blue-700',   bgColor: 'bg-blue-50'   },
+  septic_shock: { name: 'Septic Shock', shortName: 'Septic Shock', icon: '🦠', color: 'text-orange-700', bgColor: 'bg-orange-50' },
+  status_epilepticus: { name: 'Status Epilepticus', shortName: 'Status Epi', icon: '⚡', color: 'text-purple-700', bgColor: 'bg-purple-50' },
+  dka: { name: 'Diabetic Ketoacidosis (DKA)', shortName: 'DKA', icon: '🩸', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
+  nrp: { name: 'Neonatal Resuscitation (NRP)', shortName: 'NRP', icon: '👶', color: 'text-pink-700', bgColor: 'bg-pink-50' },
+  anaphylaxis: { name: 'Anaphylaxis', shortName: 'Anaphylaxis', icon: '⚡', color: 'text-red-700', bgColor: 'bg-red-50' },
+  severe_asthma: { name: 'Severe Asthma / Status Asthmaticus', shortName: 'Severe Asthma', icon: '🫁', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+  seriously_ill_child: { name: 'Seriously Ill Child (ABCDE)', shortName: 'Seriously Ill', icon: '🩺', color: 'text-slate-700', bgColor: 'bg-slate-50' },
+  hypovolemic_shock: { name: 'Hypovolemic Shock', shortName: 'Hypovolemic', icon: '💧', color: 'text-cyan-700', bgColor: 'bg-cyan-50' },
+  cardiogenic_shock: { name: 'Cardiogenic Shock', shortName: 'Cardiogenic', icon: '❤️', color: 'text-rose-700', bgColor: 'bg-rose-50' },
+  severe_pneumonia: { name: 'Severe Pneumonia / ARDS', shortName: 'Pneumonia', icon: '🫁', color: 'text-indigo-700', bgColor: 'bg-indigo-50' },
+  meningitis: { name: 'Meningitis', shortName: 'Meningitis', icon: '🧠', color: 'text-violet-700', bgColor: 'bg-violet-50' },
+  severe_malaria: { name: 'Severe Malaria', shortName: 'Malaria', icon: '🦟', color: 'text-lime-700', bgColor: 'bg-lime-50' },
+  burns: { name: 'Major Burns', shortName: 'Burns', icon: '🔥', color: 'text-orange-700', bgColor: 'bg-orange-50' },
+  trauma: { name: 'Major Trauma', shortName: 'Trauma', icon: '🚑', color: 'text-stone-700', bgColor: 'bg-stone-50' },
+  severe_anaemia: { name: 'Severe Anaemia', shortName: 'Anaemia', icon: '🩸', color: 'text-red-700', bgColor: 'bg-red-50' },
+  acute_kidney_injury: { name: 'Acute Kidney Injury', shortName: 'AKI', icon: '🫘', color: 'text-amber-700', bgColor: 'bg-amber-50' },
 };
