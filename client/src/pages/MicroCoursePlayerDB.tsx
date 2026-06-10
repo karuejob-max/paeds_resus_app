@@ -1226,10 +1226,8 @@ export default function MicroCoursePlayerDB() {
               if (passed) {
                 submitQuizMutation.mutate({
                   enrollmentId: enrollment!.id,
-                  moduleId: -1,
                   quizId: -1,
-                  score,
-                  answers: { simReady: true },
+                  answers: [],
                 }, {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
