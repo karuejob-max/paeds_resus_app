@@ -204,6 +204,12 @@ export interface ResusSession {
   /** Fellowship / analytics (optional; not required for core ABCDE engine) */
   depthScore?: number;
   outcome?: string;
+  /** Definitive-care wizard progress — fellowship credit gates on completion */
+  definitiveCareProgress?: {
+    fellowshipId: string;
+    stepStatuses: Record<string, 'pending' | 'done' | 'skipped'>;
+    completedAt?: number;
+  } | null;
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────
@@ -2014,7 +2020,40 @@ export function startDefinitiveCare(session: ResusSession): ResusSession {
   if (!next.definitiveDiagnosis?.trim()) return session;
   if (next.phase === 'DEFINITIVE_CARE') return session;
   next.phase = 'DEFINITIVE_CARE';
+  next.definitiveCareProgress = null;
   log(next, 'phase_change', `→ DEFINITIVE CARE: ${next.definitiveDiagnosis}`);
+  return next;
+}
+
+export function updateDefinitiveCareStep(
+  session: ResusSession,
+  fellowshipId: string,
+  stepId: string,
+  status: 'pending' | 'done' | 'skipped'
+): ResusSession {
+  const next = deepCopy(session);
+  const prev = next.definitiveCareProgress ?? { fellowshipId, stepStatuses: {} };
+  next.definitiveCareProgress = {
+    fellowshipId,
+    stepStatuses: { ...prev.stepStatuses, [stepId]: status },
+    completedAt: prev.completedAt,
+  };
+  return next;
+}
+
+/** Mark definitive care complete — enables fellowship Pillar B credit. */
+export function completeDefinitiveCare(session: ResusSession): ResusSession {
+  const next = deepCopy(session);
+  if (!next.definitiveCareProgress) return session;
+  next.definitiveCareProgress = {
+    ...next.definitiveCareProgress,
+    completedAt: Date.now(),
+  };
+  if (next.phase === 'DEFINITIVE_CARE') {
+    next.phase = 'ONGOING';
+    log(next, 'phase_change', '→ ONGOING (definitive care complete)');
+  }
+  log(next, 'definitive_care', 'DEFINITIVE CARE COMPLETE');
   return next;
 }
 
