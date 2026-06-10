@@ -478,11 +478,12 @@ export const learningRouter = router({
         });
       }
 
-      const bank = dedupeQuizRowsByStem(await loadSummativeQuestionBank(db as any, input.quizId));
-      const order = shuffleQuestionIndices(bank.length, input.shuffleSeed);
-      const questions = order.map((i) => bank[i]);
+      const answersMap: Record<number, string> = {};
+      for (const a of input.answers) {
+        answersMap[a.questionId] = a.answer;
+      }
 
-      const { score, correctCount } = computeQuizScoreFromDb(questions as any, input.answers as any);
+      const { score, correctCount, totalQuestions } = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
       const passed = summativePassed(score, MICROCOURSE_SUMMATIVE_PASS_PERCENT);
 
       await (db as any).insert(userProgress).values({
@@ -509,7 +510,7 @@ export const learningRouter = router({
         passed,
         passingScore: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
         correctAnswers: correctCount,
-                totalQuestions: questions.length,
+        totalQuestions: totalQuestions,
       };
     }),
 

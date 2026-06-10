@@ -27,8 +27,11 @@ export function FellowshipSimulation({
     level,
   });
 
-  const steps = useMemo(() => simulationData?.scenarioData?.pages ? Object.values(simulationData.scenarioData.pages) : [], [simulationData]);
-  const currentScenarioStep = steps[currentStep];
+  const steps = useMemo(() => {
+    const pages = (simulationData?.scenarioData as any)?.pages || {};
+    return Object.values(pages) as any[];
+  }, [simulationData]);
+  const currentScenarioStep = steps[currentStep] as any;
 
   useEffect(() => {
     if (isError) {

@@ -498,41 +498,14 @@ export default function MicroCoursePlayerDB() {
   // AHA-ENROLL-1: Upsert enrollment row before first quiz submit
   const ensureAhaEnrollmentMutation = trpc.courses.ensureAhaEnrollment.useMutation();
 
-  const applyQuizAttemptResult = (result: {
-    success: boolean;
-    score: number;
-    passed: boolean;
-    passingScore: number;
-    alreadyCompleted?: boolean;
-    examKind?: string;
-    idempotentReplay?: boolean;
-    questionResults?: Array<{
-      questionId: number;
-      correct: boolean;
-      correctOption: string;
-    }>;
-  }) => {
-    if (!result.success) {
-      toast.error("Could not save your quiz attempt. Please try again.");
-      return;
-    }
-    const resultsMap: Record<number, { correct: boolean; correctOption: string }> = {};
-    for (const r of result.questionResults ?? []) {
-      resultsMap[r.questionId] = { correct: r.correct, correctOption: r.correctOption };
-    }
-    setQuizQuestionResults(resultsMap);
-    setQuizScore(typeof result.score === "number" ? result.score : 0);
+  const applyQuizAttemptResult = (result: any) => {
+    // result is from trpc.learning.recordQuizAttempt
+    // The type is { score: number; passed: boolean; passingScore: number; correctAnswers: number; totalQuestions: number; }
+    setQuizScore(result.score);
     setQuizSubmitted(true);
     void utils.courses.getUserEnrollments.invalidate();
     void utils.learning.getMicroCourseExamState.invalidate();
-    if (result.examKind === "diagnostic" || showDiagnosticQuiz) {
-      if (result.alreadyCompleted) {
-        setShowDiagnosticQuiz(false);
-        resetQuizState();
-        toast.success("Diagnostic already complete — modules unlocked.");
-        return;
-      }
-    }
+
     if (result.passed) {
       toast.success(
         showSummativeExam
@@ -1278,6 +1251,13 @@ export default function MicroCoursePlayerDB() {
             courseId={microCourseRow.courseId}
             level={microCourseRow.level as "foundational" | "advanced"}
             onComplete={() => {
+              if (enrollment?.id && microCourseRow) {
+                completeFellowshipSimulation.mutate({
+                  enrollmentId: enrollment.id,
+                  courseId: microCourseRow.courseId,
+                  level: microCourseRow.level as any,
+                });
+              }
               setShowFellowshipSim(false);
               setShowSummativeExam(true);
             }}
@@ -1314,6 +1294,12 @@ export default function MicroCoursePlayerDB() {
               }
               if (showCapstoneSim) {
                 setShowCapstoneSim(false);
+                setShowSummativeExam(true);
+                resetQuizState();
+                return;
+              }
+              if (showFellowshipSim) {
+                setShowFellowshipSim(false);
                 setShowSummativeExam(true);
                 resetQuizState();
                 return;
