@@ -142,7 +142,7 @@ export interface ClinicalEvent {
   type: 'phase_change' | 'finding' | 'threat_identified' | 'intervention_started'
     | 'intervention_completed' | 'safety_alert' | 'reassessment' | 'vital_sign'
     | 'diagnosis' | 'note' | 'cardiac_arrest_start' | 'rosc' | 'patient_info_updated'
-    | 'resource_unavailable';
+    | 'resource_unavailable' | 'definitive_care';
   letter?: ABCDELetter;
   detail: string;
   data?: Record<string, unknown>;
