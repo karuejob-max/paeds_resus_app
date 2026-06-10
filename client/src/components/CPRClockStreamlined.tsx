@@ -46,17 +46,23 @@ import {
   evaluateMedicationEligibility, 
   calculateShockEnergy,
   calculateCprMedicationDose,
-  getCycleWorkflowStatus,
+  calculateAmiodaroneDose,
+  getCompressionCycleStatus,
   getEpinephrineTimingState,
   shouldTriggerIntubatedVentilationCue,
   getHyperkalemiaGuidance,
   applyRhythmWindowDecision,
+  evaluateCprGpsAlerts,
+  getRhythmClassificationFeedback,
+  CPR_CYCLE_SECONDS,
+  RHYTHM_WINDOW_SECONDS,
   type CprEngineState,
   type RhythmType,
   type EpiTimingState,
   type RhythmClassification,
 } from '@/lib/resus/cpr-engine';
 import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
+import { CprDocumentationLog } from '@/components/cpr/CprDocumentationLog';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 
 interface Props {
@@ -135,8 +141,16 @@ export function CPRClockStreamlined({
   // Core timing state
   const [isRunning, setIsRunning] = useState(false);
   const [arrestDuration, setArrestDuration] = useState(0);
+  const [compressionElapsed, setCompressionElapsed] = useState(0);
+  const [cycleNumber, setCycleNumber] = useState(1);
+  const [rhythmWindowElapsed, setRhythmWindowElapsed] = useState<number | null>(null);
   const [cycleTime, setCycleTime] = useState(0);
   const [phase, setPhase] = useState<ArrestPhase>('initial_assessment');
+  const [rhythmFeedback, setRhythmFeedback] = useState<{
+    title: string;
+    message: string;
+    severity: 'warning' | 'destructive';
+  } | null>(null);
   
   // Clinical state
   const [rhythmType, setRhythmType] = useState<RhythmType | null>(null);
@@ -205,6 +219,8 @@ export function CPRClockStreamlined({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metronomeRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const firedAlertsRef = useRef<Set<string>>(new Set());
+  const rhythmWindowLoggedRef = useRef(false);
   
   // tRPC mutations and queries
   const createSession = trpc.cprSession.createSession.useMutation();
@@ -239,13 +255,40 @@ export function CPRClockStreamlined({
     : antiarrhythmicDoses;
   const effectiveRhythmType = syncShared ? shared!.rhythmType ?? rhythmType : rhythmType;
   const effectiveRoscAchieved = syncShared ? shared!.roscAchieved : roscAchieved;
+  const effectiveCompressionElapsed = syncShared ? shared!.compressionElapsed : compressionElapsed;
+  const effectiveCycleNumber = syncShared ? shared!.cycleNumber : cycleNumber;
+
+  const engineSnapshot: CprEngineState = {
+    shockCount: effectiveShockCount,
+    epiDoses: effectiveEpiDoses,
+    lastEpiTime: effectiveLastEpiTime,
+    antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
+    rhythmType: effectiveRhythmType || 'unknown',
+    phase: phase as CprEngineState['phase'],
+  };
+  const isShockableRhythm = effectiveRhythmType === 'vf_pvt';
 
   // Calculate doses
   const epiDose = Math.round(patientWeight * 0.01 * 100) / 100;
-  const amiodaroneDose = Math.min(Math.round(patientWeight * 5), 300);
+  const amiodaroneDoseInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight);
+  const amiodaroneDose = amiodaroneDoseInfo.eligible
+    ? amiodaroneDoseInfo.doseMg
+    : Math.min(Math.round(patientWeight * 5), 300);
   const lidocaineDose = Math.min(Math.round(patientWeight * 1), 100);
   const shockEnergy = calculateShockEnergy(patientWeight, effectiveShockCount);
-  const workflow = getCycleWorkflowStatus(effectiveArrestDuration);
+  const compressionCycle = getCompressionCycleStatus(effectiveCompressionElapsed);
+  const activeAlerts = evaluateCprGpsAlerts({
+    compressionElapsed: effectiveCompressionElapsed,
+    rhythmWindowElapsed,
+    inReassessment: phase === 'reassessment',
+    arrestDuration: effectiveArrestDuration,
+    state: engineSnapshot,
+    isShockable: isShockableRhythm,
+    advancedAirwayPlaced,
+    cycleNumber: effectiveCycleNumber,
+    weightKg: patientWeight,
+    defibDelayed: !sessionId,
+  });
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -315,8 +358,50 @@ export function CPRClockStreamlined({
     } else {
       setArrestDuration(externalElapsed);
     }
-    setCycleTime(externalElapsed % 120);
   }, [externalElapsed, syncShared, shared]);
+
+  const resetCompressionCycle = useCallback(() => {
+    if (syncShared && shared) {
+      shared.setCompressionElapsed(0);
+      shared.setCycleNumber((n) => n + 1);
+    } else {
+      setCompressionElapsed(0);
+      setCycleNumber((n) => n + 1);
+    }
+    firedAlertsRef.current.clear();
+  }, [syncShared, shared]);
+
+  const addEvent = useCallback((action: string, details?: string) => {
+    const ts =
+      externalElapsed !== undefined
+        ? externalElapsed
+        : syncShared && shared
+          ? shared.arrestDuration
+          : arrestDuration;
+    const event: ArrestEvent = {
+      id: Date.now().toString(),
+      timestamp: ts,
+      action,
+      details,
+    };
+    setEvents((prev) => [event, ...prev]);
+    if (syncShared && shared) {
+      shared.addEvent(action, details);
+    }
+
+    if (sessionId) {
+      logEvent.mutate({
+        sessionId,
+        memberId: memberId || undefined,
+        eventType: action.includes('Shock') ? 'defibrillation' : 
+                   action.includes('Epi') || action.includes('Amiodarone') || action.includes('Lidocaine') ? 'medication' :
+                   action.includes('ROSC') ? 'outcome' : 'note',
+        eventTime: ts,
+        description: action,
+        value: details,
+      });
+    }
+  }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed, logEvent]);
 
   // Create session on mount
   useEffect(() => {
@@ -342,6 +427,30 @@ export function CPRClockStreamlined({
     }
   }, []);
 
+  // Speak one-shot CPR-GPS alerts (audio/visual per platform)
+  useEffect(() => {
+    for (const alert of activeAlerts) {
+      const key = `${alert.type}-${effectiveCompressionElapsed}-${rhythmWindowElapsed ?? 'na'}`;
+      if (firedAlertsRef.current.has(key)) continue;
+      if (!alert.speakText) continue;
+      firedAlertsRef.current.add(key);
+      speak(alert.speakText);
+      if (alert.severity === 'critical') triggerHaptic('critical');
+      else if (alert.severity === 'warning') triggerHaptic('medium');
+    }
+  }, [activeAlerts, effectiveCompressionElapsed, rhythmWindowElapsed, speak]);
+
+  useEffect(() => {
+    const precharge = activeAlerts.some((a) => a.type === 'precharge_defibrillator');
+    if (precharge && isShockableRhythm && !defibCharging) {
+      setShowChargePrompt(true);
+    }
+    const airway = activeAlerts.some((a) => a.type === 'advanced_airway');
+    if (airway) setShowAdvancedAirwayPrompt(true);
+    const amio = activeAlerts.some((a) => a.type === 'amiodarone_due');
+    if (amio) setShowAntiarrhythmicChoice(true);
+  }, [activeAlerts, isShockableRhythm, defibCharging]);
+
   // Timer logic (skip arrest duration tick when parent timer is authoritative)
   useEffect(() => {
     if (effectiveIsRunning && !effectiveRoscAchieved) {
@@ -353,46 +462,26 @@ export function CPRClockStreamlined({
             setArrestDuration((prev) => prev + 1);
           }
         }
-        setCycleTime((prev) => {
-          const newCycleTime = prev + 1;
-          
-          // Prompt to charge defib at 1:45 (15s before 2-min cycle ends)
-          if (newCycleTime === 105 && effectiveRhythmType === 'vf_pvt' && !defibCharging) {
-            setShowChargePrompt(true);
-            speak('Charge the defibrillator now.');
-          }
-          
-          // Transition to reassessment phase at 2 minutes
-          if (newCycleTime === 120) {
-            setPhase('reassessment');
-            setReassessmentTime(10);
-            setDefibCharging(false);
-            speak('Stop compressions. Assess rhythm.');
-            return 0;
-          }
-          
-          // Epinephrine reminder (every 3-5 min after first dose)
-          if (
-            effectiveLastEpiTime !== null &&
-            (effectiveArrestDuration - effectiveLastEpiTime) >= 180 &&
-            (effectiveArrestDuration - effectiveLastEpiTime) % 60 === 0
-          ) {
-            speak('Consider epinephrine.');
-          }
-          
-          // Reversible causes reminder at 2-minute mark during compressions (audio only, no auto-popup)
-          if (newCycleTime === 120 && effectiveArrestDuration > 0 && effectiveArrestDuration % 240 === 0) {
-            speak('Review reversible causes.');
-          }
-          
-          // Advanced airway prompt at 4-minute mark during compressions if not placed
-          if (newCycleTime === 240 && !advancedAirwayPlaced) {
-            speak('Consider advanced airway.');
-            setShowAdvancedAirwayPrompt(true);
-          }
-          
-          return newCycleTime;
-        });
+
+        if (phase === 'compressions') {
+          const advance = (prev: number) => {
+            if (prev >= CPR_CYCLE_SECONDS) return prev;
+            const next = prev + 1;
+            if (next >= CPR_CYCLE_SECONDS) {
+              setPhase('reassessment');
+              setReassessmentTime(RHYTHM_WINDOW_SECONDS);
+              setRhythmWindowElapsed(0);
+              rhythmWindowLoggedRef.current = false;
+              setDefibCharging(false);
+              addEvent('2-minute cycle complete', `Cycle ${effectiveCycleNumber} — reassessment due`);
+            }
+            return Math.min(next, CPR_CYCLE_SECONDS);
+          };
+          if (syncShared && shared) shared.setCompressionElapsed(advance);
+          else setCompressionElapsed(advance);
+        } else if (phase === 'reassessment') {
+          setRhythmWindowElapsed((prev) => (prev === null ? 1 : prev + 1));
+        }
 
         if (
           intubationStartTime !== null &&
@@ -404,35 +493,41 @@ export function CPRClockStreamlined({
         }
       }, 1000);
     }
-    
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [
     effectiveIsRunning,
     effectiveRoscAchieved,
-    effectiveLastEpiTime,
     effectiveArrestDuration,
-    effectiveRhythmType,
+    effectiveCompressionElapsed,
+    effectiveCycleNumber,
+    phase,
+    rhythmWindowElapsed,
     advancedAirwayPlaced,
     intubationStartTime,
     externalElapsed,
     syncShared,
     shared,
+    addEvent,
+    speak,
   ]);
 
-  // Reassessment countdown timer
+  // Reassessment countdown timer (10-second CPR interruption window)
   useEffect(() => {
     if (phase === 'reassessment' && reassessmentTime > 0) {
       const timer = setTimeout(() => {
-        setReassessmentTime(prev => prev - 1);
+        setReassessmentTime((prev) => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (phase === 'reassessment' && reassessmentTime === 0) {
-      // Reassessment complete, show rhythm check dialog
-      setShowRhythmCheck(true);
     }
-  }, [phase, reassessmentTime]);
+    if (phase === 'reassessment' && reassessmentTime === 0 && !rhythmWindowLoggedRef.current) {
+      rhythmWindowLoggedRef.current = true;
+      setShowRhythmCheck(true);
+      addEvent('Rhythm check window', '10-second interruption for rhythm assessment');
+    }
+  }, [phase, reassessmentTime, addEvent]);
 
   // Scroll to top when reversible causes overlay opens
   useEffect(() => {
@@ -447,31 +542,6 @@ export function CPRClockStreamlined({
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [showPostRoscProtocol]);
-
-  // Log event helper
-  const addEvent = useCallback((action: string, details?: string) => {
-    const event: ArrestEvent = {
-      id: Date.now().toString(),
-      timestamp: arrestDuration,
-      action,
-      details,
-    };
-    setEvents(prev => [event, ...prev]);
-    
-    // Log to backend if session exists
-    if (sessionId) {
-      logEvent.mutate({
-        sessionId,
-        memberId: memberId || undefined,
-        eventType: action.includes('Shock') ? 'defibrillation' : 
-                   action.includes('Epi') || action.includes('Amiodarone') || action.includes('Lidocaine') ? 'medication' :
-                   action.includes('ROSC') ? 'outcome' : 'note',
-        eventTime: arrestDuration,
-        description: action,
-        value: details,
-      });
-    }
-  }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed]);
 
   // Auto-start when ResusGPS already began the arrest timer
   useEffect(() => {
@@ -522,6 +592,8 @@ export function CPRClockStreamlined({
     };
     
     const rhythmResult = evaluateRhythmTransition(type, engineState);
+    const classification: RhythmClassification = type === 'vf_pvt' ? 'shockable' : 'non_shockable';
+    setRhythmFeedback(getRhythmClassificationFeedback(classification, type));
     const isShockable = type === 'vf_pvt';
     const medResult = evaluateMedicationEligibility(
       effectiveArrestDuration,
@@ -562,9 +634,22 @@ export function CPRClockStreamlined({
         shared.setEngineState((s) => ({ ...s, shockCount: nextShockCount, phase: 'post_shock' }));
       }
       speak(`Shock ${nextShockCount} delivered. Resume compressions.`);
+      if (nextShockCount === 1 && !advancedAirwayPlaced) {
+        setShowAdvancedAirwayPrompt(true);
+      }
+      const medAfterShock = evaluateMedicationEligibility(
+        effectiveArrestDuration,
+        { ...engineSnapshot, shockCount: nextShockCount },
+        true
+      );
+      if (medAfterShock.antiarrhythmicEligible) setShowAntiarrhythmicChoice(true);
     } else {
       speak('No shock delivered. Resume compressions now.');
     }
+    setRhythmFeedback(null);
+    setRhythmWindowElapsed(null);
+    resetCompressionCycle();
+    addEvent('Reassessment completed', `Cycle ${effectiveCycleNumber} — compressions resumed`);
     setPhase('compressions');
   };
 
@@ -604,6 +689,10 @@ export function CPRClockStreamlined({
       speak(medResult.recommendation);
     }
     
+    if (newShockCount === 1 && !advancedAirwayPlaced) {
+      setShowAdvancedAirwayPrompt(true);
+      speak('Consider advanced airway placement.');
+    }
     if (medResult.antiarrhythmicEligible && medResult.recommendation) {
       setShowAntiarrhythmicChoice(true);
       speak('Consider antiarrhythmic. Choose amiodarone or lidocaine.');
@@ -648,9 +737,11 @@ export function CPRClockStreamlined({
     setAntiarrhythmicDoses(prev => prev + 1);
     setShowAntiarrhythmicChoice(false);
     
+    const amioInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight);
     if (choice === 'amiodarone') {
-      addEvent('Amiodarone given', `${amiodaroneDose} mg (5 mg/kg, max 300 mg)`);
-      speak('Amiodarone given.');
+      const doseMg = amioInfo.eligible ? amioInfo.doseMg : amiodaroneDose;
+      addEvent('Amiodarone given', amioInfo.label || `${doseMg} mg IV`);
+      speak(`Amiodarone ${doseMg} milligrams given.`);
     } else {
       addEvent('Lidocaine given', `${lidocaineDose} mg (1 mg/kg, max 100 mg)`);
       speak('Lidocaine given.');
@@ -899,7 +990,7 @@ export function CPRClockStreamlined({
                         COMPRESSIONS
                       </div>
                       <div className="text-lg md:text-2xl text-gray-300">
-                        Next rhythm check in {formatTime(workflow.countdownToRhythmCheck)}
+                        Next rhythm check in {formatTime(compressionCycle.countdownToRhythmCheck)}
                       </div>
                     </>
                   )}
@@ -1020,7 +1111,7 @@ export function CPRClockStreamlined({
             <div className="grid grid-cols-4 gap-1 md:gap-4">
               <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-xl md:text-3xl font-bold text-cyan-300">{workflow.cycleNumber}</div>
+                  <div className="text-xl md:text-3xl font-bold text-cyan-300">{effectiveCycleNumber}</div>
                   <div className="text-xs md:text-sm text-gray-400">Cycle</div>
                 </CardContent>
               </Card>
@@ -1053,21 +1144,66 @@ export function CPRClockStreamlined({
                 </CardContent>
               </Card>
             </div>
+            {rhythmFeedback && (
+              <Card
+                className={
+                  rhythmFeedback.severity === 'warning'
+                    ? 'border-yellow-500 bg-yellow-950/40'
+                    : 'border-red-500 bg-red-950/40'
+                }
+              >
+                <CardContent className="p-3 md:p-4">
+                  <p className="font-bold text-white">{rhythmFeedback.title}</p>
+                  <p className="text-sm text-gray-200 mt-1">{rhythmFeedback.message}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeAlerts.length > 0 && (
+              <Card className="bg-gray-900 border-gray-700">
+                <CardContent className="p-3 md:p-4 space-y-1">
+                  {activeAlerts.map((alert) => (
+                    <div
+                      key={`${alert.type}-${alert.message}`}
+                      className={`text-sm ${
+                        alert.severity === 'critical'
+                          ? 'text-red-400 font-semibold'
+                          : alert.severity === 'warning'
+                            ? 'text-yellow-400'
+                            : 'text-cyan-300'
+                      }`}
+                    >
+                      {alert.message}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="bg-gray-900 border-gray-700">
               <CardContent className="p-3 md:p-4">
                 <div className="text-sm md:text-base text-gray-300">
-                  Next action: <span className="font-semibold text-white">{workflow.nextAction}</span>
+                  Next action: <span className="font-semibold text-white">{compressionCycle.nextAction}</span>
                 </div>
-                {workflow.phase === 'precharge_alert' && (
-                  <div className="text-yellow-400 text-sm mt-1">Pre-charge alert active (T-15s to rhythm check).</div>
+                {compressionCycle.phase === 'precharge_alert' && (
+                  <div className="text-yellow-400 text-sm mt-1">
+                    Pre-charge alert active (T-30s to rhythm check).
+                  </div>
                 )}
-                {workflow.phase === 'rhythm_window' && (
+                {phase === 'reassessment' && rhythmWindowElapsed !== null && (
                   <div className="text-blue-300 text-sm mt-1">
-                    10-second rhythm/shock window: {workflow.rhythmWindowRemaining}s remaining.
+                    10-second rhythm/shock window:{' '}
+                    {Math.max(0, RHYTHM_WINDOW_SECONDS - rhythmWindowElapsed)}s remaining.
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            <CprDocumentationLog
+              entries={syncShared && shared ? shared.events : events}
+              formatTime={formatTime}
+              onLogQuickAction={addEvent}
+            />
           </div>
         )}
       </div>
@@ -1168,7 +1304,13 @@ export function CPRClockStreamlined({
               <div className="text-center mb-6">
                 <Syringe className="h-16 w-16 text-purple-500 mx-auto mb-4" />
                 <h2 className="text-3xl font-bold text-white mb-2">ANTIARRHYTHMIC</h2>
-                <p className="text-gray-300">After 5th shock - Choose one</p>
+                <p className="text-gray-300">
+                  {effectiveShockCount === 3
+                    ? 'After 3rd shock — amiodarone 300 mg IV (or 5 mg/kg)'
+                    : effectiveShockCount === 5
+                      ? 'After 5th shock — amiodarone 150 mg IV (or 2.5 mg/kg)'
+                      : 'Refractory shockable rhythm — choose one'}
+                </p>
               </div>
               
               <div className="space-y-4">
@@ -1177,8 +1319,10 @@ export function CPRClockStreamlined({
                   size="lg"
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xl py-6 h-auto"
                 >
-                  Amiodarone {amiodaroneDose} mg
-                  <span className="block text-sm mt-1">(5 mg/kg, max 300 mg)</span>
+                  Amiodarone {amiodaroneDoseInfo.eligible ? amiodaroneDoseInfo.doseMg : amiodaroneDose} mg
+                  <span className="block text-sm mt-1">
+                    {amiodaroneDoseInfo.label || '(5 mg/kg, max 300 mg)'}
+                  </span>
                 </Button>
                 
                 <Button

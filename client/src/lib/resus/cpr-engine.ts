@@ -11,10 +11,15 @@ export type RhythmClassification = 'shockable' | 'non_shockable';
 export type ShockActionType = 'shock_delivered' | 'no_shock';
 
 export const CPR_CYCLE_SECONDS = 120;
-export const PRECHARGE_ALERT_SECONDS = 15;
+/** T-30s before rhythm check — charge defibrillator (CEO CPR-GPS). */
+export const PRECHARGE_ALERT_SECONDS = 30;
 export const RHYTHM_WINDOW_SECONDS = 10;
 export const CYCLE_BLOCK_SECONDS = CPR_CYCLE_SECONDS + RHYTHM_WINDOW_SECONDS;
 export const VENTILATION_CUE_SECONDS = 6;
+export const EPI_MIN_INTERVAL_SECONDS = 180;
+/** 1-minute prep warning before next epinephrine dose (CEO CPR-GPS). */
+export const EPI_PREP_WARNING_SECONDS = 60;
+export const PRECHARGE_AT_COMPRESSION_ELAPSED = CPR_CYCLE_SECONDS - PRECHARGE_ALERT_SECONDS;
 
 export interface CprEngineState {
   shockCount: number;
@@ -32,6 +37,43 @@ export interface CycleWorkflowStatus {
   rhythmWindowRemaining: number;
   phase: RhythmWindowPhase;
   nextAction: string;
+}
+
+export interface CompressionCycleStatus {
+  compressionElapsed: number;
+  countdownToRhythmCheck: number;
+  phase: 'compressions' | 'precharge_alert' | 'rhythm_check_due';
+  nextAction: string;
+}
+
+export type CprGpsAlertType =
+  | 'reassessment_due'
+  | 'precharge_defibrillator'
+  | 'rhythm_window'
+  | 'epinephrine_due'
+  | 'epinephrine_prep'
+  | 'amiodarone_due'
+  | 'advanced_airway'
+  | 'reversible_causes';
+
+export interface CprGpsAlert {
+  type: CprGpsAlertType;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  speakText?: string;
+}
+
+export interface CprGpsAlertInput {
+  compressionElapsed: number;
+  rhythmWindowElapsed: number | null;
+  inReassessment: boolean;
+  arrestDuration: number;
+  state: CprEngineState;
+  isShockable: boolean;
+  advancedAirwayPlaced: boolean;
+  cycleNumber: number;
+  weightKg: number;
+  defibDelayed?: boolean;
 }
 
 export interface RhythmWindowDocumentation {
@@ -86,6 +128,160 @@ export function getCycleWorkflowStatus(totalElapsedSeconds: number): CycleWorkfl
   };
 }
 
+/** Compression-phase cycle timer — resets after each reassessment (CEO CPR-GPS). */
+export function getCompressionCycleStatus(compressionElapsed: number): CompressionCycleStatus {
+  const elapsed = Math.max(0, compressionElapsed);
+  const countdownToRhythmCheck = Math.max(0, CPR_CYCLE_SECONDS - elapsed);
+  const phase: CompressionCycleStatus['phase'] =
+    elapsed >= CPR_CYCLE_SECONDS
+      ? 'rhythm_check_due'
+      : elapsed >= PRECHARGE_AT_COMPRESSION_ELAPSED
+        ? 'precharge_alert'
+        : 'compressions';
+
+  const nextAction =
+    phase === 'rhythm_check_due'
+      ? 'Stop compressions — reassess patient and rhythm'
+      : phase === 'precharge_alert'
+        ? 'Charge defibrillator now'
+        : 'Continue high-quality compressions';
+
+  return { compressionElapsed: elapsed, countdownToRhythmCheck, phase, nextAction };
+}
+
+export function getRhythmClassificationFeedback(
+  classification: RhythmClassification,
+  rhythmType?: RhythmType
+): { title: string; message: string; severity: 'warning' | 'destructive' } {
+  if (classification === 'shockable') {
+    return {
+      title: 'SHOCKABLE RHYTHM',
+      message: `${rhythmType === 'vf_pvt' ? 'VF/pVT' : 'Shockable rhythm'} — prepare to defibrillate. Minimize pause; resume compressions immediately after shock.`,
+      severity: 'warning',
+    };
+  }
+  return {
+    title: 'NON-SHOCKABLE RHYTHM',
+    message: `${rhythmType === 'pea' ? 'PEA' : rhythmType === 'asystole' ? 'Asystole' : 'Non-shockable rhythm'} — do not shock. Resume compressions and give epinephrine if due.`,
+    severity: 'destructive',
+  };
+}
+
+export function calculateAmiodaroneDose(
+  shockCount: number,
+  weightKg: number
+): { eligible: boolean; doseMg: number; label: string } {
+  if (shockCount === 3) {
+    const doseMg = Math.min(Math.round(weightKg * 5), 300);
+    return { eligible: true, doseMg, label: `${doseMg} mg IV (5 mg/kg, max 300 mg) — after 3rd shock` };
+  }
+  if (shockCount === 5) {
+    const doseMg = Math.min(Math.round(weightKg * 2.5), 150);
+    return { eligible: true, doseMg, label: `${doseMg} mg IV (2.5 mg/kg, max 150 mg) — after 5th shock` };
+  }
+  return { eligible: false, doseMg: 0, label: '' };
+}
+
+export function shouldPromptAdvancedAirway(shockCount: number, advancedAirwayPlaced: boolean): boolean {
+  return shockCount >= 1 && !advancedAirwayPlaced;
+}
+
+export function shouldPromptReversibleCausesReview(cycleNumber: number): boolean {
+  return cycleNumber >= 1;
+}
+
+export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
+  const alerts: CprGpsAlert[] = [];
+  const {
+    compressionElapsed,
+    rhythmWindowElapsed,
+    inReassessment,
+    arrestDuration,
+    state,
+    isShockable,
+    advancedAirwayPlaced,
+    cycleNumber,
+    weightKg,
+    defibDelayed = false,
+  } = input;
+
+  if (inReassessment && rhythmWindowElapsed !== null) {
+    const remaining = Math.max(0, RHYTHM_WINDOW_SECONDS - rhythmWindowElapsed);
+    alerts.push({
+      type: 'rhythm_window',
+      severity: 'warning',
+      message: `${remaining}s rhythm/shock window — document rhythm and shock decision`,
+      speakText: remaining <= 3 ? 'Resume compressions soon' : undefined,
+    });
+    if (shouldPromptReversibleCausesReview(cycleNumber)) {
+      alerts.push({
+        type: 'reversible_causes',
+        severity: 'info',
+        message: 'Review reversible causes (Hs & Ts) between cycles',
+      });
+    }
+    return alerts;
+  }
+
+  const compression = getCompressionCycleStatus(compressionElapsed);
+  if (compression.phase === 'rhythm_check_due') {
+    alerts.push({
+      type: 'reassessment_due',
+      severity: 'critical',
+      message: '2-minute cycle complete — reassess patient and check rhythm',
+      speakText: 'Stop compressions. Reassess patient and check rhythm.',
+    });
+  } else if (compression.phase === 'precharge_alert' && isShockable) {
+    alerts.push({
+      type: 'precharge_defibrillator',
+      severity: 'warning',
+      message: `Charge defibrillator — rhythm check in ${compression.countdownToRhythmCheck}s`,
+      speakText: 'Charge the defibrillator now.',
+    });
+  }
+
+  const med = evaluateMedicationEligibility(arrestDuration, state, isShockable, { defibDelayed });
+  const epiState = getEpinephrineTimingState(arrestDuration, state, isShockable, { defibDelayed });
+  if (med.epiEligible) {
+    alerts.push({
+      type: 'epinephrine_due',
+      severity: 'critical',
+      message: med.recommendation ?? 'Give epinephrine now',
+      speakText: med.recommendation ?? 'Give epinephrine now.',
+    });
+  } else if (epiState === 'almost_due') {
+    alerts.push({
+      type: 'epinephrine_prep',
+      severity: 'warning',
+      message: 'Prepare next epinephrine dose — due within 1 minute',
+      speakText: 'Prepare epinephrine. Dose due within one minute.',
+    });
+  }
+
+  if (isShockable && med.antiarrhythmicEligible) {
+    const doseInfo = calculateAmiodaroneDose(state.shockCount, weightKg);
+    alerts.push({
+      type: 'amiodarone_due',
+      severity: 'warning',
+      message: doseInfo.eligible
+        ? `Amiodarone ${doseInfo.doseMg} mg IV after shock #${state.shockCount}`
+        : `Consider antiarrhythmic after shock #${state.shockCount}`,
+      speakText: doseInfo.eligible ? `Give amiodarone ${doseInfo.doseMg} milligrams.` : undefined,
+    });
+  }
+
+  if (shouldPromptAdvancedAirway(state.shockCount, advancedAirwayPlaced)) {
+    alerts.push({
+      type: 'advanced_airway',
+      severity: 'info',
+      message: 'Consider advanced airway placement (after 1st shock)',
+      speakText: 'Consider advanced airway placement.',
+    });
+  }
+
+  return alerts;
+}
+
 export function validateRhythmWindowDocumentation(
   doc: RhythmWindowDocumentation
 ): { valid: boolean; missing: string[] } {
@@ -137,8 +333,8 @@ export function getEpinephrineTimingState(
   }
 
   const elapsed = Math.max(0, arrestDuration - state.lastEpiTime);
-  if (elapsed >= 180) return 'overdue';
-  if (elapsed >= 150) return 'almost_due';
+  if (elapsed >= EPI_MIN_INTERVAL_SECONDS) return 'overdue';
+  if (elapsed >= EPI_MIN_INTERVAL_SECONDS - EPI_PREP_WARNING_SECONDS) return 'almost_due';
   return 'not_due';
 }
 
@@ -268,11 +464,15 @@ export function evaluateMedicationEligibility(
     recommendation = 'Consider epinephrine (3-5 min since last dose).';
   }
 
-  // Antiarrhythmic (after 3rd shock and 5th shock for refractory VF/pVT)
+  // Amiodarone: 300 mg IV after 3rd shock; 150 mg IV after 5th shock (PALS)
   if (isShockable && (state.shockCount === 3 || state.shockCount === 5)) {
-    if (state.antiarrhythmicDoses < 2) {
+    const doseIndex = state.shockCount === 3 ? 0 : 1;
+    if (state.antiarrhythmicDoses <= doseIndex) {
       antiarrhythmicEligible = true;
-      recommendation = `Consider antiarrhythmic after shock #${state.shockCount}.`;
+      recommendation =
+        state.shockCount === 3
+          ? 'Give amiodarone 300 mg IV (or 5 mg/kg, max 300 mg) after 3rd shock.'
+          : 'Give amiodarone 150 mg IV (or 2.5 mg/kg, max 150 mg) after 5th shock.';
     }
   }
 
