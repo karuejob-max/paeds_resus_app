@@ -1,10 +1,10 @@
-/** Verify fellowship seed — all catalog courses (excl. sample intubation).
+﻿/** Verify fellowship seed â€” all catalog courses (excl. sample intubation).
  * Includes `seriously-ill-child-i` (seed via `pnpm run seed:seriously-ill-child-course`).
  * Fails on thinFormative (>0 modules with <3 unique formative stems).
  */
 import { getDb } from "../server/db";
-import { microCourses, courses, modules, moduleSections, quizzes, quizQuestions } from "../drizzle/schema";
-import { eq, like, and, or } from "drizzle-orm";
+import { microCourses, courses, modules, moduleSections, quizzes, quizQuestions, fellowshipSimulations } from "../drizzle/schema";
+import { eq, like, and, or, sql } from "drizzle-orm";
 import { moduleSectionsStale } from "../shared/split-module-html-sections";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
@@ -31,13 +31,34 @@ async function main() {
     process.exit(1);
   }
 
+
+  const [colRow] = await db.execute(
+    sql`SELECT COUNT(*) AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'userProgress' AND COLUMN_NAME = 'fellowshipSimulationId'`
+  );
+  const colCount = Number((colRow as { c: number }[])[0]?.c ?? 0);
+  if (colCount < 1) {
+    console.error("[FAIL] userProgress.fellowshipSimulationId column missing — run pnpm run db:apply-0050");
+    process.exit(1);
+  }
+  console.log("[OK] userProgress.fellowshipSimulationId column present");
+
+  const [simCountRow] = await db.select({ c: sql<number>`count(*)` }).from(fellowshipSimulations);
+  const simRowCount = Number(simCountRow?.c ?? 0);
+  const minSimRows = FELLOWSHIP_SLUGS.length;
+  if (simRowCount < minSimRows) {
+    console.error(
+      `[FAIL] fellowshipSimulations row count ${simRowCount} < expected ${minSimRows} — run pnpm run seed:fellowship-content:all`
+    );
+    process.exit(1);
+  }
+  console.log(`[OK] fellowshipSimulations rows=${simRowCount} (expected >= ${minSimRows})`);
   let failures = 0;
   const rows: string[] = [];
 
   for (const slug of FELLOWSHIP_SLUGS) {
     const [row] = await db.select().from(microCourses).where(eq(microCourses.courseId, slug)).limit(1);
     if (!row) {
-      console.log(`[FAIL] ${slug} — not in microCourses catalog`);
+      console.log(`[FAIL] ${slug} â€” not in microCourses catalog`);
       failures++;
       continue;
     }
@@ -55,7 +76,7 @@ async function main() {
       .limit(1);
 
     if (!course) {
-      console.log(`[FAIL] ${slug} — no fellowship courses row (title prefix: ${titlePrefix})`);
+      console.log(`[FAIL] ${slug} â€” no fellowship courses row (title prefix: ${titlePrefix})`);
       failures++;
       continue;
     }
@@ -167,3 +188,4 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
