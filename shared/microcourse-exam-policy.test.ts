@@ -15,6 +15,8 @@ import {
   shuffleQuestionIndices,
   shuffleQuestionsDisplayOptions,
   shuffleQuizOptions,
+  rephraseFormativeStemForSummative,
+  stripExamMetaHints,
   summativePassed,
   uniqueFormativeQuestions,
 } from "./microcourse-exam-policy";
@@ -200,5 +202,19 @@ describe("microcourse-exam-policy", () => {
     const resolved = resolveModuleFormativeQuestions(modules, bank);
     expect(resolved[0]![0]!.question).toBe("M1");
     expect(resolved[0]!.length).toBe(1);
+  });
+
+  it("strips Course synthesis meta hints from exam stems", () => {
+    const raw =
+      "Course synthesis (Module 2): Hyperkalaemia in AKI needs first: — select the answer taught in this course.";
+    expect(stripExamMetaHints(raw)).toBe("Hyperkalaemia in AKI needs first:");
+    expect(stripExamMetaHints(raw)).not.toMatch(/course synthesis|taught in this course/i);
+  });
+
+  it("rephrases formative stems disjoint from originals without meta hints", () => {
+    const formative = "The most common AKI category in children is:";
+    const summative = rephraseFormativeStemForSummative(formative);
+    expect(summative).not.toMatch(/course synthesis|taught in this course/i);
+    expect(normalizeQuestionStem(summative)).not.toBe(normalizeQuestionStem(formative));
   });
 });

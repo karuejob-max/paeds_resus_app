@@ -300,6 +300,207 @@ export function shuffleQuestionsDisplayOptions<T extends QuizQuestionWithOptions
   });
 }
 
+/**
+ * Rephrase a module-native formative stem for summative use — clinically equivalent,
+ * textually disjoint, with no user-facing meta hints (e.g. "Course synthesis").
+ */
+export function rephraseFormativeStemForSummative(stem: string): string {
+  const original = stem.trim();
+  let t = original.replace(/\?$/, "").trim();
+  const origNorm = normalizeQuestionStem(t);
+
+  const transforms: Array<(s: string) => string | null> = [
+    (s) => {
+      const m = s.match(/^(.+?) includes (.+?):$/i);
+      return m ? `What ${m[2].toLowerCase()} criteria apply under ${m[1]}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^The most common (.+?) is:$/i);
+      return m ? `What is the most common ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is typically defined as:$/i);
+      return m ? `How is ${m[1].toLowerCase()} typically defined?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is defined as (.+?):$/i);
+      return m ? `What defines ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) may receive (?:a cautious )?(.+?) of:$/i);
+      return m
+        ? `What ${m[2].toLowerCase()} may be cautiously given for ${m[1].toLowerCase()}?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) should:$/i);
+      return m ? `What should be done for ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) needs first:$/i);
+      return m ? `What is the first priority for ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is indicated in (.+?) when (.+?) is:$/i);
+      return m
+        ? `When ${m[3].toLowerCase()}, when is ${m[1].toLowerCase()} indicated in ${m[2].toLowerCase()}?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is valuable because:$/i);
+      return m ? `Why is ${m[1].toLowerCase()} valuable in clinical practice?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is approximately:$/i);
+      return m ? `What is the approximate figure for ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) causes include:$/i);
+      return m ? `Which causes are associated with ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) include:$/i);
+      return m ? `What is included under ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) includes all EXCEPT:$/i);
+      return m ? `Which item is NOT part of ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is especially concerning because it:$/i);
+      return m ? `Why is ${m[1].toLowerCase()} clinically concerning?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is usually managed by:$/i);
+      return m ? `How is ${m[1].toLowerCase()} usually managed?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is best described as:$/i);
+      return m ? `Which description best applies to ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is best based on:$/i);
+      return m ? `What should ${m[1].toLowerCase()} be based on?` : null;
+    },
+    (s) => {
+      const m = s.match(/^A child with (.+?) should receive:$/i);
+      return m ? `What should a child with ${m[1].toLowerCase()} receive?` : null;
+    },
+    (s) => {
+      const m = s.match(/^A child with (.+?) needs:$/i);
+      return m ? `What does a child with ${m[1].toLowerCase()} need?` : null;
+    },
+    (s) => {
+      const m = s.match(/^First intervention for (.+?):$/i);
+      return m ? `What is the first intervention for ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^Which drug should be held or dose-adjusted first in (.+)$/i);
+      return m
+        ? `In ${m[1].toLowerCase()}, which drug should be held or dose-adjusted first?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) presents with:$/i);
+      return m ? `How does ${m[1].toLowerCase()} typically present?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) — first action:$/i);
+      return m ? `What is the first action when ${m[1].toLowerCase()} is suspected?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) — priority order:$/i);
+      return m ? `What is the correct management priority for ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) first-line includes:$/i);
+      return m ? `What does first-line management of ${m[1].toLowerCase()} include?` : null;
+    },
+    (s) => {
+      const m = s.match(/^Before (.+?) when (.+?), document:$/i);
+      return m
+        ? `Before ${m[1].toLowerCase()} when ${m[2].toLowerCase()}, what must be documented?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) concentration for (.+?) is:$/i);
+      return m
+        ? `What concentration of ${m[1].toLowerCase()} is used for ${m[2].toLowerCase()}?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) refers to:$/i);
+      return m ? `What does the term "${m[1].toLowerCase()}" refer to?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is a rapid-onset reaction involving:$/i);
+      return m ? `A rapid-onset ${m[1].toLowerCase()} involves which feature?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) in (.+?) is:$/i);
+      return m
+        ? `Regarding ${m[1].toLowerCase()} in ${m[2].toLowerCase()}, which is correct?`
+        : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) in (.+?):$/i);
+      return m ? `In ${m[2].toLowerCase()}, what applies to ${m[1].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) on discharge should include:$/i);
+      return m ? `What should a discharge ${m[1].toLowerCase()} include?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) is indicated when:$/i);
+      return m ? `When is ${m[1].toLowerCase()} indicated?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) dose for (.+?) is typically:$/i);
+      return m ? `What is the typical ${m[1].toLowerCase()} dose for ${m[2].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) during (.+?) is used to:$/i);
+      return m ? `Why is ${m[1].toLowerCase()} used during ${m[2].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) rather than (.+?) when:$/i);
+      return m ? `When should you choose ${m[1].toLowerCase()} over ${m[2].toLowerCase()}?` : null;
+    },
+    (s) => {
+      const m = s.match(/^If (.+?) and (.+?):$/i);
+      return m ? `If ${m[1].toLowerCase()} and ${m[2].toLowerCase()}, what is the priority?` : null;
+    },
+    (s) => {
+      const m = s.match(/^(.+?) with (.+?) should receive:$/i);
+      return m
+        ? `What should a patient with ${m[1].toLowerCase()} and ${m[2].toLowerCase()} receive?`
+        : null;
+    },
+    (s) =>
+      s.endsWith(":")
+        ? `Which statement about ${s.slice(0, -1).toLowerCase()} is correct?`
+        : null,
+    (s) => (!s.endsWith("?") ? `${s}?` : null),
+  ];
+
+  for (const fn of transforms) {
+    const out = fn(t);
+    if (out && normalizeQuestionStem(out) !== origNorm) return out;
+  }
+  return t.endsWith("?") ? t : `${t}?`;
+}
+
+/** Strip user-facing exam meta hints from question stems. */
+export function stripExamMetaHints(stem: string): string {
+  return stem
+    .replace(/Course synthesis \(Module \d+\):\s*/gi, "")
+    .replace(/\s*—\s*select the answer taught in this course\.?/gi, "")
+    .replace(/\s*\(-\s*select the answer taught in this course\)\.?/gi, "")
+    .replace(/Module \d+ synthesis:\s*/gi, "")
+    .replace(/Course synthesis:\s*/gi, "")
+    .trim();
+}
+
 export type SummativeBlockKind = "none" | "max_attempts" | "cooldown";
 
 export function canAttemptSummative(params: {

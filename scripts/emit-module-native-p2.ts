@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { getAllFellowshipSeedContent, resolveCatalogSlug } from "./fellowship-seed-lib";
 import {
   MICROCOURSE_FULL_QUESTION_BANK_SIZE,
+  rephraseFormativeStemForSummative,
   uniqueFormativeQuestions,
   type FormativeQuestion,
 } from "../shared/microcourse-exam-policy";
@@ -31,10 +32,8 @@ function fmtQuestion(q: FormativeQuestion): string {
 }
 
 /** Rephrase formative stem so summative bank stays disjoint but tests same module teaching. */
-function rephraseForSummative(q: FormativeQuestion, modNum: number): FormativeQuestion {
-  const base = q.question.replace(/\?$/, "").trim();
-  const stem = `Course synthesis (Module ${modNum}): ${base} — select the answer taught in this course.`;
-  return { ...q, question: stem };
+function rephraseForSummative(q: FormativeQuestion, _modNum: number): FormativeQuestion {
+  return { ...q, question: rephraseFormativeStemForSummative(q.question) };
 }
 
 function buildP2(

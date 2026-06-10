@@ -1,6 +1,6 @@
 # Fellowship assessment audit
 
-**Generated:** 2026-06-08 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-06-10 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Executive summary (after remediation)
 
@@ -13,6 +13,7 @@
 | Diagnostic↔summative overlaps (seed split) | 0 |
 | Summative→formative overlaps | 0 |
 | Cross-module formative duplicates | 0 |
+| Forbidden exam meta hints | 0 |
 
 ## Remediation (2026-06-06)
 

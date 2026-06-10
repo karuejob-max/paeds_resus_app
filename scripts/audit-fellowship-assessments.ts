@@ -49,6 +49,21 @@ function normStem(q: string): string {
   return q.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+const FORBIDDEN_STEM_HINTS = [
+  /course synthesis/i,
+  /select the answer taught/i,
+  /module \d+ synthesis/i,
+  /synthesis \(module/i,
+];
+
+function hasForbiddenExamMetaHint(stem: string): boolean {
+  return FORBIDDEN_STEM_HINTS.some((p) => p.test(stem));
+}
+
+function countForbiddenMetaHints(questions: FormativeQuestion[]): number {
+  return questions.filter((q) => hasForbiddenExamMetaHint(q.question)).length;
+}
+
 function uniqueStemCount(questions: FormativeQuestion[]): number {
   return new Set(questions.map((q) => normStem(q.question))).size;
 }
@@ -96,6 +111,7 @@ type CourseAudit = {
   expandDuplicates: number;
   summFormOverlap: number;
   crossModuleFormDups: number;
+  forbiddenMetaHints: number;
   severity: Severity;
   notes: string[];
 };
@@ -122,6 +138,10 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
   const summFormOverlap = overlap(seededSummative, allFormative);
   const crossModuleFormDups = crossModuleFormativeDups(materialized.modules);
   const diagSummOverlap = overlap(diagnostic, seededSummative);
+  const forbiddenMetaHints =
+    countForbiddenMetaHints(authoredSummative) +
+    countForbiddenMetaHints(seededSummative) +
+    countForbiddenMetaHints(allFormative);
 
   const notes: string[] = [];
   let severity: Severity = "OK";
@@ -150,6 +170,10 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
     notes.push(`${summFormOverlap} seeded summative stems overlap module-native formatives`);
     if (severity === "OK") severity = "MEDIUM";
   }
+  if (forbiddenMetaHints > 0) {
+    notes.push(`${forbiddenMetaHints} question(s) with forbidden exam meta hints (e.g. Course synthesis)`);
+    severity = severity === "CRITICAL" ? "CRITICAL" : "HIGH";
+  }
   for (let i = 0; i < materialized.modules.length; i++) {
     const qs = materialized.modules[i]!.questions ?? [];
     if (withinQuizDuplicateCount(qs) > 0) {
@@ -173,6 +197,7 @@ function auditRawCourse(raw: FellowshipCourseSeed): CourseAudit {
     expandDuplicates,
     summFormOverlap,
     crossModuleFormDups,
+    forbiddenMetaHints,
     severity,
     notes,
   };
@@ -200,6 +225,7 @@ function main() {
         expandDuplicates: 0,
         summFormOverlap: 0,
         crossModuleFormDups: 0,
+        forbiddenMetaHints: 0,
         severity: "OK",
         notes: ["Separate seed — native formatives per module"],
       });
@@ -218,6 +244,7 @@ function main() {
         expandDuplicates: 0,
         summFormOverlap: 0,
         crossModuleFormDups: 0,
+        forbiddenMetaHints: 0,
         severity: "CRITICAL",
         notes: ["No seed source"],
       });
@@ -229,6 +256,7 @@ function main() {
   const totalExpandDups = audits.reduce((s, a) => s + a.expandDuplicates, 0);
   const totalSummFormOverlap = audits.reduce((s, a) => s + a.summFormOverlap, 0);
   const totalCrossMod = audits.reduce((s, a) => s + a.crossModuleFormDups, 0);
+  const totalForbiddenMetaHints = audits.reduce((s, a) => s + a.forbiddenMetaHints, 0);
   const totalDiagSummOverlap = audits.reduce((s, a) => {
     const raw = bySlug.get(a.slug);
     if (!raw) return s;
@@ -258,6 +286,7 @@ function main() {
     `| Diagnostic↔summative overlaps (seed split) | ${totalDiagSummOverlap} |`,
     `| Summative→formative overlaps | ${totalSummFormOverlap} |`,
     `| Cross-module formative duplicates | ${totalCrossMod} |`,
+    `| Forbidden exam meta hints | ${totalForbiddenMetaHints} |`,
     "",
     "## Remediation (2026-06-06)",
     "",
@@ -280,6 +309,10 @@ function main() {
   console.log(JSON.stringify({ criticalCount, totalExpandDups, totalSummFormOverlap, bankFallbackCount }, null, 2));
 
   if (process.argv.includes("--strict")) {
+    if (totalForbiddenMetaHints > 0) {
+      console.error(`Strict audit failed: forbidden exam meta hints=${totalForbiddenMetaHints}`);
+      process.exit(1);
+    }
     if (totalExpandDups > 0 || bankFallbackCount > 0) process.exit(1);
     if (totalSummFormOverlap > 0) {
       console.error(`Strict audit failed: summative→formative overlap=${totalSummFormOverlap}`);

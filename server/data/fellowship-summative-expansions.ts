@@ -58,6 +58,7 @@ export const FELLOWSHIP_SUMMATIVE_EXPANSIONS: Record<string, FormativeQuestion[]
     { question: "Non-invasive ventilation may help when:", options: ["Work of breathing high without immediate intubation need", "GCS 3 only", "Normal oxygenation", "Anaphylaxis"], correct: 0, explanation: "NIV can reduce work of breathing in selected cardiogenic pulmonary oedema." },
   ],
   "cardiogenic-shock-ii": [
+    { question: "Nitroprusside in cardiogenic shock with pulmonary oedema requires:", options: ["Continuous BP monitoring in ICU", "No monitoring", "Outpatient titration", "First-line before any inotrope"], correct: 0, explanation: "Potent vasodilator — requires invasive monitoring and specialist ICU." },
     { question: "Milrinone in paediatric cardiogenic shock:", options: ["May reduce afterload but cause hypotension — monitor BP", "Is first-line in all shock", "Replaces antibiotics", "Contraindicated always"], correct: 0, explanation: "Milrinone is inodilator — watch for hypotension." },
     { question: "ECMO may be considered when:", options: ["Refractory cardiogenic shock despite maximal medical therapy", "Mild dehydration", "First bolus given", "Outpatient follow-up"], correct: 0, explanation: "ECMO is rescue for refractory cardiac failure at ECMO centres." },
     { question: "Myocarditis presenting with shock requires:", options: ["Inotrope support and cardiology/ICU referral", "Large fluid boluses only", "No monitoring", "Discharge"], correct: 0, explanation: "Myocarditis can cause acute pump failure — ICU and specialist care." },
