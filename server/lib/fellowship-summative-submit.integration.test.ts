@@ -55,24 +55,29 @@ function buildDbMock(progressRows: Record<string, unknown>[]) {
   const updateWhere = vi.fn().mockResolvedValue(undefined);
   const updateSet = vi.fn(() => ({ where: updateWhere }));
 
+  const mockChain = (data: any) => {
+    const chain = {
+      where: vi.fn(() => chain),
+      orderBy: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      then: (onFullfilled: any) => Promise.resolve(data).then(onFullfilled),
+    };
+    return chain;
+  };
+
   return {
     select: vi.fn(() => ({
       from: vi.fn((table: unknown) => {
         if (table === quizzes) {
-          return {
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [{ title: MICROCOURSE_SUMMATIVE_QUIZ_TITLE, passingScore: 80 }]),
-            })),
-          };
+          return mockChain([{ id: SUMMATIVE_QUIZ_ID, title: MICROCOURSE_SUMMATIVE_QUIZ_TITLE, passingScore: 80 }]);
         }
         if (table === userProgress) {
-          return {
-            where: vi.fn(async () => progressRows),
-          };
+          return mockChain(progressRows);
         }
-        return {
-          where: vi.fn(async () => []),
-        };
+        if (table === modules) {
+          return mockChain([{ id: 1, order: 1 }]);
+        }
+        return mockChain([]);
       }),
     })),
     query: {
