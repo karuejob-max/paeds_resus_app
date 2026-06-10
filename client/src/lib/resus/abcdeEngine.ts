@@ -210,6 +210,15 @@ export interface ResusSession {
     stepStatuses: Record<string, 'pending' | 'done' | 'skipped'>;
     completedAt?: number;
   } | null;
+  /** Secondary survey sub-step: SAMPLE → evidence → diagnosis (zero-ambiguity gating) */
+  secondarySurveyStep?: 'sample' | 'evidence' | 'diagnosis';
+  structuredSymptoms?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
+  structuredSample?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
+  diagnosticEvidence?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
+  rigorConditionCandidates?: string[];
+  /** After fluid bolus — structured reassessment required before continuing */
+  pendingFluidReassessment?: boolean;
+  fluidReassessmentEvidence?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────
@@ -1836,7 +1845,8 @@ export function answerPrimarySurvey(
       log(next, 'phase_change', `→ PRIMARY SURVEY: ${nextLetter}`);
     } else {
       next.phase = 'SECONDARY_SURVEY';
-      log(next, 'phase_change', '→ SECONDARY SURVEY');
+      next.secondarySurveyStep = 'sample';
+      log(next, 'phase_change', '→ SECONDARY SURVEY (SAMPLE first — before diagnosis)');
     }
   }
 
@@ -1877,6 +1887,8 @@ export function completeIntervention(session: ResusSession, interventionId: stri
             fluidType: intervention.dose.drug,
           });
           log(next, 'note', `Fluid tracker: ${Math.round(next.fluidTracker.totalVolumePerKg)} mL/kg total (${next.fluidTracker.bolusCount} boluses)`);
+          next.pendingFluidReassessment = true;
+          next.fluidReassessmentEvidence = {};
         }
       }
       if (isInsulinAdministration(intervention.action)) {
@@ -1989,6 +2001,7 @@ export function returnToPrimarySurvey(session: ResusSession): ResusSession {
       log(next, 'phase_change', `→ PRIMARY SURVEY: ${nextLetter}`);
     } else {
       next.phase = 'SECONDARY_SURVEY';
+      next.secondarySurveyStep = next.secondarySurveyStep ?? 'sample';
       log(next, 'phase_change', '→ SECONDARY SURVEY');
     }
   } else {
@@ -1996,6 +2009,32 @@ export function returnToPrimarySurvey(session: ResusSession): ResusSession {
     log(next, 'phase_change', `→ PRIMARY SURVEY: continue ${next.currentLetter}`);
   }
 
+  return next;
+}
+
+export function advanceSecondarySurveyStep(session: ResusSession): ResusSession {
+  const next = deepCopy(session);
+  const step = next.secondarySurveyStep ?? 'sample';
+  if (step === 'sample') next.secondarySurveyStep = 'evidence';
+  else if (step === 'evidence') next.secondarySurveyStep = 'diagnosis';
+  log(next, 'phase_change', `→ Secondary survey: ${next.secondarySurveyStep}`);
+  return next;
+}
+
+export function setStructuredClinicalEvidence(
+  session: ResusSession,
+  bucket: 'structuredSymptoms' | 'structuredSample' | 'diagnosticEvidence' | 'fluidReassessmentEvidence',
+  record: ResusSession[typeof bucket]
+): ResusSession {
+  const next = deepCopy(session);
+  next[bucket] = record ?? {};
+  return next;
+}
+
+export function completeFluidReassessment(session: ResusSession): ResusSession {
+  const next = deepCopy(session);
+  next.pendingFluidReassessment = false;
+  log(next, 'reassessment', 'Fluid bolus reassessment evidence complete');
   return next;
 }
 

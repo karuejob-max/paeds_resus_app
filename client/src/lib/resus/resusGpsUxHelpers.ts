@@ -1,5 +1,11 @@
 import { getVitalSignRanges } from '@/lib/clinicalCalculations';
 import {
+  getFellowshipMicrocourseResusConditionLabel,
+  isFellowshipMicrocourseResusCondition,
+  normalizeToFellowshipResusConditionId,
+  resolveFellowshipDiagnosisFromSession,
+} from '@shared/fellowship-microcourse-resus-conditions';
+import {
   getAllPendingCritical,
   getPendingInterventions,
   type ABCDELetter,
@@ -93,12 +99,47 @@ export function formatVitalWithAgeContext(
     abnormal: result.assessment !== 'normal',
   };
 }
-import {
-  getFellowshipMicrocourseResusConditionLabel,
-  isFellowshipMicrocourseResusCondition,
-  normalizeToFellowshipResusConditionId,
-  resolveFellowshipDiagnosisFromSession,
-} from '@shared/fellowship-microcourse-resus-conditions';
+
+/** SpO₂ — target ≥94% in paediatric emergency (WHO ETAT+). */
+export function evaluateSpO2(spo2: number): { abnormal: boolean; context: string } {
+  if (spo2 < 90) return { abnormal: true, context: 'critical hypoxia — target ≥94%' };
+  if (spo2 < 94) return { abnormal: true, context: 'hypoxia — target ≥94%' };
+  return { abnormal: false, context: 'acceptable (≥94%)' };
+}
+
+/** Glucose in mmol/L — hypoglycaemia / hyperglycaemia bands. */
+export function evaluateGlucoseMmol(glucose: number): { abnormal: boolean; context: string } {
+  if (glucose < 3.3) return { abnormal: true, context: 'hypoglycaemia — treat <3.3 mmol/L' };
+  if (glucose > 14) return { abnormal: true, context: 'severe hyperglycaemia' };
+  if (glucose > 11) return { abnormal: true, context: 'elevated — consider DKA workup' };
+  return { abnormal: false, context: 'within acceptable range' };
+}
+
+/** Temperature in °C. */
+export function evaluateTemperatureC(temp: number): { abnormal: boolean; context: string } {
+  if (temp < 36) return { abnormal: true, context: 'hypothermia' };
+  if (temp > 39.5) return { abnormal: true, context: 'high fever' };
+  if (temp > 38) return { abnormal: true, context: 'fever' };
+  return { abnormal: false, context: 'afebrile range' };
+}
+
+export function isVitalInputAbnormal(
+  vitalId: string,
+  value: number,
+  ageYears: number | null
+): boolean {
+  if (vitalId === 'hr' || vitalId === 'heart_rate') {
+    return ageYears != null ? evaluateHeartRateForAge(value, ageYears).assessment !== 'normal' : false;
+  }
+  if (vitalId === 'rr' || vitalId === 'respiratory_rate') {
+    return ageYears != null ? evaluateRespiratoryRateForAge(value, ageYears).assessment !== 'normal' : false;
+  }
+  if (vitalId === 'spo2' || vitalId === 'oxygen_saturation') return evaluateSpO2(value).abnormal;
+  if (vitalId === 'glucose' || vitalId === 'blood_glucose') return evaluateGlucoseMmol(value).abnormal;
+  if (vitalId === 'temperature' || vitalId === 'temp') return evaluateTemperatureC(value).abnormal;
+  if (vitalId === 'sbp' && ageYears != null) return evaluateSystolicBpForAge(value, ageYears).assessment !== 'normal';
+  return false;
+}
 
 export const ABCDE_GROUP_ORDER: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
 

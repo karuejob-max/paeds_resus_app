@@ -179,6 +179,20 @@ Work should generally align with this **sequenced** priority unless the CEO expl
 
 ## 13. How developers should work (guardrails)
 
+### 13.1 ResusGPS zero-ambiguity clinical UX (locked)
+
+**ResusGPS** bedside flows must eliminate ambiguous bulk actions. **Lives depend on structured capture**; LMIC **Not available** per field is policy data, not a shortcut.
+
+| Phase | Gating |
+|-------|--------|
+| Primary survey (XABCDE) | Objective vitals with **abnormal highlighting during input** (HR, RR, BP, SpO₂, temp, glucose mmol/L) |
+| Secondary survey | **SAMPLE + structured symptoms** — each field/value or Not available — **before** differential diagnosis |
+| Diagnostic evidence | Condition-specific labs (e.g. DKA: ketones, pH, HCO₃, HbA1c) — each value or Not available — **before** definitive care |
+| Fluid bolus reassessment | Overload signs and perfusion parameters — **each submitted individually** after bolus |
+| Definitive care | Step-by-step confirmation; **no bulk skip** on management checklists |
+
+Implementation: `shared/clinical-evidence.ts`, `shared/fellowship-clinical-rigor.ts`, `shared/secondary-survey-gating.ts`. **DKA** is the gold template; all **15 fellowship ResusGPS conditions** use the same rigor pattern.
+
 - **Extend, don’t replace:** New features should plug into existing **routes**, **tRPC** procedures, **admin reports**, and **event tracking** unless there is a deliberate architectural decision.
 - **Preserve the user model:** No **single-role lock**; preserve **multi-context switching** in the UI.
 - **Preserve report definitions:** **This month** = EAT calendar month; **last 7 days** = rolling; **Safe-Truth** and **analyticsEvents** meanings as in [§8](#8-admin-reports-definitions).

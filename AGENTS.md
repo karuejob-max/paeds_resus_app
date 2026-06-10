@@ -185,6 +185,21 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 
 ## 9. Development Guardrails (from PSOT §13)
 
+### ResusGPS — Zero-ambiguity clinical UX (mandatory)
+
+Lives depend on bedside decisions. ResusGPS must enforce **structured, individual evidence capture** — no bulk "done/N/A" shortcuts.
+
+| Rule | Requirement |
+|------|-------------|
+| **Phase order** | After E (Exposure): **SAMPLE / secondary survey** → **diagnostic evidence** → **diagnosis** → **definitive care** |
+| **Each field** | Enter a **specific value** OR tap **Not available** individually (LMIC policy data — captures resource gaps) |
+| **Reassessment** | After fluid bolus: each overload and perfusion sign submitted separately |
+| **Vitals** | Abnormal values highlighted **during input** and on summary (HR, RR, BP, SpO₂, temp, glucose mmol/L) |
+| **Management** | No ambiguous bulk-complete for intervention lists; individual step confirmation only |
+| **Fellowship conditions** | DKA is gold template; same rigor pattern for all 15 fellowship conditions (`shared/fellowship-clinical-rigor.ts`) |
+
+Code: `shared/clinical-evidence.ts`, `shared/secondary-survey-gating.ts`, `StructuredClinicalEvidencePanel`.
+
 - **Extend, don't replace.** New features plug into existing routes, tRPC procedures, admin reports, and event tracking unless there is a deliberate architectural decision.
 - **Preserve the user model.** No single-role lock; preserve multi-context switching in the UI.
 - **Preserve report definitions.** "This month" = EAT calendar month; "last 7 days" = rolling 7×24 hours.
