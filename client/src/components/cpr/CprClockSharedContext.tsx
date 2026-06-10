@@ -18,6 +18,10 @@ export interface CprClockSharedValue {
   setEngineState: React.Dispatch<React.SetStateAction<CprEngineState>>;
   arrestDuration: number;
   setArrestDuration: React.Dispatch<React.SetStateAction<number>>;
+  compressionElapsed: number;
+  setCompressionElapsed: React.Dispatch<React.SetStateAction<number>>;
+  cycleNumber: number;
+  setCycleNumber: React.Dispatch<React.SetStateAction<number>>;
   cycleTime: number;
   setCycleTime: React.Dispatch<React.SetStateAction<number>>;
   isRunning: boolean;
@@ -56,6 +60,8 @@ export function CprClockSharedProvider({
 }) {
   const [engineState, setEngineState] = useState<CprEngineState>(defaultEngineState);
   const [arrestDuration, setArrestDuration] = useState(initialArrestDuration);
+  const [compressionElapsed, setCompressionElapsed] = useState(0);
+  const [cycleNumber, setCycleNumber] = useState(1);
   const [cycleTime, setCycleTime] = useState(0);
   const [isRunning, setIsRunning] = useState(initialRunning);
   const [events, setEvents] = useState<CprArrestEvent[]>([]);
@@ -80,6 +86,10 @@ export function CprClockSharedProvider({
       setEngineState,
       arrestDuration,
       setArrestDuration,
+      compressionElapsed,
+      setCompressionElapsed,
+      cycleNumber,
+      setCycleNumber,
       cycleTime,
       setCycleTime,
       isRunning,
@@ -91,7 +101,18 @@ export function CprClockSharedProvider({
       rhythmType,
       setRhythmType,
     }),
-    [engineState, arrestDuration, cycleTime, isRunning, events, addEvent, roscAchieved, rhythmType]
+    [
+      engineState,
+      arrestDuration,
+      compressionElapsed,
+      cycleNumber,
+      cycleTime,
+      isRunning,
+      events,
+      addEvent,
+      roscAchieved,
+      rhythmType,
+    ]
   );
 
   return (

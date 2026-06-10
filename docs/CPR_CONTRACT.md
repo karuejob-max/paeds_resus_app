@@ -22,6 +22,7 @@ The `cprClock` router is now considered legacy and is gated for writes.
 
 ## Client entry (Phase 0)
 - **ResusGPS** opens `CPRClockUnified` (solo/streamlined default) with shared `cpr-engine.ts` timing/dosing.
+- **CPR-GPS arrest workflow (CEO):** 2-min compression cycle (resets after reassessment), T-30s pre-charge alert, 10s rhythm window, shock-count-driven epi/amiodarone/airway alerts, clickable documentation log (`CprDocumentationLog`).
 - **Life-support pack** routing: `client/src/lib/resus/cpr-pack-resolver.ts` (PALS / ACLS / NRP).
 - **Team join URL**: `/join-cpr/:sessionCode` → `JoinSession.tsx`.
 
