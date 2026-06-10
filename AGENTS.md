@@ -16,6 +16,20 @@ If you are an AI agent operating in this repository, you **MUST** read this file
 
 **[docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md)** — step-by-step runbooks: protected-branch PR/merge (`gh`), production fellowship seed (chunked batches, verify script, Render Shell), ETIMEDOUT recovery, honest multitask status. Cross-links [AGENT_AUTONOMY.md](docs/AGENT_AUTONOMY.md); does not replace it.
 
+
+
+### Production deploy & database migrations (Manus + all agents)
+
+Schema and content ship on **different tracks**. Merging code to `origin/main` does **not** apply SQL to production.
+
+1. **Ship code:** feature branch → `gh pr create` → CI green → merge to `main` (never push directly to `main`).
+2. **Apply migrations on production DB** when the PR adds or changes `drizzle/schema.ts` or numbered `drizzle/00NN_*.sql`:
+   - From a trusted environment with production `DATABASE_URL` (Render Shell preferred if desktop ETIMEDOUT): `pnpm run db:test-connection` then `pnpm run db:apply-00NN` for each new script (e.g. **`pnpm run db:apply-0050`** for `fellowshipSimulations` + `userProgress.fellowshipSimulationId`).
+   - Apply scripts are **idempotent**; "already exists" is success.
+3. **Seed content:** `pnpm run seed:fellowship-content:all` (or rely on production `pnpm start` auto-seed after deploy).
+4. **Verify:** `pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts` (or targeted verify). Paste summarized output into **WORK_STATUS** as **Production Verify Output**.
+5. **Manus:** Sandbox success is **not** Done. Hand off with migration + seed commands above; confirm production verify before claiming learner-facing completion.
+
 ### Definition of Done — Distance = merged on `origin/main`
 
 **Work = Distance × Effort.** High effort without merged artifacts on `main` is **NOT done**.
@@ -27,7 +41,7 @@ Work is **NOT done** until:
 - **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + **Production Verify Output**.
 - Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script.
 
-**Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR, **code merged but production DB not seeded**.
+**Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR, **code merged but production schema not migrated**, **code merged but production DB not seeded/verified**.
 
 ### Autonomous shipping (read every session)
 
