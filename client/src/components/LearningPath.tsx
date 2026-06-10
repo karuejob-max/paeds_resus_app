@@ -190,10 +190,7 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     const result = await recordQuizAttemptMutation.mutateAsync({
       quizId: moduleContentQuery.data?.quizzes?.[0]?.id || 0,
       enrollmentId,
-      answers: Object.entries(quizAnswers).map(([qId, ans]) => ({
-        questionId: parseInt(qId),
-        answer: ans as string,
-      })),
+      answers: quizAnswers,
     });
 
     if (result.passed) {

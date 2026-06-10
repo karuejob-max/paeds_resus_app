@@ -111,9 +111,9 @@ export function FellowshipSimulation({
             <div className="bg-blue-50 border-l-4 border-blue-200 p-4 text-blue-800">
               <h4 className="font-semibold">Vitals:</h4>
               <ul className="list-disc list-inside">
-                {Object.entries(currentScenarioStep.vitals).map(([key, value]) => (
-                  <li key={key}><strong>{key}:</strong> {value}</li>
-                ))}
+	                {Object.entries(currentScenarioStep.vitals).map(([key, value]) => (
+	                  <li key={key}><strong>{key}:</strong> {String(value)}</li>
+	                ))}
               </ul>
             </div>
           )}

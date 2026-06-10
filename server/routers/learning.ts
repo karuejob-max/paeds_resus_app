@@ -484,7 +484,7 @@ export const learningRouter = router({
       }
 
       const { score, correctCount, totalQuestions } = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
-      const passed = summativePassed(score, MICROCOURSE_SUMMATIVE_PASS_PERCENT);
+      const passed = summativePassed(score);
 
       await (db as any).insert(userProgress).values({
         userId: ctx.user.id,

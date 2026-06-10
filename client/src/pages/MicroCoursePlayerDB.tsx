@@ -526,6 +526,15 @@ export default function MicroCoursePlayerDB() {
     },
   });
 
+  const completeFellowshipSimulation = trpc.learning.completeFellowshipSimulation.useMutation({
+    onSuccess: () => {
+      void utils.learning.getMicroCourseExamState.invalidate();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Could not save simulation progress.");
+    },
+  });
+
   useEffect(() => {
     if (!submitQuizMutation.isPending) return;
     const timeoutId = window.setTimeout(() => {
@@ -1299,6 +1308,13 @@ export default function MicroCoursePlayerDB() {
                 return;
               }
               if (showFellowshipSim) {
+                if (enrollment?.id && microCourseRow) {
+                  completeFellowshipSimulation.mutate({
+                    enrollmentId: enrollment.id,
+                    courseId: microCourseRow.courseId,
+                    level: microCourseRow.level as any,
+                  });
+                }
                 setShowFellowshipSim(false);
                 setShowSummativeExam(true);
                 resetQuizState();
