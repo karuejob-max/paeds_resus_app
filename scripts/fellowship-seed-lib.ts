@@ -1,4 +1,4 @@
-import { assertQuizCorrectAnswerValid, encodeQuizCorrectAnswerForStorage } from "../shared/quiz-answer-contract";
+﻿import { assertQuizCorrectAnswerValid, encodeQuizCorrectAnswerForStorage } from "../shared/quiz-answer-contract";
 import {
   MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
   MICROCOURSE_FORMATIVE_QUIZ_TITLE,
@@ -43,7 +43,7 @@ export type FellowshipCourseSeed = {
   };
 };
 
-/** Authored ID → catalog slug */
+/** Authored ID â†’ catalog slug */
 export const FELLOWSHIP_ID_MAPPING: Record<string, string> = {
   "acute-kidney-injury-i": "aki-i",
   "acute-kidney-injury-ii": "aki-ii",
@@ -61,6 +61,16 @@ export const FELLOWSHIP_ID_MAPPING: Record<string, string> = {
   "paediatric-trauma-ii": "trauma-ii",
   "paediatric-septic-shock-i": "septic-shock-i",
 };
+
+function resolveSimulationCatalogSlug(courseId: string): string {
+  return FELLOWSHIP_ID_MAPPING[courseId] ?? courseId;
+}
+
+function courseSimulationLevel(level: string): "foundational" | "advanced" {
+  if (level === "foundational" || level === "beginner") return "foundational";
+  return "advanced";
+}
+
 
 /** Chunked batches to avoid ETIMEDOUT on long prod seed runs */
 export const FELLOWSHIP_SEED_BATCHES: Record<string, string[]> = {
@@ -150,7 +160,7 @@ export function parseSeedCliArgs(argv: string[]): { onlySlugs?: Set<string>; bat
 
 type SeedDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
-/** Exact catalog title first, then order — avoids stale duplicate `courses` rows. */
+/** Exact catalog title first, then order â€” avoids stale duplicate `courses` rows. */
 export async function resolveFellowshipCourseRowForSeed(
   db: SeedDb,
   catalog: { title: string; order: number | null }
@@ -396,7 +406,7 @@ export async function seedFellowshipContent(options: {
     if (courseData.quiz && courseData.quiz.questions.length > 0) {
       const lastModuleId = moduleIds[moduleIds.length - 1]!;
       const firstModuleId = moduleIds[0]!;
-      // Module-native formatives only — never pull stems from summative bank (governance §3.3).
+      // Module-native formatives only â€” never pull stems from summative bank (governance Â§3.3).
       const formativeByModule = courseData.modules.map((mod) => mod.questions ?? []);
       const fullBank = uniqueFormativeQuestions([
         ...courseData.quiz.questions,
@@ -436,18 +446,21 @@ export async function seedFellowshipContent(options: {
     }
 
     // Seed fellowship simulations
-    const simData = FELLOWSHIP_SIMULATIONS.find(s => s.courseId === catalogSlug && s.level === courseData.level);
+    const courseSimLevel = courseSimulationLevel(courseData.level);
+    const simData = FELLOWSHIP_SIMULATIONS.find(
+      (s) => resolveSimulationCatalogSlug(s.courseId) === catalogSlug && s.level === courseSimLevel
+    );
     if (simData) {
       const [existingSim] = await db.select().from(fellowshipSimulations)
-        .where(and(eq(fellowshipSimulations.courseId, catalogSlug), eq(fellowshipSimulations.level, courseData.level)))
+        .where(and(eq(fellowshipSimulations.courseId, catalogSlug), eq(fellowshipSimulations.level, courseSimLevel)))
         .limit(1);
       
       const simValues = {
         courseId: catalogSlug,
-        level: courseData.level as "foundational" | "advanced",
+        level: courseSimLevel,
         title: simData.title,
         description: simData.description,
-        scenarioData: JSON.stringify(simData.pages),
+        scenarioData: simData.pages,
       };
 
       if (existingSim) {
@@ -458,3 +471,4 @@ export async function seedFellowshipContent(options: {
     }
   }
 }
+
