@@ -5,7 +5,7 @@ export type FellowshipSimulationScenario = {
   level: 'foundational' | 'advanced';
   title: string;
   description: string;
-  pages: Record<ResusGpsPage, ScenarioFinding>;
+  pages: Partial<Record<ResusGpsPage, ScenarioFinding>>;
 };
 
 export const FELLOWSHIP_SIMULATIONS: FellowshipSimulationScenario[] = [
