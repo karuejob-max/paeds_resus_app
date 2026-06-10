@@ -21,6 +21,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
 import { checkMedicationDuplicate, type DuplicateCheckResult } from '@/lib/resus/medication-deduplication';
 import { DefinitiveCarePanel } from '@/components/DefinitiveCarePanel';
+import { StructuredClinicalEvidencePanel } from '@/components/StructuredClinicalEvidencePanel';
 import { DuplicateWarningDialog } from '@/components/DuplicateWarningDialog';
 import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPrompt';
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
@@ -78,6 +79,9 @@ import {
   startDefinitiveCare,
   updateDefinitiveCareStep,
   completeDefinitiveCare,
+  advanceSecondarySurveyStep,
+  setStructuredClinicalEvidence,
+  completeFluidReassessment,
   addConcurrentDiagnosis,
   removeConcurrentDiagnosis,
   updateSAMPLE,
@@ -143,6 +147,18 @@ import {
 } from '@shared/fellowship-microcourse-resus-conditions';
 import { isEligibleForFellowshipAutoCredit } from '@shared/fellowship-resus-auto-credit';
 import { resolveDefinitiveCare } from '@/lib/resus/definitive-care-engine';
+import {
+  canShowDiagnosisSelection,
+  getSecondarySurveyFields,
+  isEvidenceStepComplete,
+  isSampleStepComplete,
+  resolveRigorConditionCandidates,
+} from '@shared/secondary-survey-gating';
+import {
+  FLUID_OVERLOAD_EVIDENCE,
+  FLUID_SHOCK_EVIDENCE,
+} from '@shared/fellowship-clinical-rigor';
+import { isClinicalEvidenceComplete } from '@shared/clinical-evidence';
 import ExportDocumentsPanel from '@/components/ExportDocumentsPanel';
 import { ConditionProtocolSheet } from '@/components/ConditionProtocolSheet';
 import { MultiPatientBoard } from '@/components/MultiPatientBoard';
@@ -157,6 +173,10 @@ import {
   isPostPrimaryPhase,
   parsePatientAgeYears,
   formatVitalWithAgeContext,
+  evaluateSpO2,
+  evaluateGlucoseMmol,
+  evaluateTemperatureC,
+  isVitalInputAbnormal,
 } from '@/lib/resus/resusGpsUxHelpers';
 
 // ─── Constants ──────────────────────────────────────────────
@@ -780,16 +800,62 @@ export default function ResusGPS() {
     setSession((prev) => startDefinitiveCare(prev));
   }, []);
 
+  useEffect(() => {
+    if (session.phase !== 'SECONDARY_SURVEY') return;
+    if (session.rigorConditionCandidates?.length) return;
+    const candidates = resolveRigorConditionCandidates({
+      threats: session.threats,
+      suggestedDiagnoses: diagnoses.map((d) => d.diagnosis),
+    });
+    setSession((prev) => ({
+      ...prev,
+      rigorConditionCandidates: candidates,
+      secondarySurveyStep: prev.secondarySurveyStep ?? 'sample',
+    }));
+  }, [session.phase, session.threats, session.rigorConditionCandidates, diagnoses]);
+
   const handleSetPrimaryDiagnosis = useCallback(
     (diagnosis: string) => {
+      if (!canShowDiagnosisSelection(session)) {
+        toast.error('Complete structured SAMPLE and diagnostic evidence before selecting a diagnosis.', {
+          duration: 4000,
+        });
+        return;
+      }
       const nextSession = setDefinitiveDiagnosis(session, diagnosis as never);
       setSession(nextSession);
     },
     [session]
   );
 
+  const handleAdvanceSecondarySurvey = useCallback(() => {
+    const step = session.secondarySurveyStep ?? 'sample';
+    if (step === 'sample' && !isSampleStepComplete(session)) {
+      toast.error('Document each symptom and SAMPLE field — or mark Not available.', { duration: 4000 });
+      return;
+    }
+    if (step === 'evidence' && !isEvidenceStepComplete(session)) {
+      toast.error('Enter each diagnostic value or mark Not available individually.', { duration: 4000 });
+      return;
+    }
+    setSession((prev) => advanceSecondarySurveyStep(prev));
+  }, [session]);
+
+  const handleFluidReassessmentComplete = useCallback(() => {
+    const overloadOk = isClinicalEvidenceComplete(
+      FLUID_OVERLOAD_EVIDENCE,
+      session.fluidReassessmentEvidence
+    );
+    const shockOk = isClinicalEvidenceComplete(FLUID_SHOCK_EVIDENCE, session.fluidReassessmentEvidence);
+    if (!overloadOk || !shockOk) {
+      toast.error('Submit each reassessment finding individually before continuing.', { duration: 4000 });
+      return;
+    }
+    setSession((prev) => completeFluidReassessment(prev));
+  }, [session.fluidReassessmentEvidence]);
+
   const handleDefinitiveCareStepChange = useCallback(
-    (stepId: string, status: 'done' | 'skipped') => {
+    (stepId: string, status: 'done') => {
       const care = resolveDefinitiveCare(
         session.definitiveDiagnosis,
         session.patientWeight ?? 10,
@@ -1155,7 +1221,41 @@ export default function ResusGPS() {
           />
         )}
 
-        {session.phase === 'INTERVENTION' && (
+        {session.pendingFluidReassessment && (
+          <Card className="border-amber-500/40 bg-amber-500/10 mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-foreground">Fluid bolus reassessment — document each finding</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                After each fluid aliquot: assess overload and perfusion individually. No bulk skip.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <StructuredClinicalEvidencePanel
+                title="Signs of overload?"
+                description="Submit each sign as present, absent, or not assessed."
+                fields={FLUID_OVERLOAD_EVIDENCE}
+                record={session.fluidReassessmentEvidence ?? {}}
+                onChange={(rec) =>
+                  setSession(setStructuredClinicalEvidence(session, 'fluidReassessmentEvidence', rec))
+                }
+              />
+              <StructuredClinicalEvidencePanel
+                title="Still in shock?"
+                description="Enter each perfusion parameter or mark Not available."
+                fields={FLUID_SHOCK_EVIDENCE}
+                record={session.fluidReassessmentEvidence ?? {}}
+                onChange={(rec) =>
+                  setSession(setStructuredClinicalEvidence(session, 'fluidReassessmentEvidence', rec))
+                }
+              />
+              <Button className="w-full" onClick={handleFluidReassessmentComplete}>
+                Reassessment complete — continue
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {session.phase === 'INTERVENTION' && !session.pendingFluidReassessment && (
           <InterventionScreen
             session={session}
             weight={weight}
@@ -1917,6 +2017,7 @@ function PrimarySurveyScreen({
               value={numberInput}
               onChange={setNumberInput}
               session={session}
+              questionId={question.id}
               onSubmit={(val) => {
                 const interp = question.numberConfig!.interpret(val, session);
                 onAnswer(question, interp.label, val);
@@ -1951,16 +2052,20 @@ function NumberInput({
   value,
   onChange,
   session,
+  questionId,
   onSubmit,
 }: {
   config: NonNullable<AssessmentQuestion['numberConfig']>;
   value: string;
   onChange: (v: string) => void;
   session: ResusSession;
+  questionId: string;
   onSubmit: (val: number) => void;
 }) {
   const numVal = parseFloat(value);
   const isValid = !isNaN(numVal) && numVal >= config.min && numVal <= config.max;
+  const ageYears = parsePatientAgeYears(session.patientAge);
+  const vitalAbnormal = isValid && isVitalInputAbnormal(questionId, numVal, ageYears);
 
   return (
     <div className="space-y-4">
@@ -1989,7 +2094,9 @@ function NumberInput({
           placeholder={config.placeholder}
           value={value}
           onChange={e => onChange(e.target.value)}
-          className="text-lg bg-background text-foreground"
+          className={`text-lg bg-background text-foreground ${
+            vitalAbnormal ? 'border-amber-500 ring-1 ring-amber-500/40' : ''
+          }`}
           min={config.min}
           max={config.max}
           step={config.step}
@@ -2398,7 +2505,7 @@ function PostPrimaryScreen({
   onSetPrimaryDiagnosis: (diagnosis: string) => void;
   onAddCoDiagnosis: (diagnosis: string) => void;
   onStartDefinitiveCare: () => void;
-  onDefinitiveCareStepChange: (stepId: string, status: 'done' | 'skipped') => void;
+  onDefinitiveCareStepChange: (stepId: string, status: 'done') => void;
   onDefinitiveCareComplete: () => void;
   isSaving: boolean;
   fellowshipSavedSessionId: string | null;
@@ -2430,6 +2537,11 @@ function PostPrimaryScreen({
   const inDefinitiveCare =
     session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING';
   const definitiveCareComplete = Boolean(session.definitiveCareProgress?.completedAt);
+  const surveyStep = session.secondarySurveyStep ?? 'sample';
+  const rigorFields = useMemo(() => getSecondarySurveyFields(session), [session.rigorConditionCandidates]);
+  const sampleComplete = isSampleStepComplete(session);
+  const evidenceComplete = isEvidenceStepComplete(session);
+  const diagnosisUnlocked = canShowDiagnosisSelection(session) || Boolean(session.definitiveDiagnosis);
 
   const workingDiagnosisLabels = useMemo(() => {
     const raw = [
@@ -2506,9 +2618,18 @@ function PostPrimaryScreen({
                 />
               );
             })()}
-            {session.vitalSigns.spo2 !== undefined && (
-              <VitalBadge label="SpO2" value={`${session.vitalSigns.spo2}`} unit="%" />
-            )}
+            {session.vitalSigns.spo2 !== undefined && (() => {
+              const ctx = evaluateSpO2(session.vitalSigns.spo2!);
+              return (
+                <VitalBadge
+                  label="SpO2"
+                  value={`${session.vitalSigns.spo2}`}
+                  unit="%"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
             {session.vitalSigns.sbp !== undefined && session.vitalSigns.dbp !== undefined && (() => {
               const ctx = formatVitalWithAgeContext('sbp', session.vitalSigns.sbp!, patientAgeYears);
               return (
@@ -2521,15 +2642,87 @@ function PostPrimaryScreen({
                 />
               );
             })()}
-            {session.vitalSigns.temp !== undefined && (
-              <VitalBadge label="Temp" value={`${session.vitalSigns.temp}`} unit="C" />
-            )}
-            {session.vitalSigns.glucose !== undefined && (
-              <VitalBadge label="Glucose" value={`${session.vitalSigns.glucose}`} unit="mmol/L" />
-            )}
+            {session.vitalSigns.temp !== undefined && (() => {
+              const ctx = evaluateTemperatureC(session.vitalSigns.temp!);
+              return (
+                <VitalBadge
+                  label="Temp"
+                  value={`${session.vitalSigns.temp}`}
+                  unit="C"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
+            {session.vitalSigns.glucose !== undefined && (() => {
+              const ctx = evaluateGlucoseMmol(session.vitalSigns.glucose!);
+              return (
+                <VitalBadge
+                  label="Glucose"
+                  value={`${session.vitalSigns.glucose}`}
+                  unit="mmol/L"
+                  context={ctx.context}
+                  abnormal={ctx.abnormal}
+                />
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
+
+      {/* Secondary survey — SAMPLE → evidence → diagnosis (before any diagnosis selection) */}
+      {session.phase === 'SECONDARY_SURVEY' && !session.definitiveDiagnosis && (
+        <Card className="bg-card border-primary/30 border-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-foreground">Secondary survey — step {surveyStep === 'sample' ? '1' : surveyStep === 'evidence' ? '2' : '3'} of 3</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Complete structured history and diagnostic evidence before differential diagnosis. Each field: specific value or Not available (LMIC policy data).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {surveyStep === 'sample' && (
+              <>
+                <StructuredClinicalEvidencePanel
+                  title="Signs & symptoms"
+                  description="Document each symptom individually — adds diagnostic weight."
+                  fields={rigorFields.symptoms}
+                  record={session.structuredSymptoms ?? {}}
+                  onChange={(rec) => setSession(setStructuredClinicalEvidence(session, 'structuredSymptoms', rec))}
+                />
+                <StructuredClinicalEvidencePanel
+                  title="SAMPLE history"
+                  description="Known T1DM, allergies, medications, and events — each field submitted separately."
+                  fields={rigorFields.sampleFields}
+                  record={session.structuredSample ?? {}}
+                  onChange={(rec) => setSession(setStructuredClinicalEvidence(session, 'structuredSample', rec))}
+                />
+                <Button className="w-full" disabled={!sampleComplete} onClick={() => setSession(advanceSecondarySurveyStep(session))}>
+                  {sampleComplete ? 'Continue to diagnostic evidence' : 'Complete all SAMPLE fields above'}
+                </Button>
+              </>
+            )}
+            {surveyStep === 'evidence' && (
+              <>
+                <StructuredClinicalEvidencePanel
+                  title="Diagnostic evidence"
+                  description="Enter each lab value or mark Not available — no bulk skip."
+                  fields={rigorFields.diagnosticEvidence}
+                  record={session.diagnosticEvidence ?? {}}
+                  onChange={(rec) => setSession(setStructuredClinicalEvidence(session, 'diagnosticEvidence', rec))}
+                />
+                <Button className="w-full" disabled={!evidenceComplete} onClick={() => setSession(advanceSecondarySurveyStep(session))}>
+                  {evidenceComplete ? 'Continue to differential diagnosis' : 'Complete all diagnostic fields above'}
+                </Button>
+              </>
+            )}
+            {surveyStep === 'diagnosis' && (
+              <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+                Diagnostic process complete — select primary diagnosis below.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Documented diagnoses (primary + co-diagnoses) */}
       {(session.definitiveDiagnosis || (session.concurrentDiagnoses?.length ?? 0) > 0) && (
@@ -2587,31 +2780,8 @@ function PostPrimaryScreen({
         </Card>
       )}
 
-      {showDefinitiveCareCta && (
-        <Card className="bg-primary/5 border-primary/30">
-          <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">Primary diagnosis set — start definitive care</p>
-              <p className="text-xs text-muted-foreground">
-                Walk through condition-based therapy (fluids, antibiotics, insulin protocol) per fellowship micro-course CST.
-              </p>
-            </div>
-            <Button onClick={onStartDefinitiveCare} className="shrink-0">
-              Start definitive care
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {inDefinitiveCare && (
-        <DefinitiveCarePanel
-          session={session}
-          onStepChange={onDefinitiveCareStepChange}
-          onComplete={onDefinitiveCareComplete}
-        />
-      )}
-
-      {/* Differential diagnoses — always shown so fellows can pick primary for Pillar B */}
+      {/* Differential diagnoses — gated until SAMPLE + diagnostic evidence complete */}
+      {diagnosisUnlocked && (
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm text-foreground flex items-center gap-2">
@@ -2780,87 +2950,30 @@ function PostPrimaryScreen({
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* SAMPLE History */}
-      {session.phase === 'SECONDARY_SURVEY' && (
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-foreground">SAMPLE History</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Pre-fill banner — shown when a previous session had SAMPLE data */}
-            {preFillSample && !samplePreFillDismissed && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                <AlertCircle className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-blue-300">Pre-fill from previous case?</p>
-                  <p className="text-[11px] text-blue-400/80 mt-0.5">
-                    Allergies, medications, and history from your last case are available.
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
-                      onClick={() => {
-                        // Apply pre-fill to all non-empty fields
-                        let updated = session;
-                        const fields = ['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const;
-                        fields.forEach(f => {
-                          const val = preFillSample[f];
-                          if (val && !session.sampleHistory[f]) {
-                            updated = updateSAMPLE(updated, f, val);
-                          }
-                        });
-                        setSession(updated);
-                        setSamplePreFillDismissed(true);
-                      }}
-                    >
-                      Apply
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs text-muted-foreground"
-                      onClick={() => {
-                        setSamplePreFillDismissed(true);
-                        clearSampleHistory();
-                      }}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {(['signs', 'allergies', 'medications', 'pastHistory', 'lastMeal', 'events'] as const).map(field => {
-              const labels: Record<string, string> = {
-                signs: 'S — Signs & Symptoms',
-                allergies: 'A — Allergies',
-                medications: 'M — Medications',
-                pastHistory: 'P — Past Medical History',
-                lastMeal: 'L — Last Meal / Intake',
-                events: 'E — Events Leading to This',
-              };
-              return (
-                <div key={field}>
-                  <label className="text-xs font-medium text-muted-foreground">{labels[field]}</label>
-                  <Input
-                    placeholder={preFillSample?.[field] ? `Previous: ${preFillSample[field]}` : `Enter ${field}...`}
-                    value={session.sampleHistory[field] || ''}
-                    onChange={e => {
-                      const updated = updateSAMPLE(session, field, e.target.value);
-                      setSession(updated);
-                      // Persist SAMPLE to IndexedDB on every change
-                      saveSampleHistory(updated.sampleHistory as PersistedSampleHistory);
-                    }}
-                    className="mt-1 bg-background text-foreground"
-                  />
-                </div>
-              );
-            })}
+      {showDefinitiveCareCta && (
+        <Card className="bg-primary/5 border-primary/30">
+          <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-foreground">Primary diagnosis set — start definitive care</p>
+              <p className="text-xs text-muted-foreground">
+                Walk through condition-based therapy (fluids, antibiotics, insulin protocol) per fellowship micro-course CST.
+              </p>
+            </div>
+            <Button onClick={onStartDefinitiveCare} className="shrink-0">
+              Start definitive care
+            </Button>
           </CardContent>
         </Card>
+      )}
+
+      {inDefinitiveCare && (
+        <DefinitiveCarePanel
+          session={session}
+          onStepChange={onDefinitiveCareStepChange}
+          onComplete={onDefinitiveCareComplete}
+        />
       )}
 
       {/* Threats Summary */}

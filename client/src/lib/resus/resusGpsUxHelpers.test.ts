@@ -10,7 +10,10 @@ import {
   isActiveResusPhase,
   toggleQuickAssessmentCue,
   evaluateHeartRateForAge,
+  evaluateGlucoseMmol,
+  evaluateSpO2,
   formatVitalWithAgeContext,
+  isVitalInputAbnormal,
   parsePatientAgeYears,
 } from './resusGpsUxHelpers';
 import {
@@ -163,6 +166,17 @@ describe('resusGpsUxHelpers', () => {
       status: 'completed',
     });
     expect(prompt).toMatch(/glucose/i);
+  });
+
+  it('flags abnormal glucose during vital input', () => {
+    expect(evaluateGlucoseMmol(28).abnormal).toBe(true);
+    expect(isVitalInputAbnormal('glucose', 28, 10)).toBe(true);
+    expect(isVitalInputAbnormal('glucose', 5.5, 10)).toBe(false);
+  });
+
+  it('flags hypoxia on SpO2 during input', () => {
+    expect(evaluateSpO2(88).abnormal).toBe(true);
+    expect(isVitalInputAbnormal('spo2', 88, null)).toBe(true);
   });
 
   it('shows fellowship primary banner on secondary survey without diagnosis', () => {

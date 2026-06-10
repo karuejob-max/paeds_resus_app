@@ -22,8 +22,6 @@ import {
 
   CheckCircle2,
 
-  SkipForward,
-
   RefreshCcw,
 
   AlertTriangle,
@@ -58,7 +56,7 @@ interface DefinitiveCarePanelProps {
 
   session: ResusSession;
 
-  onStepChange: (stepId: string, status: 'done' | 'skipped') => void;
+  onStepChange: (stepId: string, status: 'done') => void;
 
   onComplete: () => void;
 
@@ -74,8 +72,6 @@ function FallbackStepCard({
 
   onDone,
 
-  onSkip,
-
 }: {
 
   step: DefinitiveCareFallbackStep;
@@ -84,11 +80,9 @@ function FallbackStepCard({
 
   onDone: () => void;
 
-  onSkip: () => void;
-
 }) {
 
-  const isDone = status === 'done' || status === 'skipped';
+  const isDone = status === 'done';
 
   const isReassess = step.isReassessment;
 
@@ -175,12 +169,6 @@ function FallbackStepCard({
               <Button size="sm" className="h-7 text-xs" onClick={onDone}>
 
                 <CheckCircle2 className="h-3 w-3 mr-1" /> Done
-
-              </Button>
-
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onSkip}>
-
-                <SkipForward className="h-3 w-3 mr-1" /> Skip
 
               </Button>
 
@@ -336,7 +324,7 @@ export function DefinitiveCarePanel({ session, onStepChange, onComplete }: Defin
 
             const status = getStepStatus(step.id);
 
-            const isDone = status === 'done' || status === 'skipped';
+            const isDone = status === 'done';
 
             const isReassess = step.isReassessment;
 
@@ -484,22 +472,6 @@ export function DefinitiveCarePanel({ session, onStepChange, onComplete }: Defin
 
                         </Button>
 
-                        <Button
-
-                          size="sm"
-
-                          variant="outline"
-
-                          className="h-7 text-xs"
-
-                          onClick={() => onStepChange(step.id, 'skipped')}
-
-                        >
-
-                          <SkipForward className="h-3 w-3 mr-1" /> Skip
-
-                        </Button>
-
                       </div>
 
                     )}
@@ -527,8 +499,6 @@ export function DefinitiveCarePanel({ session, onStepChange, onComplete }: Defin
               status={getStepStatus(step.id)}
 
               onDone={() => onStepChange(step.id, 'done')}
-
-              onSkip={() => onStepChange(step.id, 'skipped')}
 
             />
 
