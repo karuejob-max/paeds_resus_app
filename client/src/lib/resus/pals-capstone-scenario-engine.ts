@@ -18,7 +18,9 @@ export type ResusGpsPage =
   | 'sample_history'
   | 'cardiac_arrest'
   | 'cpr_clock'
-  | 'post_resuscitation';
+  | 'post_resuscitation'
+  | 'management'
+  | 'advanced_management';
 
 export type ScenarioFinding = {
   page: ResusGpsPage;

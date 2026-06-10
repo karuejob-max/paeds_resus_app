@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
 import {
   courses,
   enrollments,
+  fellowshipSimulations,
   microCourseEnrollments,
   microCourses,
   modules,
@@ -230,21 +231,30 @@ export async function getMicrocourseExamState(
   const passed = summativePassed(summativeProgress?.score ?? null);
 
   // Check for fellowship simulation completion
-  const [simulation] = await db
+  const [simulation] = await (db as any)
     .select()
     .from(fellowshipSimulations)
-    .where(and(eq(fellowshipSimulations.courseId, microCourse.courseId), eq(fellowshipSimulations.level, microCourse.level)))
+    .where(
+      and(
+        eq(fellowshipSimulations.courseId, microCourse.courseId ?? ""),
+        eq(fellowshipSimulations.level, (microCourse as any).level ?? "foundational")
+      )
+    )
     .limit(1);
 
   let fellowshipSimPassed = false;
   if (simulation) {
-    const fellowshipSimProgress = await db.query.userProgress.findFirst({
-      where: and(
-        eq(userProgress.userId, userId),
-        eq(userProgress.enrollmentId, microCourseEnrollmentId),
-        eq(userProgress.fellowshipSimulationId, simulation.id)
-      ),
-    });
+    const [fellowshipSimProgress] = await (db as any)
+      .select()
+      .from(userProgress)
+      .where(
+        and(
+          eq(userProgress.userId, userId),
+          eq(userProgress.enrollmentId, microCourseEnrollmentId),
+          eq(userProgress.fellowshipSimulationId, simulation.id)
+        )
+      )
+      .limit(1);
     fellowshipSimPassed = !!fellowshipSimProgress?.completedAt || fellowshipSimProgress?.status === "completed";
   }
 

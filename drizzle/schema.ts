@@ -923,6 +923,8 @@ export const userProgress = mysqlTable("userProgress", {
   completedAt: timestamp("completedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  /** Optional reference to a fellowship simulation (migration 0043) */
+  fellowshipSimulationId: int("fellowshipSimulationId"),
 });
 
 export type UserProgress = typeof userProgress.$inferSelect;

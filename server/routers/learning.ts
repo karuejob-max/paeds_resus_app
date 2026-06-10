@@ -470,7 +470,7 @@ export const learningRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid quiz for this course" });
       }
 
-      const lastAttempt = state.lastSummativeAttempt;
+      const lastAttempt = (state as any).lastSummativeAttempt;
       if (lastAttempt && Date.now() - lastAttempt.getTime() < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
@@ -482,7 +482,7 @@ export const learningRouter = router({
       const order = shuffleQuestionIndices(bank.length, input.shuffleSeed);
       const questions = order.map((i) => bank[i]);
 
-      const { score, correctCount } = computeQuizScoreFromDb(questions, input.answers);
+      const { score, correctCount } = computeQuizScoreFromDb(questions as any, input.answers as any);
       const passed = summativePassed(score, MICROCOURSE_SUMMATIVE_PASS_PERCENT);
 
       await (db as any).insert(userProgress).values({
@@ -495,6 +495,7 @@ export const learningRouter = router({
         completedAt: passed ? new Date() : null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        moduleId: 0, // Micro-course summative is usually course-level, using 0 as placeholder if moduleId is not explicitly known
       });
 
       if (passed) {
@@ -544,6 +545,7 @@ export const learningRouter = router({
         completedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+        moduleId: 0, // Placeholder
       });
 
       scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
