@@ -141,6 +141,7 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
   });
 
   it("throws TOO_MANY_REQUESTS within 30s window", async () => {
+    const now = new Date();
     const progressRows: Record<string, unknown>[] = [
       {
         id: 99,
@@ -151,7 +152,7 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
         score: 40,
         attempts: 1,
         status: "in_progress",
-        updatedAt: new Date(),
+        updatedAt: now,
         completedAt: null,
       },
     ];

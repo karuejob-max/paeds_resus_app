@@ -470,8 +470,8 @@ export const learningRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid quiz for this course" });
       }
 
-      const lastAttempt = (state as any).lastSummativeAttempt;
-      if (lastAttempt && Date.now() - lastAttempt.getTime() < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
+      const lastAttempt = state.lastSummativeAttempt;
+      if (lastAttempt && (Date.now() - new Date(lastAttempt).getTime()) < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
           message: formatSummativeForbiddenMessage(lastAttempt),
