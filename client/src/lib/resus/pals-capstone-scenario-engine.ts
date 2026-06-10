@@ -18,7 +18,9 @@ export type ResusGpsPage =
   | 'sample_history'
   | 'cardiac_arrest'
   | 'cpr_clock'
-  | 'post_resuscitation';
+  | 'post_resuscitation'
+  | 'management'
+  | 'advanced_management';
 
 export type ScenarioFinding = {
   page: ResusGpsPage;
@@ -178,6 +180,24 @@ const SCENARIO_FINDINGS: Record<ResusGpsPage, ScenarioFinding> = {
     instruction: 'Initiate post-resuscitation care: therapeutic hypothermia, sedation, arrange PICU transfer.',
     expectedActions: ['initiate_hypothermia', 'administer_sedation', 'arrange_transfer', 'obtain_imaging'],
     clinicalContext: 'Post-resuscitation syndrome requires intensive care. Therapeutic hypothermia improves neurological outcomes.',
+  },
+  management: {
+    page: 'management',
+    title: 'Initial Management',
+    description: 'Initial stabilization measures are underway.',
+    vitals: {},
+    instruction: 'Implement initial management priorities based on assessment findings.',
+    expectedActions: ['implement_stabilization', 'monitor_response'],
+    clinicalContext: 'Early intervention in critical illness prevents deterioration to cardiac arrest.',
+  },
+  advanced_management: {
+    page: 'advanced_management',
+    title: 'Advanced Management',
+    description: 'Escalating care for refractory conditions.',
+    vitals: {},
+    instruction: 'Initiate advanced interventions and prepare for critical care transfer.',
+    expectedActions: ['escalate_care', 'consult_specialist'],
+    clinicalContext: 'Refractory shock or respiratory failure requires advanced support and intensive care.',
   },
 };
 

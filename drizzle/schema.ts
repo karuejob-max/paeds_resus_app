@@ -923,6 +923,8 @@ export const userProgress = mysqlTable("userProgress", {
   completedAt: timestamp("completedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  /** Optional reference to a fellowship simulation (migration 0043) */
+  fellowshipSimulationId: int("fellowshipSimulationId"),
 });
 
 export type UserProgress = typeof userProgress.$inferSelect;
@@ -958,6 +960,22 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
 
 export type InstitutionalStaffMember = typeof institutionalStaffMembers.$inferSelect;
 export type InsertInstitutionalStaffMember = typeof institutionalStaffMembers.$inferInsert;
+
+// Fellowship Simulations table
+export const fellowshipSimulations = mysqlTable("fellowshipSimulations", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: varchar("courseId", { length: 255 }).notNull(), // Microcourse slug
+  level: mysqlEnum("level", ["foundational", "advanced"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  scenarioData: json("scenarioData").notNull(), // JSON blob of the simulation scenario
+  order: int("order").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FellowshipSimulation = typeof fellowshipSimulations.$inferSelect;
+export type InsertFellowshipSimulation = typeof fellowshipSimulations.$inferInsert;
 
 // Quotations
 export const quotations = mysqlTable("quotations", {

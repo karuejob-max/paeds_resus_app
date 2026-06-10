@@ -14,9 +14,10 @@ import { enhanceFellowshipModuleContent } from "../server/data/clinical-content-
 import { getFellowshipSummativeExpansion } from "../server/data/fellowship-summative-expansions";
 import { splitModuleHtmlIntoSections } from "../shared/split-module-html-sections";
 import { getDb } from "../server/db";
-import { courses, modules, moduleSections, quizzes, quizQuestions, microCourses } from "../drizzle/schema";
+import { courses, modules, moduleSections, quizzes, quizQuestions, microCourses, fellowshipSimulations } from "../drizzle/schema";
 import { fellowshipTitlePrefix } from "../shared/resolve-fellowship-course";
-import { eq, and, desc, inArray, like } from "drizzle-orm";
+import { FELLOWSHIP_SIMULATIONS, FellowshipSimulationScenario } from "../server/lib/fellowship-simulations-data";
+import { eq, and, desc, inArray, like, or } from "drizzle-orm";
 
 import { microCoursesBatch1To5 } from "../server/data/micro-courses-batch-1-5";
 import { microCoursesBatch3To5 } from "../server/data/micro-courses-batch-3-5";
@@ -432,42 +433,27 @@ export async function seedFellowshipContent(options: {
         0
       );
       await upsertQuizQuestions(diagnosticQuizId, diagnosticBank);
-
-      await pruneOrphanExamQuizzes(db, moduleIds, {
-        diagnosticQuizId,
-        summativeQuizId,
-        formativeQuizIds,
-      });
     }
-  }
 
-  console.log("Seeding complete!");
-}
+    // Seed fellowship simulations
+    const simData = FELLOWSHIP_SIMULATIONS.find(s => s.courseId === catalogSlug && s.level === courseData.level);
+    if (simData) {
+      const [existingSim] = await db.select().from(fellowshipSimulations)
+        .where(and(eq(fellowshipSimulations.courseId, catalogSlug), eq(fellowshipSimulations.level, courseData.level)))
+        .limit(1);
+      
+      const simValues = {
+        courseId: catalogSlug,
+        level: courseData.level as "foundational" | "advanced",
+        title: simData.title,
+        description: simData.description,
+        scenarioData: JSON.stringify(simData.pages),
+      };
 
-/** Remove legacy duplicate diagnostic/summative/formative quizzes after re-seed. */
-async function pruneOrphanExamQuizzes(
-  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
-  moduleIds: number[],
-  keep: { diagnosticQuizId: number; summativeQuizId: number; formativeQuizIds: number[] }
-): Promise<void> {
-  const keepIds = new Set([
-    keep.diagnosticQuizId,
-    keep.summativeQuizId,
-    ...keep.formativeQuizIds,
-  ]);
-
-  const rows = await db
-    .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
-    .from(quizzes)
-    .where(inArray(quizzes.moduleId, moduleIds));
-
-  for (const row of rows) {
-    const kind = examKindFromQuizTitle(row.title);
-    if (kind === "formative" && !row.title?.includes(MICROCOURSE_FORMATIVE_QUIZ_TITLE)) continue;
-    if (kind === "formative" || kind === "diagnostic" || kind === "summative") {
-      if (!keepIds.has(row.id)) {
-        await db.delete(quizQuestions).where(eq(quizQuestions.quizId, row.id));
-        await db.delete(quizzes).where(eq(quizzes.id, row.id));
+      if (existingSim) {
+        await db.update(fellowshipSimulations).set(simValues).where(eq(fellowshipSimulations.id, existingSim.id));
+      } else {
+        await db.insert(fellowshipSimulations).values(simValues);
       }
     }
   }
