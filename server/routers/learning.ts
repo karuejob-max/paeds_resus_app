@@ -474,7 +474,12 @@ export const learningRouter = router({
       if (lastAttempt && (Date.now() - new Date(lastAttempt).getTime()) < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
-          message: formatSummativeForbiddenMessage(lastAttempt),
+          message: formatSummativeForbiddenMessage({
+            attempts: state.summativeAttempts,
+            maxAttempts: state.summativeMaxAttempts,
+            blockKind: state.summativeBlockKind as any,
+            retryAvailableAt: state.retryAvailableAt ? new Date(state.retryAvailableAt) : null,
+          }),
         });
       }
 

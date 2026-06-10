@@ -159,6 +159,25 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     const mockDb = buildDbMock(progressRows);
     vi.mocked(getDb).mockResolvedValue(mockDb as never);
 
+    vi.spyOn(examGate, "getMicrocourseExamState").mockResolvedValue({
+      diagnosticRequired: false,
+      diagnosticCompleted: true,
+      summativeRequired: true,
+      summativePassed: false,
+      summativeQuizId: SUMMATIVE_QUIZ_ID,
+      diagnosticQuizId: null,
+      summativeAttempts: 1,
+      summativeMaxAttempts: 3,
+      summativeBlockKind: "cooldown",
+      canRetrySummative: false,
+      retryAvailableAt: new Date(Date.now() + 86400000).toISOString(),
+      summativePassPercent: 80,
+      capstoneRequired: false,
+      capstonePassed: true,
+      fellowshipSimPassed: true,
+      lastSummativeAttempt: now,
+    });
+
     const caller = appRouter.createCaller(createAuthContext());
     await expect(caller.learning.recordQuizAttempt({
       enrollmentId: MICRO_ENROLLMENT_ID,
