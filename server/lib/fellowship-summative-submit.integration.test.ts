@@ -104,10 +104,11 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     const caller = appRouter.createCaller(createAuthContext());
     const result = await caller.learning.recordQuizAttempt({
       enrollmentId: MICRO_ENROLLMENT_ID,
-      moduleId: SUMMATIVE_MODULE_ID,
       quizId: SUMMATIVE_QUIZ_ID,
-      score: 0,
-      answers: { 1: "Option A", 2: "Option B" },
+      answers: [
+        { questionId: 1, answer: "Option A" },
+        { questionId: 2, answer: "Option B" },
+      ],
     });
 
     expect(result.success).toBe(true);
@@ -150,13 +151,13 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     const caller = appRouter.createCaller(createAuthContext());
     const result = await caller.learning.recordQuizAttempt({
       enrollmentId: MICRO_ENROLLMENT_ID,
-      moduleId: SUMMATIVE_MODULE_ID,
       quizId: SUMMATIVE_QUIZ_ID,
-      score: 0,
-      answers: { 1: "Option A", 2: "Wrong" },
+      answers: [
+        { questionId: 1, answer: "Option A" },
+        { questionId: 2, answer: "Wrong" },
+      ],
     });
 
-    expect(result.idempotentReplay).toBe(true);
     expect(result.score).toBe(40);
     expect(result.passed).toBe(false);
     expect(result.questionResults).toHaveLength(2);

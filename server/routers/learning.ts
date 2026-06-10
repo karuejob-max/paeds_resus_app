@@ -483,7 +483,7 @@ export const learningRouter = router({
         answersMap[a.questionId] = a.answer;
       }
 
-      const { score, correctCount, totalQuestions } = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+      const { score, correctCount, totalQuestions, questionResults } = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
       const passed = summativePassed(score);
 
       await (db as any).insert(userProgress).values({
@@ -506,11 +506,14 @@ export const learningRouter = router({
       scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
 
       return {
+        success: true,
         score,
         passed,
         passingScore: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
         correctAnswers: correctCount,
         totalQuestions: totalQuestions,
+        questionResults,
+        examKind: "summative" as const,
       };
     }),
 
