@@ -186,6 +186,6 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
         { questionId: 1, answer: "Option A" },
         { questionId: 2, answer: "Wrong" },
       ],
-    })).rejects.toThrow(/Please wait/);
+    })).rejects.toThrow(/Summative retry on cooldown/);
   });
 });
