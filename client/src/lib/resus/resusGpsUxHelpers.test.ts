@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   abcdeLetterToGroupLabel,
   deriveQuickAssessmentRecommendation,
@@ -6,6 +6,7 @@ import {
   getPrimaryNextStepBanner,
   getReassessmentPromptForIntervention,
   getResusPhaseGuidance,
+  scrollResusViewToTop,
   groupActiveThreatsByLetter,
   isActiveResusPhase,
   toggleQuickAssessmentCue,
@@ -17,6 +18,8 @@ import {
   parsePatientAgeYears,
 } from './resusGpsUxHelpers';
 import {
+  advanceSecondarySurveyStep,
+  completeFluidReassessment,
   completeIntervention,
   createSession,
   startQuickAssessment,
@@ -179,12 +182,13 @@ describe('resusGpsUxHelpers', () => {
     expect(isVitalInputAbnormal('spo2', 88, null)).toBe(true);
   });
 
-  it('shows fellowship primary banner on secondary survey without diagnosis', () => {
+  it('shows phase guidance (not fellowship submit) on secondary survey without diagnosis', () => {
     const session = startQuickAssessment(createSession(12, '3y 0m 0w', false));
     session.phase = 'SECONDARY_SURVEY';
     const banner = getPrimaryNextStepBanner(session, { fellowshipSavedSessionId: null });
-    expect(banner?.kind).toBe('fellowship_primary');
-    expect(banner?.message).toMatch(/primary diagnosis/i);
+    expect(banner?.kind).toBe('phase');
+    expect(banner?.message).toMatch(/SAMPLE|secondary survey/i);
+    expect(banner?.kind).not.toBe('fellowship_primary');
   });
 
   it('detects active resus phases for compact chrome', () => {
@@ -277,5 +281,58 @@ describe('resusGpsUxHelpers', () => {
     expect(parsePatientAgeYears('5 years')).toBe(5);
     expect(parsePatientAgeYears('5y 0m 0w')).toBe(5);
     expect(parsePatientAgeYears('6 months')).toBeCloseTo(0.5, 1);
+  });
+
+  it('does not show fellowship submit banner during secondary survey SAMPLE step', () => {
+    const session: ResusSession = {
+      ...startQuickAssessment(createSession(20, '8y 0m 0w', false)),
+      phase: 'SECONDARY_SURVEY',
+      secondarySurveyStep: 'sample',
+      definitiveDiagnosis: null,
+      activeThreat: { id: 'hyperglycaemia', letter: 'E', name: 'Hyperglycaemia', severity: 'critical', resolved: false, findings: [], interventions: [] },
+    };
+    const banner = getPrimaryNextStepBanner(session, { fellowshipSavedSessionId: null });
+    expect(banner?.kind).not.toBe('fellowship_primary');
+    expect(banner?.kind).not.toBe('fellowship_saved');
+    expect(banner?.message).toMatch(/secondary survey|SAMPLE|diagnostic/i);
+  });
+
+  it('shows fellowship save banner only after definitive care complete', () => {
+    const session: ResusSession = {
+      ...startQuickAssessment(createSession(20, '8y 0m 0w', false)),
+      phase: 'ONGOING',
+      definitiveDiagnosis: 'dka',
+      definitiveCareProgress: { completedAt: Date.now(), steps: {} },
+      rigorConditionCandidates: ['dka'],
+    };
+    const banner = getPrimaryNextStepBanner(session, { fellowshipSavedSessionId: null });
+    expect(banner?.kind).toBe('fellowship_primary');
+    expect(banner?.message).toMatch(/Save for Fellowship/i);
+  });
+
+  it('scrollResusViewToTop scrolls window to origin', () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('window', { scrollTo });
+    scrollResusViewToTop();
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' });
+    vi.unstubAllGlobals();
+  });
+
+  it('advanceSecondarySurveyStep autofills glucose from vitals', () => {
+    let session = startQuickAssessment(createSession(20, '8y 0m 0w', false));
+    session.phase = 'SECONDARY_SURVEY';
+    session.secondarySurveyStep = 'sample';
+    session.rigorConditionCandidates = ['dka'];
+    session.vitalSigns = { ...session.vitalSigns, glucose: 22 };
+    session = advanceSecondarySurveyStep(session);
+    expect(session.secondarySurveyStep).toBe('evidence');
+    expect(session.diagnosticEvidence?.dka_ev_glucose).toEqual({ status: 'value', value: '22' });
+  });
+
+  it('completeFluidReassessment clears pending fluid banner flag', () => {
+    let session = startQuickAssessment(createSession(20, '8y 0m 0w', false));
+    session.pendingFluidReassessment = true;
+    session = completeFluidReassessment(session);
+    expect(session.pendingFluidReassessment).toBe(false);
   });
 });

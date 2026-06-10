@@ -3,17 +3,26 @@
  * Each field: specific value OR individual "Not available" (LMIC policy data).
  */
 
-export type ClinicalEvidenceFieldType = "numeric" | "text" | "presence";
+export type ClinicalEvidenceFieldType =
+  | "numeric"
+  | "text"
+  | "presence"
+  | "ketones"
+  | "numeric_with_units"
+  | "glucose_vitals";
 
 export interface ClinicalEvidenceFieldDef {
   id: string;
   label: string;
   type: ClinicalEvidenceFieldType;
   unit?: string;
+  /** Selectable units for numeric_with_units (LMIC labs vary). */
+  unitOptions?: string[];
   placeholder?: string;
   phase?: string;
-  /** Presence fields: document if sign is present, absent, or not assessed */
   presenceOptions?: boolean;
+  /** Pre-fill from primary survey vitals when entering evidence step. */
+  autofillFromVital?: "glucose";
 }
 
 export type ClinicalEvidenceEntry =
@@ -24,9 +33,16 @@ export type ClinicalEvidenceEntry =
 
 export type ClinicalEvidenceRecord = Record<string, ClinicalEvidenceEntry>;
 
+export const URINE_KETONE_SEMIQUANT = ["3+", "2+", "1+", "trace", "negative"] as const;
+
 export function isClinicalEvidenceFieldResolved(entry: ClinicalEvidenceEntry | undefined): boolean {
   if (!entry) return false;
-  return entry.status === "value" || entry.status === "not_available" || entry.status === "present" || entry.status === "absent";
+  return (
+    entry.status === "value" ||
+    entry.status === "not_available" ||
+    entry.status === "present" ||
+    entry.status === "absent"
+  );
 }
 
 export function isClinicalEvidenceComplete(
@@ -54,4 +70,24 @@ export function setClinicalEvidenceEntry(
   entry: ClinicalEvidenceEntry
 ): ClinicalEvidenceRecord {
   return { ...record, [fieldId]: entry };
+}
+
+/** Apply vitals autofill for evidence fields not yet resolved. */
+export function applyVitalsAutofillToEvidence(
+  fields: ClinicalEvidenceFieldDef[],
+  record: ClinicalEvidenceRecord,
+  vitals: { glucose?: number }
+): ClinicalEvidenceRecord {
+  let next = { ...record };
+  for (const field of fields) {
+    if (field.autofillFromVital === "glucose" && vitals.glucose !== undefined) {
+      if (!isClinicalEvidenceFieldResolved(next[field.id])) {
+        next = setClinicalEvidenceEntry(next, field.id, {
+          status: "value",
+          value: String(vitals.glucose),
+        });
+      }
+    }
+  }
+  return next;
 }

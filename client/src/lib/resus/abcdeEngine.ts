@@ -35,6 +35,8 @@ import {
   SPO2_TARGET_ASTHMA_DETAIL,
   SPO2_TARGET_RESUS_DETAIL,
 } from '@shared/clinical-spo2-targets';
+import { applyVitalsAutofillToEvidence } from '@shared/clinical-evidence';
+import { getSecondarySurveyFields } from '@shared/secondary-survey-gating';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -2015,8 +2017,17 @@ export function returnToPrimarySurvey(session: ResusSession): ResusSession {
 export function advanceSecondarySurveyStep(session: ResusSession): ResusSession {
   const next = deepCopy(session);
   const step = next.secondarySurveyStep ?? 'sample';
-  if (step === 'sample') next.secondarySurveyStep = 'evidence';
-  else if (step === 'evidence') next.secondarySurveyStep = 'diagnosis';
+  if (step === 'sample') {
+    next.secondarySurveyStep = 'evidence';
+    const fields = getSecondarySurveyFields(next).diagnosticEvidence;
+    next.diagnosticEvidence = applyVitalsAutofillToEvidence(
+      fields,
+      next.diagnosticEvidence ?? {},
+      { glucose: next.vitalSigns?.glucose }
+    );
+  } else if (step === 'evidence') {
+    next.secondarySurveyStep = 'diagnosis';
+  }
   log(next, 'phase_change', `→ Secondary survey: ${next.secondarySurveyStep}`);
   return next;
 }

@@ -333,6 +333,35 @@ export function getResusPhaseGuidance(session: ResusSession): { headline: string
         detail: 'Minimize interruptions; reassess perfusion after ROSC',
       };
     case 'SECONDARY_SURVEY':
+      if (!session.definitiveDiagnosis) {
+        const step = session.secondarySurveyStep ?? 'sample';
+        if (step === 'sample') {
+          return {
+            headline: 'Secondary survey — complete SAMPLE history',
+            detail: 'Document each sign and history field before diagnostic evidence',
+          };
+        }
+        if (step === 'evidence') {
+          return {
+            headline: 'Secondary survey — enter diagnostic evidence',
+            detail: 'Each lab value or Not available — then differential diagnosis',
+          };
+        }
+        return {
+          headline: 'Secondary survey — select primary diagnosis',
+          detail: 'Then start and complete definitive care for fellowship credit',
+        };
+      }
+      if (session.definitiveCareProgress?.completedAt) {
+        return {
+          headline: 'Definitive care complete — fellowship credit available',
+          detail: 'Save for fellowship or export clinical record when handoff is done',
+        };
+      }
+      return {
+        headline: 'Tap Start definitive care for condition-based therapy',
+        detail: 'Primary set — complete definitive care before fellowship Save',
+      };
     case 'DEFINITIVE_CARE':
     case 'ONGOING':
       if (!session.definitiveDiagnosis) {
@@ -363,6 +392,13 @@ export function getResusPhaseGuidance(session: ResusSession): { headline: string
 }
 
 export type NextStepBannerKind = 'phase' | 'reassessment' | 'fellowship_primary' | 'fellowship_saved';
+
+/** Scroll main view to top after phase or secondary-survey step transitions. */
+export function scrollResusViewToTop(): void {
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+}
 
 export interface PrimaryNextStepBanner {
   kind: NextStepBannerKind;
@@ -395,6 +431,21 @@ export function getPrimaryNextStepBanner(
   }
 
   if (isPostPrimaryPhase(session.phase)) {
+    const definitiveDone = Boolean(session.definitiveCareProgress?.completedAt);
+
+    // Secondary survey / pre-definitive-care: phase guidance only — no fellowship submit nudges.
+    if (!definitiveDone) {
+      const guidance = getResusPhaseGuidance(session);
+      if (guidance) {
+        return {
+          kind: 'phase',
+          message: guidance.headline,
+          detail: guidance.detail,
+        };
+      }
+      return null;
+    }
+
     const fellowshipId = resolveFellowshipDiagnosisFromSession(session);
     const isSaved = options.fellowshipSavedSessionId === session.id;
 
@@ -407,30 +458,9 @@ export function getPrimaryNextStepBanner(
       };
     }
 
-    if (!session.definitiveDiagnosis) {
-      return {
-        kind: 'fellowship_primary',
-        message: 'Next step: set primary diagnosis',
-        detail: 'Then start and complete definitive care for fellowship credit',
-      };
-    }
-
     if (
       isFellowshipMicrocourseResusCondition(normalizeToFellowshipResusConditionId(session.definitiveDiagnosis)) &&
-      !isSaved &&
-      !session.definitiveCareProgress?.completedAt
-    ) {
-      return {
-        kind: 'fellowship_primary',
-        message: 'Complete definitive care steps for fellowship credit',
-        detail: 'Credit awards after condition-specific therapy — not on diagnosis alone',
-      };
-    }
-
-    if (
-      isFellowshipMicrocourseResusCondition(normalizeToFellowshipResusConditionId(session.definitiveDiagnosis)) &&
-      !isSaved &&
-      session.definitiveCareProgress?.completedAt
+      !isSaved
     ) {
       return {
         kind: 'fellowship_primary',
