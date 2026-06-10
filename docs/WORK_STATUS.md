@@ -1,4 +1,4 @@
-
+﻿
 **Purpose:** One file that Manus, Codex, and Cursor read and update. No pasting of responses; sync via git.  
 **Workflow:** See AI_TEAM_WORKFLOW.md in this folder.
 
@@ -13,6 +13,10 @@
 - **When you review another's work:** Add to Critique / review (date, who you are commenting on, what you checked, any issues or suggestions). The next agent or Job can then act on it.
 
 ---
+
+| 2026-06-10 | Cursor | **Fellowship definitive care — all 15 conditions:** Full step-by-step protocols (DKA gold standard) for seriously ill child, shock variants, pneumonia, meningitis, malaria, burns, trauma, anaemia, AKI — plus existing DKA/SE/sepsis/asthma/anaphylaxis engines. `fellowship-definitive-protocols.ts`, catalog + completion tests, co-diagnosis addons and discharge education per condition. Fellowship credit gates on all required steps. Verified: `pnpm check`, `test:unit` **371 pass**, catalog test 15/15 full protocol. **CEO sign-off: pending** septic shock / meningitis / trauma retest. | PR [#238](https://github.com/karuejob-max/paeds_resus_app/pull/238) · merge pending |
+
+| 2026-06-10 | Cursor | **Fellowship simulations production migration (0050):** Root cause — `fellowshipSimulations` table and `userProgress.fellowshipSimulationId` in `schema.ts` but no shipped SQL/apply script; prod missing column blocked simulation gating. Fix: `drizzle/0050_fellowship_simulations.sql` + idempotent `scripts/apply-0050-fellowship-simulations.mjs` (`db:apply-0050`); `verify-fellowship-seed.ts` asserts column + ~29 simulation rows. **Post-merge prod:** `pnpm run db:apply-0050` then deploy auto-seed re-runs fellowship seed. Verified: `check`, `test:unit`. Local migration: not applied (`DATABASE_URL` unset). | PR pending — merge pending |
 
 | 2026-06-10 | Cursor | **CPR-GPS PALS arrest workflow (CEO mandate):** 2-min compression cycle (resets after reassessment), T-30s pre-charge alert, 10s rhythm window, shock-count epi/amiodarone/airway alerts, rhythm shockable/non-shockable feedback, clickable documentation log. Engine: `cpr-engine.ts` + `evaluateCprGpsAlerts`; UI: `CPRClockStreamlined`, `CprDocumentationLog`. Tests: `shared/cpr-gps-engine.test.ts` (18 pass). Verified: `check`, `test:unit` **368 pass**, `build`. **CEO sign-off: pending** bedside arrest smoke. | PR [#236](https://github.com/karuejob-max/paeds_resus_app/pull/236) ? merge pending |
 
