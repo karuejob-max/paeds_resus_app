@@ -75,6 +75,17 @@ function buildDbMock(progressRows: Record<string, unknown>[]) {
         };
       }),
     })),
+    query: {
+      microCourseEnrollments: {
+        findFirst: vi.fn(async () => ({ id: MICRO_ENROLLMENT_ID, userId: USER_ID, microCourseId: 1 })),
+      },
+      microCourses: {
+        findFirst: vi.fn(async () => ({ id: 1, title: "Test Course" })),
+      },
+      courses: {
+        findFirst: vi.fn(async () => ({ id: 1 })),
+      },
+    },
     insert: vi.fn(() => ({ values: insertValues })),
     update: vi.fn(() => ({ set: updateSet })),
     __insertValues: insertValues,
@@ -120,7 +131,7 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     expect(mockDb.__insertValues).toHaveBeenCalled();
   });
 
-  it("replays idempotently within 30s without writing progress again", async () => {
+  it("throws TOO_MANY_REQUESTS within 30s window", async () => {
     const progressRows: Record<string, unknown>[] = [
       {
         id: 99,
@@ -138,30 +149,14 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     const mockDb = buildDbMock(progressRows);
     vi.mocked(getDb).mockResolvedValue(mockDb as never);
 
-    vi.spyOn(examGate, "computeQuizScoreFromDb").mockResolvedValue({
-      score: 50,
-      correctCount: 1,
-      totalQuestions: 2,
-      questionResults: [
-        { questionId: 1, correct: true, correctOption: "Option A", userAnswer: "Option A" },
-        { questionId: 2, correct: false, correctOption: "Option B", userAnswer: "Wrong" },
-      ],
-    });
-
     const caller = appRouter.createCaller(createAuthContext());
-    const result = await caller.learning.recordQuizAttempt({
+    await expect(caller.learning.recordQuizAttempt({
       enrollmentId: MICRO_ENROLLMENT_ID,
       quizId: SUMMATIVE_QUIZ_ID,
       answers: [
         { questionId: 1, answer: "Option A" },
         { questionId: 2, answer: "Wrong" },
       ],
-    });
-
-    expect(result.score).toBe(40);
-    expect(result.passed).toBe(false);
-    expect(result.questionResults).toHaveLength(2);
-    expect(mockDb.__insertValues).not.toHaveBeenCalled();
-    expect(mockDb.__updateWhere).not.toHaveBeenCalled();
+    })).rejects.toThrow(/Please wait/);
   });
 });
