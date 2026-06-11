@@ -34,6 +34,18 @@ describe("fellowship-simulation-scenario", () => {
     expect(parseFellowshipScenarioData(wrapped).pages).toEqual(wrapped.pages);
   });
 
+  it("fellowshipSimulationSteps respects stepOrder", () => {
+    const data = {
+      pages: {
+        b: { page: "b", description: "second" },
+        a: { page: "a", description: "first" },
+      },
+      stepOrder: ["a", "b"],
+    };
+    const steps = fellowshipSimulationSteps(data) as { description: string }[];
+    expect(steps.map((s) => s.description)).toEqual(["first", "second"]);
+  });
+
   it("parseFellowshipScenarioData parses JSON strings", () => {
     const legacy = { step_a: { page: "step_a" } };
     const parsed = parseFellowshipScenarioData(JSON.stringify(legacy));

@@ -460,7 +460,7 @@ export async function seedFellowshipContent(options: {
         level: courseSimLevel,
         title: simData.title,
         description: simData.description,
-        scenarioData: { pages: simData.pages },
+        scenarioData: { pages: simData.pages, stepOrder: simData.stepOrder },
       };
 
       if (existingSim) {
