@@ -65,6 +65,25 @@ export function isDiagnosticProgressComplete(progress: {
   return !!progress?.completedAt || progress?.status === "completed";
 }
 
+/** Course-wide summative quiz — not tied to last module (simulation modules may follow). */
+export function findSummativeQuizInRows(
+  quizRows: { id: number; moduleId: number; title: string }[]
+): { id: number; moduleId: number; title: string } | undefined {
+  return quizRows.find((q) => examKindFromQuizTitle(q.title) === "summative");
+}
+
+/** Diagnostic on module 1, with fallback when module order shifted. */
+export function findDiagnosticQuizInRows(
+  quizRows: { id: number; moduleId: number; title: string }[],
+  firstModuleId: number
+): { id: number; moduleId: number; title: string } | undefined {
+  return (
+    quizRows.find(
+      (q) => q.moduleId === firstModuleId && examKindFromQuizTitle(q.title) === "diagnostic"
+    ) ?? quizRows.find((q) => examKindFromQuizTitle(q.title) === "diagnostic")
+  );
+}
+
 /** Resolve fellowship `courses.id` from catalog micro-course row (title → order → prefix). */
 export async function resolveFellowshipCourseId(
   db: Db,
@@ -181,19 +200,14 @@ export async function getMicrocourseExamState(
 
   const moduleIds = moduleRows.map((m) => m.id);
   const firstModuleId = moduleRows[0]!.id;
-  const lastModuleId = moduleRows[moduleRows.length - 1]!.id;
 
   const quizRows = (await (db as any)
     .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
     .from(quizzes)
     .where(inArray(quizzes.moduleId, moduleIds))) as { id: number; moduleId: number; title: string }[];
 
-  const diagnosticQuiz = quizRows.find(
-    (q) => q.moduleId === firstModuleId && examKindFromQuizTitle(q.title) === "diagnostic"
-  );
-  const summativeQuiz = quizRows.find(
-    (q) => q.moduleId === lastModuleId && examKindFromQuizTitle(q.title) === "summative"
-  );
+  const diagnosticQuiz = findDiagnosticQuizInRows(quizRows, firstModuleId);
+  const summativeQuiz = findSummativeQuizInRows(quizRows);
 
   const progressRows = (await (db as any)
     .select()
@@ -329,14 +343,17 @@ export async function resolveCourseSummativeQuizId(
     .orderBy(asc(modules.order))) as { id: number }[];
 
   if (moduleRows.length === 0) return null;
-  const lastModuleId = moduleRows[moduleRows.length - 1]!.id;
+  const moduleIds = moduleRows.map((m) => m.id);
   const moduleQuizRows = (await (db as any)
-    .select({ id: quizzes.id, title: quizzes.title })
+    .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
     .from(quizzes)
-    .where(eq(quizzes.moduleId, lastModuleId))) as { id: number; title: string }[];
+    .where(inArray(quizzes.moduleId, moduleIds))) as {
+    id: number;
+    moduleId: number;
+    title: string;
+  }[];
 
-  const summative = moduleQuizRows.find((q) => examKindFromQuizTitle(q.title) === "summative");
-  return summative?.id ?? null;
+  return findSummativeQuizInRows(moduleQuizRows)?.id ?? null;
 }
 
 export async function resolveCourseDiagnosticQuizId(
@@ -351,13 +368,17 @@ export async function resolveCourseDiagnosticQuizId(
 
   if (moduleRows.length === 0) return null;
   const firstModuleId = moduleRows[0]!.id;
+  const moduleIds = moduleRows.map((m) => m.id);
   const moduleQuizRows = (await (db as any)
-    .select({ id: quizzes.id, title: quizzes.title })
+    .select({ id: quizzes.id, moduleId: quizzes.moduleId, title: quizzes.title })
     .from(quizzes)
-    .where(eq(quizzes.moduleId, firstModuleId))) as { id: number; title: string }[];
+    .where(inArray(quizzes.moduleId, moduleIds))) as {
+    id: number;
+    moduleId: number;
+    title: string;
+  }[];
 
-  const diagnostic = moduleQuizRows.find((q) => examKindFromQuizTitle(q.title) === "diagnostic");
-  return diagnostic?.id ?? null;
+  return findDiagnosticQuizInRows(moduleQuizRows, firstModuleId)?.id ?? null;
 }
 
 export async function getAhaCourseExamState(
@@ -391,7 +412,6 @@ export async function getAhaCourseExamState(
     .orderBy(asc(modules.order))) as { id: number; order: number }[];
 
   const firstModuleId = moduleRows[0]?.id;
-  const lastModuleId = moduleRows[moduleRows.length - 1]?.id;
 
   const moduleIds = moduleRows.map((m) => m.id);
   const quizRows =
@@ -407,15 +427,9 @@ export async function getAhaCourseExamState(
       : [];
 
   const diagnosticQuiz = firstModuleId
-    ? quizRows.find(
-        (q) => q.moduleId === firstModuleId && examKindFromQuizTitle(q.title) === "diagnostic"
-      )
+    ? findDiagnosticQuizInRows(quizRows, firstModuleId)
     : undefined;
-  const summativeQuiz = lastModuleId
-    ? quizRows.find(
-        (q) => q.moduleId === lastModuleId && examKindFromQuizTitle(q.title) === "summative"
-      )
-    : undefined;
+  const summativeQuiz = findSummativeQuizInRows(quizRows);
 
   const summativeQuizId = summativeQuiz?.id ?? (await resolveCourseSummativeQuizId(db, courseId));
   const diagnosticQuizId = diagnosticQuiz?.id ?? (await resolveCourseDiagnosticQuizId(db, courseId));

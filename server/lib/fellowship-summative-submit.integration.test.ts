@@ -3,7 +3,10 @@ import type { TrpcContext } from "../_core/context";
 import type { User } from "../../drizzle/schema";
 import { appRouter } from "../routers";
 import { getDb } from "../db";
-import { MICROCOURSE_SUMMATIVE_QUIZ_TITLE } from "../../shared/microcourse-exam-policy";
+import {
+  MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+  MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+} from "../../shared/microcourse-exam-policy";
 import * as examGate from "./microcourse-exam-gate";
 import * as schema from "../../drizzle/schema";
 const { quizzes, userProgress } = schema;
@@ -26,7 +29,9 @@ vi.mock("./sync-micro-course-enrollment-progress", async (importOriginal) => {
 });
 
 const SUMMATIVE_QUIZ_ID = 9001;
+const DIAGNOSTIC_QUIZ_ID = 9000;
 const SUMMATIVE_MODULE_ID = 701;
+const DIAGNOSTIC_MODULE_ID = 700;
 const MICRO_ENROLLMENT_ID = 501;
 const USER_ID = 42;
 
@@ -51,10 +56,28 @@ function createAuthContext(): TrpcContext {
   };
 }
 
-function buildDbMock(progressRows: Record<string, unknown>[]) {
+function buildDbMock(
+  progressRows: Record<string, unknown>[],
+  quizMetaId: number = SUMMATIVE_QUIZ_ID
+) {
   const insertValues = vi.fn().mockResolvedValue(undefined);
   const updateWhere = vi.fn().mockResolvedValue(undefined);
   const updateSet = vi.fn(() => ({ where: updateWhere }));
+
+  const quizRows = [
+    {
+      id: SUMMATIVE_QUIZ_ID,
+      title: MICROCOURSE_SUMMATIVE_QUIZ_TITLE,
+      passingScore: 80,
+      moduleId: SUMMATIVE_MODULE_ID,
+    },
+    {
+      id: DIAGNOSTIC_QUIZ_ID,
+      title: MICROCOURSE_DIAGNOSTIC_QUIZ_TITLE,
+      passingScore: 0,
+      moduleId: DIAGNOSTIC_MODULE_ID,
+    },
+  ];
 
   const mockChain = (data: any) => {
     const chain = {
@@ -70,7 +93,8 @@ function buildDbMock(progressRows: Record<string, unknown>[]) {
     select: vi.fn(() => ({
       from: vi.fn((table: unknown) => {
         if (table === quizzes) {
-          return mockChain([{ id: SUMMATIVE_QUIZ_ID, title: MICROCOURSE_SUMMATIVE_QUIZ_TITLE, passingScore: 80 }]);
+          const row = quizRows.find((q) => q.id === quizMetaId) ?? quizRows[0];
+          return mockChain(row ? [row] : []);
         }
         if (table === userProgress) {
           return mockChain(progressRows);
@@ -140,7 +164,47 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     expect(mockDb.__insertValues).toHaveBeenCalled();
   });
 
-  it("throws TOO_MANY_REQUESTS within 30s window", async () => {
+  it("accepts diagnostic quiz submit when summativeQuizId differs", async () => {
+    const progressRows: Record<string, unknown>[] = [];
+    const mockDb = buildDbMock(progressRows, DIAGNOSTIC_QUIZ_ID);
+    vi.mocked(getDb).mockResolvedValue(mockDb as never);
+
+    vi.spyOn(examGate, "getMicrocourseExamState").mockResolvedValue({
+      diagnosticRequired: true,
+      diagnosticCompleted: false,
+      summativeRequired: true,
+      summativePassed: false,
+      summativeQuizId: SUMMATIVE_QUIZ_ID,
+      diagnosticQuizId: DIAGNOSTIC_QUIZ_ID,
+      summativeAttempts: 0,
+      summativeMaxAttempts: 3,
+      summativeBlockKind: "none",
+      canRetrySummative: true,
+      retryAvailableAt: null,
+      summativePassPercent: 80,
+      capstoneRequired: false,
+      capstonePassed: true,
+      fellowshipSimPassed: false,
+      lastSummativeAttempt: null,
+    });
+
+    const caller = appRouter.createCaller(createAuthContext());
+    const result = await caller.learning.recordQuizAttempt({
+      enrollmentId: MICRO_ENROLLMENT_ID,
+      quizId: DIAGNOSTIC_QUIZ_ID,
+      answers: [
+        { questionId: 1, answer: "Option A" },
+        { questionId: 2, answer: "Option B" },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.examKind).toBe("diagnostic");
+    expect(result.passed).toBe(true);
+    expect(mockDb.__insertValues).toHaveBeenCalled();
+  });
+
+  it("replays summative submit idempotently within 30s window", async () => {
     const now = new Date();
     const progressRows: Record<string, unknown>[] = [
       {
@@ -159,33 +223,18 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
     const mockDb = buildDbMock(progressRows);
     vi.mocked(getDb).mockResolvedValue(mockDb as never);
 
-    vi.spyOn(examGate, "getMicrocourseExamState").mockResolvedValue({
-      diagnosticRequired: false,
-      diagnosticCompleted: true,
-      summativeRequired: true,
-      summativePassed: false,
-      summativeQuizId: SUMMATIVE_QUIZ_ID,
-      diagnosticQuizId: null,
-      summativeAttempts: 1,
-      summativeMaxAttempts: 3,
-      summativeBlockKind: "cooldown",
-      canRetrySummative: false,
-      retryAvailableAt: new Date(Date.now() + 86400000).toISOString(),
-      summativePassPercent: 80,
-      capstoneRequired: false,
-      capstonePassed: true,
-      fellowshipSimPassed: true,
-      lastSummativeAttempt: now,
-    });
-
     const caller = appRouter.createCaller(createAuthContext());
-    await expect(caller.learning.recordQuizAttempt({
+    const result = await caller.learning.recordQuizAttempt({
       enrollmentId: MICRO_ENROLLMENT_ID,
       quizId: SUMMATIVE_QUIZ_ID,
       answers: [
         { questionId: 1, answer: "Option A" },
         { questionId: 2, answer: "Wrong" },
       ],
-    })).rejects.toThrow(/Summative retry on cooldown/);
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.idempotentReplay).toBe(true);
+    expect(result.score).toBe(40);
   });
 });
