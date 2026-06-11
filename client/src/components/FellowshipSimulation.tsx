@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -9,11 +9,27 @@ import {
   fellowshipSimulationSteps,
   resolveFellowshipSimulationLevel,
 } from "../../../shared/fellowship-simulation-scenario";
+import type { FellowshipSimChoice, FellowshipSimStep } from "../../../shared/fellowship-simulation-types";
 
 interface FellowshipSimulationProps {
   courseId: string;
   level: "foundational" | "advanced";
   onComplete: () => void;
+}
+
+type DisplayChoice = FellowshipSimChoice & { key: string };
+
+function resolveStepChoices(step: FellowshipSimStep): DisplayChoice[] {
+  if (step.choices?.length) {
+    return step.choices.map((c, i) => ({ ...c, key: c.id || `choice_${i}` }));
+  }
+  return (step.expectedActions ?? []).map((action, i) => ({
+    id: action,
+    key: `legacy_${i}`,
+    label: action.replace(/_/g, " "),
+    correct: true,
+    feedback: "Correct action.",
+  }));
 }
 
 export function FellowshipSimulation({
@@ -22,8 +38,10 @@ export function FellowshipSimulation({
   onComplete,
 }: FellowshipSimulationProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [userActions, setUserActions] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackCorrect, setFeedbackCorrect] = useState<boolean | null>(null);
+  const [showHint, setShowHint] = useState(false);
+  const [answeredCorrectly, setAnsweredCorrectly] = useState(false);
   const [simulationComplete, setSimulationComplete] = useState(false);
 
   const simLevel = resolveFellowshipSimulationLevel(level);
@@ -34,10 +52,15 @@ export function FellowshipSimulation({
   });
 
   const steps = useMemo(
-    () => fellowshipSimulationSteps(simulationData?.scenarioData) as any[],
+    () => fellowshipSimulationSteps(simulationData?.scenarioData) as FellowshipSimStep[],
     [simulationData]
   );
-  const currentScenarioStep = steps[currentStep] as any;
+  const currentScenarioStep = steps[currentStep];
+  const choices = useMemo(
+    () => (currentScenarioStep ? resolveStepChoices(currentScenarioStep) : []),
+    [currentScenarioStep]
+  );
+  const isDebrief = Boolean(currentScenarioStep?.debriefPoints?.length);
 
   useEffect(() => {
     if (isError) {
@@ -45,23 +68,33 @@ export function FellowshipSimulation({
     }
   }, [isError]);
 
-  const handleAction = (action: string) => {
-    setUserActions((prev) => [...prev, action]);
-    // Basic feedback logic for now, will be expanded with actual scenario engine
-    if (currentScenarioStep?.expectedActions?.includes(action)) {
-      setFeedback("Correct action!");
+  const advanceStep = () => {
+    setFeedback(null);
+    setFeedbackCorrect(null);
+    setShowHint(false);
+    setAnsweredCorrectly(false);
+    if (currentStep < steps.length - 1) {
+      setCurrentStep((prev) => prev + 1);
     } else {
-      setFeedback("Incorrect action. Review the clinical context.");
+      setSimulationComplete(true);
     }
-    // Advance step after action for now, will be more complex later
-    setTimeout(() => {
-      setFeedback(null);
-      if (currentStep < steps.length - 1) {
-        setCurrentStep((prev) => prev + 1);
-      } else {
-        setSimulationComplete(true);
+  };
+
+  const handleChoice = (choice: DisplayChoice) => {
+    if (answeredCorrectly) return;
+
+    if (choice.correct) {
+      setFeedback(choice.feedback);
+      setFeedbackCorrect(true);
+      setAnsweredCorrectly(true);
+      setTimeout(advanceStep, isDebrief ? 800 : 1500);
+    } else {
+      setFeedback(choice.feedback);
+      setFeedbackCorrect(false);
+      if (choice.hint) {
+        setShowHint(true);
       }
-    }, 1500);
+    }
   };
 
   if (isLoading) {
@@ -108,53 +141,82 @@ export function FellowshipSimulation({
       <CardHeader className="bg-primary text-white rounded-t-lg p-6">
         <CardTitle className="text-2xl font-bold">Fellowship Simulation: {simulationData.title}</CardTitle>
         <p className="text-primary-foreground/80">Level: {level.charAt(0).toUpperCase() + level.slice(1)}</p>
+        {simulationData.description && (
+          <p className="text-primary-foreground/90 text-sm mt-2">{simulationData.description}</p>
+        )}
       </CardHeader>
       <CardContent className="p-6 space-y-6">
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Scenario Step {currentStep + 1} of {steps.length}</h3>
+          <h3 className="text-xl font-semibold">
+            {currentScenarioStep?.title ?? `Step ${currentStep + 1}`} — Step {currentStep + 1} of {steps.length}
+          </h3>
           <p className="text-lg text-gray-700">{currentScenarioStep?.description}</p>
           {currentScenarioStep?.vitals && (
             <div className="bg-blue-50 border-l-4 border-blue-200 p-4 text-blue-800">
-              <h4 className="font-semibold">Vitals:</h4>
+              <h4 className="font-semibold">Clinical findings:</h4>
               <ul className="list-disc list-inside">
-	                {Object.entries(currentScenarioStep.vitals).map(([key, value]) => (
-	                  <li key={key}><strong>{key}:</strong> {String(value)}</li>
-	                ))}
+                {Object.entries(currentScenarioStep.vitals).map(([key, value]) => (
+                  <li key={key}><strong>{key.replace(/_/g, " ")}:</strong> {String(value)}</li>
+                ))}
               </ul>
             </div>
           )}
           {currentScenarioStep?.clinicalContext && (
             <div className="bg-gray-50 border-l-4 border-gray-200 p-4 text-gray-700 italic">
-              <h4 className="font-semibold">Clinical Context:</h4>
+              <h4 className="font-semibold not-italic">Clinical context:</h4>
               <p>{currentScenarioStep.clinicalContext}</p>
             </div>
           )}
+          {currentScenarioStep?.debriefPoints && (
+            <div className="bg-amber-50 border-l-4 border-amber-300 p-4 text-amber-900">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" /> Key learning points
+              </h4>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {currentScenarioStep.debriefPoints.map((point, i) => (
+                  <li key={i}>{point}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {currentScenarioStep?.instruction && (
-            <p className="text-md font-medium"><strong>Instruction:</strong> {currentScenarioStep.instruction}</p>
+            <p className="text-md font-medium"><strong>Your decision:</strong> {currentScenarioStep.instruction}</p>
           )}
         </div>
 
         <div className="space-y-3">
-          <h4 className="text-lg font-semibold">Expected Actions:</h4>
-          {currentScenarioStep?.expectedActions?.map((action: string, index: number) => (
+          {choices.map((choice) => (
             <Button
-              key={index}
+              key={choice.key}
               variant="outline"
-              className="w-full justify-start"
-              onClick={() => handleAction(action)}
-              disabled={!!feedback}
+              className={cn(
+                "w-full justify-start text-left h-auto py-3 whitespace-normal",
+                answeredCorrectly && choice.correct && "border-emerald-500 bg-emerald-50"
+              )}
+              onClick={() => handleChoice(choice)}
+              disabled={answeredCorrectly}
             >
-              {action}
+              {choice.label}
             </Button>
           ))}
         </div>
 
+        {showHint && (
+          <div className="p-3 rounded-md bg-amber-50 text-amber-900 border border-amber-200 flex items-start gap-2">
+            <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>
+              {choices.find((c) => !c.correct && c.hint)?.hint ??
+                "Review the clinical context and module teaching, then try another option."}
+            </span>
+          </div>
+        )}
+
         {feedback && (
           <div className={cn(
             "p-3 rounded-md flex items-center gap-2",
-            feedback.includes("Correct") ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+            feedbackCorrect ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
           )}>
-            {feedback.includes("Correct") ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {feedbackCorrect ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
             <span>{feedback}</span>
           </div>
         )}

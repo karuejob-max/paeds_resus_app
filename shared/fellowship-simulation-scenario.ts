@@ -6,6 +6,7 @@ export type FellowshipSimulationPages = Record<string, unknown>;
 
 export type FellowshipSimulationScenarioPayload = {
   pages: FellowshipSimulationPages;
+  stepOrder?: string[];
 };
 
 /** Map catalog / microCourses level to fellowshipSimulations enum. */
@@ -33,7 +34,11 @@ export function parseFellowshipScenarioData(
   }
   const obj = data as Record<string, unknown>;
   if (obj.pages && typeof obj.pages === "object" && !Array.isArray(obj.pages)) {
-    return { pages: obj.pages as FellowshipSimulationPages };
+    const pages = obj.pages as FellowshipSimulationPages;
+    const stepOrder = Array.isArray(obj.stepOrder)
+      ? (obj.stepOrder as string[])
+      : undefined;
+    return { pages, stepOrder };
   }
   return { pages: obj as FellowshipSimulationPages };
 }
@@ -43,5 +48,9 @@ export function fellowshipSimulationHasSteps(raw: unknown): boolean {
 }
 
 export function fellowshipSimulationSteps(raw: unknown): unknown[] {
-  return Object.values(parseFellowshipScenarioData(raw).pages);
+  const { pages, stepOrder } = parseFellowshipScenarioData(raw);
+  if (stepOrder?.length) {
+    return stepOrder.map((key) => pages[key]).filter(Boolean);
+  }
+  return Object.values(pages);
 }
