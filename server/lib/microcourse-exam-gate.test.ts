@@ -3,6 +3,8 @@ import { examKindFromQuizTitle, summativePassed } from "../../shared/microcourse
 import { resolveFellowshipCourseFromCandidates } from "../../shared/resolve-fellowship-course";
 import {
   assertMicrocourseCompletionAllowed,
+  findDiagnosticQuizInRows,
+  findSummativeQuizInRows,
   isDiagnosticProgressComplete,
   resolveDiagnosticCompleted,
   resolveFellowshipCourseId,
@@ -23,6 +25,24 @@ describe("microcourse-exam-gate helpers", () => {
   it("recognises governance quiz titles", () => {
     expect(examKindFromQuizTitle("Diagnostic baseline")).toBe("diagnostic");
     expect(examKindFromQuizTitle("Summative knowledge check")).toBe("summative");
+  });
+
+  it("findSummativeQuizInRows locates summative when simulation module is last", () => {
+    const rows = [
+      { id: 10, moduleId: 201, title: "Knowledge check: Module 1" },
+      { id: 20, moduleId: 202, title: "Summative knowledge check" },
+      { id: 30, moduleId: 203, title: "Fellowship simulation" },
+    ];
+    expect(findSummativeQuizInRows(rows)?.id).toBe(20);
+  });
+
+  it("findDiagnosticQuizInRows prefers module 1 then falls back", () => {
+    const rows = [
+      { id: 11, moduleId: 101, title: "Diagnostic baseline" },
+      { id: 12, moduleId: 102, title: "Summative knowledge check" },
+    ];
+    expect(findDiagnosticQuizInRows(rows, 101)?.id).toBe(11);
+    expect(findDiagnosticQuizInRows(rows, 999)?.id).toBe(11);
   });
 
   it("summative pass threshold is 80", () => {
