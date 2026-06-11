@@ -5,6 +5,10 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import {
+  fellowshipSimulationSteps,
+  resolveFellowshipSimulationLevel,
+} from "../../../shared/fellowship-simulation-scenario";
 
 interface FellowshipSimulationProps {
   courseId: string;
@@ -22,15 +26,17 @@ export function FellowshipSimulation({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [simulationComplete, setSimulationComplete] = useState(false);
 
+  const simLevel = resolveFellowshipSimulationLevel(level);
+
   const { data: simulationData, isLoading, isError } = trpc.learning.getFellowshipSimulation.useQuery({
     courseId,
-    level,
+    level: simLevel,
   });
 
-  const steps = useMemo(() => {
-    const pages = (simulationData?.scenarioData as any)?.pages || {};
-    return Object.values(pages) as any[];
-  }, [simulationData]);
+  const steps = useMemo(
+    () => fellowshipSimulationSteps(simulationData?.scenarioData) as any[],
+    [simulationData]
+  );
   const currentScenarioStep = steps[currentStep] as any;
 
   useEffect(() => {

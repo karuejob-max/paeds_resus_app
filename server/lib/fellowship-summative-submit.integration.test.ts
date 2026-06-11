@@ -185,6 +185,7 @@ describe("fellowship summative submit (recordQuizAttempt integration)", () => {
       capstoneRequired: false,
       capstonePassed: true,
       fellowshipSimPassed: false,
+      fellowshipSimRequired: false,
       lastSummativeAttempt: null,
     });
 

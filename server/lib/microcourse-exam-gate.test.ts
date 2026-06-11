@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fellowshipSimulationHasSteps } from "../../shared/fellowship-simulation-scenario";
 import { examKindFromQuizTitle, summativePassed } from "../../shared/microcourse-exam-policy";
 import { resolveFellowshipCourseFromCandidates } from "../../shared/resolve-fellowship-course";
 import {
@@ -138,6 +139,15 @@ describe("microcourse-exam-gate helpers", () => {
     });
     expect(id).toBe(12);
     expect(findCall).toBe(2);
+  });
+
+  it("fellowshipSimulationHasSteps accepts legacy root-level scenario JSON", () => {
+    const legacy = {
+      pat_assessment: { page: "pat_assessment", description: "Assess child" },
+    };
+    expect(fellowshipSimulationHasSteps(legacy)).toBe(true);
+    expect(fellowshipSimulationHasSteps({ pages: legacy })).toBe(true);
+    expect(fellowshipSimulationHasSteps({})).toBe(false);
   });
 
   it("assertMicrocourseCompletionAllowed fails closed when exam state is unavailable", async () => {

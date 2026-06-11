@@ -20,6 +20,10 @@ import {
   summativePassed,
   type SummativeBlockKind,
 } from "../../shared/microcourse-exam-policy";
+import {
+  fellowshipSimulationHasSteps,
+  resolveFellowshipSimulationLevel,
+} from "../../shared/fellowship-simulation-scenario";
 import { fellowshipTitlePrefix } from "../../shared/resolve-fellowship-course";
 import { gradeQuizAnswerAgainstStored, parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 
@@ -55,6 +59,7 @@ export type MicrocourseExamState = {
   capstoneRequired: boolean;
   capstonePassed: boolean;
   fellowshipSimPassed: boolean;
+  fellowshipSimRequired: boolean;
   lastSummativeAttempt: Date | null;
 };
 
@@ -193,7 +198,8 @@ export async function getMicrocourseExamState(
       summativePassPercent: 80,
       capstoneRequired: false,
       capstonePassed: true,
-      fellowshipSimPassed: false,
+      fellowshipSimPassed: true,
+      fellowshipSimRequired: false,
       lastSummativeAttempt: null,
     };
   }
@@ -246,20 +252,25 @@ export async function getMicrocourseExamState(
   });
   const passed = summativePassed(summativeProgress?.score ?? null);
 
-  // Check for fellowship simulation completion
+  const simLevel = resolveFellowshipSimulationLevel(
+    (microCourse as { level?: string | null }).level
+  );
+
   const [simulation] = await (db as any)
     .select()
     .from(fellowshipSimulations)
     .where(
       and(
         eq(fellowshipSimulations.courseId, microCourse.courseId ?? ""),
-        eq(fellowshipSimulations.level, (microCourse as any).level ?? "foundational")
+        eq(fellowshipSimulations.level, simLevel)
       )
     )
     .limit(1);
 
-  let fellowshipSimPassed = false;
-  if (simulation) {
+  const fellowshipSimRequired =
+    !!simulation && fellowshipSimulationHasSteps(simulation.scenarioData);
+  let fellowshipSimPassed = !fellowshipSimRequired;
+  if (fellowshipSimRequired && simulation) {
     const [fellowshipSimProgress] = await (db as any)
       .select()
       .from(userProgress)
@@ -271,7 +282,8 @@ export async function getMicrocourseExamState(
         )
       )
       .limit(1);
-    fellowshipSimPassed = !!fellowshipSimProgress?.completedAt || fellowshipSimProgress?.status === "completed";
+    fellowshipSimPassed =
+      !!fellowshipSimProgress?.completedAt || fellowshipSimProgress?.status === "completed";
   }
 
   return {
@@ -290,6 +302,7 @@ export async function getMicrocourseExamState(
     capstoneRequired: false,
     capstonePassed: true,
     fellowshipSimPassed,
+    fellowshipSimRequired,
     lastSummativeAttempt: lastAttemptAt,
   };
 }
@@ -322,7 +335,7 @@ export async function assertMicrocourseCompletionAllowed(
       message: "Complete and pass the PALS Capstone Simulation (50%) to unlock your certificate.",
     };
   }
-  if (!state.fellowshipSimPassed) {
+  if (state.fellowshipSimRequired && !state.fellowshipSimPassed) {
     return {
       ok: false,
       message: "Complete the fellowship simulation to unlock your certificate.",
@@ -490,7 +503,8 @@ export async function getAhaCourseExamState(
     capstonePassed: ["pals", "acls", "bls", "nrp", "heartsaver"].includes(enrollment.programType ?? "")
       ? progressRows.some(p => p.status === "completed" && p.score !== null && p.score >= 50 && p.moduleId === -1)
       : true,
-    fellowshipSimPassed: false,
+    fellowshipSimPassed: true,
+    fellowshipSimRequired: false,
     lastSummativeAttempt: lastAttemptAt,
   };
 }
