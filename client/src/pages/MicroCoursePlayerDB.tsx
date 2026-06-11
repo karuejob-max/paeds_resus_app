@@ -718,8 +718,13 @@ export default function MicroCoursePlayerDB() {
         setShowFormativeQuiz(false);
         setShowSummativeExam(false);
         window.scrollTo(0, 0);
-      } else if (microCourseRow && !isAhaCourse && !examState?.fellowshipSimPassed) {
-        // For fellowship courses, show fellowship simulation after all modules
+      } else if (
+        microCourseRow &&
+        !isAhaCourse &&
+        examState?.fellowshipSimRequired &&
+        !examState?.fellowshipSimPassed
+      ) {
+        // For fellowship courses with a configured simulation, show it after all modules
         setShowFellowshipSim(true);
         setShowFormativeQuiz(false);
         setShowSummativeExam(false);

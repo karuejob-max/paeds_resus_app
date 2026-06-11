@@ -56,6 +56,7 @@ import {
   summativePassed,
 } from "../../shared/microcourse-exam-policy";
 import { formatSummativeForbiddenMessage } from "../../shared/summative-retry-display";
+import { parseFellowshipScenarioData } from "../../shared/fellowship-simulation-scenario";
 import { TRPCError } from "@trpc/server";
 import { trackEvent } from "../services/analytics.service";
 
@@ -410,9 +411,17 @@ export const learningRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
       }
 
+      const scenarioData = parseFellowshipScenarioData(simulation.scenarioData);
+      if (Object.keys(scenarioData.pages).length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Fellowship simulation scenario has no steps",
+        });
+      }
+
       return {
         ...simulation,
-        scenarioData: JSON.parse(simulation.scenarioData as string),
+        scenarioData,
       };
     }),
 
