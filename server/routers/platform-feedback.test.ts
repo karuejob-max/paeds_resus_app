@@ -15,6 +15,7 @@ vi.mock("../lib/platform-feedback-tickets", () => ({
   getFeedbackTicketById: vi.fn(),
   listOpenFeedbackTicketsForExport: vi.fn(),
   formatFeedbackExportMarkdown: vi.fn(),
+  appendFeedbackStatusHistory: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../db", () => ({ getDb: vi.fn(), insertAdminAuditLog: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../services/analytics.service", () => ({ trackEvent: vi.fn() }));
@@ -35,6 +36,18 @@ describe("platform feedback", () => {
   it("feedback.submit returns ticketId", async () => {
     const r = await appRouter.createCaller(ctx()).feedback.submit({ category: "other", message: "Long enough message here." });
     expect(r).toEqual({ success: true, ticketId: 42 });
+  });
+
+  it("feedback.submit accepts issueType and severity", async () => {
+    await appRouter.createCaller(ctx()).feedback.submit({
+      category: "course_content",
+      issueType: "content",
+      severity: "high",
+      message: "Module 2 is missing escalation section.",
+    });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ issueType: "content", severity: "high" })
+    );
   });
 
   it("adminFeedback.list requires admin", async () => {

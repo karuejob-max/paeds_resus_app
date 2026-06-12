@@ -62,6 +62,7 @@
     "db:apply-0047": "node scripts/apply-0047-content-safety-reports.mjs",
     "db:apply-0048": "node scripts/apply-0048-platform-feedback-tickets.mjs",
     "db:apply-0049": "node scripts/apply-0049-aha-practice-lab-attempts.mjs",
+    "db:apply-0051": "node scripts/apply-0051-feedback-ticket-enhancements.mjs",
     "export:feedback-tickets": "node scripts/export-feedback-tickets.mjs",
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "seed:pals": "tsx --import dotenv/config server/seed.ts",

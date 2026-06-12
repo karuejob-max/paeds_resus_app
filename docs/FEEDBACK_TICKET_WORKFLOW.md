@@ -20,20 +20,30 @@
 
 ---
 
-## Admin inbox
+## Admin inbox (CEO view)
 
-- **URL:** `/admin/feedback`
-- **Hub:** Admin → Feedback inbox
-- **Filters:** status, category
-- **Actions:** status update, admin response (audit-logged via `adminAuditLog`)
+- **URL:** `/admin/feedback` (admin role required)
+- **Hub:** Admin → **Feedback inbox** card
+- **Filters:** status (pending/in progress/fixed/won't fix/duplicate), product source, issue type, severity, course slug, date range
+- **Detail:** user message, page URL, source tool, course slug, module ID, browser user-agent, screenshot link (if provided)
+- **Actions:** status transition with notes, agent assignment (Cursor / Manus / CEO / clinical), comma-separated tags, admin response (audit-logged via `adminAuditLog`)
+
+### Structured fields (submit)
+
+| Field | Values | Notes |
+|-------|--------|-------|
+| **Source (category)** | `course_content`, `resus_gps`, `care_signal`, `payment_technical`, `safety_concern`, `other` | Which product/page area |
+| **Issue type** | `bug`, `content`, `ux`, `billing`, `clinical`, `other` | Triage bucket (migration 0051) |
+| **Severity** | `low`, `medium`, `high`, `critical` | User-selectable; safety reports default high |
+| **Context** | `pageUrl`, `courseSlug`, `surface`, `userAgent` | Auto-captured on submit |
 
 ### Status lifecycle
 
 ```
-open → in_progress → resolved | wont_fix
+open (Pending) → in_progress → resolved (Fixed) | wont_fix | duplicate
 ```
 
-Safety-priority tickets should be triaged first (clinical content team).
+UI labels: **Pending** = `open`, **Fixed** = `resolved`. Safety-priority + `critical` severity tickets triage first.
 
 ---
 
@@ -74,6 +84,7 @@ Writes `docs/FEEDBACK_TICKETS_EXPORT.md` with category counts and verbatim open/
 |-----------|-------|-------|
 | 0047 | `contentSafetyReports` (legacy safety mirror) | `pnpm run db:apply-0047` |
 | **0048** | `platformFeedbackTickets` (canonical) | `pnpm run db:apply-0048` |
+| **0051** | severity, issueType, agent assignment, duplicate status, status history | `pnpm run db:apply-0051` |
 
 ---
 
@@ -83,8 +94,10 @@ Writes `docs/FEEDBACK_TICKETS_EXPORT.md` with category counts and verbatim open/
 |-----------|------|-------------|
 | `feedback.submit` | protected | Create ticket; returns `{ ticketId }` |
 | `feedback.listMine` | protected | User's recent tickets |
-| `adminFeedback.list` | admin | Filtered inbox |
-| `adminFeedback.updateStatus` | admin | Status transition + audit |
+| `adminFeedback.list` | admin | Filtered inbox (status, source, issue type, severity, course slug, dates) |
+| `adminFeedback.getById` | admin | Single ticket detail |
+| `adminFeedback.updateStatus` | admin | Status transition + note + audit |
+| `adminFeedback.updateAssignment` | admin | Assign Cursor/Manus/CEO/clinical + tags |
 | `adminFeedback.respond` | admin | Response + optional status + audit |
 | `adminFeedback.exportOpen` | admin | JSON or markdown bundle for agents |
 
@@ -96,4 +109,13 @@ Email admin on `priority=safety` when SES is wired. Until then: monitor `/admin/
 
 ---
 
-*Last updated: 2026-06-06*
+## Regression guard (agents)
+
+When fixing feedback tickets — especially **content** or **clinical** issues:
+
+1. **NEVER remove existing detailed content** to fix a bug or "simplify" UX. Fix the bug; preserve what works.
+2. **Extend, don't replace:** improvements must net-increase clinical depth (see `AGENTS.md` §9).
+3. After fix: mark ticket **Fixed** (`resolved`) with admin response citing PR/commit.
+4. Run `pnpm run audit:microcourse-depth:strict` for course-content tickets before merge.
+
+*Last updated: 2026-06-12*
