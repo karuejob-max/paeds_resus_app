@@ -7,7 +7,7 @@ import {
   calculateFeedbackAnalytics,
   generateFeedbackReport,
 } from "../services/feedback.service";
-import { FEEDBACK_CATEGORIES } from "../../shared/platform-feedback";
+import { FEEDBACK_CATEGORIES, FEEDBACK_ISSUE_TYPES, FEEDBACK_SEVERITIES } from "../../shared/platform-feedback";
 import { createPlatformFeedbackTicket, listUserFeedbackTickets } from "../lib/platform-feedback-tickets";
 import { trackEvent } from "../services/analytics.service";
 
@@ -19,6 +19,8 @@ const contextSchema = z
     moduleId: z.number().int().positive().optional(),
     resusSessionId: z.string().max(128).optional(),
     surface: z.string().max(64).optional(),
+    userAgent: z.string().max(512).optional(),
+    screenshotUrl: z.string().url().max(2048).optional(),
   })
   .optional();
 
@@ -27,6 +29,8 @@ export const feedbackRouter = router({
     .input(
       z.object({
         category: z.enum(FEEDBACK_CATEGORIES),
+        issueType: z.enum(FEEDBACK_ISSUE_TYPES).optional(),
+        severity: z.enum(FEEDBACK_SEVERITIES).optional(),
         message: z.string().min(10).max(4000),
         subject: z.string().max(255).optional(),
         contextJson: contextSchema,
@@ -36,6 +40,8 @@ export const feedbackRouter = router({
       const result = await createPlatformFeedbackTicket({
         userId: ctx.user.id,
         category: input.category,
+        issueType: input.issueType,
+        severity: input.severity,
         message: input.message,
         subject: input.subject,
         contextJson: input.contextJson,

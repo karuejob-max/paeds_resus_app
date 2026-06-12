@@ -221,6 +221,7 @@ Code: `shared/clinical-evidence.ts`, `shared/secondary-survey-gating.ts`, `Struc
 - **Never break the core emergency flow:** open app → enter findings → get priority next actions → reassessment prompts.
 - **Small, reviewable changes only.** No big rewrites unless absolutely necessary.
 - **Extend, Don't Replace:** Never remove detailed content to add "improved" but simplified versions. "Improvement" must always result in a net increase in clinical depth and detail.
+- **Feedback triage regression guard:** When fixing user feedback (especially `content` / `clinical` issue types), **never delete or shallow existing modules, sections, or protocols** to resolve the ticket. Fix the reported bug; preserve working depth. CEO cited shallow content regression from prior "improvements" — this is a **hard stop**. See [`docs/FEEDBACK_TICKET_WORKFLOW.md`](docs/FEEDBACK_TICKET_WORKFLOW.md).
 - **Clinical content changes** require explicit approval from Job Karue before merging.
 - **All changes must be pushed to GitHub** for Cursor and other developers to access.
 - **Brand naming:** Always use "Paeds Resus" in user-facing copy. "ResusGPS" is reserved for the bedside clinical tool only.
@@ -237,6 +238,7 @@ Code: `shared/clinical-evidence.ts`, `shared/secondary-survey-gating.ts`, `Struc
 | `RESUSGPS_DNA.md` | Core platform DNA — 7 strands, mission, success metrics. |
 | `docs/STRATEGIC_FOUNDATION.md` | Theory of change, clinical origin narrative, honest success criteria. |
 | `docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md` | Fellowship qualification rules, Pillar C Care Signal policy. |
+| `docs/FEEDBACK_TICKET_WORKFLOW.md` | CEO feedback inbox (`/admin/feedback`), agent export, triage loop, regression guard. |
 | `docs/BRAND_UPDATE_PAEDS_RESUS.md` | Full brand update history (ResusGPS → Paeds Resus naming). |
 | `docs/INSTITUTIONAL_BACKLOG_BOARD.md` | Current institutional feature backlog (INST-0 to INST-15+). |
 | `docs/BACKLOG_BOARD.md` | Platform-wide scrum backlog. |
