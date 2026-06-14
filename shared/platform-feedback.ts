@@ -30,7 +30,13 @@ export type FeedbackContextJson = {
   pageUrl?: string;
   courseSlug?: string;
   courseId?: string;
+  courseTitle?: string;
   moduleId?: number;
+  moduleIndex?: number;
+  moduleTitle?: string;
+  quizType?: string;
+  simulationSlug?: string;
+  ahaCourseId?: string;
   resusSessionId?: string;
   /** Which widget or page submitted the ticket (e.g. fellowship_player, header_menu). */
   surface?: string;

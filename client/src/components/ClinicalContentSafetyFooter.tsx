@@ -21,7 +21,7 @@ import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
-import type { FeedbackCategory } from "@shared/platform-feedback";
+import type { FeedbackCategory, FeedbackContextJson } from "@shared/platform-feedback";
 
 export type ClinicalContentSafetySurface = "fellowship_player" | "aha_player" | "resus_gps";
 
@@ -31,6 +31,8 @@ type Props = {
   surface?: ClinicalContentSafetySurface;
   moduleId?: number;
   pageUrl?: string;
+  /** Extra player/session context merged into feedback tickets. */
+  feedbackContext?: FeedbackContextJson;
   className?: string;
   /** Smaller padding for bedside ResusGPS idle screen. */
   compact?: boolean;
@@ -41,6 +43,7 @@ export function ClinicalContentSafetyFooter({
   surface = "fellowship_player",
   moduleId,
   pageUrl,
+  feedbackContext,
   className,
   compact,
 }: Props) {
@@ -146,7 +149,18 @@ export function ClinicalContentSafetyFooter({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <FeedbackDialog defaultCategory={feedbackCategory} contextJson={{ pageUrl: resolvedPageUrl, courseSlug: surfaceId, courseId: surfaceId, moduleId, surface }} compact />
+      <FeedbackDialog
+        defaultCategory={feedbackCategory}
+        contextJson={{
+          pageUrl: resolvedPageUrl,
+          courseSlug: surfaceId,
+          courseId: surfaceId,
+          moduleId,
+          surface,
+          ...feedbackContext,
+        }}
+        compact
+      />
       <p className="text-[10px]">Educational use only — apply your facility protocol and senior review.</p>
     </footer>
   );
