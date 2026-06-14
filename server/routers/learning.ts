@@ -318,10 +318,18 @@ export const learningRouter = router({
             const kind = examKindFromQuizTitle(quiz.title as string);
             const base = { ...q, question: String(q.question ?? ""), options };
             if (kind === "summative") {
-              const { correctAnswer: _omit, ...withoutAnswer } = base as Record<string, unknown>;
+              const {
+                correctAnswer: _omitAnswer,
+                explanation: _omitExplanation,
+                ...withoutAnswer
+              } = base as Record<string, unknown>;
               return withoutAnswer;
             }
-            return base;
+            const { explanation: _omitExplanation, ...withoutRationale } = base as Record<
+              string,
+              unknown
+            >;
+            return withoutRationale;
           }) as { id?: number; question: string }[]
         );
         return { ...quiz, questions };
@@ -752,17 +760,40 @@ export const learningRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
       }
 
-      // Record completion in userProgress
-      await (db as any).insert(userProgress).values({
-        userId: ctx.user.id,
-        enrollmentId: input.enrollmentId,
-        fellowshipSimulationId: simulation.id,
-        status: "completed",
-        completedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        moduleId: 0, // Placeholder
-      });
+      const existing = await (db as any)
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.fellowshipSimulationId, simulation.id)
+          )
+        )
+        .limit(1);
+
+      const now = new Date();
+      if (existing.length > 0) {
+        await (db as any)
+          .update(userProgress)
+          .set({
+            status: "completed",
+            completedAt: existing[0]?.completedAt ?? now,
+            updatedAt: now,
+          })
+          .where(eq(userProgress.id, existing[0].id));
+      } else {
+        await (db as any).insert(userProgress).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          fellowshipSimulationId: simulation.id,
+          status: "completed",
+          completedAt: now,
+          createdAt: now,
+          updatedAt: now,
+          moduleId: 0, // Placeholder
+        });
+      }
 
       scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
 

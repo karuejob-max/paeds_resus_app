@@ -32,6 +32,8 @@ export type SummativeQuestionResult = {
   correct: boolean;
   correctOption: string;
   userAnswer: string;
+  /** Returned only after grading — never in pre-submit question payloads. */
+  explanation?: string | null;
 };
 
 type Db = {
@@ -512,7 +514,7 @@ export async function getAhaCourseExamState(
 export async function loadSummativeQuestionBank(
   db: Db,
   summativeQuizId: number
-): Promise<{ id: number; question: string; options: string[]; explanation: string | null }[]> {
+): Promise<{ id: number; question: string; options: string[] }[]> {
   const rows = (await (db as any)
     .select()
     .from(quizQuestions)
@@ -539,7 +541,6 @@ export async function loadSummativeQuestionBank(
         id: r.id,
         question: r.question,
         options,
-        explanation: r.explanation,
       };
     })
   );
@@ -577,6 +578,7 @@ export async function computeQuizScoreFromDb(
     question: string;
     correctAnswer: string | null;
     options: string | null;
+    explanation: string | null;
   }[];
 
   const dedupedRows = dedupeQuizRowsByStem(
@@ -618,6 +620,7 @@ export async function computeQuizScoreFromDb(
       correct,
       correctOption,
       userAnswer: userAnswer ?? "",
+      explanation: fullRow.explanation ?? null,
     });
   }
 
