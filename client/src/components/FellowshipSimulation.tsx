@@ -14,7 +14,10 @@ import type { FellowshipSimChoice, FellowshipSimStep } from "../../../shared/fel
 interface FellowshipSimulationProps {
   courseId: string;
   level: "foundational" | "advanced";
-  onComplete: () => void;
+  /** When true, learner already completed — allow replay without blocking summative unlock. */
+  reviewMode?: boolean;
+  isSaving?: boolean;
+  onComplete: (opts?: { advanceToSummative?: boolean }) => void;
 }
 
 type DisplayChoice = FellowshipSimChoice & { key: string };
@@ -35,6 +38,8 @@ function resolveStepChoices(step: FellowshipSimStep): DisplayChoice[] {
 export function FellowshipSimulation({
   courseId,
   level,
+  reviewMode = false,
+  isSaving = false,
   onComplete,
 }: FellowshipSimulationProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -119,18 +124,64 @@ export function FellowshipSimulation({
     );
   }
 
+  const restartSimulation = () => {
+    setCurrentStep(0);
+    setFeedback(null);
+    setFeedbackCorrect(null);
+    setShowHint(false);
+    setAnsweredCorrectly(false);
+    setSimulationComplete(false);
+  };
+
   if (simulationComplete) {
     return (
       <Card className="border-emerald-200 bg-emerald-50 text-emerald-700">
         <CardHeader>
-          <CardTitle className="text-emerald-800">Simulation Complete!</CardTitle>
+          <CardTitle className="text-emerald-800">
+            {reviewMode ? "Simulation review complete" : "Simulation Complete!"}
+          </CardTitle>
         </CardHeader>
-        <CardContent className="text-center">
+        <CardContent className="text-center space-y-4">
           <CheckCircle2 className="w-16 h-16 text-emerald-600 mx-auto mb-4" />
-          <p className="text-lg mb-4">You have successfully completed the simulation for {simulationData.title}.</p>
-          <Button onClick={onComplete} className="bg-emerald-600 hover:bg-emerald-700">
-            Continue to Final Exam
-          </Button>
+          <p className="text-lg">
+            {reviewMode
+              ? `You reviewed the simulation for ${simulationData.title}.`
+              : `You have successfully completed the simulation for ${simulationData.title}.`}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              variant="outline"
+              onClick={restartSimulation}
+              className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+            >
+              {reviewMode ? "Replay simulation" : "Practice again"}
+            </Button>
+            {reviewMode ? (
+              <Button
+                variant="outline"
+                onClick={() => onComplete({ advanceToSummative: false })}
+                className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+              >
+                Back to course
+              </Button>
+            ) : null}
+            <Button
+              onClick={() => onComplete({ advanceToSummative: !reviewMode })}
+              disabled={isSaving}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : reviewMode ? (
+                "Go to final exam"
+              ) : (
+                "Continue to Final Exam"
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

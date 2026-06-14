@@ -103,7 +103,7 @@ export default function MicroCoursePlayerDB() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [quizQuestionResults, setQuizQuestionResults] = useState<
-    Record<number, { correct: boolean; correctOption: string }>
+    Record<number, { correct: boolean; correctOption: string; explanation?: string | null }>
   >({});
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
   const [feedbackGate, setFeedbackGate] = useState<{ certificateId: number; certNumber: string } | null>(null);
@@ -499,10 +499,24 @@ export default function MicroCoursePlayerDB() {
   const ensureAhaEnrollmentMutation = trpc.courses.ensureAhaEnrollment.useMutation();
 
   const applyQuizAttemptResult = (result: any) => {
-    // result is from trpc.learning.recordQuizAttempt
-    // The type is { score: number; passed: boolean; passingScore: number; correctAnswers: number; totalQuestions: number; }
     setQuizScore(result.score);
     setQuizSubmitted(true);
+    if (Array.isArray(result.questionResults)) {
+      const mapped: Record<
+        number,
+        { correct: boolean; correctOption: string; explanation?: string | null }
+      > = {};
+      for (const row of result.questionResults) {
+        if (row?.questionId != null) {
+          mapped[row.questionId] = {
+            correct: !!row.correct,
+            correctOption: row.correctOption ?? "",
+            explanation: row.explanation ?? null,
+          };
+        }
+      }
+      setQuizQuestionResults(mapped);
+    }
     void utils.courses.getUserEnrollments.invalidate();
     void utils.learning.getMicroCourseExamState.invalidate();
 
@@ -566,7 +580,6 @@ export default function MicroCoursePlayerDB() {
         id: q.id,
         question: q.question,
         options: q.options,
-        explanation: q.explanation,
       })),
     };
   }, [quizzes, showSummativeExam, shuffledSummative]);
@@ -818,6 +831,35 @@ export default function MicroCoursePlayerDB() {
       toast.error('Enrollment not found. Please refresh and try again.');
     }
   };
+
+  const handleFellowshipSimComplete = async (opts?: { advanceToSummative?: boolean }) => {
+    const advance = opts?.advanceToSummative ?? !examState?.fellowshipSimPassed;
+    if (enrollment?.id && microCourseRow && !examState?.fellowshipSimPassed) {
+      try {
+        await completeFellowshipSimulation.mutateAsync({
+          enrollmentId: enrollment.id,
+          courseId: microCourseRow.courseId,
+          level: microCourseRow.level as "foundational" | "advanced",
+        });
+      } catch {
+        return;
+      }
+    }
+    setShowFellowshipSim(false);
+    if (advance) {
+      setShowSummativeExam(true);
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore(null);
+      setQuizQuestionResults({});
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const summativeNavUnlocked =
+    (isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)) &&
+    (!examState?.capstoneRequired || examState?.capstonePassed || isReviewMode) &&
+    (!examState?.fellowshipSimRequired || examState?.fellowshipSimPassed || isReviewMode);
 
   const handleFinalSubmit = () => {
     if (!dbCourse) return;
@@ -1188,15 +1230,61 @@ export default function MicroCoursePlayerDB() {
 		            </div>
 		          )}
 
+	          {/* Fellowship simulation step (pillar microcourses) */}
+	          {examState?.fellowshipSimRequired && microCourseRow && !isAhaCourse && (
+	            <div className="flex items-center">
+	              <button
+	                onClick={() => {
+	                  const allCognitiveCompleted = modules.every((m) => {
+	                    const modStatus = (examState as any)?.moduleStatus?.find((s: any) => s.moduleId === m.id);
+	                    return modStatus?.completed;
+	                  });
+	                  if (isReviewMode || examState?.fellowshipSimPassed || allCognitiveCompleted) {
+	                    setShowFellowshipSim(true);
+	                    setShowSummativeExam(false);
+	                    setShowCertificateReady(false);
+	                    setShowFormativeQuiz(false);
+	                    setShowCapstoneSim(false);
+	                  } else {
+	                    toast.error("Please complete all preceding modules before starting the simulation.");
+	                  }
+	                }}
+	                className={cn(
+	                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
+	                  showFellowshipSim
+	                    ? "bg-primary text-white ring-4 ring-primary/20"
+	                    : examState?.fellowshipSimPassed
+	                      ? "bg-emerald-100 text-emerald-700"
+	                      : (modules.every((m) => (examState as any)?.moduleStatus?.find((s: any) => s.moduleId === m.id)?.completed)) || isReviewMode
+	                        ? "bg-slate-100 text-slate-600"
+	                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+	                )}
+	              >
+	                {examState?.fellowshipSimPassed ? <CheckCircle2 className="w-4 h-4" /> : modules.length + 1}
+	              </button>
+	              <div
+	                className={cn(
+	                  "w-4 h-0.5 mx-1",
+	                  examState?.fellowshipSimPassed ? "bg-emerald-200" : "bg-slate-200"
+	                )}
+	              />
+	            </div>
+	          )}
+
 	          <button 
                 onClick={() => {
                   if (examState?.capstoneRequired && !examState?.capstonePassed && !isReviewMode) {
                     toast.error("Please complete the Capstone Simulation before starting the final exam.");
                     return;
                   }
-                  if (isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode)) {
+                  if (examState?.fellowshipSimRequired && !examState?.fellowshipSimPassed && !isReviewMode) {
+                    toast.error("Please complete the fellowship simulation before starting the final exam.");
+                    return;
+                  }
+                  if (summativeNavUnlocked) {
                     setShowSummativeExam(true);
                     setShowCapstoneSim(false);
+                    setShowFellowshipSim(false);
                     setShowFormativeQuiz(false);
                     setShowCertificateReady(false);
                   }
@@ -1205,7 +1293,7 @@ export default function MicroCoursePlayerDB() {
 	              "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all",
 	              showSummativeExam || showCertificateReady
 	                ? "bg-primary text-white ring-4 ring-primary/20" 
-	                : (examState?.capstoneRequired ? examState?.capstonePassed : isLastModule && (maxReachedSectionIndex >= sections.length - 1 || isReviewMode))
+	                : summativeNavUnlocked
 	                  ? "bg-slate-100 text-slate-600"
 	                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
 	            )}
@@ -1262,17 +1350,9 @@ export default function MicroCoursePlayerDB() {
           <FellowshipSimulation
             courseId={microCourseRow.courseId}
             level={microCourseRow.level as "foundational" | "advanced"}
-            onComplete={() => {
-              if (enrollment?.id && microCourseRow) {
-                completeFellowshipSimulation.mutate({
-                  enrollmentId: enrollment.id,
-                  courseId: microCourseRow.courseId,
-                  level: microCourseRow.level as any,
-                });
-              }
-              setShowFellowshipSim(false);
-              setShowSummativeExam(true);
-            }}
+            reviewMode={!!examState?.fellowshipSimPassed}
+            isSaving={completeFellowshipSimulation.isPending}
+            onComplete={(opts) => void handleFellowshipSimComplete(opts)}
           />
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
             <FormativeQuizView 
@@ -1310,25 +1390,13 @@ export default function MicroCoursePlayerDB() {
                 resetQuizState();
                 return;
               }
-              if (showFellowshipSim) {
-                if (enrollment?.id && microCourseRow) {
-                  completeFellowshipSimulation.mutate({
-                    enrollmentId: enrollment.id,
-                    courseId: microCourseRow.courseId,
-                    level: microCourseRow.level as any,
-                  });
-                }
-                setShowFellowshipSim(false);
-                setShowSummativeExam(true);
-                resetQuizState();
-                return;
-              }
               handleModuleTransition();
             }}
             onRetry={() => {
               setQuizAnswers({});
               setQuizSubmitted(false);
               setQuizScore(null);
+              setQuizQuestionResults({});
               if (showSummativeExam || isSummativeExamActive) {
                 setSummativeShuffleSeed(Date.now());
               } else if (showDiagnosticQuiz || showFormativeQuiz) {
@@ -1443,6 +1511,24 @@ export default function MicroCoursePlayerDB() {
         surfaceId={slug ?? ""}
         surface={isAhaCourse ? "aha_player" : "fellowship_player"}
         moduleId={currentModuleId ?? undefined}
+        feedbackContext={{
+          courseTitle: catalogTitleBySlug[slug ?? ""] ?? courseDetails?.title ?? ahaCourseDetails?.title,
+          moduleIndex: currentModuleIndex,
+          moduleTitle: currentModule?.title,
+          quizType: showSummativeExam
+            ? "summative"
+            : showFormativeQuiz
+              ? "formative"
+              : showDiagnosticQuiz
+                ? "diagnostic"
+                : showFellowshipSim
+                  ? "fellowship_sim"
+                  : showCapstoneSim
+                    ? "capstone"
+                    : undefined,
+          simulationSlug: showFellowshipSim ? slug ?? undefined : showCapstoneSim ? `${slug}-capstone` : undefined,
+          ahaCourseId: isAhaCourse && numericCourseId ? String(numericCourseId) : undefined,
+        }}
         className="max-w-4xl mx-auto"
       />
     </div>
@@ -1599,9 +1685,10 @@ function FormativeQuizView({
                 );
               })}
             </div>
-            {submitted && q.explanation && (
+            {submitted && (questionResults?.[q.id]?.explanation ?? (useServerResults ? null : q.explanation)) && (
               <div className="ml-12 p-4 bg-muted rounded-xl text-sm text-muted-foreground italic border-l-4 border-border">
-                <strong>Rationale:</strong> {q.explanation}
+                <strong>Rationale:</strong>{" "}
+                {questionResults?.[q.id]?.explanation ?? q.explanation}
               </div>
             )}
           </div>
