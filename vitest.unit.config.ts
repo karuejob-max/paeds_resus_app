@@ -33,6 +33,7 @@ export default defineConfig({
       "server/routers/fellowship-care-signal-streak.test.ts",
       "server/routers/platform-feedback.test.ts",
       "server/_core/**/*.test.ts",
+      "server/cne/**/*.test.ts",
     ],
     exclude: [
       "client/src/lib/voice/**",

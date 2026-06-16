@@ -17,6 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 
 const Login = lazy(() => import("./pages/Login"));
+const CneRegister = lazy(() => import("./pages/CneRegister"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -159,6 +160,7 @@ function Router() {
         >
           <Switch>
           <Route path="/login" component={Login} />
+          <Route path="/cne/register/:institutionId" component={CneRegister} />
           <Route path="/register" component={Register} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />

@@ -183,6 +183,8 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   companyName: varchar("companyName", { length: 255 }).notNull(),
+  /** CNE service: name printed on the certificate signature line (migration 0052). */
+  cneCoordinatorName: varchar("cneCoordinatorName", { length: 255 }),
   industry: varchar("industry", { length: 255 }),
   staffCount: int("staffCount"),
   contactName: varchar("contactName", { length: 255 }).notNull(),
@@ -2822,3 +2824,43 @@ export const ahaPracticeLabAttempts = mysqlTable("ahaPracticeLabAttempts", {
 
 export type AhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferSelect;
 export type InsertAhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferInsert;
+
+/**
+ * CNE (Continuing Nursing Education) attendance automation service (migration 0052).
+ * Multi-tenant: every event/attendee is scoped to an institutionalAccounts.id.
+ * One open event per institution at a time (admin opens/closes; public registers while open).
+ */
+export const cneEvents = mysqlTable("cneEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Owning institution (institutionalAccounts.id). */
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  /** Free-text event date (e.g. "12 June 2026"); stored as entered by the admin. */
+  eventDate: varchar("eventDate", { length: 64 }).notNull(),
+  isOpen: boolean("isOpen").default(false).notNull(),
+  openedAt: timestamp("openedAt"),
+  closedAt: timestamp("closedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CneEvent = typeof cneEvents.$inferSelect;
+export type InsertCneEvent = typeof cneEvents.$inferInsert;
+
+/** Public CNE registrations (one row per nurse per event). */
+export const cneAttendees = mysqlTable("cneAttendees", {
+  id: int("id").autoincrement().primaryKey(),
+  cneEventId: int("cneEventId").notNull(),
+  /** Denormalized owning institution for fast tenant scoping on certificate routes. */
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  fullName: varchar("fullName", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  cadre: mysqlEnum("cadre", ["BSN", "KRCHN", "KRN", "Other"]).notNull(),
+  cadreOther: varchar("cadreOther", { length: 128 }),
+  higherDiploma: varchar("higherDiploma", { length: 256 }),
+  department: varchar("department", { length: 256 }).notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+});
+
+export type CneAttendee = typeof cneAttendees.$inferSelect;
+export type InsertCneAttendee = typeof cneAttendees.$inferInsert;
