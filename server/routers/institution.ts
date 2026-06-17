@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, adminProcedure, router } from "../_core/trpc";
+import { searchKmhflFacilities } from "./institution-kmhfl-search";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
@@ -18,9 +19,10 @@ import {
   payments,
   enrollments,
   careFacilities,
+  kmhflFacilities,
 } from "../../drizzle/schema";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess } from "../lib/institution-access";
@@ -177,6 +179,8 @@ export const institutionRouter = router({
       institutions: rows,
     };
   }),
+
+  searchKmhflFacilities,
 
   /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
 
@@ -370,7 +374,7 @@ export const institutionRouter = router({
       z.object({
         institutionName: z.string().min(3),
         institutionType: z.string().min(1),
-        registrationNumber: z.string().min(1),
+        registrationNumber: z.string().min(1).optional(),
         healthcareStaffCount: z.coerce.number().int().positive(),
         country: z.string().min(1),
         city: z.string().min(1),
