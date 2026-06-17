@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
+import CnePanel from "@/components/CnePanel";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
@@ -653,7 +654,7 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-11 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -664,6 +665,7 @@ export default function HospitalAdminDashboard() {
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="safe-truth">Safe Truth</TabsTrigger>
             <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
+            <TabsTrigger value="cne">CNE</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -2324,6 +2326,16 @@ export default function HospitalAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="cne" className="space-y-6">
+            {institutionId ? (
+              <CnePanel institutionId={institutionId} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Link your hospital account to manage CNE events.
+              </p>
+            )}
           </TabsContent>
         </Tabs>
       </div>

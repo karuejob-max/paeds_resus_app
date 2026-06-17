@@ -24,6 +24,7 @@ import { STK_CALLBACK_PATH, STK_CALLBACK_PATH_LEGACY } from "../lib/mpesa-callba
 import { initializeScheduler } from "../scheduler";
 import { initializeDatabase, runMigrations } from "./initialize";
 import { registerCanonicalDomainRedirect } from "./canonical-domain";
+import { registerCneRoutes } from "../cne/routes";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -88,6 +89,10 @@ async function startServer() {
   };
   app.post(STK_CALLBACK_PATH, express.json(), mpesaStkCallbackHandler);
   app.post(STK_CALLBACK_PATH_LEGACY, express.json(), mpesaStkCallbackHandler);
+
+  // CNE certificate downloads (single PDF + bulk ZIP) — streamed binary responses
+  // that tRPC's JSON transport can't handle. Registered before the tRPC middleware.
+  registerCneRoutes(app);
 
   // tRPC API
   app.use(
