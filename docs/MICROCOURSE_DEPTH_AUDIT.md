@@ -1,6 +1,6 @@
 # Micro-course depth audit
 
-**Generated:** 2026-06-08 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-06-17 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Depth standard (Foundational + Advanced)
 
@@ -41,7 +41,7 @@
 | burns-i | 3 | 5/5/6 | 3/3/3 | 10 | 16 | — | — | 0 | ✓ | — |
 | burns-ii | 3 | 6/6/6 | 3/3/3 | 10 | 16 | — | — | 0 | ✓ | — |
 | cardiogenic-shock-i | 3 | 6/5/5 | 3/3/3 | 10 | 15 | — | — | 0 | ✓ | — |
-| cardiogenic-shock-ii | 3 | 5/5/6 | 3/3/3 | 10 | 15 | — | — | 0 | ✓ | — |
+| cardiogenic-shock-ii | 3 | 5/5/6 | 3/3/3 | 10 | 16 | — | — | 0 | ✓ | — |
 | dka-i | 3 | 5/5/5 | 3/3/3 | 10 | 15 | — | — | 0 | ✓ | — |
 | dka-ii | 3 | 6/6/6 | 3/3/3 | 10 | 15 | — | — | 0 | ✓ | — |
 | hypovolemic-shock-i | 3 | 6/5/5 | 3/3/3 | 10 | 15 | — | — | 0 | ✓ | — |

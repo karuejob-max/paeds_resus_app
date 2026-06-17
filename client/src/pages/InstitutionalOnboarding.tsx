@@ -12,6 +12,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
+import { FacilityAutocomplete } from "@/components/FacilityAutocomplete";
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
@@ -34,6 +35,9 @@ export default function InstitutionalOnboarding() {
       setLoading(false);
     },
   });
+
+  const [isManualFacilityEntry, setIsManualFacilityEntry] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     institutionName: "",
@@ -194,15 +198,28 @@ export default function InstitutionalOnboarding() {
                 <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya; change it if your facility is elsewhere.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="institutionName">Institution Name *</Label>
-                    <Input
-                      id="institutionName"
-                      name="institutionName"
+                  <div className="md:col-span-2">
+                    <FacilityAutocomplete
                       value={formData.institutionName}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Kenyatta National Hospital"
-                      required
+                      onSelect={(facility) => {
+                        setSelectedFacility(facility);
+                        if (facility) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            institutionName: facility.name,
+                            registrationNumber: facility.code || "",
+                          }));
+                        }
+                      }}
+                      onManualEntry={(name) => {
+                        setFormData((prev) => ({ ...prev, institutionName: name }));
+                      }}
+                      registrationNumber={formData.registrationNumber}
+                      onRegistrationNumberChange={(value) =>
+                        setFormData((prev) => ({ ...prev, registrationNumber: value }))
+                      }
+                      isManualEntry={isManualFacilityEntry}
+                      onManualEntryChange={setIsManualFacilityEntry}
                     />
                   </div>
 
@@ -226,18 +243,6 @@ export default function InstitutionalOnboarding() {
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="registrationNumber">Registration Number *</Label>
-                    <Input
-                      id="registrationNumber"
-                      name="registrationNumber"
-                      value={formData.registrationNumber}
-                      onChange={handleInputChange}
-                      placeholder="e.g., REG-2024-001"
-                      required
-                    />
                   </div>
 
                   <div>

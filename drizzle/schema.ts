@@ -2864,3 +2864,24 @@ export const cneAttendees = mysqlTable("cneAttendees", {
 
 export type CneAttendee = typeof cneAttendees.$inferSelect;
 export type InsertCneAttendee = typeof cneAttendees.$inferInsert;
+
+/** Kenya Master Health Facility Registry (KMHFL) facilities seed table for institutional onboarding autocomplete. */
+export const kmhflFacilities = mysqlTable("kmhflFacilities", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Facility name from KMHFL registry (searchable). */
+  name: varchar("name", { length: 255 }).notNull(),
+  /** KMHFL facility code / registration number (may be null for some facilities). */
+  code: varchar("code", { length: 64 }),
+  /** County name where the facility is located. */
+  county: varchar("county", { length: 100 }),
+  /** Facility type (e.g., "hospital", "clinic", "health_center"). */
+  facilityType: varchar("facilityType", { length: 100 }),
+  /** Operational status (e.g., "operational", "non_operational"). */
+  operationalStatus: varchar("operationalStatus", { length: 50 }),
+  /** Timestamp when the record was created or last synced from KMHFL. */
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type KmhflFacility = typeof kmhflFacilities.$inferSelect;
+export type InsertKmhflFacility = typeof kmhflFacilities.$inferInsert;
