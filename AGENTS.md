@@ -228,6 +228,46 @@ Code: `shared/clinical-evidence.ts`, `shared/secondary-survey-gating.ts`, `Struc
 
 ---
 
+## 9.1 Database & Migration Rules
+
+Every new table in `drizzle/schema.ts` MUST have a corresponding migration script and seed workflow. Failures in this workflow have blocked production deployments and caused data inconsistency.
+
+### Migration script requirements
+
+- **Every new table in `drizzle/schema.ts` MUST have a matching idempotent migration script** at `scripts/apply-NNNN-<feature>.mjs` (e.g., `apply-0052-kmhfl-facilities.mjs`).
+- **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths.
+- **Migration scripts use `scripts/db-connection-config.mjs`** for SSL + IPv4 (Aiven configuration).
+- **All migrations are idempotent** (safe to re-run) — use `IF NOT EXISTS` / `tableExists()` checks to prevent "table already exists" errors.
+
+### Seed script requirements
+
+- **Seed scripts MUST explicitly import all table references they use** from `../drizzle/schema.ts` (e.g., `import { kmhflFacilities } from '../drizzle/schema.ts'`). Missing imports cause `ReferenceError: X is not defined`.
+- **Seed scripts MUST be run with dotenv loaded:** `pnpm tsx -r dotenv/config scripts/seed-*.mjs` (not `pnpm tsx scripts/seed-*.mjs` alone).
+- **Seed scripts must import `getDb()` from `server/db.ts`** for database access, not raw `mysql.createConnection(DATABASE_URL)` (which ignores SSL and Aiven configuration).
+
+### Definition of Done for database features
+
+Code merged to `main` is **NOT done** for database features until:
+
+1. **Code merged** to `origin/main` (merge commit hash recorded).
+2. **Migration applied on production** — CEO runs locally: `pnpm run db:apply-NNNN` on Windows/PowerShell with production `DATABASE_URL` in `.env`.
+3. **Seed run (if applicable)** — CEO or agent runs: `pnpm tsx -r dotenv/config scripts/seed-*.mjs` (or `pnpm run seed:*` if npm script exists).
+4. **Verify logged in WORK_STATUS** — record which migration/seed commands were run and their output.
+
+**Agent responsibility:** Provide exact PowerShell commands for CEO to run locally (the CEO runs migrations, not the agent in sandbox).
+
+### Common migration errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Table doesn't exist` | Migration script was never created or applied | Create `apply-NNNN-*.mjs` and add `db:apply-NNNN` to `package.json`; CEO runs locally |
+| `ReferenceError: X is not defined` | Seed script missing import | Add `import { tableName } from '../drizzle/schema.ts'` at top of seed script |
+| `Missing script: db:apply-NNNN` | Forgot to add npm script entry | Add `"db:apply-NNNN": "tsx -r dotenv/config scripts/apply-NNNN-*.mjs"` to `package.json` scripts |
+| `ETIMEDOUT` on seed | Long-running seed on desktop or agent network | Use Render Shell with production `DATABASE_URL` already set; or chunk seed with `--batch=` flag |
+| `Database client not initialized` | Seed script not using `getDb()` | Replace `mysql.createConnection()` with `await getDb()` from `server/db.ts` |
+
+---
+
 ## 10. Key Files to Read Before Major Work
 
 | File | Purpose |
