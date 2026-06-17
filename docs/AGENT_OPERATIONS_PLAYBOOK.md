@@ -187,14 +187,137 @@ Record verify output in WORK_STATUS when marking seed work Done.
 
 **Post-merge (agents):** Code on `main` is not Done for fellowship content until prod deploy succeeds (auto-seed + verify in deploy logs). Shell seed still valid for ETIMEDOUT recovery or hotfix without redeploy.
 
-### 2.5 Migrations (pattern)
+### 2.5 Schema migrations (non-fellowship)
 
-For numbered migrations, prefer idempotent apply scripts:
+Every new table in `drizzle/schema.ts` requires a migration script, npm script entry, and seed workflow. This section covers the full runbook to prevent "Table doesn't exist" and "ReferenceError" failures that have blocked production deployments.
+
+#### 2.5.1 Pattern: Creating a new migration
+
+**Copy from an existing migration** (e.g., `scripts/apply-0052-kmhfl-facilities.mjs` or `scripts/apply-0053-*.mjs`) as your template. The pattern:
+
+```javascript
+// scripts/apply-NNNN-feature-name.mjs
+import { fileURLToPath } from 'url';
+import path from 'path';
+import { getConnectionConfig } from './db-connection-config.mjs';
+import mysql from 'mysql2/promise';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+async function applyMigration() {
+  const config = getConnectionConfig();
+  const connection = await mysql.createConnection(config);
+
+  try {
+    // Idempotent: use IF NOT EXISTS
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS your_table_name (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        -- columns here
+      )
+    `);
+    console.log('✓ Migration applied successfully');
+  } catch (error) {
+    console.error('✗ Migration failed:', error.message);
+    throw error;
+  } finally {
+    await connection.end();
+  }
+}
+
+await applyMigration();
+```
+
+**Key points:**
+- Use `getConnectionConfig()` from `scripts/db-connection-config.mjs` (handles SSL + IPv4 for Aiven).
+- Always use `IF NOT EXISTS` to make the script idempotent (safe to re-run).
+- Use `CREATE TABLE IF NOT EXISTS` or check `tableExists()` before creating.
+- Increment the NNNN sequence (e.g., 0052 → 0053 → 0054).
+
+#### 2.5.2 Checklist: Schema → Migration → Seed → PR
+
+Before opening a PR, verify all steps:
+
+| Step | Action | Verify |
+|------|--------|--------|
+| **1. Schema** | Add new table to `drizzle/schema.ts` | Table exports correctly; TypeScript compiles |
+| **2. Migration script** | Create `scripts/apply-NNNN-feature.mjs` | Script uses `getConnectionConfig()`, has `IF NOT EXISTS`, idempotent |
+| **3. npm script** | Add `"db:apply-NNNN": "tsx -r dotenv/config scripts/apply-NNNN-*.mjs"` to `package.json` | `pnpm run db:apply-NNNN` works locally (test with `--help` or dry-run) |
+| **4. Seed script (if needed)** | Create `scripts/seed-feature.mjs` or update existing | Imports table from `../drizzle/schema.ts`; uses `getDb()` from `server/db.ts`; runs with `pnpm tsx -r dotenv/config scripts/seed-*.mjs` |
+| **5. PR** | Open feature branch → PR → CI green → merge | Record merge commit hash; do NOT merge until migration is ready |
+| **6. CEO runs locally** | CEO: `pnpm run db:apply-NNNN` + seed (if applicable) | Log commands + output in WORK_STATUS |
+
+#### 2.5.3 Seed script template (with imports)
+
+```javascript
+// scripts/seed-feature.mjs
+import 'dotenv/config';
+import { yourTableName } from '../drizzle/schema.ts'; // ← MUST import table
+import { getDb } from '../server/db.ts'; // ← Use getDb(), not mysql.createConnection()
+
+async function seedFeature() {
+  const db = await getDb();
+
+  try {
+    // Insert seed data
+    await db.insert(yourTableName).values([
+      { /* row 1 */ },
+      { /* row 2 */ },
+    ]);
+    console.log('✓ Seed complete');
+  } catch (error) {
+    console.error('✗ Seed failed:', error.message);
+    throw error;
+  }
+}
+
+await seedFeature();
+```
+
+**Critical:** Always import the table from `../drizzle/schema.ts` at the top. Missing imports cause `ReferenceError: tableName is not defined`.
+
+#### 2.5.4 Common errors and fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Table 'your_table_name' doesn't exist` | Migration script was never created or CEO never ran `pnpm run db:apply-NNNN` | Create `apply-NNNN-*.mjs`; add npm script; CEO runs locally |
+| `ReferenceError: tableName is not defined` | Seed script missing `import { tableName } from '../drizzle/schema.ts'` | Add import at top of seed script |
+| `Missing script: db:apply-NNNN` | Forgot to add entry to `package.json` scripts | Add: `"db:apply-NNNN": "tsx -r dotenv/config scripts/apply-NNNN-*.mjs"` |
+| `Error: connect ETIMEDOUT` | Network timeout on long seed or migration | Use Render Shell with production `DATABASE_URL` already set; or chunk seed with `--batch=` flag |
+| `Database client not initialized` | Seed using `mysql.createConnection()` instead of `getDb()` | Replace with `const db = await getDb()` from `server/db.ts` |
+| `Cannot find module 'dotenv/config'` | Seed script not loading `.env` | Run with: `pnpm tsx -r dotenv/config scripts/seed-*.mjs` (not just `pnpm tsx`) |
+
+#### 2.5.5 Exact commands for CEO (Windows/PowerShell)
+
+After agent opens PR and merges code to `main`, agent provides CEO with exact copy-paste commands:
 
 ```powershell
-pnpm run db:apply-0044    # example — see package.json for current scripts
-pnpm run db:verify-0044
+# After pulling latest main
+git fetch origin && git checkout main && git pull origin main
+
+# Test connection first
+pnpm run db:test-connection
+
+# Apply migration (example: apply-0052-kmhfl-facilities)
+pnpm run db:apply-0052
+
+# Run seed (example: seed-kmhfl-facilities)
+pnpm tsx -r dotenv/config scripts/seed-kmhfl-facilities.mjs
+
+# Verify (if applicable)
+pnpm exec tsx --import dotenv/config scripts/verify-fellowship-seed.ts
 ```
+
+**Agent responsibility:** Provide exact script names (NNNN numbers) and seed filenames. CEO runs all commands with production `DATABASE_URL` in `.env` (never committed to repo).
+
+#### 2.5.6 Definition of Done for schema migrations
+
+Code merged to `main` is **NOT done** until:
+
+1. **Code merged** to `origin/main` (merge commit hash recorded in WORK_STATUS).
+2. **Migration applied on production** — CEO ran `pnpm run db:apply-NNNN` locally with production `DATABASE_URL`.
+3. **Seed run (if applicable)** — CEO ran `pnpm tsx -r dotenv/config scripts/seed-*.mjs`.
+4. **Verify logged in WORK_STATUS** — exact commands run + output pasted (or link to Render deploy logs if auto-seed).
 
 Log applied migration + verify result in WORK_STATUS per PSOT §22.2.
 
