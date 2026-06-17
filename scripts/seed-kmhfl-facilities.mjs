@@ -7,6 +7,7 @@
  */
 
 import { getDb } from "../server/db.ts";
+import { kmhflFacilities } from "../drizzle/schema.ts";
 
 const facilities = [
   // Nairobi
