@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { trpc } from "@/lib/trpc";
+import SignaturePad from "@/components/SignaturePad";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,16 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
     onError: (err) => toast.error(err.message || "Failed to close event"),
   });
 
+  const updateSignatureMutation = trpc.cne.updateSignature.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.hasSignature ? "Signature saved" : "Signature cleared");
+      void utils.cne.getSettings.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Failed to save signature"),
+  });
+
+  const savedSignature = settingsQuery.data?.coordinatorSignature ?? null;
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(publicUrl);
@@ -164,6 +175,36 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
               )}
               Save
             </Button>
+          </div>
+
+          {/* Coordinator signature pad */}
+          <div className="mt-6 space-y-2 border-t pt-6">
+            <div>
+              <Label>Coordinator signature</Label>
+              <p className="text-xs text-muted-foreground">
+                Draw the signature once. It is embedded above the signature line on every
+                certificate. Saved signatures are shown below — drawing again replaces it.
+              </p>
+            </div>
+            {settingsQuery.isLoading ? (
+              <div className="flex py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <SignaturePad
+                initialDataUrl={savedSignature}
+                saving={updateSignatureMutation.isPending}
+                onSave={(dataUrl) =>
+                  updateSignatureMutation.mutate({ institutionId, signature: dataUrl })
+                }
+                onClear={() => {
+                  // Only persist a clear when there is already a saved signature.
+                  if (savedSignature) {
+                    updateSignatureMutation.mutate({ institutionId, signature: null });
+                  }
+                }}
+              />
+            )}
           </div>
         </CardContent>
       </Card>

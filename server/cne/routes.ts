@@ -63,6 +63,7 @@ async function buildCertificateData(
     .select({
       institutionName: institutionalAccounts.companyName,
       coordinatorName: institutionalAccounts.cneCoordinatorName,
+      coordinatorSignature: institutionalAccounts.cneCoordinatorSignature,
     })
     .from(institutionalAccounts)
     .where(eq(institutionalAccounts.id, attendee.institutionalAccountId))
@@ -74,6 +75,7 @@ async function buildCertificateData(
     eventName: event?.name ?? "CNE Session",
     eventDate: event?.eventDate ?? "",
     coordinatorName: inst?.coordinatorName ?? null,
+    coordinatorSignature: inst?.coordinatorSignature ?? null,
     institutionName: inst?.institutionName ?? "Healthcare Institution",
   };
 }
@@ -108,7 +110,16 @@ export function registerCneRoutes(app: Express): void {
       .limit(1);
     if (!attendee) return res.status(404).json({ error: "Attendee not found" });
 
-    if (!(await userCanAccessInstitution(db, user, attendee.institutionalAccountId))) {
+    // Access is granted to: (a) the owning institution / admin (existing behavior),
+    // or (b) the nurse themselves — when the logged-in user's email matches the
+    // attendee's email. This powers the self-service "My CNE Certificates" portal
+    // without weakening institution/admin access.
+    const userEmail = (user.email ?? "").trim().toLowerCase();
+    const isOwnCertificate = userEmail.length > 0 && userEmail === attendee.email.trim().toLowerCase();
+    if (
+      !isOwnCertificate &&
+      !(await userCanAccessInstitution(db, user, attendee.institutionalAccountId))
+    ) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

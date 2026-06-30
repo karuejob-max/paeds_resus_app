@@ -79,6 +79,7 @@ export default function Header() {
         { label: "AHA", href: "/aha-courses", icon: "🩺" },
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
         { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
+        { label: "My CNE", href: "/my-cne-certificates", icon: "📜" },
       ];
     }
     if (r === "institution") {
