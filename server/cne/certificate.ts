@@ -7,7 +7,7 @@ import { PassThrough } from "stream";
  * from the main app's pdf-lib certificate system (server/certificate-pdf.ts).
  */
 
-export type CneCadre = "BSN" | "MSN" | "KRCHN" | "KRN" | "HND" | "Other";
+export type CneCadre = "BSN" | "MSN" | "KRCHN" | "KRN" | "KRNM" | "ERN" | "HND" | "Student Nurse" | "Other";
 
 export interface CneCertificateData {
   fullName: string;
