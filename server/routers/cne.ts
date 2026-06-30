@@ -92,7 +92,7 @@ export const cneRouter = router({
       return { success: true as const, coordinatorName: input.coordinatorName };
     }),
 
-  /** Admin: read the current CNE Coordinator name for this institution. */
+  /** Admin: read the current CNE Coordinator name + signature for this institution. */
   getSettings: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -101,6 +101,7 @@ export const cneRouter = router({
       const [row] = await db
         .select({
           coordinatorName: institutionalAccounts.cneCoordinatorName,
+          coordinatorSignature: institutionalAccounts.cneCoordinatorSignature,
           institutionName: institutionalAccounts.companyName,
         })
         .from(institutionalAccounts)
@@ -108,8 +109,39 @@ export const cneRouter = router({
         .limit(1);
       return {
         coordinatorName: row?.coordinatorName ?? null,
+        coordinatorSignature: row?.coordinatorSignature ?? null,
         institutionName: row?.institutionName ?? null,
       };
+    }),
+
+  /**
+   * Admin: save (or clear) the CNE Coordinator's drawn signature.
+   * Stored as a base64 PNG data URL on institutionalAccounts.cneCoordinatorSignature,
+   * embedded above the certificate signature line. Pass null/empty to clear it.
+   */
+  updateSignature: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        // ~700KB cap on the base64 data URL keeps a TEXT column comfortable and
+        // rejects oversized payloads. A typical signature PNG is well under 50KB.
+        signature: z
+          .string()
+          .trim()
+          .max(700_000)
+          .regex(/^data:image\/png;base64,[A-Za-z0-9+/=\s]+$/, "Signature must be a PNG data URL")
+          .nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const value = input.signature && input.signature.trim().length ? input.signature.trim() : null;
+      await db
+        .update(institutionalAccounts)
+        .set({ cneCoordinatorSignature: value, updatedAt: new Date() })
+        .where(eq(institutionalAccounts.id, input.institutionId));
+      return { success: true as const, hasSignature: value !== null };
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */
@@ -378,6 +410,58 @@ export const cneRouter = router({
       );
       return { csv, count: rows.length };
     }),
+
+  /**
+   * Self-service (any authenticated user): list the logged-in nurse's own CNE
+   * attendance records, matched by email. Returns enough data to render a list
+   * and link each row to its certificate PDF (/api/cne/certificate/:attendeeId).
+   *
+   * Email is normalized to lowercase for matching, consistent with how
+   * registrations are stored (submitRegistration lowercases on insert) and how
+   * the rest of the codebase looks up users by email.
+   */
+  myCertificates: protectedProcedure.query(async ({ ctx }) => {
+    const email = (ctx.user.email ?? "").trim().toLowerCase();
+    if (!email) {
+      // No email on the account → nothing to match against.
+      return { email: null as string | null, records: [] };
+    }
+    const db = await requireDb();
+    const rows = await db
+      .select({
+        attendeeId: cneAttendees.id,
+        fullName: cneAttendees.fullName,
+        cadre: cneAttendees.cadre,
+        cadreOther: cneAttendees.cadreOther,
+        department: cneAttendees.department,
+        submittedAt: cneAttendees.submittedAt,
+        eventName: cneEvents.name,
+        eventDate: cneEvents.eventDate,
+        institutionName: institutionalAccounts.companyName,
+      })
+      .from(cneAttendees)
+      .leftJoin(cneEvents, eq(cneAttendees.cneEventId, cneEvents.id))
+      .leftJoin(
+        institutionalAccounts,
+        eq(cneAttendees.institutionalAccountId, institutionalAccounts.id)
+      )
+      .where(eq(cneAttendees.email, email))
+      .orderBy(desc(cneAttendees.id));
+    return {
+      email,
+      records: rows.map((r) => ({
+        attendeeId: r.attendeeId,
+        fullName: r.fullName,
+        cadre: r.cadre,
+        cadreOther: r.cadreOther,
+        department: r.department,
+        submittedAt: r.submittedAt,
+        eventName: r.eventName ?? "CNE Session",
+        eventDate: r.eventDate ?? "",
+        institutionName: r.institutionName ?? "Healthcare Institution",
+      })),
+    };
+  }),
 });
 
 export type CneRouter = typeof cneRouter;

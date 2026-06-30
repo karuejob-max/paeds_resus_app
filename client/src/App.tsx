@@ -18,6 +18,7 @@ import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 
 const Login = lazy(() => import("./pages/Login"));
 const CneRegister = lazy(() => import("./pages/CneRegister"));
+const MyCneCertificates = lazy(() => import("./pages/MyCneCertificates"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -166,6 +167,7 @@ function Router() {
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/account" component={AccountSettings} />
           <Route path="/feedback" component={FeedbackPage} />
+          <Route path="/my-cne-certificates" component={MyCneCertificates} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
           <Route path="/care-signal">{() => (

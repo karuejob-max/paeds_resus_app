@@ -3,6 +3,7 @@ import {
   formatCadreLabel,
   cneCertificateFilename,
   generateCneCertificatePdf,
+  decodeSignaturePng,
 } from "./certificate";
 import { buildAttendeeCsv } from "../routers/cne";
 
@@ -119,5 +120,56 @@ describe("generateCneCertificatePdf", () => {
     });
     const buf = await streamToBuffer(stream);
     expect(buf.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
+  // A real, pdfkit-decodable 120x48 PNG, base64-encoded as a data URL.
+  const validSignaturePng =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAAwCAYAAADab77TAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAA/0lEQVR4nO2VwREDMRDC7k8b9LL9V5RUkQEueujvQZb9yPeBe+0GT/oAcAjmEhwFcwmOJ1p/+CXwBzsvAcEFQ2kUCnZeAoILhtIoFOy8BAQXDKVRKNh5CQguGEqjULDzEhBcMJRGoWDnJSC4YCiNQsHOS0BwwVAahYKdl4DggqE0CgU7LwHBBUNpFAp2XgKCC4bSKBTsvAQEFwylUSjYeQkILhhKo1Cw8xIQXDCURqFg5yUguGAojULBzktAcMFQGoWCnZeA4IKhNAoFOy8BwQVDaRQKdl4CgguG0igU7LwEBBcMpVEo2HkJCC4YSqNQsPMSEFwwlEahYOcl/FLwF5NKymGd5D34AAAAAElFTkSuQmCC";
+
+  it("embeds a valid signature image without breaking generation", async () => {
+    const stream = generateCneCertificatePdf({
+      fullName: "Signed Nurse",
+      cadre: "KRN",
+      eventName: "Signed Session",
+      eventDate: "02 Feb 2026",
+      coordinatorName: "Job Karue",
+      coordinatorSignature: validSignaturePng,
+      institutionName: "Consolata Hospital Mathari",
+    });
+    const buf = await streamToBuffer(stream);
+    expect(buf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(buf.length).toBeGreaterThan(1000);
+  });
+
+  it("ignores a malformed signature and still produces a valid PDF", async () => {
+    const stream = generateCneCertificatePdf({
+      fullName: "Test Nurse",
+      cadre: "BSN",
+      eventName: "Session",
+      eventDate: "03 Mar 2026",
+      coordinatorSignature: "not-a-valid-data-url",
+      institutionName: "County Referral Hospital",
+    });
+    const buf = await streamToBuffer(stream);
+    expect(buf.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+});
+
+describe("decodeSignaturePng", () => {
+  const validPngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  it("decodes a valid PNG data URL to a non-empty Buffer", () => {
+    const buf = decodeSignaturePng(validPngDataUrl);
+    expect(buf).toBeInstanceOf(Buffer);
+    expect((buf as Buffer).length).toBeGreaterThan(0);
+  });
+
+  it("returns null for empty, missing, or non-PNG input", () => {
+    expect(decodeSignaturePng(null)).toBeNull();
+    expect(decodeSignaturePng(undefined)).toBeNull();
+    expect(decodeSignaturePng("")).toBeNull();
+    expect(decodeSignaturePng("data:image/jpeg;base64,/9j/4AAQ")).toBeNull();
+    expect(decodeSignaturePng("not-a-data-url")).toBeNull();
   });
 });

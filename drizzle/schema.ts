@@ -185,6 +185,8 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   companyName: varchar("companyName", { length: 255 }).notNull(),
   /** CNE service: name printed on the certificate signature line (migration 0052). */
   cneCoordinatorName: varchar("cneCoordinatorName", { length: 255 }),
+  /** CNE service: base64 PNG data URL of the coordinator's drawn signature, embedded above the certificate signature line (migration 0054). */
+  cneCoordinatorSignature: text("cneCoordinatorSignature"),
   industry: varchar("industry", { length: 255 }),
   staffCount: int("staffCount"),
   contactName: varchar("contactName", { length: 255 }).notNull(),

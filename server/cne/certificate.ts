@@ -17,7 +17,32 @@ export interface CneCertificateData {
   eventDate: string;
   /** Defaults to "CNE Coordinator" if the institution has not set a name. */
   coordinatorName?: string | null;
+  /**
+   * Optional base64 PNG data URL of the coordinator's drawn signature
+   * (e.g. "data:image/png;base64,iVBORw0KG..."). When present and valid, it is
+   * embedded just above the certificate signature line. Falls back gracefully to
+   * the existing name-only signature line when absent or malformed.
+   */
+  coordinatorSignature?: string | null;
   institutionName: string;
+}
+
+/**
+ * Decode a base64 PNG data URL into a Buffer suitable for pdfkit's doc.image().
+ * Returns null when the input is empty, not a PNG data URL, or fails to decode —
+ * so certificate generation never breaks on a bad/absent signature.
+ */
+export function decodeSignaturePng(dataUrl?: string | null): Buffer | null {
+  const value = (dataUrl ?? "").trim();
+  if (!value) return null;
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=\s]+)$/.exec(value);
+  if (!match) return null;
+  try {
+    const buffer = Buffer.from(match[1].replace(/\s+/g, ""), "base64");
+    return buffer.length > 0 ? buffer : null;
+  } catch {
+    return null;
+  }
 }
 
 // Brand palette (navy / cyan / pink) used across the certificate.
@@ -74,6 +99,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
   const coordinator = (data.coordinatorName ?? "").trim() || "CNE Coordinator";
   const institution = (data.institutionName ?? "").trim() || "Healthcare Institution";
   const cadreLabel = formatCadreLabel(data.cadre, data.cadreOther);
+  const signatureImage = decodeSignaturePng(data.coordinatorSignature);
 
   // --- Background -------------------------------------------------------------
   doc.rect(0, 0, W, H).fill(COLORS.paper);
@@ -244,6 +270,31 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
   const sigWidth = 170;
   const sigX = sigRight - sigWidth;
   const sigLineY = footerBaseY + 2;
+
+  // Embedded coordinator signature image (drawn in the admin panel), sitting just
+  // above the signature line. Wrapped in save/restore so a bad image can never
+  // corrupt subsequent drawing state. Absent/invalid signatures fall through to
+  // the existing name-only signature line below.
+  if (signatureImage) {
+    const sigImgH = 26;
+    const sigImgW = sigWidth - 20;
+    const sigImgX = sigX + 10;
+    const sigImgY = sigLineY - sigImgH - 2;
+    try {
+      doc.save();
+      doc.image(signatureImage, sigImgX, sigImgY, {
+        fit: [sigImgW, sigImgH],
+        align: "center",
+        valign: "bottom",
+      });
+      doc.restore();
+    } catch (err) {
+      // Never fail certificate generation because of a signature image.
+      doc.restore();
+      console.error("[CNE] failed to embed coordinator signature image:", err);
+    }
+  }
+
   doc.moveTo(sigX, sigLineY).lineTo(sigRight, sigLineY).lineWidth(0.75).strokeColor(COLORS.ink).stroke();
   doc
     .fillColor(COLORS.navy)
