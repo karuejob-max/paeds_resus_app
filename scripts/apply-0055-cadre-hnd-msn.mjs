@@ -28,9 +28,9 @@ try {
   // Alter the cadre ENUM to include MSN and HND
   await conn.execute(`
     ALTER TABLE cneAttendees
-    MODIFY COLUMN cadre ENUM('BSN', 'MSN', 'KRCHN', 'KRN', 'HND', 'Other') NOT NULL
+    MODIFY COLUMN cadre ENUM('BSN', 'MSN', 'KRCHN', 'KRN', 'KRNM', 'ERN', 'HND', 'Student Nurse', 'Other') NOT NULL
   `);
-  console.log("[0055] Updated cneAttendees.cadre enum: added MSN, HND.");
+  console.log("[0055] Updated cneAttendees.cadre enum: added MSN, KRNM, ERN, HND, Student Nurse.");
 } catch (err) {
   // If the column already has these values, MySQL may throw a warning but not an error
   if (err.code === "ER_DUP_ENTRY" || err.message?.includes("already exists")) {
