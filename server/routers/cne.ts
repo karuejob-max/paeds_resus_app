@@ -7,7 +7,7 @@ import { assertInstitutionAccess } from "../lib/institution-access";
 import { institutionalAccounts, cneEvents, cneAttendees } from "../../drizzle/schema";
 
 /** Shared cadre enum for input validation, matching the cneAttendees.cadre column. */
-const cadreEnum = z.enum(["BSN", "KRCHN", "KRN", "Other"]);
+const cadreEnum = z.enum(["BSN", "MSN", "KRCHN", "KRN", "HND", "Other"]);
 
 async function requireDb() {
   const db = await getDb();

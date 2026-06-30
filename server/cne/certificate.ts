@@ -7,7 +7,7 @@ import { PassThrough } from "stream";
  * from the main app's pdf-lib certificate system (server/certificate-pdf.ts).
  */
 
-export type CneCadre = "BSN" | "KRCHN" | "KRN" | "Other";
+export type CneCadre = "BSN" | "MSN" | "KRCHN" | "KRN" | "HND" | "Other";
 
 export interface CneCertificateData {
   fullName: string;
@@ -62,6 +62,10 @@ export function formatCadreLabel(cadre: CneCadre, cadreOther?: string | null): s
   if (cadre === "Other") {
     const other = (cadreOther ?? "").trim();
     return other.length ? other : "Other";
+  }
+  if (cadre === "HND") {
+    const sub = (cadreOther ?? "").trim();
+    return sub.length ? `HND (${sub})` : "HND";
   }
   return cadre;
 }

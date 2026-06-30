@@ -31,14 +31,19 @@ const registrationSchema = z
     fullName: z.string().min(2, "Please enter your full name"),
     email: z.string().email("Enter a valid email address"),
     phone: z.string().min(5, "Enter a valid phone number"),
-    cadre: z.enum(["BSN", "KRCHN", "KRN", "Other"]),
+    cadre: z.enum(["BSN", "MSN", "KRCHN", "KRN", "HND", "Other"]),
     cadreOther: z.string().optional(),
+    hndSubspecialty: z.string().optional(),
     higherDiploma: z.string().optional(),
     department: z.string().min(1, "Department is required"),
   })
   .refine((data) => data.cadre !== "Other" || (data.cadreOther?.trim().length ?? 0) > 0, {
     message: "Please specify your cadre",
     path: ["cadreOther"],
+  })
+  .refine((data) => data.cadre !== "HND" || (data.hndSubspecialty?.trim().length ?? 0) > 0, {
+    message: "Please specify your subspecialty (e.g. KRPCCN)",
+    path: ["hndSubspecialty"],
   });
 
 type RegistrationValues = z.infer<typeof registrationSchema>;
@@ -64,6 +69,7 @@ export default function CneRegister() {
       phone: "",
       cadre: "KRCHN",
       cadreOther: "",
+      hndSubspecialty: "",
       higherDiploma: "",
       department: "",
     },
@@ -79,7 +85,7 @@ export default function CneRegister() {
         email: values.email,
         phone: values.phone,
         cadre: values.cadre,
-        cadreOther: values.cadre === "Other" ? values.cadreOther : undefined,
+        cadreOther: values.cadre === "Other" ? values.cadreOther : values.cadre === "HND" ? values.hndSubspecialty?.trim() : undefined,
         higherDiploma: values.higherDiploma || undefined,
         department: values.department,
       });
@@ -207,8 +213,10 @@ export default function CneRegister() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="BSN">BSN</SelectItem>
+                            <SelectItem value="MSN">MSN</SelectItem>
                             <SelectItem value="KRCHN">KRCHN</SelectItem>
                             <SelectItem value="KRN">KRN</SelectItem>
+                            <SelectItem value="HND">HND (Higher National Diploma)</SelectItem>
                             <SelectItem value="Other">Other</SelectItem>
                           </SelectContent>
                         </Select>
@@ -216,6 +224,21 @@ export default function CneRegister() {
                       </FormItem>
                     )}
                   />
+                  {cadre === "HND" ? (
+                    <FormField
+                      control={form.control}
+                      name="hndSubspecialty"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Subspecialty *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. KRPCCN, KRMHN, KRON" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : null}
                   {cadre === "Other" ? (
                     <FormField
                       control={form.control}

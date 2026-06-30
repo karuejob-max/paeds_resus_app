@@ -95,7 +95,8 @@
     "db:apply-0050": "node scripts/apply-0050-fellowship-simulations.mjs",
     "db:apply-0052": "node scripts/apply-0052-cne-service.mjs",
     "db:apply-0053": "node scripts/apply-0053-kmhfl-facilities.mjs",
-    "db:apply-0054": "node scripts/apply-0054-cne-signature.mjs"
+    "db:apply-0054": "node scripts/apply-0054-cne-signature.mjs",
+    "db:apply-0055": "node scripts/apply-0055-cadre-hnd-msn.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
