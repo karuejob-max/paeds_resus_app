@@ -70,7 +70,7 @@ async function buildCertificateData(
     .limit(1);
   return {
     fullName: attendee.fullName,
-    cadre: attendee.cadre,
+    cadre: attendee.cadre as CneCertificateData["cadre"],
     cadreOther: attendee.cadreOther,
     eventName: event?.name ?? "CNE Session",
     eventDate: event?.eventDate ?? "",
