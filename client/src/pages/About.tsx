@@ -6,9 +6,9 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function About() {
   usePageMeta({
-    title: "About Paeds Resus — Paediatric emergency care platform",
+    title: "About Paeds Resus — An adaptive learning system for paediatric emergency care",
     description:
-      "Learn about Paeds Resus: training, ResusGPS bedside guidance, Care Signal reporting, Safe-Truth family resources, and institutional programmes for paediatric emergency care.",
+      "Paeds Resus exists to close the gap between what's known to save children and what reaches them in time. Bedside guidance, training, and quality improvement, working as one learning system across Kenya and East Africa.",
     path: "/about",
   });
 
@@ -17,8 +17,17 @@ export default function About() {
       <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-4xl font-bold text-foreground">About Paeds Resus</h1>
         <p className="text-lg text-muted-foreground">
-          We build training, point-of-care guidance, and feedback loops to strengthen paediatric emergency and
-          resuscitation care—especially where children are most vulnerable.
+          No child should die from preventable causes. Most of the time, that isn't because the right care is
+          unknown — it's because it doesn't reach the child in time, in the right sequence, at the right moment.
+          Paeds Resus exists to close that gap.
+        </p>
+        <p className="text-lg text-muted-foreground">
+          We're not a training company with extra tools attached. We're an adaptive learning system: ResusGPS
+          guides providers through time-critical decisions at the bedside, training builds the underlying
+          competence, and Care Signal — together with Safe-Truth, which carries the family's side of the story —
+          turns every case into a lesson the whole system learns from. The loop is the product. The next provider,
+          the next hospital, the next country, benefits from what was learned at a bedside before them — the way
+          aviation safety improves from every reported near-miss.
         </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>ResusGPS and protocols for time-critical decisions</li>

@@ -51,7 +51,7 @@ export function buildOrganizationJsonLd() {
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/og-image.png`,
     description:
-      "Paeds Resus is an integrated paediatric emergency care platform serving Kenya and the East African Community with AHA-aligned training, ResusGPS bedside guidance, Care Signal quality improvement, Safe-Truth family resources, and institutional readiness systems.",
+      "Paeds Resus is an adaptive learning system for paediatric emergency care in Kenya and the East African Community. Every case worked through ResusGPS, every Care Signal report, and every parent's Safe-Truth experience feeds a system that closes the gap between what's known to save children and what actually happens at the bedside — through training, bedside guidance, quality improvement, and institutional readiness.",
     areaServed: ["Kenya", "East African Community"],
     email: "paedsresus254@gmail.com",
     telephone: "+254706781260",

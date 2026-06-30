@@ -1,0 +1,7 @@
+# Observation Architecture v1.1
+
+**Status:** Reference stub. The full document is maintained as `Paeds_Resus_Observation_Architecture_v1_1.docx` (10 sections, 845 paragraphs).
+
+**Summary of contents:** Section 1 (Purpose and the Adaptive Learning System — four-business model), Section 2 (Design Principles — seven principles with Problem/Principle/Engineering Requirement/Future Evolution structure), Section 3 (Observer Classes — six classes including anticipated physiological telemetry, role-at-time-of-event), Section 4 (The Observation Model — four layers, temporal interval capture, collaborative event model), Section 5 (The Shared Classifier Set — global geographic hierarchy, facility identity, account model, Fellowship pseudonymous consent), Section 6 (The Transformation Pipeline — bidirectional failure/success tracks, multidimensional confidence, Recommendation/Intervention/Implementation objects), Section 7 (Learning Governance — three types of truth, four evidence sources, evidence ladders, concept drift, knowledge versioning, Knowledge Stewardship), Section 8 (Evolution Rules), Section 9 (Governance — privacy, consent, retention), Section 10 (Engineering Requirements — schema rules, implementation status with P0–P3 priorities).
+
+**Action required:** Convert the .docx to this markdown file in full, or replace this stub with a permanent link to the document's storage location. Section 10.2 (Implementation Status) should be kept in sync with WORK_STATUS.md.
