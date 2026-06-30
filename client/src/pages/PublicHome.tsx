@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   ArrowRight,
   Award,
+  Brain,
   Building2,
   GraduationCap,
   Heart,
@@ -32,7 +33,7 @@ export default function PublicHome() {
   usePageMeta({
     title: "Paeds Resus — Preventable child death ends here | Kenya & EAC",
     description:
-      "Paeds Resus: integrated paediatric emergency platform for Kenya and East Africa. AHA-aligned training, ResusGPS bedside guidance, Care Signal QI, Safe-Truth for families, and hospital readiness systems.",
+      "Children die from preventable causes not because the right care is unknown, but because it doesn't reach them in time. Paeds Resus is an adaptive learning system for paediatric emergencies in Kenya and East Africa — bedside guidance, training, and quality improvement that learns from every case.",
     path: "/",
   });
 
@@ -52,8 +53,10 @@ export default function PublicHome() {
               No child should die from a preventable emergency
             </h1>
             <p className="text-lg md:text-xl text-white/90 max-w-2xl mb-8 leading-relaxed">
-              Paeds Resus is one integrated platform — bedside guidance, AHA-aligned training, quality
-              improvement, family safety, and hospital readiness — so every stakeholder knows where to start.
+              Most preventable child deaths don't happen because the right treatment is unknown — they happen
+              because it doesn't reach the child in time. Paeds Resus is built to close that gap: bedside
+              guidance, training, and a quality-improvement system that learns from every case to make the next
+              one safer.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/register">
@@ -77,6 +80,29 @@ export default function PublicHome() {
         </section>
 
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 space-y-16">
+          {/* Why we exist — the learning system framing */}
+          <section id="why" aria-labelledby="why-heading" className="text-center max-w-3xl mx-auto">
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-brand-orange/10 p-4 text-brand-orange">
+                <Brain className="h-8 w-8" />
+              </div>
+            </div>
+            <h2 id="why-heading" className="text-2xl md:text-3xl font-bold mb-4">
+              Not a training company. A system that learns.
+            </h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              The largest reductions in child mortality have come from simple, well-known interventions delivered
+              reliably — not from rarer breakthroughs. The hardest problem in paediatric emergency care isn't
+              discovering what works. It's making sure what works actually happens, every time, for every child.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Paeds Resus works the way aviation safety works: every near-miss reported by a provider, every
+              experience shared by a parent, feeds a system that gets better for everyone who uses it next.
+              ResusGPS, training, and Care Signal aren't separate products bundled together — they're one loop.
+              Use the tool, reflect on the case, the system learns, the next child gets better care.
+            </p>
+          </section>
+
           {/* Healthcare providers */}
           <section id="providers" aria-labelledby="providers-heading">
             <div className="flex items-center gap-3 mb-6">

@@ -4,7 +4,25 @@
 
 **Audience:** All developers (including Codex, Manus, Cursor), contractors, and anyone shipping code or product decisions.
 
-**Strategic foundation (read second):** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) — **one holistic problem** (preventable childhood death and harm in low-resource settings), **theory of change** (why ResusGPS + training + institutions + analytics + Safe-Truth), **clinical origin narrative**, **institutional and community patterns**, **Book of the Unforgotten** (ethical frame), and **honest success criteria**. It does **not** override technical decisions in this file; it explains **why** the platform is multi-product. **Long-range aspirational** scenarios (e.g. multi-year hospital/revenue targets) live under [docs/archive/](./archive/) and are **not** near-term execution commitments.
+**Constitutional hierarchy (read in this order):**
+
+| Document | Question it answers |
+|----------|-------------------|
+| [NORTH_STAR_V2.md](./NORTH_STAR_V2.md) | **Why** does Paeds Resus exist? Mission, theory of change, institutional identity, financial strategy summary, account model. |
+| [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) | **How** does Paeds Resus learn? Observation model, shared classifiers, transformation pipeline, learning governance, Knowledge Stewardship. |
+| **This file — PLATFORM_SOURCE_OF_TRUTH.md** | **What** does Paeds Resus build, for whom, and how? Binding technical and product decisions. |
+
+**Conflict resolution:** Technical implementation questions → this file wins. Strategic direction questions → North Star v2.0 wins. Data architecture and learning governance → Observation Architecture v1.1 wins. Update the losing document to align; never silently diverge.
+
+**Supporting engineering specifications (read for the relevant product):**
+
+| Document | What it specifies |
+|----------|------------------|
+| [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) | Complete database schema for the Failure Pattern Knowledge Base — 11 tables, indexes, migration sequence, seed data. |
+| [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) | Field-by-field observation specification for Care Signal v3, Safe-Truth v1, ResusGPS session record, and Fellowship competency record. |
+| [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) | Four-business revenue model, constitutional revenue principle, pricing, sequencing. |
+
+**Strategic foundation (additional context):** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) — clinical origin narrative, LMIC context, Book of the Unforgotten. Does **not** override technical decisions in this file. **Long-range aspirational** scenarios live under [docs/archive/](./archive/) and are **not** near-term commitments.
 
 **Operational CEO narrative:** [CEO_Platform_Update_And_Reply_To_AI_Team.md](./CEO_Platform_Update_And_Reply_To_AI_Team.md). If this file and the CEO brief ever conflict on **product or technical** decisions, **update this file to match the CEO’s stated decision**, then align the brief or note the change in [WORK_STATUS.md](./WORK_STATUS.md).
 
@@ -43,7 +61,7 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | **ResusGPS** | Point-of-care **paediatric emergency guidance** (e.g. ABCDE-style flows, protocols, interventions). |
 | **Courses** | Professional training paths such as **BLS (6 hours), ACLS (16 hours), PALS (16 hours), Heartsaver, NRP**, the **Instructor Course** (train-the-trainer), **short condition-focused modules** (micro-courses, often under a **clinical learning journey** umbrella—see [§15.5](#155-clinical-learning-journey-and-ward-excellence-adf-alignment)) aligned with ResusGPS, and related enrollment and certification flows tied to the `enrollments` / `certificates` model. **Go-to-market emphasis** for individuals: see [§15](#15-business-strategy-market-context-and-revenue-focus-leadership). |
 | **Paeds Resus Fellowship** | The canonical name for the **narrative and progression umbrella** for advanced ward-focused learning (micro-courses ladder + optional legacy certifications); **not** a separate paywall—learners pay per course/SKU. Completion of the three pillars (Courses, ResusGPS, Care Signal) earns the title **Paeds Resus Fellow**. |
-| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. |
+| **Safe-Truth** | **Parent and guardian** resources and truth-sharing flows (distinct audience and tone from ResusGPS). **Not** the staff monthly reporting channel for the **Paeds Resus Fellowship** — see **Care Signal**. **Requires no account or login** — accessible via direct URL or QR code; this is non-negotiable per [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §3.3 and §5.4. **Current implementation gap (P0):** Safe-Truth is currently behind authentication and must be migrated to accountless submission. Redesigned journey-stage form (vs retrospective questionnaire) specified in [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §2. |
 | **Care Signal** | **Provider-facing** incident and near-miss reporting (QI culture); **distinct product name from Safe-Truth** in all user-facing copy. Drives the **automated** **Paeds Resus Fellowship** **monthly discipline** pillar alongside courses and ResusGPS — see [§17](#17-fellowship-qualification-provider-profile-and-internal-operational-intelligence-non-public). |
 | **Institutional (Hospital ERS)** | **Hospital Emergency Readiness System (ERS)** with **paediatric priority** — hospital-wide nurse-led ERT 24/7, ResusGPS, Care Signal QI, institutional dashboard, readiness audits, and AHA-aligned training mesh. **Not** generic bulk certification. Canonical definition: [§24](#24-institutional-emergency-readiness-ers). |
 | **Admin** | **Platform owner** visibility: users, enrollments, certificates, Safe-Truth (parent) usage, **Care Signal** metrics when instrumented, analytics, operational tools—see [§8](#8-admin-reports-definitions). |
@@ -63,7 +81,9 @@ These are **first-class** parts of Paeds Resus. None of them should be implied t
 | **Institutions** | **Deploy** training, see **adoption** and **cohorts**, manage **staff** and **schedules** where the product supports it. |
 | **Platform admin (owner)** | **Truthful reports**, auditability, and tools to run the business without metric drift. |
 
-**User model (summary):** One **email + password** account can **switch context** in the UI (Provider vs Parent vs Institution). The database stores a **single** `userType` per user (`individual` \| `parent` \| `institutional`) for **default post-login routing**; the header switch is **UI/session** behaviour, not a second `userType` in the DB. **Do not** reintroduce a hard single-role lock that prevents switching.
+**User model (summary — v2.0, migration required):** Two actor types replace the previous three-way `userType` ENUM. **Individual Actor** (providers, students, instructors, trainees) and **Organisation Actor** (hospitals, schools, NGOs, ministries). Safe-Truth requires **no account** — accessible via direct URL or QR code without any login. See [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §2.2 and [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.4 for the full specification.
+
+**Migration required:** The current `userType` ENUM (`individual` | `parent` | `institutional`) must be migrated to the new model. The `parent` type is retired — Safe-Truth submissions require no account. This is a P0 schema change. Log in WORK_STATUS.md when applied. Until migration is complete, existing routing behaviour is preserved; do **not** reintroduce a hard single-role lock.
 
 ---
 
@@ -111,10 +131,13 @@ When you propose changes, assume this stack unless leadership explicitly changes
 | Topic | Decision |
 |-------|----------|
 | **Auth** | **Email + password only.** No OAuth. |
-| **User types (DB)** | `individual` \| `parent` \| `institutional`. **One** `userType` per user row. There is **no** separate multi-role table yet. |
-| **UI switch** | Any logged-in user may choose **Provider / Parent / Institution** in the UI. That choice is **not** persisted as a second `userType` in the DB; only **default** `userType` is stored for **post-login redirect**. |
+| **User types (DB) — migration pending** | Current: `individual` \| `parent` \| `institutional`. **Target (P0 migration):** `individual_actor` \| `organisation_actor`. The `parent` type is being retired — Safe-Truth requires no account. Do not build new features against the `parent` userType. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.4. |
+| **UI switch** | Any logged-in user may choose **Provider / Institution** in the UI post-migration. That choice is **not** persisted as a second `userType`; only **default** `userType` is stored for **post-login redirect**. |
 | **Admin** | `role === 'admin'` in the DB. Admin is **granted** when `openId === OWNER_OPEN_ID` at auth/upsert; **authorisation checks** use `ctx.user.role === 'admin'`. No admin by ad-hoc DB edits. |
-| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/hospital-admin-dashboard` (legacy `/institutional-portal` may redirect). **No** “last-used role” persisted in DB yet. |
+| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/hospital-admin-dashboard` (legacy `/institutional-portal` may redirect). **No** "last-used role" persisted in DB yet. |
+| **Institutional continuity** | Organisation Actor accounts belong to the institution, not the creating individual. **Minimum two named admin contacts required.** Recovery via institutional identity verification (facility letterhead, MoH registration number) — **not** personal credential reset. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.4. Not yet implemented — **P1**. |
+| **Provider cadre** | Mandatory profile field on individual accounts: Community Health Worker \| Enrolled Nurse \| Registered Nurse \| Clinical Officer (Diploma) \| Clinical Officer (Degree) \| Medical Officer \| Paediatrician \| Other Specialist \| Nursing Student \| Medical Student \| Other Trainee. Full list: [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §1.3. Not yet implemented — **P1**. |
+| **Fellowship pseudonymous token** | A provider may submit Care Signal anonymously while retaining Fellowship credit via a device-bound pseudonymous token, separate from named identity. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.5. Not yet implemented — **P1**. |
 
 ---
 
@@ -129,6 +152,22 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 | **Safe-Truth usage (this month)** | Count of rows in **`parentSafeTruthSubmissions`** with `createdAt` in the report month (EAT). **One row = one submission.** |
 | **Product / app activity (last 7 days)** | Count of rows in **`analyticsEvents`** with `createdAt` in the last 7 days. **One row = one event.** Instrumentation must go through the **standard** analytics path—no parallel ad-hoc tables for the same KPI. |
 | **`active_paying_providers_30d`** | Count of **distinct** `users.id` where `userType = individual` and the user has at least one **completed** payment in the rolling last **30×24 hours** — union of `payments.status = completed` and `microCourseEnrollments.paymentStatus = completed`. **Growth KPI only** — never combine with Care Signal or Safe-Truth metrics ([§18.3](#183-locked-growth-kpi-model-provider-lane)). |
+
+### 8.1 Global shared classifiers (binding across all observation tables)
+
+Per [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.1 and [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §5, the following fields and ENUM values are **binding identically** across `careSignalEvents`, `parentSafeTruthSubmissions`, `resusGPSCases`, and any future observation table. Divergent enumeration values between tables make pattern triangulation impossible — this is a P0 schema discipline rule, not a style preference.
+
+| Classifier | Replaces | Migration status |
+|------------|---------|------------------|
+| `country` (ISO 3166-1 alpha-2) | N/A — new field | **Not started.** Required for global expansion. |
+| `admin_level_1` | `facility_county` (Kenya-only) | **Not started.** Country-specific division loaded from a reference table, never hardcoded. |
+| `facility_id` (UUID, internal, never public) | Inline facility name strings | **Partial** — `facilityId` added via migration 0038 (applied 2026-05-01) to `careSignalEvents` only. Not yet on `parentSafeTruthSubmissions` or `resusGPSCases`. |
+| `facility_level`, `facility_ownership` | N/A — new fields | **Not started.** |
+| `child_age_band`, `condition_category`, `outcome_category` | Ad-hoc free text / partial ENUMs | **Not started.** Canonical ENUM values: [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §5. |
+| `schema_version` | N/A — new field | **Not started.** Required before any FPKB pattern linkage is possible. |
+| `role_at_time_of_event` | N/A — new field, distinct from `provider_cadre` profile field | **Not started.** |
+
+**Non-negotiable rule:** Never embed a `pattern_id` or `recommendation_id` as a foreign key on these observation tables. The Failure Pattern Knowledge Base ([FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md)) references observations; observations never reference the FPKB. This preserves observation immutability.
 
 ---
 
@@ -166,14 +205,19 @@ These definitions are **locked** for implementation and reporting UI. Use **EAT*
 
 Work should generally align with this **sequenced** priority unless the CEO explicitly reprioritises and updates this file:
 
+0. **Care Signal v3 + Safe-Truth accountless migration (current focus, per [WORK_STATUS.md](./WORK_STATUS.md)):** Full field specification in [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §1–2. This is the instrument that makes the Adaptive Learning System real — see [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md). Care Signal v3 is not shipped until the post-submission feedback loop (gap analysis + dynamic recommendations) is live, not stubbed.
 1. **Analytics instrumentation:** ResusGPS and other products emit events to **`analyticsEvents`**; admin reports show **real** product activity (not zeros).
 2. **Staging:** `develop` → staging, `main` → production; PR verification on staging before production.
 3. **Security baseline:** Password complexity, session max age, audit logging for admin (as specified when locked).
 4. **ResusGPS v4:** Undo, medication dedup, multi-diagnosis, structured age, countdown timers, dose rationale.
+5. **Failure Pattern Knowledge Base (FPKB) migrations:** Per [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) — 12-migration sequence, taxonomy seed data (28 failure modes, 10 success factors). Sequenced after Care Signal v3 ships so there is real data to populate it.
+6. **Failure Pattern Atlas (minimal UI):** Public-facing view of FPKB patterns with observation count, country count, confidence level, status. Starts empty; fills as Care Signal v3 data arrives.
 
 **Maturity sequencing:** Platform-wide gap closure (staging, fellowship §11 gate, holistic loop, institutional systems) is tracked in [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) — six phases over 15–18 months; Phase 1 engineering/governance foundation runs in parallel with §12 items above where safe.
 
 **Institutional lane (parallel, CEO-led):** Hospital **ERS** pilots, MOU signing, and institutional GTM are **not** blocked on §12 item 4 but must align with [§24](#24-institutional-emergency-readiness-ers) — readiness systems first, not bulk PALS seats. Engineering surfaces (institutional dashboard, facility QI) follow [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) Phase 4–5.
+
+**Deliberately postponed (do not pursue until prerequisites are met):** Accreditation (requires mature FPKB and credible audit methodology — see [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) §7.2); Learning Network intelligence licensing (requires data density — 3+ countries, 1,000+ observations); Adaptive AI / automated pattern detection (requires demonstrated human observation quality first). Pursuing these early produces unsubstantiated claims and erodes trust.
 
 ---
 
@@ -570,6 +614,11 @@ Every strategic and operational document in this repository is listed here with 
 
 | Document | Status | Relationship to PSOT |
 |----------|--------|---------------------|
+| [NORTH_STAR_V2.md](./NORTH_STAR_V2.md) | **Active — Constitutional** | Supersedes North Star v1.0. Mission, theory of change, institutional identity (aviation safety analogy), Adaptive Learning System framing, account model, financial strategy summary, named threshold, ten-year test — **read first**, before STRATEGIC_FOUNDATION.md |
+| [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) | **Active — Constitutional** | Supersedes v1.0. Full specification for how Paeds Resus learns: observer classes, observation model, shared classifiers, transformation pipeline, Learning Governance (three types of truth, evidence ladders, Knowledge Stewardship), evolution rules — expands §19, §20, and new §25 |
+| [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) | **Active — Engineering** | Complete database schema for the Failure Pattern Knowledge Base — 11 `kb_` tables, indexes, 12-migration sequence, taxonomy seed data (28 failure modes, 10 success factors) — expands §25 |
+| [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) | **Active — Engineering** | Field-by-field specification for Care Signal v3, Safe-Truth v1 (redesigned), ResusGPS session record, Fellowship competency record — expands §3, §7, §17, §19 |
+| [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) | **Active — Confidential Internal** | Four-business revenue model, constitutional revenue principle (individual access never gated by ability to pay), pricing, accreditation prerequisites — expands §15 |
 | [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) | Active | Mission, theory of change, LMIC context — read before any product decision |
 | [CARE_SIGNAL_STRATEGY_AND_ROADMAP.md](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md) | Active | Canonical Care Signal implementation detail — expands §17 and §19 |
 | [CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md](./CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md) | Active | Strategic analysis of Care Signal's global potential — informs §20 |
@@ -653,6 +702,9 @@ This section is **binding for every AI agent, developer, designer, and contribut
 | New institutional or government partnership | Update [§24](#24-institutional-emergency-readiness-ers) and §20.4 (MOH partnership pathway) |
 | Institutional ERS scope, geography, or marketing rule changed | Update [§24](#24-institutional-emergency-readiness-ers); cross-check §15.3, §23 |
 | New migration applied to live database | Log in WORK_STATUS.md with migration number, date, and what changed |
+| New failure mode, success factor, or FPKB taxonomy change | Update [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) §6 and log in WORK_STATUS.md |
+| A pattern promoted from Analytical Truth to Actionable Truth | Log in `kb_governance_audit` (per [§25](#25-the-failure-pattern-knowledge-base-and-learning-governance)) and note in WORK_STATUS.md |
+| Shared classifier ENUM values change | Update [§8.1](#81-global-shared-classifiers-binding-across-all-observation-tables) and [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §5 simultaneously — never let them diverge |
 
 ### 22.3 What You Must Never Do
 
@@ -670,6 +722,11 @@ This section is **binding for every AI agent, developer, designer, and contribut
 - **Never allow skipping steps** in AHA courses — learners must follow the journey: Diagnostic → Modules → Capstone Simulation → Summative Exam.
 - **Never use 80% pass mark for Capstone Simulations** — the threshold is fixed at **50% (Supportive)** to focus on systematic approach appreciation.
 - **Never overlook 2025 PCAC updates** — Post-Cardiac Arrest Care must prioritize **fever prevention (>37.5°C) for 36-72 hours** as the primary neuro-protective strategy.
+- **Never gate** individual provider access to Care Signal, ResusGPS, or core courses by ability to pay, in any setting — this is the constitutional revenue principle; see [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) §1.1
+- **Never present** an unconfirmed Analytical Truth pattern to providers or institutions as though it were an approved Actionable Truth recommendation — see [§25.2](#252-the-three-types-of-truth-binding-rule)
+- **Never auto-assign** an outcome label on a Knowledge Base implementation record — requires human Knowledge Stewardship review; see [§25.6](#256-what-developers-must-never-do-extends-223)
+- **Never diverge** shared classifier ENUM values (country, admin_level_1, facility_level, child_age_band, condition_category, outcome_category) between Care Signal, Safe-Truth, and ResusGPS — see [§8.1](#81-global-shared-classifiers-binding-across-all-observation-tables)
+- **Never build** new Safe-Truth features assuming authentication is required — accountless submission is the binding target; see [§3](#3-what-we-do-offerings)
 
 ### 22.4 The Global Ambition Mandate
 
@@ -868,4 +925,4 @@ Cross-reference: [§22.3](#223-what-you-must-never-do).
 
 ---
 
-**Last structural update:** 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-06-30 — Integrated the five constitutional/engineering documents from the North Star v2.0 cycle: [NORTH_STAR_V2.md](./NORTH_STAR_V2.md), [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md), [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md), [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md), [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md). Added new §25 (FPKB and Learning Governance), §8.1 (global shared classifiers), updated §7 (actor model migration), §12 (Care Signal v3 as top priority, FPKB migration sequencing, deliberate postponements), §3 (Safe-Truth accountless requirement), §21 (document registry), §22.3 (new anti-patterns). Prior: 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.

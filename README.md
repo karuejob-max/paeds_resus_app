@@ -4,7 +4,11 @@
 
 **No child should die from preventable causes.**
 
-Paeds Resus is a comprehensive digital platform designed to train healthcare professionals in pediatric resuscitation and track patient safety incidents. By combining evidence-based training with real-world incident analysis, we empower healthcare systems to save children's lives.
+Most preventable child deaths don't happen because the right treatment is unknown — they happen because it doesn't reach the child in time, in the right sequence, at the right moment. Paeds Resus exists to close that gap.
+
+We're not a training company with extra features. We're an adaptive learning system: ResusGPS gives providers structured guidance at the bedside, training builds the underlying competence, and Care Signal turns every case — and every parent's experience through Safe-Truth — into a lesson the whole system learns from. The loop is the product. The next provider, the next hospital, the next country, all benefit from what was learned at the bedside before them — the way aviation safety improves from every reported near-miss.
+
+Kenya is the proving ground, not the ceiling. See [`docs/NORTH_STAR_V2.md`](docs/NORTH_STAR_V2.md) for the full mission, theory of change, and what we're building toward.
 
 ### Documentation map (start here)
 
