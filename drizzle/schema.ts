@@ -2857,7 +2857,7 @@ export const cneAttendees = mysqlTable("cneAttendees", {
   fullName: varchar("fullName", { length: 256 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 32 }).notNull(),
-  cadre: mysqlEnum("cadre", ["BSN", "KRCHN", "KRN", "Other"]).notNull(),
+  cadre: mysqlEnum("cadre", ["BSN", "MSN", "KRCHN", "KRN", "KRNM", "ERN", "HND", "Student Nurse", "Other"]).notNull(),
   cadreOther: varchar("cadreOther", { length: 128 }),
   higherDiploma: varchar("higherDiploma", { length: 256 }),
   department: varchar("department", { length: 256 }).notNull(),
