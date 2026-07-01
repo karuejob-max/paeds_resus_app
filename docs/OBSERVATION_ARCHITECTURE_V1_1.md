@@ -18,6 +18,33 @@ Classification: Internal — Constitutional Document
 
 ***v1.1 adds to v1.0: role-at-time-of-event; global geographic hierarchy; optional collaborative event model; temporal interval capture; Learning Cohort evaluation framework; bidirectional Knowledge Base (Failure and Success Patterns); Intervention and Implementation objects; multidimensional confidence; Learning Governance chapter including the three-truth framework, four evidence sources, evidence ladders, concept drift management, and Knowledge Stewardship.***
 
+## EXECUTIVE SUMMARY — READ THIS FIRST
+
+**If you read nothing else in this document, read this section.**
+
+**The core claim:** Every Paeds Resus product (Care Signal, Safe-Truth, ResusGPS, Fellowship assessments) is an **observer**, not just a data collector. Each observer sees a different, incomplete slice of clinical reality and has known, named biases. The platform's job is to combine these partial observations into trustworthy knowledge — without ever destroying the raw evidence that knowledge was built from.
+
+**What this document governs:** How a single clinical event becomes a stored observation, how observations become detected patterns (signal → failure mode → failure pattern), and — critically — **how patterns are allowed to become Actionable Truth that changes what ResusGPS or curriculum teaches.** That last step requires Knowledge Stewardship sign-off. It is never automatic.
+
+**The seven non-negotiable Design Principles (Section 2), summarised:**
+
+1. Every field collected must have a plausible path to improving a future child's care — no data hoarding.
+2. Raw observations are preserved forever, never overwritten by their classification.
+3. Transformations are delayed and reversible — taxonomies can change without destroying old data.
+4. Each observer (provider, caregiver, telemetry) is asked only what it can uniquely see.
+5. Pattern triangulation (statistical co-occurrence) is used instead of mandatory case-linking — this protects caregiver and provider privacy and trust.
+6. Every form must pass the **3am test**: completable by an exhausted nurse, on a phone, with poor signal, in under 5 minutes.
+7. Absence of evidence is not evidence of absence — the system must distinguish "this doesn't happen" from "we're not measuring it yet."
+
+**The three types of truth (the most important governance concept in this document):**
+- **Operational Truth** — what was actually observed. Immutable.
+- **Analytical Truth** — a pattern the system has detected. Versioned, revisable, **never shown to providers as a recommendation.**
+- **Actionable Truth** — what Paeds Resus is currently willing to teach or recommend. Requires Knowledge Stewardship approval. This is the *only* level allowed to change ResusGPS, curriculum, or Care Signal advice.
+
+**Common misreading to avoid:** This document does **not** claim the Failure Pattern Knowledge Base (FPKB) currently exists with populated data. As of this version, the FPKB schema is designed (see FPKB Schema v1.0) but **not yet migrated** — see Section 9.5 / the PSoT's priority order. Care Signal v3 must ship first so there is real data to feed it. Treat every reference to "patterns," "confidence levels," and "Knowledge Stewardship decisions" in this document as the **target design**, not current production state, unless a section explicitly says otherwise.
+
+**What this document does not do:** It does not define product pricing or business sequencing (see Financial Strategy v1.0), and it is not a substitute for the exact database column specifications (see FPKB Schema v1.0 and Event Models v1.0).
+
 # PREAMBLE: THE CONSTITUTIONAL HIERARCHY
 
 The Paeds Resus platform has three constitutional documents. Together they define what the organisation is, what it builds, and how it becomes better over time.

@@ -14,6 +14,32 @@ Classification: Confidential — Internal Strategic Document
 
 ***Financial sustainability is not a distraction from the mission. It is the precondition for mission at the scale of the problem. Charity models cannot reach the scale of preventable child mortality. This document defines how Paeds Resus builds revenue that scales with impact rather than despite it.***
 
+## EXECUTIVE SUMMARY — READ THIS FIRST
+
+**If you read nothing else in this document, read this section.**
+
+**The core claim:** Paeds Resus runs four businesses that are sequenced, not simultaneous. Each stage funds the next and makes it more credible. Jumping to stage 3 or 4 before stage 1 is generating revenue and observations produces unsubstantiated intelligence claims and erodes trust.
+
+**The four businesses in strict sequence:**
+
+| Business | What it is | Time horizon | What it feeds |
+|---|---|---|---|
+| 1. Education | AHA certifications, micro-courses, Fellowship fees | **Now** — primary cash engine | Observations for the Learning System; workforce for the other businesses |
+| 2. Quality Improvement | Productised ERS packages, premium institutional analytics, CNE/CPD | **Medium term** (2027–2028) | Implementation evidence the Learning System needs to evaluate its own recommendations |
+| 3. Learning Network | Intelligence licensing, peer-learning facilitation, government partnerships, annual knowledge report | **Long term** (2029+) — requires data density | The moat; what makes Businesses 1 and 2 more valuable |
+| 4. Decision Support | ResusGPS updated by confirmed knowledge, procured by institutions/governments | **Long term** — regulatory positioning required | More observations; closes the adaptive loop |
+
+**The constitutional revenue principle (non-negotiable, binding forever):** Individual provider access to Care Signal, ResusGPS, and core courses is **never** gated by ability to pay, in any setting. This principle may not be overridden by commercial pressure. Revenue comes from institutions, governments, and funders — not from the providers whose observations make that intelligence valuable.
+
+**Common misreading to avoid — the most important one in this document:** "Providers get everything free; institutions pay for everything" is **wrong**. Providers still pay individually for Fellowship enrolment, AHA certifications (BLS, ACLS, PALS, NRP, Heartsaver), and micro-course certifications. These are Business 1 — the revenue engine that exists **right now** and funds everything else. The constitutional revenue principle protects only Care Signal reporting, ResusGPS bedside guidance, and core course *access* from being paywalled. Business 3 (institutions and governments paying for intelligence) is a **3–5 year horizon**, not the current funding model.
+
+**The three things Paeds Resus will never do commercially:**
+1. Publicly rank hospitals by emergency readiness for patient/family use (ethical exposure, wrong incentive alignment)
+2. Paywall Care Signal reporting for any provider in any setting
+3. Launch accreditation before the Knowledge Base is mature enough to make it credible (prerequisites listed in Section 7.2 — none are currently met)
+
+**What this document does not do:** It does not specify how the Learning System is built (see Observation Architecture v1.1 and FPKB Schema v1.0). It does not override the PSoT's engineering priority order. If in doubt about sequencing, the PSoT §12 is authoritative.
+
 # SECTION 1: THE FINANCIAL PHILOSOPHY
 
 ### 1.1  The Constitutional Revenue Principle
