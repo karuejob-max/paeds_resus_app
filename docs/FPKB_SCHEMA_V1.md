@@ -16,6 +16,33 @@ Classification: Engineering — Confidential Internal
 
 ***This document specifies the database schema for the Failure Pattern Knowledge Base — the persistent store of what the Adaptive Learning System has learned from observations. Without this schema, Care Signal, Safe-Truth, and ResusGPS telemetry are parallel databases that never produce system intelligence. With it, they become the input to a learning system that changes clinical practice.***
 
+## EXECUTIVE SUMMARY — READ THIS FIRST
+
+**If you read nothing else in this document, read this section.**
+
+**The core claim:** This document is the database blueprint for the Failure Pattern Knowledge Base (FPKB) — 11 tables, prefixed `kb_`, that sit in a separate schema from the operational observation tables. It is **not** a description of something that already exists in production. As of June 2026, this schema has not yet been migrated. It becomes the next engineering priority after Care Signal v3 ships.
+
+**The single most important rule in this document:** The FPKB references observations; observations never reference the FPKB. Never add a `pattern_id` or `recommendation_id` as a foreign key on `careSignalEvents`, `parentSafeTruthSubmissions`, or `resusGPSCases`. The relationship is one-directional. Violating this destroys observation immutability — the foundational principle of the entire learning system.
+
+**What the 11 tables do, in plain language:**
+
+| Table group | What it stores |
+|---|---|
+| `kb_failure_modes`, `kb_success_factors` | The atomic taxonomy — what specifically went wrong or right in a single observation |
+| `kb_patterns` | Recurring combinations of failure modes or success factors across many observations — the primary unit of learning |
+| `kb_pattern_modes`, `kb_pattern_observations` | The evidence base — which specific observations support each pattern |
+| `kb_content_versions` | Every ResusGPS pathway or curriculum change, with a reference to the pattern that motivated it — the adaptive loop |
+| `kb_recommendations`, `kb_interventions`, `kb_implementations` | The action pipeline — what was suggested, what was committed to, and what actually happened |
+| `kb_review_schedule`, `kb_governance_audit`, `kb_evidence_links` | Governance — automated review scheduling, an append-only audit trail, and external evidence linkage |
+
+**The migration sequence matters:** Run migrations A through L in the exact order in Section 5.3. Dependencies between tables make out-of-order migration fail.
+
+**The seed data is ready:** Section 6 contains 28 failure modes and 10 success factors to insert immediately after migrations complete. These are not placeholders — they are the version 1.0 taxonomy, agreed and clinically reviewed.
+
+**Common misreading to avoid:** The FPKB is **not** a replacement for Care Signal. Care Signal is the observation tool that collects data from providers. The FPKB is the knowledge store that aggregates those observations into confirmed patterns. They are different layers. One is a form; the other is a database of what the forms have collectively taught the system. Do not conflate them.
+
+**One governance rule that can never be automated:** The `outcome_label` field on `kb_implementations` (whether an intervention actually improved outcomes) must always be assigned by a human Knowledge Stewardship reviewer. The system may flag an implementation as ready for review, but it may never self-assign this label. This is a hard constraint, not a preference.
+
 # SECTION 1: PURPOSE AND POSITION
 
 ### 1.1  What This Document Is

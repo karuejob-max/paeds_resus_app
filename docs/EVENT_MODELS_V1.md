@@ -16,6 +16,31 @@ Classification: Engineering — Confidential Internal
 
 ***This document specifies exactly what each observer class must capture. It is the bridge between the Observation Architecture's principles and the engineering team's form designs and database schemas. Every field listed here has a documented learning hypothesis. Every required field survives the 3am test.***
 
+## EXECUTIVE SUMMARY — READ THIS FIRST
+
+**If you read nothing else in this document, read this section.**
+
+**The core claim:** This document is the authoritative field-by-field specification for four observation forms. It tells engineers exactly what to build, in what order, with what validation logic. If the form implementation diverges from this document, the document wins — update the document first, then update the implementation.
+
+**What this document specifies (four observer classes):**
+
+| Observer class | Form | Current status | Top priority change |
+|---|---|---|---|
+| Provider | **Care Signal v3** | v2 live, v3 not started | Add failure mode picker, temporal intervals, global classifiers, explicit facility selection, post-submission feedback loop |
+| Caregiver | **Safe-Truth v1** | Behind authentication — P0 gap | Remove authentication entirely; redesign from retrospective questionnaire to four journey stages |
+| ResusGPS | **Session Record** | Partial telemetry emitted | Add full session telemetry schema per Section 3 |
+| Fellowship | **Competency Record** | Partial | Add Learning Cohort anchors and topic-level performance JSON per Section 4 |
+
+**The single most important field in Care Signal v3:** `facility_id` — the UUID of the facility where the event actually occurred, **explicitly selected by the provider at submission, never inferred from their profile.** Providers who do locum shifts at multiple facilities will otherwise poison the dataset by attributing events to the wrong location. This is irreversible data corruption if not caught at the form level.
+
+**The single most important change in Safe-Truth v1:** Remove the login requirement. Safe-Truth must be accessible via direct URL or QR code with no account, no registration, and no redirect to a sign-in screen. This is a P0 engineering gap in the current implementation and a non-negotiable privacy and participation design decision.
+
+**The shared classifier rule:** Five ENUM fields (`condition_category`, `child_age_band`, `outcome_category`, `failure_domain`, `facility_level`) must use **identical values** across Care Signal, Safe-Truth, and ResusGPS. Section 5 contains the canonical values. Any divergence between products makes pattern triangulation across the three data streams permanently impossible.
+
+**Common misreading to avoid:** "Required" in this document means the server rejects the submission without this field — not that the UI blocks the user with a popup. Temporal interval fields (time-to-recognition, time-to-antibiotic, etc.) are marked "REC" (recommended), not "YES" (required). They are placed in an expandable section and prompted but not blocking — because making them required would reduce completion rates, which degrades the observation quality they are designed to improve.
+
+**What this document does not do:** It does not specify how the FPKB processes the observations these forms collect (see FPKB Schema v1.0). It does not specify the ResusGPS clinical pathway logic (see Clinical Source of Truth). It specifies only what each observer class captures and how.
+
 # PREAMBLE: HOW TO READ THIS DOCUMENT
 
 This document contains four event models, one per active human observer class:

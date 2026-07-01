@@ -18,6 +18,31 @@ Classification: Internal — Platform Source of Truth
 
 *v2.0 adds to v1.0: the Adaptive Learning System framing; the aviation safety institutional identity; the three types of truth; the four-business model; positive deviance in the theory of change; the peer-learning model; the account model (Individual Actor and Organisation Actor); Safe-Truth no-login principle; the constitutional revenue principle; Knowledge Stewardship as a named commitment; honest holistic loop implementation status; concept drift as a named risk; updated ten-year test; updated Book of the Unforgotten.*
 
+## EXECUTIVE SUMMARY — READ THIS FIRST
+
+**If you read nothing else in this document, read this section. It is written to be impossible to compress further without losing accuracy.**
+
+**The core claim:** Children mostly die from preventable causes not because the right treatment is unknown, but because it doesn't reach them in time, in the right sequence. This is an execution problem, not a knowledge problem — the "know-do gap." Paeds Resus exists to close that gap.
+
+**What Paeds Resus is — and is not:** Paeds Resus is **not** a training company that happens to offer extra tools. It is an **Adaptive Learning System**. Every product — ResusGPS (bedside guidance), Education (courses, Fellowship), Care Signal (provider QI reporting), Safe-Truth (caregiver experience), Hospital ERS (institutional readiness) — exists to feed and be improved by one closed learning loop. The institutional identity is closest to **aviation safety**: every near-miss reported makes the whole system safer for the next provider, not just the one who reported it.
+
+**The constitutional hierarchy (binding):** Three documents govern the platform, each answering a different question, with explicit conflict-resolution rules:
+- **This document (North Star)** — *Why* does Paeds Resus exist?
+- **Observation Architecture v1.1** — *How* does Paeds Resus learn?
+- **Platform Source of Truth (PSoT)** — *What* does Paeds Resus build, and how, technically?
+
+**What changed in v2.0 (five things that matter most):**
+
+1. The platform is explicitly named an Adaptive Learning System, not a Learning Engine — it changes its own behaviour (ResusGPS pathways, curriculum) based on confirmed evidence, not just detects patterns.
+2. The theory of change is now bidirectional — it identifies and spreads success patterns (positive deviance), not only eliminates failure patterns.
+3. The constitutional revenue principle is now explicit and binding: individual provider access to Care Signal, ResusGPS, and core courses is never gated by ability to pay, in any setting, ever.
+4. The holistic loop's implementation status is stated honestly — most of it is not yet built. Stages 3–6 (personal feedback, learning links, institutional action, system intelligence) are explicitly named as the current engineering priority, not claimed as complete.
+5. Knowledge Stewardship is established as a named governance role: no ResusGPS, curriculum, or Care Signal recommendation change ships without its sign-off.
+
+**Common misreading to avoid:** "Providers get everything free; institutions pay for everything" is **not** what this document says. Individual providers still pay for Fellowship enrolment and most AHA certifications (Education, Business 1 — the near-term cash engine). The constitutional revenue principle protects only Care Signal, ResusGPS, and core course access from paywalling. The institutional/intelligence revenue model (Business 3) is explicitly a 3–5 year horizon, not the platform's current sustainability mechanism. See Part VI and the Financial Strategy v1.0 document for the precise, sequenced model — Education funds Quality Improvement funds Learning Network, in that order, not all four at once.
+
+**What this document does not do:** It does not specify database schemas (see Observation Architecture v1.1 and FPKB Schema v1.0), and it does not override binding technical decisions in the PSoT.
+
 # THE CONSTITUTIONAL HIERARCHY
 
 Paeds Resus is governed by three constitutional documents. Each answers a different question. No document overrides another in its own domain.
