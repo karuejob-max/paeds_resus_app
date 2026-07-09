@@ -84,7 +84,7 @@ function PostSubmissionFeedback({
   recommendations: Array<{ gap: string; recommendation: string; priority: "high" | "medium" | "low"; action: string }>;
   onClose: () => void;
 }) {
-  const { data: fp } = trpc.fellowship.getMyFellowshipProgress.useQuery(undefined, { retry: false });
+  const { data: fp } = trpc.fellowship.getProgress.useQuery(undefined, { retry: false });
   const streak = fp?.careSignalPillar?.streak ?? null;
 
   return (

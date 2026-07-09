@@ -307,7 +307,14 @@ export function buildCareSignalV3SubmitPayload(
       failureDomains: form.failureDomains,
       rawNarrative: form.rawNarrative.trim().slice(0, 200),
     }),
-    chainOfSurvival: { steps: form.chainOfSurvivalSteps },
+    chainOfSurvival: {
+      recognition: form.chainOfSurvivalSteps.includes("recognition"),
+      activation: form.chainOfSurvivalSteps.includes("activation"),
+      cpr: form.chainOfSurvivalSteps.includes("cpr"),
+      defibrillation: form.chainOfSurvivalSteps.includes("defibrillation"),
+      advancedCare: form.chainOfSurvivalSteps.includes("advancedCare"),
+      postResuscitation: form.chainOfSurvivalSteps.includes("postResuscitation"),
+    },
     eventType: form.reportTrack === "SUCCESS"
       ? "success_pattern"
       : form.conditionCategory
