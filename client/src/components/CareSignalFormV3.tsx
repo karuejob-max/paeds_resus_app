@@ -76,12 +76,16 @@ function PostSubmissionFeedback({
   reportTrack,
   failureDomains,
   recommendations,
+  eventCode,
+  onFileOtherSide,
   onClose,
 }: {
   submissionId: string;
   reportTrack: "FAILURE" | "SUCCESS";
   failureDomains: FailureDomain[];
   recommendations: Array<{ gap: string; recommendation: string; priority: "high" | "medium" | "low"; action: string }>;
+  eventCode: string;
+  onFileOtherSide: () => void;
   onClose: () => void;
 }) {
   const { data: fp } = trpc.fellowship.getProgress.useQuery(undefined, { retry: false });
@@ -141,6 +145,25 @@ function PostSubmissionFeedback({
         </div>
       ))}
 
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+        <p className="text-xs font-semibold text-slate-700">
+          Did this same case also include {reportTrack === "FAILURE" ? "something that went right" : "a gap or failure"}?
+        </p>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Failure and success are tracked separately so each can be validated on its own evidence bar. If this
+          case had both sides, file the other one now — it will be linked to this same event, not merged with it.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={onFileOtherSide} className="w-full">
+          {reportTrack === "FAILURE" ? "🟢 File the success side" : "🔴 File the failure side"}
+        </Button>
+        {eventCode && (
+          <p className="text-[11px] text-slate-500 pt-1">
+            Event code: <span className="font-mono">{eventCode.slice(0, 8)}</span> — also share this with any
+            teammate who observed the same event, so their report links here too.
+          </p>
+        )}
+      </div>
+
       <Button onClick={onClose} className="w-full bg-brand-teal text-white hover:bg-brand-teal/90">Done</Button>
     </div>
   );
@@ -160,6 +183,7 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState("");
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [linkedEventCode, setLinkedEventCode] = useState("");
 
   const { data: me } = trpc.auth.me.useQuery(undefined, { retry: false });
   const providerCadre = (me as any)?.cadre;
@@ -195,7 +219,19 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
     const err = validateCareSignalV3(form);
     if (err) { setSubmitError(err); return; }
     if (!facility) { setSubmitError("Please select the facility where this event occurred."); return; }
-    submitMutation.mutate(buildCareSignalV3SubmitPayload(form, facility, providerCadre));
+    const eventCode = form.eventId.trim() || (typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    setLinkedEventCode(eventCode);
+    submitMutation.mutate(buildCareSignalV3SubmitPayload({ ...form, eventId: eventCode }, facility, providerCadre));
+  }
+
+  function fileOtherSide() {
+    const opposite = form.reportTrack === "FAILURE" ? "SUCCESS" : "FAILURE";
+    setForm({ ...initialCareSignalV3State(), reportTrack: opposite, eventId: linkedEventCode });
+    setSubmitted(false);
+    setSubmissionId("");
+    setRecommendations([]);
   }
 
   if (submitted) {
@@ -208,7 +244,9 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
             reportTrack={form.reportTrack}
             failureDomains={form.failureDomains}
             recommendations={recommendations}
-            onClose={() => { setForm(initialCareSignalV3State()); setFacility(null); setSubmitted(false); onSuccess?.(); }}
+            eventCode={linkedEventCode}
+            onFileOtherSide={fileOtherSide}
+            onClose={() => { setForm(initialCareSignalV3State()); setFacility(null); setLinkedEventCode(""); setSubmitted(false); onSuccess?.(); }}
           />
         </CardContent>
       </Card>

@@ -34,6 +34,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
   const [newName, setNewName] = useState("");
   const [newCounty, setNewCounty] = useState("");
   const [newCountry, setNewCountry] = useState("Kenya");
+  const [userCleared, setUserCleared] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -66,7 +67,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
   });
 
   useEffect(() => {
-    if (value) return;
+    if (value || userCleared) return;
     if (profile?.facilityId && profile.facilityName) {
       onChange({
         facilityId: profile.facilityId,
@@ -123,6 +124,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
             variant="ghost"
             size="sm"
             onClick={() => {
+              setUserCleared(true);
               onChange(null);
               setQuery("");
             }}
