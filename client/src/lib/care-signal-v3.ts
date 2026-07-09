@@ -26,7 +26,7 @@ export type FailureDomain =
 export type ReportTrack = "FAILURE" | "SUCCESS";
 
 export type RoleAtTimeOfEvent =
-  | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "PRIMARY_NURSE" | "SUPPORT_CLINICIAN"
+  | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "SUPPORT_CLINICIAN"
   | "OBSERVING_TRAINEE" | "LOCUM";
 
 export type HoursSinceEvent =
@@ -160,9 +160,8 @@ export const FAILURE_DOMAIN_LABELS: Record<FailureDomain, string> = {
 
 export const ROLE_AT_EVENT_LABELS: Record<RoleAtTimeOfEvent, string> = {
   TEAM_LEADER: "Team leader",
-  PRIMARY_CLINICIAN: "Primary clinician (directly managing patient)",
-  PRIMARY_NURSE: "Primary nurse (directly managing patient)",
-  SUPPORT_CLINICIAN: "Supporting clinician",
+  PRIMARY_CLINICIAN: "Primary clinician or nurse (directly managing patient)",
+  SUPPORT_CLINICIAN: "Team member / supporting clinician or nurse",
   OBSERVING_TRAINEE: "Observing trainee",
   LOCUM: "Locum (covering another facility or role)",
 };
