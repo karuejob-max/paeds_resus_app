@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const CS_PAGE_MUTED = "text-slate-700 dark:text-slate-300";
 const CS_SECTION_KICKER = "text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400";
-import CareSignalFormV2 from "@/components/CareSignalFormV2";
+import CareSignalFormV3 from "@/components/CareSignalFormV3";
 import { CareSignalConsentGate } from "@/components/CareSignalConsentGate";
 import { CareSignalAudienceGate } from "@/components/CareSignalAudienceGate";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
@@ -99,7 +99,7 @@ export default function CareSignal() {
         <div className="mb-12" ref={loggerRef}>
           <CareSignalAudienceGate>
             <CareSignalConsentGate>
-              <CareSignalFormV2 />
+              <CareSignalFormV3 />
             </CareSignalConsentGate>
           </CareSignalAudienceGate>
         </div>
