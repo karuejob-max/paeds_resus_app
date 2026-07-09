@@ -271,7 +271,6 @@ export const cneRouter = router({
         phone: z.string().trim().min(5).max(32),
         cadre: cadreEnum,
         cadreOther: z.string().trim().max(128).optional(),
-        higherDiploma: z.string().trim().max(256).optional(),
         department: z.string().trim().min(1).max(256),
       })
     )
@@ -304,6 +303,13 @@ export const cneRouter = router({
         });
       }
 
+      if (input.cadre === "HND" && !input.cadreOther?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please specify your subspecialty (e.g. KRPCCN) when selecting HND.",
+        });
+      }
+
       // Duplicate guard: one registration per email per event.
       const normalizedEmail = input.email.trim().toLowerCase();
       const existing = await db
@@ -327,8 +333,8 @@ export const cneRouter = router({
         email: normalizedEmail,
         phone: input.phone,
         cadre: input.cadre,
-        cadreOther: input.cadre === "Other" ? input.cadreOther?.trim() ?? null : null,
-        higherDiploma: input.higherDiploma?.trim() || null,
+        cadreOther: (input.cadre === "Other" || input.cadre === "HND") ? input.cadreOther?.trim() ?? null : null,
+        higherDiploma: null,
         department: input.department,
       });
 
