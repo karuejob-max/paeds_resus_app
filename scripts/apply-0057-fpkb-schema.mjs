@@ -369,7 +369,7 @@ async function main() {
         \`new_state\`      TEXT          NULL COMMENT 'JSON — null for deletion actions',
         \`reasoning\`      TEXT          NULL,
         \`created_at\`     DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-        COMMENT 'APPEND-ONLY — no UPDATE or DELETE ever permitted on this table'
+        COMMENT 'APPEND-ONLY — no UPDATE or DELETE ever permitted on this table',
         PRIMARY KEY (\`id\`),
         KEY \`idx_kbga_entity\` (\`entity_type\`, \`entity_id\`),
         KEY \`idx_kbga_actor\` (\`actor_user_id\`),
