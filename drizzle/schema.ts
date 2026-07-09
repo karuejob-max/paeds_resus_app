@@ -2902,3 +2902,51 @@ export const kmhflFacilities = mysqlTable("kmhflFacilities", {
 
 export type KmhflFacility = typeof kmhflFacilities.$inferSelect;
 export type InsertKmhflFacility = typeof kmhflFacilities.$inferInsert;
+
+/**
+ * Global Facilities Reference Table (migration 0059).
+ * Implements Observation Architecture v1.1 §5.1 "Global Geographic Hierarchy":
+ * Country → admin_level_1 → admin_level_2 → Facility, portable to any country
+ * from day one (North Star v2.0 §7.3 "Global from Day One").
+ *
+ * ADDITIVE — does not replace careFacilities or kmhflFacilities yet.
+ * Those keep being used by existing code until a later, separate migration
+ * repoints the app at this table (see legacy_care_facility_id / legacy_kmhfl_facility_id
+ * bridge columns, reserved for that future step).
+ */
+export const facilities = mysqlTable("facilities", {
+  facilityId: varchar("facility_id", { length: 36 }).primaryKey(),
+  internalName: varchar("internal_name", { length: 255 }).notNull(),
+  /** ISO 3166-1 alpha-2 (e.g. "KE", "UG"). */
+  countryCode: varchar("country_code", { length: 2 }).notNull(),
+  /** County / state / province / region. */
+  adminLevel1: varchar("admin_level_1", { length: 128 }),
+  /** Sub-county / district, where available. */
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
+  /** Country-specific level label as commonly used locally (e.g. "Level 4"). */
+  facilityLevel: varchar("facility_level", { length: 64 }),
+  /** WHO Level 1-6 equivalent, for cross-country analysis. */
+  facilityLevelWho: varchar("facility_level_who", { length: 16 }),
+  facilityOwnership: mysqlEnum("facility_ownership", [
+    "GOVERNMENT", "FAITH_BASED", "PRIVATE_FOR_PROFIT",
+    "PRIVATE_NOT_FOR_PROFIT", "MILITARY", "OTHER",
+  ]),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  /** Where this row came from, for re-sync and dedupe. */
+  source: mysqlEnum("source", [
+    "HEALTHSITES_IO", "KMHFL", "OTHER_NATIONAL_REGISTRY", "MANUAL",
+  ]).default("MANUAL").notNull(),
+  /** Original ID in the source system, e.g. healthsites.io node id or KMHFL code. */
+  sourceRecordId: varchar("source_record_id", { length: 128 }),
+  /** Bridges to existing careFacilities.id during a later migration — not yet used. */
+  legacyCareFacilityId: int("legacy_care_facility_id"),
+  /** Bridges to existing kmhflFacilities.id during a later migration — not yet used. */
+  legacyKmhflFacilityId: int("legacy_kmhfl_facility_id"),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FacilityRow = typeof facilities.$inferSelect;
+export type InsertFacility = typeof facilities.$inferInsert;
