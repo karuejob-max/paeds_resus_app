@@ -26,7 +26,7 @@ export type FailureDomain =
 export type ReportTrack = "FAILURE" | "SUCCESS";
 
 export type RoleAtTimeOfEvent =
-  | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "SUPPORT_CLINICIAN"
+  | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "PRIMARY_NURSE" | "SUPPORT_CLINICIAN"
   | "OBSERVING_TRAINEE" | "LOCUM";
 
 export type HoursSinceEvent =
@@ -161,6 +161,7 @@ export const FAILURE_DOMAIN_LABELS: Record<FailureDomain, string> = {
 export const ROLE_AT_EVENT_LABELS: Record<RoleAtTimeOfEvent, string> = {
   TEAM_LEADER: "Team leader",
   PRIMARY_CLINICIAN: "Primary clinician (directly managing patient)",
+  PRIMARY_NURSE: "Primary nurse (directly managing patient)",
   SUPPORT_CLINICIAN: "Supporting clinician",
   OBSERVING_TRAINEE: "Observing trainee",
   LOCUM: "Locum (covering another facility or role)",
@@ -265,8 +266,21 @@ export function buildCareSignalV3SubmitPayload(
     hoursSinceEvent: form.hoursSinceEvent || null,
   };
 
+  // Facility records store full country names (e.g. "Kenya"); the shared classifier
+  // needs ISO 3166-1 alpha-2. Map the known COMMON_FACILITY_COUNTRIES set explicitly.
+  const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
+    Kenya: "KE",
+    Uganda: "UG",
+    Tanzania: "TZ",
+    Rwanda: "RW",
+    "South Sudan": "SS",
+    Ethiopia: "ET",
+  };
+  const rawCountry = form.country || facility.country || "Kenya";
+  const resolvedCountry = COUNTRY_NAME_TO_ISO2[rawCountry] ?? (rawCountry.length <= 2 ? rawCountry : "KE");
+
   return {
-    country: form.country || facility.country || "KE",
+    country: resolvedCountry,
     admin_level_1: form.admin_level_1 || facility.county || "",
     facility_ownership: (facility as any).facilityOwnership ?? undefined,
     schema_version: CARE_SIGNAL_SCHEMA_VERSION,
