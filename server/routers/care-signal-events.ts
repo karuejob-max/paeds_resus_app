@@ -218,6 +218,21 @@ export const careSignalEventsRouter = router({
         neurologicalStatus: z.string(),
         /** Canonical facility (required for providers; parents exempt). */
         facilityId: z.number().int().positive().optional(),
+        // ── Care Signal v3 fields ──────────────────────────────────────────────
+        country: z.string().max(2).optional(),
+        admin_level_1: z.string().max(128).optional(),
+        facility_ownership: z.string().max(64).optional(),
+        schema_version: z.string().max(16).optional(),
+        condition_category: z.string().max(64).optional(),
+        child_age_band: z.string().max(32).optional(),
+        outcome_category: z.string().max(64).optional(),
+        role_at_time_of_event: z.string().max(64).optional(),
+        provider_cadre: z.string().max(64).optional(),
+        report_track: z.enum(["FAILURE", "SUCCESS"]).optional(),
+        failure_mode_codes: z.array(z.string()).optional(),
+        raw_narrative: z.string().max(10000).optional(),
+        temporal_intervals: z.record(z.string(), z.any()).optional(),
+        event_id: z.string().max(36).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -324,7 +339,32 @@ export const careSignalEventsRouter = router({
           neurologicalStatus: input.neurologicalStatus,
           status: "submitted",
           submissionVersion:
-            (input.gapDetails as { formVersion?: string })?.formVersion === "v2" ? "v2" : "v1",
+            (input.gapDetails as { formVersion?: string })?.formVersion === "v3"
+              ? "v3"
+              : (input.gapDetails as { formVersion?: string })?.formVersion === "v2"
+                ? "v2"
+                : "v1",
+          // ── v3 shared classifiers ────────────────────────────────────────────
+          ...(input.country ? { country: input.country } : {}),
+          ...(input.admin_level_1 ? { adminLevel1: input.admin_level_1 } : {}),
+          ...(input.facility_ownership ? { facilityOwnership: input.facility_ownership } : {}),
+          ...(input.schema_version ? { schemaVersion: input.schema_version } : {}),
+          ...(input.condition_category ? { conditionCategory: input.condition_category } : {}),
+          ...(input.child_age_band ? { childAgeBand: input.child_age_band } : {}),
+          ...(input.outcome_category ? { outcomeCategory: input.outcome_category } : {}),
+          // ── v3 event context ────────────────────────────────────────────────
+          ...(input.role_at_time_of_event ? { roleAtTimeOfEvent: input.role_at_time_of_event } : {}),
+          ...(input.provider_cadre ? { providerCadre: input.provider_cadre } : {}),
+          ...(input.report_track ? { reportTrack: input.report_track } : {}),
+          ...(input.event_id ? { eventId: input.event_id } : {}),
+          // ── v3 narrative and patterns ────────────────────────────────────────
+          ...(input.raw_narrative ? { rawNarrative: input.raw_narrative } : {}),
+          ...(input.failure_mode_codes?.length
+            ? { failureModeCodes: JSON.stringify(input.failure_mode_codes) }
+            : {}),
+          ...(input.temporal_intervals
+            ? { temporalIntervals: JSON.stringify(input.temporal_intervals) }
+            : {}),
         });
 
         const insertId = (insertResult as unknown as { insertId: number }).insertId;

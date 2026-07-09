@@ -173,6 +173,21 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   /** Form version used for submission — audit trail (migration 0037) */
   submissionVersion: varchar("submissionVersion", { length: 16 }).default("v1").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  // ── Care Signal v3 fields (migration 0056) ──────────────────────────────
+  country: varchar("country", { length: 2 }),
+  adminLevel1: varchar("admin_level_1", { length: 128 }),
+  facilityOwnership: varchar("facility_ownership", { length: 64 }),
+  schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
+  conditionCategory: varchar("condition_category", { length: 64 }),
+  childAgeBand: varchar("child_age_band", { length: 32 }),
+  outcomeCategory: varchar("outcome_category", { length: 64 }),
+  roleAtTimeOfEvent: varchar("role_at_time_of_event", { length: 64 }),
+  providerCadre: varchar("provider_cadre", { length: 64 }),
+  reportTrack: varchar("report_track", { length: 16 }).default("FAILURE").notNull(),
+  failureModeCodes: text("failure_mode_codes"),
+  rawNarrative: text("raw_narrative"),
+  temporalIntervals: text("temporal_intervals"),
+  eventId: varchar("event_id", { length: 36 }),
 });
 
 export type CareSignalEventRow = typeof careSignalEvents.$inferSelect;
