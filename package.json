@@ -99,7 +99,8 @@
     "db:apply-0055": "node scripts/apply-0055-cadre-hnd-msn.mjs",
     "db:apply-0056": "node scripts/apply-0056-care-signal-v3-columns.mjs",
     "db:apply-0057": "node scripts/apply-0057-fpkb-schema.mjs",
-    "db:apply-0058": "node scripts/apply-0058-fpkb-seed.mjs"
+    "db:apply-0058": "node scripts/apply-0058-fpkb-seed.mjs",
+    "db:apply-0059": "node scripts/apply-0059-global-facilities.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
