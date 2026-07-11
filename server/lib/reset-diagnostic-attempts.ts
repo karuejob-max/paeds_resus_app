@@ -45,7 +45,7 @@ export async function resetDiagnosticAttemptsForEnrollment(
   params: { userId: number; enrollmentId: number; quizId?: number; adminUserId: number }
 ): Promise<ResetDiagnosticResult> {
   void params.adminUserId;
-  const isMicro = await isMicroCourseEnrollmentId(db, params.enrollmentId);
+  const isMicro = await isMicroCourseEnrollmentId(db, params.enrollmentId, params.userId);
   const diagnosticQuizId =
     params.quizId ??
     (await resolveDiagnosticQuizIdForEnrollment(db, params.userId, params.enrollmentId, isMicro));
