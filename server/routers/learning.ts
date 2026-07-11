@@ -397,7 +397,7 @@ export const learningRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return null;
-      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id)) {
         return getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
       }
       return getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
@@ -445,7 +445,7 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
+      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
       const state = isMicro
         ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
         : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
@@ -500,7 +500,7 @@ export const learningRouter = router({
       const quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
       const answersMap = answersArrayToMap(input.answers);
 
-      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId);
+      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
       const state = isMicro
         ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
         : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
@@ -863,7 +863,7 @@ export const learningRouter = router({
       // markAhaCognitiveComplete internally checks all modules before setting the flag.
       await markAhaCognitiveComplete(input.enrollmentId);
 
-      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId)) {
+      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id)) {
         await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
       }
 

@@ -42,7 +42,7 @@ export async function resetSummativeAttemptsForEnrollment(
   params: { userId: number; enrollmentId: number; quizId?: number; adminUserId: number }
 ): Promise<ResetSummativeResult> {
   void params.adminUserId;
-  const isMicro = await isMicroCourseEnrollmentId(db, params.enrollmentId);
+  const isMicro = await isMicroCourseEnrollmentId(db, params.enrollmentId, params.userId);
   const summativeQuizId =
     params.quizId ??
     (await resolveSummativeQuizIdForEnrollment(db, params.userId, params.enrollmentId, isMicro));
