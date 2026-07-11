@@ -104,9 +104,22 @@ export async function syncMicroCourseEnrollmentProgress(
 }
 
 /** True when enrollmentId belongs to microCourseEnrollments (not AHA enrollments). */
-export async function isMicroCourseEnrollmentId(db: Db, enrollmentId: number): Promise<boolean> {
+export async function isMicroCourseEnrollmentId(db: Db, enrollmentId: number, userId: number): Promise<boolean> {
+  // IMPORTANT: `enrollments` (AHA courses) and `microCourseEnrollments` (micro-courses)
+  // are two separate tables that both auto-increment their `id` from 1. At scale,
+  // the same numeric id WILL exist in both tables for different users — e.g. AHA
+  // enrollment id=17 (Winjoy's ACLS enrollment) collided with a microCourseEnrollment
+  // id=17 belonging to a completely different user. Checking `id` alone, without also
+  // scoping to the current user, silently misroutes the quiz submission to the wrong
+  // table and produces a misleading "Enrollment not found" error. Scoping by userId
+  // here fixes the cross-user case, which was the overwhelming majority of real-world
+  // failures (see docs/WORK_STATUS.md for the investigation). A same-user collision
+  // (this learner has both an AHA enrollment and a micro-course enrollment sharing the
+  // same numeric id) is a rarer, separate edge case — the real long-term fix is for the
+  // client to send an explicit enrollment type alongside the id rather than relying on
+  // an id lookup to disambiguate at all.
   const row = await db.query.microCourseEnrollments.findFirst({
-    where: eq(microCourseEnrollments.id, enrollmentId),
+    where: and(eq(microCourseEnrollments.id, enrollmentId), eq(microCourseEnrollments.userId, userId)),
     columns: { id: true },
   });
   return !!row;
