@@ -102,6 +102,7 @@
     "db:apply-0057": "node scripts/apply-0057-fpkb-schema.mjs",
     "db:apply-0058": "node scripts/apply-0058-fpkb-seed.mjs",
     "db:apply-0059": "node scripts/apply-0059-global-facilities.mjs",
+    "db:backfill-0060": "node scripts/apply-0060-facilities-backfill.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
   "dependencies": {
