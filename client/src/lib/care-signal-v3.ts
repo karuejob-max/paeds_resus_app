@@ -281,7 +281,7 @@ export function buildCareSignalV3SubmitPayload(
   return {
     country: resolvedCountry,
     admin_level_1: form.admin_level_1 || facility.county || "",
-    facility_ownership: (facility as any).facilityOwnership ?? undefined,
+    facility_ownership: facility.facilityOwnership ?? undefined,
     schema_version: CARE_SIGNAL_SCHEMA_VERSION,
     condition_category: form.conditionCategory,
     child_age_band: form.childAgeBand,

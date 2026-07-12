@@ -19,6 +19,9 @@ export type FacilitySelection = {
   facilityName: string;
   county: string | null;
   country: string;
+  /** Present once this facility has been bridged to the unified facilities
+   *  table (see scripts/apply-0060-facilities-backfill.mjs) — null otherwise. */
+  facilityOwnership?: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
 };
 
 type Props = {
@@ -54,6 +57,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
         facilityName: r.facility.name,
         county: r.facility.county,
         country: r.facility.country,
+        facilityOwnership: r.facility.facilityOwnership,
       });
       setQuery(r.facility.name);
     },
@@ -84,12 +88,14 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
     name: string;
     county: string | null;
     country: string;
+    facilityOwnership?: FacilitySelection["facilityOwnership"];
   }) => {
     onChange({
       facilityId: r.id,
       facilityName: r.name,
       county: r.county,
       country: r.country,
+      facilityOwnership: r.facilityOwnership ?? null,
     });
     setQuery(r.name);
     void setMyFacility.mutate({ facilityId: r.id });

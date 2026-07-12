@@ -9,6 +9,7 @@ import {
   providerProfiles,
   institutionalAccounts,
   accreditedFacilities,
+  facilities,
 } from "../../drizzle/schema";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 
@@ -18,6 +19,17 @@ export type FacilitySearchResult = {
   county: string | null;
   country: string;
   badge: string;
+  /**
+   * Enrichment from the unified `facilities` table (migration 0059 + 0060
+   * backfill), joined via legacy_care_facility_id. Null until that facility
+   * has been bridged (see scripts/apply-0060-facilities-backfill.mjs) — most
+   * commonly because its country isn't yet ISO2-mapped, or Phase 2/3 syncs
+   * (healthsites.io / KMHFL) haven't run. Never guessed; genuinely unknown
+   * until then.
+   */
+  facilityOwnership: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
+  countryCode: string | null;
+  facilityLevelWho: string | null;
 };
 
 const OUTREACH_SLUG = "outreach-mobile";
@@ -45,8 +57,22 @@ export async function getFacilityById(facilityId: number) {
   if (!db) return null;
   const canonicalId = await resolveCanonicalFacilityId(facilityId);
   const [row] = await db
-    .select()
+    .select({
+      id: careFacilities.id,
+      name: careFacilities.name,
+      county: careFacilities.county,
+      country: careFacilities.country,
+      subCounty: careFacilities.subCounty,
+      facilityType: careFacilities.facilityType,
+      institutionalAccountId: careFacilities.institutionalAccountId,
+      isSystem: careFacilities.isSystem,
+      systemSlug: careFacilities.systemSlug,
+      facilityOwnership: facilities.facilityOwnership,
+      countryCode: facilities.countryCode,
+      facilityLevelWho: facilities.facilityLevelWho,
+    })
     .from(careFacilities)
+    .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
     .where(eq(careFacilities.id, canonicalId))
     .limit(1);
   return row ?? null;
@@ -170,8 +196,12 @@ export async function searchCareFacilities(input: {
       country: careFacilities.country,
       institutionalAccountId: careFacilities.institutionalAccountId,
       isSystem: careFacilities.isSystem,
+      facilityOwnership: facilities.facilityOwnership,
+      countryCode: facilities.countryCode,
+      facilityLevelWho: facilities.facilityLevelWho,
     })
     .from(careFacilities)
+    .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
     .where(and(...filters))
     .orderBy(desc(careFacilities.id))
     .limit(limit);
@@ -187,6 +217,9 @@ export async function searchCareFacilities(input: {
         : r.institutionalAccountId
           ? "Registered hospital"
           : "Community",
+      facilityOwnership: r.facilityOwnership,
+      countryCode: r.countryCode,
+      facilityLevelWho: r.facilityLevelWho,
     })),
   };
 }
