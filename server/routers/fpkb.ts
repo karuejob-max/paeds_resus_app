@@ -7,12 +7,21 @@
  * "system intelligence" surface per North Star v2.0 Stage 6 of the holistic
  * loop and FPKB_SCHEMA_V1.md.
  *
- * Scope of this first cut (deliberately minimal — see docs/WORK_STATUS.md):
+ * Scope (updated 2026-07-12, gap #3 — Knowledge Stewardship approval gate):
  *   - Read endpoints for failure modes, success factors, and patterns
  *     (public-readable: this is shared clinical knowledge, not PII).
+ *   - Admin-only pattern/recommendation creation (`createPattern`,
+ *     `createRecommendation`) — deliberately manual-curation-only for now.
+ *     There is no automated pattern-detection algorithm yet (gap #9,
+ *     depends on real Care Signal observation volume), so every pattern
+ *     created through this router today is expert/adaptive-evidence based,
+ *     not observational — `confidenceDimensions` and `evidenceBasis` should
+ *     say so explicitly rather than imply observational support that
+ *     doesn't exist yet.
  *   - Admin-only recommendation governance actions (approve/reject), which
  *     write to kb_governance_audit — the append-only table the schema
- *     requires for every governance decision.
+ *     requires for every governance decision. This is the gate North Star
+ *     names as non-negotiable: nothing here is auto-approved, ever.
  *   - Pattern detail (with its linked modes + supporting observation count).
  *
  * Deliberately NOT in this cut (needs its own scoped PR + your sign-off):
@@ -50,6 +59,7 @@ function newId(): string {
 async function logGovernanceAudit(params: {
   actorUserId: string;
   actionType:
+    | "PATTERN_CREATED"
     | "RECOMMENDATION_APPROVED"
     | "RECOMMENDATION_REJECTED"
     | "RECOMMENDATION_SUPERSEDED"
@@ -144,6 +154,130 @@ export const fpkbRouter = router({
         .where(eq(kbPatternObservations.patternId, input.patternId));
 
       return { pattern, modeLinks, observationCount: observationCount.length };
+    }),
+
+  /**
+   * Manually curate a new candidate pattern. Since there is no automated
+   * detector yet (gap #9), this is how a Knowledge Steward records something
+   * clinically well-established (e.g. "delayed septic shock recognition is a
+   * known recurring problem") as a first-class taxonomy entry, so it can
+   * carry recommendations through the same governance gate as anything the
+   * detector will eventually produce. `confidenceLevel` defaults to SIGNAL —
+   * deliberately the lowest rung; upgrading it is a separate, later review
+   * action (kb_review_schedule / kb_governance_audit), not something this
+   * mutation does itself.
+   */
+  createPattern: adminProcedure
+    .input(
+      z.object({
+        patternTrack: z.enum(["FAILURE", "SUCCESS"]),
+        patternCode: z.string().min(3).max(64),
+        patternName: z.string().min(3).max(512),
+        primaryDomain: z.enum([
+          "RECOGNITION", "ESCALATION", "VASCULAR_ACCESS", "TREATMENT",
+          "REFERRAL", "MONITORING", "COMMUNICATION", "RESOURCE_AVAILABILITY",
+        ]),
+        description: z.string().min(10).max(4000),
+        /** Free text explaining WHY this pattern is being recorded without
+         *  observational data yet — required, since that's the honest state. */
+        curationRationale: z.string().min(10).max(2000),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database unavailable" });
+      }
+      const id = newId();
+      const confidenceDimensions = JSON.stringify({
+        clinical: "expert_curated",
+        statistical: "none_yet",
+        external_evidence: "unspecified",
+        platform_replication: "none_yet",
+        geographic_diversity: "none_yet",
+        recency: new Date().toISOString(),
+        curation_rationale: input.curationRationale,
+      });
+
+      await db.insert(kbPatterns).values({
+        id,
+        patternTrack: input.patternTrack,
+        patternCode: input.patternCode,
+        patternName: input.patternName,
+        primaryDomain: input.primaryDomain,
+        description: input.description,
+        confidenceLevel: input.patternTrack === "FAILURE" ? "SIGNAL" : "CANDIDATE_SUCCESS",
+        confidenceDimensions,
+        supportingObservationCount: 0,
+        knowledgeStatus: "ACTIVE",
+        createdBy: String(ctx.user.id),
+      });
+
+      await logGovernanceAudit({
+        actorUserId: String(ctx.user.id),
+        actionType: "PATTERN_CREATED",
+        entityType: "PATTERN",
+        entityId: id,
+        newState: { patternCode: input.patternCode, patternName: input.patternName },
+        reasoning: input.curationRationale,
+      });
+
+      return { id };
+    }),
+
+  /**
+   * Draft a recommendation against an existing pattern. Always created as
+   * PENDING — it only becomes visible/actionable elsewhere in the platform
+   * once a separate admin calls `decideRecommendation` with APPROVED. This
+   * separation (draft vs. decide, by design allowed to be the same admin for
+   * now since there's only one engineering decision-maker, but modeled as
+   * two distinct actions so a real second-approver workflow can be added
+   * later without a schema change) is the actual "gate."
+   */
+  createRecommendation: adminProcedure
+    .input(
+      z.object({
+        sourcePatternId: z.string(),
+        recommendationCode: z.string().min(3).max(64),
+        recommendationType: z.enum([
+          "TRAINING", "PROCUREMENT", "PROTOCOL", "STAFFING",
+          "RESUSGPS_UPDATE", "CURRICULUM_UPDATE", "CARE_SIGNAL_RULE", "INSTITUTIONAL_PROCESS", "OTHER",
+        ]),
+        recommendationText: z.string().min(10).max(4000),
+        targetAudience: z.enum([
+          "INDIVIDUAL_PROVIDER", "FACILITY", "NETWORK", "MINISTRY", "CURRICULUM_TEAM", "RESUSGPS_TEAM",
+        ]),
+        evidenceBasisNotes: z.string().min(10).max(2000),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database unavailable" });
+      }
+      const [pattern] = await db.select().from(kbPatterns).where(eq(kbPatterns.id, input.sourcePatternId));
+      if (!pattern) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Source pattern not found" });
+      }
+
+      const id = newId();
+      await db.insert(kbRecommendations).values({
+        id,
+        sourcePatternId: input.sourcePatternId,
+        recommendationCode: input.recommendationCode,
+        recommendationType: input.recommendationType,
+        recommendationText: input.recommendationText,
+        targetAudience: input.targetAudience,
+        confidenceLevelAtGeneration: pattern.confidenceLevel,
+        evidenceBasis: JSON.stringify({
+          observational_count: pattern.supportingObservationCount,
+          notes: input.evidenceBasisNotes,
+        }),
+        governanceStatus: "PENDING",
+        createdBy: String(ctx.user.id),
+      });
+
+      return { id };
     }),
 
   /** Recommendations pending Knowledge Stewardship sign-off. Admin-only (governance role). */
