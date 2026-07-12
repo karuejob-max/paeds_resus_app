@@ -85,6 +85,7 @@ const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
+const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
 const AdminCareSignalReview = lazy(() => import("./pages/AdminCareSignalReview"));
 const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSignal"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
@@ -232,6 +233,11 @@ function Router() {
           <Route path="/admin/national-signal">{() => (
             <AdminGate>
               <NationalAggregateSignal />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/knowledge-stewardship">{() => (
+            <AdminGate>
+              <KnowledgeStewardship />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />
