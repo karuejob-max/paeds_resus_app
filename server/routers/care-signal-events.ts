@@ -7,6 +7,7 @@ import {
   analyticsEvents,
   careSignalEvents,
   providerProfiles,
+  microCourses,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
@@ -79,6 +80,52 @@ interface GapRecommendation {
   recommendation: string;
   priority: "high" | "medium" | "low";
   action: string;
+  /**
+   * Real, clickable micro-course links (gap-analysis #4 fix — this used to be
+   * static text naming courses that weren't actually linked to anything).
+   * Populated only for "Knowledge Gap" when a conditionCategory is known and
+   * matching published courses exist. Null/absent is honest, not a bug — not
+   * every condition category has a published course yet.
+   */
+  relatedCourses?: { courseId: string; title: string }[];
+}
+
+/**
+ * Care Signal's ConditionCategory taxonomy and microCourses.emergencyType
+ * predate each other and don't share an enum. This is a best-effort mapping,
+ * not a guarantee every condition has a course — NEONATAL and OTHER
+ * deliberately have no mapping rather than a wrong guess.
+ */
+const CONDITION_TO_EMERGENCY_TYPE: Partial<Record<string, typeof microCourses.$inferSelect["emergencyType"]>> = {
+  RESPIRATORY: "respiratory",
+  CARDIOVASCULAR: "shock",
+  NEUROLOGICAL: "seizure",
+  INFECTIOUS_BACTERIAL: "infectious",
+  INFECTIOUS_VIRAL: "infectious",
+  METABOLIC: "metabolic",
+  TRAUMA: "trauma",
+  POISONING: "toxicology",
+};
+
+async function getRelatedCourses(
+  conditionCategory: string | undefined
+): Promise<{ courseId: string; title: string }[]> {
+  if (!conditionCategory) return [];
+  const emergencyType = CONDITION_TO_EMERGENCY_TYPE[conditionCategory];
+  if (!emergencyType) return [];
+
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({ courseId: microCourses.courseId, title: microCourses.title, level: microCourses.level, order: microCourses.order })
+    .from(microCourses)
+    .where(and(eq(microCourses.emergencyType, emergencyType), eq(microCourses.isPublished, true)));
+
+  return rows
+    .sort((a, b) => (a.level === b.level ? (a.order ?? 0) - (b.order ?? 0) : a.level === "foundational" ? -1 : 1))
+    .slice(0, 2)
+    .map((r) => ({ courseId: r.courseId, title: r.title }));
 }
 
 const GAP_RECOMMENDATIONS: Record<string, GapRecommendation> = {
@@ -147,16 +194,23 @@ const GAP_RECOMMENDATIONS: Record<string, GapRecommendation> = {
   },
 };
 
-function buildRecommendations(
+async function buildRecommendations(
   systemGaps: string[],
   outcome: string,
-  eventType: string
-): GapRecommendation[] {
+  eventType: string,
+  conditionCategory?: string
+): Promise<GapRecommendation[]> {
   const recs: GapRecommendation[] = [];
+  const relatedCourses = await getRelatedCourses(conditionCategory);
 
   for (const gap of systemGaps) {
     const rec = GAP_RECOMMENDATIONS[gap];
-    if (rec) recs.push(rec);
+    if (!rec) continue;
+    if (gap === "Knowledge Gap" && relatedCourses.length > 0) {
+      recs.push({ ...rec, relatedCourses });
+    } else {
+      recs.push(rec);
+    }
   }
 
   if (outcome === "died" || outcome === "poor_outcome") {
@@ -185,6 +239,31 @@ function buildRecommendations(
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const careSignalEventsRouter = router({
+  /**
+   * Click-through measurement for Care Signal → Learning recommendations
+   * (gap-analysis #4). Call this when a provider clicks a recommended
+   * micro-course link from their post-submission feedback or gap analysis.
+   * Uses the existing generic analytics event log rather than a new table —
+   * this is a measurement signal, not a system of record.
+   */
+  logRecommendationCourseClick: protectedProcedure
+    .input(
+      z.object({
+        gap: z.string(),
+        courseId: z.string(),
+        careSignalEventId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      await trackEvent({
+        userId: ctx.user.id,
+        eventType: "care_signal_recommendation",
+        eventName: "course_click",
+        eventData: { gap: input.gap, courseId: input.courseId, careSignalEventId: input.careSignalEventId },
+      });
+      return { success: true };
+    }),
+
   /**
    * Log a Care Signal event (clinical staff) or parent-observation (parent Safe-Truth short-form).
    * Returns immediate recommendations so the confirmation modal can display actionable feedback.
@@ -397,10 +476,11 @@ export const careSignalEventsRouter = router({
           },
         });
 
-        const recommendations = buildRecommendations(
+        const recommendations = await buildRecommendations(
           input.systemGaps,
           input.outcome,
-          input.eventType
+          input.eventType,
+          input.condition_category
         );
 
         console.log("[Care Signal Event Logged]", {
@@ -696,6 +776,7 @@ export const careSignalEventsRouter = router({
             systemGaps: careSignalEvents.systemGaps,
             outcome: careSignalEvents.outcome,
             eventType: careSignalEvents.eventType,
+            conditionCategory: careSignalEvents.conditionCategory,
           })
           .from(careSignalEvents)
           .where(
@@ -708,10 +789,12 @@ export const careSignalEventsRouter = router({
         const gapCounts: Record<string, number> = {};
         const outcomes: string[] = [];
         const eventTypes: string[] = [];
+        const conditionCategories: string[] = [];
 
         for (const e of events) {
           outcomes.push(e.outcome);
           eventTypes.push(e.eventType);
+          if (e.conditionCategory) conditionCategories.push(e.conditionCategory);
           try {
             const gaps = JSON.parse(e.systemGaps) as string[];
             for (const g of gaps) {
@@ -736,10 +819,16 @@ export const careSignalEventsRouter = router({
         const mostCommonEventType =
           Object.entries(etCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
 
-        const recommendations = buildRecommendations(
+        const ccCounts: Record<string, number> = {};
+        for (const cc of conditionCategories) ccCounts[cc] = (ccCounts[cc] ?? 0) + 1;
+        const mostCommonConditionCategory =
+          Object.entries(ccCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+        const recommendations = await buildRecommendations(
           topGaps,
           worstOutcome,
-          mostCommonEventType
+          mostCommonEventType,
+          mostCommonConditionCategory
         );
 
         return {
@@ -862,16 +951,18 @@ export const careSignalEventsRouter = router({
         eventType: z.string(),
         systemGaps: z.array(z.string()),
         outcome: z.string(),
+        conditionCategory: z.string().optional(),
       })
     )
     .query(async ({ input, ctx }) => {
       try {
         assertCareSignalProviderOrAdmin(ctx.user);
 
-        const recommendations = buildRecommendations(
+        const recommendations = await buildRecommendations(
           input.systemGaps,
           input.outcome,
-          input.eventType
+          input.eventType,
+          input.conditionCategory
         );
 
         return {

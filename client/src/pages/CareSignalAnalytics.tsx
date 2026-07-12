@@ -19,7 +19,7 @@ import {
   Info,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { PAGE_BODY_MUTED } from "@/lib/readable-surfaces";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +113,19 @@ function StatCard({
 
 // ─── main component ──────────────────────────────────────────────────────────
 
+function RecommendedCourseLinkAnalytics({ gap, courseId, title }: { gap: string; courseId: string; title: string }) {
+  const logClick = trpc.careSignalEvents.logRecommendationCourseClick.useMutation();
+  return (
+    <Link
+      href={`/micro-course/${courseId}`}
+      onClick={() => logClick.mutate({ gap, courseId })}
+      className="inline-flex items-center gap-1 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-800 hover:bg-teal-100 transition-colors dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-200"
+    >
+      {title} →
+    </Link>
+  );
+}
+
 export default function CareSignalAnalytics() {
   const [activeTab, setActiveTab] = useState("overview");
   const [, setLocation] = useLocation();
@@ -150,6 +163,10 @@ export default function CareSignalAnalytics() {
   // Derive recommendations from most common gap in stats
   const mostCommonGap = stats?.mostCommonGap ?? "";
   const hasGapData = mostCommonGap && mostCommonGap !== "N/A";
+  // Real course links (gap-analysis #4) — reuse recommendations already fetched via gapQ
+  // rather than reinventing the Knowledge Gap → course mapping on the client.
+  const knowledgeGapCourses =
+    gapQ.data?.recommendations?.find((r: any) => r.gap === "Knowledge Gap")?.relatedCourses ?? [];
 
   // ── export handler ──
   const handleExport = () => {
@@ -626,10 +643,18 @@ export default function CareSignalAnalytics() {
                           system gap. This pattern suggests a systemic issue at your facility
                           that warrants escalation to your quality improvement team.
                         </p>
-                        <div className={cn("flex items-center gap-1 text-xs font-semibold mt-2", NOTE_TEXT)}>
-                          <ArrowRight className="w-3 h-3" />
-                          Document this gap in your facility QI log and request a root cause analysis.
-                        </div>
+                        {mostCommonGap === "Knowledge Gap" && knowledgeGapCourses.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {knowledgeGapCourses.map((c) => (
+                              <RecommendedCourseLinkAnalytics key={c.courseId} gap={mostCommonGap} courseId={c.courseId} title={c.title} />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={cn("flex items-center gap-1 text-xs font-semibold mt-2", NOTE_TEXT)}>
+                            <ArrowRight className="w-3 h-3" />
+                            Document this gap in your facility QI log and request a root cause analysis.
+                          </div>
+                        )}
                       </div>
                     )}
 
