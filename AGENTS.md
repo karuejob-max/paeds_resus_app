@@ -55,6 +55,10 @@ Work is **NOT done** until:
 
 Loop: read AGENTS + WORK_STATUS + PSOT → implement → check / test:unit / build → PR → merge when CI passes → update WORK_STATUS. Quiz/content appendix: [CONTENT_HOTFIX_PLAYBOOK.md](docs/CONTENT_HOTFIX_PLAYBOOK.md).
 
+### Active engineering priorities
+
+**Before starting new work not already assigned to you, check `docs/WORK_STATUS.md` → "Active Gap Remediation Queue"** — a prioritized, dated list derived from a full gap analysis against the five constitutional documents (North Star, Observation Architecture, FPKB Schema, Event Models, Financial Strategy). It tracks what's shipped and what's next in priority order. Don't re-derive priorities from scratch or duplicate work already queued there.
+
 ### Lessons learned (for agents)
 
 High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md).
