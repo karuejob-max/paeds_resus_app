@@ -38,6 +38,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
 import { FacilityPicker, type FacilitySelection } from "@/components/FacilityPicker";
 import { cn } from "@/lib/utils";
 import { getTrpcErrorMessage } from "@/lib/trpc-errors";
@@ -70,6 +71,30 @@ const OPT_SUC_SEL = "flex items-start space-x-3 rounded-lg border border-green-4
 const SLABEL = "text-sm font-semibold text-slate-700 mb-2 block";
 const HINT = "text-xs text-slate-500 mt-1";
 
+// ── Recommended course link (gap-analysis #4: real links + click tracking) ──
+function RecommendedCourseLink({
+  gap,
+  courseId,
+  title,
+  careSignalEventId,
+}: {
+  gap: string;
+  courseId: string;
+  title: string;
+  careSignalEventId?: string;
+}) {
+  const logClick = trpc.careSignalEvents.logRecommendationCourseClick.useMutation();
+  return (
+    <Link
+      href={`/micro-course/${courseId}`}
+      onClick={() => logClick.mutate({ gap, courseId, careSignalEventId })}
+      className="inline-flex items-center gap-1 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-800 hover:bg-teal-100 transition-colors"
+    >
+      {title} →
+    </Link>
+  );
+}
+
 // ── Post-submission feedback ──────────────────────────────────────────────────
 function PostSubmissionFeedback({
   submissionId,
@@ -83,7 +108,13 @@ function PostSubmissionFeedback({
   submissionId: string;
   reportTrack: "FAILURE" | "SUCCESS";
   failureDomains: FailureDomain[];
-  recommendations: Array<{ gap: string; recommendation: string; priority: "high" | "medium" | "low"; action: string }>;
+  recommendations: Array<{
+    gap: string;
+    recommendation: string;
+    priority: "high" | "medium" | "low";
+    action: string;
+    relatedCourses?: { courseId: string; title: string }[];
+  }>;
   eventCode: string;
   onFileOtherSide: () => void;
   onClose: () => void;
@@ -142,6 +173,19 @@ function PostSubmissionFeedback({
           : "border-blue-200 bg-blue-50 text-blue-900")}>
           <p className="font-medium text-xs mb-1">{rec.gap}</p>
           <p className="text-xs leading-relaxed">{rec.recommendation}</p>
+          {rec.relatedCourses && rec.relatedCourses.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {rec.relatedCourses.map((c) => (
+                <RecommendedCourseLink
+                  key={c.courseId}
+                  gap={rec.gap}
+                  courseId={c.courseId}
+                  title={c.title}
+                  careSignalEventId={submissionId}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ))}
 
