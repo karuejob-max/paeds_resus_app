@@ -38,6 +38,7 @@
     "db:apply-0031": "node scripts/apply-0031-care-signal-events.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
+    "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",
     "quiz:verify-answer": "node scripts/verify-quiz-answer.mjs",
     "quiz:fix-dka-fluid-bolus": "node scripts/fix-dka-q1-answer.mjs",
     "seed:fellowship-content": "tsx --import dotenv/config scripts/seed-fellowship-content.ts",

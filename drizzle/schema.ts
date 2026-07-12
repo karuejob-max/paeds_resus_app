@@ -2950,3 +2950,289 @@ export const facilities = mysqlTable("facilities", {
 
 export type FacilityRow = typeof facilities.$inferSelect;
 export type InsertFacility = typeof facilities.$inferInsert;
+
+/**
+ * Failure Pattern Knowledge Base (FPKB) — Drizzle bindings for the 11 `kb_` tables
+ * created by migration 0057 (scripts/apply-0057-fpkb-schema.mjs) and seeded by
+ * migration 0058. Implements FPKB_SCHEMA_V1.md §5.3 and North Star v2.0 Stage 6
+ * of the holistic loop ("System intelligence → Knowledge Base").
+ *
+ * These tables already exist in production. This block does not change schema —
+ * it gives the application (routers, UI) typed read/write access to data that,
+ * until now, only existed as raw rows nobody queried.
+ */
+
+const KB_FAILURE_DOMAINS = [
+  "RECOGNITION", "ESCALATION", "VASCULAR_ACCESS", "TREATMENT",
+  "REFERRAL", "MONITORING", "COMMUNICATION", "RESOURCE_AVAILABILITY",
+] as const;
+
+export const kbFailureModes = mysqlTable("kb_failure_modes", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  failureModeCode: varchar("failure_mode_code", { length: 64 }).notNull().unique(),
+  failureDomain: mysqlEnum("failure_domain", KB_FAILURE_DOMAINS).notNull(),
+  failureModeName: varchar("failure_mode_name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  /** JSON array of condition_category values. */
+  conditionCategories: text("condition_categories"),
+  taxonomyVersion: varchar("taxonomy_version", { length: 16 }).default("1.0").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  retiredAt: timestamp("retired_at"),
+  retiredReason: text("retired_reason"),
+});
+export type KbFailureMode = typeof kbFailureModes.$inferSelect;
+export type InsertKbFailureMode = typeof kbFailureModes.$inferInsert;
+
+export const kbSuccessFactors = mysqlTable("kb_success_factors", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  successFactorCode: varchar("success_factor_code", { length: 64 }).notNull().unique(),
+  successDomain: mysqlEnum("success_domain", KB_FAILURE_DOMAINS).notNull(),
+  successFactorName: varchar("success_factor_name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  conditionCategories: text("condition_categories"),
+  taxonomyVersion: varchar("taxonomy_version", { length: 16 }).default("1.0").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  retiredAt: timestamp("retired_at"),
+  retiredReason: text("retired_reason"),
+});
+export type KbSuccessFactor = typeof kbSuccessFactors.$inferSelect;
+export type InsertKbSuccessFactor = typeof kbSuccessFactors.$inferInsert;
+
+export const kbPatterns = mysqlTable("kb_patterns", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  patternTrack: mysqlEnum("pattern_track", ["FAILURE", "SUCCESS"]).notNull(),
+  patternCode: varchar("pattern_code", { length: 64 }).notNull().unique(),
+  patternName: varchar("pattern_name", { length: 512 }).notNull(),
+  primaryDomain: mysqlEnum("primary_domain", KB_FAILURE_DOMAINS).notNull(),
+  description: text("description").notNull(),
+  confidenceLevel: mysqlEnum("confidence_level", [
+    "SIGNAL", "CANDIDATE", "CONFIRMED", "ESTABLISHED",
+    "CANDIDATE_SUCCESS", "EMERGING_SUCCESS", "VALIDATED_SUCCESS", "STANDARD_PRACTICE",
+  ]).default("SIGNAL").notNull(),
+  /** JSON: {clinical, statistical, external_evidence, platform_replication, geographic_diversity, recency} */
+  confidenceDimensions: text("confidence_dimensions").notNull(),
+  supportingObservationCount: int("supporting_observation_count").default(0).notNull(),
+  firstDetectedAt: timestamp("first_detected_at"),
+  lastConfirmedAt: timestamp("last_confirmed_at"),
+  trendDirection: mysqlEnum("trend_direction", ["INCREASING", "DECREASING", "STABLE", "INSUFFICIENT_DATA"]),
+  /** JSON array of country codes. */
+  geographicScope: text("geographic_scope"),
+  /** JSON array of admin_level_1 values. */
+  adminScope: text("admin_scope"),
+  /** JSON array of condition_category values. */
+  conditionScope: text("condition_scope"),
+  facilityLevelScope: text("facility_level_scope"),
+  cadreScope: text("cadre_scope"),
+  /** JSON: {L0,L1,L2,L3,L4,L5: count} */
+  preventabilityDistribution: text("preventability_distribution"),
+  taxonomyVersion: varchar("taxonomy_version", { length: 16 }).default("1.0").notNull(),
+  knowledgeStatus: mysqlEnum("knowledge_status", ["ACTIVE", "UNDER_REVIEW", "RETIRED"]).default("ACTIVE").notNull(),
+  reviewDueAt: timestamp("review_due_at"),
+  retiredAt: timestamp("retired_at"),
+  retiredReason: text("retired_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  createdBy: varchar("created_by", { length: 36 }).default("system").notNull(),
+});
+export type KbPattern = typeof kbPatterns.$inferSelect;
+export type InsertKbPattern = typeof kbPatterns.$inferInsert;
+
+export const kbPatternModes = mysqlTable("kb_pattern_modes", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  patternId: varchar("pattern_id", { length: 36 }).notNull(),
+  /** FK to kb_failure_modes.id OR kb_success_factors.id, disambiguated by modeTrack. */
+  modeId: varchar("mode_id", { length: 36 }).notNull(),
+  modeTrack: mysqlEnum("mode_track", ["FAILURE", "SUCCESS"]).notNull(),
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  sequencePosition: int("sequence_position"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type KbPatternMode = typeof kbPatternModes.$inferSelect;
+export type InsertKbPatternMode = typeof kbPatternModes.$inferInsert;
+
+export const kbPatternObservations = mysqlTable("kb_pattern_observations", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  patternId: varchar("pattern_id", { length: 36 }).notNull(),
+  observationSource: mysqlEnum("observation_source", [
+    "CARE_SIGNAL", "SAFE_TRUTH", "RESUSGPS", "ASSESSMENT", "INSTITUTIONAL_AUDIT",
+  ]).notNull(),
+  /** Soft reference — not a DB FK (cross-table flexibility). */
+  observationId: varchar("observation_id", { length: 36 }).notNull(),
+  /** careSignalEvents | parentSafeTruthSubmissions | resusGPSCases | etc. */
+  observationTable: varchar("observation_table", { length: 64 }).notNull(),
+  country: varchar("country", { length: 2 }),
+  adminLevel1: varchar("admin_level_1", { length: 128 }),
+  facilityLevel: varchar("facility_level", { length: 32 }),
+  conditionCategory: varchar("condition_category", { length: 64 }),
+  /** EAT YYYY-MM. */
+  observationPeriod: varchar("observation_period", { length: 7 }).notNull(),
+  linkedAt: timestamp("linked_at").defaultNow().notNull(),
+  linkedBy: varchar("linked_by", { length: 36 }).default("system").notNull(),
+  taxonomyVersionAtLink: varchar("taxonomy_version_at_link", { length: 16 }).default("1.0").notNull(),
+});
+export type KbPatternObservation = typeof kbPatternObservations.$inferSelect;
+export type InsertKbPatternObservation = typeof kbPatternObservations.$inferInsert;
+
+export const kbEvidenceLinks = mysqlTable("kb_evidence_links", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  patternId: varchar("pattern_id", { length: 36 }).notNull(),
+  evidenceSourceType: mysqlEnum("evidence_source_type", ["OBSERVATIONAL", "EXPERIMENTAL", "EXPERT", "ADAPTIVE"]).notNull(),
+  evidenceDescription: text("evidence_description").notNull(),
+  evidenceDirection: mysqlEnum("evidence_direction", ["SUPPORTS", "CHALLENGES", "NEUTRAL", "SUPERSEDES"]).notNull(),
+  citation: text("citation"),
+  guidelineBody: varchar("guideline_body", { length: 255 }),
+  guidelineYear: int("guideline_year"),
+  lmicApplicability: mysqlEnum("lmic_applicability", ["HIGH", "MODERATE", "LOW", "NOT_ASSESSED"]),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+  addedBy: varchar("added_by", { length: 36 }).notNull(),
+});
+export type KbEvidenceLink = typeof kbEvidenceLinks.$inferSelect;
+export type InsertKbEvidenceLink = typeof kbEvidenceLinks.$inferInsert;
+
+export const kbRecommendations = mysqlTable("kb_recommendations", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  sourcePatternId: varchar("source_pattern_id", { length: 36 }).notNull(),
+  recommendationCode: varchar("recommendation_code", { length: 64 }).notNull(),
+  recommendationType: mysqlEnum("recommendation_type", [
+    "TRAINING", "PROCUREMENT", "PROTOCOL", "STAFFING",
+    "RESUSGPS_UPDATE", "CURRICULUM_UPDATE", "CARE_SIGNAL_RULE", "INSTITUTIONAL_PROCESS", "OTHER",
+  ]).notNull(),
+  recommendationText: text("recommendation_text").notNull(),
+  targetAudience: mysqlEnum("target_audience", [
+    "INDIVIDUAL_PROVIDER", "FACILITY", "NETWORK", "MINISTRY", "CURRICULUM_TEAM", "RESUSGPS_TEAM",
+  ]).notNull(),
+  confidenceLevelAtGeneration: varchar("confidence_level_at_generation", { length: 64 }).notNull(),
+  /** JSON: {observational_count, experimental_references, expert_references, adaptive_evidence} */
+  evidenceBasis: text("evidence_basis").notNull(),
+  governanceStatus: mysqlEnum("governance_status", ["PENDING", "APPROVED", "REJECTED", "SUPERSEDED"]).default("PENDING").notNull(),
+  governanceApprovedBy: varchar("governance_approved_by", { length: 36 }),
+  governanceApprovedAt: timestamp("governance_approved_at"),
+  governanceNotes: text("governance_notes"),
+  supersededById: varchar("superseded_by_id", { length: 36 }),
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by", { length: 36 }).default("system").notNull(),
+});
+export type KbRecommendation = typeof kbRecommendations.$inferSelect;
+export type InsertKbRecommendation = typeof kbRecommendations.$inferInsert;
+
+export const kbInterventions = mysqlTable("kb_interventions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  recommendationId: varchar("recommendation_id", { length: 36 }).notNull(),
+  committingEntityType: mysqlEnum("committing_entity_type", [
+    "FACILITY", "NETWORK", "MINISTRY", "TRAINING_INSTITUTION", "OTHER",
+  ]).notNull(),
+  /** facility UUID or other entity ID — never a facility name. */
+  committingEntityId: varchar("committing_entity_id", { length: 36 }).notNull(),
+  interventionScope: mysqlEnum("intervention_scope", ["ED_ONLY", "WARD", "HOSPITAL_WIDE", "NETWORK", "NATIONAL"]).notNull(),
+  interventionDescription: text("intervention_description").notNull(),
+  plannedImplementationDate: date("planned_implementation_date"),
+  definedOutcomeMeasure: text("defined_outcome_measure").notNull(),
+  evaluationWindowMonths: int("evaluation_window_months").default(6).notNull(),
+  interventionStatus: mysqlEnum("intervention_status", ["PLANNED", "IN_PROGRESS", "COMPLETED", "ABANDONED"]).default("PLANNED").notNull(),
+  statusUpdatedAt: timestamp("status_updated_at"),
+  abandonmentReason: text("abandonment_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by", { length: 36 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type KbIntervention = typeof kbInterventions.$inferSelect;
+export type InsertKbIntervention = typeof kbInterventions.$inferInsert;
+
+export const kbImplementations = mysqlTable("kb_implementations", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  interventionId: varchar("intervention_id", { length: 36 }).notNull(),
+  actualImplementationDate: date("actual_implementation_date"),
+  actualScope: mysqlEnum("actual_scope", ["ED_ONLY", "WARD", "HOSPITAL_WIDE", "NETWORK", "NATIONAL"]),
+  modificationsFromPlan: text("modifications_from_plan"),
+  implementationFidelity: mysqlEnum("implementation_fidelity", ["HIGH", "PARTIAL", "LOW", "NOT_IMPLEMENTED"]),
+  /** NEVER auto-assigned — requires human Knowledge Stewardship review. */
+  outcomeLabel: mysqlEnum("outcome_label", ["IMPROVED", "NO_IMPROVEMENT", "WORSENED", "EVALUATION_PENDING"]),
+  outcomeEvidenceNotes: text("outcome_evidence_notes"),
+  /** JSON array of observation IDs. */
+  outcomeObservationIds: text("outcome_observation_ids"),
+  outcomeRecordedAt: timestamp("outcome_recorded_at"),
+  outcomeRecordedBy: varchar("outcome_recorded_by", { length: 36 }),
+  confidenceImpactApplied: boolean("confidence_impact_applied").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by", { length: 36 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type KbImplementation = typeof kbImplementations.$inferSelect;
+export type InsertKbImplementation = typeof kbImplementations.$inferInsert;
+
+export const kbReviewSchedule = mysqlTable("kb_review_schedule", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  patternId: varchar("pattern_id", { length: 36 }).notNull(),
+  reviewDueAt: timestamp("review_due_at").notNull(),
+  reviewType: mysqlEnum("review_type", [
+    "SCHEDULED", "TRIGGERED_BY_NEW_EVIDENCE", "TRIGGERED_BY_CONCEPT_DRIFT", "MANUAL",
+  ]).notNull(),
+  reviewStatus: mysqlEnum("review_status", ["PENDING", "IN_PROGRESS", "COMPLETED", "DEFERRED"]).default("PENDING").notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by", { length: 36 }),
+  reviewOutcome: mysqlEnum("review_outcome", [
+    "CONFIDENCE_MAINTAINED", "CONFIDENCE_UPGRADED", "CONFIDENCE_DOWNGRADED",
+    "PATTERN_RETIRED", "PATTERN_SPLIT", "DEFERRED_TO_NEXT_CYCLE",
+  ]),
+  reviewNotes: text("review_notes"),
+  nextReviewDueAt: timestamp("next_review_due_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type KbReviewScheduleRow = typeof kbReviewSchedule.$inferSelect;
+export type InsertKbReviewSchedule = typeof kbReviewSchedule.$inferInsert;
+
+export const kbContentVersions = mysqlTable("kb_content_versions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  contentType: mysqlEnum("content_type", [
+    "RESUSGPS_PATHWAY", "MICROCOURSE_CONTENT", "CARE_SIGNAL_RULE",
+    "FELLOWSHIP_CURRICULUM", "ERS_STANDARD", "OTHER",
+  ]).notNull(),
+  contentIdentifier: varchar("content_identifier", { length: 255 }).notNull(),
+  contentVersion: varchar("content_version", { length: 32 }).notNull(),
+  changeDescription: text("change_description").notNull(),
+  /** JSON array of kb_patterns.id. */
+  sourcePatternIds: text("source_pattern_ids"),
+  /** JSON array of kb_recommendations.id. */
+  sourceRecommendationIds: text("source_recommendation_ids"),
+  externalGuidelineReference: text("external_guideline_reference"),
+  knowledgeStewardshipApprovedBy: varchar("knowledge_stewardship_approved_by", { length: 36 }).notNull(),
+  knowledgeStewardshipApprovedAt: timestamp("knowledge_stewardship_approved_at").notNull(),
+  deployedAt: timestamp("deployed_at"),
+  deprecatedAt: timestamp("deprecated_at"),
+  deprecatedByVersionId: varchar("deprecated_by_version_id", { length: 36 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type KbContentVersion = typeof kbContentVersions.$inferSelect;
+export type InsertKbContentVersion = typeof kbContentVersions.$inferInsert;
+
+/** Append-only — no UPDATE or DELETE ever permitted on this table. */
+export const kbGovernanceAudit = mysqlTable("kb_governance_audit", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  /** "system" for automated actions. */
+  actorUserId: varchar("actor_user_id", { length: 36 }).notNull(),
+  actionType: mysqlEnum("action_type", [
+    "PATTERN_CREATED", "PATTERN_CONFIDENCE_CHANGED", "PATTERN_RETIRED", "PATTERN_REINSTATED",
+    "RECOMMENDATION_APPROVED", "RECOMMENDATION_REJECTED", "RECOMMENDATION_SUPERSEDED",
+    "CONTENT_VERSION_APPROVED", "CONTENT_VERSION_DEPLOYED",
+    "IMPLEMENTATION_OUTCOME_LABELLED", "REVIEW_COMPLETED", "OTHER",
+  ]).notNull(),
+  entityType: mysqlEnum("entity_type", [
+    "PATTERN", "FAILURE_MODE", "SUCCESS_FACTOR", "RECOMMENDATION",
+    "INTERVENTION", "IMPLEMENTATION", "CONTENT_VERSION", "REVIEW",
+  ]).notNull(),
+  entityId: varchar("entity_id", { length: 36 }).notNull(),
+  /** JSON — null for creation actions. */
+  previousState: text("previous_state"),
+  /** JSON — null for deletion actions. */
+  newState: text("new_state"),
+  reasoning: text("reasoning"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type KbGovernanceAuditRow = typeof kbGovernanceAudit.$inferSelect;
+export type InsertKbGovernanceAudit = typeof kbGovernanceAudit.$inferInsert;

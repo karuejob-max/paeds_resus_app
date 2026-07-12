@@ -84,6 +84,7 @@ const CourseInstructor = lazy(() => import("./pages/CourseInstructor"));
 const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
+const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const AdminCareSignalReview = lazy(() => import("./pages/AdminCareSignalReview"));
 const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSignal"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
@@ -268,6 +269,11 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/safe-truth-analytics">{() => <Redirect to="/care-signal-analytics" />}</Route>
+          <Route path="/failure-pattern-atlas">{() => (
+            <RoleGate allowed={["provider", "institution"]}>
+              <FailurePatternAtlas />
+            </RoleGate>
+          )}</Route>
           <Route path="/enroll">{() => (
             <RoleGate allowed={["provider"]}>
               <Enroll />

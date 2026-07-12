@@ -127,6 +127,7 @@ import { contentSafetyRouter } from "./routers/content-safety";
 import { adminFeedbackRouter } from "./routers/platform-feedback";
 import { adminLearningRouter } from "./routers/admin-learning";
 import { practiceLabRouter } from "./routers/practice-lab";
+import { fpkbRouter } from "./routers/fpkb";
 
 export const appRouter = router({
   system: systemRouter,
@@ -448,6 +449,7 @@ export const appRouter = router({
   adminStats: adminStatsRouter,
   adminLearning: adminLearningRouter,
   facilities: facilitiesRouter,
+  fpkb: fpkbRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
   cne: cneRouter,
