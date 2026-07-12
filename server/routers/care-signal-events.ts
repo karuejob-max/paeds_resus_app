@@ -48,21 +48,21 @@ function startOfMonthEAT(year: number, month: number): Date {
 }
 
 /** Number of days to look back for a given timeframe label. */
-function daysBackForTimeframe(timeframe: "week" | "month" | "quarter" | "year"): number {
+export function daysBackForTimeframe(timeframe: "week" | "month" | "quarter" | "year"): number {
   return timeframe === "week" ? 7
     : timeframe === "month" ? 30
     : timeframe === "quarter" ? 90
     : 365;
 }
 
-interface GapCategoryStat {
+export interface GapCategoryStat {
   category: string;
   count: number;
   percentage: number;
 }
 
 /** Convert raw gap counts to the array shape the analytics UI expects. */
-function gapCountsToArray(gapCounts: Record<string, number>): GapCategoryStat[] {
+export function gapCountsToArray(gapCounts: Record<string, number>): GapCategoryStat[] {
   const total = Object.values(gapCounts).reduce((sum, count) => sum + count, 0);
   return Object.entries(gapCounts)
     .sort((a, b) => b[1] - a[1])
@@ -75,7 +75,7 @@ function gapCountsToArray(gapCounts: Record<string, number>): GapCategoryStat[] 
 
 // ─── Dynamic recommendation engine ──────────────────────────────────────────
 
-interface GapRecommendation {
+export interface GapRecommendation {
   gap: string;
   recommendation: string;
   priority: "high" | "medium" | "low";
@@ -194,7 +194,7 @@ const GAP_RECOMMENDATIONS: Record<string, GapRecommendation> = {
   },
 };
 
-async function buildRecommendations(
+export async function buildRecommendations(
   systemGaps: string[],
   outcome: string,
   eventType: string,
