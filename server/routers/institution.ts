@@ -20,9 +20,17 @@ import {
   enrollments,
   careFacilities,
   kmhflFacilities,
+  careSignalEvents,
 } from "../../drizzle/schema";
+import {
+  daysBackForTimeframe,
+  gapCountsToArray,
+  buildRecommendations,
+  type GapCategoryStat,
+  type GapRecommendation,
+} from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess } from "../lib/institution-access";
@@ -1803,6 +1811,145 @@ export const institutionRouter = router({
       }
 
       return { success: true, id: input.id, status: toStatus };
+    }),
+
+  /**
+   * Facility-level Care Signal gap rollup (gap-analysis #5). Same aggregation
+   * logic as an individual provider's getGapAnalysis, but scoped to every
+   * facility this institution owns — this is the "institutional action"
+   * stage of North Star's holistic loop (Stage 5), which until now only had
+   * a manual "type in a gap you noticed" flow (createActionLog below), not
+   * anything actually driven by the Care Signal data itself.
+   *
+   * Privacy: mirrors the ≥5-event anonymisation threshold already used for
+   * platform-wide aggregates elsewhere in care-signal-events.ts. Below that,
+   * a facility-level breakdown risks identifying which individual provider
+   * filed a report, so the detailed breakdown is suppressed (total count and
+   * reporter count still shown — that much is already visible to an
+   * institutional admin by definition of running the query).
+   */
+  getFacilityGapAnalysis: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        timeframe: z.enum(["week", "month", "quarter", "year"]).default("month"),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const ANONYMIZATION_THRESHOLD = 5;
+
+      const facilityRows = await db
+        .select({ id: careFacilities.id, name: careFacilities.name })
+        .from(careFacilities)
+        .where(
+          and(
+            eq(careFacilities.institutionalAccountId, input.institutionId),
+            isNull(careFacilities.mergedIntoId)
+          )
+        );
+
+      const facilityIds = facilityRows.map((f) => f.id);
+      if (facilityIds.length === 0) {
+        return {
+          success: true,
+          timeframe: input.timeframe,
+          totalEvents: 0,
+          uniqueReporters: 0,
+          suppressed: false,
+          gaps: [] as GapCategoryStat[],
+          recommendations: [] as GapRecommendation[],
+          byFacility: [] as { facilityId: number; facilityName: string; eventCount: number }[],
+        };
+      }
+
+      const since = new Date(Date.now() - daysBackForTimeframe(input.timeframe) * 86_400_000);
+
+      const events = await db
+        .select({
+          systemGaps: careSignalEvents.systemGaps,
+          outcome: careSignalEvents.outcome,
+          eventType: careSignalEvents.eventType,
+          conditionCategory: careSignalEvents.conditionCategory,
+          facilityId: careSignalEvents.facilityId,
+          userId: careSignalEvents.userId,
+        })
+        .from(careSignalEvents)
+        .where(and(inArray(careSignalEvents.facilityId, facilityIds), gte(careSignalEvents.createdAt, since)));
+
+      const totalEvents = events.length;
+      const uniqueReporters = new Set(events.map((e) => e.userId)).size;
+
+      if (totalEvents < ANONYMIZATION_THRESHOLD) {
+        return {
+          success: true,
+          timeframe: input.timeframe,
+          totalEvents,
+          uniqueReporters,
+          suppressed: true,
+          suppressionReason: `Fewer than ${ANONYMIZATION_THRESHOLD} Care Signal events across your facility/facilities in this timeframe — a detailed breakdown would risk identifying an individual provider's report. Try a longer timeframe.`,
+          gaps: [] as GapCategoryStat[],
+          recommendations: [] as GapRecommendation[],
+          byFacility: [] as { facilityId: number; facilityName: string; eventCount: number }[],
+        };
+      }
+
+      const gapCounts: Record<string, number> = {};
+      const outcomes: string[] = [];
+      const eventTypes: string[] = [];
+      const conditionCategories: string[] = [];
+      const perFacilityCounts: Record<number, number> = {};
+
+      for (const e of events) {
+        outcomes.push(e.outcome);
+        eventTypes.push(e.eventType);
+        if (e.conditionCategory) conditionCategories.push(e.conditionCategory);
+        if (e.facilityId) perFacilityCounts[e.facilityId] = (perFacilityCounts[e.facilityId] ?? 0) + 1;
+        try {
+          const gaps = JSON.parse(e.systemGaps) as string[];
+          for (const g of gaps) gapCounts[g] = (gapCounts[g] ?? 0) + 1;
+        } catch { /* skip */ }
+      }
+
+      const gaps = gapCountsToArray(gapCounts);
+
+      const worstOutcome = outcomes.includes("died")
+        ? "died"
+        : outcomes.includes("poor_outcome")
+        ? "poor_outcome"
+        : outcomes[0] ?? "unknown";
+
+      const etCounts: Record<string, number> = {};
+      for (const et of eventTypes) etCounts[et] = (etCounts[et] ?? 0) + 1;
+      const mostCommonEventType = Object.entries(etCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
+
+      const ccCounts: Record<string, number> = {};
+      for (const cc of conditionCategories) ccCounts[cc] = (ccCounts[cc] ?? 0) + 1;
+      const mostCommonConditionCategory = Object.entries(ccCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+      const topGaps = gaps.slice(0, 5).map((g) => g.category);
+      const recommendations = await buildRecommendations(topGaps, worstOutcome, mostCommonEventType, mostCommonConditionCategory);
+
+      const byFacility = facilityRows
+        .map((f) => ({ facilityId: f.id, facilityName: f.name, eventCount: perFacilityCounts[f.id] ?? 0 }))
+        .filter((f) => facilityRows.length === 1 || f.eventCount >= ANONYMIZATION_THRESHOLD)
+        .sort((a, b) => b.eventCount - a.eventCount);
+
+      return {
+        success: true,
+        timeframe: input.timeframe,
+        totalEvents,
+        uniqueReporters,
+        suppressed: false,
+        gaps,
+        recommendations,
+        byFacility,
+      };
     }),
 
   /** Open action log entries auto-created from Care Signal submissions — for dashboard alerts. */
