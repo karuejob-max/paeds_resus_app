@@ -37,7 +37,7 @@ This schedule defines **how long** Paeds Resus Limited retains categories of per
 | **Password hash** | `users` | Same as account | Deleted with account | Overwrite | Engineering |
 | **Terms/privacy consent** | `users` / `legalConsent` | Consent columns | Account + **6 years** | Archive with account | Engineering |
 | **Care Signal consent** | DB + localStorage | consent fields | Account + **6 years** | With account | Engineering |
-| **Care Signal events** | `careSignalEvents` | **7 years** from `createdAt` | Batch purge job (TBD) | Ops |
+| **Care Signal events** | `careSignalEvents` | **7 years** from `createdAt` | Anonymise (userId → null, raw_narrative redacted) — never hard-deleted, see §4.1 | Ops |
 | **Safe-Truth events** | Safe-Truth tables | **7 years**; bereavement flag | Restricted access job | Ops |
 | **ResusGPS sessionStorage** | Client browser | `sessionStorage` keys | **Until tab close** | User/browser | N/A |
 | **ResusGPS saved cases** | `resusGPSCases` | Fellowship + **24 months** | Delete case rows | Engineering |
@@ -65,6 +65,7 @@ This schedule defines **how long** Paeds Resus Limited retains categories of per
 - Not a medical record — retention driven by QI governance and fellowship audit  
 - Aggregates may survive event-level deletion in statistical form  
 - Rate-limit counters: ephemeral or **90 days**
+- **Standing decision (2026-07-12, CEO — pending formal counsel sign-off):** at both the 7-year cutoff and on DSAR erasure, `careSignalEvents` rows are **anonymised, never hard-deleted** — `userId` set null, `raw_narrative` passed through automated redaction (`server/lib/care-signal-deidentify.ts`). Structured/categorical fields (eventType, outcome, systemGaps, conditionCategory, facilityId) are retained as-is since they were already de-identified by design. This resolves the "Aggregates may survive event-level deletion" principle above literally: the row survives too, just severed from the reporting individual and stripped of free-text identifiers. See DSAR_PROCEDURE.md §6 for the same decision applied to DSAR requests, and OBSERVATION_ARCHITECTURE_V1_1.md Layer 0 for how this reconciles with "preserved permanently" (the permanence applies to derived knowledge/patterns, not necessarily every raw sentence forever).
 
 ### 4.2 Parent Safe-Truth
 
