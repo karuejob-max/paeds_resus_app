@@ -48,6 +48,8 @@ import {
   kbPatternObservations,
   kbRecommendations,
   kbGovernanceAudit,
+  kbInterventions,
+  kbImplementations,
 } from "../../drizzle/schema";
 
 function newId(): string {
@@ -65,8 +67,9 @@ async function logGovernanceAudit(params: {
     | "RECOMMENDATION_SUPERSEDED"
     | "PATTERN_RETIRED"
     | "PATTERN_REINSTATED"
+    | "IMPLEMENTATION_OUTCOME_LABELLED"
     | "OTHER";
-  entityType: "RECOMMENDATION" | "PATTERN" | "FAILURE_MODE" | "SUCCESS_FACTOR";
+  entityType: "RECOMMENDATION" | "PATTERN" | "FAILURE_MODE" | "SUCCESS_FACTOR" | "INTERVENTION" | "IMPLEMENTATION";
   entityId: string;
   previousState?: unknown;
   newState?: unknown;
@@ -291,6 +294,17 @@ export const fpkbRouter = router({
       .orderBy(desc(kbRecommendations.createdAt));
   }),
 
+  /** Approved recommendations — the only ones interventions can be committed against. */
+  listApprovedRecommendations: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(kbRecommendations)
+      .where(eq(kbRecommendations.governanceStatus, "APPROVED"))
+      .orderBy(desc(kbRecommendations.createdAt));
+  }),
+
   /**
    * Knowledge Stewardship sign-off primitive. This is the write path North
    * Star names as non-negotiable ("no ... recommendation change ships
@@ -352,5 +366,212 @@ export const fpkbRouter = router({
         .from(kbGovernanceAudit)
         .orderBy(desc(kbGovernanceAudit.createdAt))
         .limit(input.limit);
+    }),
+
+  // ── Intervention / Implementation write path (gap-analysis #6) ──────────
+  // Until now kb_interventions/kb_implementations existed only as schema —
+  // nothing wrote to them. This is the mechanism North Star ties to the
+  // Book of the Unforgotten: a recommendation isn't just approved, it's
+  // tracked through to whether it actually changed anything.
+
+  /** Interventions committed against a recommendation (or all, admin overview). */
+  listInterventions: adminProcedure
+    .input(z.object({ recommendationId: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db.select().from(kbInterventions).orderBy(desc(kbInterventions.createdAt));
+      return input?.recommendationId
+        ? rows.filter((r) => r.recommendationId === input.recommendationId)
+        : rows;
+    }),
+
+  /** Implementations (actual outcomes) — optionally filtered by intervention. */
+  listImplementations: adminProcedure
+    .input(z.object({ interventionId: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db.select().from(kbImplementations).orderBy(desc(kbImplementations.createdAt));
+      return input?.interventionId
+        ? rows.filter((r) => r.interventionId === input.interventionId)
+        : rows;
+    }),
+
+  /**
+   * Record a facility/network/ministry's commitment to act on a
+   * recommendation. Gated on governanceStatus === "APPROVED" — you cannot
+   * commit an intervention against something Knowledge Stewardship hasn't
+   * signed off on yet (the gap #3 gate applies here too, not just at
+   * recommendation-drafting time).
+   */
+  createIntervention: adminProcedure
+    .input(
+      z.object({
+        recommendationId: z.string(),
+        committingEntityType: z.enum(["FACILITY", "NETWORK", "MINISTRY", "TRAINING_INSTITUTION", "OTHER"]),
+        /** careFacilities.id (as a string) when committingEntityType is FACILITY — never a facility name. */
+        committingEntityId: z.string().min(1).max(36),
+        interventionScope: z.enum(["ED_ONLY", "WARD", "HOSPITAL_WIDE", "NETWORK", "NATIONAL"]),
+        interventionDescription: z.string().min(10).max(4000),
+        plannedImplementationDate: z.string().optional(),
+        definedOutcomeMeasure: z.string().min(5).max(2000),
+        evaluationWindowMonths: z.number().min(1).max(60).default(6),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database unavailable" });
+      }
+
+      const [rec] = await db.select().from(kbRecommendations).where(eq(kbRecommendations.id, input.recommendationId));
+      if (!rec) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Recommendation not found" });
+      }
+      if (rec.governanceStatus !== "APPROVED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only APPROVED recommendations can have interventions committed against them.",
+        });
+      }
+
+      const id = newId();
+      await db.insert(kbInterventions).values({
+        id,
+        recommendationId: input.recommendationId,
+        committingEntityType: input.committingEntityType,
+        committingEntityId: input.committingEntityId,
+        interventionScope: input.interventionScope,
+        interventionDescription: input.interventionDescription,
+        plannedImplementationDate: input.plannedImplementationDate ? new Date(input.plannedImplementationDate) : null,
+        definedOutcomeMeasure: input.definedOutcomeMeasure,
+        evaluationWindowMonths: input.evaluationWindowMonths,
+        interventionStatus: "PLANNED",
+        createdBy: String(ctx.user.id),
+      });
+
+      return { id };
+    }),
+
+  /**
+   * Transition an intervention's status. Deliberately does NOT accept
+   * "COMPLETED" here — completion only happens via recordImplementationOutcome,
+   * so a status can never flip to done without an outcome record attached
+   * (even if that record just says EVALUATION_PENDING).
+   */
+  updateInterventionStatus: adminProcedure
+    .input(
+      z.object({
+        interventionId: z.string(),
+        status: z.enum(["IN_PROGRESS", "ABANDONED"]),
+        abandonmentReason: z.string().max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database unavailable" });
+      }
+
+      const [existing] = await db.select().from(kbInterventions).where(eq(kbInterventions.id, input.interventionId));
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Intervention not found" });
+      }
+      if (input.status === "ABANDONED" && !input.abandonmentReason?.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Abandoning an intervention requires a reason." });
+      }
+
+      await db
+        .update(kbInterventions)
+        .set({
+          interventionStatus: input.status,
+          statusUpdatedAt: new Date(),
+          ...(input.status === "ABANDONED" ? { abandonmentReason: input.abandonmentReason } : {}),
+        })
+        .where(eq(kbInterventions.id, input.interventionId));
+
+      return { success: true };
+    }),
+
+  /**
+   * Record what actually happened once an intervention was carried out.
+   * outcomeLabel is NEVER auto-assigned (per FPKB_SCHEMA_V1.md) — a human
+   * reviewer sets it explicitly here, with evidence notes, and the action
+   * is written to the append-only governance audit trail. Deliberately does
+   * NOT auto-adjust the source pattern's confidenceLevel — that's a
+   * separate, later review action (kb_review_schedule, gap #9 territory),
+   * not something a single outcome record should trigger on its own.
+   */
+  recordImplementationOutcome: adminProcedure
+    .input(
+      z.object({
+        interventionId: z.string(),
+        actualImplementationDate: z.string().optional(),
+        actualScope: z.enum(["ED_ONLY", "WARD", "HOSPITAL_WIDE", "NETWORK", "NATIONAL"]).optional(),
+        modificationsFromPlan: z.string().max(2000).optional(),
+        implementationFidelity: z.enum(["HIGH", "PARTIAL", "LOW", "NOT_IMPLEMENTED"]),
+        outcomeLabel: z.enum(["IMPROVED", "NO_IMPROVEMENT", "WORSENED", "EVALUATION_PENDING"]),
+        outcomeEvidenceNotes: z.string().min(10).max(4000),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database unavailable" });
+      }
+
+      const [intervention] = await db.select().from(kbInterventions).where(eq(kbInterventions.id, input.interventionId));
+      if (!intervention) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Intervention not found" });
+      }
+
+      const [existing] = await db
+        .select()
+        .from(kbImplementations)
+        .where(eq(kbImplementations.interventionId, input.interventionId));
+
+      const sharedValues = {
+        actualImplementationDate: input.actualImplementationDate ? new Date(input.actualImplementationDate) : null,
+        actualScope: input.actualScope ?? null,
+        modificationsFromPlan: input.modificationsFromPlan ?? null,
+        implementationFidelity: input.implementationFidelity,
+        outcomeLabel: input.outcomeLabel,
+        outcomeEvidenceNotes: input.outcomeEvidenceNotes,
+        outcomeRecordedAt: new Date(),
+        outcomeRecordedBy: String(ctx.user.id),
+      };
+
+      let id: string;
+      if (existing) {
+        id = existing.id;
+        await db.update(kbImplementations).set(sharedValues).where(eq(kbImplementations.id, id));
+      } else {
+        id = newId();
+        await db.insert(kbImplementations).values({
+          id,
+          interventionId: input.interventionId,
+          createdBy: String(ctx.user.id),
+          ...sharedValues,
+        });
+      }
+
+      if (intervention.interventionStatus !== "COMPLETED") {
+        await db
+          .update(kbInterventions)
+          .set({ interventionStatus: "COMPLETED", statusUpdatedAt: new Date() })
+          .where(eq(kbInterventions.id, input.interventionId));
+      }
+
+      await logGovernanceAudit({
+        actorUserId: String(ctx.user.id),
+        actionType: "IMPLEMENTATION_OUTCOME_LABELLED",
+        entityType: "IMPLEMENTATION",
+        entityId: id,
+        newState: { outcomeLabel: input.outcomeLabel, implementationFidelity: input.implementationFidelity },
+        reasoning: input.outcomeEvidenceNotes,
+      });
+
+      return { id };
     }),
 });
