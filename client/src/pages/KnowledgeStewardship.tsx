@@ -130,6 +130,7 @@ export default function KnowledgeStewardship() {
         <TabsList>
           <TabsTrigger value="pending">Pending review</TabsTrigger>
           <TabsTrigger value="draft">Draft new</TabsTrigger>
+          <TabsTrigger value="interventions">Interventions</TabsTrigger>
           <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1" />Audit trail</TabsTrigger>
         </TabsList>
 
@@ -283,6 +284,17 @@ export default function KnowledgeStewardship() {
           </div>
         </TabsContent>
 
+        <TabsContent value="interventions" className="space-y-4 mt-4">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className={BODY_TEXT}>
+              Only APPROVED recommendations can have an intervention committed against them.
+              Outcomes are never auto-labelled — a human records what actually happened.
+            </AlertDescription>
+          </Alert>
+          <InterventionsPanel />
+        </TabsContent>
+
         <TabsContent value="audit" className="space-y-2 mt-4">
           {auditQ.isLoading ? (
             <Skeleton className="h-24 w-full" />
@@ -303,6 +315,191 @@ export default function KnowledgeStewardship() {
           )}
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ── Interventions panel (gap-analysis #6) ────────────────────────────────
+const STATUS_BADGE: Record<string, string> = {
+  PLANNED: "bg-slate-200 text-slate-900",
+  IN_PROGRESS: "bg-blue-200 text-blue-950",
+  COMPLETED: "bg-green-200 text-green-950",
+  ABANDONED: "bg-red-200 text-red-950",
+};
+
+function InterventionsPanel() {
+  const utils = trpc.useUtils();
+  const approvedQ = trpc.fpkb.listApprovedRecommendations.useQuery();
+  const interventionsQ = trpc.fpkb.listInterventions.useQuery();
+  const implementationsQ = trpc.fpkb.listImplementations.useQuery();
+
+  const [showNewIntervention, setShowNewIntervention] = useState(false);
+  const [outcomeTarget, setOutcomeTarget] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
+    recommendationId: "",
+    committingEntityType: "FACILITY" as "FACILITY" | "NETWORK" | "MINISTRY" | "TRAINING_INSTITUTION" | "OTHER",
+    committingEntityId: "",
+    interventionScope: "HOSPITAL_WIDE" as "ED_ONLY" | "WARD" | "HOSPITAL_WIDE" | "NETWORK" | "NATIONAL",
+    interventionDescription: "",
+    definedOutcomeMeasure: "",
+    evaluationWindowMonths: 6,
+  });
+  const createIntervention = trpc.fpkb.createIntervention.useMutation({
+    onSuccess: () => {
+      void utils.fpkb.listInterventions.invalidate();
+      setShowNewIntervention(false);
+      setForm({
+        recommendationId: "", committingEntityType: "FACILITY", committingEntityId: "",
+        interventionScope: "HOSPITAL_WIDE", interventionDescription: "", definedOutcomeMeasure: "",
+        evaluationWindowMonths: 6,
+      });
+    },
+  });
+
+  const [outcomeForm, setOutcomeForm] = useState({
+    implementationFidelity: "HIGH" as "HIGH" | "PARTIAL" | "LOW" | "NOT_IMPLEMENTED",
+    outcomeLabel: "EVALUATION_PENDING" as "IMPROVED" | "NO_IMPROVEMENT" | "WORSENED" | "EVALUATION_PENDING",
+    outcomeEvidenceNotes: "",
+  });
+  const recordOutcome = trpc.fpkb.recordImplementationOutcome.useMutation({
+    onSuccess: () => {
+      void utils.fpkb.listInterventions.invalidate();
+      void utils.fpkb.listImplementations.invalidate();
+      setOutcomeTarget(null);
+      setOutcomeForm({ implementationFidelity: "HIGH", outcomeLabel: "EVALUATION_PENDING", outcomeEvidenceNotes: "" });
+    },
+  });
+
+  const implementationFor = (interventionId: string) =>
+    implementationsQ.data?.find((i: any) => i.interventionId === interventionId);
+
+  return (
+    <div className="space-y-3">
+      <Dialog open={showNewIntervention} onOpenChange={setShowNewIntervention}>
+        <DialogTrigger asChild>
+          <Button variant="outline"><Plus className="h-4 w-4 mr-1" /> Commit new intervention</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Commit to an intervention</DialogTitle>
+            <DialogDescription>Only against APPROVED recommendations.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Select value={form.recommendationId} onValueChange={(v) => setForm((f) => ({ ...f, recommendationId: v }))}>
+              <SelectTrigger><SelectValue placeholder="Approved recommendation" /></SelectTrigger>
+              <SelectContent>
+                {approvedQ.data?.map((r: any) => (
+                  <SelectItem key={r.id} value={r.id}>{r.recommendationCode}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!approvedQ.isLoading && approvedQ.data?.length === 0 && (
+              <p className={NOTE_TEXT}>No approved recommendations yet — approve one in "Pending review" first.</p>
+            )}
+            <Select value={form.committingEntityType} onValueChange={(v) => setForm((f) => ({ ...f, committingEntityType: v as typeof form.committingEntityType }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["FACILITY", "NETWORK", "MINISTRY", "TRAINING_INSTITUTION", "OTHER"] as const).map((t) => (
+                  <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Committing entity ID (e.g. facility ID)" value={form.committingEntityId} onChange={(e) => setForm((f) => ({ ...f, committingEntityId: e.target.value }))} />
+            <Select value={form.interventionScope} onValueChange={(v) => setForm((f) => ({ ...f, interventionScope: v as typeof form.interventionScope }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["ED_ONLY", "WARD", "HOSPITAL_WIDE", "NETWORK", "NATIONAL"] as const).map((s) => (
+                  <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Textarea placeholder="What will be done, concretely?" value={form.interventionDescription} onChange={(e) => setForm((f) => ({ ...f, interventionDescription: e.target.value }))} rows={3} />
+            <Textarea placeholder="Defined outcome measure — how will you know it worked?" value={form.definedOutcomeMeasure} onChange={(e) => setForm((f) => ({ ...f, definedOutcomeMeasure: e.target.value }))} rows={2} />
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => createIntervention.mutate(form)}
+              disabled={createIntervention.isPending || !form.recommendationId || !form.committingEntityId || !form.interventionDescription || !form.definedOutcomeMeasure}
+            >
+              Commit intervention
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {interventionsQ.isLoading ? (
+        <Skeleton className="h-24 w-full" />
+      ) : !interventionsQ.data?.length ? (
+        <p className={NOTE_TEXT}>No interventions committed yet.</p>
+      ) : (
+        interventionsQ.data.map((iv: any) => {
+          const impl = implementationFor(iv.id);
+          return (
+            <Card key={iv.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-base text-slate-900 dark:text-slate-100">
+                    {iv.committingEntityType.replace(/_/g, " ")} · {iv.interventionScope.replace(/_/g, " ")}
+                  </CardTitle>
+                  <Badge className={STATUS_BADGE[iv.interventionStatus] ?? ""}>{iv.interventionStatus}</Badge>
+                </div>
+                <CardDescription className={NOTE_TEXT}>{iv.definedOutcomeMeasure}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className={BODY_TEXT}>{iv.interventionDescription}</p>
+                {impl ? (
+                  <div className="rounded-lg border p-2 text-xs">
+                    <p className={NOTE_TEXT}>
+                      Outcome: <span className="font-medium">{(impl.outcomeLabel ?? "UNKNOWN").replace(/_/g, " ")}</span> · Fidelity: {impl.implementationFidelity}
+                    </p>
+                    <p className={NOTE_TEXT}>{impl.outcomeEvidenceNotes}</p>
+                  </div>
+                ) : (
+                  <Dialog open={outcomeTarget === iv.id} onOpenChange={(open) => setOutcomeTarget(open ? iv.id : null)}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline">Record outcome</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Record what actually happened</DialogTitle>
+                        <DialogDescription>Never auto-labelled — say what you observed.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <Select value={outcomeForm.implementationFidelity} onValueChange={(v) => setOutcomeForm((f) => ({ ...f, implementationFidelity: v as typeof outcomeForm.implementationFidelity }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(["HIGH", "PARTIAL", "LOW", "NOT_IMPLEMENTED"] as const).map((v) => (
+                              <SelectItem key={v} value={v}>{v.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={outcomeForm.outcomeLabel} onValueChange={(v) => setOutcomeForm((f) => ({ ...f, outcomeLabel: v as typeof outcomeForm.outcomeLabel }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(["IMPROVED", "NO_IMPROVEMENT", "WORSENED", "EVALUATION_PENDING"] as const).map((v) => (
+                              <SelectItem key={v} value={v}>{v.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Textarea placeholder="Evidence notes — what did you actually observe?" value={outcomeForm.outcomeEvidenceNotes} onChange={(e) => setOutcomeForm((f) => ({ ...f, outcomeEvidenceNotes: e.target.value }))} rows={3} />
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          onClick={() => recordOutcome.mutate({ interventionId: iv.id, ...outcomeForm })}
+                          disabled={recordOutcome.isPending || !outcomeForm.outcomeEvidenceNotes.trim()}
+                        >
+                          Record outcome
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }
