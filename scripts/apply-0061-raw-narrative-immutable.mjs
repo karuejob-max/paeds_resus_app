@@ -107,7 +107,7 @@ async function main() {
              AND (@RAW_NARRATIVE_LEGAL_OVERRIDE_REASON IS NULL OR @RAW_NARRATIVE_LEGAL_OVERRIDE_REASON = '')
           THEN
             SIGNAL SQLSTATE '45000'
-              SET MESSAGE_TEXT = 'raw_narrative is immutable after submission (Observation Architecture Principle 2). Set @RAW_NARRATIVE_LEGAL_OVERRIDE_REASON if this is a genuine legal-requirement exception.';
+              SET MESSAGE_TEXT = 'raw_narrative is immutable after submission. Set @RAW_NARRATIVE_LEGAL_OVERRIDE_REASON to override.';
           END IF;
 
           IF (OLD.raw_narrative IS NOT NULL)
