@@ -346,6 +346,9 @@ export default function NationalAggregateSignal() {
               </CardContent>
             </Card>
 
+            {/* Linked Event Pairs — gap-analysis #7: analytics side of event_id */}
+            <TriangulatedEventsCard />
+
             {/* Under Review Queue Preview */}
             {eventsUnderReview && eventsUnderReview.events.length > 0 && (
               <Card>
@@ -411,5 +414,82 @@ export default function NationalAggregateSignal() {
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Linked Event Pairs (gap-analysis #7) ────────────────────────────────────
+const OUTCOME_LABEL: Record<string, string> = {
+  died: "Died",
+  poor_outcome: "Poor outcome",
+  survived_well: "Survived well",
+  near_miss: "Near miss",
+};
+
+function TriangulatedEventsCard() {
+  const [timeframe, setTimeframe] = useState<"week" | "month" | "quarter" | "year">("quarter");
+  const q = trpc.careSignalEvents.getTriangulatedEvents.useQuery({ timeframe });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="text-base">Linked Event Pairs</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cases where a provider filed both sides of the same clinical event — a documented
+              near-miss recovery, not just a gap or a win reported in isolation.
+            </p>
+          </div>
+          <Select value={timeframe} onValueChange={(v) => setTimeframe(v as typeof timeframe)}>
+            <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Week</SelectItem>
+              <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="quarter">Quarter</SelectItem>
+              <SelectItem value="year">Year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {q.isLoading ? (
+          <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">Loading…</div>
+        ) : !q.data?.pairs.length ? (
+          <div className="text-sm text-muted-foreground py-6 text-center">
+            No linked event pairs in this timeframe yet — providers haven't used the "file the
+            opposite side" prompt for a shared event, or volume is still low.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              {q.data.totalLinkedEvents} linked event{q.data.totalLinkedEvents === 1 ? "" : "s"} out of{" "}
+              {q.data.totalEventsWithEventId} events with a shareable event code.
+            </p>
+            {q.data.pairs.slice(0, 15).map((pair) => (
+              <div key={pair.eventId} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant={pair.isTrueTriangulation ? "default" : "secondary"}>
+                    {pair.isTrueTriangulation ? "Failure + Success" : "Same track, multiple reports"}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {pair.entries[0]?.createdAt ? new Date(pair.entries[0].createdAt).toLocaleDateString() : ""}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {pair.entries.map((e) => (
+                    <div key={e.id} className="text-xs px-2 py-1 rounded border bg-muted/40">
+                      <span className={e.reportTrack === "FAILURE" ? "text-red-600" : "text-green-600"}>
+                        {e.reportTrack === "FAILURE" ? "🔴" : "🟢"} {e.reportTrack}
+                      </span>
+                      {" · "}{e.eventType}{" · "}{OUTCOME_LABEL[e.outcome] ?? e.outcome}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
