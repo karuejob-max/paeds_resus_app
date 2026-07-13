@@ -3236,3 +3236,18 @@ export const kbGovernanceAudit = mysqlTable("kb_governance_audit", {
 });
 export type KbGovernanceAuditRow = typeof kbGovernanceAudit.$inferSelect;
 export type InsertKbGovernanceAudit = typeof kbGovernanceAudit.$inferInsert;
+
+/**
+ * Append-only log written exclusively by the trg_care_signal_raw_narrative_immutable
+ * DB trigger (migration 0061) when the legal-override session variable path is used.
+ * Should almost never have rows — its existence, not its contents, is the point.
+ */
+export const careSignalRawNarrativeAudit = mysqlTable("care_signal_raw_narrative_audit", {
+  id: int("id").autoincrement().primaryKey(),
+  careSignalEventId: int("care_signal_event_id").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  reason: text("reason").notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+});
+export type CareSignalRawNarrativeAuditRow = typeof careSignalRawNarrativeAudit.$inferSelect;

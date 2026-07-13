@@ -8,6 +8,7 @@ import {
   careSignalEvents,
   providerProfiles,
   microCourses,
+  careSignalRawNarrativeAudit,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
@@ -1423,6 +1424,23 @@ export const careSignalEventsRouter = router({
         totalEventsWithEventId: byEventId.size,
       };
     }),
+
+  /**
+   * Transparency view over the raw_narrative immutability trigger's audit
+   * table (migration 0061, gap #8). This should almost always be empty —
+   * its existence, not its contents, is what matters. If this ever has
+   * rows, each one represents a deliberate, DB-side-logged legal-requirement
+   * exception to an otherwise immutable raw narrative.
+   */
+  getRawNarrativeAuditLog: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(careSignalRawNarrativeAudit)
+      .orderBy(desc(careSignalRawNarrativeAudit.changedAt))
+      .limit(100);
+  }),
 
   /**
    * Admin-only: list all Care Signal events under review for the institutional review workflow.
