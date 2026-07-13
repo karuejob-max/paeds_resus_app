@@ -1,7 +1,7 @@
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, sql, count } from "drizzle-orm";
+import { and, desc, eq, gte, sql, count, isNotNull } from "drizzle-orm";
 import { getDb, insertAdminAuditLog } from "../db";
 import {
   analyticsEvents,
@@ -1352,6 +1352,76 @@ export const careSignalEventsRouter = router({
           message: "Failed to retrieve admin metrics.",
         });
       }
+    }),
+
+  /**
+   * Collaborative event pairing — the analytics side (gap-analysis #7).
+   * The submit form already lets a provider file "the opposite side" of the
+   * same clinical event (a shared `event_id` linking code) — that's the
+   * capture side, shipped previously. Nothing analyzed the result: cases
+   * where both a FAILURE and a SUCCESS report exist for the same event are
+   * the richest data Care Signal produces (a documented near-miss recovery,
+   * not just a gap or just a win in isolation), and until now they were
+   * invisible — each row sat alone, `event_id` unused for anything but the
+   * one-time submit-flow nudge.
+   *
+   * Admin-only: pairing reveals that two specific reports concern the same
+   * real clinical event, which is more re-identifying than either report
+   * alone — not appropriate for the general public aggregate views.
+   */
+  getTriangulatedEvents: adminProcedure
+    .input(z.object({ timeframe: z.enum(["week", "month", "quarter", "year"]).default("quarter") }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { success: true, pairs: [], totalLinkedEvents: 0, totalEventsWithEventId: 0 };
+
+      const since = new Date(Date.now() - daysBackForTimeframe(input.timeframe) * 86_400_000);
+
+      const rows = await db
+        .select({
+          id: careSignalEvents.id,
+          eventId: careSignalEvents.eventId,
+          reportTrack: careSignalEvents.reportTrack,
+          eventType: careSignalEvents.eventType,
+          outcome: careSignalEvents.outcome,
+          conditionCategory: careSignalEvents.conditionCategory,
+          createdAt: careSignalEvents.createdAt,
+          facilityId: careSignalEvents.facilityId,
+        })
+        .from(careSignalEvents)
+        .where(and(isNotNull(careSignalEvents.eventId), gte(careSignalEvents.createdAt, since)));
+
+      const byEventId = new Map<string, typeof rows>();
+      for (const r of rows) {
+        if (!r.eventId) continue;
+        const existing = byEventId.get(r.eventId) ?? [];
+        existing.push(r);
+        byEventId.set(r.eventId, existing);
+      }
+
+      const pairs = Array.from(byEventId.entries())
+        .filter(([, entries]) => entries.length >= 2)
+        .map(([eventId, entries]) => ({
+          eventId,
+          entries: entries.map((e) => ({
+            id: e.id,
+            reportTrack: e.reportTrack,
+            eventType: e.eventType,
+            outcome: e.outcome,
+            conditionCategory: e.conditionCategory,
+            createdAt: e.createdAt,
+          })),
+          isTrueTriangulation:
+            entries.some((e) => e.reportTrack === "FAILURE") && entries.some((e) => e.reportTrack === "SUCCESS"),
+        }))
+        .sort((a, b) => (b.entries[0]?.createdAt?.getTime() ?? 0) - (a.entries[0]?.createdAt?.getTime() ?? 0));
+
+      return {
+        success: true,
+        pairs,
+        totalLinkedEvents: pairs.length,
+        totalEventsWithEventId: byEventId.size,
+      };
     }),
 
   /**
