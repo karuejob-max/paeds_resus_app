@@ -104,6 +104,7 @@
     "db:apply-0059": "node scripts/apply-0059-global-facilities.mjs",
     "db:backfill-0060": "node scripts/apply-0060-facilities-backfill.mjs",
     "db:apply-0061": "node scripts/apply-0061-raw-narrative-immutable.mjs",
+    "db:apply-0062": "node scripts/apply-0062-fix-raw-narrative-trigger-message.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
