@@ -83,7 +83,7 @@ Counsel or Privacy Lead checks exceptions:
 - **Legal obligation** retention (tax, M-Pesa 7 years)  
 - **Fellowship integrity** — may delay deletion until dispute resolved  
 - **Institutional contract** — joint controller routing  
-- **Other subjects' rights** — redact third parties in Care Signal narratives  
+- **Other subjects' rights** — redact third parties in Care Signal narratives. **Known limitation (2026-07-12):** the automated redaction pass (`care-signal-deidentify.ts`) reliably strips structured identifiers (facility names, dates, phones, emails, labeled ID numbers) but does NOT reliably catch free-text mentions of a third party's name. If a DSAR specifically concerns a named third party mentioned in someone else's narrative, this step needs manual review, not just the automated pass.  
 - **Manifestly unfounded or excessive requests** — refuse or charge fee per DPA  
 
 ### Step 5 — Fulfil (Days 20–30)
@@ -129,7 +129,7 @@ When deletion approved:
 
 - [ ] Anonymise `users.email`, `phone`, `name` → `deleted_user_{id}@anonymised.local`  
 - [ ] Delete password hash; invalidate sessions  
-- [ ] Care Signal: delete rows OR anonymise `userId` per counsel  
+- [ ] Care Signal: **anonymise** — `userId` → null, `raw_narrative` redacted (pattern-based: facility names, dates, phone numbers, emails, labeled ID numbers). **Never hard-delete the row.** Standing engineering decision, 2026-07-12 (CEO); resolves the prior "delete rows OR anonymise per counsel" open question. Implemented in `server/lib/care-signal-anonymize.ts`, enforced via `care-signal-deidentify.ts`. Rationale: aggregate/FPKB knowledge derived from a narrative should survive independent of any one raw row's lifecycle; anonymising (not deleting) still severs the identity link DSAR erasure requires. **Still counsel-review status** — this is CEO's engineering decision pending formal legal sign-off per this document's own header; if counsel determines full deletion is required instead, update `care-signal-anonymize.ts` accordingly.
 - [ ] Safe-Truth: delete guardian narratives  
 - [ ] ResusGPS cases: delete saved cases  
 - [ ] Remove from institutional roster links  

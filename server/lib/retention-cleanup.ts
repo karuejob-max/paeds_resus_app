@@ -7,6 +7,7 @@ import {
   resusGPSCases,
 } from "../../drizzle/schema";
 import type { DbClient } from "../db";
+import { anonymizeCareSignalEventRows } from "./care-signal-anonymize";
 
 /** Retention windows from DATA_RETENTION_SCHEDULE.md (engineering baseline). */
 export const RETENTION_WINDOWS = {
@@ -105,7 +106,7 @@ export async function buildRetentionCleanupPlan(db: DbClient): Promise<Retention
       table: "careSignalEvents",
       cutoff: careSignalCutoff,
       eligibleCount: careSignalRows.length,
-      action: "delete Care Signal submissions older than 7 years",
+      action: "anonymise (userId → null, raw_narrative redacted) — never hard-deleted",
     },
   ];
 
@@ -154,7 +155,15 @@ export async function runRetentionCleanup(
     } else if (cat.table === "resusGPSCases") {
       await db.delete(resusGPSCases).where(lt(resusGPSCases.createdAt, cat.cutoff));
     } else if (cat.table === "careSignalEvents") {
-      await db.delete(careSignalEvents).where(lt(careSignalEvents.createdAt, cat.cutoff));
+      const staleRows = await db
+        .select({ id: careSignalEvents.id })
+        .from(careSignalEvents)
+        .where(lt(careSignalEvents.createdAt, cat.cutoff));
+      await anonymizeCareSignalEventRows(
+        db,
+        staleRows.map((r) => r.id),
+        "7-year retention window expired"
+      );
     }
 
     deleted[cat.table] = cat.eligibleCount;

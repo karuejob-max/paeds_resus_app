@@ -320,7 +320,7 @@ This section defines the canonical structure of an observation and the new tempo
 
 | Layer | Definition, permanence, engineering requirement |
 |---|---|
-| Layer 0: Raw Observation | What the observer saw, heard, or experienced, in their own words. Free text. Immutable. Preserved permanently. Never replaced by its classification. On account deletion: userId set null, narrative retained. Engineering: TEXT column, immutable after submission. |
+| Layer 0: Raw Observation | What the observer saw, heard, or experienced, in their own words. Free text. Immutable while active (DB-enforced, migration 0061/0062). **Retention (clarified 2026-07-12, CEO — pending formal counsel sign-off, see DATA_RETENTION_SCHEDULE.md §4.1):** "preserved permanently" means the knowledge derived from it (Layer 2 signals, Layer 3 patterns, FPKB recommendations) is permanent — not necessarily every raw sentence forever. At the 7-year retention cutoff, or on DSAR erasure, the row is anonymised (userId → null, narrative passed through automated redaction), never hard-deleted. The redacted narrative persists indefinitely after that point; the original unredacted free text does not survive past its retention window. Never replaced by its classification. Engineering: TEXT column; UPDATE blocked by DB trigger except via the documented legal-exception session-variable path, which both the DSAR and retention-cleanup code paths use for exactly this anonymisation. |
 | Layer 1: Structured Observation | What the observer selected from defined options. Schema-versioned. If taxonomy changes, historical rows retain original classification in original columns; reclassification adds new columns alongside. Engineering: typed columns with schema_version FK, reclassification columns added by migration, never dropped. |
 | Layer 2: Derived Signal | What the system infers from one or more observations. Always derived from Layers 0/1. Always recomputable. Stored as a cache with derivation_version. Engineering: separate analytics table, recomputable from source rows. |
 | Layer 3: Pattern | A recurring combination across multiple independent observations. Never stored in observation rows. Exists in the Knowledge Base with references to supporting observations. Engineering: separate knowledge base table; observations link to patterns via join table, not reverse. |
@@ -707,6 +707,8 @@ These are binding constraints. Deviations require CEO sign-off and a documented 
 
 This table records the current state of implementation against v1.1 requirements as of June 2026. Must be updated in WORK_STATUS.md whenever status changes.
 
+**Note (2026-07-12):** most rows below are now stale — the 2026-07-12 gap analysis and subsequent PRs (see WORK_STATUS.md "Active Gap Remediation Queue") shipped country/admin_level_1, facility_ownership (partial), role_at_time_of_event, facility_id, event_id, temporal interval fields, schema_version, the geographic/facility reference tables, and an FPKB application layer, none of which are reflected here yet. Only the raw narrative immutability row has been corrected in this pass, since that's what this update was specifically about — the rest of this table needs its own refresh pass, not a piecemeal one.
+
 | Requirement | Status | Priority |
 |---|---|---|
 | country and admin_level_1 on all observation tables | Not started — migration required | P0 — blocks global expansion |
@@ -716,7 +718,7 @@ This table records the current state of implementation against v1.1 requirements
 | event_id (collaborative model) on careSignalEvents | Not started — nullable, low friction to add | P2 |
 | Temporal interval fields on careSignalEvents | Not started | P1 |
 | schema_version on all observation tables | Not started | P1 |
-| Raw narrative immutability constraint | Not started — currently no DB-level constraint | P1 |
+| Raw narrative immutability constraint | **DONE (2026-07-12)** — DB trigger `trg_care_signal_raw_narrative_immutable` (migration 0061/0062), blocks UPDATE except via documented legal-exception session variable, which the DSAR/retention anonymisation paths use. Verified in production via `verify:raw-narrative-immutable`. | Done |
 | Geographic reference table | Not started | P0 — blocks global expansion |
 | Facility reference table (decoupled from observation rows) | Not started — facility name currently inline | P0 |
 | Knowledge Base schema (patterns, recommendations, interventions, implementations) | Not started — conceptual only | P1 |

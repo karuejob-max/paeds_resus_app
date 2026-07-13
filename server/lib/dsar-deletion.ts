@@ -8,6 +8,7 @@ import {
   users,
 } from "../../drizzle/schema";
 import type { DbClient } from "../db";
+import { anonymizeCareSignalEventsForUser } from "./care-signal-anonymize";
 
 export type DsarDeletionStep = {
   table: string;
@@ -66,7 +67,7 @@ export async function buildDsarDeletionPlan(db: DbClient, userId: number): Promi
       count: 1,
     },
     { table: "passwordResetTokens", action: "delete", count: resetTokens.length },
-    { table: "careSignalEvents", action: "delete rows (counsel may require anonymise)", count: careSignalRows.length },
+    { table: "careSignalEvents", action: "anonymise: userId → null, raw_narrative redacted (never hard-deleted — see docs/legal/DSAR_PROCEDURE.md §6)", count: careSignalRows.length },
     { table: "resusGPSCases", action: "delete saved cases", count: resusCases.length },
     { table: "providerProfiles", action: "unlink facility reference", count: 1 },
     {
@@ -109,7 +110,7 @@ export async function executeDsarAccountDeletion(
   const deletedOpenId = `deleted:${options.userId}:${Date.now()}`;
 
   await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, options.userId));
-  await db.delete(careSignalEvents).where(eq(careSignalEvents.userId, options.userId));
+  await anonymizeCareSignalEventsForUser(db, options.userId, "DSAR erasure request");
   await db.delete(resusGPSCases).where(eq(resusGPSCases.userId, options.userId));
 
   await db
