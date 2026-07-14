@@ -23,6 +23,8 @@ export type FeedbackTicketLlmInput = {
   status: string;
   message: string;
   contextJson?: unknown;
+  assignedAgent?: string | null;
+  agentTags?: string[] | null;
 };
 
 export type FeedbackAnalyzeSuggestion = {
@@ -242,6 +244,239 @@ export async function draftFeedbackReply(
   const draft = String(raw.draftReply ?? "").trim();
   if (!draft) throw new Error("LLM returned empty draftReply");
   return draft;
+}
+
+export type FeedbackAgentBriefEnrichment = {
+  title: string;
+  problemStatement: string;
+  likelyFiles: string[];
+  investigationCommands: string[];
+  acceptanceChecks: string[];
+  regressionGuard: string;
+  suggestedAssignee: FeedbackAgentAssignee;
+};
+
+export type FeedbackAgentBriefResult = {
+  markdown: string;
+  enrichment: FeedbackAgentBriefEnrichment;
+  ticketIds: number[];
+};
+
+/** Deterministic starting paths by product surface — LLM may add more. */
+export function heuristicPathsForCategory(
+  category: string,
+  courseSlug?: string | null
+): string[] {
+  const slug = courseSlug?.trim();
+  switch (category) {
+    case "course_content":
+      return [
+        slug ? `server/seed data / fellowship content for course \`${slug}\`` : "server/ seed / fellowship micro-course content",
+        "client/src/pages/MicroCoursePlayerDB.tsx",
+        "shared/quiz-answer-contract.ts",
+        "docs/CONTENT_HOTFIX_PLAYBOOK.md",
+        "pnpm run audit:fellowship-assessments:strict",
+      ];
+    case "resus_gps":
+      return [
+        "client/src/lib/resus/",
+        "shared/clinical-evidence.ts",
+        "shared/fellowship-clinical-rigor.ts",
+        "docs/CRITICAL_FIX_PLAYBOOK.md",
+        "pnpm run test:clinical",
+      ];
+    case "care_signal":
+      return [
+        "client/src/components/CareSignalFormV3.tsx",
+        "server/routers/care-signal-events.ts",
+        "docs/FEEDBACK_TICKET_WORKFLOW.md",
+      ];
+    case "payment_technical":
+      return [
+        "server/services/mpesa.service.ts",
+        "server/routers/mpesa.ts",
+        "docs/MPESA_PRODUCTION_CHECKLIST.md",
+      ];
+    case "safety_concern":
+      return [
+        "docs/CLINICAL_CONTENT_GOVERNANCE.md",
+        "docs/CRITICAL_FIX_PLAYBOOK.md",
+        "shared/clinical-evidence.ts",
+      ];
+    default:
+      return ["docs/FEEDBACK_TICKET_WORKFLOW.md", "docs/WORK_STATUS.md"];
+  }
+}
+
+export function parseFeedbackAgentBriefEnrichment(raw: unknown): FeedbackAgentBriefEnrichment {
+  const obj = (typeof raw === "string" ? extractJsonObject(raw) : raw) as Record<string, unknown>;
+  const list = (value: unknown, max: number) =>
+    Array.isArray(value)
+      ? value.map((v) => String(v).trim()).filter(Boolean).slice(0, max)
+      : [];
+  return {
+    title: String(obj.title ?? "").trim() || "Feedback ticket fix",
+    problemStatement: String(obj.problemStatement ?? "").trim() || "See ticket messages below.",
+    likelyFiles: list(obj.likelyFiles, 12),
+    investigationCommands: list(obj.investigationCommands, 8),
+    acceptanceChecks: list(obj.acceptanceChecks, 10),
+    regressionGuard:
+      String(obj.regressionGuard ?? "").trim() ||
+      "Do not delete or shallow existing clinical/content modules to resolve this ticket.",
+    suggestedAssignee: asEnum(obj.suggestedAssignee, FEEDBACK_AGENT_ASSIGNEES, "cursor"),
+  };
+}
+
+function contextCourseSlug(contextJson: unknown): string | undefined {
+  if (!contextJson || typeof contextJson !== "object") return undefined;
+  const slug = (contextJson as { courseSlug?: unknown }).courseSlug;
+  return typeof slug === "string" && slug.trim() ? slug.trim() : undefined;
+}
+
+function contextPageUrl(contextJson: unknown): string | undefined {
+  if (!contextJson || typeof contextJson !== "object") return undefined;
+  const url = (contextJson as { pageUrl?: unknown }).pageUrl;
+  return typeof url === "string" && url.trim() ? url.trim() : undefined;
+}
+
+export function assembleAgentBriefMarkdown(params: {
+  enrichment: FeedbackAgentBriefEnrichment;
+  tickets: FeedbackTicketLlmInput[];
+  clusterTheme?: string;
+  heuristicPaths: string[];
+}): string {
+  const { enrichment, tickets, clusterTheme, heuristicPaths } = params;
+  const ids = tickets.map((t) => `#${t.id}`).join(", ");
+  const primary = tickets[0];
+  const paths = [...new Set([...heuristicPaths, ...enrichment.likelyFiles])];
+  const commands =
+    enrichment.investigationCommands.length > 0
+      ? enrichment.investigationCommands
+      : ["pnpm run check", "pnpm run test:unit"];
+
+  const ticketBlocks = tickets
+    .map((t) => {
+      const slug = contextCourseSlug(t.contextJson);
+      const pageUrl = contextPageUrl(t.contextJson);
+      return [
+        `### Ticket #${t.id}`,
+        `- Category: \`${t.category}\` · Issue: \`${t.issueType ?? "unset"}\` · Severity: \`${t.severity ?? "unset"}\` · Priority: \`${t.priority ?? "normal"}\``,
+        slug ? `- Course slug: \`${slug}\`` : null,
+        pageUrl ? `- Page URL: ${pageUrl}` : null,
+        t.assignedAgent && t.assignedAgent !== "unassigned" ? `- Assigned: ${t.assignedAgent}` : null,
+        Array.isArray(t.agentTags) && t.agentTags.length
+          ? `- Tags: ${t.agentTags.join(", ")}`
+          : null,
+        "",
+        "User message:",
+        "```",
+        t.message.trim().slice(0, 4000),
+        "```",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n");
+
+  return [
+    `# Agent brief: ${enrichment.title}`,
+    "",
+    `Generated for Paeds Resus feedback inbox · Tickets: ${ids}`,
+    clusterTheme ? `Cluster theme: **${clusterTheme}**` : null,
+    "",
+    "## Problem",
+    enrichment.problemStatement,
+    "",
+    "## Constraints (non-negotiable)",
+    `- **Regression guard:** ${enrichment.regressionGuard}`,
+    "- Fix the reported bug; do **not** delete or shallow working clinical/content depth (`docs/FEEDBACK_TICKET_WORKFLOW.md`).",
+    "- Brand: say **Paeds Resus** for the org/platform; **ResusGPS** only for bedside CDS.",
+    "- Clinical content / dosing / protocol changes need CEO review before merge.",
+    `- Suggested assignee: \`${enrichment.suggestedAssignee}\``,
+    "",
+    "## Likely files / surfaces",
+    ...paths.map((p) => `- ${p}`),
+    "",
+    "## Investigate",
+    ...commands.map((c) => `- \`${c}\``),
+    "",
+    "## Acceptance checks",
+    ...(enrichment.acceptanceChecks.length
+      ? enrichment.acceptanceChecks.map((c) => `- [ ] ${c}`)
+      : [
+          "- [ ] Reproduce or confirm ticket claim against production/staging behaviour",
+          "- [ ] `pnpm run check` and relevant unit/clinical tests pass",
+          "- [ ] Update `docs/WORK_STATUS.md` Done row with PR link",
+        ]),
+    "",
+    "## Ticket evidence",
+    ticketBlocks,
+    "",
+    "## Paste-ready agent prompt",
+    "```",
+    [
+      `Fix Paeds Resus feedback ${ids}${clusterTheme ? ` (cluster: ${clusterTheme})` : ""}.`,
+      enrichment.problemStatement,
+      `Regression guard: ${enrichment.regressionGuard}`,
+      primary ? `Primary category=${primary.category}; courseSlug=${contextCourseSlug(primary.contextJson) ?? "n/a"}.` : "",
+      "Read docs/FEEDBACK_TICKET_WORKFLOW.md and docs/AGENTS.md. Small PR. Do not shallow content. Verify with check/test:unit (and clinical audits if content).",
+      "When done: update docs/WORK_STATUS.md and mark ticket fixed after merge.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    "```",
+    "",
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+const AGENT_BRIEF_SYSTEM = `You help turn Paeds Resus CEO feedback tickets into an engineering agent brief.
+Return ONLY valid JSON:
+{
+  "title": "short imperative title",
+  "problemStatement": "2-4 sentences: what is broken and user impact",
+  "likelyFiles": ["path or glob hints"],
+  "investigationCommands": ["pnpm run ..."],
+  "acceptanceChecks": ["observable pass criteria"],
+  "regressionGuard": "what must not be deleted/shallowed",
+  "suggestedAssignee": "unassigned|cursor|manus|ceo|clinical"
+}
+Rules:
+- Prefer real repo paths when obvious (MicroCoursePlayerDB, resus/, care-signal, mpesa).
+- For course_content: mention audit:fellowship-assessments and CONTENT_HOTFIX_PLAYBOOK.
+- For resus_gps: mention test:clinical and clinical-evidence; no inventing drug doses.
+- Never invent PHI; never claim a fix already shipped.
+- acceptanceChecks must be testable by a human or CI.`;
+
+export async function generateFeedbackAgentBrief(
+  tickets: FeedbackTicketLlmInput[],
+  options?: { clusterTheme?: string }
+): Promise<FeedbackAgentBriefResult> {
+  if (tickets.length === 0) {
+    throw new Error("At least one ticket is required for an agent brief");
+  }
+  const primary = tickets[0]!;
+  const courseSlug = contextCourseSlug(primary.contextJson);
+  const heuristicPaths = heuristicPathsForCategory(primary.category, courseSlug);
+
+  const themeLine = options?.clusterTheme ? `\nCluster theme: ${options.clusterTheme}` : "";
+  const raw = await llmJson(
+    AGENT_BRIEF_SYSTEM,
+    `${tickets.map((t) => formatTicketBlock(t)).join("\n\n---\n\n")}${themeLine}\n\nHeuristic path seeds:\n${heuristicPaths.join("\n")}`
+  );
+  const enrichment = parseFeedbackAgentBriefEnrichment(raw);
+  const markdown = assembleAgentBriefMarkdown({
+    enrichment,
+    tickets,
+    clusterTheme: options?.clusterTheme,
+    heuristicPaths,
+  });
+  return {
+    markdown,
+    enrichment,
+    ticketIds: tickets.map((t) => t.id),
+  };
 }
 
 /** Narrow category helper for callers that want typed labels in prompts. */

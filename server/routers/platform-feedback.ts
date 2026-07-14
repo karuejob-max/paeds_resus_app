@@ -21,6 +21,7 @@ import {
   analyzeFeedbackTicket,
   clusterFeedbackTickets,
   draftFeedbackReply,
+  generateFeedbackAgentBrief,
   type FeedbackTicketLlmInput,
 } from "../lib/feedback-ai-assist";
 import { TRPCError } from "@trpc/server";
@@ -34,6 +35,8 @@ function toLlmInput(ticket: {
   status: string;
   message: string;
   contextJson?: unknown;
+  assignedAgent?: string | null;
+  agentTags?: unknown;
 }): FeedbackTicketLlmInput {
   return {
     id: ticket.id,
@@ -44,6 +47,10 @@ function toLlmInput(ticket: {
     status: ticket.status,
     message: ticket.message,
     contextJson: ticket.contextJson,
+    assignedAgent: ticket.assignedAgent,
+    agentTags: Array.isArray(ticket.agentTags)
+      ? ticket.agentTags.map((t) => String(t))
+      : null,
   };
 }
 
@@ -274,6 +281,42 @@ export const adminFeedbackRouter = router({
           inputSummary: `ticketId=${input.ticketId}`,
         });
         return { ticketId: ticket.id, draftReply };
+      } catch (err) {
+        llmUnavailableError(err);
+      }
+    }),
+
+  /**
+   * Paste-ready Cursor/Manus agent brief for one ticket or a cluster.
+   * Does not mutate tickets — CEO copies/downloads the markdown.
+   */
+  generateAgentBrief: adminProcedure
+    .input(
+      z.object({
+        ticketIds: z.array(z.number().int().positive()).min(1).max(10),
+        clusterTheme: z.string().max(200).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const uniqueIds = [...new Set(input.ticketIds)];
+      const tickets = [];
+      for (const id of uniqueIds) {
+        const row = await getFeedbackTicketById(id);
+        if (!row) {
+          throw new TRPCError({ code: "NOT_FOUND", message: `Ticket #${id} not found` });
+        }
+        tickets.push(toLlmInput(row));
+      }
+      try {
+        const brief = await generateFeedbackAgentBrief(tickets, {
+          clusterTheme: input.clusterTheme,
+        });
+        await insertAdminAuditLog({
+          adminUserId: ctx.user.id,
+          procedurePath: "adminFeedback.generateAgentBrief",
+          inputSummary: `ticketIds=${uniqueIds.join(",")}`,
+        });
+        return brief;
       } catch (err) {
         llmUnavailableError(err);
       }
