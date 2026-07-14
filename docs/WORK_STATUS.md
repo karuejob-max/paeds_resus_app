@@ -14,7 +14,7 @@
 
 ---
 
-| 2026-07-14 | Cursor | **Feedback agent brief export:** `/admin/feedback` **Agent brief** (single ticket or AI cluster) builds paste-ready Cursor/Manus markdown — problem, heuristic+LLM file hints, regression guard, acceptance checks, ticket evidence, copy/download. `adminFeedback.generateAgentBrief` + `assembleAgentBriefMarkdown`. Docs updated. Verified: unit tests for brief assembly + existing feedback AI suite. **Prod:** code-only (`GEMINI_API_KEY` already on Render). | PR _(pending)_ |
+| 2026-07-14 | Cursor | **Feedback agent brief export:** `/admin/feedback` **Agent brief** (single ticket or AI cluster) builds paste-ready Cursor/Manus markdown — problem, heuristic+LLM file hints, regression guard, acceptance checks, ticket evidence, copy/download. `adminFeedback.generateAgentBrief` + `assembleAgentBriefMarkdown`. Docs updated. Verified: unit tests for brief assembly + existing feedback AI suite. **Prod:** code-only (`GEMINI_API_KEY` already on Render). | PR [#283](https://github.com/karuejob-max/paeds_resus_app/pull/283) |
 
 | 2026-07-14 | Cursor | **Gemini feedback inbox AI assist:** `/admin/feedback` gains **AI triage** (severity/issue type/assignee/tags + regression guard), **Draft reply**, and **AI cluster open** (duplicate/theme groups). Suggestions only until CEO applies. Server: `server/lib/feedback-ai-assist.ts` + `adminFeedback.analyzeTicket|draftReply|clusterOpen`; LLM defaults to `gemini-3.5-flash` when `GEMINI_API_KEY` set (Forge `thinking` payload omitted for Gemini). Docs: `FEEDBACK_TICKET_WORKFLOW.md`. Verified: unit tests **8 pass** (`feedback-ai-assist` + `platform-feedback`). **Prod:** code-only — requires `GEMINI_API_KEY` already on Render. | PR [#282](https://github.com/karuejob-max/paeds_resus_app/pull/282) |
 
