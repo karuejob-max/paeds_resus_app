@@ -120,4 +120,45 @@ describe("aiAssistantRouter", () => {
       expect(mockInvokeLLM).not.toHaveBeenCalled();
     });
   });
+
+  describe("other procedures safety checks", () => {
+    it("redirects getClinicalSupport on bedside active request", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getClinicalSupport({
+        scenario: "Active resuscitation coding child right now in front of me",
+      });
+
+      expect(result.support).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+
+    it("redirects getTroubleshootingHelp on clinical request", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getTroubleshootingHelp({
+        issue: "Need defib joules shock dose for infant immediately",
+      });
+
+      expect(result.solution).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+
+    it("redirects getProtocolReference on clinical query", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getProtocolReference({
+        protocolName: "Adrenaline dosing mg/kg for active resuscitation",
+      });
+
+      expect(result.reference).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+  });
 });
