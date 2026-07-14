@@ -37,6 +37,7 @@ On `/admin/feedback` (requires `GEMINI_API_KEY` on the server):
 | **AI triage** | Suggests severity, issue type, assignee, tags, next step, and a **regression guard** note. Does **not** mutate until you click **Apply suggestions**. |
 | **Draft reply** | Inserts a draft into the admin response box — edit before **Save & mark fixed**. |
 | **AI cluster open** | Groups pending/in-progress tickets that look like the same issue (duplicates/themes). |
+| **Agent brief** | Builds a paste-ready Cursor/Manus markdown brief (problem, files, regression guard, acceptance checks, ticket evidence). Available on a single ticket or a cluster. Copy/download — does not mutate tickets. |
 
 Hard rules: AI drafts only; humans decide. Never delete or shallow clinical/content modules to “fix” a ticket (see regression guard below).
 

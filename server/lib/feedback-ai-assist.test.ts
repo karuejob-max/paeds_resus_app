@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  assembleAgentBriefMarkdown,
+  heuristicPathsForCategory,
   parseFeedbackAnalyzeSuggestion,
   parseFeedbackClusterResult,
 } from "./feedback-ai-assist";
@@ -46,5 +48,36 @@ describe("feedback-ai-assist parsers", () => {
     expect(result.clusters).toHaveLength(1);
     expect(result.clusters[0]?.ticketIds).toEqual([1, 2]);
     expect(result.unclusteredTicketIds.sort()).toEqual([3, 4]);
+  });
+
+  it("assembles paste-ready agent brief markdown with regression guard", () => {
+    const md = assembleAgentBriefMarkdown({
+      enrichment: {
+        title: "Fix asthma-i quiz key",
+        problemStatement: "Formative answer key mismatches stem.",
+        likelyFiles: ["shared/quiz-answer-contract.ts"],
+        investigationCommands: ["pnpm run audit:fellowship-assessments:strict"],
+        acceptanceChecks: ["Wrong key corrected without removing rationale"],
+        regressionGuard: "Do not delete module 2",
+        suggestedAssignee: "cursor",
+      },
+      heuristicPaths: heuristicPathsForCategory("course_content", "asthma-i"),
+      tickets: [
+        {
+          id: 9,
+          category: "course_content",
+          issueType: "content",
+          severity: "high",
+          status: "open",
+          message: "Option B is marked correct but explanation says A.",
+          contextJson: { courseSlug: "asthma-i", pageUrl: "/micro-course/asthma-i" },
+        },
+      ],
+    });
+    expect(md).toContain("Agent brief: Fix asthma-i quiz key");
+    expect(md).toContain("Do not delete module 2");
+    expect(md).toContain("asthma-i");
+    expect(md).toContain("Paste-ready agent prompt");
+    expect(heuristicPathsForCategory("resus_gps")).toContain("pnpm run test:clinical");
   });
 });

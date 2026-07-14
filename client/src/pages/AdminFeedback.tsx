@@ -26,7 +26,7 @@ import {
   type FeedbackStatusHistoryEntry,
   type FeedbackTicketStatus,
 } from "@shared/platform-feedback";
-import { ArrowLeft, Download, ExternalLink, Loader2, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowLeft, ClipboardCopy, Download, ExternalLink, Loader2, MessageSquare, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 type StatusFilter = FeedbackTicketStatus | "all" | "actionable";
@@ -76,6 +76,7 @@ export default function AdminFeedback() {
   const [agentTagsText, setAgentTagsText] = useState("");
   const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
   const [aiClusters, setAiClusters] = useState<AiClusterResult | null>(null);
+  const [agentBriefMarkdown, setAgentBriefMarkdown] = useState<string | null>(null);
 
   const listInput = useMemo(
     () => ({
@@ -126,7 +127,13 @@ export default function AdminFeedback() {
     },
     onError: (err) => toast.error(err.message),
   });
-
+  const generateAgentBrief = trpc.adminFeedback.generateAgentBrief.useMutation({
+    onSuccess: (data) => {
+      setAgentBriefMarkdown(data.markdown);
+      toast.success("Agent brief ready — copy or download for Cursor");
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   useEffect(() => {
     if (!loading && !isAuthenticated) setLocation("/login");
@@ -163,6 +170,25 @@ export default function AdminFeedback() {
     });
     setAgentTagsText(aiSuggestion.suggestedTags.join(", "));
     toast.success("Applied AI severity, issue type, assignee, and tags");
+  }
+
+  async function copyAgentBrief() {
+    if (!agentBriefMarkdown) return;
+    try {
+      await navigator.clipboard.writeText(agentBriefMarkdown);
+      toast.success("Copied agent brief to clipboard");
+    } catch {
+      toast.error("Could not copy — use Download instead");
+    }
+  }
+
+  function downloadAgentBrief() {
+    if (!agentBriefMarkdown) return;
+    const blob = new Blob([agentBriefMarkdown], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `feedback-agent-brief-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
   }
 
   if (loading || !adminOk) {
@@ -231,12 +257,29 @@ export default function AdminFeedback() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{c.rationale}</p>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 items-center">
                     {c.ticketIds.map((id) => (
                       <Button key={id} type="button" size="sm" variant="secondary" className="h-7" onClick={() => setSelectedId(id)}>
                         #{id}
                       </Button>
                     ))}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      disabled={generateAgentBrief.isPending}
+                      onClick={() =>
+                        generateAgentBrief.mutate({ ticketIds: c.ticketIds, clusterTheme: c.theme })
+                      }
+                    >
+                      {generateAgentBrief.isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3 mr-1" />
+                      )}
+                      Agent brief
+                    </Button>
                   </div>
                 </div>
               ))
@@ -246,6 +289,29 @@ export default function AdminFeedback() {
                 Unclustered: {aiClusters.unclusteredTicketIds.map((id) => `#${id}`).join(", ")}
               </p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {agentBriefMarkdown && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4" /> Agent brief (paste into Cursor)
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={() => void copyAgentBrief()}>
+                  <ClipboardCopy className="h-4 w-4 mr-1" /> Copy
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={downloadAgentBrief}>
+                  <Download className="h-4 w-4 mr-1" /> Download
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Textarea rows={14} value={agentBriefMarkdown} readOnly className="font-mono text-xs" />
           </CardContent>
         </Card>
       )}
@@ -363,6 +429,16 @@ export default function AdminFeedback() {
                   >
                     {draftReply.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
                     Draft reply
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={generateAgentBrief.isPending}
+                    onClick={() => generateAgentBrief.mutate({ ticketIds: [selected.id] })}
+                  >
+                    {generateAgentBrief.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+                    Agent brief
                   </Button>
                 </div>
 
