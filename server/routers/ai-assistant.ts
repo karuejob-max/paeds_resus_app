@@ -3,6 +3,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
 import { AI_SYSTEM_PROMPT, COMMON_QUESTIONS, EMERGENCY_CONTACTS } from "../knowledge-base";
+import {
+  looksLikeBedsideClinicalRequest,
+  PLATFORM_HELP_SYSTEM_PROMPT,
+  QUIZ_TUTOR_SYSTEM_PROMPT,
+  BEDSIDE_REDIRECT_REPLY,
+} from "../lib/gemini-user-assist";
 
 /**
  * Paeds Resus AI Assistant Router
@@ -21,18 +27,30 @@ export const aiAssistantRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Use enhanced system prompt from knowledge base
-        const systemPrompt = AI_SYSTEM_PROMPT;
+        // Check if message is a bedside clinical request
+        if (looksLikeBedsideClinicalRequest(input.message)) {
+          return {
+            success: true,
+            response: BEDSIDE_REDIRECT_REPLY,
+            conversationId: input.conversationId || `conv-${Date.now()}`,
+            timestamp: new Date(),
+          };
+        }
 
         // Call LLM with context
         const response = await invokeLLM({
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: PLATFORM_HELP_SYSTEM_PROMPT },
             { role: "user", content: input.message },
           ],
         });
 
-        const assistantMessage = response.choices[0]?.message?.content || "I'm unable to process your request at this time.";
+        const rawContent = response.choices[0]?.message?.content || "I'm unable to process your request at this time.";
+        const assistantMessage = typeof rawContent === "string"
+          ? rawContent
+          : Array.isArray(rawContent)
+            ? rawContent.map(part => ("text" in part ? part.text : "")).join("")
+            : "I'm unable to process your request at this time.";
 
         // Log interaction for learning
         console.log(`[AI Assistant] Provider ${ctx.user.id} - Context: ${input.context} - Message: ${input.message.substring(0, 100)}`);
@@ -48,6 +66,82 @@ export const aiAssistantRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to process your message",
+        });
+      }
+    }),
+
+  // Get quiz tutoring response explanation
+  getQuizTutorResponse: protectedProcedure
+    .input(
+      z.object({
+        question: z.string(),
+        options: z.array(z.string()),
+        correctOption: z.string(),
+        userAnswer: z.string(),
+        explanation: z.string(),
+        messages: z.array(
+          z.object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string(),
+          })
+        ).default([]),
+        userQuery: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Clinical safety check on the query if provided
+        if (input.userQuery && looksLikeBedsideClinicalRequest(input.userQuery)) {
+          return {
+            success: true,
+            response: BEDSIDE_REDIRECT_REPLY,
+            timestamp: new Date(),
+          };
+        }
+
+        // Build messages starting with question context
+        const contextMessage = `Quiz Question Context:
+Question: ${input.question}
+Options: ${input.options.join(", ")}
+Correct Option: ${input.correctOption}
+User's Answer: ${input.userAnswer}
+Official Explanation: ${input.explanation}`;
+
+        const llmMessages = [
+          { role: "system" as const, content: QUIZ_TUTOR_SYSTEM_PROMPT },
+          { role: "user" as const, content: `Here is the quiz context:\n\n${contextMessage}` },
+          { role: "assistant" as const, content: "I have reviewed the question, the options, your answer, and the official explanation. How can I help you understand this concept?" },
+          ...input.messages.map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content
+          }))
+        ];
+
+        if (input.userQuery) {
+          llmMessages.push({ role: "user" as const, content: input.userQuery });
+        }
+
+        const response = await invokeLLM({
+          messages: llmMessages,
+        });
+
+        const rawReply = response.choices[0]?.message?.content || "I'm unable to explain this question at this time.";
+        const reply = typeof rawReply === "string"
+          ? rawReply
+          : Array.isArray(rawReply)
+            ? rawReply.map(part => ("text" in part ? part.text : "")).join("")
+            : "I'm unable to explain this question at this time.";
+
+        return {
+          success: true,
+          response: reply,
+          timestamp: new Date(),
+        };
+      } catch (error) {
+        console.error("[AI Assistant] Quiz Tutor Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate tutoring explanation",
         });
       }
     }),
