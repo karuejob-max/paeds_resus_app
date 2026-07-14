@@ -185,6 +185,7 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   providerCadre: varchar("provider_cadre", { length: 64 }),
   reportTrack: varchar("report_track", { length: 16 }).default("FAILURE").notNull(),
   failureModeCodes: text("failure_mode_codes"),
+  successFactorCodes: text("success_factor_codes"),
   rawNarrative: text("raw_narrative"),
   temporalIntervals: text("temporal_intervals"),
   eventId: varchar("event_id", { length: 36 }),

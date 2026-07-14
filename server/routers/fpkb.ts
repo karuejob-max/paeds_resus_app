@@ -40,6 +40,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db";
+import { reEvaluateAfterImplementationOutcome } from "../lib/fpkb-pattern-detector";
 import {
   kbFailureModes,
   kbSuccessFactors,
@@ -571,6 +572,20 @@ export const fpkbRouter = router({
         newState: { outcomeLabel: input.outcomeLabel, implementationFidelity: input.implementationFidelity },
         reasoning: input.outcomeEvidenceNotes,
       });
+
+      // Stage 8 self-evaluation (Observation Architecture §6.8) — the
+      // system evaluates its own recommendation against what actually
+      // happened, not just what was drafted.
+      const [interventionForRec] = await db
+        .select()
+        .from(kbInterventions)
+        .where(eq(kbInterventions.id, input.interventionId));
+      if (interventionForRec) {
+        await reEvaluateAfterImplementationOutcome(db, {
+          recommendationId: interventionForRec.recommendationId,
+          outcomeLabel: input.outcomeLabel,
+        });
+      }
 
       return { id };
     }),
