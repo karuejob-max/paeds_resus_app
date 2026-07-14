@@ -294,7 +294,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model: ENV.geminiApiKey
+      ? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash")
+      : "gemini-2.5-flash",
     messages: messages.map(normalizeMessage),
   };
 
@@ -310,9 +312,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
+  const maxTokens = params.maxTokens ?? params.max_tokens ?? 8192;
+  payload.max_tokens = maxTokens;
+
+  // Legacy Forge proxy only — Gemini OpenAI-compat rejects unknown "thinking" field.
+  if (!ENV.geminiApiKey) {
+    payload.thinking = { budget_tokens: 128 };
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({

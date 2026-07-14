@@ -11,7 +11,7 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   /** Google Gemini API key (AI Studio). Used by invokeLLM when set; falls back to BUILT_IN_FORGE_API_KEY. */
-  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  geminiApiKey: (process.env.GEMINI_API_KEY ?? "").trim(),
   appBaseUrl: process.env.APP_BASE_URL ?? "",
   authMode: process.env.AUTH_MODE ?? "email",
   /** Session max age in ms. Set SESSION_MAX_AGE_MS (e.g. 1800000 for 30 min). If unset, 1 year for backward compatibility. */

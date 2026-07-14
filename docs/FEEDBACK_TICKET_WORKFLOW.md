@@ -28,6 +28,18 @@
 - **Detail:** user message, page URL, source tool, course slug, module ID, browser user-agent, screenshot link (if provided)
 - **Actions:** status transition with notes, agent assignment (Cursor / Manus / CEO / clinical), comma-separated tags, admin response (audit-logged via `adminAuditLog`)
 
+### AI assist (Gemini)
+
+On `/admin/feedback` (requires `GEMINI_API_KEY` on the server):
+
+| Action | Behavior |
+|--------|----------|
+| **AI triage** | Suggests severity, issue type, assignee, tags, next step, and a **regression guard** note. Does **not** mutate until you click **Apply suggestions**. |
+| **Draft reply** | Inserts a draft into the admin response box — edit before **Save & mark fixed**. |
+| **AI cluster open** | Groups pending/in-progress tickets that look like the same issue (duplicates/themes). |
+
+Hard rules: AI drafts only; humans decide. Never delete or shallow clinical/content modules to “fix” a ticket (see regression guard below).
+
 ### Structured fields (submit)
 
 | Field | Values | Notes |
