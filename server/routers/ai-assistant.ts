@@ -110,9 +110,9 @@ Official Explanation: ${input.explanation}`;
 
         const initialUserMsg = `Here is the quiz context:\n\n${contextMessage}\n\nPlease explain this question, why the correct option is correct, and clarify any potential misconceptions based on my answer.`;
 
-        const llmMessages = [
-          { role: "system" as const, content: QUIZ_TUTOR_SYSTEM_PROMPT },
-          { role: "user" as const, content: initialUserMsg }
+        const llmMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+          { role: "system", content: QUIZ_TUTOR_SYSTEM_PROMPT },
+          { role: "user", content: initialUserMsg }
         ];
 
         if (input.messages && input.messages.length > 0) {
