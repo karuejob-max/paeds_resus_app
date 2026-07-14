@@ -124,14 +124,14 @@ export default function QuizTutorCard({
           onClick={handleToggle}
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 text-xs border-[#1a4d4d] text-[#1a4d4d] hover:bg-[#1a4d4d]/5 font-semibold transition duration-200"
+          className="flex items-center gap-2 text-xs border-[#1a4d4d] dark:border-emerald-500 text-[#1a4d4d] dark:text-emerald-400 hover:bg-[#1a4d4d]/5 dark:hover:bg-emerald-500/10 font-semibold transition duration-200"
         >
           <Sparkles className="w-3.5 h-3.5" />
           Explain with AI Tutor
           <ChevronDown className="w-3 h-3" />
         </Button>
       ) : (
-        <Card className="border border-slate-200 shadow-md overflow-hidden bg-slate-50 animate-in slide-in-from-top-2 duration-300">
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden bg-slate-50 dark:bg-slate-900/90 animate-in slide-in-from-top-2 duration-300">
           <CardHeader className="bg-gradient-to-r from-[#1a4d4d] to-[#0d3333] text-white py-3 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#ff6633] fill-[#ff6633]" />
@@ -152,14 +152,14 @@ export default function QuizTutorCard({
             {/* Chat Messages */}
             <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-sm">
               {messages.length === 0 && isLoading && (
-                <div className="flex items-center gap-2 justify-center py-6 text-slate-500">
+                <div className="flex items-center gap-2 justify-center py-6 text-slate-500 dark:text-slate-400 animate-pulse">
                   <Loader2 className="w-4 h-4 animate-spin text-[#ff6633]" />
                   <span>AI Tutor is analyzing the question...</span>
                 </div>
               )}
 
               {error && messages.length === 0 && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex flex-col gap-2">
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-red-700 dark:text-red-400 flex flex-col gap-2 animate-in fade-in duration-300">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span className="text-xs font-semibold">{error}</span>
@@ -168,7 +168,7 @@ export default function QuizTutorCard({
                     onClick={loadInitialExplanation}
                     size="sm"
                     variant="outline"
-                    className="w-fit text-xs border-red-200 text-red-700 hover:bg-red-50 gap-1 self-end"
+                    className="w-fit text-xs border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 gap-1 self-end"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Retry
@@ -180,10 +180,10 @@ export default function QuizTutorCard({
                 <div
                   key={idx}
                   className={cn(
-                    "flex flex-col max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm",
+                    "flex flex-col max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm transition-all duration-300",
                     msg.role === "user"
                       ? "bg-[#ff6633] text-white ml-auto rounded-tr-none"
-                      : "bg-white text-slate-800 border border-slate-200 mr-auto rounded-tl-none"
+                      : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 mr-auto rounded-tl-none"
                   )}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -191,14 +191,14 @@ export default function QuizTutorCard({
               ))}
 
               {messages.length > 0 && isLoading && (
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl p-3 text-sm text-slate-500 mr-auto max-w-[85%] rounded-tl-none shadow-sm">
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-sm text-slate-500 dark:text-slate-400 mr-auto max-w-[85%] rounded-tl-none shadow-sm animate-pulse">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ff6633]" />
                   <span>Tutor is writing...</span>
                 </div>
               )}
 
               {error && messages.length > 0 && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-center gap-2">
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-red-700 dark:text-red-400 text-xs flex items-center gap-2 animate-in fade-in duration-300">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -208,7 +208,7 @@ export default function QuizTutorCard({
             </div>
 
             {/* Input Form */}
-            <div className="flex gap-2 pt-2 border-t border-slate-200">
+            <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
               <input
                 type="text"
                 value={inputValue}
@@ -216,12 +216,12 @@ export default function QuizTutorCard({
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                 placeholder="Ask the AI Tutor a follow-up question..."
                 disabled={isLoading || messages.length === 0}
-                className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a4d4d] text-sm disabled:bg-slate-100 disabled:text-slate-400"
+                className="flex-1 px-3 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a4d4d] dark:focus:ring-emerald-600 text-sm disabled:bg-slate-100 dark:disabled:bg-slate-900 disabled:text-slate-400 dark:disabled:text-slate-600"
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading || messages.length === 0}
-                className="bg-[#1a4d4d] hover:bg-[#0d3333] disabled:bg-slate-300 text-white p-2 rounded-lg transition"
+                className="bg-[#1a4d4d] dark:bg-emerald-600 hover:bg-[#0d3333] dark:hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white p-2 rounded-lg transition"
                 size="icon"
               >
                 <Send className="w-4 h-4" />

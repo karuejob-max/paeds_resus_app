@@ -100,25 +100,34 @@ export const aiAssistantRouter = router({
         }
 
         // Build messages starting with question context
+        const optionsText = Array.isArray(input.options) ? input.options.join(", ") : "";
         const contextMessage = `Quiz Question Context:
 Question: ${input.question}
-Options: ${input.options.join(", ")}
+Options: ${optionsText}
 Correct Option: ${input.correctOption}
 User's Answer: ${input.userAnswer}
 Official Explanation: ${input.explanation}`;
 
+        const initialUserMsg = `Here is the quiz context:\n\n${contextMessage}\n\nPlease explain this question, why the correct option is correct, and clarify any potential misconceptions based on my answer.`;
+
         const llmMessages = [
           { role: "system" as const, content: QUIZ_TUTOR_SYSTEM_PROMPT },
-          { role: "user" as const, content: `Here is the quiz context:\n\n${contextMessage}` },
-          { role: "assistant" as const, content: "I have reviewed the question, the options, your answer, and the official explanation. How can I help you understand this concept?" },
-          ...input.messages.map(m => ({
-            role: m.role as "user" | "assistant",
-            content: m.content
-          }))
+          { role: "user" as const, content: initialUserMsg }
         ];
 
+        if (input.messages && input.messages.length > 0) {
+          llmMessages.push(...input.messages.map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content
+          })));
+        }
+
         if (input.userQuery) {
-          llmMessages.push({ role: "user" as const, content: input.userQuery });
+          if (!input.messages || input.messages.length === 0) {
+            llmMessages[1].content = `${initialUserMsg}\n\nAdditional follow-up question: ${input.userQuery}`;
+          } else {
+            llmMessages.push({ role: "user" as const, content: input.userQuery });
+          }
         }
 
         const response = await invokeLLM({
@@ -157,6 +166,13 @@ Official Explanation: ${input.explanation}`;
     )
     .query(async ({ input, ctx }) => {
       try {
+        if (looksLikeBedsideClinicalRequest(input.scenario)) {
+          return {
+            support: BEDSIDE_REDIRECT_REPLY,
+            timestamp: new Date(),
+          };
+        }
+
         const systemPrompt = `You are a pediatric emergency medicine expert for Paeds Resus Limited. Provide evidence-based clinical decision support for the following scenario.
 
 Format your response with:
@@ -202,6 +218,13 @@ Clinical Scenario: ${input.scenario}`;
     )
     .query(async ({ input, ctx }) => {
       try {
+        if (looksLikeBedsideClinicalRequest(input.issue) || (input.context && looksLikeBedsideClinicalRequest(input.context))) {
+          return {
+            solution: BEDSIDE_REDIRECT_REPLY,
+            timestamp: new Date(),
+          };
+        }
+
         const systemPrompt = `You are a technical support specialist for Paeds Resus platform. Help users troubleshoot their issues.
 
 Provide:
@@ -244,6 +267,13 @@ ${input.context ? `Additional Context: ${input.context}` : ""}`;
     )
     .query(async ({ input, ctx }) => {
       try {
+        if (looksLikeBedsideClinicalRequest(input.protocolName) || (input.query && looksLikeBedsideClinicalRequest(input.query))) {
+          return {
+            reference: BEDSIDE_REDIRECT_REPLY,
+            timestamp: new Date(),
+          };
+        }
+
         const systemPrompt = `You are a clinical protocol reference expert. Provide quick reference information for the requested protocol.
 
 Format as:
