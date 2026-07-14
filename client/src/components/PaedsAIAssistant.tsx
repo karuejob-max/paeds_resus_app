@@ -46,12 +46,16 @@ export default function PaedsAIAssistant() {
     setIsOpen(true);
   };
 
+  const sendMessageMutation = trpc.aiAssistant.sendMessage.useMutation();
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !isAuthenticated) return;
 
+    const userMessageContent = inputValue;
+
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
-      content: inputValue,
+      content: userMessageContent,
       sender: "user",
       timestamp: new Date(),
     };
@@ -61,20 +65,34 @@ export default function PaedsAIAssistant() {
     setIsLoading(true);
 
     try {
-      // Simulate AI response with typing delay
-      setTimeout(() => {
+      const response = await sendMessageMutation.mutateAsync({
+        message: userMessageContent,
+        context: context,
+        conversationId: conversationId || undefined,
+      });
+
+      if (response.success) {
+        if (response.conversationId && response.conversationId !== conversationId) {
+          setConversationId(response.conversationId);
+        }
         const assistantMessage: Message = {
           id: `msg-${Date.now()}`,
-          content:
-            "I understand your question. Based on Paeds Resus protocols and best practices, here's what I recommend:\n\n1. **Immediate Action**: Follow the evidence-based guidelines for your specific scenario.\n\n2. **Key Considerations**: Always prioritize patient safety and refer to the relevant clinical protocols.\n\n3. **Next Steps**: If you need more detailed guidance, I can provide protocol references or connect you with a support specialist.\n\nWould you like more specific information about any aspect of this guidance?",
+          content: response.response,
           sender: "assistant",
-          timestamp: new Date(),
+          timestamp: new Date(response.timestamp),
         };
         setMessages((prev) => [...prev, assistantMessage]);
-        setIsLoading(false);
-      }, 1500);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
+      const errorMessage: Message = {
+        id: `msg-err-${Date.now()}`,
+        content: "Sorry, I had trouble reaching the AI assistant. Please check your connection and try again.",
+        sender: "assistant",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
     }
   };

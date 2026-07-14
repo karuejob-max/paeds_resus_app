@@ -38,6 +38,7 @@ import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyF
 import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedBanner";
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
 import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
+import QuizTutorCard from "@/components/QuizTutorCard";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -1618,6 +1619,24 @@ function FormativeQuizView({
       <CardContent className="p-8 space-y-10">
         {quiz.questions.map((q: any, idx: number) => {
           const answerKey = q.id ?? idx;
+          const serverResult = questionResults?.[q.id];
+          const resolvedCorrect = useServerResults
+            ? serverResult?.correctOption
+            : (() => {
+                try {
+                  const p =
+                    typeof q.correctAnswer === "string"
+                      ? JSON.parse(q.correctAnswer)
+                      : q.correctAnswer;
+                  return typeof p === "string" ? p : String(p);
+                } catch {
+                  return typeof q.correctAnswer === "string"
+                    ? q.correctAnswer
+                    : String(q.correctAnswer ?? "");
+                }
+              })();
+          const userAnswer = answers[answerKey] ?? "";
+
           return (
           <div key={q.id ?? idx} className="space-y-4">
             <div className="flex gap-4">
@@ -1628,23 +1647,7 @@ function FormativeQuizView({
             </div>
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
-                const isSelected = answers[answerKey] === option;
-                const serverResult = questionResults?.[q.id];
-                const resolvedCorrect = useServerResults
-                  ? serverResult?.correctOption
-                  : (() => {
-                      try {
-                        const p =
-                          typeof q.correctAnswer === "string"
-                            ? JSON.parse(q.correctAnswer)
-                            : q.correctAnswer;
-                        return typeof p === "string" ? p : String(p);
-                      } catch {
-                        return typeof q.correctAnswer === "string"
-                          ? q.correctAnswer
-                          : String(q.correctAnswer ?? "");
-                      }
-                    })();
+                const isSelected = userAnswer === option;
                 const isCorrect =
                   submitted &&
                   !!resolvedCorrect &&
@@ -1690,6 +1693,16 @@ function FormativeQuizView({
                 <strong>Rationale:</strong>{" "}
                 {questionResults?.[q.id]?.explanation ?? q.explanation}
               </div>
+            )}
+            {submitted && (questionResults?.[q.id]?.explanation ?? (useServerResults ? null : q.explanation)) && (
+              <QuizTutorCard
+                question={q.question}
+                options={q.options}
+                correctOption={resolvedCorrect || ""}
+                userAnswer={userAnswer}
+                explanation={questionResults?.[q.id]?.explanation ?? q.explanation ?? ""}
+                className="ml-12"
+              />
             )}
           </div>
         );})}

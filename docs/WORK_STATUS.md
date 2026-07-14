@@ -1,4 +1,4 @@
-﻿
+
 **Purpose:** One file that Manus, Codex, and Cursor read and update. No pasting of responses; sync via git.  
 **Workflow:** See AI_TEAM_WORKFLOW.md in this folder.
 
@@ -13,6 +13,8 @@
 - **When you review another's work:** Add to Critique / review (date, who you are commenting on, what you checked, any issues or suggestions). The next agent or Job can then act on it.
 
 ---
+
+| 2026-07-14 | Antigravity | **Gemini user help & quiz tutor integration:** Connected the `PLATFORM_HELP_SYSTEM_PROMPT` and `looksLikeBedsideClinicalRequest` safety checks to `sendMessage` mutation in `server/routers/ai-assistant.ts`, returning `BEDSIDE_REDIRECT_REPLY` directly for clinical/bedside emergency questions. Wired `client/src/components/PaedsAIAssistant.tsx` to this mutation, removing mock simulation. Added `getQuizTutorResponse` procedure using `QUIZ_TUTOR_SYSTEM_PROMPT` to explain submitted quiz questions, and created `QuizTutorCard.tsx` collapsible inline chat component, rendering it in the submitted question reviews of `MicroCoursePlayerDB.tsx` and `ModuleQuiz.tsx`. Verified: Vitest unit tests **4 pass** (`ai-assistant.test.ts`), `pnpm run check` clean compilation, 518 total unit tests pass. **Prod:** code-only, requires `GEMINI_API_KEY` (already on Render). | PR [#284](https://github.com/karuejob-max/paeds_resus_app/pull/284) |
 
 | 2026-07-14 | Cursor | **Feedback agent brief export:** `/admin/feedback` **Agent brief** (single ticket or AI cluster) builds paste-ready Cursor/Manus markdown — problem, heuristic+LLM file hints, regression guard, acceptance checks, ticket evidence, copy/download. `adminFeedback.generateAgentBrief` + `assembleAgentBriefMarkdown`. Docs updated. Verified: unit tests for brief assembly + existing feedback AI suite. **Prod:** code-only (`GEMINI_API_KEY` already on Render). | PR [#283](https://github.com/karuejob-max/paeds_resus_app/pull/283) |
 
