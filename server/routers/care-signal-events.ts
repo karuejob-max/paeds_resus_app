@@ -310,6 +310,7 @@ export const careSignalEventsRouter = router({
         provider_cadre: z.string().max(64).optional(),
         report_track: z.enum(["FAILURE", "SUCCESS"]).optional(),
         failure_mode_codes: z.array(z.string()).optional(),
+        success_factor_codes: z.array(z.string()).optional(),
         raw_narrative: z.string().max(10000).optional(),
         temporal_intervals: z.record(z.string(), z.any()).optional(),
         event_id: z.string().max(36).optional(),
@@ -441,6 +442,9 @@ export const careSignalEventsRouter = router({
           ...(input.raw_narrative ? { rawNarrative: input.raw_narrative } : {}),
           ...(input.failure_mode_codes?.length
             ? { failureModeCodes: JSON.stringify(input.failure_mode_codes) }
+            : {}),
+          ...(input.success_factor_codes?.length
+            ? { successFactorCodes: JSON.stringify(input.success_factor_codes) }
             : {}),
           ...(input.temporal_intervals
             ? { temporalIntervals: JSON.stringify(input.temporal_intervals) }

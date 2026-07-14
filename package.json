@@ -87,6 +87,7 @@
     "audit:fellowship-bank-size": "tsx scripts/audit-fellowship-bank-size.ts",
     "db:verify-0044": "node scripts/verify-0044-migration.mjs",
     "retention:cleanup": "tsx --import dotenv/config scripts/run-retention-cleanup.ts",
+    "fpkb:detect-patterns": "tsx --import dotenv/config scripts/run-pattern-detection.ts",
     "dsar:deletion": "tsx --import dotenv/config scripts/process-dsar-deletion.ts",
     "verify:analytics": "tsx scripts/verify-analytics-events.ts",
     "verify:sprint1": "vitest run server/lib/sprint1-analytics-verify.test.ts server/routers/events.trackEvent.test.ts && tsx scripts/verify-sprint1-analytics.ts",
@@ -105,6 +106,7 @@
     "db:backfill-0060": "node scripts/apply-0060-facilities-backfill.mjs",
     "db:apply-0061": "node scripts/apply-0061-raw-narrative-immutable.mjs",
     "db:apply-0062": "node scripts/apply-0062-fix-raw-narrative-trigger-message.mjs",
+    "db:apply-0063": "node scripts/apply-0063-success-factor-codes.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
