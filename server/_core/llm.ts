@@ -209,19 +209,28 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
+const GEMINI_CHAT_COMPLETIONS_URL =
+  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
 const resolveApiUrl = () => {
+  if (ENV.geminiApiKey) {
+    return GEMINI_CHAT_COMPLETIONS_URL;
+  }
+
   const trimmed = ENV.forgeApiUrl.trim();
   if (!trimmed) {
     throw new Error(
-      "forgeApiUrl is not configured. Set BUILT_IN_FORGE_API_URL (or your LLM provider base URL) in the environment."
+      "LLM provider is not configured. Set GEMINI_API_KEY or BUILT_IN_FORGE_API_URL in the environment."
     );
   }
   return `${trimmed.replace(/\/$/, "")}/v1/chat/completions`;
 };
 
+const resolveApiKey = () => ENV.geminiApiKey || ENV.forgeApiKey;
+
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!resolveApiKey()) {
+    throw new Error("GEMINI_API_KEY or BUILT_IN_FORGE_API_KEY is not configured");
   }
 };
 
@@ -321,7 +330,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${resolveApiKey()}`,
     },
     body: JSON.stringify(payload),
   });
