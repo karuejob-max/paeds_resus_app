@@ -69,6 +69,45 @@ const FAILURE_THRESHOLDS = { SIGNAL: 5, CANDIDATE: 20, CONFIRMED: 50, ESTABLISHE
 /** Success track: only the observation-driven rungs; the rest need Implementation outcomes. */
 const EMERGING_SUCCESS_DIVERSITY = 3;
 
+/**
+ * Review-window length (days) per confidence level, per §6.6's Pattern
+ * Record field table — NOT §7.3, which only states Signal's 6-month and
+ * Confirmed/Established's 12-month windows in prose and never mentions
+ * Candidate at all. §6.6's `review_schedule` field definition is explicit
+ * where §7.3 is silent: "Auto-set to 12 months from last_confirmed for
+ * Confirmed and Established. 6 months for Signal and Candidate." Candidate
+ * is grouped with Signal, not with Confirmed/Established — gap-analysis
+ * queue item #15 previously treated this as an unresolved doc ambiguity
+ * and guessed 12 months for Candidate by mistaken analogy; that was wrong,
+ * caught on a closer re-read of §6.6 (see AGENTS.md "Lessons learned" for
+ * the general rule this cost us: check field-definition tables elsewhere
+ * in a doc before treating prose silence in one section as real ambiguity).
+ *
+ * Success-track windows are genuinely NOT stated anywhere in either
+ * section — that part of item #15 remains an inference, not a documented
+ * fact. Assigned here by rank-analogy to the failure-track level at the
+ * same ladder position (Candidate Success↔Signal, Emerging↔Candidate,
+ * Validated↔Confirmed, Standard Practice↔Established), consistent with
+ * the same "mechanism applies to both tracks" assumption used elsewhere
+ * in this file (§6.6's "Pattern Record: Minimum Fields (Both Tracks)"
+ * supports that for the *fields*, though not for these specific
+ * *durations*, which are still inferred, not documented).
+ */
+const REVIEW_WINDOW_DAYS: Record<string, number> = {
+  SIGNAL: 182,
+  CANDIDATE: 182,
+  CONFIRMED: 365,
+  ESTABLISHED: 365,
+  CANDIDATE_SUCCESS: 182,
+  EMERGING_SUCCESS: 182,
+  VALIDATED_SUCCESS: 365,
+  STANDARD_PRACTICE: 365,
+};
+
+export function reviewWindowDaysFor(level: string): number {
+  return REVIEW_WINDOW_DAYS[level] ?? 365;
+}
+
 export interface DetectionResult {
   eventsScanned: number;
   newObservationsLinked: number;
@@ -195,10 +234,8 @@ async function recomputePatternConfidence(
       lastConfirmedAt: new Date(),
       confidenceLevel: newLevel,
       trendDirection,
-      // 6-month review for SIGNAL/CANDIDATE, 12-month for CONFIRMED/ESTABLISHED (§6.6).
-      reviewDueAt: new Date(
-        Date.now() + (newLevel === "CONFIRMED" || newLevel === "ESTABLISHED" ? 365 : 182) * 86_400_000
-      ),
+      // Per §6.6's review_schedule field definition (see reviewWindowDaysFor).
+      reviewDueAt: new Date(Date.now() + reviewWindowDaysFor(newLevel) * 86_400_000),
     })
     .where(eq(kbPatterns.id, patternId));
 
@@ -478,24 +515,33 @@ export async function reEvaluateAfterImplementationOutcome(
  * above already extends reviewDueAt every time a pattern receives a new
  * observation) — no separate reconfirmation mechanism needed here.
  *
- * TWO GENUINE AMBIGUITIES IN THE SOURCE DOC, resolved by explicit,
- * documented assumption rather than silent guessing:
- *   1. CANDIDATE's review window is never stated (only SIGNAL's 6 months
- *      and CONFIRMED/ESTABLISHED's 12 months are explicit). This code
- *      treats CANDIDATE like CONFIRMED/ESTABLISHED (12-month window, one
- *      level down to SIGNAL on lapse) since it's textually the closest
- *      analogy and matches the 365-day reviewDueAt already assigned to
- *      CANDIDATE patterns in recomputePatternConfidence. Flagged in
- *      WORK_STATUS.md for a doc clarification, not treated as settled.
- *   2. §7.3's text only names failure-track confidence levels (Signal,
- *      Confirmed, Established) — it never mentions the success track's
- *      levels (CANDIDATE_SUCCESS, EMERGING_SUCCESS, VALIDATED_SUCCESS,
- *      STANDARD_PRACTICE) at all. Rule 8 itself ("Every pattern has a
- *      mandatory review date") reads as track-agnostic in principle, so
- *      this code applies the same mechanism to success patterns by
- *      structural analogy (each level steps down one rung on staleness),
- *      but this is an extension by inference, not something the doc
- *      actually specifies for that track. Also flagged for clarification.
+ * TWO AMBIGUITIES WERE ORIGINALLY FLAGGED AGAINST §7.3 ALONE. Revisited
+ * 2026-07-15 (gap-analysis queue item #15) by re-checking §6.6, not just
+ * §7.3, and one turns out to be resolved by the doc after all:
+ *   1. RESOLVED — NOT actually ambiguous. §7.3's prose alone never states
+ *      CANDIDATE's review window, and this file previously guessed 12
+ *      months by treating CANDIDATE like CONFIRMED/ESTABLISHED. That
+ *      guess was wrong. §6.6's Pattern Record field table states it
+ *      directly: "review_schedule ... 6 months for Signal and Candidate."
+ *      CANDIDATE is grouped with SIGNAL, not with CONFIRMED/ESTABLISHED.
+ *      Fixed here via the shared reviewWindowDaysFor() helper above,
+ *      which both this function and runConfidenceDowngrade now use so
+ *      they can't silently disagree again.
+ *   2. STILL GENUINELY UNRESOLVED (mechanism yes, exact durations no).
+ *      §7.3's text only names failure-track confidence levels — it never
+ *      mentions whether the same staleness/downgrade mechanism applies to
+ *      the success track (CANDIDATE_SUCCESS, EMERGING_SUCCESS,
+ *      VALIDATED_SUCCESS, STANDARD_PRACTICE) at all. §6.6 does confirm
+ *      the *mechanism* applies to both tracks — its Pattern Record field
+ *      table is explicitly headed "Minimum Fields (Both Tracks)" and
+ *      includes review_schedule and knowledge_status in that shared list.
+ *      So yes, success patterns get reviewed and downgraded too — that
+ *      part is now settled. What's still inferred, not documented anywhere:
+ *      the specific *window lengths* for the success-track levels. This
+ *      code assigns them by rank-analogy to the equivalent failure-track
+ *      position (see REVIEW_WINDOW_DAYS above) — a defensible extension,
+ *      not something either section actually specifies. Worth a short
+ *      doc addition to §6.6's review_schedule row once confirmed.
  */
 
 export const FAILURE_DOWNGRADE_PATH: Partial<Record<string, string>> = {
@@ -554,7 +600,7 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
         .update(kbPatterns)
         .set({
           confidenceLevel: nextLevel as KbPattern["confidenceLevel"],
-          reviewDueAt: new Date(now.getTime() + (nextLevel === "SIGNAL" || nextLevel === "CANDIDATE_SUCCESS" ? 182 : 365) * 86_400_000),
+          reviewDueAt: new Date(now.getTime() + reviewWindowDaysFor(nextLevel) * 86_400_000),
         })
         .where(eq(kbPatterns.id, pattern.id));
       await logAudit(db, {

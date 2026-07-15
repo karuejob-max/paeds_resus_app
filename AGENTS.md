@@ -1,16 +1,17 @@
-# AGENTS.md — Mandatory Pre-Read for All AI Agents
+# AGENTS.md — Mandatory Pre-Read for Everyone Working in This Repository
 
 > **Read this entire file before taking any action in this repository.**
-> This file is the agent-facing distillation of the Platform's Source of Truth (PSOT).
+> This applies to **anyone or anything** touching this codebase — AI agents (Manus, Cursor, Codex, Claude, etc.), contractors, and Job himself. It is not an AI-only file; it's the pre-read, full stop.
+> This file is the distillation of the Platform's Source of Truth (PSOT) for whoever is about to write code or make a decision here.
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** June 3, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** July 15, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
-**CRITICAL INSTRUCTION FOR ALL AI AGENTS (Manus, Cursor, Codex, etc.)**
+**CRITICAL INSTRUCTION FOR EVERYONE — AI AGENTS (Manus, Cursor, Codex, Claude, etc.) AND HUMANS ALIKE**
 
-If you are an AI agent operating in this repository, you **MUST** read this file and follow its instructions before executing any task.
+If you are about to take any action in this repository — writing code, reviewing a PR, applying a migration, or making a design call — you **MUST** read this file and follow its instructions first. Don't skip it because you assume it's "just for the AI tools."
 
 ### Read this first for shipping and production DB
 
@@ -72,6 +73,7 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 - **Clinical harm audit before "complete":** **mmol/L** for glucose; **never KCl IV push**; **DKA — no insulin bolus**; **neonates — no benzos first-line** for seizures; spot-check seeded HTML, not just TypeScript.
 - **Honest gap docs:** Use [FELLOWSHIP_WHAT_IS_MISSING.md](docs/FELLOWSHIP_WHAT_IS_MISSING.md) for CEO — do not reassure that prod DB matches code without seed + verify evidence.
 - **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
+- **Don't flag a doc ambiguity from one section alone (gap-analysis item #15, 2026-07-15):** A prior session flagged "CANDIDATE's review window is never stated" against Observation Architecture §7.3 — true of that section's prose, but §6.6's Pattern Record field table stated it plainly a few hundred lines away ("6 months for Signal and Candidate"). The guess made in the meantime (12 months, by analogy) was wrong and shipped as a real bug in `fpkb-pattern-detector.ts`'s downgrade pass before being caught. **Before writing "ambiguous" or "not specified" into WORK_STATUS or a code comment, grep the whole constitutional doc for the field/term in question** — field-definition tables, schemas, and glossaries often answer questions that a single narrative section leaves open. If it's still unstated after that check, it's a real ambiguity — flag it and stop; don't guess by analogy and ship the guess as if it were settled.
 
 ---
 
