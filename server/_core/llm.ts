@@ -296,7 +296,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   const payload: Record<string, unknown> = {
     model: ENV.geminiApiKey
       ? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash")
-      : "gemini-2.5-flash",
+      : "gemini-3.5-flash",
     messages: messages.map(normalizeMessage),
   };
 
