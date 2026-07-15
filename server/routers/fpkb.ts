@@ -215,6 +215,11 @@ export const fpkbRouter = router({
         supportingObservationCount: 0,
         knowledgeStatus: "ACTIVE",
         createdBy: String(ctx.user.id),
+        // SIGNAL / CANDIDATE_SUCCESS review window is 6 months (§7.3) — without
+        // this, a manually-curated pattern would never be caught by the
+        // confidence-downgrade job (gap #14), since `reviewDueAt IS NULL`
+        // never matches a "< now" staleness check.
+        reviewDueAt: new Date(Date.now() + 182 * 86_400_000),
       });
 
       await logGovernanceAudit({

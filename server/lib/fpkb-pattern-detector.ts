@@ -38,7 +38,7 @@
  * observation_period count as the closest available proxies for "facility
  * diversity." That's a real approximation, not the letter of the spec.
  */
-import { and, eq, inArray, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, lt, sql } from "drizzle-orm";
 import {
   careSignalEvents,
   kbFailureModes,
@@ -80,7 +80,7 @@ export interface DetectionResult {
 async function logAudit(
   db: DbClient,
   params: {
-    actionType: "PATTERN_CREATED" | "PATTERN_CONFIDENCE_CHANGED" | "RECOMMENDATION_REJECTED" | "OTHER";
+    actionType: "PATTERN_CREATED" | "PATTERN_CONFIDENCE_CHANGED" | "PATTERN_RETIRED" | "RECOMMENDATION_REJECTED" | "OTHER";
     entityType: "PATTERN" | "RECOMMENDATION";
     entityId: string;
     previousState?: unknown;
@@ -450,4 +450,146 @@ export async function reEvaluateAfterImplementationOutcome(
       }
     }
   }
+}
+
+/**
+ * Automated confidence downgrade on staleness (gap-analysis #14,
+ * Observation Architecture §7.3 "Concept Drift Management" / Rule 8).
+ *
+ * Exact rules as written in the doc (quoted, not paraphrased, since an
+ * earlier draft of the gap-analysis queue entry for this item mis-stated
+ * these as generic "18/24/12/6 month" thresholds that don't actually appear
+ * anywhere in the doc — corrected before implementing, not after):
+ *   - "Every Confirmed or Established pattern has a mandatory review date:
+ *     12 months from last_confirmed for active patterns."
+ *   - "A pattern not reconfirmed within its review window is automatically
+ *     downgraded one confidence level."
+ *   - "A pattern at Signal level not reconfirmed within 6 months is moved
+ *     to knowledge_status = Under Review."
+ *   - "A pattern with knowledge_status = Under Review that is not
+ *     reconfirmed within a further 6 months is moved to Retired."
+ *   - "Retired patterns are preserved in the historical record with their
+ *     full observation count and evidence base. They are removed from the
+ *     active recommendation engine." (Already true here: listPatterns
+ *     defaults to knowledgeStatus=ACTIVE, so RETIRED patterns simply stop
+ *     appearing without any data loss.)
+ *
+ * "Reconfirmed" = new observations linked (recomputePatternConfidence
+ * above already extends reviewDueAt every time a pattern receives a new
+ * observation) — no separate reconfirmation mechanism needed here.
+ *
+ * TWO GENUINE AMBIGUITIES IN THE SOURCE DOC, resolved by explicit,
+ * documented assumption rather than silent guessing:
+ *   1. CANDIDATE's review window is never stated (only SIGNAL's 6 months
+ *      and CONFIRMED/ESTABLISHED's 12 months are explicit). This code
+ *      treats CANDIDATE like CONFIRMED/ESTABLISHED (12-month window, one
+ *      level down to SIGNAL on lapse) since it's textually the closest
+ *      analogy and matches the 365-day reviewDueAt already assigned to
+ *      CANDIDATE patterns in recomputePatternConfidence. Flagged in
+ *      WORK_STATUS.md for a doc clarification, not treated as settled.
+ *   2. §7.3's text only names failure-track confidence levels (Signal,
+ *      Confirmed, Established) — it never mentions the success track's
+ *      levels (CANDIDATE_SUCCESS, EMERGING_SUCCESS, VALIDATED_SUCCESS,
+ *      STANDARD_PRACTICE) at all. Rule 8 itself ("Every pattern has a
+ *      mandatory review date") reads as track-agnostic in principle, so
+ *      this code applies the same mechanism to success patterns by
+ *      structural analogy (each level steps down one rung on staleness),
+ *      but this is an extension by inference, not something the doc
+ *      actually specifies for that track. Also flagged for clarification.
+ */
+
+export const FAILURE_DOWNGRADE_PATH: Partial<Record<string, string>> = {
+  ESTABLISHED: "CONFIRMED",
+  CONFIRMED: "CANDIDATE",
+  CANDIDATE: "SIGNAL",
+};
+export const SUCCESS_DOWNGRADE_PATH: Partial<Record<string, string>> = {
+  STANDARD_PRACTICE: "VALIDATED_SUCCESS",
+  VALIDATED_SUCCESS: "EMERGING_SUCCESS",
+  EMERGING_SUCCESS: "CANDIDATE_SUCCESS",
+};
+
+export interface DowngradeResult {
+  downgraded: { patternId: string; patternCode: string; from: string; to: string }[];
+  movedToUnderReview: { patternId: string; patternCode: string }[];
+  retired: { patternId: string; patternCode: string }[];
+}
+
+export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boolean } = { dryRun: true }): Promise<DowngradeResult> {
+  const now = new Date();
+  const result: DowngradeResult = { downgraded: [], movedToUnderReview: [], retired: [] };
+
+  const activeStale = await db
+    .select()
+    .from(kbPatterns)
+    .where(and(eq(kbPatterns.knowledgeStatus, "ACTIVE"), lt(kbPatterns.reviewDueAt, now)));
+
+  for (const pattern of activeStale) {
+    if (pattern.confidenceLevel === "SIGNAL") {
+      result.movedToUnderReview.push({ patternId: pattern.id, patternCode: pattern.patternCode });
+      if (!opts.dryRun) {
+        await db
+          .update(kbPatterns)
+          .set({ knowledgeStatus: "UNDER_REVIEW", reviewDueAt: new Date(now.getTime() + 182 * 86_400_000) })
+          .where(eq(kbPatterns.id, pattern.id));
+        await logAudit(db, {
+          actionType: "PATTERN_CONFIDENCE_CHANGED",
+          entityType: "PATTERN",
+          entityId: pattern.id,
+          previousState: { knowledgeStatus: "ACTIVE" },
+          newState: { knowledgeStatus: "UNDER_REVIEW" },
+          reasoning: "SIGNAL-level pattern not reconfirmed within its 6-month review window (§7.3).",
+        });
+      }
+      continue;
+    }
+
+    const downgradePath = pattern.patternTrack === "FAILURE" ? FAILURE_DOWNGRADE_PATH : SUCCESS_DOWNGRADE_PATH;
+    const nextLevel = downgradePath[pattern.confidenceLevel];
+    if (!nextLevel) continue; // CANDIDATE_SUCCESS has nowhere lower to go — not covered by this rule
+
+    result.downgraded.push({ patternId: pattern.id, patternCode: pattern.patternCode, from: pattern.confidenceLevel, to: nextLevel });
+    if (!opts.dryRun) {
+      await db
+        .update(kbPatterns)
+        .set({
+          confidenceLevel: nextLevel as KbPattern["confidenceLevel"],
+          reviewDueAt: new Date(now.getTime() + (nextLevel === "SIGNAL" || nextLevel === "CANDIDATE_SUCCESS" ? 182 : 365) * 86_400_000),
+        })
+        .where(eq(kbPatterns.id, pattern.id));
+      await logAudit(db, {
+        actionType: "PATTERN_CONFIDENCE_CHANGED",
+        entityType: "PATTERN",
+        entityId: pattern.id,
+        previousState: { confidenceLevel: pattern.confidenceLevel },
+        newState: { confidenceLevel: nextLevel },
+        reasoning: `Not reconfirmed within its review window — automatically downgraded one level per §7.3 concept drift management.`,
+      });
+    }
+  }
+
+  const staleUnderReview = await db
+    .select()
+    .from(kbPatterns)
+    .where(and(eq(kbPatterns.knowledgeStatus, "UNDER_REVIEW"), lt(kbPatterns.reviewDueAt, now)));
+
+  for (const pattern of staleUnderReview) {
+    result.retired.push({ patternId: pattern.id, patternCode: pattern.patternCode });
+    if (!opts.dryRun) {
+      await db
+        .update(kbPatterns)
+        .set({ knowledgeStatus: "RETIRED", retiredAt: now, retiredReason: "Not reconfirmed within Under Review window (§7.3 concept drift management)." })
+        .where(eq(kbPatterns.id, pattern.id));
+      await logAudit(db, {
+        actionType: "PATTERN_RETIRED",
+        entityType: "PATTERN",
+        entityId: pattern.id,
+        previousState: { knowledgeStatus: "UNDER_REVIEW" },
+        newState: { knowledgeStatus: "RETIRED" },
+        reasoning: "Under Review for 6+ months without reconfirmation — retired per §7.3. Observation history preserved.",
+      });
+    }
+  }
+
+  return result;
 }
