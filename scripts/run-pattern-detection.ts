@@ -5,7 +5,7 @@
  *   pnpm run fpkb:detect-patterns -- --execute # apply linking + promotions
  */
 import { getDb } from "../server/db";
-import { runPatternDetection } from "../server/lib/fpkb-pattern-detector";
+import { runPatternDetection, runConfidenceDowngrade } from "../server/lib/fpkb-pattern-detector";
 
 async function main() {
   const db = await getDb();
@@ -38,8 +38,24 @@ async function main() {
     );
   }
 
+  console.log("\n--- Confidence downgrade pass (staleness, §7.3) ---");
+  const downgrade = await runConfidenceDowngrade(db, { dryRun: !execute });
+  if (downgrade.downgraded.length === 0 && downgrade.movedToUnderReview.length === 0 && downgrade.retired.length === 0) {
+    console.log("No stale patterns this run.");
+  } else {
+    for (const d of downgrade.downgraded) {
+      console.log(`  ${execute ? "Downgraded" : "Would downgrade"}: ${d.patternCode} ${d.from} → ${d.to}`);
+    }
+    for (const u of downgrade.movedToUnderReview) {
+      console.log(`  ${execute ? "Moved" : "Would move"} to UNDER_REVIEW: ${u.patternCode}`);
+    }
+    for (const r of downgrade.retired) {
+      console.log(`  ${execute ? "Retired" : "Would retire"}: ${r.patternCode}`);
+    }
+  }
+
   if (!execute) {
-    console.log("\nDry-run only. Pass --execute to apply linking and confidence promotion.");
+    console.log("\nDry-run only. Pass --execute to apply linking, promotion, and downgrade.");
   }
 }
 
