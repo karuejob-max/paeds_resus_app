@@ -48,6 +48,17 @@ export function ModuleQuiz({ quiz, onComplete, onSkip }: ModuleQuizProps) {
     showFeedback: false,
   });
 
+  useEffect(() => {
+    if (!state.submitted) {
+      document.body.setAttribute('data-active-exam', 'true');
+    } else {
+      document.body.removeAttribute('data-active-exam');
+    }
+    return () => {
+      document.body.removeAttribute('data-active-exam');
+    };
+  }, [state.submitted]);
+
   const currentQuestion = quiz.questions[state.currentQuestionIndex];
   const totalQuestions = quiz.questions.length;
   const answeredQuestions = Object.keys(state.answers).length;

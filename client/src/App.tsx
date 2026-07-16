@@ -6,6 +6,7 @@ import { TrainingSimulationGate } from "./components/TrainingSimulationGate";
 import { AspirationalSurfaceGate } from "./components/AspirationalSurfaceGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
+import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
@@ -532,6 +533,7 @@ function Router() {
         </Suspense>
         </LegalReconsentGate>
       </main>
+      <PaedsAIAssistant />
     </div>
   );
 }
