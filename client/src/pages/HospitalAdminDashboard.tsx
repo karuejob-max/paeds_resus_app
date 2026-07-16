@@ -24,6 +24,7 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import CnePanel from "@/components/CnePanel";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
+import { AiPatternInbox } from "@/components/AiPatternInbox";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
@@ -655,7 +656,7 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-12 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-13 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -668,6 +669,7 @@ export default function HospitalAdminDashboard() {
             <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
             <TabsTrigger value="cne">CNE</TabsTrigger>
             <TabsTrigger value="guidelines-audit">Guideline Audit</TabsTrigger>
+            <TabsTrigger value="ai-patterns">AI Pattern Inbox</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -2342,6 +2344,10 @@ export default function HospitalAdminDashboard() {
 
           <TabsContent value="guidelines-audit" className="space-y-6">
             <GuidelineAuditDashboard />
+          </TabsContent>
+
+          <TabsContent value="ai-patterns" className="space-y-6">
+            <AiPatternInbox />
           </TabsContent>
         </Tabs>
       </div>
