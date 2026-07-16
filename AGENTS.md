@@ -246,6 +246,7 @@ Every new table in `drizzle/schema.ts` MUST have a corresponding migration scrip
 - **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths.
 - **Migration scripts use `scripts/db-connection-config.mjs`** for SSL + IPv4 (Aiven configuration).
 - **All migrations are idempotent** (safe to re-run) — use `IF NOT EXISTS` / `tableExists()` checks to prevent "table already exists" errors.
+- **When a migration's raw SQL references an EXISTING column (e.g. `ALTER TABLE ... AFTER \`someColumn\``), verify the literal DB column-name string in `drizzle/schema.ts` — do not assume it matches the JS property name.** Several older columns use snake_case DB names under a camelCase JS field (e.g. `eventId: varchar("event_id", ...)` on `careSignalEvents` — the JS property is `eventId`, the real column is `event_id`). Migration 0064 shipped with `AFTER \`eventId\`` and failed on production with `ER_BAD_FIELD_ERROR` before this was caught and fixed. Grep schema.ts for the field, read the string literal inside the column-builder call, and use that exact string in raw SQL.
 
 ### Seed script requirements
 
