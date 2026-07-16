@@ -1,6 +1,6 @@
 # Fellowship simulation content audit
 
-**Generated:** 2026-07-15 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-07-16 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Summary
 
