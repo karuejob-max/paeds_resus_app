@@ -22,6 +22,14 @@ export type FacilitySelection = {
   /** Present once this facility has been bridged to the unified facilities
    *  table (see scripts/apply-0060-facilities-backfill.mjs) — null otherwise. */
   facilityOwnership?: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
+  /**
+   * Locality (sub-county/district/area) — per the CEO's "global from day 1"
+   * instruction (gap-analysis #11, 2026-07-16). Populated on fresh facility
+   * search selections; NOT YET populated on the provider-profile prefill
+   * path or setMyFacility's return shape — those endpoints don't select it
+   * yet. Flagged as a known follow-up, not silently left inconsistent.
+   */
+  adminLevel2?: string | null;
 };
 
 type Props = {
@@ -89,6 +97,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
     county: string | null;
     country: string;
     facilityOwnership?: FacilitySelection["facilityOwnership"];
+    adminLevel2?: string | null;
   }) => {
     onChange({
       facilityId: r.id,
@@ -96,6 +105,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
       county: r.county,
       country: r.country,
       facilityOwnership: r.facilityOwnership ?? null,
+      adminLevel2: r.adminLevel2 ?? null,
     });
     setQuery(r.name);
     void setMyFacility.mutate({ facilityId: r.id });
