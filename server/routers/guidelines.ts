@@ -6,6 +6,7 @@ import { getDb } from '../db';
 import { guidelines, guidelineChanges, protocolStatus, protocolGuidelines } from '../../drizzle/schema';
 import { eq, desc } from 'drizzle-orm';
 import { checkGuidelineUpdates, getProtocolsNeedingReview } from '../guideline-monitor';
+import { invokeLLM } from '../_core/llm';
 
 export const guidelinesRouter = router({
   // Get flagged protocols requiring review
@@ -142,5 +143,58 @@ export const guidelinesRouter = router({
         .limit(1);
 
       return guideline[0] || null;
+    }),
+
+  // Analyze a text block of a local hospital's guideline and run a drift compliance audit
+  analyzeGuidelineDrift: protectedProcedure
+    .input(
+      z.object({
+        protocolId: z.string(),
+        guidelineText: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const DRIFT_SYSTEM_PROMPT = `You are a clinical compliance auditor for pediatric emergency guidelines.
+Analyze the provided hospital guideline text and compare it to the platform standard protocol ID.
+Identify any protocol drift, drug dosage discrepancies, age/weight threshold mismatches, or diagnostic deviations.
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "complianceScore": 85, // integer 0 to 100
+  "status": "aligned|deviated|critical_mismatch",
+  "discrepancies": [
+    {
+      "severity": "info|warning|critical",
+      "topic": "Topic category (e.g. Adrenaline Dosing)",
+      "standard": "Standard protocol guideline description (e.g. 0.01 mg/kg IV)",
+      "local": "Local guideline description (e.g. 0.02 mg/kg IV)",
+      "explanation": "Brief explanation of the clinical risk of this deviation"
+    }
+  ]
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: DRIFT_SYSTEM_PROMPT },
+            { role: "user", content: `Reference Protocol ID: ${input.protocolId}\nLocal Hospital Guideline Text:\n${input.guidelineText}` },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        return {
+          success: true,
+          complianceScore: parsed.complianceScore ?? 100,
+          status: parsed.status ?? "aligned",
+          discrepancies: parsed.discrepancies ?? [],
+        };
+      } catch (error) {
+        console.error("[Guidelines] analyzeGuidelineDrift error:", error);
+        throw new Error("Failed to run guideline compliance drift analysis");
+      }
     }),
 });

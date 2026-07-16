@@ -472,4 +472,116 @@ ${input.query ? `Specific Question: ${input.query}` : ""}`;
         });
       }
     }),
+
+  // Generate simulation SBAR and clinical debriefing feedback
+  generateSimulationDebrief: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        emergencyType: z.string(),
+        patient: z.object({
+          name: z.string(),
+          age: z.number(),
+          weightKg: z.number(),
+          gender: z.enum(["M", "F", "Unknown"]),
+          medicalRecordNumber: z.string().optional(),
+        }),
+        startTime: z.number(),
+        endTime: z.number(),
+        events: z.array(
+          z.object({
+            timestamp: z.number(),
+            eventType: z.string(),
+            description: z.string(),
+            value: z.union([z.string(), z.number()]).optional(),
+            unit: z.string().optional(),
+          })
+        ),
+        overrides: z.array(
+          z.object({
+            timestamp: z.number(),
+            overrideType: z.string(),
+            justification: z.string(),
+            provider: z.string(),
+          })
+        ),
+        finalOutcome: z.enum(["ROSC", "Transferred", "Ongoing", "Terminated"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const DEBRIEF_SYSTEM_PROMPT = `You are a pediatric emergency medicine simulation debriefing auditor.
+Analyze the resuscitation simulation timeline and construct a professional SBAR handover report and clinical debriefing feedback.
+De-identify the patient: refer to them as "the patient" or "the child", NEVER use their literal name.
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "sbar": {
+    "situation": "Situation section summarizing chief complaint, demographics (except name), duration",
+    "background": "Background section summarizing timeline, key interventions, and documented protocol deviations/overrides",
+    "assessment": "Assessment section detailing clinical status, vitals, and response to treatments",
+    "recommendation": "Recommendation section listing next steps, transfers, and immediate plans"
+  },
+  "feedback": {
+    "strengths": ["Strengths demonstrated (at least 2 items)"],
+    "delays": ["Critical delays or missed timing of actions compared to resuscitation guidelines (e.g. CPR start, adrenaline intervals)"],
+    "correctiveActions": ["Specific clinical corrective actions recommended (at least 2 items)"],
+    "spacedRepetitionTopic": "The specific micro-course topic ID recommended for review (e.g. bls, acls, pals, septic-shock)"
+  }
+}`;
+
+        // Prepare context data (de-identifying patient name to protect privacy)
+        const durationMinutes = Math.round((input.endTime - input.startTime) / 60000);
+        const ageText = input.patient.age < 1 ? `${Math.round(input.patient.age * 12)} months` : `${input.patient.age} years`;
+        const patientContext = `Patient Demographics: Age: ${ageText}, Weight: ${input.patient.weightKg}kg, Gender: ${input.patient.gender}`;
+        
+        const eventsText = input.events
+          .map((e) => {
+            const timeOffset = Math.round((e.timestamp - input.startTime) / 1000);
+            return `[Time: ${timeOffset}s] ${e.eventType}: ${e.description}${e.value ? ` (value: ${e.value} ${e.unit || ''})` : ''}`;
+          })
+          .join('\n');
+
+        const overridesText = input.overrides
+          .map((o) => `[Override] Type: ${o.overrideType}, Justification: ${o.justification}`)
+          .join('\n');
+
+        const userPayload = `Emergency Case Details:
+Emergency Type: ${input.emergencyType}
+Duration: ${durationMinutes} minutes
+Final Outcome: ${input.finalOutcome}
+${patientContext}
+
+Session Events Timeline:
+${eventsText}
+
+Documented Deviations:
+${overridesText || "None"}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: DEBRIEF_SYSTEM_PROMPT },
+            { role: "user", content: userPayload },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        return {
+          success: true,
+          sbar: parsed.sbar || { situation: "", background: "", assessment: "", recommendation: "" },
+          feedback: parsed.feedback || { strengths: [], delays: [], correctiveActions: [], spacedRepetitionTopic: "general" },
+        };
+      } catch (error) {
+        console.error("[AI Assistant] generateSimulationDebrief error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate simulation debriefing summary",
+        });
+      }
+    }),
 });

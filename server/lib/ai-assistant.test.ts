@@ -190,4 +190,64 @@ describe("aiAssistantRouter", () => {
       expect(mockInvokeLLM).not.toHaveBeenCalled();
     });
   });
+
+  describe("generateSimulationDebrief", () => {
+    it("successfully parses AI JSON response and returns structured debrief", async () => {
+      mockInvokeLLM.mockClear();
+      const mockContent = JSON.stringify({
+        sbar: {
+          situation: "De-identified situation context",
+          background: "De-identified background context",
+          assessment: "De-identified assessment context",
+          recommendation: "De-identified recommendation context"
+        },
+        feedback: {
+          strengths: ["Excellent CPR quality"],
+          delays: ["Adrenaline given late"],
+          correctiveActions: ["Re-verify dosing weight guidelines"],
+          spacedRepetitionTopic: "bls"
+        }
+      });
+      mockInvokeLLM.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: mockContent
+            }
+          }
+        ]
+      });
+
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.generateSimulationDebrief({
+        sessionId: "session-abc-123",
+        emergencyType: "cardiac_arrest",
+        patient: {
+          name: "John Doe",
+          age: 5,
+          weightKg: 18,
+          gender: "M",
+          medicalRecordNumber: "MRN-111"
+        },
+        startTime: Date.now() - 600000,
+        endTime: Date.now(),
+        events: [
+          { timestamp: Date.now() - 500000, eventType: "intervention", description: "Started chest compressions" }
+        ],
+        overrides: [],
+        finalOutcome: "ROSC"
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.sbar.situation).toBe("De-identified situation context");
+      expect(result.feedback.strengths[0]).toBe("Excellent CPR quality");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+
+      // Verify the patient's real name 'John Doe' was NOT present in the LLM user payload to ensure de-identification
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      expect(callArgs.messages[1].content).not.toContain("John Doe");
+    });
+  });
 });
