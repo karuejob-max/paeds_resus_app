@@ -41,6 +41,7 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { reEvaluateAfterImplementationOutcome } from "../lib/fpkb-pattern-detector";
+import { runAiDiscovery } from "../lib/ai-pattern-aggregator";
 import {
   kbFailureModes,
   kbSuccessFactors,
@@ -593,5 +594,102 @@ export const fpkbRouter = router({
       }
 
       return { id };
+    }),
+
+  // AI-Driven Pattern Aggregator discovery scan
+  runAiPatternDiscovery: adminProcedure
+    .mutation(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      return await runAiDiscovery(db);
+    }),
+
+  // Approve and promote an AI proposed pattern to formal signal
+  approveProposedPattern: adminProcedure
+    .input(
+      z.object({
+        patternTrack: z.enum(["FAILURE", "SUCCESS"]),
+        patternName: z.string().min(1),
+        primaryDomain: z.enum(["RECOGNITION", "ESCALATION", "VASCULAR_ACCESS", "TREATMENT", "REFERRAL", "MONITORING", "COMMUNICATION", "RESOURCE_AVAILABILITY"]),
+        description: z.string().min(1),
+        evidenceBasis: z.string().min(1),
+        cadreScope: z.enum(["nursing", "medical", "all"]),
+        associatedObservations: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      const id = newId();
+      const prefix = input.patternTrack === "FAILURE" ? "FP-AI-" : "SP-AI-";
+      const code = `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const confidenceDimensions = JSON.stringify({
+        clinical: "AI_detected",
+        statistical: "unstructured_text_clustering",
+        external_evidence: "none",
+        platform_replication: "pending",
+        geographic_diversity: "pending",
+        recency: new Date().toISOString(),
+      });
+
+      await db.insert(kbPatterns).values({
+        id,
+        patternTrack: input.patternTrack,
+        patternCode: code,
+        patternName: input.patternName,
+        primaryDomain: input.primaryDomain,
+        description: input.description,
+        confidenceLevel: input.patternTrack === "FAILURE" ? "SIGNAL" : "CANDIDATE_SUCCESS",
+        confidenceDimensions,
+        supportingObservationCount: input.associatedObservations.length,
+        geographicScope: JSON.stringify(["KE"]), // Default pilot country
+        cadreScope: JSON.stringify([input.cadreScope]),
+        knowledgeStatus: "ACTIVE",
+        firstDetectedAt: new Date(),
+        lastConfirmedAt: new Date(),
+        createdBy: String(ctx.user.id),
+      });
+
+      // Write associated observations to kb_pattern_observations
+      if (input.associatedObservations.length > 0) {
+        const now = new Date();
+        const obsPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        for (const obsId of input.associatedObservations) {
+          const isCareSignal = obsId.startsWith("care-signal");
+          await db.insert(kbPatternObservations).values({
+            id: newId(),
+            patternId: id,
+            observationSource: isCareSignal ? "CARE_SIGNAL" : "SAFE_TRUTH",
+            observationId: obsId.replace("care-signal-", "").replace("parent-truth-", ""),
+            observationTable: isCareSignal ? "careSignalEvents" : "parentSafeTruthSubmissions",
+            observationPeriod: obsPeriod,
+            linkedAt: new Date(),
+            linkedBy: String(ctx.user.id),
+          });
+        }
+      }
+
+      await logGovernanceAudit({
+        actorUserId: String(ctx.user.id),
+        actionType: "PATTERN_CREATED",
+        entityType: "PATTERN",
+        entityId: id,
+        newState: { code, patternName: input.patternName, evidenceBasis: input.evidenceBasis },
+        reasoning: `AI-discovered pattern approved by Knowledge Steward. Evidence basis: ${input.evidenceBasis}`,
+      });
+
+      return { success: true, patternId: id, patternCode: code };
     }),
 });
