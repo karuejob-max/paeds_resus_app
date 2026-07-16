@@ -23,6 +23,13 @@ export const aiAssistantRouter = router({
         message: z.string().min(1).max(5000),
         context: z.enum(["onboarding", "clinical", "troubleshooting", "general"]).optional(),
         conversationId: z.string().optional(),
+        messages: z.array(
+          z.object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string(),
+          })
+        ).default([]),
+        pageContext: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -37,12 +44,27 @@ export const aiAssistantRouter = router({
           };
         }
 
+        let systemPrompt = PLATFORM_HELP_SYSTEM_PROMPT;
+        if (input.pageContext) {
+          systemPrompt += `\n\n[Current Page Context: The user is currently viewing the page: ${input.pageContext}. Use this to help them with queries related to this module, course, or tool if appropriate.]`;
+        }
+
+        const llmMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+          { role: "system", content: systemPrompt }
+        ];
+
+        if (input.messages && input.messages.length > 0) {
+          llmMessages.push(...input.messages.map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content
+          })));
+        }
+
+        llmMessages.push({ role: "user" as const, content: input.message });
+
         // Call LLM with context
         const response = await invokeLLM({
-          messages: [
-            { role: "system", content: PLATFORM_HELP_SYSTEM_PROMPT },
-            { role: "user", content: input.message },
-          ],
+          messages: llmMessages,
         });
 
         const rawContent = response.choices[0]?.message?.content || "I'm unable to process your request at this time.";

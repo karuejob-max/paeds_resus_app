@@ -91,7 +91,7 @@ export default function MicroCoursePlayerDB() {
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showFellowshipSim, setShowFellowshipSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
-  
+
   // Persistence for capstone
   useEffect(() => {
     const inProgress = localStorage.getItem(`capstone-in-progress-${slug}`);
@@ -110,6 +110,21 @@ export default function MicroCoursePlayerDB() {
   const [feedbackGate, setFeedbackGate] = useState<{ certificateId: number; certNumber: string } | null>(null);
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
   const [feedbackText, setFeedbackText] = useState<string>('');
+
+  useEffect(() => {
+    const isExamOrSimActive = (showDiagnosticQuiz || showFormativeQuiz || showSummativeExam)
+      ? !quizSubmitted
+      : (showCapstoneSim || showFellowshipSim);
+      
+    if (isExamOrSimActive) {
+      document.body.setAttribute('data-active-exam', 'true');
+    } else {
+      document.body.removeAttribute('data-active-exam');
+    }
+    return () => {
+      document.body.removeAttribute('data-active-exam');
+    };
+  }, [showDiagnosticQuiz, showFormativeQuiz, showSummativeExam, showCapstoneSim, showFellowshipSim, quizSubmitted]);
   
   // Track progress — persisted to localStorage so resume works on page refresh
   const progressKey = `course-progress-${slug}`;

@@ -73,6 +73,35 @@ describe("aiAssistantRouter", () => {
       expect(result.response).toBe(BEDSIDE_REDIRECT_REPLY);
       expect(mockInvokeLLM).not.toHaveBeenCalled();
     });
+
+    it("handles conversation history and page context in system prompt", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.sendMessage({
+        message: "Can you explain that more?",
+        context: "general",
+        pageContext: "/micro-course/seriously-ill-child-i",
+        messages: [
+          { role: "user", content: "What is CPR?" },
+          { role: "assistant", content: "CPR stands for cardiopulmonary resuscitation..." },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe("Mocked Gemini Assistant Response");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      // Verify pageContext is in the system prompt
+      expect(callArgs.messages[0].content).toContain("/micro-course/seriously-ill-child-i");
+      // Verify history is included
+      expect(callArgs.messages[1].content).toBe("What is CPR?");
+      expect(callArgs.messages[2].content).toBe("CPR stands for cardiopulmonary resuscitation...");
+      // Verify current message is last
+      expect(callArgs.messages[3].content).toBe("Can you explain that more?");
+    });
   });
 
   describe("getQuizTutorResponse", () => {
