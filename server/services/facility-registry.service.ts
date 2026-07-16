@@ -30,6 +30,15 @@ export type FacilitySearchResult = {
   facilityOwnership: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
   countryCode: string | null;
   facilityLevelWho: string | null;
+  /**
+   * Locality-level geography (sub-county / district / area), per the CEO's
+   * "global from day 1" instruction (gap-analysis #11, 2026-07-16). Sourced
+   * from careFacilities.subCounty where the unified `facilities` bridge
+   * hasn't populated adminLevel2 yet — prefer facilities.adminLevel2 when
+   * present since it's the more consistently-maintained, country-agnostic
+   * field going forward.
+   */
+  adminLevel2: string | null;
 };
 
 const OUTREACH_SLUG = "outreach-mobile";
@@ -70,12 +79,13 @@ export async function getFacilityById(facilityId: number) {
       facilityOwnership: facilities.facilityOwnership,
       countryCode: facilities.countryCode,
       facilityLevelWho: facilities.facilityLevelWho,
+      adminLevel2: facilities.adminLevel2,
     })
     .from(careFacilities)
     .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
     .where(eq(careFacilities.id, canonicalId))
     .limit(1);
-  return row ?? null;
+  return row ? { ...row, adminLevel2: row.adminLevel2 ?? row.subCounty ?? null } : null;
 }
 
 /** Seed outreach row + import institutions and accredited facilities (idempotent). */
@@ -194,11 +204,13 @@ export async function searchCareFacilities(input: {
       name: careFacilities.name,
       county: careFacilities.county,
       country: careFacilities.country,
+      subCounty: careFacilities.subCounty,
       institutionalAccountId: careFacilities.institutionalAccountId,
       isSystem: careFacilities.isSystem,
       facilityOwnership: facilities.facilityOwnership,
       countryCode: facilities.countryCode,
       facilityLevelWho: facilities.facilityLevelWho,
+      adminLevel2: facilities.adminLevel2,
     })
     .from(careFacilities)
     .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
@@ -220,6 +232,7 @@ export async function searchCareFacilities(input: {
       facilityOwnership: r.facilityOwnership,
       countryCode: r.countryCode,
       facilityLevelWho: r.facilityLevelWho,
+      adminLevel2: r.adminLevel2 ?? r.subCounty ?? null,
     })),
   };
 }

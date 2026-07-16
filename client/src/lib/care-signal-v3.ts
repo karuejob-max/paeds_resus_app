@@ -3,6 +3,7 @@
  * Spec: docs/EVENT_MODELS_V1.md §1
  */
 import type { FacilitySelection } from "@/components/FacilityPicker";
+import { countryNameToIso2 } from "@shared/geo-taxonomy";
 
 export const CARE_SIGNAL_FORM_VERSION = "v3" as const;
 export const CARE_SIGNAL_SCHEMA_VERSION = "1.0" as const;
@@ -273,21 +274,19 @@ export function buildCareSignalV3SubmitPayload(
   };
 
   // Facility records store full country names (e.g. "Kenya"); the shared classifier
-  // needs ISO 3166-1 alpha-2. Map the known COMMON_FACILITY_COUNTRIES set explicitly.
-  const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
-    Kenya: "KE",
-    Uganda: "UG",
-    Tanzania: "TZ",
-    Rwanda: "RW",
-    "South Sudan": "SS",
-    Ethiopia: "ET",
-  };
+  // needs ISO 3166-1 alpha-2. Delegated to shared/geo-taxonomy.ts (gap-analysis
+  // #11) so Care Signal and Safe-Truth can't drift apart on country codes.
   const rawCountry = form.country || facility.country || "Kenya";
-  const resolvedCountry = COUNTRY_NAME_TO_ISO2[rawCountry] ?? (rawCountry.length <= 2 ? rawCountry : "KE");
+  const resolvedCountry = countryNameToIso2(rawCountry);
 
   return {
     country: resolvedCountry,
     admin_level_1: form.admin_level_1 || facility.county || "",
+    // Locality-level geography, per the CEO's "global from day 1" instruction
+    // (gap-analysis #11, 2026-07-16). Best-effort: only populated when the
+    // selected facility's search result carried it (see FacilityPicker.tsx's
+    // doc comment for the paths that don't yet).
+    admin_level_2: facility.adminLevel2 ?? undefined,
     facility_ownership: facility.facilityOwnership ?? undefined,
     schema_version: CARE_SIGNAL_SCHEMA_VERSION,
     condition_category: form.conditionCategory,

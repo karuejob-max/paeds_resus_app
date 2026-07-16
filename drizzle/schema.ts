@@ -176,6 +176,14 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   // ── Care Signal v3 fields (migration 0056) ──────────────────────────────
   country: varchar("country", { length: 2 }),
   adminLevel1: varchar("admin_level_1", { length: 128 }),
+  /**
+   * Locality (sub-county / district / area) — per the CEO's "global from
+   * day 1" instruction (gap-analysis #11, 2026-07-16). Added via migration
+   * 0065, populated best-effort from the selected facility's own
+   * adminLevel2/subCounty; see FacilityPicker.tsx for the paths that don't
+   * carry it yet.
+   */
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
   facilityOwnership: varchar("facility_ownership", { length: 64 }),
   schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
   conditionCategory: varchar("condition_category", { length: 64 }),
@@ -2147,6 +2155,146 @@ export const parentSafeTruthSubmissions = mysqlTable("parentSafeTruthSubmissions
 
 export type ParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferSelect;
 export type InsertParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferInsert;
+
+/**
+ * Safe-Truth v1 — Event Models v1.0 §2, gap-analysis queue item #11, Phase A.
+ *
+ * DELIBERATELY A NEW TABLE, not a retrofit of `parentSafeTruthSubmissions`
+ * above. Two reasons: (1) the old table's `userId` column is NOT NULL —
+ * structurally incompatible with §2.2's "no account required, submission is
+ * permanently anonymous" requirement; (2) the field taxonomy is completely
+ * different (plain-language journey-stage fields per §2.3–2.7, not the old
+ * ad-hoc delay-band fields). The old table and its router/UI
+ * (`parent-safetruth.ts`, `ParentSafeTruthForm.tsx`, route
+ * `/parent-safe-truth`) are left untouched — existing historical
+ * submissions stay exactly as they are. This is forward-looking only, same
+ * precedent as gap-analysis #10.
+ *
+ * NO userId COLUMN AT ALL, by design — not nullable-and-usually-empty, but
+ * structurally absent, so it's impossible for a future edit to
+ * accidentally start populating it and quietly re-introduce identity
+ * storage.
+ *
+ * Field types deliberately use VARCHAR/TEXT with zod-validated option sets
+ * at the tRPC layer, not literal MySQL ENUM, even though §2.3–2.7's tables
+ * say "ENUM" — that's describing "constrained single-select from a list,"
+ * not mandating the SQL column type. These option lists are caregiver-facing
+ * copy that may need wording tweaks over time; a MySQL ENUM alteration is a
+ * blocking schema change for that, a zod enum update is not.
+ */
+export const safeTruthSubmissions = mysqlTable("safeTruthSubmissions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** UUID, client-visible, used for "my submission" links without an account (no login = no submissions list otherwise). */
+  submissionUuid: varchar("submission_uuid", { length: 36 }).notNull().unique(),
+  observationTimestamp: timestamp("observation_timestamp").defaultNow().notNull(),
+  schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
+  /** Always 'CAREGIVER' per §2.3 — stored for symmetry with Care Signal's observer_class, not because it varies. */
+  observerClass: varchar("observer_class", { length: 16 }).default("CAREGIVER").notNull(),
+
+  // ── §2.3 Shared classifier fields ───────────────────────────────────────
+  country: varchar("country", { length: 2 }).notNull(),
+  adminLevel1: varchar("admin_level_1", { length: 128 }).notNull(),
+  /** Locality — added beyond §2.3's literal spec per CEO instruction, 2026-07-16 ("global from day 1"). */
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
+  facilityNameRaw: text("facility_name_raw").notNull(),
+  /** Null until the Phase C fuzzy-matching job runs. Never shown to the caregiver. */
+  facilityIdMatched: varchar("facility_id_matched", { length: 36 }),
+  facilityLevel: varchar("facility_level", { length: 64 }),
+  childAgeBand: varchar("child_age_band", { length: 32 }).notNull(),
+  conditionCategory: varchar("condition_category", { length: 64 }).notNull(),
+  outcomeCategory: varchar("outcome_category", { length: 64 }).notNull(),
+  isCaseLinkageConsented: boolean("is_case_linkage_consented").default(false).notNull(),
+  /** Optional — a Care Signal event's eventId, for consent-based case linkage. */
+  eventCodeEntered: varchar("event_code_entered", { length: 36 }),
+
+  // ── §2.4 Journey Stage 1 — Before Seeking Care ──────────────────────────
+  symptomOnsetDaysAgo: varchar("symptom_onset_days_ago", { length: 32 }).notNull(),
+  firstSymptomNoticed: text("first_symptom_noticed"),
+  /** JSON array of plain-language danger-sign strings. */
+  dangerSignsPresent: text("danger_signs_present"),
+  /** JSON array — multi-select per §2.4. */
+  adviceReceivedBeforeFacility: text("advice_received_before_facility").notNull(),
+  adviceContentRaw: text("advice_content_raw"),
+  reassuredDespiteDanger: boolean("reassured_despite_danger"),
+  decisionToSeekCareTrigger: text("decision_to_seek_care_trigger"),
+
+  // ── §2.5 Journey Stage 2 — Getting to Care ──────────────────────────────
+  /** JSON array — multi-select for multi-leg journeys per §2.5. */
+  transportUsed: text("transport_used").notNull(),
+  transportDelayOccurred: boolean("transport_delay_occurred").notNull(),
+  transportDelayReason: text("transport_delay_reason"),
+  travelTimeToFirstFacility: varchar("travel_time_to_first_facility", { length: 32 }).notNull(),
+  costBarrierOccurred: boolean("cost_barrier_occurred").notNull(),
+  costBarrierDetails: text("cost_barrier_details"),
+  facilitiesVisitedCount: varchar("facilities_visited_count", { length: 64 }).notNull(),
+
+  // ── §2.7 Journey Stage 4 — After Care ───────────────────────────────────
+  followUpInstructionsReceived: boolean("follow_up_instructions_received"),
+  ableToFollowInstructions: boolean("able_to_follow_instructions"),
+  unableToFollowReason: text("unable_to_follow_reason"),
+  overallExperienceRating: varchar("overall_experience_rating", { length: 32 }),
+  whatCouldHaveBeenBetter: text("what_could_have_been_better"),
+  /**
+   * Presented FIRST on the form per §2.7's note — stored here for schema
+   * simplicity, display order is a UI concern (Phase B), not a storage one.
+   * Immutable after submission — same raw-narrative-immutability principle
+   * as Care Signal (gap-analysis #9), enforced at the application layer
+   * for this table (no BEFORE UPDATE trigger yet — Phase A ships the
+   * column; the trigger is a small, easy follow-up once Phase B's real
+   * submission flow exists to test it against).
+   */
+  rawNarrative: text("raw_narrative").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SafeTruthSubmission = typeof safeTruthSubmissions.$inferSelect;
+export type InsertSafeTruthSubmission = typeof safeTruthSubmissions.$inferInsert;
+
+/**
+ * Safe-Truth v1 repeatable facility visits — Event Models v1.0 §2.6.
+ * One row per facility the caregiver's journey included; `visitSequence`
+ * orders them. No userId here either, same rationale as the parent table.
+ */
+export const safeTruthFacilityVisits = mysqlTable("safeTruthFacilityVisits", {
+  id: int("id").autoincrement().primaryKey(),
+  submissionId: int("submission_id").notNull(),
+  visitSequence: int("visit_sequence").notNull(),
+  visitFacilityNameRaw: text("visit_facility_name_raw").notNull(),
+  visitFacilityIdMatched: varchar("visit_facility_id_matched", { length: 36 }),
+  visitFacilityIsFinal: boolean("visit_facility_is_final").default(false).notNull(),
+  wasSeenPromptly: varchar("was_seen_promptly", { length: 32 }).notNull(),
+  turnedAway: boolean("turned_away").default(false).notNull(),
+  turnedAwayReason: text("turned_away_reason"),
+  informationReceived: varchar("information_received", { length: 64 }),
+  familyInvolvement: varchar("family_involvement", { length: 64 }),
+  visitExperienceRaw: text("visit_experience_raw"),
+  dangerSignAdviceAtDischarge: boolean("danger_sign_advice_at_discharge"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SafeTruthFacilityVisit = typeof safeTruthFacilityVisits.$inferSelect;
+export type InsertSafeTruthFacilityVisit = typeof safeTruthFacilityVisits.$inferInsert;
+
+/**
+ * Device-local disclaimer acknowledgment log for the no-auth Safe-Truth
+ * flow (gap-analysis #11 Phase A). Replaces the old
+ * `legal.acceptSafeTruthGuardian` mutation, which requires a logged-in
+ * account (`getMyConsentStatus` reads a per-user row) — structurally
+ * incompatible with §2.2. This table exists purely as an anonymous audit
+ * trail ("X sessions saw and accepted the disclaimer") — it is NEVER
+ * joined to a submission or an identity. `deviceSessionId` is a random
+ * client-generated value, not a fingerprint of any kind.
+ */
+export const safeTruthDisclaimerAcks = mysqlTable("safeTruthDisclaimerAcks", {
+  id: int("id").autoincrement().primaryKey(),
+  deviceSessionId: varchar("device_session_id", { length: 36 }).notNull(),
+  disclaimerVersion: varchar("disclaimer_version", { length: 16 }).notNull(),
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+});
+
+export type SafeTruthDisclaimerAck = typeof safeTruthDisclaimerAcks.$inferSelect;
+export type InsertSafeTruthDisclaimerAck = typeof safeTruthDisclaimerAcks.$inferInsert;
 
 // System Delay Analysis Results Table
 export const systemDelayAnalysis = mysqlTable("systemDelayAnalysis", {

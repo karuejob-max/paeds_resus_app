@@ -75,6 +75,8 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 - **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
 - **Don't flag a doc ambiguity from one section alone (gap-analysis item #15, 2026-07-15):** A prior session flagged "CANDIDATE's review window is never stated" against Observation Architecture §7.3 — true of that section's prose, but §6.6's Pattern Record field table stated it plainly a few hundred lines away ("6 months for Signal and Candidate"). The guess made in the meantime (12 months, by analogy) was wrong and shipped as a real bug in `fpkb-pattern-detector.ts`'s downgrade pass before being caught. **Before writing "ambiguous" or "not specified" into WORK_STATUS or a code comment, grep the whole constitutional doc for the field/term in question** — field-definition tables, schemas, and glossaries often answer questions that a single narrative section leaves open. If it's still unstated after that check, it's a real ambiguity — flag it and stop; don't guess by analogy and ship the guess as if it were settled.
 - **UI copy claiming a privacy guarantee is a claim about the code, not decoration — verify it against the actual insert/query, not the label (gap-analysis item #10, 2026-07-15):** Care Signal's "Submit anonymously" checkbox said "No identity stored," but the insert code stored the real `userId` for every provider submission regardless of that checkbox — `isAnonymous` only hid identity from facility-facing views (PSOT §20.3 rule 4), it never controlled whether the platform itself retained identity. This was deliberate (a code comment cited §20.3 explicitly) but contradicted both the UI's own copy and Observation Architecture §5.5's stricter Layer 1 (no identity, no credit) / Layer 2 (token-based pseudonymity, no real `userId` ever stored) split. Fixed by adding a genuine `fellowshipTokens` table + `submissionMode` column so Layer 2 credit is possible without the platform storing who submitted. **The general rule: when a feature makes a privacy or security claim in its UI copy ("anonymous," "encrypted," "not shared," "no identity stored"), trace that claim to the exact line of code that would make it true or false before trusting either the copy or an assumption of what "should" be true — labels drift from implementation silently, and nobody notices until an agent actually reads the insert statement.**
+- **A NOT NULL column on an existing table is a strong signal to build new tables, not retrofit (gap-analysis item #11 Phase A, 2026-07-16):** Safe-Truth v1 requires genuinely no user account (Event Models §2.2). The legacy `parentSafeTruthSubmissions` table has `userId: int("userId").notNull()` — structurally incompatible, not just unused-in-practice. Rather than make it nullable and hope nothing downstream assumes it's always populated (admin dashboards, analytics, exports all likely do), built three new tables (`safeTruthSubmissions`, `safeTruthFacilityVisits`, `safeTruthDisclaimerAcks`) and left the old table/router/UI/route completely untouched. **The general rule: when a redesign's core requirement (no auth, no PII, different cardinality, etc.) conflicts with an existing table's NOT NULL constraint or structural shape, that's usually a sign to build fresh rather than loosen the old constraint — loosening it silently changes the contract for every other reader of that table, which is a much bigger and less visible blast radius than a new, clearly-named table living alongside it.**
+- **"Global from day 1" is a platform-wide requirement, not a per-feature one — check every product's data model when it's invoked (2026-07-16):** The CEO's instruction to capture country → admin_level_1 → admin_level_2 (locality) geography applied to a Safe-Truth design conversation but explicitly covered Care Signal too. Checking found the unified `facilities` table already had `adminLevel2`/`subCounty` — it just wasn't wired through Care Signal's facility-search response, payload builder, or `careSignalEvents` schema, and wasn't in Safe-Truth's field list at all. **When a CEO instruction is framed as a general principle ("global from day 1," "every submission gets X") rather than a fix to the specific thing being discussed, treat it as license — and obligation — to check other products' data models for the same gap, not just the one on the table.**
 
 ---
 
@@ -92,6 +94,8 @@ The file `docs/PLATFORM_SOURCE_OF_TRUTH.md` is the canonical reference for the e
 ## 2. The Global Ambition
 
 Paeds Resus is building toward recognition as the **global benchmark for paediatric resuscitation science in LMICs** — by WHO, Harvard, CDC, and Ministries of Health. Every technical decision you make must support this level of clinical rigour, data integrity, and institutional trust.
+
+**Concrete mechanism for "global from day 1" (CEO instruction, 2026-07-16):** every submission across Care Signal and Safe-Truth captures country → admin_level_1 (county/state/province) → admin_level_2 (locality), for geographic pattern mapping. `shared/geo-taxonomy.ts` is the single source of truth for country ISO2 codes and per-country admin-level labels (labels vary — "County" in Kenya, "District" in Uganda). Only Kenya has a populated admin_level_1 options list today (single-country pilot); the shape is ready for more countries without a redesign. When adding a new product surface that captures location, wire it through this config rather than inventing another inline country/label map.
 
 ---
 
@@ -173,6 +177,18 @@ Paeds Resus (Organisation & Platform)
 │   ├── Institutional review workflow
 │   └── National Aggregate Signal (MOH/WHO surveillance dashboard)
 ├── Parent Safe-Truth (Product — Family Safety Information)
+│   └── **Safe-Truth v1 redesign (gap-analysis #11) in progress:** Phase A
+│       (no-auth architecture + schema — `safeTruthSubmissions`,
+│       `safeTruthFacilityVisits`, `safeTruthDisclaimerAcks`,
+│       `safeTruthV1` router) is DONE. Phase B (full 4-stage form UI) and
+│       Phase C (facility fuzzy-matching + Care Signal event-code linkage)
+│       are NOT built yet. The OLD authenticated flow
+│       (`parent-safetruth.ts`, `ParentSafeTruthForm.tsx`, route
+│       `/parent-safe-truth`) is still what's live in the product today —
+│       don't assume Safe-Truth is no-auth in production until Phase B
+│       ships and the route is switched over. Known bug, not yet fixed:
+│       `/safe-truth` currently redirects to Care Signal, not the parent
+│       form.
 └── Institutional Portal (Surface — Hospital Management & ERT)
     ├── Hospital Admin Dashboard
     ├── ERT (Emergency Response Team) management
