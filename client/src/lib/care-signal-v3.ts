@@ -25,6 +25,9 @@ export type FailureDomain =
 
 export type ReportTrack = "FAILURE" | "SUCCESS";
 
+/** §5.5 Layer 1/2/named submission mode (gap-analysis #10). */
+export type SubmissionMode = "named" | "pseudonymous" | "anonymous";
+
 export type RoleAtTimeOfEvent =
   | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "SUPPORT_CLINICIAN"
   | "OBSERVING_TRAINEE" | "LOCUM";
@@ -181,7 +184,10 @@ export type CareSignalV3FormState = {
   childAgeBand: ChildAgeBand | "";
   outcomeCategory: OutcomeCategory | "";
   eventDate: string;
-  isAnonymous: boolean;
+  /** Supersedes the old standalone isAnonymous boolean (gap-analysis #10). */
+  submissionMode: SubmissionMode;
+  /** Set only when submissionMode === 'pseudonymous'. */
+  fellowshipTokenId: string;
   reportTrack: ReportTrack;
   roleAtTimeOfEvent: RoleAtTimeOfEvent | "";
   facilityConfirmed: boolean;
@@ -210,7 +216,8 @@ export function initialCareSignalV3State(): CareSignalV3FormState {
     childAgeBand: "",
     outcomeCategory: "",
     eventDate: new Date().toISOString().slice(0, 16),
-    isAnonymous: false,
+    submissionMode: "named",
+    fellowshipTokenId: "",
     reportTrack: "FAILURE",
     roleAtTimeOfEvent: "",
     facilityConfirmed: false,
@@ -287,7 +294,14 @@ export function buildCareSignalV3SubmitPayload(
     child_age_band: form.childAgeBand,
     outcome_category: form.outcomeCategory,
     eventDate: form.eventDate || new Date().toISOString(),
-    isAnonymous: form.isAnonymous,
+    // isAnonymous now purely governs facility-view visibility (PSOT §20.3
+    // rule 4) — true for both pseudonymous and anonymous modes, since
+    // neither should be attributable to an institution's admin view.
+    // submissionMode is the actual source of truth for identity storage
+    // and Fellowship eligibility (gap-analysis #10).
+    isAnonymous: form.submissionMode !== "named",
+    submissionMode: form.submissionMode,
+    fellowshipTokenId: form.submissionMode === "pseudonymous" ? form.fellowshipTokenId : undefined,
     report_track: form.reportTrack,
     role_at_time_of_event: form.roleAtTimeOfEvent || undefined,
     provider_cadre: providerCadre || undefined,

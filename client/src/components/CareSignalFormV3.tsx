@@ -14,7 +14,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +41,19 @@ import { Link } from "wouter";
 import { FacilityPicker, type FacilitySelection } from "@/components/FacilityPicker";
 import { cn } from "@/lib/utils";
 import { getTrpcErrorMessage } from "@/lib/trpc-errors";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  getStoredFellowshipTokenId,
+  setStoredFellowshipTokenId,
+} from "@/lib/fellowship-token-storage";
 import {
   initialCareSignalV3State,
   validateCareSignalV3,
@@ -62,6 +74,7 @@ import {
   type OutcomeCategory,
   type RoleAtTimeOfEvent,
   type HoursSinceEvent,
+  type SubmissionMode,
 } from "@/lib/care-signal-v3";
 
 const OPT = "flex items-start space-x-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:border-teal-200/80 hover:bg-teal-50/60 transition-colors cursor-pointer";
@@ -219,6 +232,148 @@ interface Props {
   resusSessionId?: string;
 }
 
+// ── §5.5 submission mode selector + token creation/recovery (gap-analysis #10) ──
+function SubmissionModeSelector({
+  mode,
+  onModeChange,
+  onTokenReady,
+}: {
+  mode: SubmissionMode;
+  onModeChange: (mode: SubmissionMode) => void;
+  onTokenReady: (tokenId: string) => void;
+}) {
+  const [storedTokenId, setStoredTokenIdState] = useState<string | null>(() =>
+    getStoredFellowshipTokenId()
+  );
+  const [showRecoveryCode, setShowRecoveryCode] = useState<string | null>(null);
+  const [showRecoverInput, setShowRecoverInput] = useState(false);
+  const [recoverCodeInput, setRecoverCodeInput] = useState("");
+  const [recoverError, setRecoverError] = useState<string | null>(null);
+
+  const createToken = trpc.fellowship.createPseudonymousToken.useMutation({
+    onSuccess: (data) => {
+      setStoredFellowshipTokenId(data.tokenId);
+      setStoredTokenIdState(data.tokenId);
+      onTokenReady(data.tokenId);
+      setShowRecoveryCode(data.recoveryCode);
+    },
+  });
+  const recoverToken = trpc.fellowship.recoverPseudonymousToken.useMutation({
+    onSuccess: (data) => {
+      setStoredFellowshipTokenId(data.tokenId);
+      setStoredTokenIdState(data.tokenId);
+      onTokenReady(data.tokenId);
+      setShowRecoverInput(false);
+      setRecoverCodeInput("");
+      setRecoverError(null);
+    },
+    onError: () => setRecoverError("No token matches that recovery code. Check for typos and try again."),
+  });
+
+  function selectPseudonymous() {
+    onModeChange("pseudonymous");
+    if (storedTokenId) {
+      onTokenReady(storedTokenId);
+    }
+  }
+
+  return (
+    <div>
+      <RadioGroup
+        value={mode}
+        onValueChange={(v) => (v === "pseudonymous" ? selectPseudonymous() : onModeChange(v as SubmissionMode))}
+        className="space-y-2"
+      >
+        <label className={cn(OPT, mode === "named" && OPT_SEL)}>
+          <RadioGroupItem value="named" className="mt-0.5" />
+          <span className="text-sm font-normal">
+            Submit with my identity
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">Counts toward Fellowship Pillar C. Your facility admin never sees who submitted, but the platform links this to your account.</p>
+          </span>
+        </label>
+        <label className={cn(OPT, mode === "pseudonymous" && OPT_SEL)}>
+          <RadioGroupItem value="pseudonymous" className="mt-0.5" />
+          <span className="text-sm font-normal">
+            Submit pseudonymously
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">Still counts toward Fellowship Pillar C, but the platform stores no identity at all — only a private token on this device.</p>
+          </span>
+        </label>
+        <label className={cn(OPT, mode === "anonymous" && OPT_SEL)}>
+          <RadioGroupItem value="anonymous" className="mt-0.5" />
+          <span className="text-sm font-normal">
+            Submit fully anonymously
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">No identity stored anywhere. Contributes to learning but does not count toward Fellowship Pillar C.</p>
+          </span>
+        </label>
+      </RadioGroup>
+
+      {mode === "pseudonymous" && !storedTokenId && (
+        <div className="mt-2 rounded-lg border border-teal-200 bg-teal-50/60 p-3 space-y-2">
+          <p className="text-xs text-slate-600">No Fellowship token found on this device yet.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => createToken.mutate()}
+              disabled={createToken.isPending}
+            >
+              {createToken.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              Generate a new token
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setShowRecoverInput(true)}>
+              I have a recovery code
+            </Button>
+          </div>
+          {showRecoverInput && (
+            <div className="flex flex-wrap items-start gap-2 pt-1">
+              <Input
+                value={recoverCodeInput}
+                onChange={(e) => setRecoverCodeInput(e.target.value)}
+                placeholder="e.g. WQ4T-9KXH-2MRC-B7VN"
+                className="text-sm max-w-[220px]"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => recoverToken.mutate({ recoveryCode: recoverCodeInput })}
+                disabled={recoverToken.isPending || !recoverCodeInput.trim()}
+              >
+                {recoverToken.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                Recover
+              </Button>
+            </div>
+          )}
+          {recoverError && <p className="text-xs text-red-600">{recoverError}</p>}
+        </div>
+      )}
+
+      {mode === "pseudonymous" && storedTokenId && (
+        <p className="text-xs text-teal-700 mt-2">✓ Fellowship token ready on this device.</p>
+      )}
+
+      <Dialog open={showRecoveryCode !== null} onOpenChange={(open) => !open && setShowRecoveryCode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save your recovery code</DialogTitle>
+            <DialogDescription>
+              This is the only time this code will be shown. Write it down or save it somewhere safe — if you
+              lose this device without it, your pseudonymous Fellowship streak cannot be recovered. The platform
+              never stores this code in a readable form.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-center font-mono text-lg tracking-wider bg-slate-100 rounded-lg py-3">
+            {showRecoveryCode}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setShowRecoveryCode(null)}>I've saved it</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
   const [form, setForm] = useState(initialCareSignalV3State());
   const [facility, setFacility] = useState<FacilitySelection | null>(null);
@@ -263,6 +418,10 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
     const err = validateCareSignalV3(form);
     if (err) { setSubmitError(err); return; }
     if (!facility) { setSubmitError("Please select the facility where this event occurred."); return; }
+    if (form.submissionMode === "pseudonymous" && !form.fellowshipTokenId) {
+      setSubmitError("Generate or recover a Fellowship token before submitting pseudonymously.");
+      return;
+    }
     const eventCode = form.eventId.trim() || (typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -490,15 +649,13 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
           )}
         </div>
 
-        {/* Anonymity + event link */}
+        {/* Submission mode + event link (gap-analysis #10, Observation Architecture §5.5) */}
         <div className="space-y-3">
-          <div className={OPT}>
-            <Checkbox id="anon" checked={form.isAnonymous} onCheckedChange={c => set("isAnonymous", !!c)} className="mt-0.5" />
-            <Label htmlFor="anon" className="text-sm font-normal cursor-pointer">
-              Submit anonymously
-              <p className="text-xs text-slate-500 mt-0.5 font-normal">Anonymous submissions contribute to learning but do not count toward Fellowship Pillar C.</p>
-            </Label>
-          </div>
+          <SubmissionModeSelector
+            mode={form.submissionMode}
+            onModeChange={(mode) => set("submissionMode", mode)}
+            onTokenReady={(tokenId) => set("fellowshipTokenId", tokenId)}
+          />
           <div>
             <label className="text-xs font-medium text-slate-600 block mb-1">Event code (optional — for team-linked reports)</label>
             <Input value={form.eventId} onChange={e => set("eventId", e.target.value)}
@@ -518,7 +675,13 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
           {submitMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting…</> : "Submit Care Signal"}
         </Button>
         <p className="text-xs text-center text-slate-400">
-          Submitted confidentially. {form.isAnonymous ? "No identity stored." : "Linked to your Fellowship record."}
+          Submitted confidentially. {
+            form.submissionMode === "named"
+              ? "Linked to your Fellowship record."
+              : form.submissionMode === "pseudonymous"
+                ? "No identity stored — credited to your Fellowship token instead."
+                : "No identity stored. Does not count toward Fellowship Pillar C."
+          }
         </p>
       </CardContent>
     </Card>

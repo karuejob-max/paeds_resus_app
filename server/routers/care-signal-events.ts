@@ -2,7 +2,7 @@ import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, sql, count, isNotNull } from "drizzle-orm";
-import { getDb, insertAdminAuditLog } from "../db";
+import { getDb, insertAdminAuditLog, getFellowshipTokenByTokenId } from "../db";
 import {
   analyticsEvents,
   careSignalEvents,
@@ -11,7 +11,7 @@ import {
   careSignalRawNarrativeAudit,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
-import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
+import { syncFellowshipProgressForUser, syncFellowshipTokenProgress } from "../services/fellowship-progress.service";
 import {
   getFacilityById,
   resolveCanonicalFacilityId,
@@ -277,6 +277,16 @@ export const careSignalEventsRouter = router({
         eventType: z.string(),
         presentation: z.string(),
         isAnonymous: z.boolean().default(false),
+        /**
+         * §5.5 Layer 1/2/named submission mode (gap-analysis #10). Optional
+         * for a short transition window: if omitted (e.g. a stale cached
+         * client mid-deploy), derived from `isAnonymous` as the SAFER
+         * default (anonymous, not the old "anonymous-but-still-linked"
+         * behavior) rather than assuming named.
+         */
+        submissionMode: z.enum(["named", "pseudonymous", "anonymous"]).optional(),
+        /** Required when submissionMode === 'pseudonymous'. */
+        fellowshipTokenId: z.string().uuid().optional(),
         chainOfSurvival: z.object({
           recognition: z.boolean(),
           recognitionNotes: z.string().optional(),
@@ -330,6 +340,28 @@ export const careSignalEventsRouter = router({
           });
         }
 
+        // ── §5.5 submission mode resolution (gap-analysis #10) ────────────────
+        // Parent/caregiver Safe-Truth stories keep their existing isAnonymous-
+        // driven behavior for now — that's item #11's design conversation, not
+        // this one. This block only governs PROVIDER submissions.
+        const resolvedSubmissionMode: "named" | "pseudonymous" | "anonymous" = isParentStory
+          ? "named" // unused for parent stories; identity resolved separately below
+          : (input.submissionMode ?? (input.isAnonymous ? "anonymous" : "named"));
+
+        if (!isParentStory && resolvedSubmissionMode === "pseudonymous" && !input.fellowshipTokenId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A Fellowship token is required for pseudonymous submissions.",
+          });
+        }
+
+        if (!isParentStory && resolvedSubmissionMode === "pseudonymous") {
+          const token = await getFellowshipTokenByTokenId(input.fellowshipTokenId!);
+          if (!token) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown Fellowship token." });
+          }
+        }
+
         let resolvedFacilityId: number | null = null;
         let facilityName: string | null = null;
         let facilityCounty: string | null = null;
@@ -364,43 +396,71 @@ export const careSignalEventsRouter = router({
           facilityCounty = facility.county;
           facilityCountry = facility.country;
 
-          if (!input.isAnonymous) {
+          if (resolvedSubmissionMode === "named") {
             await syncProviderProfileFacility(ctx.user.id, resolvedFacilityId);
           }
 
-          const recentSubmissions = await db
-            .select({
-              eventDate: careSignalEvents.eventDate,
-              eventType: careSignalEvents.eventType,
-              childAge: careSignalEvents.childAge,
-              createdAt: careSignalEvents.createdAt,
-            })
-            .from(careSignalEvents)
-            .where(eq(careSignalEvents.userId, ctx.user.id))
-            .orderBy(desc(careSignalEvents.createdAt))
-            .limit(20);
+          // Rate-limit / duplicate-detection guard, scoped to whatever identity
+          // this submission is continuous with. NOTE (documented trade-off,
+          // gap-analysis #10): true anonymous (Layer 1) submissions have no
+          // persistent identity to scope this to, so they skip this guard
+          // entirely — that's an inherent consequence of Layer 1 meaning what
+          // it says, not an oversight.
+          if (resolvedSubmissionMode !== "anonymous") {
+            const recentSubmissions = await db
+              .select({
+                eventDate: careSignalEvents.eventDate,
+                eventType: careSignalEvents.eventType,
+                childAge: careSignalEvents.childAge,
+                createdAt: careSignalEvents.createdAt,
+              })
+              .from(careSignalEvents)
+              .where(
+                resolvedSubmissionMode === "pseudonymous"
+                  ? eq(careSignalEvents.fellowshipTokenId, input.fellowshipTokenId!)
+                  : eq(careSignalEvents.userId, ctx.user.id)
+              )
+              .orderBy(desc(careSignalEvents.createdAt))
+              .limit(20);
 
-          const guard = evaluateCareSignalSubmissionGuard(recentSubmissions, {
-            eventDate: input.eventDate,
-            eventType: input.eventType,
-            childAge: input.childAge,
-          });
-
-          if (!guard.allowed) {
-            throw new TRPCError({
-              code: guard.reason === "rate_limit" ? "TOO_MANY_REQUESTS" : "BAD_REQUEST",
-              message:
-                guard.reason === "rate_limit"
-                  ? "Care Signal limit: maximum 5 reports per day (EAT). Try again tomorrow."
-                  : "A very similar report was submitted in the last 10 minutes. Wait briefly or adjust event details if this is a distinct case.",
+            const guard = evaluateCareSignalSubmissionGuard(recentSubmissions, {
+              eventDate: input.eventDate,
+              eventType: input.eventType,
+              childAge: input.childAge,
             });
+
+            if (!guard.allowed) {
+              throw new TRPCError({
+                code: guard.reason === "rate_limit" ? "TOO_MANY_REQUESTS" : "BAD_REQUEST",
+                message:
+                  guard.reason === "rate_limit"
+                    ? "Care Signal limit: maximum 5 reports per day (EAT). Try again tomorrow."
+                    : "A very similar report was submitted in the last 10 minutes. Wait briefly or adjust event details if this is a distinct case.",
+              });
+            }
           }
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
-          // Always link provider submissions to the account for Fellowship Pillar C,
-          // even when isAnonymous hides identity from facility-facing views (PSoT §20.3).
-          userId: isParentStory ? (input.isAnonymous ? null : ctx.user.id) : ctx.user.id,
+          // Provider submissions: identity storage now driven entirely by
+          // submissionMode (gap-analysis #10) — 'named' stores the real
+          // userId, 'pseudonymous' stores only the token, 'anonymous' stores
+          // neither. Parent/caregiver stories keep their pre-existing
+          // isAnonymous-driven behavior (item #11 territory).
+          userId: isParentStory
+            ? input.isAnonymous
+              ? null
+              : ctx.user.id
+            : resolvedSubmissionMode === "named"
+              ? ctx.user.id
+              : null,
+          submissionMode: isParentStory
+            ? input.isAnonymous
+              ? "anonymous"
+              : "named"
+            : resolvedSubmissionMode,
+          fellowshipTokenId:
+            !isParentStory && resolvedSubmissionMode === "pseudonymous" ? input.fellowshipTokenId : null,
           facilityId: resolvedFacilityId,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
@@ -490,7 +550,13 @@ export const careSignalEventsRouter = router({
 
         console.log("[Care Signal Event Logged]", {
           id: insertId,
-          provider: input.isAnonymous ? "ANONYMOUS" : ctx.user.id,
+          provider: isParentStory
+            ? input.isAnonymous
+              ? "ANONYMOUS"
+              : ctx.user.id
+            : resolvedSubmissionMode === "named"
+              ? ctx.user.id
+              : resolvedSubmissionMode.toUpperCase(),
           eventType: input.eventType,
           childAge: input.childAge,
           outcome: input.outcome,
@@ -501,9 +567,21 @@ export const careSignalEventsRouter = router({
         });
 
         if (!isParentStory) {
-          await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
-            console.warn("[Fellowship] sync after Care Signal submit failed:", e)
-          );
+          // Fellowship credit sync (gap-analysis #10): 'named' syncs the
+          // user's fellowshipProgress row as before; 'pseudonymous' syncs
+          // the token's own ledger instead; true 'anonymous' (Layer 1) gets
+          // no credit at all — a deliberate behavior change from the old
+          // model, where "anonymous" providers still earned Fellowship
+          // credit against their real (just facility-hidden) userId.
+          if (resolvedSubmissionMode === "named") {
+            await syncFellowshipProgressForUser(ctx.user.id).catch((e) =>
+              console.warn("[Fellowship] sync after Care Signal submit failed:", e)
+            );
+          } else if (resolvedSubmissionMode === "pseudonymous") {
+            await syncFellowshipTokenProgress(input.fellowshipTokenId!).catch((e) =>
+              console.warn("[Fellowship] token sync after Care Signal submit failed:", e)
+            );
+          }
 
           const institutionalFollowUp = await handleCareSignalInstitutionalFollowUp(db, {
             careSignalEventId: insertId,

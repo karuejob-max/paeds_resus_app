@@ -107,6 +107,7 @@
     "db:apply-0061": "node scripts/apply-0061-raw-narrative-immutable.mjs",
     "db:apply-0062": "node scripts/apply-0062-fix-raw-narrative-trigger-message.mjs",
     "db:apply-0063": "node scripts/apply-0063-success-factor-codes.mjs",
+    "db:apply-0064": "node scripts/apply-0064-fellowship-tokens.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
