@@ -22,6 +22,7 @@ import {
   kmhflFacilities,
   careSignalEvents,
 } from "../../drizzle/schema";
+import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
   daysBackForTimeframe,
   gapCountsToArray,
@@ -1998,4 +1999,46 @@ export const institutionRouter = router({
       items: fromCareSignal,
     };
   }),
+
+  runResusGpsAudit: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      return await runResusGpsAuditForInstitution(db, input.institutionId);
+    }),
+
+  importResusGpsAuditAction: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        gapIdentified: z.string().min(1),
+        systemChange: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await db.insert(institutionalActionLogs).values({
+        institutionalAccountId: input.institutionId,
+        createdByUserId: ctx.user ? ctx.user.id : null,
+        gapIdentified: input.gapIdentified,
+        systemChange: input.systemChange,
+        status: "open",
+        notes: "Imported from Automated ResusGPS Quality Audit.",
+      });
+
+      return { success: true };
+    }),
 });
