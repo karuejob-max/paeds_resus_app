@@ -1,5 +1,9 @@
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
+import { getDb } from '../db';
+import { userProgress } from '../../drizzle/schema';
+import { eq } from 'drizzle-orm';
+import { invokeLLM } from '../_core/llm';
 
 export const aiAdaptiveLearningRouter = router({
   // Get personalized learning path
@@ -9,38 +13,86 @@ export const aiAdaptiveLearningRouter = router({
       currentLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
     }))
     .query(async ({ input }) => {
-      return {
-        userId: input.userId,
-        recommendedPath: 'BLS -> ACLS -> PALS -> Fellowship',
-        estimatedDuration: 380,
-        difficulty: 'intermediate',
-        courses: [
-          {
-            courseId: 'bls',
-            title: 'Basic Life Support',
-            duration: 40,
-            difficulty: 'beginner',
-            priority: 1,
-            reason: 'Foundation for all resuscitation training',
-          },
-          {
-            courseId: 'acls',
-            title: 'Advanced Cardiovascular Life Support',
-            duration: 60,
-            difficulty: 'intermediate',
-            priority: 2,
-            reason: 'Build on BLS knowledge with advanced protocols',
-          },
-          {
-            courseId: 'pals',
-            title: 'Pediatric Advanced Life Support',
-            duration: 80,
-            difficulty: 'advanced',
-            priority: 3,
-            reason: 'Specialized pediatric resuscitation skills',
-          },
-        ],
-      };
+      try {
+        const db = await getDb();
+        let progressDetails = "No course completion data found yet.";
+        if (db) {
+          const userIdNum = parseInt(input.userId, 10);
+          if (!isNaN(userIdNum)) {
+            const progress = await db
+              .select()
+              .from(userProgress)
+              .where(eq(userProgress.userId, userIdNum));
+            if (progress.length > 0) {
+              progressDetails = progress
+                .map((p) => `Module ID ${p.moduleId}: Status: ${p.status}, Score: ${p.score ?? 'N/A'}, Attempts: ${p.attempts ?? 0}, Completed At: ${p.completedAt ?? 'N/A'}`)
+                .join('\n');
+            }
+          }
+        }
+
+        const prompt = `You are a pediatric emergency medicine adaptive learning planner.
+Analyze the provider's training progress and level, and generate a personalized recommended training path with rationales.
+Provider ID: ${input.userId}
+Current Level: ${input.currentLevel}
+Training Progress:
+${progressDetails}
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "recommendedPath": "Short summary string of path (e.g. BLS -> Septic Shock -> PALS)",
+  "estimatedDuration": 320,
+  "difficulty": "beginner|intermediate|advanced|expert",
+  "courses": [
+    {
+      "courseId": "lowercase-id",
+      "title": "Clean Course Title",
+      "duration": 60,
+      "difficulty": "beginner|intermediate|advanced",
+      "priority": 1,
+      "reason": "Clear clinical rationale for recommendation"
+    }
+  ]
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "You are an expert pediatric clinical training path planner. Return valid JSON only." },
+            { role: "user", content: prompt },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        return {
+          userId: input.userId,
+          recommendedPath: parsed.recommendedPath || "BLS -> ACLS -> PALS",
+          estimatedDuration: parsed.estimatedDuration || 180,
+          difficulty: parsed.difficulty || "intermediate",
+          courses: parsed.courses || [],
+        };
+      } catch (error) {
+        console.error("getPersonalizedLearningPath error:", error);
+        return {
+          userId: input.userId,
+          recommendedPath: 'BLS -> ACLS -> PALS -> Fellowship',
+          estimatedDuration: 380,
+          difficulty: 'intermediate',
+          courses: [
+            {
+              courseId: 'bls',
+              title: 'Basic Life Support',
+              duration: 40,
+              difficulty: 'beginner',
+              priority: 1,
+              reason: 'Foundation for all resuscitation training',
+            },
+          ],
+        };
+      }
     }),
 
   // Get adaptive difficulty adjustment
@@ -51,19 +103,50 @@ export const aiAdaptiveLearningRouter = router({
       recentScores: z.array(z.number()),
     }))
     .query(async ({ input }) => {
-      const averageScore = input.recentScores.reduce((a, b) => a + b, 0) / input.recentScores.length;
-      let difficulty = 'intermediate';
-      
-      if (averageScore >= 90) difficulty = 'advanced';
-      if (averageScore < 70) difficulty = 'beginner';
+      try {
+        const averageScore = input.recentScores.reduce((a, b) => a + b, 0) / input.recentScores.length;
+        const prompt = `You are a pediatric clinical training difficulty coordinator.
+Based on the learner's recent assessment scores, dynamically calculate their target difficulty and write an adjustment rationale.
+Lesson ID: ${input.lessonId}
+Recent Scores: ${input.recentScores.join(', ')} (Average: ${averageScore}%)
 
-      return {
-        userId: input.userId,
-        lessonId: input.lessonId,
-        currentDifficulty: difficulty,
-        adjustmentReason: averageScore >= 90 ? 'Excellent performance - increasing difficulty' : 'Needs more practice - reducing difficulty',
-        estimatedTimeToComplete: 45,
-      };
+Return ONLY a valid JSON object matching this schema:
+{
+  "difficulty": "beginner|intermediate|advanced",
+  "adjustmentReason": "Detailed clinical or pedagogical adjustment reason based on performance",
+  "estimatedTimeToComplete": 40
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "You are an expert pediatric clinical difficulty coordinator. Return valid JSON only." },
+            { role: "user", content: prompt },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        return {
+          userId: input.userId,
+          lessonId: input.lessonId,
+          currentDifficulty: parsed.difficulty || "intermediate",
+          adjustmentReason: parsed.adjustmentReason || "Performance consistent - maintaining current level",
+          estimatedTimeToComplete: parsed.estimatedTimeToComplete || 45,
+        };
+      } catch (error) {
+        console.error("getAdaptiveDifficulty error:", error);
+        const averageScore = input.recentScores.reduce((a, b) => a + b, 0) / input.recentScores.length;
+        return {
+          userId: input.userId,
+          lessonId: input.lessonId,
+          currentDifficulty: averageScore >= 90 ? 'advanced' : averageScore < 70 ? 'beginner' : 'intermediate',
+          adjustmentReason: 'Performance-based automated difficulty adjustment',
+          estimatedTimeToComplete: 45,
+        };
+      }
     }),
 
   // Get spaced repetition schedule
@@ -73,19 +156,69 @@ export const aiAdaptiveLearningRouter = router({
       topicId: z.string(),
     }))
     .query(async ({ input }) => {
-      return {
-        userId: input.userId,
-        topicId: input.topicId,
-        nextReviewDate: new Date(Date.now() + 86400000),
-        reviewInterval: 1,
-        repetitionCount: 3,
-        schedule: [
-          { date: new Date(), interval: 0, type: 'initial' },
-          { date: new Date(Date.now() + 86400000), interval: 1, type: 'first_review' },
-          { date: new Date(Date.now() + 604800000), interval: 7, type: 'second_review' },
-          { date: new Date(Date.now() + 2592000000), interval: 30, type: 'final_review' },
-        ],
-      };
+      try {
+        const prompt = `You are a spaced repetition review coordinator for pediatric resuscitation protocols.
+Based on the topic memory retention forgetting curve, calculate their next review date and repetition intervals.
+Topic ID: ${input.topicId}
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "nextReviewDays": 1,
+  "reviewInterval": 1,
+  "repetitionCount": 3,
+  "schedule": [
+    { "daysOffset": 0, "type": "initial" },
+    { "daysOffset": 1, "type": "first_review" },
+    { "daysOffset": 7, "type": "second_review" },
+    { "daysOffset": 30, "type": "final_review" }
+  ]
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "You are a pediatric clinical spaced repetition planner. Return valid JSON only." },
+            { role: "user", content: prompt },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        const nextDays = parsed.nextReviewDays || 1;
+        const nextReviewDate = new Date(Date.now() + nextDays * 86400000);
+
+        const schedule = (parsed.schedule || []).map((s: { daysOffset: number; type: string }) => ({
+          date: new Date(Date.now() + (s.daysOffset || 0) * 86400000),
+          interval: s.daysOffset || 0,
+          type: s.type,
+        }));
+
+        return {
+          userId: input.userId,
+          topicId: input.topicId,
+          nextReviewDate,
+          reviewInterval: parsed.reviewInterval || 1,
+          repetitionCount: parsed.repetitionCount || 3,
+          schedule,
+        };
+      } catch (error) {
+        console.error("getSpacedRepetitionSchedule error:", error);
+        return {
+          userId: input.userId,
+          topicId: input.topicId,
+          nextReviewDate: new Date(Date.now() + 86400000),
+          reviewInterval: 1,
+          repetitionCount: 3,
+          schedule: [
+            { date: new Date(), interval: 0, type: 'initial' },
+            { date: new Date(Date.now() + 86400000), interval: 1, type: 'first_review' },
+            { date: new Date(Date.now() + 604800000), interval: 7, type: 'second_review' },
+            { date: new Date(Date.now() + 2592000000), interval: 30, type: 'final_review' },
+          ],
+        };
+      }
     }),
 
   // Get learning style assessment
