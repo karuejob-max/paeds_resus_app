@@ -3,7 +3,7 @@
  * Single source of truth for live UX and admin ledger rows.
  */
 import { and, desc, eq, gte, inArray, isNull, like, or, sql } from "drizzle-orm";
-import { getDb, getFellowshipProgress, createFellowshipProgress, updateFellowshipProgress } from "../db";
+import { getDb, getFellowshipProgress, createFellowshipProgress, updateFellowshipProgress, getFellowshipTokenByTokenId, updateFellowshipToken } from "../db";
 import {
   certificates,
   microCourseEnrollments,
@@ -193,46 +193,109 @@ function formatCareSignalMonthLabel(monthKey: string): string {
   });
 }
 
-export async function calculateCareSignalPillar(userId: number) {
+type CareSignalPillarResult = {
+  streak: number;
+  eventsSubmitted: number;
+  reportsThisMonth: number;
+  percentage: number;
+  monthsRemaining: number;
+  monthlyTimeline: Array<{
+    monthKey: string;
+    label: string;
+    reportCount: number;
+    isCurrentMonth: boolean;
+  }>;
+};
+
+function emptyCareSignalPillarResult(): CareSignalPillarResult {
+  return {
+    streak: 0,
+    eventsSubmitted: 0,
+    reportsThisMonth: 0,
+    percentage: 0,
+    monthsRemaining: 24,
+    monthlyTimeline: [],
+  };
+}
+
+/**
+ * Shared streak/percentage math for Care Signal Pillar C, independent of
+ * whether the events came from a `userId` (named) or a `fellowshipTokenId`
+ * (pseudonymous, gap-analysis #10) query. Extracted so the two identity
+ * paths can never silently compute this differently.
+ */
+export function computeCareSignalPillarFromEvents(
+  allEvents: Array<{ eventDate: Date | string }>,
+  graceUsage: Array<{ year: number; month: number }>
+): CareSignalPillarResult {
+  const eventsByMonth: Record<string, number> = {};
+  const currentDate = new Date();
+  const eatNow = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000);
+  const currentYear = eatNow.getUTCFullYear();
+  const currentMonth = eatNow.getUTCMonth() + 1;
+  const currentMonthKey = monthKeyEAT(currentYear, currentMonth);
+
+  allEvents.forEach((event) => {
+    const eventDate = new Date(event.eventDate);
+    const eatEvent = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000);
+    const year = eatEvent.getUTCFullYear();
+    const month = eatEvent.getUTCMonth() + 1;
+    const key = monthKeyEAT(year, month);
+    eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
+  });
+
+  const timelineKeys = computeCareSignalTimelineKeys(eventsByMonth, currentYear, currentMonth, 24);
+
+  const streak = computeCareSignalStreak({
+    eventsByMonth,
+    graceUsage,
+    anchorYear: currentYear,
+    anchorMonth: currentMonth,
+    windowMonths: 24,
+    timelineKeys,
+  });
+
+  const reportsThisMonth = eventsByMonth[currentMonthKey] ?? 0;
+  const percentage = Math.min(100, Math.round((streak / 24) * 100));
+  const monthsRemaining = Math.max(0, 24 - streak);
+  const displayTimelineKeys =
+    timelineKeys.length > 0 ? timelineKeys : enumerateMonthsEndingAt(currentYear, currentMonth, 24);
+  const monthlyTimeline = displayTimelineKeys.map((monthKey) => ({
+    monthKey,
+    label: formatCareSignalMonthLabel(monthKey),
+    reportCount: eventsByMonth[monthKey] ?? 0,
+    isCurrentMonth: monthKey === currentMonthKey,
+  }));
+
+  return {
+    streak,
+    eventsSubmitted: allEvents.length,
+    reportsThisMonth,
+    percentage,
+    monthsRemaining,
+    monthlyTimeline,
+  };
+}
+
+export async function calculateCareSignalPillar(userId: number): Promise<CareSignalPillarResult> {
   const db = await getDb();
-  if (!db) {
-    return {
-      streak: 0,
-      eventsSubmitted: 0,
-      reportsThisMonth: 0,
-      percentage: 0,
-      monthsRemaining: 24,
-      monthlyTimeline: [] as Array<{
-        monthKey: string;
-        label: string;
-        reportCount: number;
-        isCurrentMonth: boolean;
-      }>,
-    };
-  }
+  if (!db) return emptyCareSignalPillarResult();
 
   try {
     const allEvents = await db.query.careSignalEvents.findMany({
       where: (events) => eq(events.userId, userId),
     });
-    const eventsByMonth: Record<string, number> = {};
-    const currentDate = new Date();
-    const eatNow = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000);
+    const eatNow = new Date(Date.now() + 3 * 60 * 60 * 1000);
     const currentYear = eatNow.getUTCFullYear();
     const currentMonth = eatNow.getUTCMonth() + 1;
-    const currentMonthKey = monthKeyEAT(currentYear, currentMonth);
-
+    const eventsByMonthForGraceLookup: Record<string, number> = {};
     allEvents.forEach((event) => {
-      const eventDate = new Date(event.eventDate);
-      const eatEvent = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000);
-      const year = eatEvent.getUTCFullYear();
-      const month = eatEvent.getUTCMonth() + 1;
-      const key = monthKeyEAT(year, month);
-      eventsByMonth[key] = (eventsByMonth[key] || 0) + 1;
+      const eatEvent = new Date(new Date(event.eventDate).getTime() + 3 * 60 * 60 * 1000);
+      const key = monthKeyEAT(eatEvent.getUTCFullYear(), eatEvent.getUTCMonth() + 1);
+      eventsByMonthForGraceLookup[key] = (eventsByMonthForGraceLookup[key] || 0) + 1;
     });
-
     const timelineKeys = computeCareSignalTimelineKeys(
-      eventsByMonth,
+      eventsByMonthForGraceLookup,
       currentYear,
       currentMonth,
       24
@@ -243,47 +306,43 @@ export async function calculateCareSignalPillar(userId: number) {
       where: (grace) => and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
     });
 
-    const streak = computeCareSignalStreak({
-      eventsByMonth,
-      graceUsage: graceUsage.map((g) => ({ year: g.year, month: g.month })),
-      anchorYear: currentYear,
-      anchorMonth: currentMonth,
-      windowMonths: 24,
-      timelineKeys,
-    });
-
-    const reportsThisMonth = eventsByMonth[currentMonthKey] ?? 0;
-    const percentage = Math.min(100, Math.round((streak / 24) * 100));
-    const monthsRemaining = Math.max(0, 24 - streak);
-    const displayTimelineKeys =
-      timelineKeys.length > 0
-        ? timelineKeys
-        : enumerateMonthsEndingAt(currentYear, currentMonth, 24);
-    const monthlyTimeline = displayTimelineKeys.map((monthKey) => ({
-      monthKey,
-      label: formatCareSignalMonthLabel(monthKey),
-      reportCount: eventsByMonth[monthKey] ?? 0,
-      isCurrentMonth: monthKey === currentMonthKey,
-    }));
-
-    return {
-      streak,
-      eventsSubmitted: allEvents.length,
-      reportsThisMonth,
-      percentage,
-      monthsRemaining,
-      monthlyTimeline,
-    };
+    return computeCareSignalPillarFromEvents(
+      allEvents,
+      graceUsage.map((g) => ({ year: g.year, month: g.month }))
+    );
   } catch (error) {
     console.error("[Fellowship] Error calculating Care Signal pillar:", error);
-    return {
-      streak: 0,
-      eventsSubmitted: 0,
-      reportsThisMonth: 0,
-      percentage: 0,
-      monthsRemaining: 24,
-      monthlyTimeline: [],
-    };
+    return emptyCareSignalPillarResult();
+  }
+}
+
+/**
+ * Token-keyed variant of calculateCareSignalPillar, for §5.5 Layer 2
+ * pseudonymous submissions (gap-analysis #10). Queries by
+ * `fellowshipTokenId` instead of `userId` — these events have `userId`
+ * NULL, so the userId-keyed function above would never find them.
+ *
+ * KNOWN SIMPLIFICATION (documented, not silently assumed): grace-period
+ * usage (`fellowshipGraceUsage`) is keyed by userId and isn't extended to
+ * tokens — a pseudonymous streak gets no manual grace exceptions before
+ * the token is linked to a real account. This only matters for providers
+ * who'd otherwise qualify for a grace exception; flagged as a follow-up
+ * if pseudonymous adoption is high enough for this to matter in practice.
+ */
+export async function calculateCareSignalPillarForToken(
+  tokenId: string
+): Promise<CareSignalPillarResult> {
+  const db = await getDb();
+  if (!db) return emptyCareSignalPillarResult();
+
+  try {
+    const allEvents = await db.query.careSignalEvents.findMany({
+      where: (events) => eq(events.fellowshipTokenId, tokenId),
+    });
+    return computeCareSignalPillarFromEvents(allEvents, []);
+  } catch (error) {
+    console.error("[Fellowship] Error calculating Care Signal pillar for token:", error);
+    return emptyCareSignalPillarResult();
   }
 }
 
@@ -345,6 +404,31 @@ export async function syncFellowshipProgressForUser(userId: number) {
   }
 
   return { status, created: !existing };
+}
+
+/**
+ * Upsert `fellowshipTokens`' credit fields from live pillar calculation, for
+ * §5.5 Layer 2 pseudonymous submissions (gap-analysis #10). Unlike
+ * syncFellowshipProgressForUser, this only ever touches Pillar 3 (Care
+ * Signal) — a token has no Courses or ResusGPS pillar, since those require
+ * a named account. A token's "Fellowship status" is Care-Signal-only until
+ * (and unless) it's linked to a real account via fellowship.linkToken.
+ */
+export async function syncFellowshipTokenProgress(tokenId: string) {
+  const pillar = await calculateCareSignalPillarForToken(tokenId);
+  const existing = await getFellowshipTokenByTokenId(tokenId);
+  if (!existing) {
+    throw new Error(`[Fellowship] syncFellowshipTokenProgress: unknown tokenId ${tokenId}`);
+  }
+
+  await updateFellowshipToken(tokenId, {
+    careSignalStreak: pillar.streak,
+    careSignalEventsSubmitted: pillar.eventsSubmitted,
+    careSignalPercentage: pillar.percentage,
+    lastSubmissionAt: new Date(),
+  });
+
+  return pillar;
 }
 
 /** User IDs for batch sync (individual providers). */

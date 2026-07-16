@@ -189,6 +189,28 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   rawNarrative: text("raw_narrative"),
   temporalIntervals: text("temporal_intervals"),
   eventId: varchar("event_id", { length: 36 }),
+  // ── Fellowship pseudonymous token model (migration 0064, gap-analysis #10) ─
+  /**
+   * Which of the three Observation Architecture §5.5 submission modes this
+   * event used. Supersedes `isAnonymous` as the source of truth for whether
+   * `userId` is populated and whether Fellowship credit applies — kept
+   * because `isAnonymous` still separately controls facility-view visibility
+   * (PSOT §20.3 rule 4), which is a distinct concern from identity storage.
+   *   - named: userId set, full credit, visible to institution as before.
+   *   - pseudonymous: userId NULL, fellowshipTokenId set, credit accrues to
+   *     the token (see fellowshipTokens table). Platform does not store who
+   *     submitted this event.
+   *   - anonymous: userId NULL, fellowshipTokenId NULL, no Fellowship credit
+   *     (matches §5.5 Layer 1 exactly — this is the true "no identity, no
+   *     credit" option; previously the checkbox labeled "anonymous" behaved
+   *     like pseudonymous-with-real-userId-still-stored, which is why this
+   *     migration exists).
+   */
+  submissionMode: mysqlEnum("submissionMode", ["named", "pseudonymous", "anonymous"])
+    .default("named")
+    .notNull(),
+  /** Set only when submissionMode = 'pseudonymous'. References fellowshipTokens.tokenId. */
+  fellowshipTokenId: varchar("fellowshipTokenId", { length: 36 }),
 });
 
 export type CareSignalEventRow = typeof careSignalEvents.$inferSelect;
@@ -2546,6 +2568,61 @@ export const fellowshipProgress = mysqlTable("fellowshipProgress", {
 
 export type FellowshipProgress = typeof fellowshipProgress.$inferSelect;
 export type InsertFellowshipProgress = typeof fellowshipProgress.$inferInsert;
+
+/**
+ * Fellowship pseudonymous tokens — Observation Architecture v1.1 §5.5, Layer 2.
+ *
+ * Lets a provider earn Fellowship Pillar C credit for Care Signal submissions
+ * WITHOUT the platform ever storing their real identity against those events
+ * — `careSignalEvents.userId` stays NULL for every submission made under a
+ * token; `fellowshipTokenId` is the only link, and this table is the only
+ * place that token's own credit ledger lives.
+ *
+ * `linkedUserId` is set ONLY via an explicit, separate "reveal" action
+ * (fellowship.linkToken) — never at token creation, and never implicitly.
+ * This is what makes it genuinely pseudonymous rather than just "hidden in
+ * the UI": a direct database query joining fellowshipTokens to users only
+ * works after the provider has deliberately chosen to reveal themselves.
+ *
+ * KNOWN LIMITATION (documented, not silently glossed over): Care Signal
+ * requires a logged-in platform account to submit at all (protectedProcedure
+ * — see care-signal-events.ts), so token *creation* necessarily happens
+ * within an authenticated request. This table itself never records that
+ * association, but standard request/access logs at the moment of creation
+ * could in principle correlate a session to a token. This model protects
+ * the *application data layer* (Care Signal events, Fellowship credit,
+ * anything queryable through the schema) from casual or even direct-SQL
+ * identification — it does not claim to defeat server-log-level traffic
+ * analysis, which no in-app token scheme can.
+ *
+ * `titleDisplayRevokedAt`: per CEO decision (2026-07-15, gap-analysis #10),
+ * "revoking" a reveal only stops the Fellow title from being publicly
+ * displayed going forward — it does NOT unlink or re-anonymize the
+ * already-linked credit history, consistent with how withdrawal is handled
+ * elsewhere for anonymized-not-deleted data (see gap-analysis #13).
+ */
+export const fellowshipTokens = mysqlTable("fellowshipTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  /** UUID, generated client-side-visible at creation, stored on the provider's device. */
+  tokenId: varchar("tokenId", { length: 36 }).notNull().unique(),
+  /** Hash of a one-time-shown recovery code — never store the code itself. */
+  recoveryCodeHash: varchar("recoveryCodeHash", { length: 128 }).notNull(),
+  /** Mirrors fellowshipProgress's Pillar 3 fields, computed the same way, keyed by token instead of userId. */
+  careSignalStreak: int("careSignalStreak").default(0),
+  careSignalEventsSubmitted: int("careSignalEventsSubmitted").default(0),
+  careSignalPercentage: int("careSignalPercentage").default(0),
+  /** NULL until the provider explicitly reveals themselves via fellowship.linkToken. */
+  linkedUserId: int("linkedUserId"),
+  linkedAt: timestamp("linkedAt"),
+  /** Set when the provider revokes public display of the Fellow title earned via this token (display-only; see class doc above). */
+  titleDisplayRevokedAt: timestamp("titleDisplayRevokedAt"),
+  lastSubmissionAt: timestamp("lastSubmissionAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FellowshipToken = typeof fellowshipTokens.$inferSelect;
+export type InsertFellowshipToken = typeof fellowshipTokens.$inferInsert;
 
 /**
  * Fellowship Grace Usage — track grace periods used per user per calendar year (EAT).

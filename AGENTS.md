@@ -74,6 +74,7 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 - **Honest gap docs:** Use [FELLOWSHIP_WHAT_IS_MISSING.md](docs/FELLOWSHIP_WHAT_IS_MISSING.md) for CEO — do not reassure that prod DB matches code without seed + verify evidence.
 - **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
 - **Don't flag a doc ambiguity from one section alone (gap-analysis item #15, 2026-07-15):** A prior session flagged "CANDIDATE's review window is never stated" against Observation Architecture §7.3 — true of that section's prose, but §6.6's Pattern Record field table stated it plainly a few hundred lines away ("6 months for Signal and Candidate"). The guess made in the meantime (12 months, by analogy) was wrong and shipped as a real bug in `fpkb-pattern-detector.ts`'s downgrade pass before being caught. **Before writing "ambiguous" or "not specified" into WORK_STATUS or a code comment, grep the whole constitutional doc for the field/term in question** — field-definition tables, schemas, and glossaries often answer questions that a single narrative section leaves open. If it's still unstated after that check, it's a real ambiguity — flag it and stop; don't guess by analogy and ship the guess as if it were settled.
+- **UI copy claiming a privacy guarantee is a claim about the code, not decoration — verify it against the actual insert/query, not the label (gap-analysis item #10, 2026-07-15):** Care Signal's "Submit anonymously" checkbox said "No identity stored," but the insert code stored the real `userId` for every provider submission regardless of that checkbox — `isAnonymous` only hid identity from facility-facing views (PSOT §20.3 rule 4), it never controlled whether the platform itself retained identity. This was deliberate (a code comment cited §20.3 explicitly) but contradicted both the UI's own copy and Observation Architecture §5.5's stricter Layer 1 (no identity, no credit) / Layer 2 (token-based pseudonymity, no real `userId` ever stored) split. Fixed by adding a genuine `fellowshipTokens` table + `submissionMode` column so Layer 2 credit is possible without the platform storing who submitted. **The general rule: when a feature makes a privacy or security claim in its UI copy ("anonymous," "encrypted," "not shared," "no identity stored"), trace that claim to the exact line of code that would make it true or false before trusting either the copy or an assumption of what "should" be true — labels drift from implementation silently, and nobody notices until an agent actually reads the insert statement.**
 
 ---
 
@@ -189,7 +190,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 | :--- | :--- | :--- |
 | **A — Micro-Courses** | Complete **every** active ADF micro-course in the MECE catalog. | `certificates` / `enrollments` DB rows per course. |
 | **B — ResusGPS** | ≥3 attributable cases **per taught condition** (server-side, anti-gaming). | `analyticsEvents` |
-| **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` |
+| **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` (+ `fellowshipTokens` for pseudonymous submissions, gap-analysis #10) |
 
 **Critical rules (from PSOT §17 and FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md):**
 
@@ -198,6 +199,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 - **BLS, ACLS, PALS are NOT required** for fellowship qualification. They are optional, standalone AHA-certified offerings on a separate track.
 - **Care Signal ≠ Safe-Truth.** Care Signal is the staff incident/near-miss reporting product (fellowship pillar C). Safe-Truth is the parent/guardian product. Never mix them.
 - **Do not** show "Fellow" title or fellowship progress UI until the §11 launch checklist in FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md fully passes.
+- **Pillar C has three submission modes, not a binary anonymous/named toggle** (Observation Architecture §5.5, gap-analysis #10): `named` (real `userId`, full credit), `pseudonymous` (no `userId` — a `fellowshipTokens` row instead, still full credit), `anonymous` (no identity anywhere, no credit — the true Layer 1). `isAnonymous` on `careSignalEvents` is legacy/display-only now (hides from facility views per PSOT §20.3 rule 4) — `submissionMode` is the source of truth for identity storage and credit eligibility. See `server/lib/fellowship-token.ts` and `drizzle/schema.ts`'s `fellowshipTokens` doc comment before touching this.
 
 **Canonical detail:** `docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md` and PSOT §17.
 

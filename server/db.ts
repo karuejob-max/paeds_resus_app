@@ -5,7 +5,7 @@ import dns from "node:dns";
 import { promisify } from "node:util";
 
 import * as schema from "../drizzle/schema";
-import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, fellowshipTokens, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset, InsertFellowshipToken } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 const lookup4 = promisify(dns.lookup);
@@ -830,4 +830,64 @@ export async function getFellowshipProgress(userId: number) {
     .where(eq(fellowshipProgress.userId, userId))
     .limit(1);
   return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Fellowship pseudonymous tokens (Observation Architecture §5.5, gap-analysis #10).
+ * See drizzle/schema.ts's fellowshipTokens table doc comment for the privacy model.
+ */
+export async function createFellowshipToken(data: InsertFellowshipToken) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipTokens).values(data);
+  return result;
+}
+
+export async function updateFellowshipToken(tokenId: string, data: Partial<InsertFellowshipToken>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .update(fellowshipTokens)
+    .set(data)
+    .where(eq(fellowshipTokens.tokenId, tokenId));
+  return result;
+}
+
+export async function getFellowshipTokenByTokenId(tokenId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .select()
+    .from(fellowshipTokens)
+    .where(eq(fellowshipTokens.tokenId, tokenId))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Recovery-code lookup. Recovery codes are bcrypt-hashed (one-way), so this
+ * can't be a WHERE clause — it fetches candidate rows and compares in
+ * application code. KNOWN SCALING LIMIT (documented, not hidden): this is
+ * O(n) in the number of tokens ever created. Fine at pilot scale (tens to
+ * low hundreds of providers per PSOT §20.5's ~50-per-country network
+ * threshold); would need a fast, separately-salted lookup index (hash the
+ * code with a fixed pepper for indexing, bcrypt-verify the matched
+ * candidate for the actual security check) before this scales past roughly
+ * a few thousand tokens.
+ */
+export async function findFellowshipTokenByRecoveryCode(
+  code: string,
+  verify: (code: string, hash: string) => Promise<boolean>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const candidates = await db
+    .select({ tokenId: fellowshipTokens.tokenId, recoveryCodeHash: fellowshipTokens.recoveryCodeHash })
+    .from(fellowshipTokens);
+  for (const candidate of candidates) {
+    if (await verify(code, candidate.recoveryCodeHash)) {
+      return candidate.tokenId;
+    }
+  }
+  return null;
 }
