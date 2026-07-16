@@ -86,11 +86,16 @@ async function main() {
     }
 
     // ── 2. careSignalEvents.submissionMode ─────────────────────────────────
+    // NOTE: careSignalEvents.eventId is a Drizzle field name whose actual
+    // DB column is `event_id` (snake_case) — schema.ts: eventId: varchar("event_id", ...).
+    // Anchoring AFTER `eventId` (camelCase) fails with ER_BAD_FIELD_ERROR;
+    // always check schema.ts's literal column-name string, not the JS
+    // property name, before writing raw SQL against an existing column.
     if (await columnExists(conn, "careSignalEvents", "submissionMode")) {
       console.log("[0064]   ✓ careSignalEvents.submissionMode already exists — skipping.");
     } else {
       await conn.query(
-        `ALTER TABLE \`careSignalEvents\` ADD COLUMN \`submissionMode\` ENUM('named','pseudonymous','anonymous') NOT NULL DEFAULT 'named' AFTER \`eventId\``
+        `ALTER TABLE \`careSignalEvents\` ADD COLUMN \`submissionMode\` ENUM('named','pseudonymous','anonymous') NOT NULL DEFAULT 'named' AFTER \`event_id\``
       );
       console.log("[0064]   + Added careSignalEvents.submissionMode.");
 
