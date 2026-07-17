@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { invokeLLM } from "../_core/llm";
 import { getDb } from "../db";
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import {
@@ -271,6 +272,152 @@ export const practiceLabRouter = router({
         byProgram,
         byTrack,
         total: totalRow[0]?.count ?? 0,
+      };
+    }),
+
+  sendAiRoleplayMessage: protectedProcedure
+    .input(
+      z.object({
+        scenarioName: z.string(),
+        scenarioDescription: z.string(),
+        vitals: z.object({
+          heartRate: z.number(),
+          respiratoryRate: z.number(),
+          bloodPressure: z.string(),
+          spo2: z.number(),
+          temperature: z.number(),
+        }),
+        chatHistory: z.array(
+          z.object({
+            role: z.enum(["system", "user", "assistant"]),
+            content: z.string(),
+          })
+        ),
+        userMessage: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const systemPrompt = `You are a professional nurse assistant and parent roleplayer inside a pediatric resuscitation bay.
+You are assisting the user (the team leader/clinician) in managing a pediatric patient.
+
+Scenario context:
+Case Name: ${input.scenarioName}
+Details: ${input.scenarioDescription}
+
+Current Patient Vitals:
+Heart Rate: ${input.vitals.heartRate} bpm
+Respiratory Rate: ${input.vitals.respiratoryRate} /min
+Blood Pressure: ${input.vitals.bloodPressure} mmHg
+SpO2: ${input.vitals.spo2} %
+Temperature: ${input.vitals.temperature} C
+
+Your role:
+1. Actively roleplay as the nurse. Execute the clinician's orders realistically.
+2. Update the patient's vitals realistically based on the treatment or lack of treatment.
+3. Keep your dialog concise, medical, and realistic. Speak as a nurse in an emergency. E.g., "Yes, doctor, drawing up 20ml/kg normal saline now." or "IV access is established. Infusing saline."
+4. If the clinician overrides protocols or gives wrong dosages, note it internally or ask a clarifying question politely as a nurse would (e.g. "Doctor, you ordered 10mg adrenaline, is that correct? I want to double check the dose.").
+
+Respond ONLY with a JSON object matching this schema:
+{
+  "dialog": "Nurse/parent response speech text",
+  "vitals": {
+    "heartRate": number,
+    "respiratoryRate": number,
+    "bloodPressure": "string",
+    "spo2": number,
+    "temperature": number
+  }
+}`;
+
+      const messagesPayload = [
+        { role: "system" as const, content: systemPrompt },
+        ...input.chatHistory.map(h => ({ role: h.role as "system" | "user" | "assistant", content: h.content })),
+        { role: "user" as const, content: input.userMessage },
+      ];
+
+      const response = await invokeLLM({
+        messages: messagesPayload,
+        responseFormat: { type: "json_object" },
+      });
+
+      const rawContent = response.choices[0]?.message?.content || "{}";
+      const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+      const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+      return {
+        success: true,
+        dialog: parsed.dialog || "Nurse acknowledges order.",
+        vitals: parsed.vitals || input.vitals,
+      };
+    }),
+
+  evaluateAiRoleplaySession: protectedProcedure
+    .input(
+      z.object({
+        scenarioName: z.string(),
+        scenarioDescription: z.string(),
+        chatHistory: z.array(
+          z.object({
+            role: z.enum(["system", "user", "assistant"]),
+            content: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const formattedChat = input.chatHistory
+        .map((h) => `${h.role === "user" ? "Clinician" : "Nurse"}: ${h.content}`)
+        .join("\n\n");
+
+      const systemPrompt = `You are an expert clinical quality auditor.
+Analyze the following resuscitation chat log between a clinician (user) and a nurse assistant.
+
+Scenario:
+${input.scenarioName} - ${input.scenarioDescription}
+
+Chat Log:
+${formattedChat}
+
+Your task:
+1. Evaluate their clinical decisions, speed, and protocol compliance (PALS/NRP/ACLS).
+2. Grade the attempt on a score from 0 to 100.
+3. Determine if they passed (score >= 80).
+4. Generate a list of key events for their timeline.
+5. Create a structured debriefing summary with strengths and gaps.
+
+Respond ONLY with a JSON object matching this schema:
+{
+  "score": number,
+  "passed": boolean,
+  "debrief": "Detailed markdown debriefing showing strengths, delays, and critical protocol compliance issues",
+  "events": [
+    {
+      "timestamp": number,
+      "type": "info" | "action" | "error" | "reassessment",
+      "description": "Short description of event",
+      "correct": boolean
+    }
+  ]
+}`;
+
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: "Please audit this session." },
+        ],
+        responseFormat: { type: "json_object" },
+      });
+
+      const rawContent = response.choices[0]?.message?.content || "{}";
+      const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+      const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+      return {
+        success: true,
+        score: parsed.score ?? 50,
+        passed: parsed.passed ?? false,
+        debrief: parsed.debrief || "No debrief generated.",
+        events: parsed.events || [],
       };
     }),
 });

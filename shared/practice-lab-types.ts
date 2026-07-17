@@ -5,6 +5,7 @@ export const PRACTICE_LAB_TRACKS = [
   "abcde",
   "cardiac_arrest",
   "rhythm_recognition",
+  "ai_interactive_roleplay",
 ] as const;
 
 export type PracticeLabTrackId = (typeof PRACTICE_LAB_TRACKS)[number];
