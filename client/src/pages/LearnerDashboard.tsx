@@ -4,7 +4,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Award, BookOpen, Download, FileText, GraduationCap, Loader2, Users } from "lucide-react";
+import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -628,6 +628,8 @@ export default function LearnerDashboard() {
               <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
             )}
 
+            <Phase1ProofUploadCard />
+
             {/* My Certificates */}
             <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
               <CardHeader>
@@ -900,6 +902,106 @@ function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Phase1ProofUploadCard() {
+  const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
+  const [proofUrl, setProofUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const uploadMutation = trpc.institution.uploadPhase1Proof.useMutation({
+    onSuccess: () => {
+      toast.success("Proof submitted! Your coordinator will review it shortly.");
+      setProofUrl("");
+      void refetch();
+    },
+    onError: (err) => toast.error(err.message || "Upload failed"),
+  });
+
+  if (isLoading) return null;
+  // Only show this card if the learner is in a linked cohort program
+  if (!phase) return null;
+  // Hide once approved
+  if (phase.phase1ProofApproved) return null;
+
+  const handleSubmit = () => {
+    if (!proofUrl.startsWith("http")) {
+      toast.error("Please paste a valid URL (starting with http)");
+      return;
+    }
+    uploadMutation.mutate({ staffMemberId: phase.staffMemberId, proofUrl });
+  };
+
+  // Suppress unused variable warning — submitting is set for future UX expansion
+  void submitting;
+
+  return (
+    <Card id="phase1-proof-upload" className="mt-6 md:col-span-3 border-amber-200 bg-amber-50/20">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-amber-900">
+          <Upload className="w-5 h-5 text-amber-700" />
+          Phase 1 Completion Proof
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {phase.phase1ProofUploaded && !phase.phase1ProofApproved ? (
+          <div className="flex items-start gap-3 bg-amber-100 rounded-lg p-4 border border-amber-300">
+            <Loader2 className="w-5 h-5 text-amber-700 mt-0.5 shrink-0 animate-spin" />
+            <div>
+              <p className="font-semibold text-amber-900 text-sm">Proof submitted — awaiting coordinator review</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Your Phase 1 certificate has been received. You will be advanced to Phase 2 once your coordinator approves it.
+                You can re-submit with a new link below if you uploaded the wrong document.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white p-4 rounded-lg border space-y-3">
+            <p className="text-sm text-slate-700">
+              To unlock Phase 2 simulations, paste the public link to your{" "}
+              <a href="https://elearning.heart.org" target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                elearning.heart.org
+              </a>{" "}
+              completion screenshot or certificate PDF below.
+            </p>
+            <div className="flex gap-2">
+              <input
+                id="phase1-proof-url-input"
+                type="url"
+                placeholder="https://drive.google.com/file/d/..."
+                className="flex-1 text-sm border p-2 rounded"
+                value={proofUrl}
+                onChange={(e) => setProofUrl(e.target.value)}
+              />
+              <Button
+                id="phase1-proof-submit-btn"
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleSubmit}
+                disabled={uploadMutation.isPending || !proofUrl}
+              >
+                {uploadMutation.isPending ? "Submitting..." : "Submit Proof"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 mt-2">
+          {([
+            { label: "Cognitive Modules", done: true },
+            { label: "AHA Prework Link", done: phase.phase1ProofUploaded },
+            { label: "Coordinator Approved", done: phase.phase1ProofApproved },
+          ] as const).map(({ label, done }) => (
+            <div key={label} className={`flex items-center gap-2 text-xs p-2 rounded-md border ${
+              done ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-500"
+            }`}>
+              <CheckCircle2 className={`w-4 h-4 shrink-0 ${done ? "text-green-600" : "text-slate-300"}`} />
+              {label}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

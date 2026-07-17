@@ -1013,6 +1013,10 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   phaseStatus: mysqlEnum("phaseStatus", ["phase_1", "phase_2", "phase_3", "completed"]).default("phase_1"),
   facilityLinkStatus: mysqlEnum("facilityLinkStatus", ["pending", "linked", "rejected"]).default("pending"),
   totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 }).default("0.00"),
+  /** Phase 1: URL of the uploaded elearning.heart.org completion proof (PDF or image) */
+  phase1ProofUrl: text("phase1ProofUrl"),
+  /** Phase 1: Timestamp when an institutional coordinator approved the uploaded proof */
+  phase1ProofApprovedAt: timestamp("phase1ProofApprovedAt"),
   enrollmentDate: timestamp("enrollmentDate"),
   completionDate: timestamp("completionDate"),
   certificationStatus: mysqlEnum("certificationStatus", ["not_started", "in_progress", "certified", "expired", "renewal_pending"]).default("not_started"),
