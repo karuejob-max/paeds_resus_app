@@ -307,6 +307,8 @@ export default function LearnerDashboard() {
     );
   }
 
+  const firstEnrollmentId = myMicroEnrollments?.[0]?.id;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
       <div className="max-w-6xl mx-auto">
@@ -622,6 +624,10 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
+            {firstEnrollmentId && (
+              <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
+            )}
+
             {/* My Certificates */}
             <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
               <CardHeader>
@@ -787,5 +793,114 @@ export default function LearnerDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number }) {
+  const { data: balanceData, isLoading, refetch } = trpc.payments.getIndividualBalance.useQuery({ enrollmentId });
+  const [payAmount, setPayAmount] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const initiateMutation = trpc.payments.initiateSTKPush.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message || "STK Push initiated successfully");
+      setPayAmount("");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to initiate payment");
+    }
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading payment ledger...</p>;
+  if (!balanceData) return null;
+
+  const handlePay = () => {
+    const amountVal = parseFloat(payAmount);
+    if (Number.isNaN(amountVal) || amountVal <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (!phone.match(/^254\d{9}$/)) {
+      toast.error("Please enter phone in format 254XXXXXXXXX");
+      return;
+    }
+    initiateMutation.mutate({
+      phoneNumber: phone,
+      amount: amountVal * 100, // convert to cents
+      courseId: "acls",
+      courseName: "ACLS Program Installment",
+    });
+  };
+
+  return (
+    <Card className="mt-6 md:col-span-3 border-blue-200 bg-blue-50/10">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-900">
+          <Award className="w-5 h-5 text-blue-700" />
+          Installment Payment Ledger
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Total Program Fee</span>
+            <span className="font-semibold text-slate-900">KES {balanceData.basePrice.toLocaleString()}</span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Total Paid So Far</span>
+            <span className="font-semibold text-green-700">KES {balanceData.totalPaid.toLocaleString()}</span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Remaining Balance</span>
+            <span className={`font-semibold ${balanceData.balance > 0 ? "text-amber-700" : "text-green-700"}`}>
+              KES {balanceData.balance.toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Payment Status</span>
+            <span className={`font-bold ${balanceData.isPaidInFull ? "text-green-700" : "text-amber-700"}`}>
+              {balanceData.isPaidInFull ? "Paid in Full" : "Pending Balance"}
+            </span>
+          </div>
+        </div>
+
+        {balanceData.balance > 0 && (
+          <div className="bg-white p-4 rounded-lg border space-y-3">
+            <h4 className="text-sm font-semibold text-slate-800">Make an Installment Payment</h4>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">M-Pesa Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="254XXXXXXXXX"
+                  className="w-full text-sm border p-2 rounded"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Amount (KES)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 5000"
+                  className="w-full text-sm border p-2 rounded"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={handlePay}
+                  disabled={initiateMutation.isPending}
+                >
+                  {initiateMutation.isPending ? "Processing..." : "Initiate M-Pesa Pay"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

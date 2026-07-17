@@ -10,6 +10,8 @@ import {
   institutionalAccounts,
   accreditedFacilities,
   facilities,
+  users,
+  institutionalStaffMembers,
 } from "../../drizzle/schema";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 
@@ -297,6 +299,49 @@ export async function syncProviderProfileFacility(
       updatedAt: new Date(),
     })
     .where(eq(providerProfiles.userId, userId));
+
+  // If the facility is associated with an institutional account,
+  // create a pending institutional link request if one doesn't exist already.
+  if (facility.institutionalAccountId) {
+    const existingLink = await db
+      .select({ id: institutionalStaffMembers.id })
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.userId, userId),
+        eq(institutionalStaffMembers.institutionalAccountId, facility.institutionalAccountId)
+      ))
+      .limit(1);
+
+    if (existingLink.length === 0) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user) {
+        let staffRole: "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
+        if (user.providerType === "nurse") staffRole = "nurse";
+        else if (user.providerType === "doctor") staffRole = "doctor";
+        else if (user.providerType === "paramedic") staffRole = "paramedic";
+        else if (user.providerType === "midwife") staffRole = "midwife";
+        else if (user.providerType === "lab_tech") staffRole = "lab_tech";
+        else if (user.providerType === "respiratory_therapist") staffRole = "respiratory_therapist";
+
+        await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: facility.institutionalAccountId,
+          userId: userId,
+          staffName: user.name || "Provider",
+          staffEmail: user.email || "",
+          staffPhone: user.phone || null,
+          staffRole: staffRole,
+          designation: "other",
+          facilityLinkStatus: "pending",
+          enrollmentStatus: "pending",
+        });
+      }
+    }
+  }
 }
 
 export async function mergeCareFacilities(input: {

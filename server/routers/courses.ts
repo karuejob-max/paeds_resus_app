@@ -824,17 +824,17 @@ export const coursesRouter = router({
         (r) =>
           r.scheduledDate &&
           new Date(r.scheduledDate) > now &&
-          (r.trainingType === "hands_on" || r.trainingType === "hybrid") &&
+          (r.trainingType === "hands_on" || r.trainingType === "hybrid" || r.trainingType === "online") &&
           (r.enrolledCount ?? 0) < (r.maxCapacity ?? 999) &&
           (!input.programType || r.programType === input.programType)
       );
     }),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // AHA-SCHED-2: Learner registers for a hands-on session.
-  // ─────────────────────────────────────────────────────────────────────────
   bookHandsOnSession: protectedProcedure
-    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .input(z.object({
+      scheduleId: z.number().int().positive(),
+      simulationRole: z.enum(["team_member", "team_leader"]).optional()
+    }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
@@ -845,6 +845,7 @@ export const coursesRouter = router({
           enrolledCount: trainingSchedules.enrolledCount,
           status: trainingSchedules.status,
           scheduledDate: trainingSchedules.scheduledDate,
+          trainingType: trainingSchedules.trainingType,
         })
         .from(trainingSchedules)
         .where(eq(trainingSchedules.id, input.scheduleId))
@@ -854,9 +855,7 @@ export const coursesRouter = router({
       if (session.scheduledDate && new Date(session.scheduledDate) < new Date()) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
       }
-      if ((session.enrolledCount ?? 0) >= (session.maxCapacity ?? 0)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This session is fully booked" });
-      }
+
       const existing = await db
         .select({ id: trainingAttendance.id })
         .from(trainingAttendance)
@@ -865,21 +864,37 @@ export const coursesRouter = router({
       if (existing.length > 0) {
         return { success: true, alreadyRegistered: true, message: "You are already registered for this session" };
       }
+
+      const isFullyBooked = (session.enrolledCount ?? 0) >= (session.maxCapacity ?? 0);
+      if (isFullyBooked) {
+        if (session.trainingType === "online") {
+          await db.insert(trainingAttendance).values({
+            trainingScheduleId: input.scheduleId,
+            staffMemberId: ctx.user.id,
+            attendanceStatus: "waitlisted",
+            simulationRole: input.simulationRole,
+          });
+          return { success: true, alreadyRegistered: false, waitlisted: true, message: "This session is fully booked. You have been placed on the waitlist." };
+        } else {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This session is fully booked" });
+        }
+      }
+
       await db.insert(trainingAttendance).values({
         trainingScheduleId: input.scheduleId,
         staffMemberId: ctx.user.id,
         attendanceStatus: "registered",
+        simulationRole: input.simulationRole,
       });
+
       await db
         .update(trainingSchedules)
         .set({ enrolledCount: (session.enrolledCount ?? 0) + 1 })
         .where(eq(trainingSchedules.id, input.scheduleId));
-      return { success: true, alreadyRegistered: false, message: "Successfully registered for the session" };
+
+      return { success: true, alreadyRegistered: false, waitlisted: false, message: "Successfully registered for the session" };
     }),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // AHA-SCHED-3: Get the learner's own session bookings.
-  // ─────────────────────────────────────────────────────────────────────────
   getMyHandsOnBookings: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
@@ -888,6 +903,7 @@ export const coursesRouter = router({
         attendanceId: trainingAttendance.id,
         scheduleId: trainingAttendance.trainingScheduleId,
         attendanceStatus: trainingAttendance.attendanceStatus,
+        simulationRole: trainingAttendance.simulationRole,
         skillsAssessmentScore: trainingAttendance.skillsAssessmentScore,
         certificateIssued: trainingAttendance.certificateIssued,
         scheduledDate: trainingSchedules.scheduledDate,
@@ -904,7 +920,7 @@ export const coursesRouter = router({
       .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
       .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
       .where(eq(trainingAttendance.staffMemberId, ctx.user.id))
-      .orderBy(asc(trainingSchedules.scheduledDate));
+      .orderBy(desc(trainingSchedules.scheduledDate));
   }),
 
   // ─────────────────────────────────────────────────────────────────────────

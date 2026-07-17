@@ -350,4 +350,86 @@ export const paymentsRouter = router({
         );
       }
     }),
+
+  getIndividualBalance: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { getDb } = await import("../db");
+        const { payments, enrollments, courses, institutionalStaffMembers } = await import("../../drizzle/schema");
+        const { eq, and, sum } = await import("drizzle-orm");
+
+        const db = await getDb();
+        if (!db) {
+          throw new Error("Database unavailable");
+        }
+
+        const enrollmentRows = await db
+          .select({
+            id: enrollments.id,
+            courseId: enrollments.courseId,
+            userId: enrollments.userId,
+            price: courses.price,
+          })
+          .from(enrollments)
+          .innerJoin(courses, eq(enrollments.courseId, courses.id))
+          .where(eq(enrollments.id, input.enrollmentId))
+          .limit(1);
+
+        if (enrollmentRows.length === 0) {
+          throw new Error("Enrollment not found");
+        }
+
+        const enrollment = enrollmentRows[0];
+
+        const paymentsSum = await db
+          .select({ total: sum(payments.amount) })
+          .from(payments)
+          .where(and(
+            eq(payments.enrollmentId, input.enrollmentId),
+            eq(payments.status, "completed")
+          ));
+
+        const totalPaid = Number(paymentsSum[0]?.total ?? 0) / 100;
+
+        let basePrice = Number(enrollment.price ?? 20000.00);
+
+        const staffRows = await db
+          .select({ id: institutionalStaffMembers.id, institutionalAccountId: institutionalStaffMembers.institutionalAccountId })
+          .from(institutionalStaffMembers)
+          .where(and(
+            eq(institutionalStaffMembers.userId, enrollment.userId),
+            eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+          ))
+          .limit(1);
+
+        if (staffRows.length > 0) {
+          basePrice = 15000.00;
+
+          await db
+            .update(institutionalStaffMembers)
+            .set({
+              totalPaidAmount: String(totalPaid),
+              phaseStatus: totalPaid >= basePrice ? "phase_3" : undefined,
+              updatedAt: new Date()
+            })
+            .where(eq(institutionalStaffMembers.id, staffRows[0].id));
+        }
+
+        const balance = Math.max(0, basePrice - totalPaid);
+        const isPaidInFull = balance <= 0;
+
+        return {
+          totalPaid,
+          basePrice,
+          balance,
+          isPaidInFull,
+        };
+      } catch (error) {
+        console.error("Error getting balance:", error);
+        throw new Error(
+          error instanceof Error ? error.message : "Failed to get payment balance"
+        );
+      }
+    }),
 });
