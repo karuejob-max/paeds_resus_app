@@ -21,6 +21,7 @@ import {
   careFacilities,
   kmhflFacilities,
   careSignalEvents,
+  individualInstallmentPayments,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
@@ -31,7 +32,7 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess } from "../lib/institution-access";
@@ -559,6 +560,15 @@ export const institutionRouter = router({
           "support_staff",
           "other",
         ]),
+        designation: z.enum([
+          "bsn_intern",
+          "coi_bsc",
+          "coi_diploma",
+          "moi",
+          "permanent_nurse",
+          "permanent_doctor",
+          "other",
+        ]).optional(),
         department: z.string().optional(),
         yearsOfExperience: z.number().optional(),
       })
@@ -580,9 +590,11 @@ export const institutionRouter = router({
         staffEmail: input.staffEmail,
         staffPhone: input.staffPhone || null,
         staffRole: input.staffRole,
+        designation: input.designation || "other",
         department: input.department || null,
         yearsOfExperience: input.yearsOfExperience || 0,
         enrollmentStatus: "pending",
+        facilityLinkStatus: "linked", // manual add by admin is auto-approved
       });
 
       return {
@@ -611,6 +623,15 @@ export const institutionRouter = router({
               "support_staff",
               "other",
             ]),
+            designation: z.enum([
+              "bsn_intern",
+              "coi_bsc",
+              "coi_diploma",
+              "moi",
+              "permanent_nurse",
+              "permanent_doctor",
+              "other",
+            ]).optional(),
             department: z.string().optional(),
             yearsOfExperience: z.number().optional(),
           })
@@ -639,9 +660,11 @@ export const institutionRouter = router({
             staffEmail: staff.staffEmail,
             staffPhone: staff.staffPhone || null,
             staffRole: staff.staffRole,
+            designation: staff.designation || "other",
             department: staff.department || null,
             yearsOfExperience: staff.yearsOfExperience || 0,
             enrollmentStatus: "pending",
+            facilityLinkStatus: "linked", // manual bulk import is auto-approved
           });
 
           imported.push({
@@ -2040,5 +2063,92 @@ export const institutionRouter = router({
       });
 
       return { success: true };
+    }),
+
+  getCohortProgress: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const cohortStats = await db
+        .select({
+          designation: institutionalStaffMembers.designation,
+          totalCount: sql<number>`count(${institutionalStaffMembers.id})`,
+          blsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%bls%' then 1 else 0 end)`,
+          aclsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%acls%' then 1 else 0 end)`,
+          phase2CompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.phaseStatus} in ('phase_3', 'completed') then 1 else 0 end)`
+        })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId))
+        .groupBy(institutionalStaffMembers.designation);
+
+      return cohortStats;
+    }),
+
+  getPendingLinkRequests: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return await db
+        .select()
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.facilityLinkStatus, "pending")
+        ));
+    }),
+
+  approveStaffFacilityLink: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        staffMemberId: z.number(),
+        approve: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const status = input.approve ? "linked" : "rejected";
+      const enrollmentStatus = input.approve ? "enrolled" : "dropped";
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          facilityLinkStatus: status,
+          enrollmentStatus: enrollmentStatus,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(institutionalStaffMembers.id, input.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+        ));
+
+      return { success: true, status };
     }),
 });

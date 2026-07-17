@@ -985,6 +985,16 @@ export type InsertUserProgress = typeof userProgress.$inferInsert;
 // INSTITUTIONAL PORTAL TABLES
 // ============================================
 
+export const designationEnum = mysqlEnum("designation", [
+  "bsn_intern",
+  "coi_bsc",
+  "coi_diploma",
+  "moi",
+  "permanent_nurse",
+  "permanent_doctor",
+  "other"
+]);
+
 // Institutional Staff Members
 export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers", {
   id: int("id").autoincrement().primaryKey(),
@@ -994,11 +1004,15 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   staffEmail: varchar("staffEmail", { length: 320 }).notNull(),
   staffPhone: varchar("staffPhone", { length: 20 }),
   staffRole: mysqlEnum("staffRole", ["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).notNull(),
+  designation: designationEnum.default("other"),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]).default("staff_member"),
   department: varchar("department", { length: 255 }),
   yearsOfExperience: int("yearsOfExperience").default(0),
   assignedCourses: text("assignedCourses"), // JSON array of course IDs
   enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "enrolled", "in_progress", "completed", "dropped"]).default("pending"),
+  phaseStatus: mysqlEnum("phaseStatus", ["phase_1", "phase_2", "phase_3", "completed"]).default("phase_1"),
+  facilityLinkStatus: mysqlEnum("facilityLinkStatus", ["pending", "linked", "rejected"]).default("pending"),
+  totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 }).default("0.00"),
   enrollmentDate: timestamp("enrollmentDate"),
   completionDate: timestamp("completionDate"),
   certificationStatus: mysqlEnum("certificationStatus", ["not_started", "in_progress", "certified", "expired", "renewal_pending"]).default("not_started"),
@@ -1105,15 +1119,33 @@ export const trainingSchedules = mysqlTable("trainingSchedules", {
 export type TrainingSchedule = typeof trainingSchedules.$inferSelect;
 export type InsertTrainingSchedule = typeof trainingSchedules.$inferInsert;
 
+export const simulationRoleEnum = mysqlEnum("simulationRole", ["team_member", "team_leader"]);
+
 // Training Attendance
 export const trainingAttendance = mysqlTable("trainingAttendance", {
   id: int("id").autoincrement().primaryKey(),
   trainingScheduleId: int("trainingScheduleId").notNull(),
   staffMemberId: int("staffMemberId").notNull(),
-  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled"]).default("registered"),
+  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled", "waitlisted"]).default("registered"),
+  simulationRole: simulationRoleEnum,
+  simulationCompetencyPassed: boolean("simulationCompetencyPassed").default(false),
   skillsAssessmentScore: int("skillsAssessmentScore"), // 0-100
   feedback: text("feedback"),
   certificateIssued: boolean("certificateIssued").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// Individual Installment Payments
+export const individualInstallmentPayments = mysqlTable("individualInstallmentPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: timestamp("paymentDate").defaultNow().notNull(),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique().notNull(),
+  phoneNumber: varchar("phoneNumber", { length: 20 }).notNull(),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

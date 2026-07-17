@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { providerProfiles, providerPerformanceMetrics, users } from "../../drizzle/schema";
+import { providerProfiles, providerPerformanceMetrics, users, institutionalStaffMembers } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { syncProviderProfileFacility } from "../services/facility-registry.service";
 
@@ -322,4 +322,23 @@ export const providerRouter = router({
       },
     };
   }),
+
+  updateMyCohortDesignation: protectedProcedure
+    .input(z.object({
+      designation: z.enum(["bsn_intern", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"])
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          designation: input.designation,
+          updatedAt: new Date()
+        })
+        .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+
+      return { success: true };
+    }),
 });
