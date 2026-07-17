@@ -369,10 +369,9 @@ export const paymentsRouter = router({
             id: enrollments.id,
             courseId: enrollments.courseId,
             userId: enrollments.userId,
-            price: courses.price,
+            programType: enrollments.programType,
           })
           .from(enrollments)
-          .innerJoin(courses, eq(enrollments.courseId, courses.id))
           .where(eq(enrollments.id, input.enrollmentId))
           .limit(1);
 
@@ -392,7 +391,7 @@ export const paymentsRouter = router({
 
         const totalPaid = Number(paymentsSum[0]?.total ?? 0) / 100;
 
-        let basePrice = Number(enrollment.price ?? 20000.00);
+        let basePrice = 20000.00;
 
         const staffRows = await db
           .select({ id: institutionalStaffMembers.id, institutionalAccountId: institutionalStaffMembers.institutionalAccountId })

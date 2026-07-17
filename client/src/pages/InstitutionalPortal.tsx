@@ -722,15 +722,18 @@ function CohortProgressWidget({ institutionId }: { institutionId: number }) {
               </tr>
             </thead>
             <tbody>
-              {cohortStats.map((row) => (
-                <tr key={row.designation} className="border-b">
-                  <td className="py-2 px-3 font-medium text-slate-800">{displayNameMap[row.designation] || row.designation}</td>
-                  <td className="text-center py-2 px-3">{row.totalCount}</td>
-                  <td className="text-center py-2 px-3 text-green-700 font-semibold">{row.blsCompleteCount}</td>
-                  <td className="text-center py-2 px-3 text-blue-700 font-semibold">{row.aclsCompleteCount}</td>
-                  <td className="text-center py-2 px-3 text-orange-700 font-semibold">{row.phase2CompleteCount}</td>
-                </tr>
-              ))}
+              {cohortStats.map((row) => {
+                const designationKey = row.designation || "other";
+                return (
+                  <tr key={designationKey} className="border-b">
+                    <td className="py-2 px-3 font-medium text-slate-800">{displayNameMap[designationKey] || designationKey}</td>
+                    <td className="text-center py-2 px-3">{row.totalCount}</td>
+                    <td className="text-center py-2 px-3 text-green-700 font-semibold">{row.blsCompleteCount}</td>
+                    <td className="text-center py-2 px-3 text-blue-700 font-semibold">{row.aclsCompleteCount}</td>
+                    <td className="text-center py-2 px-3 text-orange-700 font-semibold">{row.phase2CompleteCount}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
