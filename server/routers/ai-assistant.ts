@@ -177,6 +177,65 @@ Official Explanation: ${input.explanation}`;
       }
     }),
 
+  // Get detailed physiological rationale analysis
+  getQuizGuideAnalysis: protectedProcedure
+    .input(
+      z.object({
+        question: z.string(),
+        options: z.array(z.string()),
+        correctOption: z.string(),
+        userAnswer: z.string(),
+        explanation: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const systemPrompt = `You are an expert pediatric emergency medicine tutor and clinical physiologist.
+Analyze the following multiple-choice quiz question and the user's selected option.
+
+Question: ${input.question}
+Options: ${input.options.join(", ")}
+Correct Option: ${input.correctOption}
+User's Selected Answer: ${input.userAnswer}
+Official Brief Rationale: ${input.explanation}
+
+Provide a deep, high-fidelity physiological analysis structured for a clinician.
+Assess why the correct option is physiologically superior, why the user's incorrect option fails or presents risks, and clear up any common misconceptions.
+
+Respond ONLY with a JSON object matching this schema:
+{
+  "pathophysiology": "Detailed markdown explanation of the cellular/organ-level physiology behind the question and correct action.",
+  "comparison": "A direct comparison showing why the user's choice (${input.userAnswer}) is clinically inferior or dangerous compared to the correct choice (${input.correctOption}). If the user answered correctly, explain why other distractors are dangerous.",
+  "clinicalTakeaway": "A concise bulleted list of 2-3 clinical pearls or memory guides for this scenario."
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: "Please analyze this question and response." }
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const rawContent = response.choices[0]?.message?.content || "{}";
+        const contentStr = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+        const parsed = JSON.parse(contentStr.trim().replace(/^```json\s*/i, "").replace(/```$/i, ""));
+
+        return {
+          success: true,
+          pathophysiology: parsed.pathophysiology || "Pathophysiological analysis unavailable.",
+          comparison: parsed.comparison || "Direct clinical comparison unavailable.",
+          clinicalTakeaway: parsed.clinicalTakeaway || "Clinical takeaway unavailable.",
+        };
+      } catch (error) {
+        console.error("[AI Assistant] Quiz Guide Analysis Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate detailed quiz analysis",
+        });
+      }
+    }),
+
   // Get clinical decision support
   getClinicalSupport: protectedProcedure
     .input(
