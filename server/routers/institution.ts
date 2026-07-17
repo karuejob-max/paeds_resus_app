@@ -2151,4 +2151,91 @@ export const institutionRouter = router({
 
       return { success: true, status };
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PROOF-1: Learner uploads their AHA elearning.heart.org proof URL.
+  // Sets phase1ProofUrl on their institutionalStaffMember row.
+  // Does NOT advance phaseStatus — that requires admin approval below.
+  // ─────────────────────────────────────────────────────────────────────────
+  uploadPhase1Proof: protectedProcedure
+    .input(
+      z.object({
+        staffMemberId: z.number().int().positive(),
+        proofUrl: z.string().url("Must be a valid URL"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Learner can only update their own row
+      const [row] = await db
+        .select({ id: institutionalStaffMembers.id, userId: institutionalStaffMembers.userId })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.id, input.staffMemberId))
+        .limit(1);
+
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Staff record not found" });
+      if (row.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only upload proof for your own record" });
+      }
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          phase1ProofUrl: input.proofUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(institutionalStaffMembers.id, input.staffMemberId));
+
+      return { success: true };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PROOF-2: Institutional coordinator approves or rejects a learner's
+  // Phase 1 proof. Approval advances phaseStatus to "phase_2".
+  // ─────────────────────────────────────────────────────────────────────────
+  approvePhase1Proof: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        staffMemberId: z.number().int().positive(),
+        approve: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      if (input.approve) {
+        await db
+          .update(institutionalStaffMembers)
+          .set({
+            phase1ProofApprovedAt: new Date(),
+            phaseStatus: "phase_2",
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(institutionalStaffMembers.id, input.staffMemberId),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+          ));
+      } else {
+        // Rejection: clear the proof URL so learner must re-upload
+        await db
+          .update(institutionalStaffMembers)
+          .set({
+            phase1ProofUrl: null,
+            phase1ProofApprovedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(institutionalStaffMembers.id, input.staffMemberId),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+          ));
+      }
+
+      return { success: true, approved: input.approve };
+    }),
 });
