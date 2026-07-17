@@ -16,8 +16,8 @@ import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules } from '../../drizzle/schema';
-import { eq, and, asc, inArray, desc } from 'drizzle-orm';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers } from '../../drizzle/schema';
+import { eq, and, asc, inArray, desc, sum } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
@@ -856,6 +856,53 @@ export const coursesRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
       }
 
+      // ── Phase Gate: enforce cohort program rules ──────────────────────────
+      const staffRow = await db
+        .select({
+          id: institutionalStaffMembers.id,
+          phaseStatus: institutionalStaffMembers.phaseStatus,
+          totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+          facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.userId, ctx.user.id),
+          eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+        ))
+        .limit(1);
+
+      if (staffRow.length > 0) {
+        const { phaseStatus, totalPaidAmount } = staffRow[0];
+        const isOnlineSession = session.trainingType === "online";
+        const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
+
+        // Online simulation (Phase 2): learner must have been advanced to phase_2 or beyond
+        if (isOnlineSession && phaseStatus === "phase_1") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You must complete Phase 1 (upload and have your AHA elearning proof approved) before booking a simulation session.",
+          });
+        }
+
+        // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
+        if (isHandsOnSession) {
+          if (phaseStatus !== "phase_3" && phaseStatus !== "completed") {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You must complete all Phase 2 simulations before booking a hands-on Megacode session.",
+            });
+          }
+          const paid = Number(totalPaidAmount ?? 0);
+          if (paid < 15000) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `Your balance must be fully settled (KES 15,000) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
+            });
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const existing = await db
         .select({ id: trainingAttendance.id })
         .from(trainingAttendance)
@@ -962,4 +1009,66 @@ export const coursesRouter = router({
         return { success: false, enrollmentId: 0, error: err instanceof Error ? err.message : 'Unknown error' };
       }
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PHASE-1: Return the current learner's cohort phase summary so the
+  // frontend can display gates accurately and explain what is blocking them.
+  // ─────────────────────────────────────────────────────────────────────────
+  getPhaseSummary: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+
+    const staffRows = await db
+      .select({
+        id: institutionalStaffMembers.id,
+        phaseStatus: institutionalStaffMembers.phaseStatus,
+        totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+        facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+        phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
+        phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
+        designation: institutionalStaffMembers.designation,
+      })
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.userId, ctx.user.id),
+        eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+      ))
+      .limit(1);
+
+    if (staffRows.length === 0) return null;
+
+    const s = staffRows[0];
+    const paid = Number(s.totalPaidAmount ?? 0);
+    const subsidisedFee = 15000;
+
+    // Count simulation sessions attended as team_member / team_leader
+    const simRows = await db
+      .select({
+        role: trainingAttendance.simulationRole,
+        passed: trainingAttendance.simulationCompetencyPassed,
+      })
+      .from(trainingAttendance)
+      .where(and(
+        eq(trainingAttendance.staffMemberId, ctx.user.id),
+        eq(trainingAttendance.attendanceStatus, "attended")
+      ));
+
+    const memberSessions = simRows.filter((r) => r.role === "team_member").length;
+    const leaderSessions = simRows.filter((r) => r.role === "team_leader").length;
+    const phase2Complete = memberSessions >= 3 && leaderSessions >= 3;
+
+    return {
+      staffMemberId: s.id,
+      phaseStatus: s.phaseStatus,
+      designation: s.designation,
+      phase1ProofUploaded: !!s.phase1ProofUrl,
+      phase1ProofApproved: !!s.phase1ProofApprovedAt,
+      memberSessions,
+      leaderSessions,
+      phase2Complete,
+      totalPaid: paid,
+      balance: Math.max(0, subsidisedFee - paid),
+      isPaidInFull: paid >= subsidisedFee,
+    };
+  }),
 });
