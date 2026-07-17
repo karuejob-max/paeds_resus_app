@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, XCircle, AlertCircle, ChevronRight, RotateCcw } from 'lucide-react';
 import type { ModuleQuiz, QuizQuestion } from '@/lib/courseContent';
-import QuizTutorCard from '@/components/QuizTutorCard';
+import QuizGuideCard from '@/components/QuizGuideCard';
 
 interface ModuleQuizProps {
   quiz: ModuleQuiz;
@@ -203,7 +203,7 @@ export function ModuleQuiz({ quiz, onComplete, onSkip }: ModuleQuizProps) {
                         <p className="text-slate-700">{question.explanation}</p>
                       </div>
                       {question.explanation && (
-                        <QuizTutorCard
+                        <QuizGuideCard
                           question={question.text}
                           options={question.options || []}
                           correctOption={question.correctAnswer}

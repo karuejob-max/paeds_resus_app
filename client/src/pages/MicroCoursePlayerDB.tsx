@@ -38,7 +38,7 @@ import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyF
 import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedBanner";
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
 import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
-import QuizTutorCard from "@/components/QuizTutorCard";
+import QuizGuideCard from "@/components/QuizGuideCard";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -1710,7 +1710,7 @@ function FormativeQuizView({
               </div>
             )}
             {submitted && (questionResults?.[q.id]?.explanation ?? (useServerResults ? null : q.explanation)) && (
-              <QuizTutorCard
+              <QuizGuideCard
                 question={q.question}
                 options={q.options}
                 correctOption={resolvedCorrect || ""}
