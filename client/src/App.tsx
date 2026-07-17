@@ -25,6 +25,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
 const ParentSafeTruth = lazy(() => import("./pages/ParentSafeTruth"));
+const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
@@ -173,12 +174,16 @@ function Router() {
           <Route path="/my-cne-certificates" component={MyCneCertificates} />
           <Route path="/home" component={Home} />
           <Route path="/parent-safe-truth" component={ParentSafeTruth} />
+          {/* Fixed 2026-07-16 (gap-analysis #11 Phase B): this used to redirect to
+              /care-signal — the WRONG form. §2.2 specifies /safe-truth as Safe-Truth
+              v1's public, no-auth URL. /parent-safe-truth (above) remains the OLD
+              authenticated flow, left running for continuity — not removed. */}
+          <Route path="/safe-truth" component={SafeTruthV1} />
           <Route path="/care-signal">{() => (
             <RoleGate allowed={["provider"]}>
               <CareSignal />
             </RoleGate>
           )}</Route>
-          <Route path="/safe-truth">{() => <Redirect to="/care-signal" />}</Route>
           {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
           <Route path="/institutional-portal">{() => (
             <RoleGate allowed={["institution"]}>
@@ -714,6 +719,7 @@ function HomeEntry() {
     const dest = getRoleHomePath(roleForHome);
     if (dest === "/home") void import("./pages/Home");
     else if (dest === "/parent-safe-truth") void import("./pages/ParentSafeTruth");
+    else if (dest === "/safe-truth") void import("./pages/SafeTruthV1");
     else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
     setLocation(dest);
   }, [isAuthenticated, loading, roleForHome, setLocation]);

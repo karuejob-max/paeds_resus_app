@@ -44,6 +44,15 @@
   --color-brand-teal: var(--brand-teal);
   --color-brand-orange: var(--brand-orange);
   --color-brand-surface: var(--brand-surface);
+  /* Safe-Truth v1 (Event Models §2.1): deliberately distinct, warmer tone
+     from Care Signal's teal/orange — a parent describing what happened to
+     their child, not a provider filing an incident report. */
+  --color-safetruth-cream: var(--safetruth-cream);
+  --color-safetruth-ink: var(--safetruth-ink);
+  --color-safetruth-amber: var(--safetruth-amber);
+  --color-safetruth-amber-hover: var(--safetruth-amber-hover);
+  --color-safetruth-sage: var(--safetruth-sage);
+  --color-safetruth-rose: var(--safetruth-rose);
 }
 
 :root {
@@ -52,6 +61,18 @@
   --brand-orange: #f37021;
   --brand-orange-hover: #d85f18;
   --brand-surface: #f0f7f6;
+
+  /* Safe-Truth v1 — warm, calm palette, deliberately distinct from
+     Care Signal's teal/orange (Event Models §2.1). Chosen to avoid the
+     generic AI-cream-and-terracotta look (near #F4F1EA / #D97757): a
+     deeper honey-amber rather than clay, a warm parchment rather than
+     stark cream, and a muted sage for the safety/reassurance moments. */
+  --safetruth-cream: #FAF3E7;
+  --safetruth-ink: #3D2F26;
+  --safetruth-amber: #B8763B;
+  --safetruth-amber-hover: #9C6430;
+  --safetruth-sage: #6E8F6B;
+  --safetruth-rose: #B97572;
 
   --primary: var(--brand-teal);
   --primary-foreground: #ffffff;
