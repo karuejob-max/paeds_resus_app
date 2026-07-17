@@ -56,7 +56,7 @@ export default function PaedsAIAssistant() {
         {
           id: "welcome",
           content:
-            "👋 Hello! I'm your Paeds Resus AI Tutor. I can help you with:\n\n• Explaining medical concepts and protocols\n• Platform onboarding and troubleshooting\n• Answering course content questions\n\nWhat can I clarify for you today?",
+            "👋 Hello! I'm your Paeds Resus AI Guide. I can help you with:\n\n• Explaining medical concepts and protocols\n• Platform onboarding and troubleshooting\n• Answering course content questions\n\nWhat can I clarify for you today?",
           sender: "assistant",
           timestamp: new Date(),
         },
@@ -111,7 +111,7 @@ export default function PaedsAIAssistant() {
       console.error("Error sending message:", error);
       const errorMessage: Message = {
         id: `msg-err-${Date.now()}`,
-        content: "Sorry, I had trouble reaching the AI Tutor. Please check your connection and try again.",
+        content: "Sorry, I had trouble reaching the AI Guide. Please check your connection and try again.",
         sender: "assistant",
         timestamp: new Date(),
       };
@@ -138,19 +138,19 @@ export default function PaedsAIAssistant() {
 
   return (
     <>
-      {/* AI Tutor Button */}
+      {/* AI Guide Button */}
       {!isOpen && (
         <button
           onClick={handleOpenAssistant}
           className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-[#1a4d4d] to-[#2e7d7d] hover:to-[#1a4d4d] hover:shadow-xl text-white rounded-full shadow-[0_4px_20px_rgba(26,77,77,0.3)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-teal-700/30 flex items-center justify-center transition-all duration-300 hover:scale-105 z-40 group"
-          title="Paeds Resus AI Tutor"
+          title="Paeds Resus AI Guide"
         >
           <Sparkles className="w-6 h-6 animate-pulse" />
           <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
         </button>
       )}
 
-      {/* AI Tutor Window */}
+      {/* AI Guide Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-[380px] h-[580px] flex flex-col z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-in slide-in-from-bottom-5 duration-300">
           {/* Header */}
@@ -160,7 +160,7 @@ export default function PaedsAIAssistant() {
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm tracking-tight text-white">Paeds Resus AI Tutor</h3>
+                <h3 className="font-semibold text-sm tracking-tight text-white">Paeds Resus AI Guide</h3>
                 <p className="text-xs text-teal-200">Contextual Learning Assistant</p>
               </div>
             </div>
@@ -274,7 +274,7 @@ export default function PaedsAIAssistant() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder="Ask your tutor anything..."
+                placeholder="Ask the AI Guide anything..."
                 className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ff6633] focus:border-transparent text-slate-800 dark:text-slate-100 text-sm"
               />
               <button
