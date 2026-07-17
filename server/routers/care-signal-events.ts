@@ -311,6 +311,8 @@ export const careSignalEventsRouter = router({
         // ── Care Signal v3 fields ──────────────────────────────────────────────
         country: z.string().max(2).optional(),
         admin_level_1: z.string().max(128).optional(),
+        /** Locality (gap-analysis #11, "global from day 1"). */
+        admin_level_2: z.string().max(128).optional(),
         facility_ownership: z.string().max(64).optional(),
         schema_version: z.string().max(16).optional(),
         condition_category: z.string().max(64).optional(),
@@ -488,6 +490,7 @@ export const careSignalEventsRouter = router({
           // ── v3 shared classifiers ────────────────────────────────────────────
           ...(input.country ? { country: input.country } : {}),
           ...(input.admin_level_1 ? { adminLevel1: input.admin_level_1 } : {}),
+          ...(input.admin_level_2 ? { adminLevel2: input.admin_level_2 } : {}),
           ...(input.facility_ownership ? { facilityOwnership: input.facility_ownership } : {}),
           ...(input.schema_version ? { schemaVersion: input.schema_version } : {}),
           ...(input.condition_category ? { conditionCategory: input.condition_category } : {}),
