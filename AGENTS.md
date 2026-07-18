@@ -299,7 +299,27 @@ Code merged to `main` is **NOT done** for database features until:
 
 ---
 
-## 10. Key Files to Read Before Major Work
+## 10. The Subsidised ACLS/BLS Cohort Program & Phase Gates
+
+The Subsidised Cohort Program is a 6-month training pathway offering discounted pricing (KES 15,000 instead of KES 20,000) for affiliated facility members (e.g., interns at CHM).
+
+### The Three-Phase Progression & Gating Rules
+The program is split into three gates, enforced server-side inside `bookHandsOnSession` (`server/routers/courses.ts`):
+1. **Phase 1 (Cognitive):** Done on `elearning.heart.org`. Learners upload completion proof URLs from `LearnerDashboard.tsx`. Approved by facility coordinators via the `Phase1ProofReviewWidget` on the Staff tab of `InstitutionalPortal.tsx`.
+2. **Phase 2 (Online Simulations):** Unlocked only after Phase 1 proof approval. Requires booking online sessions via the training calendar. Learner must attend a minimum of 3 sessions as a `team_member` and 3 as a `team_leader` and be signed off on competency by an instructor.
+   - **Waitlist Priority:** If simulations are overbooked, the booking waitlist algorithm prioritizes learners with a higher payment percentage (total paid / KES 15,000) with registration timestamp as a tiebreaker.
+3. **Phase 3 (Physical Megacodes):** Unlocked only when Phase 2 simulations are complete AND the learner has paid their fees in full (total paid $\ge$ KES 15,000).
+
+### Key Files & Locations
+- **Database Schema:** `drizzle/schema.ts` (new columns on `institutionalStaffMembers` and `trainingAttendance`; new table `individualInstallmentPayments`).
+- **Migration & Apply Script:** `drizzle/0045_*.sql` and idempotent runner `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`).
+- **Backend Routing:** `courses.ts` (`getPhaseSummary` + booking validation), `institution.ts` (`uploadPhase1Proof` + `approvePhase1Proof`), `payments.ts` (`getIndividualBalance`).
+- **Frontend Pages:** `LearnerDashboard.tsx` (payment ledger, `Phase1ProofUploadCard`), `InstitutionalPortal.tsx` (cohort progress analytics, `Phase1ProofReviewWidget`).
+- **Tests:** `shared/waitlist.test.ts` (unit tests for the booking priority queue).
+
+---
+
+## 11. Key Files to Read Before Major Work
 
 | File | Purpose |
 | :--- | :--- |
@@ -319,7 +339,7 @@ Code merged to `main` is **NOT done** for database features until:
 
 ---
 
-## 11. Contact & Ownership
+## 12. Contact & Ownership
 
 - **CEO / Owner:** Job Karue — PICU Nurse, Entrepreneur, ERT Chair
 - **Email:** paedsresus254@gmail.com
