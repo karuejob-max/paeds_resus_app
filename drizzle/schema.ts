@@ -2242,6 +2242,16 @@ export const safeTruthSubmissions = mysqlTable("safeTruthSubmissions", {
   isCaseLinkageConsented: boolean("is_case_linkage_consented").default(false).notNull(),
   /** Optional — a Care Signal event's eventId, for consent-based case linkage. */
   eventCodeEntered: varchar("event_code_entered", { length: 36 }),
+  /**
+   * Set by the Phase C matching job (gap-analysis #11) when
+   * `eventCodeEntered` is confirmed to match a real `careSignalEvents.eventId`
+   * — i.e. a genuine link between this caregiver's account and a
+   * provider's Care Signal report of the same event. NULL until resolved;
+   * stays NULL forever if the code never matches (typo, or the provider
+   * hasn't submitted yet — the job re-checks on every run, so a late
+   * provider submission can still resolve an earlier caregiver entry).
+   */
+  eventCodeResolvedCareSignalEventId: int("event_code_resolved_care_signal_event_id"),
 
   // ── §2.4 Journey Stage 1 — Before Seeking Care ──────────────────────────
   symptomOnsetDaysAgo: varchar("symptom_onset_days_ago", { length: 32 }).notNull(),
