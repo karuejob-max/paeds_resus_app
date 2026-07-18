@@ -25,9 +25,10 @@ export type FacilitySelection = {
   /**
    * Locality (sub-county/district/area) — per the CEO's "global from day 1"
    * instruction (gap-analysis #11, 2026-07-16). Populated on fresh facility
-   * search selections; NOT YET populated on the provider-profile prefill
-   * path or setMyFacility's return shape — those endpoints don't select it
-   * yet. Flagged as a known follow-up, not silently left inconsistent.
+   * search selections and on the provider-profile prefill path (fixed
+   * 2026-07-17 — see providerProfiles.facilityAdminLevel2 in schema.ts).
+   * `setMyFacility`'s own return value already carried this correctly from
+   * the start (it just wasn't consumed anywhere) — no fix was needed there.
    */
   adminLevel2?: string | null;
 };
@@ -86,10 +87,11 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
         facilityName: profile.facilityName,
         county: profile.facilityRegion ?? null,
         country: profile.facilityCountry ?? "Kenya",
+        adminLevel2: profile.facilityAdminLevel2 ?? null,
       });
       setQuery(profile.facilityName);
     }
-  }, [profile?.facilityId, profile?.facilityName, profile?.facilityRegion, profile?.facilityCountry, value, onChange]);
+  }, [profile?.facilityId, profile?.facilityName, profile?.facilityRegion, profile?.facilityCountry, profile?.facilityAdminLevel2, value, onChange]);
 
   const selectResult = (r: {
     id: number;

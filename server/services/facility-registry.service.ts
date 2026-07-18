@@ -295,6 +295,7 @@ export async function syncProviderProfileFacility(
       facilityId: canonicalId,
       facilityName: facility.name,
       facilityRegion: facility.county ?? null,
+      facilityAdminLevel2: facility.adminLevel2 ?? null,
       facilityCountry: facility.country,
       updatedAt: new Date(),
     })
