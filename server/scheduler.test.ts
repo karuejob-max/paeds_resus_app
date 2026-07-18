@@ -87,6 +87,16 @@ describe("scheduler service", () => {
     });
   });
 
+  describe("Safe-Truth facility matching job (gap-analysis #11, scheduled automatically 2026-07-17)", () => {
+    it("registers a daily cron task for facility matching + event-code linkage", async () => {
+      const cron = (await import("node-cron")).default;
+      initializeScheduler();
+      const scheduleMock = cron.schedule as unknown as ReturnType<typeof vi.fn>;
+      const registeredExpressions = scheduleMock.mock.calls.map((call) => call[0]);
+      expect(registeredExpressions).toContain("50 4 * * *");
+    });
+  });
+
   describe("cron expressions", () => {
     it("should use valid cron expressions", () => {
       const validCronExpressions = [

@@ -185,13 +185,12 @@ Paeds Resus (Organisation & Platform)
 │       caregiver-facing form (`SafeTruthV1.tsx`, live at `/safe-truth` —
 │       the old redirect-to-Care-Signal bug is fixed), and the facility
 │       fuzzy-matcher + Care Signal event-code linkage job
-│       (`server/lib/safe-truth-facility-matcher.ts`, run via
-│       `pnpm run safe-truth:match-facilities`) are all shipped. **The
-│       matching job is not scheduled to run automatically** — it's a
-│       CLI job someone runs (or a future item schedules), same shape as
-│       `fpkb:detect-patterns`. Until it's run, `facilityIdMatched` stays
-│       NULL on every submission even though the code to resolve it
-│       exists. The OLD authenticated flow (`parent-safetruth.ts`,
+│       (`server/lib/safe-truth-facility-matcher.ts`) are all shipped.
+│       **Runs automatically** — scheduled daily at 04:50 server time in
+│       `server/scheduler.ts` (execute mode, CEO decision 2026-07-17,
+│       after initially shipping CLI-only). `pnpm run safe-truth:match-facilities`
+│       still works manually too, for on-demand runs or dry-run inspection.
+│       The OLD authenticated flow (`parent-safetruth.ts`,
 │       `ParentSafeTruthForm.tsx`, route `/parent-safe-truth`) is left
 │       running alongside the new one, not removed — both coexist.
 └── Institutional Portal (Surface — Hospital Management & ERT)
