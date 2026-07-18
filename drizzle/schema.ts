@@ -1359,6 +1359,18 @@ export const providerProfiles = mysqlTable("providerProfiles", {
   facilityName: varchar("facilityName", { length: 255 }),
   facilityType: mysqlEnum("facilityType", ["primary_health_center", "health_post", "district_hospital", "private_clinic", "ngo_clinic", "other"]),
   facilityRegion: varchar("facilityRegion", { length: 255 }), // legacy; prefer county on careFacilities
+  /**
+   * Locality (sub-county/district/area) — flagged as a known gap while
+   * building gap-analysis #11's "global from day 1" geo work (2026-07-16):
+   * fresh facility searches carried `adminLevel2` through fine, but this
+   * cached profile row (used to prefill the Care Signal form on return
+   * visits, before any new search happens) had nowhere to store it. Fixed
+   * 2026-07-17 — see syncProviderProfileFacility in
+   * facility-registry.service.ts, which sets this on every named
+   * submission, so existing providers' profiles self-heal on their next
+   * submission with no backfill job needed.
+   */
+  facilityAdminLevel2: varchar("facilityAdminLevel2", { length: 128 }),
   facilityCountry: varchar("facilityCountry", { length: 255 }).default("Kenya"),
   facilityPhone: varchar("facilityPhone", { length: 20 }),
   facilityEmail: varchar("facilityEmail", { length: 320 }),

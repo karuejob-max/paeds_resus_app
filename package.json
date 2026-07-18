@@ -112,6 +112,7 @@
     "db:apply-0065": "node scripts/apply-0065-safe-truth-v1-and-locality.mjs",
     "db:apply-0066": "node scripts/apply-0066-cohort-phase-gates.mjs",
     "db:apply-0067": "node scripts/apply-0067-safe-truth-event-code-linkage.mjs",
+    "db:apply-0068": "node scripts/apply-0068-provider-profile-locality.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
