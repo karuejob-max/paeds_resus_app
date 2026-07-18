@@ -6,6 +6,7 @@ import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
+import { runSafeTruthFacilityMatching, runSafeTruthEventCodeLinkage } from "./lib/safe-truth-facility-matcher";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -54,6 +55,11 @@ export function initializeScheduler() {
 
   // Fellowship: refresh denormalized pillar rows for active learners
   scheduleFellowshipProgressSync();
+
+  // Safe-Truth v1 Phase C: facility fuzzy-matching + Care Signal event-code
+  // linkage (gap-analysis #11). Was CLI-only (pnpm run safe-truth:match-facilities);
+  // CEO asked for it to run automatically, 2026-07-17.
+  scheduleSafeTruthFacilityMatching();
 
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
@@ -126,6 +132,42 @@ function scheduleFellowshipProgressSync() {
       console.error("[Scheduler] fellowshipProgress sync failed:", error);
     }
   });
+}
+
+/**
+ * Safe-Truth v1 Phase C (gap-analysis #11): facility fuzzy-matching +
+ * Care Signal event-code linkage. Runs daily in EXECUTE mode (unlike
+ * scheduleRetentionCleanupDryRun below, which only logs) — CEO decision,
+ * 2026-07-17, after this shipped as a CLI-only job
+ * (`pnpm run safe-truth:match-facilities`). The manual CLI command still
+ * works too, for on-demand runs or dry-run inspection
+ * (`-- ` without `--execute`) between scheduled runs.
+ *
+ * 04:50 EAT-ish server time — after the Fellowship sync (04:30) and before
+ * the certificate renewal reminders (10:15), avoiding the institutional
+ * rollup (03:20). Both underlying jobs are idempotent and safe to overlap
+ * with themselves if a run ever takes longer than a day (won't double
+ * -match an already-resolved row).
+ */
+function scheduleSafeTruthFacilityMatching() {
+  cron.schedule("50 4 * * *", async () => {
+    try {
+      const facilityResult = await runSafeTruthFacilityMatching(await requireDb(), { dryRun: false });
+      const linkageResult = await runSafeTruthEventCodeLinkage(await requireDb(), { dryRun: false });
+      console.log(
+        `[Scheduler] Safe-Truth facility matching: submissions matched=${facilityResult.submissionsMatched}/${facilityResult.submissionsScanned}, visits matched=${facilityResult.visitsMatched}/${facilityResult.visitsScanned}, event codes resolved=${linkageResult.codesResolved}/${linkageResult.codesScanned}`
+      );
+    } catch (error) {
+      console.error("[Scheduler] Safe-Truth facility matching failed:", error);
+    }
+  });
+}
+
+/** Small helper so the two Safe-Truth job calls above don't each repeat the "no DB" guard. */
+async function requireDb() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db;
 }
 
 function scheduleCertificateRenewalReminders() {
