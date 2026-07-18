@@ -178,18 +178,22 @@ Paeds Resus (Organisation & Platform)
 │   ├── Institutional review workflow
 │   └── National Aggregate Signal (MOH/WHO surveillance dashboard)
 ├── Parent Safe-Truth (Product — Family Safety Information)
-│   └── **Safe-Truth v1 redesign (gap-analysis #11) — Phases A and B DONE,
-│       Phase C open.** No-auth architecture + schema (`safeTruthSubmissions`,
-│       `safeTruthFacilityVisits`, `safeTruthDisclaimerAcks`, `safeTruthV1`
-│       router) and the full caregiver-facing form (`SafeTruthV1.tsx`, live
-│       at `/safe-truth` — the old redirect-to-Care-Signal bug is fixed) are
-│       both live in production. **Phase C (facility fuzzy-matching job +
-│       Care Signal event-code linkage) is NOT built yet** —
-│       `facilityIdMatched`/`visitFacilityIdMatched` stay NULL on every
-│       submission until that ships. The OLD authenticated flow
-│       (`parent-safetruth.ts`, `ParentSafeTruthForm.tsx`, route
-│       `/parent-safe-truth`) is left running alongside the new one, not
-│       removed — both currently coexist.
+│   └── **Safe-Truth v1 redesign (gap-analysis #11) — all three phases
+│       code-complete.** No-auth architecture + schema
+│       (`safeTruthSubmissions`, `safeTruthFacilityVisits`,
+│       `safeTruthDisclaimerAcks`, `safeTruthV1` router), the full
+│       caregiver-facing form (`SafeTruthV1.tsx`, live at `/safe-truth` —
+│       the old redirect-to-Care-Signal bug is fixed), and the facility
+│       fuzzy-matcher + Care Signal event-code linkage job
+│       (`server/lib/safe-truth-facility-matcher.ts`, run via
+│       `pnpm run safe-truth:match-facilities`) are all shipped. **The
+│       matching job is not scheduled to run automatically** — it's a
+│       CLI job someone runs (or a future item schedules), same shape as
+│       `fpkb:detect-patterns`. Until it's run, `facilityIdMatched` stays
+│       NULL on every submission even though the code to resolve it
+│       exists. The OLD authenticated flow (`parent-safetruth.ts`,
+│       `ParentSafeTruthForm.tsx`, route `/parent-safe-truth`) is left
+│       running alongside the new one, not removed — both coexist.
 └── Institutional Portal (Surface — Hospital Management & ERT)
     ├── Hospital Admin Dashboard
     ├── ERT (Emergency Response Team) management
@@ -263,6 +267,7 @@ Every new table in `drizzle/schema.ts` MUST have a corresponding migration scrip
 - **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths.
 - **Migration scripts use `scripts/db-connection-config.mjs`** for SSL + IPv4 (Aiven configuration).
 - **All migrations are idempotent** (safe to re-run) — use `IF NOT EXISTS` / `tableExists()` checks to prevent "table already exists" errors.
+- **Migration numbers can collide across parallel PRs — `git fetch origin main` and check the highest existing `apply-00NN-*.mjs` right before naming a new one, not just at session start.** Building #11 Phase C, migration 0066 was picked (the next free number at branch time), but a different parallel PR claimed 0066 for something unrelated and merged first. Caught during the routine pre-edit fetch/rebase, not after a production collision — renumbered to 0067 before shipping. Multiple agents working the same repo concurrently makes this a real, recurring risk, not a one-off.
 - **When a migration's raw SQL references an EXISTING column (e.g. `ALTER TABLE ... AFTER \`someColumn\``), verify the literal DB column-name string in `drizzle/schema.ts` — do not assume it matches the JS property name.** Several older columns use snake_case DB names under a camelCase JS field (e.g. `eventId: varchar("event_id", ...)` on `careSignalEvents` — the JS property is `eventId`, the real column is `event_id`). Migration 0064 shipped with `AFTER \`eventId\`` and failed on production with `ER_BAD_FIELD_ERROR` before this was caught and fixed. Grep schema.ts for the field, read the string literal inside the column-builder call, and use that exact string in raw SQL.
 
 ### Seed script requirements
