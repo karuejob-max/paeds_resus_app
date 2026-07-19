@@ -21,7 +21,8 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
   providerType: mysqlEnum("providerType", ["nurse", "doctor", "pharmacist", "paramedic", "lab_tech", "respiratory_therapist", "midwife", "other"]),
-  userType: mysqlEnum("userType", ["individual", "institutional", "parent"]).default("individual"),
+  /** "parent" retired 2026-07 (gap-analysis follow-up) — Safe-Truth requires no account (Observation Architecture §5.4); see migration 0069. */
+  userType: mysqlEnum("userType", ["individual", "institutional"]).default("individual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

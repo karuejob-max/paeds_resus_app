@@ -349,7 +349,7 @@ export async function updateUserContactInfo(
     .where(eq(users.id, userId));
 }
 
-export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {
+export async function updateUserType(userId: number, userType: "individual" | "institutional") {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set({ userType, updatedAt: new Date() }).where(eq(users.id, userId));

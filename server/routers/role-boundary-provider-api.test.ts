@@ -33,9 +33,17 @@ function createAuthContext(overrides?: Partial<User>): TrpcContext {
 }
 
 describe("provider API role boundaries", () => {
-  it("denies parent users on enrollment provider payment API", async () => {
+  // userType "parent" was retired 2026-07 (migration 0069) and is no longer a valid
+  // value in the User type. This test intentionally casts past that to keep regression
+  // coverage for any stale/unmigrated row a production DB might still have mid-rollout --
+  // the runtime check should still reject it even though new code can never produce it.
+  it("denies stale 'parent'-typed rows on enrollment provider payment API", async () => {
     const caller = appRouter.createCaller(
-      createAuthContext({ userType: "parent", role: "user", email: "parent@example.com" })
+      createAuthContext({
+        userType: "parent" as unknown as "individual" | "institutional",
+        role: "user",
+        email: "parent@example.com",
+      })
     );
 
     await expect(
@@ -59,9 +67,13 @@ describe("provider API role boundaries", () => {
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  it("denies parent users on instructor provider API", async () => {
+  it("denies stale 'parent'-typed rows on instructor provider API", async () => {
     const caller = appRouter.createCaller(
-      createAuthContext({ userType: "parent", role: "user", email: "parent2@example.com" })
+      createAuthContext({
+        userType: "parent" as unknown as "individual" | "institutional",
+        role: "user",
+        email: "parent2@example.com",
+      })
     );
 
     await expect(caller.instructor.getStatus()).rejects.toMatchObject({

@@ -45,7 +45,16 @@ const eventSchema = z.object({
 });
 
 export const parentSafeTruthRouter = router({
-  // Submit parent Safe-Truth timeline
+  // RETIRED 2026-07 (parent userType sunset): the authenticated Parent Safe-Truth
+  // flow is retired now that Safe-Truth v1 (server/routers/safe-truth-v1.ts) is live
+  // and requires no account (Observation Architecture v1.1 §5.4). This mutation is kept
+  // registered (rather than deleted) so any stale client still calling it gets a clear,
+  // typed error instead of a 404 -- it no longer accepts new submissions. Historical
+  // data and the read/admin procedures below (getSafeTruthStats, getMySubmissions,
+  // getSubmissionDetails, getHospitalMetrics, getHospitalDelayAnalysis, searchFacilities,
+  // getHospitalSafeTruthSummary, markResponseReady) are UNCHANGED -- existing
+  // parentSafeTruthSubmissions rows remain queryable per the retention policy
+  // (Observation Architecture §9.3: permanent, anonymised on account deletion).
   submitTimeline: protectedProcedure
     .input(
       z.object({
@@ -57,119 +66,29 @@ export const parentSafeTruthRouter = router({
         isAnonymous: z.boolean().default(true),
         hospitalId: z.number().optional(),
         events: z.array(eventSchema).min(1),
-        // In-hospital gap data
         systemGaps: z.array(z.string()).optional(),
         whereDelayHappened: z.array(z.string()).optional(),
         registrationBeforeTriage: z.boolean().optional(),
         shift: z.string().optional(),
-        // ── Pre-hospital journey data ──────────────────────────────────────
-        symptomOnsetDate: z.string().optional(),          // YYYY-MM-DD
-        decisionDelayBand: z.string().optional(),         // "immediate"|"under-1h"|"1-6h"|"6-24h"|"over-24h"
-        decisionDelayReasons: z.array(z.string()).optional(), // ["cost","distance",...]
-        transportMode: z.string().optional(),             // "personal-vehicle"|"matatu"|...
-        transportDurationBand: z.string().optional(),     // "under-15m"|"15-30m"|...
+        symptomOnsetDate: z.string().optional(),
+        decisionDelayBand: z.string().optional(),
+        decisionDelayReasons: z.array(z.string()).optional(),
+        transportMode: z.string().optional(),
+        transportDurationBand: z.string().optional(),
         ambulanceCalled: z.boolean().optional(),
-        ambulanceWaitBand: z.string().optional(),         // "under-15m"|...|"never-came"
+        ambulanceWaitBand: z.string().optional(),
         priorFacilityVisit: z.boolean().optional(),
-        priorFacilityChain: z.string().optional(),        // JSON string of PriorFacilityStop[]
-        referralReason: z.string().optional(),            // "no-equipment"|...
-        preHospitalDelayMinutes: z.number().optional(),   // computed: symptom onset → arrival
+        priorFacilityChain: z.string().optional(),
+        referralReason: z.string().optional(),
+        preHospitalDelayMinutes: z.number().optional(),
       })
     )
-    .mutation(async ({ input, ctx }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-
-      // Build structured improvements array from all gap signals
-      const allGaps: string[] = [
-        ...(input.systemGaps ?? []),
-        ...(input.whereDelayHappened ?? []),
-        ...(input.registrationBeforeTriage ? ["registration-before-triage"] : []),
-      ];
-      const communicationGaps = allGaps.includes("communication") ? 1 : 0;
-      const interventionDelays = [
-        "billing-cashier", "registration-desk", "waiting-room", "casualty-queue",
-        "ward-handover", "gate", "registration-before-triage",
-      ].some((g) => allGaps.includes(g)) ? 1 : 0;
-      const monitoringGaps = allGaps.includes("training") || allGaps.includes("protocols") ? 1 : 0;
-
-      // Calculate total duration from events
-      const firstEventTime = new Date(input.events[0].time).getTime();
-      const lastEventTime = new Date(input.events[input.events.length - 1].time).getTime();
-      const totalDurationMinutes = Math.round((lastEventTime - firstEventTime) / 60000);
-
-      // Create submission
-      const result = await db
-        .insert(parentSafeTruthSubmissions)
-        .values({
-          userId: ctx.user.id,
-          hospitalId: input.hospitalId,
-          childName: input.childName,
-          childAge: input.childAge,
-          childOutcome: input.childOutcome,
-          arrivalTime: new Date(input.events[0].time),
-          dischargeOrReferralTime: new Date(input.events[input.events.length - 1].time),
-          totalDurationMinutes: totalDurationMinutes > 0 ? totalDurationMinutes : null,
-          communicationGaps,
-          interventionDelays,
-          monitoringGaps,
-          improvements: allGaps.length > 0 ? JSON.stringify(allGaps) : null,
-          isAnonymous: input.isAnonymous,
-          parentName: input.parentName,
-          parentEmail: input.parentEmail,
-          status: "submitted",
-          // ── Pre-hospital journey fields ──────────────────────────────────────────
-          symptomOnsetDate: input.symptomOnsetDate ?? null,
-          decisionDelayBand: input.decisionDelayBand ?? null,
-          decisionDelayReasons: input.decisionDelayReasons?.length
-            ? JSON.stringify(input.decisionDelayReasons)
-            : null,
-          transportMode: input.transportMode ?? null,
-          transportDurationBand: input.transportDurationBand ?? null,
-          ambulanceCalled: input.ambulanceCalled ?? false,
-          ambulanceWaitBand: input.ambulanceWaitBand ?? null,
-          priorFacilityVisit: input.priorFacilityVisit ?? false,
-          priorFacilityChain: input.priorFacilityChain ?? null,
-          referralReason: input.referralReason ?? null,
-          preHospitalDelayMinutes: input.preHospitalDelayMinutes ?? null,
-        });
-
-      const submissionId = (result as any)[0].insertId || (result as any).insertId;
-
-      await trackEvent({
-        userId: ctx.user.id,
-        eventType: "safetruth_submission",
-        eventName: "Safe-Truth timeline submitted",
-        eventData: {
-          submissionId,
-          childOutcome: input.childOutcome,
-          eventCount: input.events.length,
-        },
-        sessionId: `safetruth_submission_${submissionId}`,
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "GONE",
+        message:
+          "Parent Safe-Truth no longer requires an account. Please use /safe-truth instead -- no login needed.",
       });
-
-      // Insert events
-      for (const event of input.events) {
-        await db
-          .insert(parentSafeTruthEvents)
-          .values({
-            submissionId: submissionId,
-            eventType: event.eventType as any,
-            eventTime: new Date(event.time),
-            description: event.description,
-          });
-      }
-
-      // Analyze delays
-      const analysis = await analyzeSystemDelays(submissionId, input.hospitalId);
-
-      return {
-        submissionId,
-        eventCount: input.events.length,
-        systemGapsIdentified: analysis?.gaps ? Object.values(analysis.gaps).filter(Boolean).length : 0,
-        analysis,
-        message: "Your story has been submitted successfully. Thank you for helping us improve care.",
-      };
     }),
 
   // Stats for parent dashboard: submissions this month, last submission

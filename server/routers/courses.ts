@@ -863,6 +863,9 @@ export const coursesRouter = router({
           phaseStatus: institutionalStaffMembers.phaseStatus,
           totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
           facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+          designation: institutionalStaffMembers.designation,
+          enrollmentDate: institutionalStaffMembers.enrollmentDate,
+          createdAt: institutionalStaffMembers.createdAt,
         })
         .from(institutionalStaffMembers)
         .where(and(
@@ -872,7 +875,7 @@ export const coursesRouter = router({
         .limit(1);
 
       if (staffRow.length > 0) {
-        const { phaseStatus, totalPaidAmount } = staffRow[0];
+        const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt } = staffRow[0];
         const isOnlineSession = session.trainingType === "online";
         const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
 
@@ -882,6 +885,30 @@ export const coursesRouter = router({
             code: "FORBIDDEN",
             message: "You must complete Phase 1 (upload and have your AHA elearning proof approved) before booking a simulation session.",
           });
+        }
+
+        // Deferred-payment lockout (CEO decision, 2026-07-19): interns (designation
+        // bsn_intern / coi_bsc / coi_diploma / moi) are allowed to defer payment while
+        // in Phase 1-2, but if FOUR MONTHS have passed since they joined the program
+        // and they still have not made ANY payment, they lose the ability to book
+        // further online simulation sessions until they pay something. This is
+        // deliberately a zero-paid check, not a "not fully paid" check — nurses and
+        // interns who have started an installment plan are not touched by this gate;
+        // Phase 3's existing full-payment gate (>= KES 15,000) already handles the
+        // "not fully paid yet" case for everyone. Money already paid is non-refundable
+        // per Terms of Use §6.5 — this gate is what gives that term teeth for learners
+        // who never start paying at all.
+        const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"] as const;
+        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+        if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+          const joinedAt = enrollmentDate ?? createdAt;
+          const paid = Number(totalPaidAmount ?? 0);
+          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "It has been more than 4 months since you joined this program with no payment recorded. Please make a payment (in full or as an installment) to regain access to simulation session booking — contact your institutional coordinator if you need to arrange this.",
+            });
+          }
         }
 
         // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
@@ -1027,6 +1054,8 @@ export const coursesRouter = router({
         phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
         phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
         designation: institutionalStaffMembers.designation,
+        enrollmentDate: institutionalStaffMembers.enrollmentDate,
+        createdAt: institutionalStaffMembers.createdAt,
       })
       .from(institutionalStaffMembers)
       .where(and(
@@ -1057,6 +1086,16 @@ export const coursesRouter = router({
     const leaderSessions = simRows.filter((r) => r.role === "team_leader").length;
     const phase2Complete = memberSessions >= 3 && leaderSessions >= 3;
 
+    // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
+    // Surfaced here so the dashboard can warn a learner as the 4-month deadline
+    // approaches, not just block them silently once it's already passed.
+    const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"];
+    const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+    const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
+    const joinedAt = s.enrollmentDate ?? s.createdAt;
+    const paymentDeadline = isIntern && joinedAt ? new Date(new Date(joinedAt).getTime() + FOUR_MONTHS_MS) : null;
+    const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
+
     return {
       staffMemberId: s.id,
       phaseStatus: s.phaseStatus,
@@ -1069,6 +1108,8 @@ export const coursesRouter = router({
       totalPaid: paid,
       balance: Math.max(0, subsidisedFee - paid),
       isPaidInFull: paid >= subsidisedFee,
+      paymentDeadline: paymentDeadline ? paymentDeadline.toISOString() : null,
+      paymentLockoutActive,
     };
   }),
 });

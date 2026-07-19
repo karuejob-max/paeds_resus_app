@@ -113,6 +113,7 @@
     "db:apply-0066": "node scripts/apply-0066-cohort-phase-gates.mjs",
     "db:apply-0067": "node scripts/apply-0067-safe-truth-event-code-linkage.mjs",
     "db:apply-0068": "node scripts/apply-0068-provider-profile-locality.mjs",
+    "db:apply-0069": "node scripts/apply-0069-retire-parent-usertype.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

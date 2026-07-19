@@ -86,13 +86,17 @@ Education is the current primary revenue engine and the right foundation. It is 
 
 | Course | Current pricing (KES) | Notes |
 |---|---|---|
-| BLS | 7,500 per participant | All clinical cadres |
-| ACLS | 17,500 per participant | Doctors and senior nurses |
-| BLS + ACLS Combined | 25,000 per participant | Recommended; ~30% bundle discount |
-| PALS | To be confirmed | Paediatric emergency providers |
+| BLS | 10,000 per participant | All clinical cadres |
+| ACLS | 20,000 per participant | Doctors and senior nurses |
+| BLS + ACLS Combined | 25,000 per participant | Under review — see note below; predates the BLS/ACLS increase |
+| PALS | 20,000 per participant | Paediatric emergency providers |
 | NRP | To be confirmed | Neonatal emergency providers |
 | Heartsaver | To be confirmed | Non-clinical and allied health |
 | Instructor Course | To be confirmed | Issues Instructor Number |
+
+**Pricing note (updated 2026-07-19):** BLS and ACLS pricing was raised from 7,500/17,500 to 10,000/20,000 after AHA made purchasing eBooks (not only eCards) mandatory for every learner. This brings this table in line with `COURSE_PORTFOLIO_AND_ADF_STRATEGY.md` §3, which already reflected the current rate; this table had gone stale. The Combined-course row still reflects the pre-increase sum and has not been reconfirmed against the new base prices — flagged for CEO review rather than silently recalculated.
+
+A separate, subsidised institutional cohort tier (KES 15,000 for ACLS, Kenya pricing) also exists for the Subsidised ACLS/BLS Cohort Program — see §9.2.
 
 Institutional group rates apply to structured cohort-based training. The Nyeri County Referral Hospital model — cohort organised by a named coordinator, payment deadline one week before assessment, next-cohort clause for those who miss the deadline — is the template for all institutional AHA delivery.
 
@@ -294,6 +298,7 @@ The constitutional revenue principle requires that providers who cannot afford i
 - Micro-course certifications are individually priced at the lowest viable point for LMIC individual income. Institutional bulk access — where employers pay — funds the individual subsidy.
 - Fellowship enrollment is individually priced. Bursary pathways are available for providers who cannot self-fund, funded from institutional partner contributions and donor grants.
 - AHA certifications are individually priced at current Kenyan market rates. Institutional cohort pricing provides a group discount. Employer-funded cohorts are the primary delivery model; individual self-funding is available but not the assumed pathway.
+- **Subsidised ACLS/BLS Cohort Program (added 2026-07-19):** a phased, competency-based cohort programme priced at KES 15,000 for ACLS (Kenya; other countries need currency adjustment only, not re-pricing), targeted at institutional nurses and interns who would not otherwise prioritise certification at standard market rates. This is deliberately positioned as neither a standalone discounted-seat product nor the full ERS — it is the team-competence rung between individual competence and institutional ERS readiness in the platform's theory of change (see `PLATFORM_SOURCE_OF_TRUTH.md`). BLS is Paeds Resus-certified; ACLS certification is AHA-issued and portable across borders. Nurses may pay in KES 2,500/month instalments; interns may defer payment 3-4 months into their internship. All payments are non-refundable (Terms of Use §6.4). Phase 3 (hands-on assessment and certification) requires the balance paid in full; interns with zero payment recorded four months after joining lose Phase 2 (online simulation) booking access until a payment is made. Rolling cohorts of ~8 learners progress together once individually competent, rather than fixed scheduled classes.
 
 The goal is to make individual provider exclusion based on inability to pay a policy failure that is visible and addressable, not an invisible structural feature of the business model.
 
