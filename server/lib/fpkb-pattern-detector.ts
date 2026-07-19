@@ -550,6 +550,23 @@ export async function reEvaluateAfterImplementationOutcome(
  *      position (see REVIEW_WINDOW_DAYS above) — a defensible extension,
  *      not something either section actually specifies. Worth a short
  *      doc addition to §6.6's review_schedule row once confirmed.
+ *
+ * FOLLOW-THROUGH ON POINT 2, 2026-07-19: applying that same rank-analogy
+ * consistently surfaced one real bug, not just a documentation gap —
+ * CANDIDATE_SUCCESS (the success track's bottom rung, structurally
+ * equivalent to SIGNAL) had a reviewWindowDaysFor() entry but was missing
+ * from DOWNGRADE_THRESHOLD_DAYS and from the ACTIVE→UNDER_REVIEW branch
+ * below, which only ever checked for SIGNAL by name. That meant
+ * CANDIDATE_SUCCESS patterns could sit unconfirmed forever without ever
+ * being flagged stale — an asymmetry between the two tracks' bottom
+ * rungs, not a deliberate choice. Both are now fixed. This closes queue
+ * item #15's remaining open thread: the mechanism, the rank-analogy
+ * windows, and the actual code now agree with each other track-for-track.
+ * The one thing that remains a documented inference rather than fact is
+ * the exact success-track day counts themselves (182/182/365/365 and
+ * 180/360/720/540) — nothing in either constitutional doc states them,
+ * so if counsel or a future clinical review ever assigns real numbers,
+ * update REVIEW_WINDOW_DAYS/DOWNGRADE_THRESHOLD_DAYS, not this comment.
  */
 
 /**
@@ -641,6 +658,17 @@ const DOWNGRADE_THRESHOLD_DAYS: Record<string, number> = {
   STANDARD_PRACTICE: 18 * 30,
   VALIDATED_SUCCESS: 24 * 30,
   EMERGING_SUCCESS: 12 * 30,
+  // CANDIDATE_SUCCESS (gap-analysis #15 closure, 2026-07-19): this was
+  // missing entirely until now. SIGNAL is the failure track's bottom rung
+  // and gets a 6-month automated staleness check (§7.2); CANDIDATE_SUCCESS
+  // is its exact success-track analogue (same reviewWindowDaysFor of 182
+  // days, same "nowhere lower in confidenceLevel to fall" structural
+  // position). Its absence from this table meant CANDIDATE_SUCCESS
+  // patterns could never be flagged stale by the automated fallback,
+  // regardless of how long they went unreconfirmed — a real asymmetry,
+  // not a deliberate design choice. Fixed by rank-analogy, same as every
+  // other success-track value in this table.
+  CANDIDATE_SUCCESS: 6 * 30,
 };
 
 export function downgradeThresholdDaysFor(level: string): number | undefined {
@@ -703,7 +731,13 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
     const staleSince = new Date(pattern.lastConfirmedAt.getTime() + thresholdDays * 86_400_000);
     if (staleSince >= now) continue; // not stale enough yet for the automated fallback
 
-    if (pattern.confidenceLevel === "SIGNAL") {
+    if (pattern.confidenceLevel === "SIGNAL" || pattern.confidenceLevel === "CANDIDATE_SUCCESS") {
+      // Both are the bottom rung of their respective tracks — neither has
+      // a lower confidenceLevel to fall to, so the fallback here is a
+      // knowledge_status flag (ACTIVE → UNDER_REVIEW), not a confidence
+      // downgrade. CANDIDATE_SUCCESS added 2026-07-19 (gap-analysis #15) —
+      // previously only SIGNAL was handled, leaving the success track's
+      // equivalent tier permanently exempt from staleness review.
       result.movedToUnderReview.push({ patternId: pattern.id, patternCode: pattern.patternCode });
       if (!opts.dryRun) {
         await db
@@ -717,7 +751,7 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
           entityId: pattern.id,
           previousState: { knowledgeStatus: "ACTIVE" },
           newState: { knowledgeStatus: "UNDER_REVIEW" },
-          reasoning: `SIGNAL-level pattern not reconfirmed within ${Math.round(thresholdDays / 30)} months (automated fallback, §7.2) — moved to Under Review.`,
+          reasoning: `${pattern.confidenceLevel}-level pattern not reconfirmed within ${Math.round(thresholdDays / 30)} months (automated fallback, §7.2) — moved to Under Review.`,
         });
       }
       continue;

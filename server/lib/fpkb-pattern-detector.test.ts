@@ -118,7 +118,17 @@ describe("downgradeThresholdDaysFor (FPKB_SCHEMA_V1.md §7.2 automated-downgrade
     }
   });
 
-  it("returns undefined for a level with no automated-downgrade rule (e.g. CANDIDATE_SUCCESS has nowhere lower to go)", () => {
-    expect(downgradeThresholdDaysFor("CANDIDATE_SUCCESS")).toBeUndefined();
+  it("CANDIDATE_SUCCESS has a staleness threshold too (fixed 2026-07-19, gap-analysis #15 closure) — it's SIGNAL's success-track analogue, not a level with no rule at all", () => {
+    // Previously undefined here, which meant CANDIDATE_SUCCESS patterns
+    // could never be flagged stale by the automated fallback regardless of
+    // how long they went unreconfirmed. It's the success track's bottom
+    // rung — same structural position as SIGNAL, same 6-month window —
+    // and now gets the same ACTIVE→UNDER_REVIEW treatment (not a
+    // confidenceLevel downgrade, since there's nothing lower to fall to).
+    expect(downgradeThresholdDaysFor("CANDIDATE_SUCCESS")).toBe(6 * 30);
+  });
+
+  it("returns undefined for a level with genuinely no automated-downgrade rule at all", () => {
+    expect(downgradeThresholdDaysFor("RETIRED")).toBeUndefined();
   });
 });

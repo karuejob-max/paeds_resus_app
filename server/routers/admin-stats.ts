@@ -5,6 +5,7 @@ import { router, adminProcedure } from "../_core/trpc";
 import { getDb, getRecentErrors } from "../db";
 import { ENV } from "../_core/env";
 import { getMpesaDeploymentMode } from "../lib/mpesa-env";
+import { getPremiumAnalyticsReadiness as getPremiumAnalyticsReadiness_ } from "../lib/premium-analytics-readiness";
 import {
   users,
   enrollments,
@@ -344,6 +345,30 @@ export const adminStatsRouter = router({
         growthKpis: { activePayingProviders30d },
       };
     }),
+
+  /**
+   * Financial Strategy §4.2 Premium Analytics launch-gate readiness
+   * (structural gap flagged 2026-07-19). Read-only — does not gate or
+   * unlock anything by itself; item #12(b) (the paywall build itself)
+   * stays parked until the CEO explicitly revisits it. This just makes
+   * "are we there yet?" an actual checked fact instead of a memory-based
+   * judgment call re-derived each time someone asks.
+   */
+  getPremiumAnalyticsReadiness: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) {
+      return {
+        ready: false,
+        facilityCountThreshold: 10,
+        consistencyMonths: 6,
+        consistentContributorCount: 0,
+        totalContributingFacilityCount: 0,
+        facilities: [],
+        summary: "Database unavailable — cannot check readiness.",
+      };
+    }
+    return getPremiumAnalyticsReadiness_(db);
+  }),
 
   /** Recent admin audit log rows (sanitized inputs only). */
   getAdminAuditLog: adminProcedure
