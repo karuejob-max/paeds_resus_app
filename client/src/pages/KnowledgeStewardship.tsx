@@ -44,7 +44,8 @@ const AUDIENCES = [
 ] as const;
 
 /**
- * Knowledge Stewardship approval gate (gap-analysis #3).
+ * Knowledge Stewardship approval gate (gap-analysis #3), now also home to
+ * the Pattern review queue (gap-analysis #12, FPKB_SCHEMA_V1.md §7.4).
  *
  * North Star v2.0 names Knowledge Stewardship as a non-negotiable governance
  * role: no recommendation ships without its sign-off. This page is that
@@ -52,11 +53,12 @@ const AUDIENCES = [
  * different) reviewer approves or rejects it. Every decision writes to the
  * append-only kb_governance_audit table.
  *
- * Honest note: there's no automated pattern-detection algorithm yet (that's
- * a separate, larger gap-list item), so everything drafted here today is
- * manually curated from clinical expertise, not mined from observation
- * volume. The form makes you say why in `curationRationale` — this isn't
- * hidden from future reviewers.
+ * Pattern detection is automated (gap-analysis #9) and confidence downgrade
+ * runs on a daily schedule (gap-analysis #12) — the Review queue tab below
+ * is where a human gets first chance to intervene on a pattern that's
+ * overdue for reconfirmation, before the automated fallback silently
+ * downgrades it. See server/lib/fpkb-pattern-detector.ts's
+ * runConfidenceDowngrade doc comment for the full two-clock design.
  */
 export default function KnowledgeStewardship() {
   const utils = trpc.useUtils();
@@ -67,6 +69,17 @@ export default function KnowledgeStewardship() {
   const pendingQ = trpc.fpkb.listPendingRecommendations.useQuery();
   const auditQ = trpc.fpkb.listGovernanceAudit.useQuery({ limit: 50 });
   const patternsQ = trpc.fpkb.listPatterns.useQuery({ knowledgeStatus: "ACTIVE" });
+  const reviewQueueQ = trpc.fpkb.listPatternReviewQueue.useQuery();
+
+  const [reviewOutcomes, setReviewOutcomes] = useState<Record<string, string>>({});
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const completeReview = trpc.fpkb.completePatternReview.useMutation({
+    onSuccess: () => {
+      void utils.fpkb.listPatternReviewQueue.invalidate();
+      void utils.fpkb.listPatterns.invalidate();
+      void utils.fpkb.listGovernanceAudit.invalidate();
+    },
+  });
 
   const decide = trpc.fpkb.decideRecommendation.useMutation({
     onSuccess: () => {
@@ -129,6 +142,9 @@ export default function KnowledgeStewardship() {
       <Tabs defaultValue="pending">
         <TabsList>
           <TabsTrigger value="pending">Pending review</TabsTrigger>
+          <TabsTrigger value="reviewQueue">
+            Review queue{reviewQueueQ.data?.tasks.length ? ` (${reviewQueueQ.data.tasks.length})` : ""}
+          </TabsTrigger>
           <TabsTrigger value="draft">Draft new</TabsTrigger>
           <TabsTrigger value="interventions">Interventions</TabsTrigger>
           <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1" />Audit trail</TabsTrigger>
@@ -186,6 +202,87 @@ export default function KnowledgeStewardship() {
                 </CardContent>
               </Card>
             ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="reviewQueue" className="space-y-3 mt-4">
+          <p className={NOTE_TEXT}>
+            Patterns overdue for reconfirmation, per the daily concept-drift job (gap-analysis #12). Resolving one
+            here before the automated fallback fires is exactly how this is supposed to work — a pattern that's
+            still valid just hasn't had fresh submissions lately.
+          </p>
+          {reviewQueueQ.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : !reviewQueueQ.data?.tasks.length ? (
+            <p className={NOTE_TEXT}>No open review tasks right now.</p>
+          ) : (
+            reviewQueueQ.data.tasks.map((task) => {
+              const daysOverdue = Math.max(
+                0,
+                Math.round((Date.now() - new Date(task.reviewDueAt).getTime()) / 86_400_000)
+              );
+              return (
+                <Card key={task.id}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base text-slate-900 dark:text-slate-100">
+                        {task.patternCode} — {task.patternName}
+                      </CardTitle>
+                      <Badge variant={task.reviewStatus === "IN_PROGRESS" ? "destructive" : "outline"}>
+                        {task.reviewStatus === "IN_PROGRESS" ? `${daysOverdue}d overdue` : "Scheduled"}
+                      </Badge>
+                    </div>
+                    <CardDescription className={NOTE_TEXT}>
+                      {task.patternTrack} · Confidence: {task.confidenceLevel.replace(/_/g, " ")} · Last reconfirmed:{" "}
+                      {task.lastConfirmedAt ? new Date(task.lastConfirmedAt).toLocaleDateString() : "never"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Select
+                      value={reviewOutcomes[task.id] ?? ""}
+                      onValueChange={(v) => setReviewOutcomes((s) => ({ ...s, [task.id]: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose an outcome…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CONFIDENCE_MAINTAINED">Still valid — maintain confidence</SelectItem>
+                        <SelectItem value="CONFIDENCE_UPGRADED">Upgrade confidence</SelectItem>
+                        <SelectItem value="CONFIDENCE_DOWNGRADED">Downgrade one level now</SelectItem>
+                        <SelectItem value="PATTERN_RETIRED">Retire this pattern</SelectItem>
+                        <SelectItem value="PATTERN_SPLIT">Split into multiple patterns</SelectItem>
+                        <SelectItem value="DEFERRED_TO_NEXT_CYCLE">Defer to next cycle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Textarea
+                      placeholder="Review notes (optional)…"
+                      value={reviewNotes[task.id] ?? ""}
+                      onChange={(e) => setReviewNotes((s) => ({ ...s, [task.id]: e.target.value }))}
+                      rows={2}
+                    />
+                    <Button
+                      size="sm"
+                      disabled={!reviewOutcomes[task.id] || completeReview.isPending}
+                      onClick={() =>
+                        completeReview.mutate({
+                          reviewScheduleId: task.id,
+                          outcome: reviewOutcomes[task.id] as
+                            | "CONFIDENCE_MAINTAINED"
+                            | "CONFIDENCE_UPGRADED"
+                            | "CONFIDENCE_DOWNGRADED"
+                            | "PATTERN_RETIRED"
+                            | "PATTERN_SPLIT"
+                            | "DEFERRED_TO_NEXT_CYCLE",
+                          notes: reviewNotes[task.id],
+                        })
+                      }
+                    >
+                      Submit review
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </TabsContent>
 

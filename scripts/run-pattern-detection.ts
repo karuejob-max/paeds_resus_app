@@ -38,10 +38,17 @@ async function main() {
     );
   }
 
-  console.log("\n--- Confidence downgrade pass (staleness, §7.3) ---");
+  console.log("\n--- Concept drift: review-task creation + confidence downgrade (§7.2/§7.3, gap-analysis #12) ---");
   const downgrade = await runConfidenceDowngrade(db, { dryRun: !execute });
+  if (downgrade.reviewTasksCreated.length === 0) {
+    console.log("No new review tasks this run.");
+  } else {
+    for (const t of downgrade.reviewTasksCreated) {
+      console.log(`  ${execute ? "Created" : "Would create"} review task: ${t.patternCode}`);
+    }
+  }
   if (downgrade.downgraded.length === 0 && downgrade.movedToUnderReview.length === 0 && downgrade.retired.length === 0) {
-    console.log("No stale patterns this run.");
+    console.log("No automated downgrades this run (fallback threshold not yet reached for any pattern).");
   } else {
     for (const d of downgrade.downgraded) {
       console.log(`  ${execute ? "Downgraded" : "Would downgrade"}: ${d.patternCode} ${d.from} → ${d.to}`);
