@@ -21,7 +21,7 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
   providerType: mysqlEnum("providerType", ["nurse", "doctor", "pharmacist", "paramedic", "lab_tech", "respiratory_therapist", "midwife", "other"]),
-  userType: mysqlEnum("userType", ["individual", "institutional", "parent"]).default("individual"),
+  userType: mysqlEnum("userType", ["individual", "institutional"]).default("individual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -481,7 +481,7 @@ export const featureFlags = mysqlTable("featureFlags", {
   description: text("description"),
   isEnabled: boolean("isEnabled").default(false),
   rolloutPercentage: int("rolloutPercentage").default(0), // 0-100%
-  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional", "parent"]).default("all"),
+  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional"]).default("all"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
