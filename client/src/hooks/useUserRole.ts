@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-export type UserRole = "parent" | "provider" | "institution" | null;
+export type UserRole = "provider" | "institution" | null;
 
-const VALID = new Set<string>(["parent", "provider", "institution"]);
+const VALID = new Set<string>(["provider", "institution"]);
 
 function readStoredRole(): UserRole {
   if (typeof window === "undefined") return null;
@@ -61,7 +61,6 @@ export function useUserRole() {
     role,
     isLoading,
     setUserRole,
-    isParent: role === "parent",
     isProvider: role === "provider",
     isInstitution: role === "institution",
   };

@@ -31,7 +31,6 @@ function mapUserTypeToRole(ut: string | null | undefined): AppRole {
   if (!ut) return null;
   const m: Record<string, AppRole> = {
     individual: "provider",
-    parent: "parent",
     institutional: "institution",
   };
   return m[ut] ?? null;

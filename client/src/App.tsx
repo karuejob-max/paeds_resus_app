@@ -24,7 +24,6 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
-const ParentSafeTruth = lazy(() => import("./pages/ParentSafeTruth"));
 const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
@@ -173,11 +172,13 @@ function Router() {
           <Route path="/feedback" component={FeedbackPage} />
           <Route path="/my-cne-certificates" component={MyCneCertificates} />
           <Route path="/home" component={Home} />
-          <Route path="/parent-safe-truth" component={ParentSafeTruth} />
-          {/* Fixed 2026-07-16 (gap-analysis #11 Phase B): this used to redirect to
-              /care-signal — the WRONG form. §2.2 specifies /safe-truth as Safe-Truth
-              v1's public, no-auth URL. /parent-safe-truth (above) remains the OLD
-              authenticated flow, left running for continuity — not removed. */}
+          {/* 2026-07-19 (account-types PR1): the OLD authenticated Safe-Truth
+              flow is retired along with the parent userType — nobody can log
+              in as a parent anymore, so this route now redirects into the
+              unauthenticated /safe-truth flow. parentSafeTruthSubmissions
+              (the underlying table/history) is untouched — only this UI
+              entry point changes. */}
+          <Route path="/parent-safe-truth">{() => <Redirect to="/safe-truth" />}</Route>
           <Route path="/safe-truth" component={SafeTruthV1} />
           <Route path="/care-signal">{() => (
             <RoleGate allowed={["provider"]}>
@@ -334,7 +335,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/personal-impact">{() => (
-            <RoleGate allowed={["provider", "parent"]}>
+            <RoleGate allowed={["provider"]}>
               <PersonalImpactDashboard />
             </RoleGate>
           )}</Route>
@@ -528,7 +529,7 @@ function Router() {
           <Route path="/contact" component={RedirectToInstitutionalQuote} />
           <Route path="/resources">{() => <Redirect to="/help" />}</Route>
           <Route path="/faq">{() => <Redirect to="/help" />}</Route>
-          <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
+          <Route path="/success-stories">{() => <Redirect to="/safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/fellowship" />}</Route>
           {/* / : public compound for anonymous; role home for authenticated */}
           <Route path="/" component={HomeEntry} />
@@ -560,13 +561,11 @@ export default App;
 
 function mapUserTypeToRole(ut: string | null | undefined): UserRole {
   if (ut === "individual") return "provider";
-  if (ut === "parent") return "parent";
   if (ut === "institutional") return "institution";
   return null;
 }
 
 function getRoleHomePath(role: UserRole): string {
-  if (role === "parent") return "/parent-safe-truth";
   if (role === "institution") return "/hospital-admin-dashboard";
   return "/home";
 }
@@ -718,7 +717,6 @@ function HomeEntry() {
     if (loading || !isAuthenticated) return;
     const dest = getRoleHomePath(roleForHome);
     if (dest === "/home") void import("./pages/Home");
-    else if (dest === "/parent-safe-truth") void import("./pages/ParentSafeTruth");
     else if (dest === "/safe-truth") void import("./pages/SafeTruthV1");
     else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
     setLocation(dest);

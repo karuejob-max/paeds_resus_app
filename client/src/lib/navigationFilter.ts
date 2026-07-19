@@ -23,12 +23,6 @@ export const roleBasedPages = {
     "/search",
   ],
 
-  // Parent/Caregiver only pages
-  parent: [
-    "/parents",
-    "/resources", // But with parent-specific content
-  ],
-
   // Healthcare Provider only pages
   provider: [
     "/providers",
@@ -84,13 +78,6 @@ export function canAccessPage(page: string, role: UserRole): boolean {
 
   // Check role-specific access
   switch (role) {
-    case "parent":
-      return (
-        roleBasedPages.public.includes(page) ||
-        roleBasedPages.parent.includes(page) ||
-        roleBasedPages.authenticated.includes(page)
-      );
-
     case "provider":
       return (
         roleBasedPages.public.includes(page) ||
@@ -138,8 +125,6 @@ export function filterNavItems(items: NavItem[], role: UserRole): NavItem[] {
  */
 export function getRoleLabel(role: UserRole): string {
   switch (role) {
-    case "parent":
-      return "Parent/Caregiver";
     case "provider":
       return "Healthcare Provider";
     case "institution":

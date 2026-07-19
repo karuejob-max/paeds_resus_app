@@ -19,7 +19,7 @@ export interface FeatureFlagInput {
   description?: string;
   isEnabled: boolean;
   rolloutPercentage?: number;
-  targetUserType?: "all" | "admin" | "individual" | "institutional" | "parent";
+  targetUserType?: "all" | "admin" | "individual" | "institutional";
 }
 
 export interface ExperimentAssignmentResult {

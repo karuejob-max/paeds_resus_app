@@ -160,7 +160,17 @@ If you do not agree, do not use the platform.
 
 Refund requests: support@paeds-resus.com with payment reference, phone number, and enrollment ID. We respond within **10 business days**. Refunds are issued via M-Pesa reversal or bank transfer where applicable.
 
-### 6.4 Consumer protection
+### 6.4 Subsidised ACLS/BLS Cohort Program payments
+
+This section applies specifically to the subsidised, phased, competency-based ACLS/BLS cohort programme for institutional nurses and interns (KES 15,000, Kenya pricing), and takes precedence over §6.3 for that programme where the two differ.
+
+- **All payments made under this programme — including partial and installment payments — are non-refundable**, regardless of whether you complete the programme, withdraw, or are unable to progress for any reason. §6.3's "Course not started" refund window does not apply to this programme.
+- Payment may be made upfront, in monthly instalments (nurses), or deferred to a later point in your internship (interns), as arranged with your institutional coordinator.
+- **Phase 3** (physical skills integration: hands-on Megacode simulation, final AHA cognitive exam, and certification) requires your account balance to be paid in full before you may book it.
+- **Interns specifically:** if four months have passed since you joined the programme and no payment has been recorded on your account, you will lose the ability to book further Phase 2 online simulation sessions until a payment (in full or as an instalment) is made. Progress already recorded (proof uploads, completed simulations) is not deleted while access is paused, and booking access resumes once a payment is recorded.
+- This non-refundable policy does not override your **non-waivable rights** under the Kenya Consumer Protection Act or other mandatory law (§6.5).
+
+### 6.5 Consumer protection
 
 Nothing in these Terms limits your **non-waivable rights** under the Kenya Consumer Protection Act or other mandatory law.
 

@@ -877,14 +877,10 @@ export default function AdminReports() {
                 <CardDescription>Total: {report.totalUsers}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg border p-3">
                     <p className="text-2xl font-bold">{report.usersByType.individual}</p>
                     <p className="text-sm text-muted-foreground">Healthcare providers</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-2xl font-bold">{report.usersByType.parent}</p>
-                    <p className="text-sm text-muted-foreground">Parents / guardians</p>
                   </div>
                   <div className="rounded-lg border p-3">
                     <p className="text-2xl font-bold">{report.usersByType.institutional}</p>

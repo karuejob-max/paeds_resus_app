@@ -311,11 +311,21 @@ The program is split into three gates, enforced server-side inside `bookHandsOnS
    - **Waitlist Priority:** If simulations are overbooked, the booking waitlist algorithm prioritizes learners with a higher payment percentage (total paid / KES 15,000) with registration timestamp as a tiebreaker.
 3. **Phase 3 (Physical Megacodes):** Unlocked only when Phase 2 simulations are complete AND the learner has paid their fees in full (total paid $\ge$ KES 15,000).
 
+### Facility matching (CEO decision, 2026-07-19)
+Cohort training is same-facility by design — the clinical value of Phase 2 (shared mental models, team roles, closed-loop communication) depends on training with the people you'll actually work a code with.
+- **Phase 2 (online):** strictly same-facility. `bookHandsOnSession` compares the session's `institutionalAccountId` against the learner's own; a mismatch is a hard `FORBIDDEN`, no override exists.
+- **Phase 3 (hands-on):** same-facility by default, with a controlled overflow valve — a platform admin (`ctx.user.role === "admin"`) can call `approvePhase3CrossFacilityOverflow` to grant one named learner permission to book one named out-of-facility session, so a small facility that hasn't reached 8 Phase-3-ready learners doesn't bottleneck them. Each approval is a logged row in `phase3CrossFacilityApprovals`, not a standing permission.
+
+### Payment terms (CEO decision, 2026-07-19)
+- All payments under this program, including instalments, are **non-refundable** — Terms of Use §6.4 (`docs/legal/TERMS_OF_USE_FULL.md`), synced in `client/src/legal/terms-of-use.ts` §9. `termsOfUse` bumped to 1.1.0 in `shared/legal-versions.ts` — this re-triggers the consent gate for every existing user.
+- **Intern deferred-payment lockout:** for staff with an intern-type `designation` (`bsn_intern`, `coi_bsc`, `coi_diploma`, `moi`), if 4 months have passed since `enrollmentDate` (falling back to `createdAt`) with **zero** payment recorded, Phase 2 booking is blocked until a payment is made (in full or as an instalment). This is a zero-paid check, not a not-fully-paid check — the existing Phase 3 full-payment gate already covers partial payers. Surfaced proactively via `getPhaseSummary`'s `paymentDeadline`/`paymentLockoutActive` fields, not just enforced silently.
+
 ### Key Files & Locations
-- **Database Schema:** `drizzle/schema.ts` (new columns on `institutionalStaffMembers` and `trainingAttendance`; new table `individualInstallmentPayments`).
-- **Migration & Apply Script:** `drizzle/0045_*.sql` and idempotent runner `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`).
-- **Backend Routing:** `courses.ts` (`getPhaseSummary` + booking validation), `institution.ts` (`uploadPhase1Proof` + `approvePhase1Proof`), `payments.ts` (`getIndividualBalance`).
+- **Database Schema:** `drizzle/schema.ts` (new columns on `institutionalStaffMembers` and `trainingAttendance`; tables `individualInstallmentPayments`, `phase3CrossFacilityApprovals`).
+- **Migration & Apply Scripts:** `drizzle/0045_*.sql` + `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`); `scripts/apply-0069-phase3-cross-facility-overflow.mjs` (`pnpm run db:apply-0069`).
+- **Backend Routing:** `courses.ts` (`getPhaseSummary`, `bookHandsOnSession` facility + phase + payment gates, `approvePhase3CrossFacilityOverflow`), `institution.ts` (`uploadPhase1Proof` + `approvePhase1Proof`), `payments.ts` (`getIndividualBalance`).
 - **Frontend Pages:** `LearnerDashboard.tsx` (payment ledger, `Phase1ProofUploadCard`), `InstitutionalPortal.tsx` (cohort progress analytics, `Phase1ProofReviewWidget`).
+- **Legal:** `docs/legal/TERMS_OF_USE_FULL.md` §6.4, `client/src/legal/terms-of-use.ts` §9, `shared/legal-versions.ts`.
 - **Tests:** `shared/waitlist.test.ts` (unit tests for the booking priority queue).
 
 ---

@@ -27,10 +27,6 @@ export default function LearnerDashboard() {
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
-  const { data: parentStats, isLoading: parentStatsLoading } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(
-    undefined,
-    { enabled: isAuthenticated && selectedRole === "parent" }
-  );
   const utils = trpc.useUtils();
   const { track } = useProviderConversionAnalytics("/learner-dashboard");
   const downloadCert = trpc.certificates.download.useMutation();
@@ -314,9 +310,7 @@ export default function LearnerDashboard() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">Welcome, {user?.name}!</h1>
         <p className="text-lg text-muted-foreground mb-8">
-          {selectedRole === "parent"
-            ? "Share your healthcare journey and help improve pediatric care"
-            : selectedRole === "provider"
+          {selectedRole === "provider"
             ? "Log clinical events and contribute to system improvements"
             : "Manage your institution's training programs"}
         </p>
@@ -334,77 +328,6 @@ export default function LearnerDashboard() {
               </div>
             </CardContent>
           </Card>
-        ) : selectedRole === "parent" ? (
-          <div className="space-y-6">
-            {parentStatsLoading ? (
-              <Card>
-                <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading your Safe-Truth submissions…
-                </CardContent>
-              </Card>
-            ) : parentStats ? (
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Submissions this month</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-foreground">{parentStats.submissionsThisMonth}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total stories shared</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-foreground">{parentStats.totalSubmissions}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Last submission</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xl font-semibold text-foreground">
-                      {parentStats.lastSubmission
-                        ? new Date(parentStats.lastSubmission).toLocaleDateString()
-                        : "—"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : null}
-            <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Your Stories
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Share your healthcare journey to help improve pediatric care</p>
-                <Button className="w-full" onClick={() => navigate("/parent-safe-truth")}>
-                  Share Your Story
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Community Impact
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Your feedback helps improve care for families</p>
-                <Button variant="outline" className="w-full" onClick={() => navigate("/personal-impact")}>View Impact</Button>
-              </CardContent>
-            </Card>
-            </div>
-          </div>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
             {lifecycleResumeNudge && (
