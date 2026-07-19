@@ -3,7 +3,7 @@
  */
 export const LEGAL_DOCUMENT_VERSIONS = {
   privacyPolicy: "1.0.0",
-  termsOfUse: "1.0.0",
+  termsOfUse: "1.1.0",
   careSignalNotice: "1.0.0",
   cookieNotice: "1.0.0",
   clinicalIntendedUse: "1.0.0",
@@ -12,7 +12,7 @@ export const LEGAL_DOCUMENT_VERSIONS = {
   safeTruthGuardian: "1.0.0",
 } as const;
 
-export const LEGAL_LAST_UPDATED = "2026-05-27";
+export const LEGAL_LAST_UPDATED = "2026-07-19";
 
 export const LEGAL_CONTACT = {
   controllerName: "Paeds Resus Limited",

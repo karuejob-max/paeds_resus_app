@@ -16,7 +16,7 @@ import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals } from '../../drizzle/schema';
 import { eq, and, asc, inArray, desc, sum } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
@@ -846,6 +846,7 @@ export const coursesRouter = router({
           status: trainingSchedules.status,
           scheduledDate: trainingSchedules.scheduledDate,
           trainingType: trainingSchedules.trainingType,
+          institutionalAccountId: trainingSchedules.institutionalAccountId,
         })
         .from(trainingSchedules)
         .where(eq(trainingSchedules.id, input.scheduleId))
@@ -863,6 +864,10 @@ export const coursesRouter = router({
           phaseStatus: institutionalStaffMembers.phaseStatus,
           totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
           facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+          designation: institutionalStaffMembers.designation,
+          enrollmentDate: institutionalStaffMembers.enrollmentDate,
+          createdAt: institutionalStaffMembers.createdAt,
+          institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
         })
         .from(institutionalStaffMembers)
         .where(and(
@@ -872,9 +877,45 @@ export const coursesRouter = router({
         .limit(1);
 
       if (staffRow.length > 0) {
-        const { phaseStatus, totalPaidAmount } = staffRow[0];
+        const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt, institutionalAccountId } = staffRow[0];
         const isOnlineSession = session.trainingType === "online";
         const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
+        const isSameFacility = institutionalAccountId === session.institutionalAccountId;
+
+        // Facility-matching (CEO decision, 2026-07-19): cohort training is
+        // same-facility by design — Phase 2's clinical value (shared mental
+        // models, team roles, closed-loop communication with people who'll
+        // actually work together) depends on it, so it's a hard block, no
+        // override. Phase 3 is closer to individual competency assessment;
+        // a small facility that can't reach 8 Phase-3-ready learners can
+        // bottleneck them, so a platform admin may explicitly approve a
+        // named learner into a named out-of-facility session — see
+        // approvePhase3CrossFacilityOverflow. No such override exists for
+        // Phase 2, deliberately.
+        if (!isSameFacility) {
+          if (isOnlineSession) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This simulation session belongs to a different institution. Phase 2 team simulations are always trained with your own facility's cohort.",
+            });
+          }
+          if (isHandsOnSession) {
+            const approval = await db
+              .select({ id: phase3CrossFacilityApprovals.id })
+              .from(phase3CrossFacilityApprovals)
+              .where(and(
+                eq(phase3CrossFacilityApprovals.staffMemberId, staffRow[0].id),
+                eq(phase3CrossFacilityApprovals.scheduleId, input.scheduleId)
+              ))
+              .limit(1);
+            if (approval.length === 0) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "This session belongs to a different institution. Booking across facilities for Phase 3 requires prior approval from Paeds Resus — contact your institutional coordinator to request it.",
+              });
+            }
+          }
+        }
 
         // Online simulation (Phase 2): learner must have been advanced to phase_2 or beyond
         if (isOnlineSession && phaseStatus === "phase_1") {
@@ -882,6 +923,30 @@ export const coursesRouter = router({
             code: "FORBIDDEN",
             message: "You must complete Phase 1 (upload and have your AHA elearning proof approved) before booking a simulation session.",
           });
+        }
+
+        // Deferred-payment lockout (CEO decision, 2026-07-19): interns (designation
+        // bsn_intern / coi_bsc / coi_diploma / moi) are allowed to defer payment while
+        // in Phase 1-2, but if FOUR MONTHS have passed since they joined the program
+        // and they still have not made ANY payment, they lose the ability to book
+        // further online simulation sessions until they pay something. This is
+        // deliberately a zero-paid check, not a "not fully paid" check — nurses and
+        // interns who have started an installment plan are not touched by this gate;
+        // Phase 3's existing full-payment gate (>= KES 15,000) already handles the
+        // "not fully paid yet" case for everyone. Money already paid is non-refundable
+        // per Terms of Use §6.5 — this gate is what gives that term teeth for learners
+        // who never start paying at all.
+        const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"] as const;
+        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+        if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+          const joinedAt = enrollmentDate ?? createdAt;
+          const paid = Number(totalPaidAmount ?? 0);
+          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "It has been more than 4 months since you joined this program with no payment recorded. Please make a payment (in full or as an installment) to regain access to simulation session booking — contact your institutional coordinator if you need to arrange this.",
+            });
+          }
         }
 
         // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
@@ -971,6 +1036,57 @@ export const coursesRouter = router({
   }),
 
   // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PHASE3-OVERFLOW: Platform-admin-only. Grants one named learner
+  // explicit permission to book one named out-of-facility Phase 3 (hands-on)
+  // session — the overflow valve for facilities that haven't reached 8
+  // Phase-3-ready learners (CEO decision, 2026-07-19). No equivalent exists
+  // for Phase 2 — that stays strictly same-facility, by design.
+  // ─────────────────────────────────────────────────────────────────────────
+  approvePhase3CrossFacilityOverflow: protectedProcedure
+    .input(z.object({
+      staffMemberId: z.number().int().positive(),
+      scheduleId: z.number().int().positive(),
+      notes: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform admins can approve cross-facility Phase 3 overflow bookings." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [session] = await db
+        .select({ id: trainingSchedules.id, trainingType: trainingSchedules.trainingType })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      if (session.trainingType !== "hands_on" && session.trainingType !== "hybrid") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cross-facility overflow approval only applies to Phase 3 (hands-on) sessions." });
+      }
+
+      const existing = await db
+        .select({ id: phase3CrossFacilityApprovals.id })
+        .from(phase3CrossFacilityApprovals)
+        .where(and(
+          eq(phase3CrossFacilityApprovals.staffMemberId, input.staffMemberId),
+          eq(phase3CrossFacilityApprovals.scheduleId, input.scheduleId)
+        ))
+        .limit(1);
+      if (existing.length > 0) {
+        return { success: true, alreadyApproved: true };
+      }
+
+      await db.insert(phase3CrossFacilityApprovals).values({
+        staffMemberId: input.staffMemberId,
+        scheduleId: input.scheduleId,
+        approvedByUserId: ctx.user.id,
+        notes: input.notes,
+      });
+      return { success: true, alreadyApproved: false };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
   // AHA-ENROLL-1: Upsert an AHA enrollment row and return its id.
   // Called by the course player on first quiz submit so recordQuizAttempt
   // always has a valid enrollmentId even on a first visit.
@@ -1027,6 +1143,8 @@ export const coursesRouter = router({
         phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
         phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
         designation: institutionalStaffMembers.designation,
+        enrollmentDate: institutionalStaffMembers.enrollmentDate,
+        createdAt: institutionalStaffMembers.createdAt,
       })
       .from(institutionalStaffMembers)
       .where(and(
@@ -1057,6 +1175,16 @@ export const coursesRouter = router({
     const leaderSessions = simRows.filter((r) => r.role === "team_leader").length;
     const phase2Complete = memberSessions >= 3 && leaderSessions >= 3;
 
+    // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
+    // Surfaced here so the dashboard can warn a learner as the 4-month deadline
+    // approaches, not just block them silently once it's already passed.
+    const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"];
+    const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+    const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
+    const joinedAt = s.enrollmentDate ?? s.createdAt;
+    const paymentDeadline = isIntern && joinedAt ? new Date(new Date(joinedAt).getTime() + FOUR_MONTHS_MS) : null;
+    const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
+
     return {
       staffMemberId: s.id,
       phaseStatus: s.phaseStatus,
@@ -1069,6 +1197,8 @@ export const coursesRouter = router({
       totalPaid: paid,
       balance: Math.max(0, subsidisedFee - paid),
       isPaidInFull: paid >= subsidisedFee,
+      paymentDeadline: paymentDeadline ? paymentDeadline.toISOString() : null,
+      paymentLockoutActive,
     };
   }),
 });

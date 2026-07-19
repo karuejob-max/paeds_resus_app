@@ -21,7 +21,7 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
   providerType: mysqlEnum("providerType", ["nurse", "doctor", "pharmacist", "paramedic", "lab_tech", "respiratory_therapist", "midwife", "other"]),
-  userType: mysqlEnum("userType", ["individual", "institutional"]).default("individual"),
+  userType: mysqlEnum("userType", ["individual", "institutional", "parent"]).default("individual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -481,7 +481,7 @@ export const featureFlags = mysqlTable("featureFlags", {
   description: text("description"),
   isEnabled: boolean("isEnabled").default(false),
   rolloutPercentage: int("rolloutPercentage").default(0), // 0-100%
-  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional"]).default("all"),
+  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional", "parent"]).default("all"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1152,6 +1152,25 @@ export const individualInstallmentPayments = mysqlTable("individualInstallmentPa
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// Subsidised ACLS/BLS Cohort Program — Phase 3 cross-facility overflow valve
+// (CEO decision, 2026-07-19). Phase 2 (online team simulation) is always
+// same-facility, no exceptions — that's where the team-training clinical
+// value lives. Phase 3 (hands-on Megacode, closer to individual competency
+// assessment) defaults to same-facility too, but a platform admin may
+// explicitly approve a specific Phase-3-ready learner to book a specific
+// out-of-facility session, so a small facility that hasn't reached 8
+// Phase-3-ready learners doesn't bottleneck them. One row per
+// (staffMemberId, scheduleId) — a visible, logged exception, not a
+// standing permission.
+export const phase3CrossFacilityApprovals = mysqlTable("phase3CrossFacilityApprovals", {
+  id: int("id").autoincrement().primaryKey(),
+  staffMemberId: int("staffMemberId").notNull(),
+  scheduleId: int("scheduleId").notNull(),
+  approvedByUserId: int("approvedByUserId").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type TrainingAttendance = typeof trainingAttendance.$inferSelect;
