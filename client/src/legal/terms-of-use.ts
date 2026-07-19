@@ -83,6 +83,7 @@ export const termsOfUseDocument: LegalDocumentMeta = {
       paragraphs: [
         "Prices are shown at checkout in Kenyan Shillings unless stated otherwise. M-Pesa STK push charges your Safaricom line per Safaricom terms.",
         "Refunds: (a) Duplicate charges — full refund within 14 days of proof; (b) Course not started — refund minus payment fees within 7 days of enrollment if no modules accessed; (c) Technical failure preventing access — pro-rata or credit at our discretion; (d) No refund after certificate issuance or substantial module completion unless required by law.",
+        "Subsidised ACLS/BLS Cohort Programme (institutional nurses and interns, KES 15,000 Kenya pricing): all payments, including partial and instalment payments, are non-refundable regardless of completion, withdrawal, or inability to progress — this overrides the general refund window above for this programme specifically. Phase 3 (hands-on Megacode, final exam, certification) requires full payment first. Interns whose account shows zero payment four months after joining lose the ability to book further online simulation sessions until a payment is made.",
         "Chargebacks without contacting support first may result in account suspension.",
       ],
     },

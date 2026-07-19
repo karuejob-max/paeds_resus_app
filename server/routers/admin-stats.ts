@@ -11,6 +11,7 @@ import {
   certificates,
   analyticsEvents,
   parentSafeTruthSubmissions,
+  safeTruthSubmissions,
   clinicalReferrals,
   adminAuditLog,
   resusGPSSessions,
@@ -117,7 +118,7 @@ export const adminStatsRouter = router({
         return {
           ok: false,
           error: "Database not available",
-          usersByType: { individual: 0, parent: 0, institutional: 0 },
+          usersByType: { individual: 0, institutional: 0 },
           enrollmentsThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
@@ -149,7 +150,6 @@ export const adminStatsRouter = router({
       const allUsers = await db.select({ userType: users.userType }).from(users);
       const usersByType = {
         individual: allUsers.filter((u) => u.userType === "individual").length,
-        parent: allUsers.filter((u) => u.userType === "parent").length,
         institutional: allUsers.filter((u) => u.userType === "institutional").length,
       };
 
@@ -177,7 +177,12 @@ export const adminStatsRouter = router({
         fellowship: certsInMonth.filter((c) => c.programType === "fellowship").length,
       };
 
-      // Parent Safe-Truth submissions this month
+      // Safe-Truth usage this month (PSOT §8, corrected 2026-07 -- Safe-Truth v1 shipped
+      // 2026-07-16 as a genuinely no-login flow at /safe-truth (safeTruthSubmissions table)
+      // and the old authenticated /parent-safe-truth flow (parentSafeTruthSubmissions) was
+      // retired the same cycle. This KPI now counts BOTH tables' submissions in the period
+      // so the number reflects real usage rather than freezing at whatever the old table's
+      // count was on the day the old flow's write path was disabled.
       const parentSubmissions = await db
         .select({ id: parentSafeTruthSubmissions.id })
         .from(parentSafeTruthSubmissions)
@@ -187,7 +192,16 @@ export const adminStatsRouter = router({
             lte(parentSafeTruthSubmissions.createdAt, periodEnd)
           )
         );
-      const parentSafeTruthThisMonth = parentSubmissions.length;
+      const safeTruthV1Submissions = await db
+        .select({ id: safeTruthSubmissions.id })
+        .from(safeTruthSubmissions)
+        .where(
+          and(
+            gte(safeTruthSubmissions.observationTimestamp, periodStart),
+            lte(safeTruthSubmissions.observationTimestamp, periodEnd)
+          )
+        );
+      const parentSafeTruthThisMonth = parentSubmissions.length + safeTruthV1Submissions.length;
 
       // Clinical referrals this month
       const referralsInMonth = await db
@@ -372,7 +386,7 @@ export const adminStatsRouter = router({
     .input(
       z
         .object({
-          userType: z.enum(["individual", "parent", "institutional"]).optional(),
+          userType: z.enum(["individual", "institutional"]).optional(),
           search: z.string().max(200).optional(),
           limit: z.number().min(1).max(500).default(100),
           offset: z.number().min(0).default(0),
