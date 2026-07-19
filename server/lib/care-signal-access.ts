@@ -10,11 +10,8 @@ export function isCareSignalProviderUser(user: CareSignalAccessUser): boolean {
   return user.userType === "individual" || user.userType === "institutional";
 }
 
-export function getCareSignalAccessDeniedMessage(user: CareSignalAccessUser): string {
-  if (user.userType === "parent") {
-    return "Care Signal is for healthcare providers. Parents: use Parent Safe-Truth to share your story.";
-  }
-  return "Your account is not set up for Care Signal. Register or update Account Settings as a healthcare provider or hospital staff account.";
+export function getCareSignalAccessDeniedMessage(_user: CareSignalAccessUser): string {
+  return "Your account is not set up for Care Signal. Register or update Account Settings as a healthcare provider or hospital staff account. If you're a parent or caregiver, share your story through Safe-Truth instead — no account needed.";
 }
 
 /**

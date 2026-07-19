@@ -17,7 +17,7 @@ export const BottomNav: React.FC = () => {
         { path: "/start", label: "Start", icon: Compass },
         { path: "/resus", label: "Resus", icon: Siren },
         { path: "/institutional", label: "Hospitals", icon: Users },
-        { path: "/parent-safe-truth", label: "Parents", icon: MessageCircle },
+        { path: "/safe-truth", label: "Parents", icon: MessageCircle },
       ];
     }
 
@@ -36,14 +36,6 @@ export const BottomNav: React.FC = () => {
         { path: "/hospital-admin-dashboard", label: "Home", icon: Home },
         { path: "/hospital-admin-dashboard", label: "Dashboard", icon: BarChart3 },
         { path: "/advanced-analytics", label: "Analytics", icon: Users },
-      ];
-    }
-
-    if (role === "parent") {
-      return [
-        { path: "/parent-safe-truth", label: "Home", icon: Home },
-        { path: "/parent-safe-truth", label: "Stories", icon: MessageCircle },
-        { path: "/personal-impact", label: "Impact", icon: TrendingUp },
       ];
     }
 

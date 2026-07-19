@@ -266,7 +266,8 @@ export const careSignalEventsRouter = router({
     }),
 
   /**
-   * Log a Care Signal event (clinical staff) or parent-observation (parent Safe-Truth short-form).
+   * Log a Care Signal event (clinical staff only). Safe-Truth (parent/caregiver
+   * stories) is a separate, unauthenticated flow — see parentSafeTruth router.
    * Returns immediate recommendations so the confirmation modal can display actionable feedback.
    */
   logEvent: protectedProcedure
@@ -331,8 +332,6 @@ export const careSignalEventsRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         assertCareSignalProviderOrAdmin(ctx.user);
-        const isParentStory =
-          input.eventType === "parent-observation" && ctx.user.userType === "parent";
 
         const db = await getDb();
         if (!db) {
@@ -343,21 +342,20 @@ export const careSignalEventsRouter = router({
         }
 
         // ── §5.5 submission mode resolution (gap-analysis #10) ────────────────
-        // Parent/caregiver Safe-Truth stories keep their existing isAnonymous-
-        // driven behavior for now — that's item #11's design conversation, not
-        // this one. This block only governs PROVIDER submissions.
-        const resolvedSubmissionMode: "named" | "pseudonymous" | "anonymous" = isParentStory
-          ? "named" // unused for parent stories; identity resolved separately below
-          : (input.submissionMode ?? (input.isAnonymous ? "anonymous" : "named"));
+        // This block governs PROVIDER submissions. Safe-Truth (parent/caregiver
+        // stories) is a fully separate, unauthenticated flow (parentSafeTruthSubmissions)
+        // that never reaches this router — see North Star §6.1 and §9.2.
+        const resolvedSubmissionMode: "named" | "pseudonymous" | "anonymous" =
+          input.submissionMode ?? (input.isAnonymous ? "anonymous" : "named");
 
-        if (!isParentStory && resolvedSubmissionMode === "pseudonymous" && !input.fellowshipTokenId) {
+        if (resolvedSubmissionMode === "pseudonymous" && !input.fellowshipTokenId) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "A Fellowship token is required for pseudonymous submissions.",
           });
         }
 
-        if (!isParentStory && resolvedSubmissionMode === "pseudonymous") {
+        if (resolvedSubmissionMode === "pseudonymous") {
           const token = await getFellowshipTokenByTokenId(input.fellowshipTokenId!);
           if (!token) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown Fellowship token." });
@@ -369,7 +367,7 @@ export const careSignalEventsRouter = router({
         let facilityCounty: string | null = null;
         let facilityCountry: string | null = null;
 
-        if (!isParentStory) {
+        {
           let facilityId = input.facilityId ?? null;
           if (!facilityId) {
             const [profile] = await db
@@ -444,25 +442,14 @@ export const careSignalEventsRouter = router({
         }
 
         const insertResult = await db.insert(careSignalEvents).values({
-          // Provider submissions: identity storage now driven entirely by
+          // Provider submissions: identity storage driven entirely by
           // submissionMode (gap-analysis #10) — 'named' stores the real
           // userId, 'pseudonymous' stores only the token, 'anonymous' stores
-          // neither. Parent/caregiver stories keep their pre-existing
-          // isAnonymous-driven behavior (item #11 territory).
-          userId: isParentStory
-            ? input.isAnonymous
-              ? null
-              : ctx.user.id
-            : resolvedSubmissionMode === "named"
-              ? ctx.user.id
-              : null,
-          submissionMode: isParentStory
-            ? input.isAnonymous
-              ? "anonymous"
-              : "named"
-            : resolvedSubmissionMode,
+          // neither.
+          userId: resolvedSubmissionMode === "named" ? ctx.user.id : null,
+          submissionMode: resolvedSubmissionMode,
           fellowshipTokenId:
-            !isParentStory && resolvedSubmissionMode === "pseudonymous" ? input.fellowshipTokenId : null,
+            resolvedSubmissionMode === "pseudonymous" ? input.fellowshipTokenId : null,
           facilityId: resolvedFacilityId,
           eventDate: new Date(input.eventDate),
           childAge: input.childAge,
@@ -553,13 +540,7 @@ export const careSignalEventsRouter = router({
 
         console.log("[Care Signal Event Logged]", {
           id: insertId,
-          provider: isParentStory
-            ? input.isAnonymous
-              ? "ANONYMOUS"
-              : ctx.user.id
-            : resolvedSubmissionMode === "named"
-              ? ctx.user.id
-              : resolvedSubmissionMode.toUpperCase(),
+          provider: resolvedSubmissionMode === "named" ? ctx.user.id : resolvedSubmissionMode.toUpperCase(),
           eventType: input.eventType,
           childAge: input.childAge,
           outcome: input.outcome,
@@ -569,7 +550,7 @@ export const careSignalEventsRouter = router({
           timestamp: new Date().toISOString(),
         });
 
-        if (!isParentStory) {
+        {
           // Fellowship credit sync (gap-analysis #10): 'named' syncs the
           // user's fellowshipProgress row as before; 'pseudonymous' syncs
           // the token's own ledger instead; true 'anonymous' (Layer 1) gets

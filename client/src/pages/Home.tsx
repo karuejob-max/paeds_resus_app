@@ -7,13 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { Stethoscope, Building2, Heart } from "lucide-react";
+import { Stethoscope, Building2 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getLoginUrl } from "@/const";
 
 const ProviderDashboard = lazy(() => import("./ProviderDashboard"));
 
-type UserType = "individual" | "parent" | "institutional";
+type UserType = "individual" | "institutional";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -35,26 +35,18 @@ export default function Home() {
     }
   }, [loading, user, setLocation]);
 
-  // When user has chosen "parent" or "institution" in the Header, redirect to that area (so default landing matches role)
+  // When user has chosen "institution" in the Header, redirect to that area (so default landing matches role)
   const { role } = useUserRole();
   useEffect(() => {
     if (loading || !user) return;
     // If they explicitly chose a role via the header dropdown, respect that choice
     // (role takes precedence over userType from database)
     if (role === "provider") return; // Stay on provider hub
-    if (role === "parent") {
-      setLocation("/parent-safe-truth");
-      return;
-    }
     if (role === "institution") {
       setLocation("/hospital-admin-dashboard");
       return;
     }
     // If no explicit role chosen yet, use userType from database
-    if (userType === "parent") {
-      setLocation("/parent-safe-truth");
-      return;
-    }
     if (userType === "institutional") {
       setLocation("/hospital-admin-dashboard");
       return;
@@ -72,8 +64,7 @@ export default function Home() {
       { userType: type },
       {
         onSuccess: () => {
-          if (type === "parent") setLocation("/parent-safe-truth");
-          else if (type === "institutional") setLocation("/hospital-admin-dashboard");
+          if (type === "institutional") setLocation("/hospital-admin-dashboard");
         },
       }
     );
@@ -113,14 +104,6 @@ export default function Home() {
                 </div>
               </Label>
               <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
-                <RadioGroupItem value="parent" id="onb-parent" />
-                <Heart className="h-5 w-5" />
-                <div>
-                  <p className="font-medium">Parent / Caregiver</p>
-                  <p className="text-sm text-muted-foreground">Learn pediatric emergency response, first aid, and safety tips for your family</p>
-                </div>
-              </Label>
-              <Label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50 has-[[data-state=checked]]:border-primary">
                 <RadioGroupItem value="institutional" id="onb-institutional" />
                 <Building2 className="h-5 w-5" />
                 <div>
@@ -129,6 +112,13 @@ export default function Home() {
                 </div>
               </Label>
             </RadioGroup>
+            <p className="text-sm text-center text-muted-foreground">
+              Parent or caregiver? Safe-Truth needs no account —{" "}
+              <a href="/safe-truth" className="underline">
+                share your story here
+              </a>
+              .
+            </p>
           </CardContent>
           <div className="px-6 pb-4 text-center">
             <p className="text-xs text-muted-foreground">You can change your role anytime from the account menu</p>

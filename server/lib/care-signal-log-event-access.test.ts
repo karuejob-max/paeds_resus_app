@@ -114,14 +114,14 @@ describe("careSignalEvents.logEvent access", () => {
     expect(mockInsertValues).toHaveBeenCalled();
   });
 
-  it("blocks parent accounts with Parent Safe-Truth copy", async () => {
+  it("blocks non-provider accounts (e.g. retired parent userType) and points to Safe-Truth", async () => {
     const caller = appRouter.createCaller(
-      createAuthContext({ userType: "parent", providerType: null, email: "parent@example.com" })
+      createAuthContext({ userType: "parent" as never, providerType: null, email: "parent@example.com" })
     );
 
     await expect(caller.careSignalEvents.logEvent(logEventInput)).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: expect.stringContaining("Parent Safe-Truth"),
+      message: expect.stringContaining("Safe-Truth"),
     });
     expect(mockInsertValues).not.toHaveBeenCalled();
   });

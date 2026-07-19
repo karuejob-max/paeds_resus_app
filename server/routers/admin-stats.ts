@@ -117,7 +117,7 @@ export const adminStatsRouter = router({
         return {
           ok: false,
           error: "Database not available",
-          usersByType: { individual: 0, parent: 0, institutional: 0 },
+          usersByType: { individual: 0, institutional: 0 },
           enrollmentsThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           certificatesThisMonth: { bls: 0, acls: 0, pals: 0, fellowship: 0 },
           parentSafeTruthThisMonth: 0,
@@ -149,7 +149,6 @@ export const adminStatsRouter = router({
       const allUsers = await db.select({ userType: users.userType }).from(users);
       const usersByType = {
         individual: allUsers.filter((u) => u.userType === "individual").length,
-        parent: allUsers.filter((u) => u.userType === "parent").length,
         institutional: allUsers.filter((u) => u.userType === "institutional").length,
       };
 
@@ -372,7 +371,7 @@ export const adminStatsRouter = router({
     .input(
       z
         .object({
-          userType: z.enum(["individual", "parent", "institutional"]).optional(),
+          userType: z.enum(["individual", "institutional"]).optional(),
           search: z.string().max(200).optional(),
           limit: z.number().min(1).max(500).default(100),
           offset: z.number().min(0).default(0),

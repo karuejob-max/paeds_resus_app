@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Heart, Briefcase, Shield } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { getLoginUrl } from "@/const";
@@ -13,11 +13,10 @@ import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
 
-function mapUserTypeToHeaderRole(ut: string | null | undefined): "provider" | "parent" | "institution" | null {
+function mapUserTypeToHeaderRole(ut: string | null | undefined): "provider" | "institution" | null {
   if (!ut) return null;
-  const m: Record<string, "provider" | "parent" | "institution"> = {
+  const m: Record<string, "provider" | "institution"> = {
     individual: "provider",
-    parent: "parent",
     institutional: "institution",
   };
   return m[ut] ?? null;
@@ -58,9 +57,8 @@ export default function Header() {
   // Sync role from userType when authenticated and role not set (e.g. after login)
   useEffect(() => {
     if (!isAuthenticated || !user?.userType || role) return;
-    const map: Record<string, "provider" | "parent" | "institution"> = {
+    const map: Record<string, "provider" | "institution"> = {
       individual: "provider",
-      parent: "parent",
       institutional: "institution",
     };
     const r = map[user.userType];
@@ -89,13 +87,6 @@ export default function Header() {
         { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
-    if (r === "parent") {
-      return [
-        { label: "Dashboard", href: "/parent-safe-truth", icon: "🏠" },
-        { label: "Safe-Truth", href: "/parent-safe-truth", icon: "🧡" },
-        { label: "Resources", href: "/help", icon: "📖" },
-      ];
-    }
     return [];
   };
 
@@ -107,7 +98,6 @@ export default function Header() {
 
   const roleOptions = [
     { value: "provider", label: "Healthcare Provider", icon: Stethoscope },
-    { value: "parent", label: "Parent/Caregiver", icon: Heart },
     { value: "institution", label: "Institution", icon: Briefcase },
   ];
 
@@ -161,9 +151,8 @@ export default function Header() {
               aria-label={`Current role: ${effectiveRole}. Tap to switch.`}
             >
               {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
-              {effectiveRole === 'parent' && <Heart className="w-3.5 h-3.5" />}
               {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
-              <span className="capitalize">{effectiveRole === 'provider' ? 'Provider' : effectiveRole === 'institution' ? 'Institution' : 'Parent'}</span>
+              <span className="capitalize">{effectiveRole === 'provider' ? 'Provider' : 'Institution'}</span>
             </button>
           )}
 
@@ -179,7 +168,6 @@ export default function Header() {
                 className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium border border-border focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
-                {effectiveRole === "parent" && <Heart className="w-4 h-4" />}
                 {effectiveRole === "institution" && <Briefcase className="w-4 h-4" />}
                 <span className="capitalize">{effectiveRole}</span>
                 <ChevronDown className={`w-4 h-4 transition ${roleDropdownOpen ? "rotate-180" : ""}`} />
@@ -201,7 +189,7 @@ export default function Header() {
                           role="option"
                           aria-selected={effectiveRole === option.value}
                           onClick={() => {
-                            const r = option.value as "provider" | "parent" | "institution";
+                            const r = option.value as "provider" | "institution";
                             const prev = effectiveRole;
                             setUserRole(r);
                             setRoleDropdownOpen(false);
@@ -210,7 +198,6 @@ export default function Header() {
                               return;
                             }
                             if (r === "provider") setLocation("/home");
-                            else if (r === "parent") setLocation("/parent-safe-truth");
                             else setLocation("/hospital-admin-dashboard");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
@@ -329,7 +316,7 @@ export default function Header() {
                             Account settings
                           </div>
                         </Link>
-                        <Link href={effectiveRole === "parent" ? "/parent-safe-truth" : effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
+                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -347,7 +334,7 @@ export default function Header() {
                             </div>
                           </Link>
                         )}
-                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : effectiveRole === "parent" ? "/parent-safe-truth" : "/provider-profile"}>
+                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/provider-profile"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -447,7 +434,7 @@ export default function Header() {
                     <button
                       key={option.value}
                       onClick={() => {
-                        const r = option.value as "provider" | "parent" | "institution";
+                        const r = option.value as "provider" | "institution";
                         const prev = effectiveRole;
                         setUserRole(r);
                         setMobileMenuOpen(false);
@@ -456,7 +443,6 @@ export default function Header() {
                           return;
                         }
                         if (r === "provider") setLocation("/home");
-                        else if (r === "parent") setLocation("/parent-safe-truth");
                         else setLocation("/hospital-admin-dashboard");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${

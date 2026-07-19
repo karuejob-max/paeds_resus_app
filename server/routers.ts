@@ -157,7 +157,7 @@ export const appRouter = router({
           "Password must contain at least one letter and one number"
         ),
         name: z.string().min(1, "Enter your full name as it should appear on your certificate").max(200),
-        userType: z.enum(["individual", "parent", "institutional"]),
+        userType: z.enum(["individual", "institutional"]),
         phoneMode: z.enum(["ke", "intl"]).optional(),
         phoneValue: z.string().max(64).optional(),
         acceptTerms: z.literal(true, { message: "You must accept the Terms of Use" }),
@@ -250,7 +250,7 @@ export const appRouter = router({
         return { success: true };
       }),
     updateUserType: protectedProcedure
-      .input(z.object({ userType: z.enum(["individual", "parent", "institutional"]) }))
+      .input(z.object({ userType: z.enum(["individual", "institutional"]) }))
       .mutation(async ({ input, ctx }) => {
         await db.updateUserType(ctx.user.id, input.userType);
         if (input.userType === "individual") {

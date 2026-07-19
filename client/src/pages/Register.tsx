@@ -21,7 +21,7 @@ import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
 import type { PhoneCountryMode } from "@shared/user-phone";
 import { normalizeUserPhone } from "@shared/user-phone";
 
-type UserType = "individual" | "parent" | "institutional";
+type UserType = "individual" | "institutional";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -128,10 +128,16 @@ export default function Register() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="individual">Healthcare provider (clinical staff)</SelectItem>
-                  <SelectItem value="parent">Parent or caregiver</SelectItem>
                   <SelectItem value="institutional">Hospital or institution</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-sm text-muted-foreground">
+                Parent or caregiver? Safe-Truth needs no account —{" "}
+                <a href="/safe-truth" className="underline">
+                  share your story here
+                </a>
+                .
+              </p>
             </div>
 
             <div className="space-y-2">
