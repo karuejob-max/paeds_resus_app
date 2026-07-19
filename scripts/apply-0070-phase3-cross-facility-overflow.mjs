@@ -1,6 +1,15 @@
 /**
- * Idempotent: migration 0069 — Phase 3 cross-facility overflow valve
+ * Idempotent: migration 0070 — Phase 3 cross-facility overflow valve
  * (Subsidised ACLS/BLS Cohort Program, CEO decision 2026-07-19).
+ *
+ * Renumbered from 0069 to 0070 (2026-07-19): a parallel PR
+ * (`scripts/apply-0069-retire-parent-usertype.mjs`) claimed migration 0069
+ * first and merged to main ahead of this one, producing a real
+ * migration-number collision — exactly the failure mode
+ * AGENTS.md's "check the highest apply-00NN number right before naming"
+ * convention exists to prevent. Both scripts existed under "0069" briefly;
+ * this one is renumbered to resolve it cleanly rather than leave two files
+ * claiming the same number.
  *
  * New table:
  *   - phase3CrossFacilityApprovals — one row per (staffMemberId, scheduleId)
@@ -9,7 +18,7 @@
  *     an institution other than their own. Phase 2 (online team simulation)
  *     has no equivalent override — it is always same-facility.
  *
- * Run: pnpm run db:apply-0069
+ * Run: pnpm run db:apply-0070
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
@@ -26,16 +35,16 @@ async function tableExists(conn, table) {
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    console.error("[0069] DATABASE_URL is required.");
+    console.error("[0070] DATABASE_URL is required.");
     process.exit(1);
   }
 
   const conn = await createMysqlConnection(databaseUrl, mysql);
   try {
-    console.log("[0069] Running Phase 3 cross-facility overflow migration…");
+    console.log("[0070] Running Phase 3 cross-facility overflow migration…");
 
     if (await tableExists(conn, "phase3CrossFacilityApprovals")) {
-      console.log("[0069]   ✓ phase3CrossFacilityApprovals already exists — skipping.");
+      console.log("[0070]   ✓ phase3CrossFacilityApprovals already exists — skipping.");
     } else {
       await conn.query(`
         CREATE TABLE \`phase3CrossFacilityApprovals\` (
@@ -49,16 +58,16 @@ async function main() {
           KEY \`phase3CrossFacilityApprovals_staff_schedule_idx\` (\`staffMemberId\`, \`scheduleId\`)
         )
       `);
-      console.log("[0069]   + Created phase3CrossFacilityApprovals.");
+      console.log("[0070]   + Created phase3CrossFacilityApprovals.");
     }
 
-    console.log("[0069] Done. Phase 3 cross-facility overflow table is present.");
+    console.log("[0070] Done. Phase 3 cross-facility overflow table is present.");
   } finally {
     await conn.end();
   }
 }
 
 main().catch((err) => {
-  console.error("[0069] Fatal error:", err);
+  console.error("[0070] Fatal error:", err);
   process.exit(1);
 });

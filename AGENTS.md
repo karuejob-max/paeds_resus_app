@@ -322,7 +322,7 @@ Cohort training is same-facility by design — the clinical value of Phase 2 (sh
 
 ### Key Files & Locations
 - **Database Schema:** `drizzle/schema.ts` (new columns on `institutionalStaffMembers` and `trainingAttendance`; tables `individualInstallmentPayments`, `phase3CrossFacilityApprovals`).
-- **Migration & Apply Scripts:** `drizzle/0045_*.sql` + `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`); `scripts/apply-0069-phase3-cross-facility-overflow.mjs` (`pnpm run db:apply-0069`).
+- **Migration & Apply Scripts:** `drizzle/0045_*.sql` + `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`); `scripts/apply-0070-phase3-cross-facility-overflow.mjs` (`pnpm run db:apply-0070`).
 - **Backend Routing:** `courses.ts` (`getPhaseSummary`, `bookHandsOnSession` facility + phase + payment gates, `approvePhase3CrossFacilityOverflow`), `institution.ts` (`uploadPhase1Proof` + `approvePhase1Proof`), `payments.ts` (`getIndividualBalance`).
 - **Frontend Pages:** `LearnerDashboard.tsx` (payment ledger, `Phase1ProofUploadCard`), `InstitutionalPortal.tsx` (cohort progress analytics, `Phase1ProofReviewWidget`).
 - **Legal:** `docs/legal/TERMS_OF_USE_FULL.md` §6.4, `client/src/legal/terms-of-use.ts` §9, `shared/legal-versions.ts`.
