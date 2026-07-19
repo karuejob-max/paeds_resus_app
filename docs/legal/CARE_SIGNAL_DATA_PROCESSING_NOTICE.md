@@ -1,9 +1,9 @@
 # Care Signal — Data Processing Notice
 
 **Document:** CARE_SIGNAL_DATA_PROCESSING_NOTICE.md  
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Effective date:** 27 May 2026  
-**Last updated:** 27 May 2026  
+**Last updated:** 19 July 2026  
 **Status:** Counsel review draft  
 **Controller:** Paeds Resus Limited, Nairobi, Kenya  
 **Contact:** privacy@paeds-resus.com | legal@paeds-resus.com  
@@ -40,8 +40,18 @@ By submitting your first Care Signal report, you provide **explicit consent** to
 | Systems factors | Delays, equipment gaps, staffing, handover issues | — |
 | Preventability | Structured preventability assessment | — |
 | Narrative | Free-text description | **Must not** include patient names, IDs, addresses, photos |
-| Provider link | Your user ID, institutional affiliation | Provider identified to platform |
+| Provider link | Depends on submission mode (see below) | Varies by mode |
 | Technical | IP, user agent on consent; rate-limit counters | — |
+
+**Submission mode (added since v1.0.0):** every report is filed under one of three modes, chosen by you at submission time, each with a different provider-link footprint:
+
+| Mode | What's linked | Fellowship credit |
+|------|---------------|--------------------|
+| **Named** | Your real account `userId` | Yes, via your account |
+| **Pseudonymous** | A Fellowship token — a generated ID with a one-time recovery code, held on your device only, never linked to your real account | Yes, via the token |
+| **Anonymous** | Nothing — no `userId`, no token | No |
+
+If you choose Pseudonymous and lose your device without having saved the recovery code, the streak tied to that token cannot be recovered — there is no plain link stored anywhere for us to look it up, by design.
 
 Schema reference: `careSignalEvents` in `drizzle/schema.ts` — no patient identifier columns by design.
 
@@ -70,7 +80,7 @@ Schema reference: `careSignalEvents` in `drizzle/schema.ts` — no patient ident
 | **MOH / WHO partners** | Only under signed governance — **not** routine public disclosure |
 | **Other providers** | Not your individual reports (unless you share them) |
 
-Reports are **de-identified from patients** but **not anonymous** to Paeds Resus or authorised institutional viewers. Marketing copy must not describe Care Signal as “anonymous.”
+Reports are always **de-identified from patients** regardless of submission mode. Whether a report is also de-identified from Paeds Resus depends on the mode you chose at submission (Section 3): **Named** and **Pseudonymous** reports carry a real or token-based provider link respectively and are not anonymous to Paeds Resus; **Anonymous** reports genuinely carry no identity link at all. Marketing copy must describe Care Signal's anonymity accurately per the mode being discussed, not as a blanket claim either way.
 
 ---
 
@@ -78,9 +88,11 @@ Reports are **de-identified from patients** but **not anonymous** to Paeds Resus
 
 | Item | Period |
 |------|--------|
-| Individual Care Signal events | **7 years** from submission (QI and limitation alignment — counsel to confirm) |
+| Individual Care Signal events | **7 years** from submission, then **anonymised, not deleted** — the provider link (if any) is removed and the free-text narrative is redacted of structured identifiers, rather than the row being purged. The same treatment applies to an erasure request received before the 7-year mark. |
 | Consent records | Account lifetime + **6 years** |
-| Aggregates derived from events | May be retained in statistical form after event purge |
+| Aggregates derived from events | Unaffected by anonymisation, since they never carried row-level identity to begin with |
+
+**Named/pseudonymous reports specifically:** anonymisation at 7 years (or on an erasure request) removes the `userId`/token link retroactively — the report itself, its clinical content, and its contribution to Fellowship history up to that point are preserved, but it can no longer be traced back to you. This does not undo Fellowship credit already earned.
 
 See DATA_RETENTION_SCHEDULE.md for operational purge procedures.
 
@@ -158,6 +170,7 @@ Version tracked as `LEGAL_DOCUMENT_VERSIONS.careSignalNotice`. Material changes 
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | 2026-05-27 | Initial Care Signal notice |
+| 1.1.0 | 2026-07-19 | Catch-up revision, still pending counsel review: §3 rewritten for the three-way submission mode (named/pseudonymous/anonymous); §5 corrected — no longer claims every report is identified to Paeds Resus, since Anonymous mode genuinely has no identity link; §6 retention rewritten for anonymise-not-delete. **CEO decision (2026-07-19): re-consent existing users now** — see `PRIVACY_POLICY_FULL.md`'s matching changelog entry and `LEGAL_SIGNOFF_BACKLOG.md` item 2.1. |
 
 ---
 

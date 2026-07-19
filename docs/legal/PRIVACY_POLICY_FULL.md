@@ -1,9 +1,9 @@
 # Privacy Policy
 
 **Document:** PRIVACY_POLICY_FULL.md  
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Effective date:** 27 May 2026  
-**Last updated:** 27 May 2026  
+**Last updated:** 19 July 2026  
 **Status:** Counsel review draft — not legal advice  
 **Data controller:** Paeds Resus Limited, Nairobi, Kenya  
 
@@ -80,19 +80,27 @@ This policy applies to personal data processed through:
 ### 3.4 Care Signal (QI data — not a medical record)
 
 - Facility, department, event type, delays, equipment gaps, outcome bands, preventability
-- Provider user ID (for fellowship integrity, rate limits, and facility aggregates)
 - Free-text narrative — **must not** contain patient identifiers
 - Consent version and timestamp at first submission
+- **Submission mode** (added — reflects the platform's current three-way model, replacing an earlier single anonymous checkbox): every Care Signal report is filed as one of three modes, each with a different identity footprint:
+  - **Named** — tied to your real provider account (`userId`).
+  - **Pseudonymous** — tied to a device-held Fellowship token (a generated ID and a one-time recovery code), never to your real account or `userId`. The token exists to preserve Fellowship credit without storing real identity; we cannot recover a lost token if you did not save its recovery code, by design — there is no plain link stored anywhere for us to look up.
+  - **Anonymous** — no identity stored at all, tied to neither an account nor a token.
+- Provider user ID or Fellowship token ID (for fellowship integrity and facility aggregates), scoped strictly to whichever submission mode was chosen at the time of filing
+
+**Retention and erasure — anonymise, not delete.** Care Signal reports are never hard-deleted, either at the end of the standard retention window (Section 11) or in response to a data-subject erasure request. Instead, the identity link (`userId`) is removed and the free-text narrative is redacted of structured identifiers (facility names, dates, phone numbers, emails, ID/passport numbers) before the report is retained as de-identified quality-improvement data. This is a deliberate CEO decision to preserve the clinical/QI value of an already-filed report while still honouring an erasure request's practical effect — it remains subject to full counsel review before being treated as final policy (see Section 2 of the internal `LEGAL_SIGNOFF_BACKLOG.md` tracker). Free-text mentions of a person's name in unstructured prose are not reliably caught by this automated redaction and may require manual review on a case-by-case DSAR request.
 
 **Care Signal is quality-improvement data.** It is **not** an electronic health record, hospital medical record, or substitute for employer or regulator mandatory reporting.
 
-### 3.5 Parent Safe-Truth
+### 3.5 Safe-Truth (parent/guardian care-journey reporting)
 
-- Guardian account data
-- Child age band, care journey timeline, facility experience narrative
-- Outcome selections (including bereavement-sensitive options)
-- Optional named guardian submission
-- Separate lawful basis and consent from Care Signal; **KPIs are never merged** with Care Signal
+Two Safe-Truth surfaces currently coexist on the platform:
+
+- **`/parent-safe-truth` (original, account-based flow)** — Guardian account data; child age band, care journey timeline, facility experience narrative; outcome selections (including bereavement-sensitive options); optional named guardian submission.
+- **`/safe-truth` (Safe-Truth v1, added — no account, no login at any point)** — A device-local disclaimer acknowledgement only (a standalone record never linked to any submission or identity); a free-text narrative; structured classifiers (country, region/county-equivalent, locality, facility, child age band, condition, outcome, an optional shareable event code); and four stages of care-journey detail (before/getting to/at/after care). No name, account, email, or phone number is collected or requested at any point in this flow. A hidden anti-bot field ("honeypot") and a daily submission-rate limit by IP address apply; the IP address itself is checked in memory against that limit and is **not stored** — this product is deliberately built to make durable IP retention unnecessary for a family reporting on a child's care.
+- In both flows: child age band, care journey timeline, facility experience narrative, and outcome selections (including bereavement-sensitive options) are collected. A caregiver may optionally enter a Care Signal event code from a provider's own report of the same clinical event; if a match is found, the two reports are linked internally for pattern analysis — this linkage is never shown to identify one report's submitter to the other.
+- Separate lawful basis and consent from Care Signal; **KPIs are never merged** with Care Signal.
+- Both flows' data is retained under the same anonymise-not-delete standing decision described in Section 3.4, adapted for Safe-Truth's already-largely-anonymous data model.
 
 ### 3.6 Training, Fellowship, and certificates
 
@@ -215,11 +223,12 @@ We require sub-processors to implement appropriate technical and organisational 
 
 ## 10. Children, parents, and guardians
 
-- **Parent Safe-Truth** is directed at parents and guardians; it may involve information about children (age bands, care experiences)
-- We process such data based on **guardian consent**, account terms, and legitimate interests in improving family-centred emergency care communication
-- **Bereavement-sensitive** submissions receive heightened internal handling (limited access, no marketing use)
+- **Safe-Truth** is directed at parents and guardians; it may involve information about children (age bands, care experiences)
+- On `/parent-safe-truth` (the original flow), we process such data based on **guardian consent**, account terms, and legitimate interests in improving family-centred emergency care communication
+- On `/safe-truth` (Safe-Truth v1, the no-account flow, added), there is no user account and therefore no account-level consent to obtain; instead, a one-time, device-local disclaimer is shown and acknowledged before the form is shown, confirming the submitter understands this is not an emergency-reporting or medical-advice channel — **counsel to confirm** this device-local acknowledgement is a sufficient and appropriate substitute for account-based consent in this no-login context
+- **Bereavement-sensitive** submissions receive heightened internal handling (limited access, no marketing use) on both flows
 - Providers using the platform for professional purposes are typically adults; where a minor accesses training, parental consent may be required — **counsel to confirm** age thresholds
-- Children’s data is not used for Care Signal KPIs or merged with provider QI metrics
+- Children's data is not used for Care Signal KPIs or merged with provider QI metrics
 
 ---
 
@@ -230,8 +239,9 @@ Detailed retention periods are in **DATA_RETENTION_SCHEDULE.md**. Summary:
 | Data class | Typical retention |
 |------------|-------------------|
 | Active account | While account is active + limited period after closure |
-| Care Signal events | 7 years online (QI/statute of limitations alignment — counsel to confirm) |
-| Safe-Truth events | 7 years with bereavement flag handling |
+| Care Signal events | 7 years, then **anonymised, not deleted** — identity link removed, narrative redacted of structured identifiers (see Section 3.4). The same anonymise-not-delete treatment applies to an erasure request received before the 7-year mark. |
+| Safe-Truth events | 7 years with bereavement flag handling; anonymise-not-delete applies here too, though most Safe-Truth v1 data is already unlinked to any account by design |
+| Fellowship pseudonymous tokens | Retained as long as the associated Care Signal streak/credit history is retained; revoking a token hides its Fellow-title display only, it does not delete the token or unlink already-earned credit |
 | ResusGPS sessionStorage | Until browser tab closes |
 | ResusGPS saved cases | Fellowship duration + 24 months |
 | Analytics raw events | 13 months |
@@ -343,6 +353,7 @@ We may update this policy. Material changes will be communicated via the platfor
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | 2026-05-27 | Initial counsel-ready full privacy policy draft |
+| 1.1.0 | 2026-07-19 | Catch-up revision for engineering shipped since v1.0.0, still pending counsel review: (1) §3.4 rewritten for the three-way Care Signal submission mode (named/pseudonymous/anonymous, replacing the old single anonymous checkbox) and the anonymise-not-delete standing decision; (2) §3.5 and §10 rewritten to describe both coexisting Safe-Truth surfaces — the original account-based `/parent-safe-truth` and the new no-account `/safe-truth` v1; (3) §11 retention table corrected from implying a hard purge to reflecting anonymise-not-delete, and a Fellowship token row added. **CEO decision (2026-07-19): re-consent existing users now** rather than waiting for counsel sign-off — `LEGAL_DOCUMENT_VERSIONS.privacyPolicy` bumped to `1.1.0` in `shared/legal-versions.ts`, so `isPrivacyConsentStale` now returns `true` for every existing user on their next protected action. If counsel later requires further substantive changes, users will be asked to re-consent again at that point — see `LEGAL_SIGNOFF_BACKLOG.md` item 2.1. |
 
 ---
 
