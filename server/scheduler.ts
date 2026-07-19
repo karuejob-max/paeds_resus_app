@@ -7,6 +7,7 @@ import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
 import { runSafeTruthFacilityMatching, runSafeTruthEventCodeLinkage } from "./lib/safe-truth-facility-matcher";
+import { runPatternDetection, runConfidenceDowngrade } from "./lib/fpkb-pattern-detector";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -60,6 +61,17 @@ export function initializeScheduler() {
   // linkage (gap-analysis #11). Was CLI-only (pnpm run safe-truth:match-facilities);
   // CEO asked for it to run automatically, 2026-07-17.
   scheduleSafeTruthFacilityMatching();
+
+  // FPKB concept drift: pattern detection + review-task creation + automated
+  // downgrade fallback (gap-analysis #12, FPKB_SCHEMA_V1.md §7.2). Was
+  // CLI-only (pnpm run fpkb:detect-patterns); CEO asked to proceed with
+  // building this out properly, 2026-07-17 — §7.2 specifies "a scheduled
+  // job (daily, running at 01:00 EAT)" explicitly, so this uses Nairobi
+  // timezone directly rather than a bare cron expression against server
+  // time, unlike this file's other jobs (whose "EAT" comments are
+  // aspirational labels, not timezone-aware — worth revisiting separately,
+  // flagged in WORK_STATUS.md, not silently fixed here).
+  scheduleConceptDriftReview();
 
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
@@ -163,7 +175,35 @@ function scheduleSafeTruthFacilityMatching() {
   });
 }
 
-/** Small helper so the two Safe-Truth job calls above don't each repeat the "no DB" guard. */
+/**
+ * FPKB concept drift (gap-analysis #12): pattern detection (links new
+ * observations, promotes confidence on sufficient evidence) + the
+ * review-task/downgrade-fallback pass. Runs in EXECUTE mode. §7.2 states
+ * the time explicitly ("01:00 EAT") — this is the one job in this file
+ * given an explicit `timezone` option rather than a bare cron expression,
+ * since the doc's requirement is about real-world low-traffic hours in
+ * Kenya, not "whatever the server happens to think 01:00 means."
+ */
+function scheduleConceptDriftReview() {
+  cron.schedule(
+    "0 1 * * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const detection = await runPatternDetection(db, { dryRun: false });
+        const downgrade = await runConfidenceDowngrade(db, { dryRun: false });
+        console.log(
+          `[Scheduler] FPKB concept drift: observations linked=${detection.newObservationsLinked}, patterns created=${detection.patternsCreated}, promoted=${detection.patternsPromoted.length}, review tasks created=${downgrade.reviewTasksCreated.length}, downgraded=${downgrade.downgraded.length}, moved to Under Review=${downgrade.movedToUnderReview.length}, retired=${downgrade.retired.length}`
+        );
+      } catch (error) {
+        console.error("[Scheduler] FPKB concept drift job failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" }
+  );
+}
+
+/** Small helper so scheduled jobs needing a DB connection don't each repeat the "no DB" guard. */
 async function requireDb() {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

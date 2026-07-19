@@ -97,6 +97,20 @@ describe("scheduler service", () => {
     });
   });
 
+  describe("FPKB concept drift job (gap-analysis #12, 2026-07-17)", () => {
+    it("registers a daily 01:00 cron task with explicit Nairobi timezone (§7.2's literal requirement)", async () => {
+      const cron = (await import("node-cron")).default;
+      initializeScheduler();
+      const scheduleMock = cron.schedule as unknown as ReturnType<typeof vi.fn>;
+      const call = scheduleMock.mock.calls.find((c) => c[0] === "0 1 * * *");
+      expect(call).toBeDefined();
+      // Unlike this file's other jobs, §7.2 states a real-world time
+      // ("01:00 EAT") explicitly — this must be timezone-aware, not a bare
+      // cron expression assumed to already be in EAT.
+      expect(call?.[2]).toEqual({ timezone: "Africa/Nairobi" });
+    });
+  });
+
   describe("cron expressions", () => {
     it("should use valid cron expressions", () => {
       const validCronExpressions = [

@@ -4,6 +4,7 @@ import {
   FAILURE_DOWNGRADE_PATH,
   SUCCESS_DOWNGRADE_PATH,
   reviewWindowDaysFor,
+  downgradeThresholdDaysFor,
 } from "./fpkb-pattern-detector";
 
 describe("computeTrend", () => {
@@ -86,5 +87,38 @@ describe("reviewWindowDaysFor (§6.6 review_schedule field, item #15)", () => {
     expect(reviewWindowDaysFor("EMERGING_SUCCESS")).toBe(reviewWindowDaysFor("CANDIDATE"));
     expect(reviewWindowDaysFor("VALIDATED_SUCCESS")).toBe(reviewWindowDaysFor("CONFIRMED"));
     expect(reviewWindowDaysFor("STANDARD_PRACTICE")).toBe(reviewWindowDaysFor("ESTABLISHED"));
+  });
+});
+
+describe("downgradeThresholdDaysFor (FPKB_SCHEMA_V1.md §7.2 automated-downgrade fallback, gap-analysis #12)", () => {
+  it("matches §7.2's literal thresholds: ESTABLISHED 18mo, CONFIRMED 24mo, CANDIDATE 12mo, SIGNAL 6mo", () => {
+    // Deliberately NOT monotonic (ESTABLISHED downgrades faster than
+    // CONFIRMED) — implemented as literally written in the doc, a decision
+    // considered and not flagged for amendment (see the doc comment on
+    // runConfidenceDowngrade for the reasoning). This test pins the exact
+    // numbers so a future edit can't quietly "fix" them back to monotonic
+    // without it being a deliberate, visible change.
+    expect(downgradeThresholdDaysFor("ESTABLISHED")).toBe(18 * 30);
+    expect(downgradeThresholdDaysFor("CONFIRMED")).toBe(24 * 30);
+    expect(downgradeThresholdDaysFor("CANDIDATE")).toBe(12 * 30);
+    expect(downgradeThresholdDaysFor("SIGNAL")).toBe(6 * 30);
+  });
+
+  it("is a materially longer window than the review-task clock, for the three tiers where losing confidence status is consequential", () => {
+    // The whole point of the two-clock design: for ESTABLISHED/CONFIRMED/
+    // CANDIDATE, the automated fallback must never fire before the
+    // review-task nudge, or Knowledge Stewardship never gets a real chance
+    // to intervene before a real confidence downgrade. SIGNAL is
+    // deliberately excluded here — moving from SIGNAL to Under Review is a
+    // soft, reversible status flag, not a confidence loss, and §7.2 sets
+    // both of SIGNAL's clocks to the same 6 months, so they're expected to
+    // coincide rather than one strictly preceding the other.
+    for (const level of ["ESTABLISHED", "CONFIRMED", "CANDIDATE"]) {
+      expect(downgradeThresholdDaysFor(level)!).toBeGreaterThan(reviewWindowDaysFor(level));
+    }
+  });
+
+  it("returns undefined for a level with no automated-downgrade rule (e.g. CANDIDATE_SUCCESS has nowhere lower to go)", () => {
+    expect(downgradeThresholdDaysFor("CANDIDATE_SUCCESS")).toBeUndefined();
   });
 });

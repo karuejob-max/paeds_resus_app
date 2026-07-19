@@ -25,10 +25,17 @@
  *     outcomes (§6.8) — handled by reEvaluateAfterImplementationOutcome(),
  *     called from fpkb.ts's recordImplementationOutcome, not by this
  *     observation-scanning pass.
- *   - Automated confidence DOWNGRADE on staleness (review_due_at scheduling,
- *     §6.6's "ESTABLISHED → CONFIRMED after 18 months without new
- *     observations" etc.) is NOT implemented in this cut — flagged as a
- *     follow-up in WORK_STATUS.md, not silently skipped.
+ *   - Automated confidence DOWNGRADE on staleness, and the Knowledge
+ *     Stewardship task queue that's supposed to sit in front of it, are
+ *     now both implemented — see runConfidenceDowngrade() below and
+ *     gap-analysis queue item #12's dated log entry (2026-07-17) for the
+ *     full reconciliation between this file's original §6.6 reference
+ *     above (correctly citing "18/24/12/6 months," years before this
+ *     comment block was itself second-guessed and briefly "corrected" to
+ *     say those numbers didn't exist anywhere — they do, in
+ *     FPKB_SCHEMA_V1.md §7.2, just not in Observation Architecture, which
+ *     is what was actually checked at the time) and what gap-analysis #14
+ *     shipped in the meantime (a different, simpler 6/12-month rule).
  *
  * HONEST APPROXIMATION, documented not hidden: the "≥2 facilities" /
  * "≥3 independent facilities" thresholds in §6.6 can't be checked exactly
@@ -50,6 +57,7 @@ import {
   kbRecommendations,
   kbInterventions,
   kbImplementations,
+  kbReviewSchedule,
   type KbPattern,
 } from "../../drizzle/schema";
 import type { DbClient } from "../db";
@@ -544,6 +552,68 @@ export async function reEvaluateAfterImplementationOutcome(
  *      doc addition to §6.6's review_schedule row once confirmed.
  */
 
+/**
+ * Automated confidence downgrade + Knowledge Stewardship review queue
+ * (gap-analysis #12, reconciling #9/#14/#15's work with FPKB_SCHEMA_V1.md
+ * §7.2 and §7.4 — see the file-header note above for the full history of
+ * how this got mis-tracked across sessions).
+ *
+ * TWO CLOCKS, NOT ONE — this is the actual reconciliation, and on reading
+ * both documents together carefully, they turn out to be complementary,
+ * not contradictory (no constitutional amendment needed; flagged to CEO
+ * as a possible amendment, then withdrawn after this closer read):
+ *
+ *   1. REVIEW-TASK CLOCK (`reviewDueAt`, 6/12 months, per §6.6 — unchanged
+ *      from #15). When this passes, a human review task is created in
+ *      `kb_review_schedule` (§7.2: "create a task for Knowledge
+ *      Stewardship and set review_status = IN_PROGRESS"). This is a SOFT
+ *      signal — nothing about the pattern's confidence changes yet. A
+ *      human gets first chance to confirm the pattern is still valid.
+ *
+ *   2. AUTOMATED-DOWNGRADE FALLBACK CLOCK (`lastConfirmedAt`, 18/24/12/6
+ *      months per §7.2's literal "Automated downgrade rules" — a
+ *      DIFFERENT, LONGER window than #1, and measured from a different
+ *      field). This only fires if reconfirming evidence never arrives —
+ *      i.e., if a human review task sat unresolved (or evidence simply
+ *      never showed up) well past the point where a soft review nudge
+ *      should have been enough. This is the hard, unilateral fallback.
+ *
+ * Why keep both: acting only on clock #1 (what #14 shipped) means the
+ * system silently demotes patterns the moment they're merely due for
+ * review, with no chance for a human to intervene first — a real risk
+ * given this is single-country pilot volume, where an 18-month silence on
+ * an ESTABLISHED pattern (100+ historical observations, real children's
+ * outcomes behind every one) could just mean submission volume is low
+ * that quarter, not that the danger sign stopped being true. Giving
+ * Knowledge Stewardship the review-task step first, with a materially
+ * longer automated fallback behind it, better serves the mission
+ * (reducing preventable childhood deaths depends on not losing
+ * hard-won, still-valid knowledge to an overeager staleness clock).
+ *
+ * ONE GENUINE ODDITY IN §7.2, CONSIDERED AND NOT FLAGGED FOR AMENDMENT:
+ * ESTABLISHED downgrades faster (18mo) than CONFIRMED (24mo) — the
+ * opposite of what you'd expect (higher confidence should mean more
+ * resistant to staleness). Initially read this as a likely drafting
+ * error. On reflection, there's a coherent rationale that survives
+ * scrutiny: an ESTABLISHED pattern (100+ observations across many
+ * facilities) going 18 months with zero reconfirmation is a stronger
+ * anomaly signal than the same silence on a newer CONFIRMED pattern
+ * (50+ observations, naturally sparser), which may legitimately need
+ * longer to reaccumulate evidence. Implemented as literally written;
+ * not proposing a change to this specific ordering.
+ *
+ * UNDER_REVIEW → RETIRED after a further 6 months (Observation
+ * Architecture §7.3) is kept unchanged — §7.2 is silent on this specific
+ * step, not contradictory, so there's nothing to reconcile there.
+ *
+ * NOTE ON SIGNAL SPECIFICALLY: §7.2 sets its automated-downgrade fallback
+ * to 6 months, the same as its review-task window (§6.6) — unlike the
+ * other three tiers, where the fallback is meaningfully longer. So for
+ * SIGNAL, the two clocks are expected to coincide, not one strictly
+ * precede the other. That's fine: moving from SIGNAL to Under Review is a
+ * soft, reversible status flag, not an actual loss of confidence, so
+ * there's less need for a review-task buffer beforehand.
+ */
 export const FAILURE_DOWNGRADE_PATH: Partial<Record<string, string>> = {
   ESTABLISHED: "CONFIRMED",
   CONFIRMED: "CANDIDATE",
@@ -555,22 +625,84 @@ export const SUCCESS_DOWNGRADE_PATH: Partial<Record<string, string>> = {
   EMERGING_SUCCESS: "CANDIDATE_SUCCESS",
 };
 
+/**
+ * Automated-downgrade fallback thresholds (days), measured from
+ * `lastConfirmedAt` — FPKB_SCHEMA_V1.md §7.2's literal "Automated
+ * downgrade rules," using 30-day months (same approximation already used
+ * elsewhere in this file for review windows). Success-track thresholds
+ * are not stated in either document — assigned by the same rank-analogy
+ * used for REVIEW_WINDOW_DAYS above (documented inference, not fact).
+ */
+const DOWNGRADE_THRESHOLD_DAYS: Record<string, number> = {
+  ESTABLISHED: 18 * 30,
+  CONFIRMED: 24 * 30,
+  CANDIDATE: 12 * 30,
+  SIGNAL: 6 * 30,
+  STANDARD_PRACTICE: 18 * 30,
+  VALIDATED_SUCCESS: 24 * 30,
+  EMERGING_SUCCESS: 12 * 30,
+};
+
+export function downgradeThresholdDaysFor(level: string): number | undefined {
+  return DOWNGRADE_THRESHOLD_DAYS[level];
+}
+
 export interface DowngradeResult {
   downgraded: { patternId: string; patternCode: string; from: string; to: string }[];
   movedToUnderReview: { patternId: string; patternCode: string }[];
   retired: { patternId: string; patternCode: string }[];
+  reviewTasksCreated: { patternId: string; patternCode: string }[];
 }
 
 export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boolean } = { dryRun: true }): Promise<DowngradeResult> {
   const now = new Date();
-  const result: DowngradeResult = { downgraded: [], movedToUnderReview: [], retired: [] };
+  const result: DowngradeResult = { downgraded: [], movedToUnderReview: [], retired: [], reviewTasksCreated: [] };
 
-  const activeStale = await db
+  // ── Clock #1: review-task creation (§7.2) — soft signal, no confidence change ──
+  const overdueForReview = await db
     .select()
     .from(kbPatterns)
-    .where(and(eq(kbPatterns.knowledgeStatus, "ACTIVE"), lt(kbPatterns.reviewDueAt, now)));
+    .where(and(inArray(kbPatterns.knowledgeStatus, ["ACTIVE", "UNDER_REVIEW"]), lt(kbPatterns.reviewDueAt, now)));
 
-  for (const pattern of activeStale) {
+  for (const pattern of overdueForReview) {
+    const [existingTask] = await db
+      .select({ id: kbReviewSchedule.id })
+      .from(kbReviewSchedule)
+      .where(
+        and(
+          eq(kbReviewSchedule.patternId, pattern.id),
+          inArray(kbReviewSchedule.reviewStatus, ["PENDING", "IN_PROGRESS"])
+        )
+      )
+      .limit(1);
+
+    if (existingTask) continue; // already has an open task — don't spam a new one every daily run
+
+    result.reviewTasksCreated.push({ patternId: pattern.id, patternCode: pattern.patternCode });
+    if (!opts.dryRun) {
+      await db.insert(kbReviewSchedule).values({
+        id: newId(),
+        patternId: pattern.id,
+        reviewDueAt: pattern.reviewDueAt ?? now,
+        reviewType: "SCHEDULED",
+        reviewStatus: "IN_PROGRESS",
+      });
+    }
+  }
+
+  // ── Clock #2: automated-downgrade fallback (§7.2), independent of clock #1 ──
+  const activeForDowngradeCheck = await db
+    .select()
+    .from(kbPatterns)
+    .where(eq(kbPatterns.knowledgeStatus, "ACTIVE"));
+
+  for (const pattern of activeForDowngradeCheck) {
+    const thresholdDays = DOWNGRADE_THRESHOLD_DAYS[pattern.confidenceLevel];
+    if (!thresholdDays || !pattern.lastConfirmedAt) continue;
+
+    const staleSince = new Date(pattern.lastConfirmedAt.getTime() + thresholdDays * 86_400_000);
+    if (staleSince >= now) continue; // not stale enough yet for the automated fallback
+
     if (pattern.confidenceLevel === "SIGNAL") {
       result.movedToUnderReview.push({ patternId: pattern.id, patternCode: pattern.patternCode });
       if (!opts.dryRun) {
@@ -578,13 +710,14 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
           .update(kbPatterns)
           .set({ knowledgeStatus: "UNDER_REVIEW", reviewDueAt: new Date(now.getTime() + 182 * 86_400_000) })
           .where(eq(kbPatterns.id, pattern.id));
+        await resolveOpenReviewTask(db, pattern.id, "CONFIDENCE_DOWNGRADED");
         await logAudit(db, {
           actionType: "PATTERN_CONFIDENCE_CHANGED",
           entityType: "PATTERN",
           entityId: pattern.id,
           previousState: { knowledgeStatus: "ACTIVE" },
           newState: { knowledgeStatus: "UNDER_REVIEW" },
-          reasoning: "SIGNAL-level pattern not reconfirmed within its 6-month review window (§7.3).",
+          reasoning: `SIGNAL-level pattern not reconfirmed within ${Math.round(thresholdDays / 30)} months (automated fallback, §7.2) — moved to Under Review.`,
         });
       }
       continue;
@@ -603,13 +736,14 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
           reviewDueAt: new Date(now.getTime() + reviewWindowDaysFor(nextLevel) * 86_400_000),
         })
         .where(eq(kbPatterns.id, pattern.id));
+      await resolveOpenReviewTask(db, pattern.id, "CONFIDENCE_DOWNGRADED");
       await logAudit(db, {
         actionType: "PATTERN_CONFIDENCE_CHANGED",
         entityType: "PATTERN",
         entityId: pattern.id,
         previousState: { confidenceLevel: pattern.confidenceLevel },
         newState: { confidenceLevel: nextLevel },
-        reasoning: `Not reconfirmed within its review window — automatically downgraded one level per §7.3 concept drift management.`,
+        reasoning: `Not reconfirmed within ${Math.round(thresholdDays / 30)} months of last confirmation — automatically downgraded one level per §7.2's fallback rule.`,
       });
     }
   }
@@ -626,6 +760,7 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
         .update(kbPatterns)
         .set({ knowledgeStatus: "RETIRED", retiredAt: now, retiredReason: "Not reconfirmed within Under Review window (§7.3 concept drift management)." })
         .where(eq(kbPatterns.id, pattern.id));
+      await resolveOpenReviewTask(db, pattern.id, "PATTERN_RETIRED");
       await logAudit(db, {
         actionType: "PATTERN_RETIRED",
         entityType: "PATTERN",
@@ -638,4 +773,24 @@ export async function runConfidenceDowngrade(db: DbClient, opts: { dryRun: boole
   }
 
   return result;
+}
+
+/** Marks any open (PENDING/IN_PROGRESS) review task for a pattern as resolved by the automated fallback, not a human. */
+async function resolveOpenReviewTask(
+  db: DbClient,
+  patternId: string,
+  outcome: "CONFIDENCE_DOWNGRADED" | "PATTERN_RETIRED"
+) {
+  await db
+    .update(kbReviewSchedule)
+    .set({
+      reviewStatus: "COMPLETED",
+      reviewOutcome: outcome,
+      reviewedAt: new Date(),
+      reviewedBy: "system-automated",
+      reviewNotes: "Resolved automatically by the concept-drift fallback job before a human review — see kb_governance_audit for the corresponding entry.",
+    })
+    .where(
+      and(eq(kbReviewSchedule.patternId, patternId), inArray(kbReviewSchedule.reviewStatus, ["PENDING", "IN_PROGRESS"]))
+    );
 }
