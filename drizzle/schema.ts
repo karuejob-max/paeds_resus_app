@@ -1082,7 +1082,7 @@ export type InsertUserProgress = typeof userProgress.$inferInsert;
 // ============================================
 
 export const designationEnum = mysqlEnum("designation", [
-  "bsn_intern",
+  "noi",
   "coi_bsc",
   "coi_diploma",
   "moi",
