@@ -22,6 +22,7 @@ import {
   kmhflFacilities,
   careSignalEvents,
   individualInstallmentPayments,
+  providerProfiles,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
@@ -2237,5 +2238,70 @@ export const institutionRouter = router({
       }
 
       return { success: true, approved: input.approve };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-SELF-SERVICE: Subsidised ACLS/BLS Cohort Program (CEO decision,
+  // 2026-07-19). A learner who was auto-linked to their facility via
+  // `syncProviderProfileFacility` lands with `designation: "other"` and no
+  // subsidised-eligibility signal. This lets them declare it themselves:
+  // nurses provide a licence number (verification step, stored on their
+  // existing `providerProfiles` row — no duplicate column), interns just
+  // declare which intern designation they are. Eligibility itself is
+  // evaluated in `payments.getIndividualBalance`, not here — this only
+  // records the declaration.
+  // ─────────────────────────────────────────────────────────────────────────
+  declareMyDesignation: protectedProcedure
+    .input(z.object({
+      designation: z.enum(["bsn_intern", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"]),
+      licenseNumber: z.string().trim().min(1).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      if (input.designation === "permanent_nurse" && !input.licenseNumber) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A licence number is required to register as a nurse." });
+      }
+
+      const staffRow = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.userId, ctx.user.id),
+          inArray(institutionalStaffMembers.facilityLinkStatus, ["linked", "pending"])
+        ))
+        .limit(1);
+
+      if (staffRow.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No institutional facility link found for your account yet." });
+      }
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({ designation: input.designation, updatedAt: new Date() })
+        .where(eq(institutionalStaffMembers.id, staffRow[0].id));
+
+      if (input.designation === "permanent_nurse" && input.licenseNumber) {
+        const existingProfile = await db
+          .select({ id: providerProfiles.id })
+          .from(providerProfiles)
+          .where(eq(providerProfiles.userId, ctx.user.id))
+          .limit(1);
+
+        if (existingProfile.length > 0) {
+          await db
+            .update(providerProfiles)
+            .set({ licenseNumber: input.licenseNumber, updatedAt: new Date() })
+            .where(eq(providerProfiles.userId, ctx.user.id));
+        } else {
+          await db.insert(providerProfiles).values({
+            userId: ctx.user.id,
+            licenseNumber: input.licenseNumber,
+          });
+        }
+      }
+
+      return { success: true, designation: input.designation };
     }),
 });

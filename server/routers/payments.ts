@@ -356,7 +356,7 @@ export const paymentsRouter = router({
     .query(async ({ ctx, input }) => {
       try {
         const { getDb } = await import("../db");
-        const { payments, enrollments, courses, institutionalStaffMembers } = await import("../../drizzle/schema");
+        const { payments, enrollments, courses, institutionalStaffMembers, providerProfiles } = await import("../../drizzle/schema");
         const { eq, and, sum } = await import("drizzle-orm");
 
         const db = await getDb();
@@ -393,8 +393,21 @@ export const paymentsRouter = router({
 
         let basePrice = 20000.00;
 
+        // Subsidy eligibility (CEO decision, 2026-07-19): "Any nurse, or intern" —
+        // not just anyone linked to a subsidised-program facility. A permanent_doctor
+        // or undeclared "other" pays standard price even if their facility runs the
+        // program. Nurses must have a licence number on file (providerProfiles) to
+        // qualify — that's the verification step; interns just need to have declared
+        // themselves as an intern designation, no licence required.
+        const NURSE_DESIGNATION = "permanent_nurse" as const;
+        const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"] as const;
+
         const staffRows = await db
-          .select({ id: institutionalStaffMembers.id, institutionalAccountId: institutionalStaffMembers.institutionalAccountId })
+          .select({
+            id: institutionalStaffMembers.id,
+            institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+            designation: institutionalStaffMembers.designation,
+          })
           .from(institutionalStaffMembers)
           .where(and(
             eq(institutionalStaffMembers.userId, enrollment.userId),
@@ -403,7 +416,22 @@ export const paymentsRouter = router({
           .limit(1);
 
         if (staffRows.length > 0) {
-          basePrice = 15000.00;
+          const { designation } = staffRows[0];
+          let eligible = false;
+          if (designation === NURSE_DESIGNATION) {
+            const [profile] = await db
+              .select({ licenseNumber: providerProfiles.licenseNumber })
+              .from(providerProfiles)
+              .where(eq(providerProfiles.userId, enrollment.userId))
+              .limit(1);
+            eligible = !!profile?.licenseNumber && profile.licenseNumber.trim().length > 0;
+          } else if (designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+            eligible = true;
+          }
+
+          if (eligible) {
+            basePrice = 15000.00;
+          }
 
           await db
             .update(institutionalStaffMembers)

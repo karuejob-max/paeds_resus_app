@@ -949,6 +949,31 @@ export const coursesRouter = router({
           }
         }
 
+        // Nurse instalment-pace gate (CEO decision, 2026-07-19): unlike interns,
+        // nurses don't get a deferral window — they must keep pace with KES
+        // 2,500/month from enrollment to keep Phase 2 booking access. Deliberate
+        // interpretation, flagged not assumed: "required by now" is computed as
+        // full elapsed months since enrollment × 2,500 (floor, so there's a grace
+        // period within the current month before that month's instalment is
+        // actually due) — a nurse who's paid at least that much stays unblocked
+        // even if they're ahead or behind on which specific month they're "on."
+        const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
+        const MONTHLY_INSTALMENT_KES = 2500;
+        if (isOnlineSession && designation === "permanent_nurse") {
+          const joinedAt = enrollmentDate ?? createdAt;
+          const paid = Number(totalPaidAmount ?? 0);
+          if (joinedAt) {
+            const monthsElapsed = Math.floor((Date.now() - new Date(joinedAt).getTime()) / ONE_MONTH_MS);
+            const requiredByNow = Math.max(0, monthsElapsed) * MONTHLY_INSTALMENT_KES;
+            if (paid < requiredByNow) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: `Your instalment payments are behind schedule (KES ${paid} paid of KES ${requiredByNow} expected at KES 2,500/month). Please make a payment to regain access to simulation session booking.`,
+              });
+            }
+          }
+        }
+
         // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
         if (isHandsOnSession) {
           if (phaseStatus !== "phase_3" && phaseStatus !== "completed") {
@@ -1098,6 +1123,29 @@ export const coursesRouter = router({
       try {
         const database = await getDb();
         if (!database) throw new Error('Database unavailable');
+
+        // BLS prerequisite (CEO decision, 2026-07-19): "One must complete BLS to
+        // start ACLS or PALS" — applies platform-wide, not just to the subsidised
+        // cohort program. Deliberate interpretation, flagged not assumed: "complete"
+        // is read as full BLS certification (practicalSkillsSignedOff), not just the
+        // cognitive/online modules — ACLS and PALS both build on hands-on BLS skill,
+        // not just BLS theory. If the intent was cognitive-modules-only, this is a
+        // one-field change (practicalSkillsSignedOff -> cognitiveModulesComplete).
+        if (input.programType === 'acls' || input.programType === 'pals') {
+          const blsEnrollment = await database
+            .select({ id: enrollments.id, signedOff: enrollments.practicalSkillsSignedOff })
+            .from(enrollments)
+            .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, 'bls')))
+            .limit(1);
+          if (blsEnrollment.length === 0 || !blsEnrollment[0].signedOff) {
+            return {
+              success: false,
+              enrollmentId: 0,
+              error: `You must complete BLS before starting ${input.programType.toUpperCase()}.`,
+            };
+          }
+        }
+
         // Return existing enrollment id if present
         const existing = await database
           .select({ id: enrollments.id })
@@ -1185,6 +1233,18 @@ export const coursesRouter = router({
     const paymentDeadline = isIntern && joinedAt ? new Date(new Date(joinedAt).getTime() + FOUR_MONTHS_MS) : null;
     const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
 
+    // Nurse instalment-pace status (see bookHandsOnSession for the enforced gate).
+    const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
+    const MONTHLY_INSTALMENT_KES = 2500;
+    const isNurse = s.designation === "permanent_nurse";
+    let nursePaceRequiredByNow: number | null = null;
+    let nursePaceLockoutActive = false;
+    if (isNurse && joinedAt) {
+      const monthsElapsed = Math.floor((Date.now() - new Date(joinedAt).getTime()) / ONE_MONTH_MS);
+      nursePaceRequiredByNow = Math.max(0, monthsElapsed) * MONTHLY_INSTALMENT_KES;
+      nursePaceLockoutActive = paid < nursePaceRequiredByNow;
+    }
+
     return {
       staffMemberId: s.id,
       phaseStatus: s.phaseStatus,
@@ -1195,6 +1255,8 @@ export const coursesRouter = router({
       leaderSessions,
       phase2Complete,
       totalPaid: paid,
+      nursePaceRequiredByNow,
+      nursePaceLockoutActive,
       balance: Math.max(0, subsidisedFee - paid),
       isPaidInFull: paid >= subsidisedFee,
       paymentDeadline: paymentDeadline ? paymentDeadline.toISOString() : null,
