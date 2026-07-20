@@ -2921,6 +2921,25 @@ export type InsertFellowshipProgress = typeof fellowshipProgress.$inferInsert;
  * displayed going forward — it does NOT unlink or re-anonymize the
  * already-linked credit history, consistent with how withdrawal is handled
  * elsewhere for anonymized-not-deleted data (see gap-analysis #13).
+ *
+ * `recoveryCodeLookupHash` (added 2026-07-20, closing a documented scaling
+ * limit from #10): recovery codes are bcrypt-hashed in `recoveryCodeHash`,
+ * which is one-way by design and therefore can't be a WHERE-clause lookup
+ * — the original implementation fetched every token row and bcrypt-compared
+ * each one, O(n) in total tokens ever created. This column is a plain
+ * SHA-256 HMAC of the normalized code, keyed by the same server-side secret
+ * already used for session signing (`JWT_SECRET`, with a domain-separation
+ * label — see `server/lib/fellowship-token.ts`'s `hashRecoveryCodeForLookup`)
+ * — deterministic, so it CAN be indexed and looked up in O(1), but it is
+ * NEVER the actual security check on its own: a lookup-hash match only
+ * narrows to a candidate row, which is then still bcrypt-verified against
+ * `recoveryCodeHash` before recovery succeeds. Nullable because bcrypt
+ * hashes can't be reversed to backfill this for tokens created before this
+ * column existed — those rows keep `recoveryCodeLookupHash = NULL` forever
+ * and fall back to the old O(n) scan, now bounded to only the
+ * (shrinking, non-growing) set of pre-migration tokens rather than the
+ * whole table. See migration 0073's own doc comment for the exact
+ * cutover mechanics.
  */
 export const fellowshipTokens = mysqlTable("fellowshipTokens", {
   id: int("id").autoincrement().primaryKey(),
@@ -2928,6 +2947,8 @@ export const fellowshipTokens = mysqlTable("fellowshipTokens", {
   tokenId: varchar("tokenId", { length: 36 }).notNull().unique(),
   /** Hash of a one-time-shown recovery code — never store the code itself. */
   recoveryCodeHash: varchar("recoveryCodeHash", { length: 128 }).notNull(),
+  /** Keyed SHA-256 of the normalized recovery code — O(1) index lookup only, NEVER the actual auth check (that's still recoveryCodeHash + bcrypt). NULL for tokens created before 2026-07-20 (migration 0073). */
+  recoveryCodeLookupHash: varchar("recoveryCodeLookupHash", { length: 64 }),
   /** Mirrors fellowshipProgress's Pillar 3 fields, computed the same way, keyed by token instead of userId. */
   careSignalStreak: int("careSignalStreak").default(0),
   careSignalEventsSubmitted: int("careSignalEventsSubmitted").default(0),

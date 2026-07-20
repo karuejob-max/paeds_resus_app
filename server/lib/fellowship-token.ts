@@ -14,7 +14,8 @@
  * recover something it deliberately never stored a plain link to.
  */
 import * as bcrypt from "bcryptjs";
-import { randomUUID, randomInt } from "node:crypto";
+import { randomUUID, randomInt, createHmac } from "node:crypto";
+import { ENV } from "../_core/env";
 
 const RECOVERY_CODE_GROUPS = 4;
 const RECOVERY_CODE_GROUP_LENGTH = 4;
@@ -44,6 +45,29 @@ export async function hashRecoveryCode(code: string): Promise<string> {
 
 export async function verifyRecoveryCode(code: string, hash: string): Promise<boolean> {
   return bcrypt.compare(normalizeRecoveryCode(code), hash);
+}
+
+/**
+ * Deterministic, indexable stand-in for the O(n) bcrypt scan (gap-analysis
+ * #12, closed 2026-07-20 — see fellowshipTokens' schema doc comment for the
+ * full mechanism). This is NEVER the actual authentication decision on its
+ * own — it only narrows a full-table scan down to a candidate row, which
+ * is then still verified with verifyRecoveryCode()'s real bcrypt check.
+ *
+ * Keyed by JWT_SECRET (this codebase's existing session-signing secret,
+ * see server/_core/env.ts's `cookieSecret`) rather than introducing a new
+ * required production secret — a domain-separation label is included in
+ * the HMAC input so this can never collide with, or be confused for,
+ * JWT_SECRET's other use (session cookies). If JWT_SECRET is ever rotated,
+ * every existing recoveryCodeLookupHash becomes unmatchable and every
+ * affected token silently falls back to the legacy O(n) scan (safe, just
+ * slower) rather than failing recovery outright — see
+ * findFellowshipTokenByRecoveryCode's fallback branch.
+ */
+export function hashRecoveryCodeForLookup(code: string): string {
+  return createHmac("sha256", ENV.cookieSecret || "fellowship-recovery-lookup-dev-fallback")
+    .update(`fellowship-recovery-code-lookup:${normalizeRecoveryCode(code)}`)
+    .digest("hex");
 }
 
 /** Case/whitespace/dash-insensitive so copy-paste or re-typing variations still match. */
