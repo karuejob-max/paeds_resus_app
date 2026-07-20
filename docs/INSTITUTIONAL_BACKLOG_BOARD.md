@@ -2,7 +2,7 @@
 
 > **Purpose:** Scrum-style board for **institutional (B2B / hospital)** work only.  
 > **How to use:** Before starting, check **In Progress** (avoid duplicate work). Move cards **To Do → In Progress → Done**. Always set **Owner** when In Progress, and **Done by + Date** when complete.  
-> **Last updated:** 2026-07-19 (INST-16 in progress; INST-17, INST-23 shipped; INST-18-22 backlog)  
+> **Last updated:** 2026-07-20 (INST-16 shipped end-to-end; INST-17, INST-23 shipped; INST-18, 19, 20, 21, 22 backlog)  
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
@@ -17,7 +17,7 @@
 ┌─────────────────┬──────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                     │ IN PROGRESS  │                      DONE                            │
 ├─────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
-│ INST-18…22       │                                                 │   INST-16    │ INST-0 … INST-15, INST-17, INST-23 (see Done)        │
+│ INST-18…22       │                                                 │   (none)     │ INST-0 … INST-15, INST-16, INST-17, INST-23 (see Done)│
 └─────────────────┴──────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -62,7 +62,7 @@ Items INST-16–22 below come from a 2026-07-19 premortem on the Subsidised ACLS
 
 | ID | Title | P | Owner | Started |
 |----|--------|---|-------|---------|
-| INST-16 | Subsidised-rate eligibility gate (nurse w/ licence, or intern) | P1 | Claude | 2026-07-19 — backend eligibility check + `declareMyDesignation` self-service mutation shipped (`payments.ts`, `institution.ts`); **frontend UI to actually collect nurse licence number / intern designation from learners not yet built** |
+| — | *None* | — | — | — |
 
 ---
 
@@ -92,6 +92,7 @@ Items INST-16–22 below come from a 2026-07-19 premortem on the Subsidised ACLS
 | INST-15 | Admin-approved instructors + `instructorUserId` on training sessions | P1 | Cursor | 2026-04-01 | `users.instructorApprovedAt`, Admin Reports, Hospital Admin Schedule |
 | INST-17 | Nurse instalment-pace gate (KES 2,500/month, no deferral window) | P1 | Claude | 2026-07-19 | `bookHandsOnSession` + `getPhaseSummary` (`nursePaceRequiredByNow`/`nursePaceLockoutActive`) in `courses.ts` |
 | INST-23 | BLS-before-ACLS/PALS prerequisite gate (platform-wide) | P1 | Claude | 2026-07-19 | `ensureAhaEnrollment` in `courses.ts`; interpreted "complete" as `practicalSkillsSignedOff`, flagged for CEO confirmation |
+| INST-16 | Subsidised-rate eligibility gate (nurse w/ licence, or intern) — designation-input UI | P1 | Claude | 2026-07-20 | Closed the launch-blocking gap: no UI anywhere let anyone set `designation`. Added `DesignationDeclarationCard` (self-service, `LearnerDashboard.tsx`), designation select in `AddStaffForm.tsx`, and a `designation` CSV column + validation in `StaffBulkImport.tsx` |
 
 ---
 

@@ -4,6 +4,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -551,6 +553,7 @@ export default function LearnerDashboard() {
               <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
             )}
 
+            <DesignationDeclarationCard />
             <Phase1ProofUploadCard />
 
             {/* My Certificates */}
@@ -825,6 +828,98 @@ function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DesignationDeclarationCard() {
+  const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
+  const [designation, setDesignation] = useState<
+    "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other" | ""
+  >("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+
+  const declareMutation = trpc.institution.declareMyDesignation.useMutation({
+    onSuccess: () => {
+      toast.success("Thanks — your designation has been recorded.");
+      void refetch();
+    },
+    onError: (err) => toast.error(err.message || "Could not save your designation"),
+  });
+
+  if (isLoading) return null;
+  // Only relevant for learners already linked to a cohort-program institution
+  if (!phase) return null;
+  // Already declared — nothing to do here. "other" is the un-declared default,
+  // so this card keeps showing until the learner picks something real.
+  if (phase.designation && phase.designation !== "other") return null;
+
+  const isNurseSelected = designation === "permanent_nurse";
+
+  const handleSubmit = () => {
+    if (!designation) {
+      toast.error("Please select your designation.");
+      return;
+    }
+    if (isNurseSelected && !licenseNumber.trim()) {
+      toast.error("A licence number is required to register as a nurse.");
+      return;
+    }
+    declareMutation.mutate({
+      designation,
+      licenseNumber: isNurseSelected ? licenseNumber.trim() : undefined,
+    });
+  };
+
+  return (
+    <Card id="designation-declaration" className="mt-6 md:col-span-3 border-blue-200 bg-blue-50/20">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-900">
+          <Users className="w-5 h-5 text-blue-700" />
+          Confirm Your Role
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-slate-700">
+          To unlock the KES 15,000 subsidised rate for the ACLS/BLS Cohort Program, tell us which of these you are.
+          Nurses will also need to provide a licence number — interns don't need one.
+        </p>
+        <div className="bg-white p-4 rounded-lg border space-y-3">
+          <Select value={designation} onValueChange={(v) => setDesignation(v as typeof designation)}>
+            <SelectTrigger id="designation-select">
+              <SelectValue placeholder="Select your designation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="noi">NOI (Nursing Officer Intern)</SelectItem>
+              <SelectItem value="coi_bsc">Clinical Officer Intern (BSc)</SelectItem>
+              <SelectItem value="coi_diploma">Clinical Officer Intern (Diploma)</SelectItem>
+              <SelectItem value="moi">MOI (Medical Officer Intern)</SelectItem>
+              <SelectItem value="permanent_nurse">Permanent Nurse</SelectItem>
+              <SelectItem value="permanent_doctor">Permanent Doctor</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {isNurseSelected && (
+            <Input
+              id="designation-license-number"
+              type="text"
+              placeholder="Your nursing licence number"
+              value={licenseNumber}
+              onChange={(e) => setLicenseNumber(e.target.value)}
+            />
+          )}
+
+          <Button
+            id="designation-submit-btn"
+            className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+            onClick={handleSubmit}
+            disabled={declareMutation.isPending || !designation}
+          >
+            {declareMutation.isPending ? "Saving..." : "Confirm"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
