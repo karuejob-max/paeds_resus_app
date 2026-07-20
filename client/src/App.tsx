@@ -6,6 +6,7 @@ import { TrainingSimulationGate } from "./components/TrainingSimulationGate";
 import { AspirationalSurfaceGate } from "./components/AspirationalSurfaceGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
+import { PendingAdminInviteBanner } from "./components/PendingAdminInviteBanner";
 import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
@@ -84,6 +85,8 @@ const CourseIntubationEssentials = lazy(() => import("./pages/CourseIntubationEs
 const CourseInstructor = lazy(() => import("./pages/CourseInstructor"));
 const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
+const InstitutionalRecovery = lazy(() => import("./pages/InstitutionalRecovery"));
+const AdminInstitutionalRecovery = lazy(() => import("./pages/AdminInstitutionalRecovery"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
@@ -155,6 +158,7 @@ function Router() {
         Skip to main content
       </a>
       <Header />
+      <PendingAdminInviteBanner />
       <main id="main-content" className="flex-1" role="main">
         <LegalReconsentGate>
         <Suspense
@@ -440,6 +444,13 @@ function Router() {
             <RoleGate allowed={["institution"]}>
               <InstitutionalOnboarding />
             </RoleGate>
+          )}</Route>
+          {/* Public — no login required, since the scenario is "nobody at this institution can log in" (North Star §6.1). */}
+          <Route path="/institutional-recovery" component={InstitutionalRecovery} />
+          <Route path="/admin-institutional-recovery">{() => (
+            <AdminGate>
+              <AdminInstitutionalRecovery />
+            </AdminGate>
           )}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>
              <Route path="/micro-courses">{() => (

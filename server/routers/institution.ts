@@ -7,6 +7,8 @@ import {
   institutionalAccounts,
   institutionalInquiries,
   institutionalStaffMembers,
+  institutionalAccountAdmins,
+  institutionalAdminInvites,
   quotations,
   contracts,
   trainingSchedules,
@@ -36,7 +38,7 @@ import { alias } from "drizzle-orm/mysql-core";
 import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
-import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
   rollupInstitutionalAnalyticsForAccount,
@@ -179,11 +181,14 @@ export const institutionRouter = router({
       });
     }
 
-    const rows = await db
-      .select()
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id));
+    const institutionIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = institutionIds.length
+      ? await db
+          .select()
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, institutionIds))
+          .orderBy(desc(institutionalAccounts.id))
+      : [];
 
     return {
       institution: rows[0] ?? null,
@@ -205,12 +210,15 @@ export const institutionRouter = router({
         showPilotBadge: false,
       };
     }
-    const rows = await db
-      .select({ id: institutionalAccounts.id })
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id))
-      .limit(1);
+    const pilotAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = pilotAdminIds.length
+      ? await db
+          .select({ id: institutionalAccounts.id })
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, pilotAdminIds))
+          .orderBy(desc(institutionalAccounts.id))
+          .limit(1)
+      : [];
     const institutionId = rows[0]?.id ?? null;
     const institutionInPilotList = isInstitutionInPilotProgram(
       institutionId,
@@ -231,15 +239,18 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       }
-      const rows = await db
-        .select({
-          id: institutionalAccounts.id,
-          companyName: institutionalAccounts.companyName,
-        })
-        .from(institutionalAccounts)
-        .where(eq(institutionalAccounts.userId, ctx.user.id))
-        .orderBy(desc(institutionalAccounts.id))
-        .limit(1);
+      const csAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = csAdminIds.length
+        ? await db
+            .select({
+              id: institutionalAccounts.id,
+              companyName: institutionalAccounts.companyName,
+            })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, csAdminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
       const inst = rows[0];
       if (!inst?.companyName?.trim()) {
         throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
@@ -395,6 +406,16 @@ export const institutionRouter = router({
         contactPhone: z.string().min(1),
         contactDesignation: z.string().min(1),
         programInterest: z.array(z.string()),
+        /**
+         * North Star §6.1: "A minimum of two named admin contacts must
+         * always be registered." Required for every new institutional
+         * account going forward — existing accounts registered before this
+         * field existed are grandfathered (see the multi-admin dashboard
+         * prompt to add one, not a hard block on existing active accounts).
+         */
+        secondAdminName: z.string().min(1),
+        secondAdminEmail: z.string().email(),
+        secondAdminPhone: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -421,6 +442,13 @@ export const institutionRouter = router({
         };
       }
 
+      if (input.secondAdminEmail.toLowerCase() === input.contactEmail.toLowerCase()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The second admin needs to be a different person from the primary contact — this is what protects the account if one of you becomes unreachable.",
+        });
+      }
+
       const accountResult = await db.insert(institutionalAccounts).values({
         userId: ctx.user.id,
         companyName: input.institutionName,
@@ -429,10 +457,46 @@ export const institutionRouter = router({
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
+        registrationNumber: input.registrationNumber,
         status: "prospect",
       });
 
       const institutionId = (accountResult as unknown as { insertId: number }).insertId;
+
+      // Primary admin — the registering user themselves.
+      await db.insert(institutionalAccountAdmins).values({
+        institutionalAccountId: institutionId,
+        userId: ctx.user.id,
+        addedByUserId: null,
+      });
+
+      // Second admin (North Star §6.1) — link immediately if that email
+      // already has a platform account, otherwise create a pending invite
+      // claimed on their next login. Same lookup-or-invite pattern as
+      // institutionAdmins.invite.
+      const [secondAdminUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, input.secondAdminEmail))
+        .limit(1);
+
+      if (secondAdminUser) {
+        await db.insert(institutionalAccountAdmins).values({
+          institutionalAccountId: institutionId,
+          userId: secondAdminUser.id,
+          addedByUserId: ctx.user.id,
+        });
+      } else {
+        await db.insert(institutionalAdminInvites).values({
+          institutionalAccountId: institutionId,
+          invitedEmail: input.secondAdminEmail,
+          invitedName: input.secondAdminName,
+          invitedPhone: input.secondAdminPhone,
+          invitedByUserId: ctx.user.id,
+          source: "registration",
+          status: "pending",
+        });
+      }
 
       await db.insert(institutionalInquiries).values({
         companyName: input.institutionName,
@@ -1987,13 +2051,15 @@ export const institutionRouter = router({
       });
     }
 
-    const rows = await db
-      .select({ id: institutionalAccounts.id })
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id))
-      .limit(1);
-
+    const pendingAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = pendingAdminIds.length
+      ? await db
+          .select({ id: institutionalAccounts.id })
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, pendingAdminIds))
+          .orderBy(desc(institutionalAccounts.id))
+          .limit(1)
+      : [];
     const institutionId = rows[0]?.id;
     if (!institutionId) {
       return { count: 0, items: [] as { id: number; gapIdentified: string; careSignalEventId: number | null; createdAt: Date }[] };
