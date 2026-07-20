@@ -21,7 +21,7 @@ import {
   syncFellowshipProgressForUser,
   calculateCareSignalPillarForToken,
 } from "../services/fellowship-progress.service";
-import { generateTokenId, generateRecoveryCode, hashRecoveryCode, verifyRecoveryCode } from "../lib/fellowship-token";
+import { generateTokenId, generateRecoveryCode, hashRecoveryCode, verifyRecoveryCode, hashRecoveryCodeForLookup } from "../lib/fellowship-token";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
@@ -411,21 +411,28 @@ export const fellowshipRouter = router({
     const tokenId = generateTokenId();
     const recoveryCode = generateRecoveryCode();
     const recoveryCodeHash = await hashRecoveryCode(recoveryCode);
+    const recoveryCodeLookupHash = hashRecoveryCodeForLookup(recoveryCode);
 
-    await createFellowshipToken({ tokenId, recoveryCodeHash });
+    await createFellowshipToken({ tokenId, recoveryCodeHash, recoveryCodeLookupHash });
 
     return { tokenId, recoveryCode };
   }),
 
   /**
    * Recover a token by its recovery code, for when a provider's device is
-   * lost or its local storage is cleared. O(n) recovery-code lookup — see
-   * findFellowshipTokenByRecoveryCode's doc comment for the scaling note.
+   * lost or its local storage is cleared. O(1) for any token created on or
+   * after 2026-07-20 (migration 0073's indexed lookup hash); falls back to
+   * the original O(n) scan only for tokens created before then — see
+   * findFellowshipTokenByRecoveryCode's doc comment for the full mechanism.
    */
   recoverPseudonymousToken: protectedProcedure
     .input(z.object({ recoveryCode: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      const tokenId = await findFellowshipTokenByRecoveryCode(input.recoveryCode, verifyRecoveryCode);
+      const tokenId = await findFellowshipTokenByRecoveryCode(
+        input.recoveryCode,
+        verifyRecoveryCode,
+        hashRecoveryCodeForLookup
+      );
       if (!tokenId) {
         throw new TRPCError({ code: "NOT_FOUND", message: "No token matches that recovery code." });
       }

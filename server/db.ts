@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import dns from "node:dns";
@@ -865,29 +865,53 @@ export async function getFellowshipTokenByTokenId(tokenId: string) {
 }
 
 /**
- * Recovery-code lookup. Recovery codes are bcrypt-hashed (one-way), so this
- * can't be a WHERE clause — it fetches candidate rows and compares in
- * application code. KNOWN SCALING LIMIT (documented, not hidden): this is
- * O(n) in the number of tokens ever created. Fine at pilot scale (tens to
- * low hundreds of providers per PSOT §20.5's ~50-per-country network
- * threshold); would need a fast, separately-salted lookup index (hash the
- * code with a fixed pepper for indexing, bcrypt-verify the matched
- * candidate for the actual security check) before this scales past roughly
- * a few thousand tokens.
+ * Recovery-code lookup. Recovery codes are bcrypt-hashed (one-way), so the
+ * actual security check can't be a WHERE clause on its own — but as of
+ * 2026-07-20 (gap-analysis #12, closing the O(n) scaling limit documented
+ * since item #10 shipped) this no longer means scanning every row:
+ *
+ * 1. Compute the caller's code's keyed HMAC (`hashRecoveryCodeForLookup`)
+ *    and look it up via the indexed `recoveryCodeLookupHash` column — O(1).
+ * 2. If found, still bcrypt-verify against `recoveryCodeHash` before
+ *    treating it as a match — the lookup hash only narrows the candidate,
+ *    it is never the authentication decision by itself.
+ * 3. If no indexed match, fall back to the original O(n) scan — but ONLY
+ *    over rows where `recoveryCodeLookupHash IS NULL` (tokens created
+ *    before this column existed, whose bcrypt hash can't be reverse-
+ *    engineered to backfill it). This fallback set is fixed at however
+ *    many tokens existed at cutover and only shrinks over time as old
+ *    tokens are recovered/retired — it never grows, unlike the original
+ *    unbounded scan.
  */
 export async function findFellowshipTokenByRecoveryCode(
   code: string,
-  verify: (code: string, hash: string) => Promise<boolean>
+  verify: (code: string, hash: string) => Promise<boolean>,
+  hashForLookup: (code: string) => string
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const candidates = await db
+
+  const lookupHash = hashForLookup(code);
+  const indexedCandidates = await db
     .select({ tokenId: fellowshipTokens.tokenId, recoveryCodeHash: fellowshipTokens.recoveryCodeHash })
-    .from(fellowshipTokens);
-  for (const candidate of candidates) {
+    .from(fellowshipTokens)
+    .where(eq(fellowshipTokens.recoveryCodeLookupHash, lookupHash));
+  for (const candidate of indexedCandidates) {
     if (await verify(code, candidate.recoveryCodeHash)) {
       return candidate.tokenId;
     }
   }
+
+  // Bounded legacy fallback — only pre-migration tokens ever land here.
+  const legacyCandidates = await db
+    .select({ tokenId: fellowshipTokens.tokenId, recoveryCodeHash: fellowshipTokens.recoveryCodeHash })
+    .from(fellowshipTokens)
+    .where(isNull(fellowshipTokens.recoveryCodeLookupHash));
+  for (const candidate of legacyCandidates) {
+    if (await verify(code, candidate.recoveryCodeHash)) {
+      return candidate.tokenId;
+    }
+  }
+
   return null;
 }
