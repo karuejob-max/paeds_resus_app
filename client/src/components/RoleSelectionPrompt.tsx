@@ -36,8 +36,8 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
   const roles = [
     {
       id: "provider",
-      label: "Healthcare Provider",
-      description: "Access clinical protocols, Care Signal reporting, and professional development resources",
+      label: "Individual account",
+      description: "Courses, ResusGPS, and Care Signal — for clinical staff, students, or anyone taking a course like Heartsaver",
       icon: Stethoscope,
       color: "from-blue-500 to-indigo-600",
       textColor: "text-blue-600",

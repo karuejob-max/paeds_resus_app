@@ -113,7 +113,7 @@ export default function Register() {
         <CardHeader>
           <CardTitle>Create account</CardTitle>
           <CardDescription>
-            One minute to get started. You can switch between provider, parent, and hospital tools later from the menu.
+            One minute to get started. You can switch between individual and hospital tools later from the menu.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -127,7 +127,7 @@ export default function Register() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="individual">Healthcare provider (clinical staff)</SelectItem>
+                  <SelectItem value="individual">Individual account (courses, ResusGPS, Care Signal)</SelectItem>
                   <SelectItem value="institutional">Hospital or institution</SelectItem>
                 </SelectContent>
               </Select>
