@@ -16,6 +16,7 @@ const staffFormSchema = z.object({
   staffEmail: z.string().email("Invalid email address"),
   staffPhone: z.string().optional(),
   staffRole: z.enum(["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]),
+  designation: z.enum(["noi", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"]).optional(),
   department: z.string().optional(),
   yearsOfExperience: z.number().min(0).optional(),
 });
@@ -41,6 +42,7 @@ export function AddStaffForm({ institutionId, open, onOpenChange, onSuccess }: A
       staffEmail: "",
       staffPhone: "",
       staffRole: "nurse",
+      designation: "other",
       department: "",
       yearsOfExperience: 0,
     },
@@ -168,6 +170,37 @@ export function AddStaffForm({ institutionId, open, onOpenChange, onSuccess }: A
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Cohort Program Designation Field */}
+              <FormField
+                control={form.control}
+                name="designation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cohort Program Designation</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a designation" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="noi">NOI (Nursing Officer Intern)</SelectItem>
+                        <SelectItem value="coi_bsc">Clinical Officer Intern (BSc)</SelectItem>
+                        <SelectItem value="coi_diploma">Clinical Officer Intern (Diploma)</SelectItem>
+                        <SelectItem value="moi">MOI (Medical Officer Intern)</SelectItem>
+                        <SelectItem value="permanent_nurse">Permanent Nurse</SelectItem>
+                        <SelectItem value="permanent_doctor">Permanent Doctor</SelectItem>
+                        <SelectItem value="other">Other / Not in cohort program</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Controls Subsidised ACLS/BLS Cohort Program pricing eligibility (any nurse or intern designation qualifies for KES 15,000; nurses will still need to add their licence number themselves before the subsidised rate applies).
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
