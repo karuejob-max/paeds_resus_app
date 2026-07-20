@@ -238,6 +238,10 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   contactName: varchar("contactName", { length: 255 }).notNull(),
   contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 20 }),
+  /** MoH registration number (or equivalent), promoted to a real column (migration 0071) so
+   *  institutional recovery requests (North Star §6.1) can be matched against it directly —
+   *  previously only captured inside institutionalInquiries.specificNeeds as opaque JSON. */
+  registrationNumber: varchar("registrationNumber", { length: 255 }),
   status: mysqlEnum("status", ["prospect", "active", "inactive"]).default("prospect"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -245,6 +249,98 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
 
 export type InstitutionalAccount = typeof institutionalAccounts.$inferSelect;
 export type InsertInstitutionalAccount = typeof institutionalAccounts.$inferInsert;
+
+/**
+ * North Star v2.0 §6.1: "the Organisation Actor account belongs to the
+ * institution, not the person who created it. A minimum of two named admin
+ * contacts must always be registered." This table grants account-admin
+ * access to more than one user per institution — institutionalAccounts.userId
+ * remains as the original/primary owner for backward compat with every
+ * existing query, but access checks (assertInstitutionAccess) also honor
+ * membership here. Existing accounts are backfilled with their owner as the
+ * first row (migration 0071).
+ *
+ * Deliberately no composite DB unique constraint on (institutionalAccountId,
+ * userId) — this codebase has no precedent for composite unique indexes on
+ * drizzle-orm/mysql-core tables, so de-duplication is enforced at the
+ * application layer (check-before-insert) instead. Flagging as a known
+ * simplification, not an oversight.
+ */
+export const institutionalAccountAdmins = mysqlTable("institutionalAccountAdmins", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId").notNull(),
+  /** Null for the original owner (backfilled) or a recovery-approval grant; set for a live admin's own invite action. */
+  addedByUserId: int("addedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InstitutionalAccountAdmin = typeof institutionalAccountAdmins.$inferSelect;
+export type InsertInstitutionalAccountAdmin = typeof institutionalAccountAdmins.$inferInsert;
+
+/**
+ * Pending admin grants for an email that doesn't have a platform account yet
+ * (or hasn't accepted). Used by two flows that both need the same "grant
+ * access to an email, whether or not they've signed up" primitive: (1) the
+ * second-admin field collected at institutional registration/onboarding,
+ * and (2) an approved institutionalRecoveryRequests row. Accepted by
+ * acceptInvite matching the logged-in user's own email — see
+ * server/routers/institution-admins.ts for the known limitation this implies
+ * (no single-use token; matched by email equality at accept-time).
+ */
+export const institutionalAdminInvites = mysqlTable("institutionalAdminInvites", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  invitedName: varchar("invitedName", { length: 255 }),
+  invitedPhone: varchar("invitedPhone", { length: 20 }),
+  /** Null when created by a recovery approval (no live admin performed it) or at registration (self-invite of the second contact). */
+  invitedByUserId: int("invitedByUserId"),
+  source: mysqlEnum("source", ["registration", "admin_invite", "recovery_approval"]).notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "revoked"]).default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+});
+
+export type InstitutionalAdminInvite = typeof institutionalAdminInvites.$inferSelect;
+export type InsertInstitutionalAdminInvite = typeof institutionalAdminInvites.$inferInsert;
+
+/**
+ * North Star v2.0 §6.1: "Account recovery requires institutional identity
+ * verification — facility letterhead, MoH registration number — not
+ * personal credential reset. If both admin contacts are unreachable,
+ * recovery is via institutional verification only." Deliberately a public,
+ * no-auth submission (the whole scenario is "nobody can log in"); matching
+ * to a real institutionalAccountId is a manual step by the reviewing
+ * platform admin (option A from the design conversation — the requester
+ * types the institution's claimed name/registration number rather than
+ * referencing an internal ID they may not have), not automated. letterheadUrl
+ * follows the same pasted-URL precedent as institutionalStaffMembers.phase1ProofUrl
+ * — no file-upload infrastructure exists in this codebase yet.
+ */
+export const institutionalRecoveryRequests = mysqlTable("institutionalRecoveryRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  companyNameClaimed: varchar("companyNameClaimed", { length: 255 }).notNull(),
+  claimedRegistrationNumber: varchar("claimedRegistrationNumber", { length: 255 }),
+  requesterName: varchar("requesterName", { length: 255 }).notNull(),
+  requesterEmail: varchar("requesterEmail", { length: 320 }).notNull(),
+  requesterPhone: varchar("requesterPhone", { length: 20 }),
+  /** Free text — e.g. "new hospital administrator", "IT lead", "board member" — for reviewer context only. */
+  requesterRoleClaim: varchar("requesterRoleClaim", { length: 255 }),
+  letterheadUrl: text("letterheadUrl").notNull(),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending"),
+  /** Set by the reviewing admin on approval — the institution this request was manually matched to. */
+  matchedInstitutionalAccountId: int("matchedInstitutionalAccountId"),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InstitutionalRecoveryRequest = typeof institutionalRecoveryRequests.$inferSelect;
+export type InsertInstitutionalRecoveryRequest = typeof institutionalRecoveryRequests.$inferInsert;
 
 // Institutional Inquiries table
 export const institutionalInquiries = mysqlTable("institutionalInquiries", {

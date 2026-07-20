@@ -68,6 +68,8 @@ import { adminStatsRouter } from "./routers/admin-stats";
 import { facilitiesRouter } from "./routers/facilities";
 import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
+import { institutionAdminsRouter } from "./routers/institution-admins";
+import { institutionRecoveryRouter } from "./routers/institution-recovery";
 import { cneRouter } from "./routers/cne";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
@@ -454,6 +456,8 @@ export const appRouter = router({
   fpkb: fpkbRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
+  institutionAdmins: institutionAdminsRouter,
+  institutionRecovery: institutionRecoveryRouter,
   cne: cneRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
