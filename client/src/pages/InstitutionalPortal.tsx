@@ -709,7 +709,7 @@ function CohortProgressWidget({ institutionId }: { institutionId: number }) {
   if (!cohortStats || cohortStats.length === 0) return null;
 
   const displayNameMap: Record<string, string> = {
-    bsn_intern: "BSN Intern",
+    noi: "NOI (Nursing Officer Intern)",
     coi_bsc: "Clinical Officer Intern (BSc)",
     coi_diploma: "Diploma COI",
     moi: "MOI (Medical Officer Intern)",

@@ -44,7 +44,7 @@ To support cohort categorization, individual flexible payment ledgers, and simul
 
 ### 2.1 Cohort & Designation Updates
 We extend the enum and add a custom designation field to track the specific intern types at any facility:
-- **BSN Intern** (Bachelor of Science in Nursing)
+- **NOI** (Nursing Officer Intern, BSN-holding)
 - **Clinical Officer Intern (BSc)**
 - **Diploma COI**
 - **MOI** (Medical Officer Intern / Doctor)
@@ -54,7 +54,7 @@ We extend the enum and add a custom designation field to track the specific inte
 ```typescript
 // Extends the institutionalStaffMembers and providerProfiles tables
 export const designationEnum = mysqlEnum("designation", [
-  "bsn_intern",
+  "noi",
   "coi_bsc",
   "coi_diploma",
   "moi",

@@ -926,7 +926,7 @@ export const coursesRouter = router({
         }
 
         // Deferred-payment lockout (CEO decision, 2026-07-19): interns (designation
-        // bsn_intern / coi_bsc / coi_diploma / moi) are allowed to defer payment while
+        // noi / coi_bsc / coi_diploma / moi) are allowed to defer payment while
         // in Phase 1-2, but if FOUR MONTHS have passed since they joined the program
         // and they still have not made ANY payment, they lose the ability to book
         // further online simulation sessions until they pay something. This is
@@ -936,7 +936,7 @@ export const coursesRouter = router({
         // "not fully paid yet" case for everyone. Money already paid is non-refundable
         // per Terms of Use §6.5 — this gate is what gives that term teeth for learners
         // who never start paying at all.
-        const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"] as const;
+        const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
         const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
         if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
           const joinedAt = enrollmentDate ?? createdAt;
@@ -1226,7 +1226,7 @@ export const coursesRouter = router({
     // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
     // Surfaced here so the dashboard can warn a learner as the 4-month deadline
     // approaches, not just block them silently once it's already passed.
-    const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"];
+    const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"];
     const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
     const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
     const joinedAt = s.enrollmentDate ?? s.createdAt;

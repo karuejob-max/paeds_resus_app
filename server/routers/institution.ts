@@ -626,7 +626,7 @@ export const institutionRouter = router({
           "other",
         ]),
         designation: z.enum([
-          "bsn_intern",
+          "noi",
           "coi_bsc",
           "coi_diploma",
           "moi",
@@ -689,7 +689,7 @@ export const institutionRouter = router({
               "other",
             ]),
             designation: z.enum([
-              "bsn_intern",
+              "noi",
               "coi_bsc",
               "coi_diploma",
               "moi",
@@ -2319,7 +2319,7 @@ export const institutionRouter = router({
   // ─────────────────────────────────────────────────────────────────────────
   declareMyDesignation: protectedProcedure
     .input(z.object({
-      designation: z.enum(["bsn_intern", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"]),
+      designation: z.enum(["noi", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"]),
       licenseNumber: z.string().trim().min(1).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
