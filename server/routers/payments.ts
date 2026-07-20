@@ -400,7 +400,7 @@ export const paymentsRouter = router({
         // qualify — that's the verification step; interns just need to have declared
         // themselves as an intern designation, no licence required.
         const NURSE_DESIGNATION = "permanent_nurse" as const;
-        const INTERN_DESIGNATIONS = ["bsn_intern", "coi_bsc", "coi_diploma", "moi"] as const;
+        const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
 
         const staffRows = await db
           .select({

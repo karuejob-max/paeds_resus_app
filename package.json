@@ -116,6 +116,7 @@
     "db:apply-0069": "node scripts/apply-0069-retire-parent-usertype.mjs",
     "db:apply-0070": "node scripts/apply-0070-phase3-cross-facility-overflow.mjs",
     "db:apply-0071": "node scripts/apply-0071-institutional-multi-admin-recovery.mjs",
+    "db:apply-0072": "node scripts/apply-0072-rename-bsn-intern-to-noi.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
