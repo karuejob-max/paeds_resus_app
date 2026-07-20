@@ -880,7 +880,7 @@ export default function AdminReports() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg border p-3">
                     <p className="text-2xl font-bold">{report.usersByType.individual}</p>
-                    <p className="text-sm text-muted-foreground">Healthcare providers</p>
+                    <p className="text-sm text-muted-foreground">Individual accounts</p>
                   </div>
                   <div className="rounded-lg border p-3">
                     <p className="text-2xl font-bold">{report.usersByType.institutional}</p>

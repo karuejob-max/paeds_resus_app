@@ -18,9 +18,9 @@ export default function RoleSelector({ onRoleChange }: RoleSelectorProps) {
   const roleOptions: { value: UserRoleType; label: string; color: string; description: string }[] = [
     {
       value: "provider",
-      label: "Healthcare Provider",
+      label: "Individual account",
       color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-      description: "Access clinical protocols, Care Signal, and ResusGPS",
+      description: "Courses, Care Signal, and ResusGPS",
     },
     {
       value: "institution",

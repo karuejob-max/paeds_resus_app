@@ -97,9 +97,9 @@ export default function Home() {
                 <RadioGroupItem value="individual" id="onb-individual" />
                 <Stethoscope className="h-5 w-5" />
                 <div>
-                  <p className="font-medium">Healthcare Provider</p>
+                  <p className="font-medium">Individual account</p>
                   <p className="text-sm text-muted-foreground">
-                    Access Fellowship, AHA certification, ResusGPS, and Care Signal in one provider workspace
+                    Access Fellowship, AHA certification (incl. Heartsaver), ResusGPS, and Care Signal in one workspace
                   </p>
                 </div>
               </Label>
@@ -128,7 +128,7 @@ export default function Home() {
     );
   }
 
-  // Provider home — Fellowship vs AHA hub (include hospital admins who switched to Healthcare Provider in the menu)
+  // Provider home — Fellowship vs AHA hub (include hospital admins who switched to Individual account in the menu)
   if (userType === "individual" || role === "provider") {
     return (
       <Suspense

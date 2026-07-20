@@ -97,9 +97,13 @@ export default function Header() {
       : baseNav;
 
   const roleOptions = [
-    { value: "provider", label: "Healthcare Provider", icon: Stethoscope },
+    { value: "provider", label: "Individual", icon: Stethoscope },
     { value: "institution", label: "Institution", icon: Briefcase },
   ];
+  const roleDisplayLabel: Record<"provider" | "institution", string> = {
+    provider: "Individual",
+    institution: "Institution",
+  };
 
   // Keyboard: Escape closes dropdowns
   useEffect(() => {
@@ -152,7 +156,7 @@ export default function Header() {
             >
               {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
               {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
-              <span className="capitalize">{effectiveRole === 'provider' ? 'Provider' : 'Institution'}</span>
+              <span className="capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
             </button>
           )}
 
@@ -169,7 +173,7 @@ export default function Header() {
               >
                 {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
                 {effectiveRole === "institution" && <Briefcase className="w-4 h-4" />}
-                <span className="capitalize">{effectiveRole}</span>
+                <span className="capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
                 <ChevronDown className={`w-4 h-4 transition ${roleDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
