@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Send, Loader, Sparkles, ThumbsUp, ThumbsDown, Copy } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { getAiAssistantErrorMessage } from "@/lib/trpc-errors";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 
@@ -111,7 +112,7 @@ export default function PaedsAIAssistant() {
       console.error("Error sending message:", error);
       const errorMessage: Message = {
         id: `msg-err-${Date.now()}`,
-        content: "Sorry, I had trouble reaching the AI Guide. Please check your connection and try again.",
+        content: getAiAssistantErrorMessage(error),
         sender: "assistant",
         timestamp: new Date(),
       };
