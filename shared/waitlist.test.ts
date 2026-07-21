@@ -7,40 +7,14 @@
  *
  * These tests cover the three critical invariants that must hold for fair
  * allocation when a new slot opens in a fully-booked online simulation session.
+ *
+ * As of 2026-07-20 this imports the real, wired-in implementation from
+ * `shared/waitlist.ts` (used by `courses.ts`'s `cancelHandsOnSession`)
+ * rather than a local copy — previously this file's own inline definition
+ * was the only place this algorithm existed anywhere in the codebase.
  */
 import { describe, it, expect } from "vitest";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface WaitlistCandidate {
-  staffMemberId: number;
-  totalPaidAmount: number; // KES
-  subsidisedFee: number;   // KES — always 15000 for cohort members
-  waitlistedAt: Date;
-}
-
-// ─── Algorithm under test ─────────────────────────────────────────────────────
-
-/**
- * Sorts waitlist candidates by:
- *   1. Payment percentage descending (most paid gets priority).
- *   2. Earliest waitlist timestamp ascending (first-come tiebreaker).
- *
- * Returns the top-N candidates who should be promoted to "registered".
- */
-function selectFromWaitlist(
-  candidates: WaitlistCandidate[],
-  slotsAvailable: number
-): WaitlistCandidate[] {
-  return [...candidates]
-    .sort((a, b) => {
-      const pctA = a.totalPaidAmount / a.subsidisedFee;
-      const pctB = b.totalPaidAmount / b.subsidisedFee;
-      if (pctB !== pctA) return pctB - pctA; // higher payment % first
-      return a.waitlistedAt.getTime() - b.waitlistedAt.getTime(); // earlier first
-    })
-    .slice(0, slotsAvailable);
-}
+import { selectFromWaitlist, type WaitlistCandidate } from "./waitlist";
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

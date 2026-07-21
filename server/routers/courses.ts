@@ -13,6 +13,7 @@ import {
   loadMicroCoursesFromDb,
 } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
+import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
@@ -1030,6 +1031,103 @@ export const coursesRouter = router({
         .where(eq(trainingSchedules.id, input.scheduleId));
 
       return { success: true, alreadyRegistered: false, waitlisted: false, message: "Successfully registered for the session" };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CANCEL-AND-PROMOTE: previously there was no cancellation path at all —
+  // enrolledCount only ever incremented, so a session's waitlist could never
+  // actually be promoted no matter how the priority algorithm sorted it
+  // (INST-21 follow-up, 2026-07-20). This is the first real caller of
+  // `selectFromWaitlist` (shared/waitlist.ts) anywhere in the codebase.
+  // ─────────────────────────────────────────────────────────────────────────
+  cancelHandsOnSession: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [myAttendance] = await db
+        .select({ id: trainingAttendance.id, attendanceStatus: trainingAttendance.attendanceStatus })
+        .from(trainingAttendance)
+        .where(and(
+          eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+          eq(trainingAttendance.staffMemberId, ctx.user.id)
+        ))
+        .limit(1);
+
+      if (!myAttendance) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "You are not registered for this session" });
+      }
+      if (myAttendance.attendanceStatus === "cancelled") {
+        return { success: true, alreadyCancelled: true, promoted: null as number | null };
+      }
+
+      const wasRegistered = myAttendance.attendanceStatus === "registered";
+
+      await db
+        .update(trainingAttendance)
+        .set({ attendanceStatus: "cancelled", updatedAt: new Date() })
+        .where(eq(trainingAttendance.id, myAttendance.id));
+
+      let promotedStaffMemberId: number | null = null;
+
+      if (wasRegistered) {
+        const [session] = await db
+          .select({ id: trainingSchedules.id, enrolledCount: trainingSchedules.enrolledCount })
+          .from(trainingSchedules)
+          .where(eq(trainingSchedules.id, input.scheduleId))
+          .limit(1);
+
+        if (session) {
+          await db
+            .update(trainingSchedules)
+            .set({ enrolledCount: Math.max(0, (session.enrolledCount ?? 1) - 1) })
+            .where(eq(trainingSchedules.id, input.scheduleId));
+
+          // A slot just freed up — check the waitlist and promote the top
+          // candidate per selectFromWaitlist's payment-percentage-then-FIFO rule.
+          const waitlisted = await db
+            .select({
+              attendanceId: trainingAttendance.id,
+              staffMemberId: trainingAttendance.staffMemberId,
+              waitlistedAt: trainingAttendance.createdAt,
+              totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+            })
+            .from(trainingAttendance)
+            .innerJoin(institutionalStaffMembers, eq(institutionalStaffMembers.userId, trainingAttendance.staffMemberId))
+            .where(and(
+              eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+              eq(trainingAttendance.attendanceStatus, "waitlisted")
+            ));
+
+          if (waitlisted.length > 0) {
+            const candidates: WaitlistCandidate[] = waitlisted.map((w) => ({
+              staffMemberId: w.staffMemberId,
+              totalPaidAmount: Number(w.totalPaidAmount ?? 0),
+              subsidisedFee: 15000,
+              waitlistedAt: w.waitlistedAt ?? new Date(),
+            }));
+            const [winner] = selectFromWaitlist(candidates, 1);
+
+            if (winner) {
+              const winnerAttendance = waitlisted.find((w) => w.staffMemberId === winner.staffMemberId);
+              if (winnerAttendance) {
+                await db
+                  .update(trainingAttendance)
+                  .set({ attendanceStatus: "registered", updatedAt: new Date() })
+                  .where(eq(trainingAttendance.id, winnerAttendance.attendanceId));
+                await db
+                  .update(trainingSchedules)
+                  .set({ enrolledCount: Math.max(0, (session.enrolledCount ?? 1) - 1) + 1 })
+                  .where(eq(trainingSchedules.id, input.scheduleId));
+                promotedStaffMemberId = winner.staffMemberId;
+              }
+            }
+          }
+        }
+      }
+
+      return { success: true, alreadyCancelled: false, promoted: promotedStaffMemberId };
     }),
 
   getMyHandsOnBookings: protectedProcedure.query(async ({ ctx }) => {
