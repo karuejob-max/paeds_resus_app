@@ -9,7 +9,7 @@
   codifies AGENTS.md's "Shared-file collision protocol" (steps 1, 1a, 4)
   into one command instead of relying on remembering each step by hand.
   It does NOT replace step 2 (post-merge verification) or step 1b
-  (re-diffing a zip before packaging) — those still need a change-specific
+  (re-diffing a zip before packaging) - those still need a change-specific
   grep only you know the right substring for. Run this BEFORE merging any
   PR, on the PR's own branch.
 
@@ -19,7 +19,7 @@
 .PARAMETER AutoMerge
   If set, automatically runs `git merge origin/main` when the branch is
   behind, instead of just reporting it. You still have to resolve any
-  conflicts and push yourself — this never pushes or force-does anything.
+  conflicts and push yourself - this never pushes or force-does anything.
 
 .EXAMPLE
   .\scripts\pre-merge-check.ps1
@@ -47,7 +47,7 @@ Write-Host ""
 Write-Host "=== Pre-merge collision check for '$Branch' ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Step 1: fetch fresh, immediately before checking — not relying on an
+# Step 1: fetch fresh, immediately before checking - not relying on an
 # earlier fetch from when the branch was created.
 Write-Host "Fetching origin/main..." -ForegroundColor Gray
 git fetch origin main | Out-Null
@@ -69,7 +69,7 @@ if (-not $anyDrift) {
   Write-Host "  No drift on any of the four high-collision files. Clean so far." -ForegroundColor Green
 }
 
-# Step 1a: is this branch behind main at all (not just on the four files —
+# Step 1a: is this branch behind main at all (not just on the four files -
 # any commit)? If so, offer to bring it current before you merge the PR,
 # rather than letting GitHub's merge UI reconcile a stale branch silently.
 $behindCount = (git rev-list --count "HEAD..origin/main")
@@ -82,11 +82,11 @@ if ([int]$behindCount -gt 0) {
     if ($LASTEXITCODE -ne 0) {
       Write-Host ""
       Write-Host "  MERGE CONFLICT. Do not resolve schema.ts, package.json, or" -ForegroundColor Red
-      Write-Host "  WORK_STATUS.md blind — paste the conflicting file names to Claude first." -ForegroundColor Red
+      Write-Host "  WORK_STATUS.md blind - paste the conflicting file names to Claude first." -ForegroundColor Red
       exit 1
     } else {
       Write-Host "  Merged cleanly. Review the four files above yourself before" -ForegroundColor Green
-      Write-Host "  trusting it — a clean auto-merge is not proof nothing was silently" -ForegroundColor Green
+      Write-Host "  trusting it - a clean auto-merge is not proof nothing was silently" -ForegroundColor Green
       Write-Host "  dropped (see AGENTS.md's account-types and fellowship-recovery incidents)." -ForegroundColor Green
       Write-Host "  Then: git push" -ForegroundColor Gray
     }
@@ -101,7 +101,7 @@ if ([int]$behindCount -gt 0) {
 
 # Step 4: migration script <-> package.json consistency check. For every
 # scripts/apply-00NN-*.mjs file, confirm its exact filename is referenced
-# SOMEWHERE in package.json — not assuming a fixed "db:apply-00NN" key
+# SOMEWHERE in package.json - not assuming a fixed "db:apply-00NN" key
 # name, since this repo also uses other prefixes (e.g. db:backfill-00NN).
 # This is exactly the check that would have caught the fellowship-recovery
 # PR's dropped db:apply-0072 entry, and the earlier 0069-vs-0069 collision,
@@ -112,7 +112,7 @@ Write-Host "=== Migration script <-> package.json consistency ===" -ForegroundCo
 $migrationFileObjects = Get-ChildItem -Path "scripts" -Filter "apply-0*.mjs" -File
 $packageJsonContent = Get-Content -Path "package.json" -Raw
 
-# Duplicate-number check first — this is the exact failure mode hit twice
+# Duplicate-number check first - this is the exact failure mode hit twice
 # already (0069 claimed by two different PRs' scripts in the same window).
 $numberGroups = $migrationFileObjects | Where-Object { $_.Name -match "^apply-\d{4}-" } |
   Group-Object { if ($_.Name -match "^(apply-\d{4})-") { $matches[1] } }
@@ -133,7 +133,7 @@ foreach ($fileObj in $migrationFileObjects) {
 if (-not $problem) {
   Write-Host "  Every scripts/apply-0*.mjs file is referenced somewhere in package.json." -ForegroundColor Green
 } else {
-  Write-Host "  (This may be a pre-existing, already-run migration with no npm script —" -ForegroundColor Gray
+  Write-Host "  (This may be a pre-existing, already-run migration with no npm script -" -ForegroundColor Gray
   Write-Host "   not necessarily something this PR broke. Check before assuming it's new.)" -ForegroundColor Gray
 }
 
@@ -144,7 +144,7 @@ Write-Host "    each high-collision file against fresh origin/main before packag
 Write-Host "    not just before you started editing." -ForegroundColor Gray
 Write-Host "  - Step 2 (after merging): grep origin/main for the SPECIFIC thing" -ForegroundColor Gray
 Write-Host "    this PR added, e.g.:" -ForegroundColor Gray
-Write-Host "      git show origin/main:<file> | Select-String `"<short ASCII substring>`"" -ForegroundColor Gray
-Write-Host "    Use a short, ASCII-only substring — not a retyped phrase with an" -ForegroundColor Gray
+Write-Host '      git show origin/main:<file> | Select-String "<short ASCII substring>"' -ForegroundColor Gray
+Write-Host "    Use a short, ASCII-only substring - not a retyped phrase with an" -ForegroundColor Gray
 Write-Host "    em dash or other punctuation that can silently fail to match." -ForegroundColor Gray
 Write-Host ""
