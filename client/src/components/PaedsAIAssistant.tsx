@@ -142,7 +142,7 @@ export default function PaedsAIAssistant() {
       {!isOpen && (
         <button
           onClick={handleOpenAssistant}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-[#1a4d4d] to-[#2e7d7d] hover:to-[#1a4d4d] hover:shadow-xl text-white rounded-full shadow-[0_4px_20px_rgba(26,77,77,0.3)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-teal-700/30 flex items-center justify-center transition-all duration-300 hover:scale-105 z-40 group"
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14 bg-gradient-to-tr from-[#1a4d4d] to-[#2e7d7d] hover:to-[#1a4d4d] hover:shadow-xl text-white rounded-full shadow-[0_4px_20px_rgba(26,77,77,0.3)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-teal-700/30 flex items-center justify-center transition-all duration-300 hover:scale-105 z-40 group"
           title="Paeds Resus AI Guide"
         >
           <Sparkles className="w-6 h-6 animate-pulse" />
@@ -152,7 +152,7 @@ export default function PaedsAIAssistant() {
 
       {/* AI Guide Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-[380px] h-[580px] flex flex-col z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed z-50 flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.6)] animate-in slide-in-from-bottom-5 duration-300 bottom-36 left-3 right-3 w-auto h-[65vh] max-h-[580px] md:bottom-24 md:left-auto md:right-6 md:w-[380px] md:h-[580px]">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1a4d4d] to-[#0d3333] text-white p-4 rounded-t-2xl flex items-center justify-between border-b border-teal-800/20">
             <div className="flex items-center gap-3">
