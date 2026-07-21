@@ -359,6 +359,28 @@ export default function Header() {
                         )}
                       </div>
 
+                      {/* Public pages — reachable regardless of account/role (e.g. filing a
+                          Safe-Truth report needs no account and shouldn't require signing out) */}
+                      <div className="py-2 space-y-1 border-t border-border">
+                        <p className="px-3 pt-1 pb-1 text-xs font-semibold text-muted-foreground">Explore</p>
+                        <Link href="/safe-truth">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            Safe-Truth (share a story)
+                          </div>
+                        </Link>
+                        <Link href="/help">
+                          <div
+                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                            onClick={() => setAccountDropdownOpen(false)}
+                          >
+                            Help centre
+                          </div>
+                        </Link>
+                      </div>
+
                       {/* Logout */}
                       <div className="border-t border-border pt-2">
                         <button
@@ -423,6 +445,17 @@ export default function Header() {
                 </Link>
                 <Link href="/for-institutions" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground/90">Institutions</span>
+                </Link>
+                <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-foreground/90">Help</span>
+                </Link>
+              </div>
+            )}
+            {isAuthenticated && (
+              <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
+                <Link href="/safe-truth" onClick={() => setMobileMenuOpen(false)}>
+                  <span className="block py-2 text-sm text-foreground font-medium">Safe-Truth (share a story)</span>
                 </Link>
                 <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground/90">Help</span>
