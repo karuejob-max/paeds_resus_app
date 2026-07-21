@@ -9,6 +9,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { getLoginUrl } from "@/const";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
+import { trpc } from "@/lib/trpc";
 
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
@@ -32,10 +33,18 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [learnDropdownOpen, setLearnDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const learnDropdownRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
   const prefetchAhaHub = usePrefetchAhaHub();
+
+  // Instructor Portal only shows once someone is actually approved — see
+  // instructor.getStatus.portalUnlocked (number + certified + admin-approved).
+  const { data: instructorStatus } = trpc.instructor.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated && effectiveRole === "provider",
+  });
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -46,13 +55,16 @@ export default function Header() {
       if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
         setRoleDropdownOpen(false);
       }
+      if (learnDropdownRef.current && !learnDropdownRef.current.contains(event.target as Node)) {
+        setLearnDropdownOpen(false);
+      }
     };
 
-    if (accountDropdownOpen || roleDropdownOpen) {
+    if (accountDropdownOpen || roleDropdownOpen || learnDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [accountDropdownOpen, roleDropdownOpen]);
+  }, [accountDropdownOpen, roleDropdownOpen, learnDropdownOpen]);
 
   // Sync role from userType when authenticated and role not set (e.g. after login)
   useEffect(() => {
@@ -69,16 +81,22 @@ export default function Header() {
   const getNavigation = () => {
     const r = effectiveRole;
     if (r === "provider") {
-      return [
+      const items: { label: string; href: string; icon: string; group?: "learn" }[] = [
         RESUS_GPS_NAV,
         { label: "Dashboard", href: "/home", icon: "🏠" },
-        { label: "Fellowship", href: "/fellowship", icon: "📚" },
-        { label: "Fellowship guide", href: "/fellowship/about", icon: "📖" },
-        { label: "AHA", href: "/aha-courses", icon: "🩺" },
+        // Elevated to top-level (not grouped) — Care Signal is safety-critical
+        // incident reporting, not a course; it shouldn't compete for attention
+        // inside a "Learn" bucket the way Fellowship/AHA/CNE do.
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
-        { label: "Instructor", href: "/instructor-portal", icon: "🎓" },
-        { label: "My CNE", href: "/my-cne-certificates", icon: "📜" },
+        { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
+        { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
+        { label: "AHA", href: "/aha-courses", icon: "🩺", group: "learn" },
+        { label: "My CNE", href: "/my-cne-certificates", icon: "📜", group: "learn" },
       ];
+      if (instructorStatus?.portalUnlocked) {
+        items.push({ label: "Instructor", href: "/instructor-portal", icon: "🎓" });
+      }
+      return items;
     }
     if (r === "institution") {
       return [
@@ -95,6 +113,14 @@ export default function Header() {
     isAuthenticated && (user as { role?: string })?.role === "admin"
       ? [...baseNav, { label: "Admin", href: "/admin", icon: "🛡️" }]
       : baseNav;
+  // Desktop-only split: everything NOT in the "learn" group renders as its own
+  // top-level link; "learn" items collapse into one "Learn" dropdown so the
+  // desktop row doesn't grow a new flat item every time a course type is added.
+  // Mobile keeps rendering `navigation` as one flat list either way (below) —
+  // this split only affects the `hidden lg:flex` row's layout, not what's
+  // reachable on a phone.
+  const primaryNavItems = navigation.filter((item) => item.group !== "learn");
+  const learnNavItems = navigation.filter((item) => item.group === "learn");
 
   const roleOptions = [
     { value: "provider", label: "Individual", icon: Stethoscope },
@@ -112,6 +138,7 @@ export default function Header() {
         setRoleDropdownOpen(false);
         setAccountDropdownOpen(false);
         setMobileMenuOpen(false);
+        setLearnDropdownOpen(false);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -223,7 +250,7 @@ export default function Header() {
 
           {/* Desktop Navigation - Only Essential Items */}
           <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
-            {navigation.map((link) => (
+            {primaryNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
                   className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg"
@@ -234,6 +261,40 @@ export default function Header() {
                 </span>
               </Link>
             ))}
+            {learnNavItems.length > 0 && (
+              <div className="relative" ref={learnDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setLearnDropdownOpen(!learnDropdownOpen)}
+                  aria-haspopup="true"
+                  aria-expanded={learnDropdownOpen}
+                  className="flex items-center gap-1 px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg"
+                >
+                  Learn
+                  <ChevronDown className={`w-4 h-4 transition ${learnDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                {learnDropdownOpen && (
+                  <div
+                    className="absolute left-0 mt-2 w-56 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border z-10 p-1"
+                    role="menu"
+                    aria-label="Learn"
+                  >
+                    {learnNavItems.map((link) => (
+                      <Link key={link.href} href={link.href}>
+                        <span
+                          className="block px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                          onClick={() => setLearnDropdownOpen(false)}
+                          onMouseEnter={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
+                          onFocus={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
+                        >
+                          {link.label}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
 
           {/* Anonymous quick paths — compound-first, not ResusGPS-only */}
