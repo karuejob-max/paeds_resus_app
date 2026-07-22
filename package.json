@@ -118,6 +118,7 @@
     "db:apply-0071": "node scripts/apply-0071-institutional-multi-admin-recovery.mjs",
     "db:apply-0072": "node scripts/apply-0072-rename-bsn-intern-to-noi.mjs",
     "db:apply-0073": "node scripts/apply-0073-fellowship-recovery-lookup-hash.mjs",
+    "db:apply-0074": "node scripts/apply-0074-cpd-code.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

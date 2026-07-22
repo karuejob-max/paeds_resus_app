@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   formatCadreLabel,
   cneCertificateFilename,
@@ -6,6 +6,30 @@ import {
   decodeSignaturePng,
 } from "./certificate";
 import { buildAttendeeCsv } from "../routers/cne";
+import { appRouter } from "../routers";
+import type { TrpcContext } from "../_core/context";
+import type { User } from "../../drizzle/schema";
+
+const { mockSelect, mockUpdate, mockInsert, mockDb } = vi.hoisted(() => {
+  const mockSelect = vi.fn();
+  const mockUpdate = vi.fn();
+  const mockInsert = vi.fn();
+
+  const mockDb = {
+    select: mockSelect,
+    update: mockUpdate,
+    insert: mockInsert,
+  };
+  return { mockSelect, mockUpdate, mockInsert, mockDb };
+});
+
+vi.mock("../db", () => ({
+  getDb: vi.fn().mockResolvedValue(mockDb),
+}));
+
+vi.mock("../lib/institution-access", () => ({
+  assertInstitutionAccess: vi.fn().mockResolvedValue(undefined),
+}));
 
 /**
  * DB-optional unit tests for the pure CNE helpers (no database required), so
@@ -171,5 +195,127 @@ describe("decodeSignaturePng", () => {
     expect(decodeSignaturePng("")).toBeNull();
     expect(decodeSignaturePng("data:image/jpeg;base64,/9j/4AAQ")).toBeNull();
     expect(decodeSignaturePng("not-a-data-url")).toBeNull();
+  });
+});
+
+describe("CNE Router CPD Code Procedures", () => {
+  const mockUser: User = {
+    id: 10,
+    openId: "test-user-10",
+    email: "nurse@test.com",
+    name: "Test Nurse",
+    loginMethod: "manus",
+    role: "user",
+    userType: "individual",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
+    phone: null,
+    institutionalRole: null,
+    providerType: null,
+    instructorApprovedAt: null,
+    instructorNumber: null,
+    instructorCertifiedAt: null,
+    resusGpsAccessExpiresAt: null,
+  };
+
+  const mockContext: TrpcContext = {
+    user: mockUser,
+    req: {
+      ip: "127.0.0.1",
+      headers: { "user-agent": "test-agent" },
+    } as any,
+    res: {} as any,
+  };
+
+  const mockAdminContext: TrpcContext = {
+    user: { ...mockUser, role: "admin" },
+    req: {} as any,
+    res: {} as any,
+  };
+
+  it("updates CPD code for an event when authorized", async () => {
+    // Mock cneEvents query
+    const mockLimit = vi.fn().mockResolvedValue([{ id: 100 }]);
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    mockSelect.mockReturnValue({ from: mockFrom });
+
+    // Mock update query
+    const mockUpdateWhere = vi.fn().mockResolvedValue({ success: true });
+    const mockSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+    mockUpdate.mockReturnValue({ set: mockSet });
+
+    const caller = appRouter.createCaller(mockAdminContext);
+    const res = await caller.cne.updateCpdCode({
+      institutionId: 1,
+      eventId: 100,
+      cpdCode: "TEST-CPD-123",
+    });
+
+    expect(res.success).toBe(true);
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith({ cpdCode: "TEST-CPD-123" });
+  });
+
+  it("logs CPD code reveal when nurse views the code", async () => {
+    // Mock cneAttendees query
+    const mockLimit = vi.fn().mockResolvedValue([{ id: 500 }]);
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    mockSelect.mockReturnValue({ from: mockFrom });
+
+    // Mock insert query
+    const mockValues = vi.fn().mockResolvedValue({ success: true });
+    mockInsert.mockReturnValue({ values: mockValues });
+
+    const caller = appRouter.createCaller(mockContext);
+    const res = await caller.cne.logCpdCodeReveal({
+      attendeeId: 500,
+      eventId: 100,
+    });
+
+    expect(res.success).toBe(true);
+    expect(mockInsert).toHaveBeenCalled();
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 10,
+        cneAttendeeId: 500,
+        cneEventId: 100,
+        ipAddress: "127.0.0.1",
+        userAgent: "test-agent",
+      })
+    );
+  });
+
+  it("myCertificates query returns cpdCode field", async () => {
+    // Mock select / join / where chain for myCertificates
+    const mockOrderBy = vi.fn().mockResolvedValue([
+      {
+        attendeeId: 500,
+        eventId: 100,
+        fullName: "Test Nurse",
+        cadre: "KRCHN",
+        cadreOther: null,
+        department: "Emergency",
+        submittedAt: new Date(),
+        eventName: "Sepsis Update",
+        eventDate: "12 June 2026",
+        institutionName: "Consolata Hospital Mathari",
+        cpdCode: "TEST-CPD-123",
+      },
+    ]);
+    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+    const mockJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockJoin1 = vi.fn().mockReturnValue({ leftJoin: mockJoin2 });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockJoin1 });
+    mockSelect.mockReturnValue({ from: mockFrom });
+
+    const caller = appRouter.createCaller(mockContext);
+    const res = await caller.cne.myCertificates();
+
+    expect(res.email).toBe("nurse@test.com");
+    expect(res.records).toHaveLength(1);
+    expect(res.records[0].cpdCode).toBe("TEST-CPD-123");
   });
 });

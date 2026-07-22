@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -19,7 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Award, Download, Loader2, Inbox } from "lucide-react";
+import { Award, Download, Loader2, Inbox, Key } from "lucide-react";
+import CpdClaimDialog from "@/components/CpdClaimDialog";
 
 /**
  * Self-service CNE certificate portal for any logged-in user (nurse). Lists all
@@ -30,6 +31,14 @@ import { Award, Download, Loader2, Inbox } from "lucide-react";
 export default function MyCneCertificates() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
+
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<{
+    attendeeId: number;
+    eventId: number;
+    eventName: string;
+    cpdCode: string;
+  } | null>(null);
 
   // Redirect unauthenticated users to login (consistent with other authed pages).
   useEffect(() => {
@@ -119,7 +128,7 @@ export default function MyCneCertificates() {
                   <TableHead>Institution</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Cadre</TableHead>
-                  <TableHead className="text-right">Certificate</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -132,16 +141,36 @@ export default function MyCneCertificates() {
                       <Badge variant="secondary">{cadreLabel(r.cadre, r.cadreOther)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          window.open(`/api/cne/certificate/${r.attendeeId}`, "_blank")
-                        }
-                      >
-                        <Download className="mr-1 h-3.5 w-3.5" />
-                        PDF
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        {r.cpdCode && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRecord({
+                                attendeeId: r.attendeeId,
+                                eventId: r.eventId,
+                                eventName: r.eventName,
+                                cpdCode: r.cpdCode as string,
+                              });
+                              setClaimDialogOpen(true);
+                            }}
+                          >
+                            <Key className="mr-1 h-3.5 w-3.5" />
+                            Claim CPD Points
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            window.open(`/api/cne/certificate/${r.attendeeId}`, "_blank")
+                          }
+                        >
+                          <Download className="mr-1 h-3.5 w-3.5" />
+                          PDF
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -150,6 +179,18 @@ export default function MyCneCertificates() {
           )}
         </CardContent>
       </Card>
+
+      {selectedRecord && (
+        <CpdClaimDialog
+          open={claimDialogOpen}
+          onOpenChange={setClaimDialogOpen}
+          attendeeId={selectedRecord.attendeeId}
+          eventId={selectedRecord.eventId}
+          eventName={selectedRecord.eventName}
+          cpdCode={selectedRecord.cpdCode}
+          userEmail={user.email || ""}
+        />
+      )}
     </div>
   );
 }
