@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, Clock, ExternalLink, Eye, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, Clock, Copy, ExternalLink, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CpdClaimDialogProps {
@@ -113,6 +113,7 @@ export default function CpdClaimDialog({
   userEmail,
 }: CpdClaimDialogProps) {
   const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -134,6 +135,7 @@ export default function CpdClaimDialog({
       }, 1000);
     } else if (timeLeft === 0) {
       setRevealed(false);
+      setCopied(false);
       setTimeLeft(60);
     }
 
@@ -148,6 +150,7 @@ export default function CpdClaimDialog({
   useEffect(() => {
     if (!open) {
       setRevealed(false);
+      setCopied(false);
       setTimeLeft(60);
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -157,6 +160,17 @@ export default function CpdClaimDialog({
 
   const handleReveal = () => {
     logRevealMutation.mutate({ attendeeId, eventId });
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(cpdCode);
+      setCopied(true);
+      toast.success("CPD Code copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error("Failed to copy code to clipboard.");
+    }
   };
 
   return (
@@ -224,6 +238,27 @@ export default function CpdClaimDialog({
             ) : (
               <div className="w-full space-y-3">
                 <CpdCodeCanvas code={cpdCode} userEmail={userEmail} />
+                
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs flex items-center gap-1.5"
+                    onClick={handleCopy}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
                 
                 <div className="flex items-center justify-center gap-1.5 text-xs text-amber-600 font-medium">
                   <Clock className="h-3.5 w-3.5" />
