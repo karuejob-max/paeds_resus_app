@@ -100,7 +100,7 @@
     "db:apply-0054": "node scripts/apply-0054-cne-signature.mjs",
     "db:apply-0055": "node scripts/apply-0055-cadre-hnd-msn.mjs",
     "db:apply-0056": "node scripts/apply-0056-care-signal-v3-columns.mjs",
-    "db:apply-0064": "node scripts/apply-0064-cpd-code.mjs",
+    "db:apply-0074": "node scripts/apply-0074-cpd-code.mjs",
     "db:apply-0057": "node scripts/apply-0057-fpkb-schema.mjs",
     "db:apply-0058": "node scripts/apply-0058-fpkb-seed.mjs",
     "db:apply-0059": "node scripts/apply-0059-global-facilities.mjs",

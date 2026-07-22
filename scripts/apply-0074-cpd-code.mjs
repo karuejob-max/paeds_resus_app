@@ -1,11 +1,11 @@
 /**
- * Idempotent: CPD secret code column and reveal audit logs table (migration 0064).
+ * Idempotent: CPD secret code column and reveal audit logs table (migration 0074).
  *
  * Adds:
  *   - cneEvents.cpdCode column (VARCHAR(128))
  *   - cpdCodeRevealLogs table
  *
- *   pnpm run db:apply-0064
+ *   pnpm run db:apply-0074
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
@@ -36,28 +36,28 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("[0064] Connecting to database...");
+  console.log("[0074] Connecting to database...");
   const conn = await createMysqlConnection(databaseUrl, mysql);
 
   // 1. Add cpdCode column to cneEvents table
   if (!(await tableExists(conn, "cneEvents"))) {
-    console.error("[0064] cneEvents missing — run earlier migrations first.");
+    console.error("[0074] cneEvents missing — run earlier migrations first.");
     process.exit(1);
   }
 
   if (await columnExists(conn, "cneEvents", "cpdCode")) {
-    console.log("[0064] column cneEvents.cpdCode already exists — skip.");
+    console.log("[0074] column cneEvents.cpdCode already exists — skip.");
   } else {
     await conn.query(
       `ALTER TABLE \`cneEvents\`
        ADD COLUMN \`cpdCode\` varchar(128) NULL DEFAULT NULL`
     );
-    console.log("[0064] added column cneEvents.cpdCode.");
+    console.log("[0074] added column cneEvents.cpdCode.");
   }
 
   // 2. Create cpdCodeRevealLogs table
   if (await tableExists(conn, "cpdCodeRevealLogs")) {
-    console.log("[0064] table cpdCodeRevealLogs already exists — skip.");
+    console.log("[0074] table cpdCodeRevealLogs already exists — skip.");
   } else {
     await conn.query(
       `CREATE TABLE \`cpdCodeRevealLogs\` (
@@ -71,10 +71,10 @@ async function main() {
         PRIMARY KEY (\`id\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
     );
-    console.log("[0064] created table cpdCodeRevealLogs.");
+    console.log("[0074] created table cpdCodeRevealLogs.");
   }
 
-  console.log("[0064] CPD secret code database migration completed.");
+  console.log("[0074] CPD secret code database migration completed.");
   await conn.end();
 }
 
