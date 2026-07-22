@@ -13,11 +13,12 @@ import {
   loadMicroCoursesFromDb,
 } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
+import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules } from '../../drizzle/schema';
-import { eq, and, asc, inArray, desc } from 'drizzle-orm';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals } from '../../drizzle/schema';
+import { eq, and, asc, inArray, desc, sum } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
@@ -824,17 +825,17 @@ export const coursesRouter = router({
         (r) =>
           r.scheduledDate &&
           new Date(r.scheduledDate) > now &&
-          (r.trainingType === "hands_on" || r.trainingType === "hybrid") &&
+          (r.trainingType === "hands_on" || r.trainingType === "hybrid" || r.trainingType === "online") &&
           (r.enrolledCount ?? 0) < (r.maxCapacity ?? 999) &&
           (!input.programType || r.programType === input.programType)
       );
     }),
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // AHA-SCHED-2: Learner registers for a hands-on session.
-  // ─────────────────────────────────────────────────────────────────────────
   bookHandsOnSession: protectedProcedure
-    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .input(z.object({
+      scheduleId: z.number().int().positive(),
+      simulationRole: z.enum(["team_member", "team_leader"]).optional()
+    }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
@@ -845,6 +846,8 @@ export const coursesRouter = router({
           enrolledCount: trainingSchedules.enrolledCount,
           status: trainingSchedules.status,
           scheduledDate: trainingSchedules.scheduledDate,
+          trainingType: trainingSchedules.trainingType,
+          institutionalAccountId: trainingSchedules.institutionalAccountId,
         })
         .from(trainingSchedules)
         .where(eq(trainingSchedules.id, input.scheduleId))
@@ -854,9 +857,143 @@ export const coursesRouter = router({
       if (session.scheduledDate && new Date(session.scheduledDate) < new Date()) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
       }
-      if ((session.enrolledCount ?? 0) >= (session.maxCapacity ?? 0)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This session is fully booked" });
+
+      // ── Phase Gate: enforce cohort program rules ──────────────────────────
+      const staffRow = await db
+        .select({
+          id: institutionalStaffMembers.id,
+          phaseStatus: institutionalStaffMembers.phaseStatus,
+          totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+          facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+          designation: institutionalStaffMembers.designation,
+          enrollmentDate: institutionalStaffMembers.enrollmentDate,
+          createdAt: institutionalStaffMembers.createdAt,
+          institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.userId, ctx.user.id),
+          eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+        ))
+        .limit(1);
+
+      if (staffRow.length > 0) {
+        const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt, institutionalAccountId } = staffRow[0];
+        const isOnlineSession = session.trainingType === "online";
+        const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
+        const isSameFacility = institutionalAccountId === session.institutionalAccountId;
+
+        // Facility-matching (CEO decision, 2026-07-19): cohort training is
+        // same-facility by design — Phase 2's clinical value (shared mental
+        // models, team roles, closed-loop communication with people who'll
+        // actually work together) depends on it, so it's a hard block, no
+        // override. Phase 3 is closer to individual competency assessment;
+        // a small facility that can't reach 8 Phase-3-ready learners can
+        // bottleneck them, so a platform admin may explicitly approve a
+        // named learner into a named out-of-facility session — see
+        // approvePhase3CrossFacilityOverflow. No such override exists for
+        // Phase 2, deliberately.
+        if (!isSameFacility) {
+          if (isOnlineSession) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This simulation session belongs to a different institution. Phase 2 team simulations are always trained with your own facility's cohort.",
+            });
+          }
+          if (isHandsOnSession) {
+            const approval = await db
+              .select({ id: phase3CrossFacilityApprovals.id })
+              .from(phase3CrossFacilityApprovals)
+              .where(and(
+                eq(phase3CrossFacilityApprovals.staffMemberId, staffRow[0].id),
+                eq(phase3CrossFacilityApprovals.scheduleId, input.scheduleId)
+              ))
+              .limit(1);
+            if (approval.length === 0) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "This session belongs to a different institution. Booking across facilities for Phase 3 requires prior approval from Paeds Resus — contact your institutional coordinator to request it.",
+              });
+            }
+          }
+        }
+
+        // Online simulation (Phase 2): learner must have been advanced to phase_2 or beyond
+        if (isOnlineSession && phaseStatus === "phase_1") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You must complete Phase 1 (upload and have your AHA elearning proof approved) before booking a simulation session.",
+          });
+        }
+
+        // Deferred-payment lockout (CEO decision, 2026-07-19): interns (designation
+        // noi / coi_bsc / coi_diploma / moi) are allowed to defer payment while
+        // in Phase 1-2, but if FOUR MONTHS have passed since they joined the program
+        // and they still have not made ANY payment, they lose the ability to book
+        // further online simulation sessions until they pay something. This is
+        // deliberately a zero-paid check, not a "not fully paid" check — nurses and
+        // interns who have started an installment plan are not touched by this gate;
+        // Phase 3's existing full-payment gate (>= KES 15,000) already handles the
+        // "not fully paid yet" case for everyone. Money already paid is non-refundable
+        // per Terms of Use §6.5 — this gate is what gives that term teeth for learners
+        // who never start paying at all.
+        const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
+        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+        if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+          const joinedAt = enrollmentDate ?? createdAt;
+          const paid = Number(totalPaidAmount ?? 0);
+          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "It has been more than 4 months since you joined this program with no payment recorded. Please make a payment (in full or as an installment) to regain access to simulation session booking — contact your institutional coordinator if you need to arrange this.",
+            });
+          }
+        }
+
+        // Nurse instalment-pace gate (CEO decision, 2026-07-19): unlike interns,
+        // nurses don't get a deferral window — they must keep pace with KES
+        // 2,500/month from enrollment to keep Phase 2 booking access. Deliberate
+        // interpretation, flagged not assumed: "required by now" is computed as
+        // full elapsed months since enrollment × 2,500 (floor, so there's a grace
+        // period within the current month before that month's instalment is
+        // actually due) — a nurse who's paid at least that much stays unblocked
+        // even if they're ahead or behind on which specific month they're "on."
+        const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
+        const MONTHLY_INSTALMENT_KES = 2500;
+        if (isOnlineSession && designation === "permanent_nurse") {
+          const joinedAt = enrollmentDate ?? createdAt;
+          const paid = Number(totalPaidAmount ?? 0);
+          if (joinedAt) {
+            const monthsElapsed = Math.floor((Date.now() - new Date(joinedAt).getTime()) / ONE_MONTH_MS);
+            const requiredByNow = Math.max(0, monthsElapsed) * MONTHLY_INSTALMENT_KES;
+            if (paid < requiredByNow) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: `Your instalment payments are behind schedule (KES ${paid} paid of KES ${requiredByNow} expected at KES 2,500/month). Please make a payment to regain access to simulation session booking.`,
+              });
+            }
+          }
+        }
+
+        // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
+        if (isHandsOnSession) {
+          if (phaseStatus !== "phase_3" && phaseStatus !== "completed") {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You must complete all Phase 2 simulations before booking a hands-on Megacode session.",
+            });
+          }
+          const paid = Number(totalPaidAmount ?? 0);
+          if (paid < 15000) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: `Your balance must be fully settled (KES 15,000) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
+            });
+          }
+        }
       }
+      // ─────────────────────────────────────────────────────────────────────
+
       const existing = await db
         .select({ id: trainingAttendance.id })
         .from(trainingAttendance)
@@ -865,21 +1002,134 @@ export const coursesRouter = router({
       if (existing.length > 0) {
         return { success: true, alreadyRegistered: true, message: "You are already registered for this session" };
       }
+
+      const isFullyBooked = (session.enrolledCount ?? 0) >= (session.maxCapacity ?? 0);
+      if (isFullyBooked) {
+        if (session.trainingType === "online") {
+          await db.insert(trainingAttendance).values({
+            trainingScheduleId: input.scheduleId,
+            staffMemberId: ctx.user.id,
+            attendanceStatus: "waitlisted",
+            simulationRole: input.simulationRole,
+          });
+          return { success: true, alreadyRegistered: false, waitlisted: true, message: "This session is fully booked. You have been placed on the waitlist." };
+        } else {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This session is fully booked" });
+        }
+      }
+
       await db.insert(trainingAttendance).values({
         trainingScheduleId: input.scheduleId,
         staffMemberId: ctx.user.id,
         attendanceStatus: "registered",
+        simulationRole: input.simulationRole,
       });
+
       await db
         .update(trainingSchedules)
         .set({ enrolledCount: (session.enrolledCount ?? 0) + 1 })
         .where(eq(trainingSchedules.id, input.scheduleId));
-      return { success: true, alreadyRegistered: false, message: "Successfully registered for the session" };
+
+      return { success: true, alreadyRegistered: false, waitlisted: false, message: "Successfully registered for the session" };
     }),
 
   // ─────────────────────────────────────────────────────────────────────────
-  // AHA-SCHED-3: Get the learner's own session bookings.
+  // CANCEL-AND-PROMOTE: previously there was no cancellation path at all —
+  // enrolledCount only ever incremented, so a session's waitlist could never
+  // actually be promoted no matter how the priority algorithm sorted it
+  // (INST-21 follow-up, 2026-07-20). This is the first real caller of
+  // `selectFromWaitlist` (shared/waitlist.ts) anywhere in the codebase.
   // ─────────────────────────────────────────────────────────────────────────
+  cancelHandsOnSession: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [myAttendance] = await db
+        .select({ id: trainingAttendance.id, attendanceStatus: trainingAttendance.attendanceStatus })
+        .from(trainingAttendance)
+        .where(and(
+          eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+          eq(trainingAttendance.staffMemberId, ctx.user.id)
+        ))
+        .limit(1);
+
+      if (!myAttendance) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "You are not registered for this session" });
+      }
+      if (myAttendance.attendanceStatus === "cancelled") {
+        return { success: true, alreadyCancelled: true, promoted: null as number | null };
+      }
+
+      const wasRegistered = myAttendance.attendanceStatus === "registered";
+
+      await db
+        .update(trainingAttendance)
+        .set({ attendanceStatus: "cancelled", updatedAt: new Date() })
+        .where(eq(trainingAttendance.id, myAttendance.id));
+
+      let promotedStaffMemberId: number | null = null;
+
+      if (wasRegistered) {
+        const [session] = await db
+          .select({ id: trainingSchedules.id, enrolledCount: trainingSchedules.enrolledCount })
+          .from(trainingSchedules)
+          .where(eq(trainingSchedules.id, input.scheduleId))
+          .limit(1);
+
+        if (session) {
+          await db
+            .update(trainingSchedules)
+            .set({ enrolledCount: Math.max(0, (session.enrolledCount ?? 1) - 1) })
+            .where(eq(trainingSchedules.id, input.scheduleId));
+
+          // A slot just freed up — check the waitlist and promote the top
+          // candidate per selectFromWaitlist's payment-percentage-then-FIFO rule.
+          const waitlisted = await db
+            .select({
+              attendanceId: trainingAttendance.id,
+              staffMemberId: trainingAttendance.staffMemberId,
+              waitlistedAt: trainingAttendance.createdAt,
+              totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+            })
+            .from(trainingAttendance)
+            .innerJoin(institutionalStaffMembers, eq(institutionalStaffMembers.userId, trainingAttendance.staffMemberId))
+            .where(and(
+              eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+              eq(trainingAttendance.attendanceStatus, "waitlisted")
+            ));
+
+          if (waitlisted.length > 0) {
+            const candidates: WaitlistCandidate[] = waitlisted.map((w) => ({
+              staffMemberId: w.staffMemberId,
+              totalPaidAmount: Number(w.totalPaidAmount ?? 0),
+              subsidisedFee: 15000,
+              waitlistedAt: w.waitlistedAt ?? new Date(),
+            }));
+            const [winner] = selectFromWaitlist(candidates, 1);
+
+            if (winner) {
+              const winnerAttendance = waitlisted.find((w) => w.staffMemberId === winner.staffMemberId);
+              if (winnerAttendance) {
+                await db
+                  .update(trainingAttendance)
+                  .set({ attendanceStatus: "registered", updatedAt: new Date() })
+                  .where(eq(trainingAttendance.id, winnerAttendance.attendanceId));
+                await db
+                  .update(trainingSchedules)
+                  .set({ enrolledCount: Math.max(0, (session.enrolledCount ?? 1) - 1) + 1 })
+                  .where(eq(trainingSchedules.id, input.scheduleId));
+                promotedStaffMemberId = winner.staffMemberId;
+              }
+            }
+          }
+        }
+      }
+
+      return { success: true, alreadyCancelled: false, promoted: promotedStaffMemberId };
+    }),
+
   getMyHandsOnBookings: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
@@ -888,6 +1138,7 @@ export const coursesRouter = router({
         attendanceId: trainingAttendance.id,
         scheduleId: trainingAttendance.trainingScheduleId,
         attendanceStatus: trainingAttendance.attendanceStatus,
+        simulationRole: trainingAttendance.simulationRole,
         skillsAssessmentScore: trainingAttendance.skillsAssessmentScore,
         certificateIssued: trainingAttendance.certificateIssued,
         scheduledDate: trainingSchedules.scheduledDate,
@@ -904,8 +1155,59 @@ export const coursesRouter = router({
       .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
       .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
       .where(eq(trainingAttendance.staffMemberId, ctx.user.id))
-      .orderBy(asc(trainingSchedules.scheduledDate));
+      .orderBy(desc(trainingSchedules.scheduledDate));
   }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PHASE3-OVERFLOW: Platform-admin-only. Grants one named learner
+  // explicit permission to book one named out-of-facility Phase 3 (hands-on)
+  // session — the overflow valve for facilities that haven't reached 8
+  // Phase-3-ready learners (CEO decision, 2026-07-19). No equivalent exists
+  // for Phase 2 — that stays strictly same-facility, by design.
+  // ─────────────────────────────────────────────────────────────────────────
+  approvePhase3CrossFacilityOverflow: protectedProcedure
+    .input(z.object({
+      staffMemberId: z.number().int().positive(),
+      scheduleId: z.number().int().positive(),
+      notes: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform admins can approve cross-facility Phase 3 overflow bookings." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [session] = await db
+        .select({ id: trainingSchedules.id, trainingType: trainingSchedules.trainingType })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      if (session.trainingType !== "hands_on" && session.trainingType !== "hybrid") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cross-facility overflow approval only applies to Phase 3 (hands-on) sessions." });
+      }
+
+      const existing = await db
+        .select({ id: phase3CrossFacilityApprovals.id })
+        .from(phase3CrossFacilityApprovals)
+        .where(and(
+          eq(phase3CrossFacilityApprovals.staffMemberId, input.staffMemberId),
+          eq(phase3CrossFacilityApprovals.scheduleId, input.scheduleId)
+        ))
+        .limit(1);
+      if (existing.length > 0) {
+        return { success: true, alreadyApproved: true };
+      }
+
+      await db.insert(phase3CrossFacilityApprovals).values({
+        staffMemberId: input.staffMemberId,
+        scheduleId: input.scheduleId,
+        approvedByUserId: ctx.user.id,
+        notes: input.notes,
+      });
+      return { success: true, alreadyApproved: false };
+    }),
 
   // ─────────────────────────────────────────────────────────────────────────
   // AHA-ENROLL-1: Upsert an AHA enrollment row and return its id.
@@ -919,6 +1221,29 @@ export const coursesRouter = router({
       try {
         const database = await getDb();
         if (!database) throw new Error('Database unavailable');
+
+        // BLS prerequisite (CEO decision, 2026-07-19): "One must complete BLS to
+        // start ACLS or PALS" — applies platform-wide, not just to the subsidised
+        // cohort program. Deliberate interpretation, flagged not assumed: "complete"
+        // is read as full BLS certification (practicalSkillsSignedOff), not just the
+        // cognitive/online modules — ACLS and PALS both build on hands-on BLS skill,
+        // not just BLS theory. If the intent was cognitive-modules-only, this is a
+        // one-field change (practicalSkillsSignedOff -> cognitiveModulesComplete).
+        if (input.programType === 'acls' || input.programType === 'pals') {
+          const blsEnrollment = await database
+            .select({ id: enrollments.id, signedOff: enrollments.practicalSkillsSignedOff })
+            .from(enrollments)
+            .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, 'bls')))
+            .limit(1);
+          if (blsEnrollment.length === 0 || !blsEnrollment[0].signedOff) {
+            return {
+              success: false,
+              enrollmentId: 0,
+              error: `You must complete BLS before starting ${input.programType.toUpperCase()}.`,
+            };
+          }
+        }
+
         // Return existing enrollment id if present
         const existing = await database
           .select({ id: enrollments.id })
@@ -946,4 +1271,94 @@ export const coursesRouter = router({
         return { success: false, enrollmentId: 0, error: err instanceof Error ? err.message : 'Unknown error' };
       }
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PHASE-1: Return the current learner's cohort phase summary so the
+  // frontend can display gates accurately and explain what is blocking them.
+  // ─────────────────────────────────────────────────────────────────────────
+  getPhaseSummary: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+
+    const staffRows = await db
+      .select({
+        id: institutionalStaffMembers.id,
+        phaseStatus: institutionalStaffMembers.phaseStatus,
+        totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+        facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+        phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
+        phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
+        designation: institutionalStaffMembers.designation,
+        enrollmentDate: institutionalStaffMembers.enrollmentDate,
+        createdAt: institutionalStaffMembers.createdAt,
+      })
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.userId, ctx.user.id),
+        eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+      ))
+      .limit(1);
+
+    if (staffRows.length === 0) return null;
+
+    const s = staffRows[0];
+    const paid = Number(s.totalPaidAmount ?? 0);
+    const subsidisedFee = 15000;
+
+    // Count simulation sessions attended as team_member / team_leader
+    const simRows = await db
+      .select({
+        role: trainingAttendance.simulationRole,
+        passed: trainingAttendance.simulationCompetencyPassed,
+      })
+      .from(trainingAttendance)
+      .where(and(
+        eq(trainingAttendance.staffMemberId, ctx.user.id),
+        eq(trainingAttendance.attendanceStatus, "attended")
+      ));
+
+    const memberSessions = simRows.filter((r) => r.role === "team_member").length;
+    const leaderSessions = simRows.filter((r) => r.role === "team_leader").length;
+    const phase2Complete = memberSessions >= 3 && leaderSessions >= 3;
+
+    // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
+    // Surfaced here so the dashboard can warn a learner as the 4-month deadline
+    // approaches, not just block them silently once it's already passed.
+    const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"];
+    const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+    const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
+    const joinedAt = s.enrollmentDate ?? s.createdAt;
+    const paymentDeadline = isIntern && joinedAt ? new Date(new Date(joinedAt).getTime() + FOUR_MONTHS_MS) : null;
+    const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
+
+    // Nurse instalment-pace status (see bookHandsOnSession for the enforced gate).
+    const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
+    const MONTHLY_INSTALMENT_KES = 2500;
+    const isNurse = s.designation === "permanent_nurse";
+    let nursePaceRequiredByNow: number | null = null;
+    let nursePaceLockoutActive = false;
+    if (isNurse && joinedAt) {
+      const monthsElapsed = Math.floor((Date.now() - new Date(joinedAt).getTime()) / ONE_MONTH_MS);
+      nursePaceRequiredByNow = Math.max(0, monthsElapsed) * MONTHLY_INSTALMENT_KES;
+      nursePaceLockoutActive = paid < nursePaceRequiredByNow;
+    }
+
+    return {
+      staffMemberId: s.id,
+      phaseStatus: s.phaseStatus,
+      designation: s.designation,
+      phase1ProofUploaded: !!s.phase1ProofUrl,
+      phase1ProofApproved: !!s.phase1ProofApprovedAt,
+      memberSessions,
+      leaderSessions,
+      phase2Complete,
+      totalPaid: paid,
+      nursePaceRequiredByNow,
+      nursePaceLockoutActive,
+      balance: Math.max(0, subsidisedFee - paid),
+      isPaidInFull: paid >= subsidisedFee,
+      paymentDeadline: paymentDeadline ? paymentDeadline.toISOString() : null,
+      paymentLockoutActive,
+    };
+  }),
 });

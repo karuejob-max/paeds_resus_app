@@ -21,7 +21,7 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]),
   providerType: mysqlEnum("providerType", ["nurse", "doctor", "pharmacist", "paramedic", "lab_tech", "respiratory_therapist", "midwife", "other"]),
-  userType: mysqlEnum("userType", ["individual", "institutional", "parent"]).default("individual"),
+  userType: mysqlEnum("userType", ["individual", "institutional"]).default("individual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -176,6 +176,14 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   // ── Care Signal v3 fields (migration 0056) ──────────────────────────────
   country: varchar("country", { length: 2 }),
   adminLevel1: varchar("admin_level_1", { length: 128 }),
+  /**
+   * Locality (sub-county / district / area) — per the CEO's "global from
+   * day 1" instruction (gap-analysis #11, 2026-07-16). Added via migration
+   * 0065, populated best-effort from the selected facility's own
+   * adminLevel2/subCounty; see FacilityPicker.tsx for the paths that don't
+   * carry it yet.
+   */
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
   facilityOwnership: varchar("facility_ownership", { length: 64 }),
   schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
   conditionCategory: varchar("condition_category", { length: 64 }),
@@ -189,6 +197,28 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   rawNarrative: text("raw_narrative"),
   temporalIntervals: text("temporal_intervals"),
   eventId: varchar("event_id", { length: 36 }),
+  // ── Fellowship pseudonymous token model (migration 0064, gap-analysis #10) ─
+  /**
+   * Which of the three Observation Architecture §5.5 submission modes this
+   * event used. Supersedes `isAnonymous` as the source of truth for whether
+   * `userId` is populated and whether Fellowship credit applies — kept
+   * because `isAnonymous` still separately controls facility-view visibility
+   * (PSOT §20.3 rule 4), which is a distinct concern from identity storage.
+   *   - named: userId set, full credit, visible to institution as before.
+   *   - pseudonymous: userId NULL, fellowshipTokenId set, credit accrues to
+   *     the token (see fellowshipTokens table). Platform does not store who
+   *     submitted this event.
+   *   - anonymous: userId NULL, fellowshipTokenId NULL, no Fellowship credit
+   *     (matches §5.5 Layer 1 exactly — this is the true "no identity, no
+   *     credit" option; previously the checkbox labeled "anonymous" behaved
+   *     like pseudonymous-with-real-userId-still-stored, which is why this
+   *     migration exists).
+   */
+  submissionMode: mysqlEnum("submissionMode", ["named", "pseudonymous", "anonymous"])
+    .default("named")
+    .notNull(),
+  /** Set only when submissionMode = 'pseudonymous'. References fellowshipTokens.tokenId. */
+  fellowshipTokenId: varchar("fellowshipTokenId", { length: 36 }),
 });
 
 export type CareSignalEventRow = typeof careSignalEvents.$inferSelect;
@@ -208,6 +238,10 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   contactName: varchar("contactName", { length: 255 }).notNull(),
   contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 20 }),
+  /** MoH registration number (or equivalent), promoted to a real column (migration 0071) so
+   *  institutional recovery requests (North Star §6.1) can be matched against it directly —
+   *  previously only captured inside institutionalInquiries.specificNeeds as opaque JSON. */
+  registrationNumber: varchar("registrationNumber", { length: 255 }),
   status: mysqlEnum("status", ["prospect", "active", "inactive"]).default("prospect"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -215,6 +249,98 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
 
 export type InstitutionalAccount = typeof institutionalAccounts.$inferSelect;
 export type InsertInstitutionalAccount = typeof institutionalAccounts.$inferInsert;
+
+/**
+ * North Star v2.0 §6.1: "the Organisation Actor account belongs to the
+ * institution, not the person who created it. A minimum of two named admin
+ * contacts must always be registered." This table grants account-admin
+ * access to more than one user per institution — institutionalAccounts.userId
+ * remains as the original/primary owner for backward compat with every
+ * existing query, but access checks (assertInstitutionAccess) also honor
+ * membership here. Existing accounts are backfilled with their owner as the
+ * first row (migration 0071).
+ *
+ * Deliberately no composite DB unique constraint on (institutionalAccountId,
+ * userId) — this codebase has no precedent for composite unique indexes on
+ * drizzle-orm/mysql-core tables, so de-duplication is enforced at the
+ * application layer (check-before-insert) instead. Flagging as a known
+ * simplification, not an oversight.
+ */
+export const institutionalAccountAdmins = mysqlTable("institutionalAccountAdmins", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId").notNull(),
+  /** Null for the original owner (backfilled) or a recovery-approval grant; set for a live admin's own invite action. */
+  addedByUserId: int("addedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InstitutionalAccountAdmin = typeof institutionalAccountAdmins.$inferSelect;
+export type InsertInstitutionalAccountAdmin = typeof institutionalAccountAdmins.$inferInsert;
+
+/**
+ * Pending admin grants for an email that doesn't have a platform account yet
+ * (or hasn't accepted). Used by two flows that both need the same "grant
+ * access to an email, whether or not they've signed up" primitive: (1) the
+ * second-admin field collected at institutional registration/onboarding,
+ * and (2) an approved institutionalRecoveryRequests row. Accepted by
+ * acceptInvite matching the logged-in user's own email — see
+ * server/routers/institution-admins.ts for the known limitation this implies
+ * (no single-use token; matched by email equality at accept-time).
+ */
+export const institutionalAdminInvites = mysqlTable("institutionalAdminInvites", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  invitedName: varchar("invitedName", { length: 255 }),
+  invitedPhone: varchar("invitedPhone", { length: 20 }),
+  /** Null when created by a recovery approval (no live admin performed it) or at registration (self-invite of the second contact). */
+  invitedByUserId: int("invitedByUserId"),
+  source: mysqlEnum("source", ["registration", "admin_invite", "recovery_approval"]).notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "revoked"]).default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+});
+
+export type InstitutionalAdminInvite = typeof institutionalAdminInvites.$inferSelect;
+export type InsertInstitutionalAdminInvite = typeof institutionalAdminInvites.$inferInsert;
+
+/**
+ * North Star v2.0 §6.1: "Account recovery requires institutional identity
+ * verification — facility letterhead, MoH registration number — not
+ * personal credential reset. If both admin contacts are unreachable,
+ * recovery is via institutional verification only." Deliberately a public,
+ * no-auth submission (the whole scenario is "nobody can log in"); matching
+ * to a real institutionalAccountId is a manual step by the reviewing
+ * platform admin (option A from the design conversation — the requester
+ * types the institution's claimed name/registration number rather than
+ * referencing an internal ID they may not have), not automated. letterheadUrl
+ * follows the same pasted-URL precedent as institutionalStaffMembers.phase1ProofUrl
+ * — no file-upload infrastructure exists in this codebase yet.
+ */
+export const institutionalRecoveryRequests = mysqlTable("institutionalRecoveryRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  companyNameClaimed: varchar("companyNameClaimed", { length: 255 }).notNull(),
+  claimedRegistrationNumber: varchar("claimedRegistrationNumber", { length: 255 }),
+  requesterName: varchar("requesterName", { length: 255 }).notNull(),
+  requesterEmail: varchar("requesterEmail", { length: 320 }).notNull(),
+  requesterPhone: varchar("requesterPhone", { length: 20 }),
+  /** Free text — e.g. "new hospital administrator", "IT lead", "board member" — for reviewer context only. */
+  requesterRoleClaim: varchar("requesterRoleClaim", { length: 255 }),
+  letterheadUrl: text("letterheadUrl").notNull(),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending"),
+  /** Set by the reviewing admin on approval — the institution this request was manually matched to. */
+  matchedInstitutionalAccountId: int("matchedInstitutionalAccountId"),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InstitutionalRecoveryRequest = typeof institutionalRecoveryRequests.$inferSelect;
+export type InsertInstitutionalRecoveryRequest = typeof institutionalRecoveryRequests.$inferInsert;
 
 // Institutional Inquiries table
 export const institutionalInquiries = mysqlTable("institutionalInquiries", {
@@ -451,7 +577,7 @@ export const featureFlags = mysqlTable("featureFlags", {
   description: text("description"),
   isEnabled: boolean("isEnabled").default(false),
   rolloutPercentage: int("rolloutPercentage").default(0), // 0-100%
-  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional", "parent"]).default("all"),
+  targetUserType: mysqlEnum("targetUserType", ["all", "admin", "individual", "institutional"]).default("all"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -955,6 +1081,16 @@ export type InsertUserProgress = typeof userProgress.$inferInsert;
 // INSTITUTIONAL PORTAL TABLES
 // ============================================
 
+export const designationEnum = mysqlEnum("designation", [
+  "noi",
+  "coi_bsc",
+  "coi_diploma",
+  "moi",
+  "permanent_nurse",
+  "permanent_doctor",
+  "other"
+]);
+
 // Institutional Staff Members
 export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers", {
   id: int("id").autoincrement().primaryKey(),
@@ -964,11 +1100,19 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   staffEmail: varchar("staffEmail", { length: 320 }).notNull(),
   staffPhone: varchar("staffPhone", { length: 20 }),
   staffRole: mysqlEnum("staffRole", ["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).notNull(),
+  designation: designationEnum.default("other"),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]).default("staff_member"),
   department: varchar("department", { length: 255 }),
   yearsOfExperience: int("yearsOfExperience").default(0),
   assignedCourses: text("assignedCourses"), // JSON array of course IDs
   enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "enrolled", "in_progress", "completed", "dropped"]).default("pending"),
+  phaseStatus: mysqlEnum("phaseStatus", ["phase_1", "phase_2", "phase_3", "completed"]).default("phase_1"),
+  facilityLinkStatus: mysqlEnum("facilityLinkStatus", ["pending", "linked", "rejected"]).default("pending"),
+  totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 }).default("0.00"),
+  /** Phase 1: URL of the uploaded elearning.heart.org completion proof (PDF or image) */
+  phase1ProofUrl: text("phase1ProofUrl"),
+  /** Phase 1: Timestamp when an institutional coordinator approved the uploaded proof */
+  phase1ProofApprovedAt: timestamp("phase1ProofApprovedAt"),
   enrollmentDate: timestamp("enrollmentDate"),
   completionDate: timestamp("completionDate"),
   certificationStatus: mysqlEnum("certificationStatus", ["not_started", "in_progress", "certified", "expired", "renewal_pending"]).default("not_started"),
@@ -1075,17 +1219,54 @@ export const trainingSchedules = mysqlTable("trainingSchedules", {
 export type TrainingSchedule = typeof trainingSchedules.$inferSelect;
 export type InsertTrainingSchedule = typeof trainingSchedules.$inferInsert;
 
+export const simulationRoleEnum = mysqlEnum("simulationRole", ["team_member", "team_leader"]);
+
 // Training Attendance
 export const trainingAttendance = mysqlTable("trainingAttendance", {
   id: int("id").autoincrement().primaryKey(),
   trainingScheduleId: int("trainingScheduleId").notNull(),
   staffMemberId: int("staffMemberId").notNull(),
-  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled"]).default("registered"),
+  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled", "waitlisted"]).default("registered"),
+  simulationRole: simulationRoleEnum,
+  simulationCompetencyPassed: boolean("simulationCompetencyPassed").default(false),
   skillsAssessmentScore: int("skillsAssessmentScore"), // 0-100
   feedback: text("feedback"),
   certificateIssued: boolean("certificateIssued").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// Individual Installment Payments
+export const individualInstallmentPayments = mysqlTable("individualInstallmentPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: timestamp("paymentDate").defaultNow().notNull(),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique().notNull(),
+  phoneNumber: varchar("phoneNumber", { length: 20 }).notNull(),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// Subsidised ACLS/BLS Cohort Program — Phase 3 cross-facility overflow valve
+// (CEO decision, 2026-07-19). Phase 2 (online team simulation) is always
+// same-facility, no exceptions — that's where the team-training clinical
+// value lives. Phase 3 (hands-on Megacode, closer to individual competency
+// assessment) defaults to same-facility too, but a platform admin may
+// explicitly approve a specific Phase-3-ready learner to book a specific
+// out-of-facility session, so a small facility that hasn't reached 8
+// Phase-3-ready learners doesn't bottleneck them. One row per
+// (staffMemberId, scheduleId) — a visible, logged exception, not a
+// standing permission.
+export const phase3CrossFacilityApprovals = mysqlTable("phase3CrossFacilityApprovals", {
+  id: int("id").autoincrement().primaryKey(),
+  staffMemberId: int("staffMemberId").notNull(),
+  scheduleId: int("scheduleId").notNull(),
+  approvedByUserId: int("approvedByUserId").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type TrainingAttendance = typeof trainingAttendance.$inferSelect;
@@ -1293,6 +1474,18 @@ export const providerProfiles = mysqlTable("providerProfiles", {
   facilityName: varchar("facilityName", { length: 255 }),
   facilityType: mysqlEnum("facilityType", ["primary_health_center", "health_post", "district_hospital", "private_clinic", "ngo_clinic", "other"]),
   facilityRegion: varchar("facilityRegion", { length: 255 }), // legacy; prefer county on careFacilities
+  /**
+   * Locality (sub-county/district/area) — flagged as a known gap while
+   * building gap-analysis #11's "global from day 1" geo work (2026-07-16):
+   * fresh facility searches carried `adminLevel2` through fine, but this
+   * cached profile row (used to prefill the Care Signal form on return
+   * visits, before any new search happens) had nowhere to store it. Fixed
+   * 2026-07-17 — see syncProviderProfileFacility in
+   * facility-registry.service.ts, which sets this on every named
+   * submission, so existing providers' profiles self-heal on their next
+   * submission with no backfill job needed.
+   */
+  facilityAdminLevel2: varchar("facilityAdminLevel2", { length: 128 }),
   facilityCountry: varchar("facilityCountry", { length: 255 }).default("Kenya"),
   facilityPhone: varchar("facilityPhone", { length: 20 }),
   facilityEmail: varchar("facilityEmail", { length: 320 }),
@@ -2126,6 +2319,156 @@ export const parentSafeTruthSubmissions = mysqlTable("parentSafeTruthSubmissions
 export type ParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferSelect;
 export type InsertParentSafeTruthSubmission = typeof parentSafeTruthSubmissions.$inferInsert;
 
+/**
+ * Safe-Truth v1 — Event Models v1.0 §2, gap-analysis queue item #11, Phase A.
+ *
+ * DELIBERATELY A NEW TABLE, not a retrofit of `parentSafeTruthSubmissions`
+ * above. Two reasons: (1) the old table's `userId` column is NOT NULL —
+ * structurally incompatible with §2.2's "no account required, submission is
+ * permanently anonymous" requirement; (2) the field taxonomy is completely
+ * different (plain-language journey-stage fields per §2.3–2.7, not the old
+ * ad-hoc delay-band fields). The old table and its router/UI
+ * (`parent-safetruth.ts`, `ParentSafeTruthForm.tsx`, route
+ * `/parent-safe-truth`) are left untouched — existing historical
+ * submissions stay exactly as they are. This is forward-looking only, same
+ * precedent as gap-analysis #10.
+ *
+ * NO userId COLUMN AT ALL, by design — not nullable-and-usually-empty, but
+ * structurally absent, so it's impossible for a future edit to
+ * accidentally start populating it and quietly re-introduce identity
+ * storage.
+ *
+ * Field types deliberately use VARCHAR/TEXT with zod-validated option sets
+ * at the tRPC layer, not literal MySQL ENUM, even though §2.3–2.7's tables
+ * say "ENUM" — that's describing "constrained single-select from a list,"
+ * not mandating the SQL column type. These option lists are caregiver-facing
+ * copy that may need wording tweaks over time; a MySQL ENUM alteration is a
+ * blocking schema change for that, a zod enum update is not.
+ */
+export const safeTruthSubmissions = mysqlTable("safeTruthSubmissions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** UUID, client-visible, used for "my submission" links without an account (no login = no submissions list otherwise). */
+  submissionUuid: varchar("submission_uuid", { length: 36 }).notNull().unique(),
+  observationTimestamp: timestamp("observation_timestamp").defaultNow().notNull(),
+  schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
+  /** Always 'CAREGIVER' per §2.3 — stored for symmetry with Care Signal's observer_class, not because it varies. */
+  observerClass: varchar("observer_class", { length: 16 }).default("CAREGIVER").notNull(),
+
+  // ── §2.3 Shared classifier fields ───────────────────────────────────────
+  country: varchar("country", { length: 2 }).notNull(),
+  adminLevel1: varchar("admin_level_1", { length: 128 }).notNull(),
+  /** Locality — added beyond §2.3's literal spec per CEO instruction, 2026-07-16 ("global from day 1"). */
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
+  facilityNameRaw: text("facility_name_raw").notNull(),
+  /** Null until the Phase C fuzzy-matching job runs. Never shown to the caregiver. */
+  facilityIdMatched: varchar("facility_id_matched", { length: 36 }),
+  facilityLevel: varchar("facility_level", { length: 64 }),
+  childAgeBand: varchar("child_age_band", { length: 32 }).notNull(),
+  conditionCategory: varchar("condition_category", { length: 64 }).notNull(),
+  outcomeCategory: varchar("outcome_category", { length: 64 }).notNull(),
+  isCaseLinkageConsented: boolean("is_case_linkage_consented").default(false).notNull(),
+  /** Optional — a Care Signal event's eventId, for consent-based case linkage. */
+  eventCodeEntered: varchar("event_code_entered", { length: 36 }),
+  /**
+   * Set by the Phase C matching job (gap-analysis #11) when
+   * `eventCodeEntered` is confirmed to match a real `careSignalEvents.eventId`
+   * — i.e. a genuine link between this caregiver's account and a
+   * provider's Care Signal report of the same event. NULL until resolved;
+   * stays NULL forever if the code never matches (typo, or the provider
+   * hasn't submitted yet — the job re-checks on every run, so a late
+   * provider submission can still resolve an earlier caregiver entry).
+   */
+  eventCodeResolvedCareSignalEventId: int("event_code_resolved_care_signal_event_id"),
+
+  // ── §2.4 Journey Stage 1 — Before Seeking Care ──────────────────────────
+  symptomOnsetDaysAgo: varchar("symptom_onset_days_ago", { length: 32 }).notNull(),
+  firstSymptomNoticed: text("first_symptom_noticed"),
+  /** JSON array of plain-language danger-sign strings. */
+  dangerSignsPresent: text("danger_signs_present"),
+  /** JSON array — multi-select per §2.4. */
+  adviceReceivedBeforeFacility: text("advice_received_before_facility").notNull(),
+  adviceContentRaw: text("advice_content_raw"),
+  reassuredDespiteDanger: boolean("reassured_despite_danger"),
+  decisionToSeekCareTrigger: text("decision_to_seek_care_trigger"),
+
+  // ── §2.5 Journey Stage 2 — Getting to Care ──────────────────────────────
+  /** JSON array — multi-select for multi-leg journeys per §2.5. */
+  transportUsed: text("transport_used").notNull(),
+  transportDelayOccurred: boolean("transport_delay_occurred").notNull(),
+  transportDelayReason: text("transport_delay_reason"),
+  travelTimeToFirstFacility: varchar("travel_time_to_first_facility", { length: 32 }).notNull(),
+  costBarrierOccurred: boolean("cost_barrier_occurred").notNull(),
+  costBarrierDetails: text("cost_barrier_details"),
+  facilitiesVisitedCount: varchar("facilities_visited_count", { length: 64 }).notNull(),
+
+  // ── §2.7 Journey Stage 4 — After Care ───────────────────────────────────
+  followUpInstructionsReceived: boolean("follow_up_instructions_received"),
+  ableToFollowInstructions: boolean("able_to_follow_instructions"),
+  unableToFollowReason: text("unable_to_follow_reason"),
+  overallExperienceRating: varchar("overall_experience_rating", { length: 32 }),
+  whatCouldHaveBeenBetter: text("what_could_have_been_better"),
+  /**
+   * Presented FIRST on the form per §2.7's note — stored here for schema
+   * simplicity, display order is a UI concern (Phase B), not a storage one.
+   * Immutable after submission — same raw-narrative-immutability principle
+   * as Care Signal (gap-analysis #9), enforced at the application layer
+   * for this table (no BEFORE UPDATE trigger yet — Phase A ships the
+   * column; the trigger is a small, easy follow-up once Phase B's real
+   * submission flow exists to test it against).
+   */
+  rawNarrative: text("raw_narrative").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SafeTruthSubmission = typeof safeTruthSubmissions.$inferSelect;
+export type InsertSafeTruthSubmission = typeof safeTruthSubmissions.$inferInsert;
+
+/**
+ * Safe-Truth v1 repeatable facility visits — Event Models v1.0 §2.6.
+ * One row per facility the caregiver's journey included; `visitSequence`
+ * orders them. No userId here either, same rationale as the parent table.
+ */
+export const safeTruthFacilityVisits = mysqlTable("safeTruthFacilityVisits", {
+  id: int("id").autoincrement().primaryKey(),
+  submissionId: int("submission_id").notNull(),
+  visitSequence: int("visit_sequence").notNull(),
+  visitFacilityNameRaw: text("visit_facility_name_raw").notNull(),
+  visitFacilityIdMatched: varchar("visit_facility_id_matched", { length: 36 }),
+  visitFacilityIsFinal: boolean("visit_facility_is_final").default(false).notNull(),
+  wasSeenPromptly: varchar("was_seen_promptly", { length: 32 }).notNull(),
+  turnedAway: boolean("turned_away").default(false).notNull(),
+  turnedAwayReason: text("turned_away_reason"),
+  informationReceived: varchar("information_received", { length: 64 }),
+  familyInvolvement: varchar("family_involvement", { length: 64 }),
+  visitExperienceRaw: text("visit_experience_raw"),
+  dangerSignAdviceAtDischarge: boolean("danger_sign_advice_at_discharge"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SafeTruthFacilityVisit = typeof safeTruthFacilityVisits.$inferSelect;
+export type InsertSafeTruthFacilityVisit = typeof safeTruthFacilityVisits.$inferInsert;
+
+/**
+ * Device-local disclaimer acknowledgment log for the no-auth Safe-Truth
+ * flow (gap-analysis #11 Phase A). Replaces the old
+ * `legal.acceptSafeTruthGuardian` mutation, which requires a logged-in
+ * account (`getMyConsentStatus` reads a per-user row) — structurally
+ * incompatible with §2.2. This table exists purely as an anonymous audit
+ * trail ("X sessions saw and accepted the disclaimer") — it is NEVER
+ * joined to a submission or an identity. `deviceSessionId` is a random
+ * client-generated value, not a fingerprint of any kind.
+ */
+export const safeTruthDisclaimerAcks = mysqlTable("safeTruthDisclaimerAcks", {
+  id: int("id").autoincrement().primaryKey(),
+  deviceSessionId: varchar("device_session_id", { length: 36 }).notNull(),
+  disclaimerVersion: varchar("disclaimer_version", { length: 16 }).notNull(),
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+});
+
+export type SafeTruthDisclaimerAck = typeof safeTruthDisclaimerAcks.$inferSelect;
+export type InsertSafeTruthDisclaimerAck = typeof safeTruthDisclaimerAcks.$inferInsert;
+
 // System Delay Analysis Results Table
 export const systemDelayAnalysis = mysqlTable("systemDelayAnalysis", {
   id: int("id").autoincrement().primaryKey(),
@@ -2546,6 +2889,82 @@ export const fellowshipProgress = mysqlTable("fellowshipProgress", {
 
 export type FellowshipProgress = typeof fellowshipProgress.$inferSelect;
 export type InsertFellowshipProgress = typeof fellowshipProgress.$inferInsert;
+
+/**
+ * Fellowship pseudonymous tokens — Observation Architecture v1.1 §5.5, Layer 2.
+ *
+ * Lets a provider earn Fellowship Pillar C credit for Care Signal submissions
+ * WITHOUT the platform ever storing their real identity against those events
+ * — `careSignalEvents.userId` stays NULL for every submission made under a
+ * token; `fellowshipTokenId` is the only link, and this table is the only
+ * place that token's own credit ledger lives.
+ *
+ * `linkedUserId` is set ONLY via an explicit, separate "reveal" action
+ * (fellowship.linkToken) — never at token creation, and never implicitly.
+ * This is what makes it genuinely pseudonymous rather than just "hidden in
+ * the UI": a direct database query joining fellowshipTokens to users only
+ * works after the provider has deliberately chosen to reveal themselves.
+ *
+ * KNOWN LIMITATION (documented, not silently glossed over): Care Signal
+ * requires a logged-in platform account to submit at all (protectedProcedure
+ * — see care-signal-events.ts), so token *creation* necessarily happens
+ * within an authenticated request. This table itself never records that
+ * association, but standard request/access logs at the moment of creation
+ * could in principle correlate a session to a token. This model protects
+ * the *application data layer* (Care Signal events, Fellowship credit,
+ * anything queryable through the schema) from casual or even direct-SQL
+ * identification — it does not claim to defeat server-log-level traffic
+ * analysis, which no in-app token scheme can.
+ *
+ * `titleDisplayRevokedAt`: per CEO decision (2026-07-15, gap-analysis #10),
+ * "revoking" a reveal only stops the Fellow title from being publicly
+ * displayed going forward — it does NOT unlink or re-anonymize the
+ * already-linked credit history, consistent with how withdrawal is handled
+ * elsewhere for anonymized-not-deleted data (see gap-analysis #13).
+ *
+ * `recoveryCodeLookupHash` (added 2026-07-20, closing a documented scaling
+ * limit from #10): recovery codes are bcrypt-hashed in `recoveryCodeHash`,
+ * which is one-way by design and therefore can't be a WHERE-clause lookup
+ * — the original implementation fetched every token row and bcrypt-compared
+ * each one, O(n) in total tokens ever created. This column is a plain
+ * SHA-256 HMAC of the normalized code, keyed by the same server-side secret
+ * already used for session signing (`JWT_SECRET`, with a domain-separation
+ * label — see `server/lib/fellowship-token.ts`'s `hashRecoveryCodeForLookup`)
+ * — deterministic, so it CAN be indexed and looked up in O(1), but it is
+ * NEVER the actual security check on its own: a lookup-hash match only
+ * narrows to a candidate row, which is then still bcrypt-verified against
+ * `recoveryCodeHash` before recovery succeeds. Nullable because bcrypt
+ * hashes can't be reversed to backfill this for tokens created before this
+ * column existed — those rows keep `recoveryCodeLookupHash = NULL` forever
+ * and fall back to the old O(n) scan, now bounded to only the
+ * (shrinking, non-growing) set of pre-migration tokens rather than the
+ * whole table. See migration 0073's own doc comment for the exact
+ * cutover mechanics.
+ */
+export const fellowshipTokens = mysqlTable("fellowshipTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  /** UUID, generated client-side-visible at creation, stored on the provider's device. */
+  tokenId: varchar("tokenId", { length: 36 }).notNull().unique(),
+  /** Hash of a one-time-shown recovery code — never store the code itself. */
+  recoveryCodeHash: varchar("recoveryCodeHash", { length: 128 }).notNull(),
+  /** Keyed SHA-256 of the normalized recovery code — O(1) index lookup only, NEVER the actual auth check (that's still recoveryCodeHash + bcrypt). NULL for tokens created before 2026-07-20 (migration 0073). */
+  recoveryCodeLookupHash: varchar("recoveryCodeLookupHash", { length: 64 }),
+  /** Mirrors fellowshipProgress's Pillar 3 fields, computed the same way, keyed by token instead of userId. */
+  careSignalStreak: int("careSignalStreak").default(0),
+  careSignalEventsSubmitted: int("careSignalEventsSubmitted").default(0),
+  careSignalPercentage: int("careSignalPercentage").default(0),
+  /** NULL until the provider explicitly reveals themselves via fellowship.linkToken. */
+  linkedUserId: int("linkedUserId"),
+  linkedAt: timestamp("linkedAt"),
+  /** Set when the provider revokes public display of the Fellow title earned via this token (display-only; see class doc above). */
+  titleDisplayRevokedAt: timestamp("titleDisplayRevokedAt"),
+  lastSubmissionAt: timestamp("lastSubmissionAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FellowshipToken = typeof fellowshipTokens.$inferSelect;
+export type InsertFellowshipToken = typeof fellowshipTokens.$inferInsert;
 
 /**
  * Fellowship Grace Usage — track grace periods used per user per calendar year (EAT).

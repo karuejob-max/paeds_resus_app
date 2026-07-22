@@ -15,12 +15,14 @@ import {
   CalendarPlus,
   RefreshCw,
   Lock,
+  Sparkles,
 } from "lucide-react";
 import { PracticeLabGate } from "@/components/practice-lab/PracticeLabGate";
 import { ShockNoShockTrack } from "@/components/practice-lab/ShockNoShockTrack";
 import { AbcdeTrack } from "@/components/practice-lab/AbcdeTrack";
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
 import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognitionTrack";
+import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PartnershipPlaceholders } from "@/components/practice-lab/PartnershipPlaceholders";
 import type { PracticeLabProgramType, PracticeLabTrackId } from "@shared/practice-lab-types";
 
@@ -47,6 +49,11 @@ const TRACK_META: Record<
     label: "Rhythm Recognition",
     icon: Waves,
     description: "10+ strips — identify only or identify + first action",
+  },
+  ai_interactive_roleplay: {
+    label: "AI Resus Simulator",
+    icon: Sparkles,
+    description: "Interactive AI resus room roleplay — speak orders and manage dynamic patient vitals",
   },
 };
 
@@ -140,10 +147,10 @@ export default function AHAPracticeLab() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
                 <FlaskConical className="h-8 w-8" />
-                AHA Practice Lab
+                Paeds Resus Simulation Lab
               </h1>
               <p className="text-muted-foreground mt-1">
-                Self-guided simulation — supplemental to your AHA course
+                Self-guided clinical simulation — supplemental to your cognitive training
               </p>
             </div>
           </div>
@@ -243,6 +250,7 @@ export default function AHAPracticeLab() {
                 {id === "abcde" && <AbcdeTrack {...trackProps} />}
                 {id === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}
                 {id === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}
+                {id === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}
               </TabsContent>
             ))}
           </Tabs>

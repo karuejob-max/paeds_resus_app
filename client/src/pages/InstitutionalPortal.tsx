@@ -3,10 +3,11 @@ import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, BarChart3, Users, FileText, Calendar, CheckCircle, TrendingUp, Loader2 } from "lucide-react";
+import { AlertCircle, BarChart3, CheckCircle2, ExternalLink, Users, FileText, Calendar, CheckCircle, TrendingUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -90,6 +91,16 @@ export default function InstitutionalPortal() {
               <Button variant="outline" className="w-full" onClick={() => navigate("/institutional")}>
                 Contact / pricing
               </Button>
+              <p className="text-xs text-slate-500 text-center pt-1">
+                Was your institution already on the platform, but its admins are unreachable?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/institutional-recovery")}
+                  className="text-brand-teal underline"
+                >
+                  Request account recovery
+                </button>
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -193,13 +204,14 @@ export default function InstitutionalPortal() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="care-signal-gaps">Care Signal Gaps</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="quotation">Quotation</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="incidents">Incidents</TabsTrigger>
+            <TabsTrigger value="admins">Admins</TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -259,6 +271,7 @@ export default function InstitutionalPortal() {
                 </div>
               </CardContent>
             </Card>
+            <CohortProgressWidget institutionId={institutionId} />
           </TabsContent>
 
           {/* Staff Tab */}
@@ -267,6 +280,8 @@ export default function InstitutionalPortal() {
           </TabsContent>
 
           <TabsContent value="staff" className="space-y-6">
+            <PendingLinkRequestsWidget institutionId={institutionId} />
+            <Phase1ProofReviewWidget institutionId={institutionId} />
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -378,6 +393,10 @@ export default function InstitutionalPortal() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="admins" className="space-y-6">
+            {institutionId && <AccountAdminsWidget institutionId={institutionId} />}
           </TabsContent>
         </Tabs>
       </div>
@@ -680,5 +699,394 @@ function BulkEnrollmentPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CohortProgressWidget({ institutionId }: { institutionId: number }) {
+  const { data: cohortStats, isLoading } = trpc.institution.getCohortProgress.useQuery({ institutionId });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading cohort metrics...</p>;
+  if (!cohortStats || cohortStats.length === 0) return null;
+
+  const displayNameMap: Record<string, string> = {
+    noi: "NOI (Nursing Officer Intern)",
+    coi_bsc: "Clinical Officer Intern (BSc)",
+    coi_diploma: "Diploma COI",
+    moi: "MOI (Medical Officer Intern)",
+    permanent_nurse: "Permanent Nurse",
+    permanent_doctor: "Permanent Doctor",
+    other: "Other"
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2">
+          <Users className="w-5 h-5 text-blue-900" />
+          Intern Cohort Progress
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="text-left py-2 px-3 font-semibold">Cohort</th>
+                <th className="text-center py-2 px-3 font-semibold">Total</th>
+                <th className="text-center py-2 px-3 font-semibold">BLS Complete</th>
+                <th className="text-center py-2 px-3 font-semibold">ACLS Complete</th>
+                <th className="text-center py-2 px-3 font-semibold">Phase 2 Complete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cohortStats.map((row) => {
+                const designationKey = row.designation || "other";
+                return (
+                  <tr key={designationKey} className="border-b">
+                    <td className="py-2 px-3 font-medium text-slate-800">{displayNameMap[designationKey] || designationKey}</td>
+                    <td className="text-center py-2 px-3">{row.totalCount}</td>
+                    <td className="text-center py-2 px-3 text-green-700 font-semibold">{row.blsCompleteCount}</td>
+                    <td className="text-center py-2 px-3 text-blue-700 font-semibold">{row.aclsCompleteCount}</td>
+                    <td className="text-center py-2 px-3 text-orange-700 font-semibold">{row.phase2CompleteCount}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PendingLinkRequestsWidget({ institutionId }: { institutionId: number }) {
+  const utils = trpc.useUtils();
+  const { data: pendingRequests, isLoading } = trpc.institution.getPendingLinkRequests.useQuery({ institutionId });
+  const approveMutation = trpc.institution.approveStaffFacilityLink.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Request ${data.status} successfully`);
+      void utils.institution.getPendingLinkRequests.invalidate({ institutionId });
+      void utils.institution.getStaffMembers.invalidate({ institutionId });
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading pending link requests...</p>;
+  if (!pendingRequests || pendingRequests.length === 0) return null;
+
+  return (
+    <Card className="mb-6 border-amber-200 bg-amber-50/30">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-amber-900">
+          <AlertCircle className="w-5 h-5 text-amber-600" />
+          Pending Link Requests
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-amber-800">
+          The following providers self-registered and picked your facility. Approve them to include their metrics in your analytics and add them to the roster.
+        </p>
+        <div className="overflow-x-auto border border-amber-100 rounded-lg bg-white">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b bg-amber-50/50">
+                <th className="py-2 px-3 font-semibold text-amber-900">Name</th>
+                <th className="py-2 px-3 font-semibold text-amber-900">Email</th>
+                <th className="py-2 px-3 font-semibold text-amber-900">Role</th>
+                <th className="py-2 px-3 font-semibold text-amber-900 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingRequests.map((req) => (
+                <tr key={req.id} className="border-b border-amber-100">
+                  <td className="py-2 px-3 font-medium">{req.staffName}</td>
+                  <td className="py-2 px-3 text-slate-600">{req.staffEmail}</td>
+                  <td className="py-2 px-3 capitalize">{req.staffRole}</td>
+                  <td className="py-2 px-3 text-right space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-600 text-green-700 hover:bg-green-50"
+                      onClick={() => approveMutation.mutate({ institutionId, staffMemberId: req.id, approve: true })}
+                      disabled={approveMutation.isPending}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => approveMutation.mutate({ institutionId, staffMemberId: req.id, approve: false })}
+                      disabled={approveMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Phase1ProofReviewWidget({ institutionId }: { institutionId: number }) {
+  const utils = trpc.useUtils();
+  const { data: staffMembers, isLoading } = trpc.institution.getStaffMembers.useQuery({ institutionId });
+
+  const approveMutation = trpc.institution.approvePhase1Proof.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.approved ? "Phase 1 approved — learner advanced to Phase 2" : "Proof rejected — learner must re-upload");
+      void utils.institution.getStaffMembers.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading proof reviews...</p>;
+
+  // Filter to members who have uploaded proof but not yet been approved
+  const pending = (staffMembers ?? []).filter(
+    (m: any) => m.phase1ProofUrl && !m.phase1ProofApprovedAt
+  );
+
+  if (pending.length === 0) return null;
+
+  return (
+    <Card className="mb-6 border-purple-200 bg-purple-50/20">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-purple-900">
+          <CheckCircle2 className="w-5 h-5 text-purple-600" />
+          Phase 1 Proof Reviews ({pending.length} pending)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-purple-800 mb-3">
+          The following learners have submitted their AHA elearning completion proof. Review and approve to advance them to Phase 2 simulations.
+        </p>
+        <div className="overflow-x-auto border border-purple-100 rounded-lg bg-white">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b bg-purple-50/50">
+                <th className="py-2 px-3 font-semibold text-purple-900">Name</th>
+                <th className="py-2 px-3 font-semibold text-purple-900">Designation</th>
+                <th className="py-2 px-3 font-semibold text-purple-900">Proof Link</th>
+                <th className="py-2 px-3 font-semibold text-purple-900 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((req: any) => (
+                <tr key={req.id} className="border-b border-purple-100">
+                  <td className="py-2 px-3 font-medium">{req.staffName}</td>
+                  <td className="py-2 px-3 capitalize text-slate-600">{req.designation?.replace(/_/g, " ") ?? "—"}</td>
+                  <td className="py-2 px-3">
+                    <a
+                      href={req.phase1ProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 underline flex items-center gap-1 text-xs"
+                    >
+                      View Proof <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </td>
+                  <td className="py-2 px-3 text-right space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-600 text-green-700 hover:bg-green-50"
+                      onClick={() => approveMutation.mutate({ institutionId, staffMemberId: req.id, approve: true })}
+                      disabled={approveMutation.isPending}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => approveMutation.mutate({ institutionId, staffMemberId: req.id, approve: false })}
+                      disabled={approveMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * North Star §6.1 multi-admin: lets the current admin see who else
+ * administers this institution, invite another admin (by email — linked
+ * immediately if that email already has an account, otherwise a pending
+ * invite claimed on next login), and remove an admin (blocked below the
+ * minimum of two, and the founding admin can't be removed here — that's a
+ * primary-ownership transfer, a separate operation).
+ */
+function AccountAdminsWidget({ institutionId }: { institutionId: number }) {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.institutionAdmins.list.useQuery({ institutionId });
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+
+  const inviteMutation = trpc.institutionAdmins.invite.useMutation({
+    onSuccess: (result) => {
+      const messages: Record<string, string> = {
+        linked: "Added as an admin immediately — they already had an account.",
+        invited: "Invite sent — they'll be added automatically on their next sign-in.",
+        already_admin: "That person is already an admin.",
+        already_invited: "There's already a pending invite for that email.",
+      };
+      toast.success(messages[result.status] ?? "Done");
+      setInviteEmail("");
+      setInviteName("");
+      setInvitePhone("");
+      void utils.institutionAdmins.list.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const removeMutation = trpc.institutionAdmins.remove.useMutation({
+    onSuccess: () => {
+      toast.success("Admin removed");
+      void utils.institutionAdmins.list.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading admins…</p>;
+
+  const admins = data?.admins ?? [];
+  const pendingInvites = data?.pendingInvites ?? [];
+  const totalCount = admins.length + pendingInvites.length;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Account Admins
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            This account belongs to your institution, not to one person. Keep at least two admins so
+            the account is never locked out if someone becomes unreachable.
+          </p>
+
+          {totalCount < 2 && (
+            <Alert className="mb-4 border-amber-200 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-700" />
+              <AlertDescription className="text-amber-900">
+                Only {totalCount} admin{totalCount === 1 ? "" : "s"} on this account — add a second
+                below to protect it.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="overflow-x-auto border rounded-lg mb-6">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b bg-slate-50">
+                  <th className="py-2 px-3 font-semibold">Name</th>
+                  <th className="py-2 px-3 font-semibold">Email</th>
+                  <th className="py-2 px-3 font-semibold">Status</th>
+                  <th className="py-2 px-3 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {admins.map((a) => (
+                  <tr key={a.userId} className="border-b last:border-0">
+                    <td className="py-2 px-3">{a.name}</td>
+                    <td className="py-2 px-3">{a.email}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="outline">{a.isOriginalOwner ? "Founding admin" : "Admin"}</Badge>
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      {!a.isOriginalOwner && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50"
+                          onClick={() => removeMutation.mutate({ institutionId, adminUserId: a.userId })}
+                          disabled={removeMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {pendingInvites.map((inv) => (
+                  <tr key={`invite-${inv.id}`} className="border-b last:border-0 bg-slate-50/50">
+                    <td className="py-2 px-3">{inv.invitedName || "—"}</td>
+                    <td className="py-2 px-3">{inv.invitedEmail}</td>
+                    <td className="py-2 px-3">
+                      <Badge variant="outline" className="border-amber-300 text-amber-700">
+                        Invited — pending
+                      </Badge>
+                    </td>
+                    <td className="py-2 px-3" />
+                  </tr>
+                ))}
+                {totalCount === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 px-3 text-center text-slate-400">
+                      No admins found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold mb-3">Invite another admin</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Input
+                placeholder="Full name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+              />
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+              <Input
+                placeholder="Phone (optional)"
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
+              />
+            </div>
+            <Button
+              className="mt-3"
+              size="sm"
+              onClick={() =>
+                inviteMutation.mutate({
+                  institutionId,
+                  email: inviteEmail,
+                  name: inviteName || undefined,
+                  phone: invitePhone || undefined,
+                })
+              }
+              disabled={!inviteEmail || inviteMutation.isPending}
+            >
+              {inviteMutation.isPending ? "Sending…" : "Send invite"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

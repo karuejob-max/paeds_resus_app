@@ -11,6 +11,7 @@ interface StaffRow {
   staffEmail: string;
   staffPhone?: string;
   staffRole: "doctor" | "nurse" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other";
+  designation?: "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other";
   department?: string;
   yearsOfExperience?: number;
 }
@@ -57,12 +58,13 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
 
   const downloadTemplate = () => {
     const template = [
-      ["staffName", "staffEmail", "staffPhone", "staffRole", "department", "yearsOfExperience"],
+      ["staffName", "staffEmail", "staffPhone", "staffRole", "designation", "department", "yearsOfExperience"],
       [
         "John Doe",
         "john.doe@hospital.com",
         "+254712345678",
         "nurse",
+        "permanent_nurse",
         "Emergency",
         "5",
       ],
@@ -71,8 +73,18 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
         "jane.smith@hospital.com",
         "+254712345679",
         "doctor",
+        "permanent_doctor",
         "Pediatrics",
         "8",
+      ],
+      [
+        "Amina Wanjiru",
+        "amina.wanjiru@hospital.com",
+        "+254712345680",
+        "nurse",
+        "noi",
+        "Pediatrics",
+        "0",
       ],
     ];
 
@@ -106,6 +118,9 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
               staffEmail: row.staffEmail.trim(),
               staffPhone: row.staffPhone?.trim() || undefined,
               staffRole: (row.staffRole?.trim() || "other").toLowerCase() as "doctor" | "nurse" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other",
+              designation: row.designation?.trim()
+                ? (row.designation.trim().toLowerCase() as "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other")
+                : undefined,
               department: row.department?.trim() || undefined,
               yearsOfExperience: row.yearsOfExperience
                 ? parseInt(row.yearsOfExperience)
@@ -134,6 +149,25 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
           if (invalidRoles.length > 0) {
             throw new Error(
               `Invalid staff roles found: ${invalidRoles.map((s) => s.staffRole).join(", ")}`
+            );
+          }
+
+          // Validate designations (cohort-program eligibility field) — optional,
+          // but if a row specifies one it must be a real value, since a typo here
+          // silently costs a nurse/intern their subsidised pricing eligibility.
+          const validDesignations: Array<"noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other"> = [
+            "noi",
+            "coi_bsc",
+            "coi_diploma",
+            "moi",
+            "permanent_nurse",
+            "permanent_doctor",
+            "other",
+          ];
+          const invalidDesignations = staff.filter((s) => s.designation && !validDesignations.includes(s.designation));
+          if (invalidDesignations.length > 0) {
+            throw new Error(
+              `Invalid designation values found: ${invalidDesignations.map((s) => s.designation).join(", ")}. Must be one of: ${validDesignations.join(", ")}`
             );
           }
 
@@ -234,6 +268,7 @@ export default function StaffBulkImport({ institutionId }: { institutionId: numb
               <li>• <strong>staffName</strong> - Full name of staff member</li>
               <li>• <strong>staffEmail</strong> - Email address (must be unique)</li>
               <li>• <strong>staffRole</strong> - One of: doctor, nurse, paramedic, midwife, lab_tech, respiratory_therapist, support_staff, other (required)</li>
+              <li>• <strong>designation</strong> - One of: noi, coi_bsc, coi_diploma, moi, permanent_nurse, permanent_doctor, other (optional — controls Subsidised ACLS/BLS Cohort Program eligibility; leave blank only if this person isn't in the cohort program)</li>
               <li>• staffPhone - Phone number (optional)</li>
               <li>• department - Department name (optional)</li>
               <li>• yearsOfExperience - Years of experience (optional)</li>

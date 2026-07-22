@@ -3,6 +3,7 @@
  * Spec: docs/EVENT_MODELS_V1.md §1
  */
 import type { FacilitySelection } from "@/components/FacilityPicker";
+import { countryNameToIso2 } from "@shared/geo-taxonomy";
 
 export const CARE_SIGNAL_FORM_VERSION = "v3" as const;
 export const CARE_SIGNAL_SCHEMA_VERSION = "1.0" as const;
@@ -24,6 +25,9 @@ export type FailureDomain =
   | "REFERRAL" | "MONITORING" | "COMMUNICATION" | "RESOURCE_AVAILABILITY";
 
 export type ReportTrack = "FAILURE" | "SUCCESS";
+
+/** §5.5 Layer 1/2/named submission mode (gap-analysis #10). */
+export type SubmissionMode = "named" | "pseudonymous" | "anonymous";
 
 export type RoleAtTimeOfEvent =
   | "TEAM_LEADER" | "PRIMARY_CLINICIAN" | "SUPPORT_CLINICIAN"
@@ -181,7 +185,10 @@ export type CareSignalV3FormState = {
   childAgeBand: ChildAgeBand | "";
   outcomeCategory: OutcomeCategory | "";
   eventDate: string;
-  isAnonymous: boolean;
+  /** Supersedes the old standalone isAnonymous boolean (gap-analysis #10). */
+  submissionMode: SubmissionMode;
+  /** Set only when submissionMode === 'pseudonymous'. */
+  fellowshipTokenId: string;
   reportTrack: ReportTrack;
   roleAtTimeOfEvent: RoleAtTimeOfEvent | "";
   facilityConfirmed: boolean;
@@ -210,7 +217,8 @@ export function initialCareSignalV3State(): CareSignalV3FormState {
     childAgeBand: "",
     outcomeCategory: "",
     eventDate: new Date().toISOString().slice(0, 16),
-    isAnonymous: false,
+    submissionMode: "named",
+    fellowshipTokenId: "",
     reportTrack: "FAILURE",
     roleAtTimeOfEvent: "",
     facilityConfirmed: false,
@@ -266,28 +274,33 @@ export function buildCareSignalV3SubmitPayload(
   };
 
   // Facility records store full country names (e.g. "Kenya"); the shared classifier
-  // needs ISO 3166-1 alpha-2. Map the known COMMON_FACILITY_COUNTRIES set explicitly.
-  const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
-    Kenya: "KE",
-    Uganda: "UG",
-    Tanzania: "TZ",
-    Rwanda: "RW",
-    "South Sudan": "SS",
-    Ethiopia: "ET",
-  };
+  // needs ISO 3166-1 alpha-2. Delegated to shared/geo-taxonomy.ts (gap-analysis
+  // #11) so Care Signal and Safe-Truth can't drift apart on country codes.
   const rawCountry = form.country || facility.country || "Kenya";
-  const resolvedCountry = COUNTRY_NAME_TO_ISO2[rawCountry] ?? (rawCountry.length <= 2 ? rawCountry : "KE");
+  const resolvedCountry = countryNameToIso2(rawCountry);
 
   return {
     country: resolvedCountry,
     admin_level_1: form.admin_level_1 || facility.county || "",
+    // Locality-level geography, per the CEO's "global from day 1" instruction
+    // (gap-analysis #11, 2026-07-16). Best-effort: only populated when the
+    // selected facility's search result carried it (see FacilityPicker.tsx's
+    // doc comment for the paths that don't yet).
+    admin_level_2: facility.adminLevel2 ?? undefined,
     facility_ownership: facility.facilityOwnership ?? undefined,
     schema_version: CARE_SIGNAL_SCHEMA_VERSION,
     condition_category: form.conditionCategory,
     child_age_band: form.childAgeBand,
     outcome_category: form.outcomeCategory,
     eventDate: form.eventDate || new Date().toISOString(),
-    isAnonymous: form.isAnonymous,
+    // isAnonymous now purely governs facility-view visibility (PSOT §20.3
+    // rule 4) — true for both pseudonymous and anonymous modes, since
+    // neither should be attributable to an institution's admin view.
+    // submissionMode is the actual source of truth for identity storage
+    // and Fellowship eligibility (gap-analysis #10).
+    isAnonymous: form.submissionMode !== "named",
+    submissionMode: form.submissionMode,
+    fellowshipTokenId: form.submissionMode === "pseudonymous" ? form.fellowshipTokenId : undefined,
     report_track: form.reportTrack,
     role_at_time_of_event: form.roleAtTimeOfEvent || undefined,
     provider_cadre: providerCadre || undefined,

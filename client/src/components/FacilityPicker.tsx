@@ -22,6 +22,15 @@ export type FacilitySelection = {
   /** Present once this facility has been bridged to the unified facilities
    *  table (see scripts/apply-0060-facilities-backfill.mjs) — null otherwise. */
   facilityOwnership?: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
+  /**
+   * Locality (sub-county/district/area) — per the CEO's "global from day 1"
+   * instruction (gap-analysis #11, 2026-07-16). Populated on fresh facility
+   * search selections and on the provider-profile prefill path (fixed
+   * 2026-07-17 — see providerProfiles.facilityAdminLevel2 in schema.ts).
+   * `setMyFacility`'s own return value already carried this correctly from
+   * the start (it just wasn't consumed anywhere) — no fix was needed there.
+   */
+  adminLevel2?: string | null;
 };
 
 type Props = {
@@ -78,10 +87,11 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
         facilityName: profile.facilityName,
         county: profile.facilityRegion ?? null,
         country: profile.facilityCountry ?? "Kenya",
+        adminLevel2: profile.facilityAdminLevel2 ?? null,
       });
       setQuery(profile.facilityName);
     }
-  }, [profile?.facilityId, profile?.facilityName, profile?.facilityRegion, profile?.facilityCountry, value, onChange]);
+  }, [profile?.facilityId, profile?.facilityName, profile?.facilityRegion, profile?.facilityCountry, profile?.facilityAdminLevel2, value, onChange]);
 
   const selectResult = (r: {
     id: number;
@@ -89,6 +99,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
     county: string | null;
     country: string;
     facilityOwnership?: FacilitySelection["facilityOwnership"];
+    adminLevel2?: string | null;
   }) => {
     onChange({
       facilityId: r.id,
@@ -96,6 +107,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
       county: r.county,
       country: r.country,
       facilityOwnership: r.facilityOwnership ?? null,
+      adminLevel2: r.adminLevel2 ?? null,
     });
     setQuery(r.name);
     void setMyFacility.mutate({ facilityId: r.id });

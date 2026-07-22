@@ -3,6 +3,7 @@ import {
   careFacilities,
   inAppNotifications,
   institutionalAccounts,
+  institutionalAccountAdmins,
   institutionalActionLogs,
 } from "../../drizzle/schema";
 import type { DbClient } from "../db";
@@ -20,7 +21,7 @@ export type CareSignalInstitutionalFollowUpResult = {
   skipped?: string;
   institutionalAccountId?: number;
   actionLogId?: number;
-  notifiedUserId?: number;
+  notifiedUserIds?: number[];
 };
 
 /**
@@ -94,10 +95,22 @@ export async function handleCareSignalInstitutionalFollowUp(
     .where(eq(institutionalAccounts.id, institutionId))
     .limit(1);
 
-  let notifiedUserId: number | undefined;
-  if (institution?.userId) {
+  // Notify every admin of this institution (legacy owner + institutionalAccountAdmins
+  // grants) — North Star §6.1 multi-admin: a second admin exists precisely so someone
+  // is still reachable when the original owner isn't, so this must not notify the
+  // owner alone.
+  const grantedAdminRows = await db
+    .select({ userId: institutionalAccountAdmins.userId })
+    .from(institutionalAccountAdmins)
+    .where(eq(institutionalAccountAdmins.institutionalAccountId, institutionId));
+
+  const recipientIds = new Set<number>(grantedAdminRows.map((r) => r.userId));
+  if (institution?.userId) recipientIds.add(institution.userId);
+
+  const notifiedUserIds: number[] = [];
+  for (const recipientId of recipientIds) {
     await db.insert(inAppNotifications).values({
-      userId: institution.userId,
+      userId: recipientId,
       type: "care_signal_action_prompt",
       title: "New Care Signal — action needed",
       body: `A provider submitted a Care Signal report at ${displayFacility}. Review the gap and document your hospital's system change in the Action Log tab.`,
@@ -105,8 +118,8 @@ export async function handleCareSignalInstitutionalFollowUp(
       relatedId: actionLogId,
       read: false,
     });
-    notifiedUserId = institution.userId;
+    notifiedUserIds.push(recipientId);
   }
 
-  return { institutionalAccountId: institutionId, actionLogId, notifiedUserId };
+  return { institutionalAccountId: institutionId, actionLogId, notifiedUserIds };
 }

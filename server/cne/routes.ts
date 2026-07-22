@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { sdk } from "../_core/sdk";
 import { institutionalAccounts, cneEvents, cneAttendees } from "../../drizzle/schema";
 import type { User } from "../../drizzle/schema";
+import { isInstitutionAdmin } from "../lib/institution-access";
 import {
   generateCneCertificatePdf,
   cneCertificateFilename,
@@ -15,7 +16,8 @@ import {
  * Express routes for CNE certificate downloads. These stream binary payloads
  * (single PDF + bulk ZIP) that tRPC's JSON transport can't handle efficiently.
  * Auth uses the same session flow as tRPC (sdk.authenticateRequest), plus an
- * institution-access check so only the owning institution (or an admin) can download.
+ * institution-access check so only an institution admin (or a platform admin)
+ * can download.
  */
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -28,7 +30,13 @@ async function authenticate(req: Request): Promise<User | null> {
   }
 }
 
-/** Returns true if `user` may access data for `institutionId`. Admins may access any. */
+/**
+ * Returns true if `user` may access data for `institutionId`. Admins may
+ * access any. Delegates to the shared multi-admin-aware check (North Star
+ * §6.1) rather than the old owner-only comparison this used to do directly —
+ * a granted admin (via institutionalAccountAdmins) needs the same access as
+ * the original registering owner.
+ */
 async function userCanAccessInstitution(
   db: Db,
   user: User,
@@ -42,12 +50,7 @@ async function userCanAccessInstitution(
       .limit(1);
     return !!row;
   }
-  const [row] = await db
-    .select({ userId: institutionalAccounts.userId })
-    .from(institutionalAccounts)
-    .where(eq(institutionalAccounts.id, institutionId))
-    .limit(1);
-  return !!row && row.userId === user.id;
+  return isInstitutionAdmin(db, user.id, institutionId);
 }
 
 async function buildCertificateData(

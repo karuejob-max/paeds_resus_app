@@ -38,6 +38,7 @@ import { ClinicalContentSafetyFooter } from "@/components/ClinicalContentSafetyF
 import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedBanner";
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
 import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
+import QuizGuideCard from "@/components/QuizGuideCard";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -90,7 +91,7 @@ export default function MicroCoursePlayerDB() {
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showFellowshipSim, setShowFellowshipSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
-  
+
   // Persistence for capstone
   useEffect(() => {
     const inProgress = localStorage.getItem(`capstone-in-progress-${slug}`);
@@ -109,6 +110,21 @@ export default function MicroCoursePlayerDB() {
   const [feedbackGate, setFeedbackGate] = useState<{ certificateId: number; certNumber: string } | null>(null);
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
   const [feedbackText, setFeedbackText] = useState<string>('');
+
+  useEffect(() => {
+    const isExamOrSimActive = (showDiagnosticQuiz || showFormativeQuiz || showSummativeExam)
+      ? !quizSubmitted
+      : (showCapstoneSim || showFellowshipSim);
+      
+    if (isExamOrSimActive) {
+      document.body.setAttribute('data-active-exam', 'true');
+    } else {
+      document.body.removeAttribute('data-active-exam');
+    }
+    return () => {
+      document.body.removeAttribute('data-active-exam');
+    };
+  }, [showDiagnosticQuiz, showFormativeQuiz, showSummativeExam, showCapstoneSim, showFellowshipSim, quizSubmitted]);
   
   // Track progress — persisted to localStorage so resume works on page refresh
   const progressKey = `course-progress-${slug}`;
@@ -1618,6 +1634,24 @@ function FormativeQuizView({
       <CardContent className="p-8 space-y-10">
         {quiz.questions.map((q: any, idx: number) => {
           const answerKey = q.id ?? idx;
+          const serverResult = questionResults?.[q.id];
+          const resolvedCorrect = useServerResults
+            ? serverResult?.correctOption
+            : (() => {
+                try {
+                  const p =
+                    typeof q.correctAnswer === "string"
+                      ? JSON.parse(q.correctAnswer)
+                      : q.correctAnswer;
+                  return typeof p === "string" ? p : String(p);
+                } catch {
+                  return typeof q.correctAnswer === "string"
+                    ? q.correctAnswer
+                    : String(q.correctAnswer ?? "");
+                }
+              })();
+          const userAnswer = answers[answerKey] ?? "";
+
           return (
           <div key={q.id ?? idx} className="space-y-4">
             <div className="flex gap-4">
@@ -1628,23 +1662,7 @@ function FormativeQuizView({
             </div>
             <div className="grid gap-3 ml-12">
               {q.options.map((option: string) => {
-                const isSelected = answers[answerKey] === option;
-                const serverResult = questionResults?.[q.id];
-                const resolvedCorrect = useServerResults
-                  ? serverResult?.correctOption
-                  : (() => {
-                      try {
-                        const p =
-                          typeof q.correctAnswer === "string"
-                            ? JSON.parse(q.correctAnswer)
-                            : q.correctAnswer;
-                        return typeof p === "string" ? p : String(p);
-                      } catch {
-                        return typeof q.correctAnswer === "string"
-                          ? q.correctAnswer
-                          : String(q.correctAnswer ?? "");
-                      }
-                    })();
+                const isSelected = userAnswer === option;
                 const isCorrect =
                   submitted &&
                   !!resolvedCorrect &&
@@ -1690,6 +1708,16 @@ function FormativeQuizView({
                 <strong>Rationale:</strong>{" "}
                 {questionResults?.[q.id]?.explanation ?? q.explanation}
               </div>
+            )}
+            {submitted && (questionResults?.[q.id]?.explanation ?? (useServerResults ? null : q.explanation)) && (
+              <QuizGuideCard
+                question={q.question}
+                options={q.options}
+                correctOption={resolvedCorrect || ""}
+                userAnswer={userAnswer}
+                explanation={questionResults?.[q.id]?.explanation ?? q.explanation ?? ""}
+                className="ml-12"
+              />
             )}
           </div>
         );})}

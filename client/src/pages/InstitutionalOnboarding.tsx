@@ -51,6 +51,9 @@ export default function InstitutionalOnboarding() {
     contactEmail: "",
     contactPhone: "",
     contactDesignation: "",
+    secondAdminName: "",
+    secondAdminEmail: "",
+    secondAdminPhone: "",
     programInterest: [] as string[],
     agreeToTerms: false,
   });
@@ -118,6 +121,9 @@ export default function InstitutionalOnboarding() {
         contactEmail: formData.contactEmail,
         contactPhone: formData.contactPhone,
         contactDesignation: formData.contactDesignation,
+        secondAdminName: formData.secondAdminName,
+        secondAdminEmail: formData.secondAdminEmail,
+        secondAdminPhone: formData.secondAdminPhone || undefined,
         programInterest: formData.programInterest,
       });
     } catch {
@@ -353,6 +359,51 @@ export default function InstitutionalOnboarding() {
                     />
                   </div>
                 </div>
+
+                <div className="border-t pt-6 mt-2">
+                  <h3 className="text-lg font-semibold text-foreground">Second admin contact</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This account belongs to your institution, not to one person. A second named admin
+                    protects your access — if you become unreachable, they can still manage the account.
+                    We'll invite them by email; they'll be added automatically if they already have an
+                    account, or on their next sign-in if they don't yet.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label htmlFor="secondAdminName">Full Name *</Label>
+                      <Input
+                        id="secondAdminName"
+                        name="secondAdminName"
+                        value={formData.secondAdminName}
+                        onChange={handleInputChange}
+                        placeholder="Full name"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="secondAdminEmail">Email Address *</Label>
+                      <Input
+                        id="secondAdminEmail"
+                        name="secondAdminEmail"
+                        type="email"
+                        value={formData.secondAdminEmail}
+                        onChange={handleInputChange}
+                        placeholder="A different email from yours"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="secondAdminPhone">Phone Number</Label>
+                      <Input
+                        id="secondAdminPhone"
+                        name="secondAdminPhone"
+                        value={formData.secondAdminPhone}
+                        onChange={handleInputChange}
+                        placeholder="+254 700 000 000"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -406,6 +457,7 @@ export default function InstitutionalOnboarding() {
                     <p><strong>Location:</strong> {formData.city}, {formData.country}</p>
                     <p><strong>Staff Count:</strong> {formData.healthcareStaffCount}</p>
                     <p><strong>Contact:</strong> {formData.contactName} ({formData.contactDesignation})</p>
+                    <p><strong>Second admin:</strong> {formData.secondAdminName} ({formData.secondAdminEmail})</p>
                     <p><strong>Programs:</strong> {formData.programInterest.join(", ") || "None selected"}</p>
                   </div>
                 </Card>

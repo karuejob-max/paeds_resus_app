@@ -322,4 +322,12 @@ export const providerRouter = router({
       },
     };
   }),
+
+  // Note: a `updateMyCohortDesignation` mutation used to live here (from the
+  // original Antigravity PR #301) — removed 2026-07-19. It was unused (no
+  // frontend ever called it) and fully superseded by `institution.declareMyDesignation`,
+  // which does the same thing plus the nurse licence-number handling this one
+  // never had. Found while renaming bsn_intern -> noi; flagging honestly that
+  // this duplication existed for a while without being noticed, including by
+  // the session that built declareMyDesignation without searching for it first.
 });

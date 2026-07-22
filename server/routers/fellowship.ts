@@ -11,14 +11,17 @@
 
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
-import { getDb } from "../db";
+import { TRPCError } from "@trpc/server";
+import { getDb, createFellowshipToken, getFellowshipTokenByTokenId, updateFellowshipToken, findFellowshipTokenByRecoveryCode } from "../db";
 import { eq, and, desc } from "drizzle-orm";
 import { resusGPSSessions, resusGPSCases, certificates, users } from "../../drizzle/schema";
 import { getResusGpsAccessForClient } from "../lib/resusgps-access";
 import {
   calculateFellowshipStatus,
   syncFellowshipProgressForUser,
+  calculateCareSignalPillarForToken,
 } from "../services/fellowship-progress.service";
+import { generateTokenId, generateRecoveryCode, hashRecoveryCode, verifyRecoveryCode, hashRecoveryCodeForLookup } from "../lib/fellowship-token";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
 import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
@@ -393,4 +396,111 @@ export const fellowshipRouter = router({
 
     return { success: true, certificateNumber: result.certificateNumber };
   }),
+
+  // ── Fellowship pseudonymous tokens (Observation Architecture §5.5, gap-analysis #10) ──
+
+  /**
+   * Create a new Layer 2 pseudonymous token. Returns the recovery code
+   * ONCE, in plaintext — the caller is responsible for showing it to the
+   * provider and instructing them to save it; only its hash is persisted.
+   * Deliberately does NOT store ctx.user.id anywhere on the token row —
+   * see fellowshipTokens' schema doc comment for what this does and
+   * doesn't guarantee.
+   */
+  createPseudonymousToken: protectedProcedure.mutation(async () => {
+    const tokenId = generateTokenId();
+    const recoveryCode = generateRecoveryCode();
+    const recoveryCodeHash = await hashRecoveryCode(recoveryCode);
+    const recoveryCodeLookupHash = hashRecoveryCodeForLookup(recoveryCode);
+
+    await createFellowshipToken({ tokenId, recoveryCodeHash, recoveryCodeLookupHash });
+
+    return { tokenId, recoveryCode };
+  }),
+
+  /**
+   * Recover a token by its recovery code, for when a provider's device is
+   * lost or its local storage is cleared. O(1) for any token created on or
+   * after 2026-07-20 (migration 0073's indexed lookup hash); falls back to
+   * the original O(n) scan only for tokens created before then — see
+   * findFellowshipTokenByRecoveryCode's doc comment for the full mechanism.
+   */
+  recoverPseudonymousToken: protectedProcedure
+    .input(z.object({ recoveryCode: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const tokenId = await findFellowshipTokenByRecoveryCode(
+        input.recoveryCode,
+        verifyRecoveryCode,
+        hashRecoveryCodeForLookup
+      );
+      if (!tokenId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No token matches that recovery code." });
+      }
+      return { tokenId };
+    }),
+
+  /** Live Care-Signal-only progress for a token, before any linking. */
+  getPseudonymousTokenStatus: protectedProcedure
+    .input(z.object({ tokenId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const token = await getFellowshipTokenByTokenId(input.tokenId);
+      if (!token) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Unknown token." });
+      }
+      const careSignalPillar = await calculateCareSignalPillarForToken(input.tokenId);
+      return {
+        careSignalPillar,
+        linked: token.linkedUserId !== null,
+        titleDisplayRevoked: token.titleDisplayRevokedAt !== null,
+      };
+    }),
+
+  /**
+   * Explicit, one-way reveal: link a pseudonymous token to the calling
+   * user's real account so its Care Signal credit counts toward their
+   * Fellowship qualification and (if earned) their Fellow title can be
+   * displayed. This is the ONLY place linkedUserId is ever set — never at
+   * token creation. A token can only ever be linked to one account, and
+   * once linked cannot be relinked to a different one (that would let two
+   * different real accounts claim the same credit history over time).
+   */
+  linkPseudonymousToken: protectedProcedure
+    .input(z.object({ tokenId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const token = await getFellowshipTokenByTokenId(input.tokenId);
+      if (!token) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Unknown token." });
+      }
+      if (token.linkedUserId !== null && token.linkedUserId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This token is already linked to a different account.",
+        });
+      }
+
+      await updateFellowshipToken(input.tokenId, {
+        linkedUserId: ctx.user.id,
+        linkedAt: token.linkedAt ?? new Date(),
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Revoke public display of the Fellow title earned via a linked token.
+   * Per CEO decision (2026-07-15): this only hides the title going
+   * forward — it does NOT unlink the token or discard its credit history,
+   * matching how withdrawal is handled for anonymized-not-deleted data
+   * elsewhere (gap-analysis #13).
+   */
+  revokePseudonymousTokenTitleDisplay: protectedProcedure
+    .input(z.object({ tokenId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const token = await getFellowshipTokenByTokenId(input.tokenId);
+      if (!token || token.linkedUserId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This token isn't linked to your account." });
+      }
+      await updateFellowshipToken(input.tokenId, { titleDisplayRevokedAt: new Date() });
+      return { success: true };
+    }),
 });

@@ -68,6 +68,12 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
             <DialogTitle>Updated legal terms</DialogTitle>
           </DialogHeader>
 
+          <p className="text-sm text-muted-foreground">
+            Our Terms of Use were updated to add payment terms for the Subsidised ACLS/BLS Cohort Program —
+            cohort payments (including instalments) are non-refundable, and Phase 3 (hands-on assessment)
+            requires payment in full. This doesn't change anything else about your account.
+          </p>
+
           <ul className="space-y-2 text-sm font-medium">
             <li>
               <LegalExternalLink href="/terms" className="text-primary underline">

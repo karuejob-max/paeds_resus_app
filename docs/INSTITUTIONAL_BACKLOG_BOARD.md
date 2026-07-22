@@ -2,7 +2,7 @@
 
 > **Purpose:** Scrum-style board for **institutional (B2B / hospital)** work only.  
 > **How to use:** Before starting, check **In Progress** (avoid duplicate work). Move cards **To Do → In Progress → Done**. Always set **Owner** when In Progress, and **Done by + Date** when complete.  
-> **Last updated:** 2026-04-01 (INST-15 instructor assignment)  
+> **Last updated:** 2026-07-20 (INST-16, 21 shipped; INST-24 added and shipped; INST-18, 19, 20, 22 backlog)  
 > **Owner:** Product + Cursor + Manus (shared)
 
 **Related:** Full gap analysis and prioritization → `docs/INSTITUTIONAL_PLATFORM_AUDIT.md`  
@@ -17,7 +17,7 @@
 ┌─────────────────┬──────────────────────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐
 │    BACKLOG      │                    TO DO                     │ IN PROGRESS  │                      DONE                            │
 ├─────────────────┼──────────────────────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
-│ (TBD)           │                                                 │   (none)     │ INST-0 … INST-14 (see Done)                          │
+│ INST-18…20, 22   │                                                 │   (none)     │ INST-0…15, 16, 17, 21, 23, 24 (see Done)             │
 └─────────────────┴──────────────────────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -38,9 +38,14 @@
 
 ## Backlog
 
+Items INST-16–22 below come from a 2026-07-19 premortem on the Subsidised ACLS/BLS Cohort Program (CEO-requested; see `docs/WORK_STATUS.md` and `AGENTS.md` §10 for the program itself). Sequencing notes are in the premortem plan; P1 items are active leaks/risks today, not future-proofing.
+
 | ID | Title | Priority | Impact | Ease (1–5) | Notes |
 |----|--------|----------|--------|------------|--------|
-| *TBD* | Next B2B priorities | — | — | — | e.g. attendance CRUD, schedule create, incidents export |
+| INST-18 | Wire `individualInstallmentPayments` to actually record each payment | P2 | Medium | 3 | Table exists since migration 0066; nothing inserts into it. `totalPaidAmount` (the aggregate) is correctly computed and live — this is about the missing per-instalment audit trail for dispute resolution ("I paid three times") and payment-plan visibility. |
+| INST-19 | Instructor pipeline scaling | P1 | Critical | 1 | The actual ceiling on the whole program — rolling batches of 8 reaching Phase 3 depend entirely on instructor availability, and CEO delivery doesn't scale past one facility. CEO has a method in mind, not yet shared/built. Blocks Kenya-wide spread and EAC expansion regardless of what else ships. |
+| INST-20 | Shareable institutional readiness artifact (cohort completion summary a coordinator can hand to a CEO/CNO) | P2 | High | 3 | `CohortProgressWidget`/`getCohortProgress` exist and are real, but they're a private coordinator dashboard, not something designed to trigger the "invite us to sell ERS" moment the program's theory of change depends on. |
+| INST-22 | EAC expansion readiness (country/admin_level schema, local payment rails, AHA site recognition per country) | P3 | High (long-term) | 1 | Correctly not started yet. Real risk is pressure to build this before the Kenya program has proven completion rates — sequence behind, not alongside, INST-16–20. |
 
 ---
 
@@ -84,6 +89,11 @@
 | INST-13 | Incidents: `getIncidents` + `createIncident` + **Incidents** tab | P2 | Cursor | 2026-02-25 | Tenant-scoped; JSON fields for staff/protocols/gaps |
 | INST-14 | `institutionalAnalytics` rollup + nightly cron + Overview card + refresh | P3 | Cursor | 2026-02-25 | `institutional-analytics-rollup.ts`, `03:20` cron, `ENABLE_SCHEDULER` / production |
 | INST-15 | Admin-approved instructors + `instructorUserId` on training sessions | P1 | Cursor | 2026-04-01 | `users.instructorApprovedAt`, Admin Reports, Hospital Admin Schedule |
+| INST-17 | Nurse instalment-pace gate (KES 2,500/month, no deferral window) | P1 | Claude | 2026-07-19 | `bookHandsOnSession` + `getPhaseSummary` (`nursePaceRequiredByNow`/`nursePaceLockoutActive`) in `courses.ts` |
+| INST-23 | BLS-before-ACLS/PALS prerequisite gate (platform-wide) | P1 | Claude | 2026-07-19 | `ensureAhaEnrollment` in `courses.ts`; interpreted "complete" as `practicalSkillsSignedOff`, flagged for CEO confirmation |
+| INST-16 | Subsidised-rate eligibility gate (nurse w/ licence, or intern) — designation-input UI | P1 | Claude | 2026-07-20 | Closed the launch-blocking gap: no UI anywhere let anyone set `designation`. Added `DesignationDeclarationCard` (self-service, `LearnerDashboard.tsx`), designation select in `AddStaffForm.tsx`, and a `designation` CSV column + validation in `StaffBulkImport.tsx` |
+| INST-21 | Communicate the Terms of Use 1.1.0 re-consent gate | P1 | Claude | 2026-07-20 | `LegalReconsentGate.tsx` now explains what changed and why before the checkbox, instead of a cold "Updated legal terms." Hardcoded to this version bump's reason — needs updating on the next unrelated bump |
+| INST-24 | Wire the waitlist priority algorithm into a real booking flow | P1 | Claude | 2026-07-20 | New: found while doing this that there was no cancellation path at all, so the algorithm (real since PR #303) had never had anywhere to promote anyone *into*. Added `cancelHandsOnSession` in `courses.ts` + extracted `shared/waitlist.ts` as a real importable module. No frontend caller yet — `getMyHandsOnBookings` itself has never been rendered in the client |
 
 ---
 

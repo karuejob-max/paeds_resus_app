@@ -10,6 +10,8 @@ import {
   institutionalAccounts,
   accreditedFacilities,
   facilities,
+  users,
+  institutionalStaffMembers,
 } from "../../drizzle/schema";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 
@@ -30,6 +32,15 @@ export type FacilitySearchResult = {
   facilityOwnership: "GOVERNMENT" | "FAITH_BASED" | "PRIVATE_FOR_PROFIT" | "PRIVATE_NOT_FOR_PROFIT" | "MILITARY" | "OTHER" | null;
   countryCode: string | null;
   facilityLevelWho: string | null;
+  /**
+   * Locality-level geography (sub-county / district / area), per the CEO's
+   * "global from day 1" instruction (gap-analysis #11, 2026-07-16). Sourced
+   * from careFacilities.subCounty where the unified `facilities` bridge
+   * hasn't populated adminLevel2 yet — prefer facilities.adminLevel2 when
+   * present since it's the more consistently-maintained, country-agnostic
+   * field going forward.
+   */
+  adminLevel2: string | null;
 };
 
 const OUTREACH_SLUG = "outreach-mobile";
@@ -70,12 +81,13 @@ export async function getFacilityById(facilityId: number) {
       facilityOwnership: facilities.facilityOwnership,
       countryCode: facilities.countryCode,
       facilityLevelWho: facilities.facilityLevelWho,
+      adminLevel2: facilities.adminLevel2,
     })
     .from(careFacilities)
     .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
     .where(eq(careFacilities.id, canonicalId))
     .limit(1);
-  return row ?? null;
+  return row ? { ...row, adminLevel2: row.adminLevel2 ?? row.subCounty ?? null } : null;
 }
 
 /** Seed outreach row + import institutions and accredited facilities (idempotent). */
@@ -194,11 +206,13 @@ export async function searchCareFacilities(input: {
       name: careFacilities.name,
       county: careFacilities.county,
       country: careFacilities.country,
+      subCounty: careFacilities.subCounty,
       institutionalAccountId: careFacilities.institutionalAccountId,
       isSystem: careFacilities.isSystem,
       facilityOwnership: facilities.facilityOwnership,
       countryCode: facilities.countryCode,
       facilityLevelWho: facilities.facilityLevelWho,
+      adminLevel2: facilities.adminLevel2,
     })
     .from(careFacilities)
     .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
@@ -220,6 +234,7 @@ export async function searchCareFacilities(input: {
       facilityOwnership: r.facilityOwnership,
       countryCode: r.countryCode,
       facilityLevelWho: r.facilityLevelWho,
+      adminLevel2: r.adminLevel2 ?? r.subCounty ?? null,
     })),
   };
 }
@@ -280,10 +295,54 @@ export async function syncProviderProfileFacility(
       facilityId: canonicalId,
       facilityName: facility.name,
       facilityRegion: facility.county ?? null,
+      facilityAdminLevel2: facility.adminLevel2 ?? null,
       facilityCountry: facility.country,
       updatedAt: new Date(),
     })
     .where(eq(providerProfiles.userId, userId));
+
+  // If the facility is associated with an institutional account,
+  // create a pending institutional link request if one doesn't exist already.
+  if (facility.institutionalAccountId) {
+    const existingLink = await db
+      .select({ id: institutionalStaffMembers.id })
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.userId, userId),
+        eq(institutionalStaffMembers.institutionalAccountId, facility.institutionalAccountId)
+      ))
+      .limit(1);
+
+    if (existingLink.length === 0) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user) {
+        let staffRole: "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
+        if (user.providerType === "nurse") staffRole = "nurse";
+        else if (user.providerType === "doctor") staffRole = "doctor";
+        else if (user.providerType === "paramedic") staffRole = "paramedic";
+        else if (user.providerType === "midwife") staffRole = "midwife";
+        else if (user.providerType === "lab_tech") staffRole = "lab_tech";
+        else if (user.providerType === "respiratory_therapist") staffRole = "respiratory_therapist";
+
+        await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: facility.institutionalAccountId,
+          userId: userId,
+          staffName: user.name || "Provider",
+          staffEmail: user.email || "",
+          staffPhone: user.phone || null,
+          staffRole: staffRole,
+          designation: "other",
+          facilityLinkStatus: "pending",
+          enrollmentStatus: "pending",
+        });
+      }
+    }
+  }
 }
 
 export async function mergeCareFacilities(input: {

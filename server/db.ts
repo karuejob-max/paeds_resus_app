@@ -1,11 +1,11 @@
-import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import dns from "node:dns";
 import { promisify } from "node:util";
 
 import * as schema from "../drizzle/schema";
-import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset } from "../drizzle/schema";
+import { InsertUser, InsertAdminAuditLog, users, adminAuditLog, passwordResetTokens, enrollments, payments, certificates, institutionalInquiries, smsReminders, learnerProgress, userFeedback, analyticsEvents, experiments, experimentAssignments, performanceMetrics, errorTracking, supportTickets, supportTicketMessages, featureFlags, userCohorts, userCohortMembers, conversionFunnelEvents, npsSurveyResponses, institutionalAccounts, institutionalStaffMembers, quotations, contracts, trainingSchedules, trainingAttendance, certificationExams, incidents, institutionalAnalytics, resusGPSSessions, resusGPSCases, fellowshipProgress, fellowshipGraceUsage, fellowshipStreakResets, fellowshipTokens, InsertResusGPSSession, InsertResusGPSCase, InsertFellowshipProgress, InsertFellowshipGraceUsage, InsertFellowshipStreakReset, InsertFellowshipToken } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 const lookup4 = promisify(dns.lookup);
@@ -320,7 +320,7 @@ export async function createUserWithPassword(data: {
   email: string;
   name: string | null;
   passwordHash: string;
-  userType?: "individual" | "institutional" | "parent";
+  userType?: "individual" | "institutional";
   phone?: string | null;
 }): Promise<{ id: number }> {
   const db = await getDb();
@@ -349,7 +349,7 @@ export async function updateUserContactInfo(
     .where(eq(users.id, userId));
 }
 
-export async function updateUserType(userId: number, userType: "individual" | "institutional" | "parent") {
+export async function updateUserType(userId: number, userType: "individual" | "institutional") {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set({ userType, updatedAt: new Date() }).where(eq(users.id, userId));
@@ -830,4 +830,88 @@ export async function getFellowshipProgress(userId: number) {
     .where(eq(fellowshipProgress.userId, userId))
     .limit(1);
   return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Fellowship pseudonymous tokens (Observation Architecture §5.5, gap-analysis #10).
+ * See drizzle/schema.ts's fellowshipTokens table doc comment for the privacy model.
+ */
+export async function createFellowshipToken(data: InsertFellowshipToken) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(fellowshipTokens).values(data);
+  return result;
+}
+
+export async function updateFellowshipToken(tokenId: string, data: Partial<InsertFellowshipToken>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .update(fellowshipTokens)
+    .set(data)
+    .where(eq(fellowshipTokens.tokenId, tokenId));
+  return result;
+}
+
+export async function getFellowshipTokenByTokenId(tokenId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .select()
+    .from(fellowshipTokens)
+    .where(eq(fellowshipTokens.tokenId, tokenId))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Recovery-code lookup. Recovery codes are bcrypt-hashed (one-way), so the
+ * actual security check can't be a WHERE clause on its own — but as of
+ * 2026-07-20 (gap-analysis #12, closing the O(n) scaling limit documented
+ * since item #10 shipped) this no longer means scanning every row:
+ *
+ * 1. Compute the caller's code's keyed HMAC (`hashRecoveryCodeForLookup`)
+ *    and look it up via the indexed `recoveryCodeLookupHash` column — O(1).
+ * 2. If found, still bcrypt-verify against `recoveryCodeHash` before
+ *    treating it as a match — the lookup hash only narrows the candidate,
+ *    it is never the authentication decision by itself.
+ * 3. If no indexed match, fall back to the original O(n) scan — but ONLY
+ *    over rows where `recoveryCodeLookupHash IS NULL` (tokens created
+ *    before this column existed, whose bcrypt hash can't be reverse-
+ *    engineered to backfill it). This fallback set is fixed at however
+ *    many tokens existed at cutover and only shrinks over time as old
+ *    tokens are recovered/retired — it never grows, unlike the original
+ *    unbounded scan.
+ */
+export async function findFellowshipTokenByRecoveryCode(
+  code: string,
+  verify: (code: string, hash: string) => Promise<boolean>,
+  hashForLookup: (code: string) => string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const lookupHash = hashForLookup(code);
+  const indexedCandidates = await db
+    .select({ tokenId: fellowshipTokens.tokenId, recoveryCodeHash: fellowshipTokens.recoveryCodeHash })
+    .from(fellowshipTokens)
+    .where(eq(fellowshipTokens.recoveryCodeLookupHash, lookupHash));
+  for (const candidate of indexedCandidates) {
+    if (await verify(code, candidate.recoveryCodeHash)) {
+      return candidate.tokenId;
+    }
+  }
+
+  // Bounded legacy fallback — only pre-migration tokens ever land here.
+  const legacyCandidates = await db
+    .select({ tokenId: fellowshipTokens.tokenId, recoveryCodeHash: fellowshipTokens.recoveryCodeHash })
+    .from(fellowshipTokens)
+    .where(isNull(fellowshipTokens.recoveryCodeLookupHash));
+  for (const candidate of legacyCandidates) {
+    if (await verify(code, candidate.recoveryCodeHash)) {
+      return candidate.tokenId;
+    }
+  }
+
+  return null;
 }

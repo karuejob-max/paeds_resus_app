@@ -1,0 +1,253 @@
+import { describe, expect, it, vi } from "vitest";
+import { aiAssistantRouter } from "../routers/ai-assistant";
+import type { TrpcContext } from "../_core/context";
+import { BEDSIDE_REDIRECT_REPLY } from "./gemini-user-assist";
+
+const mockInvokeLLM = vi.fn().mockResolvedValue({
+  choices: [
+    {
+      message: {
+        content: "Mocked Gemini Assistant Response",
+      },
+    },
+  ],
+});
+
+vi.mock("../_core/llm", () => ({
+  invokeLLM: (...args: any[]) => mockInvokeLLM(...args),
+}));
+
+function createAuthContext(): TrpcContext {
+  return {
+    user: {
+      id: 1,
+      openId: "test-provider",
+      email: "test@example.com",
+      name: "Test Provider",
+      loginMethod: "manus",
+      role: "user",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    },
+    req: {
+      protocol: "https",
+      headers: {},
+    } as any,
+    res: {} as any,
+  };
+}
+
+describe("aiAssistantRouter", () => {
+  describe("sendMessage", () => {
+    it("invokes LLM for non-clinical platform help query", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.sendMessage({
+        message: "How do I download my PALS certificate?",
+        context: "general",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe("Mocked Gemini Assistant Response");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+      
+      // Verify system prompt matches platform help system prompt
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      expect(callArgs.messages[0].content).toContain("You are Paeds Resus Help");
+    });
+
+    it("bypasses LLM and returns bedside redirect warning for clinical dosing request", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.sendMessage({
+        message: "Give me adrenaline dosing mcg/kg right now for active resus",
+        context: "clinical",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+
+    it("handles conversation history and page context in system prompt", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.sendMessage({
+        message: "Can you explain that more?",
+        context: "general",
+        pageContext: "/micro-course/seriously-ill-child-i",
+        messages: [
+          { role: "user", content: "What is CPR?" },
+          { role: "assistant", content: "CPR stands for cardiopulmonary resuscitation..." },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe("Mocked Gemini Assistant Response");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      // Verify pageContext is in the system prompt
+      expect(callArgs.messages[0].content).toContain("/micro-course/seriously-ill-child-i");
+      // Verify history is included
+      expect(callArgs.messages[1].content).toBe("What is CPR?");
+      expect(callArgs.messages[2].content).toBe("CPR stands for cardiopulmonary resuscitation...");
+      // Verify current message is last
+      expect(callArgs.messages[3].content).toBe("Can you explain that more?");
+    });
+  });
+
+  describe("getQuizTutorResponse", () => {
+    it("invokes LLM to tutor learner on quiz question details", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getQuizTutorResponse({
+        question: "What is the CPR compression depth for infants?",
+        options: ["1-2cm", "4-5cm", "7-8cm"],
+        correctOption: "4-5cm",
+        userAnswer: "1-2cm",
+        explanation: "CPR compression depth for infants should be 1/3 the chest depth, approx 4-5cm.",
+        userQuery: "Why isn't 1-2cm correct?",
+        messages: [],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe("Mocked Gemini Assistant Response");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      expect(callArgs.messages[0].content).toContain("learning tutor for micro-course quizzes");
+      expect(callArgs.messages[1].content).toContain("What is the CPR compression depth for infants?");
+    });
+
+    it("returns bedside redirect warning if learner asks clinical query to tutor", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getQuizTutorResponse({
+        question: "What is the CPR compression depth for infants?",
+        options: ["1-2cm", "4-5cm", "7-8cm"],
+        correctOption: "4-5cm",
+        userAnswer: "1-2cm",
+        explanation: "CPR compression depth for infants should be 1/3 the chest depth, approx 4-5cm.",
+        userQuery: "Give adrenaline dose mcg/kg for active resus in front of me",
+        messages: [],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("other procedures safety checks", () => {
+    it("redirects getClinicalSupport on bedside active request", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getClinicalSupport({
+        scenario: "Active resuscitation coding child right now in front of me",
+      });
+
+      expect(result.support).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+
+    it("redirects getTroubleshootingHelp on clinical request", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getTroubleshootingHelp({
+        issue: "Need defib joules shock dose for infant immediately",
+      });
+
+      expect(result.solution).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+
+    it("redirects getProtocolReference on clinical query", async () => {
+      mockInvokeLLM.mockClear();
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.getProtocolReference({
+        protocolName: "Adrenaline dosing mg/kg for active resuscitation",
+      });
+
+      expect(result.reference).toBe(BEDSIDE_REDIRECT_REPLY);
+      expect(mockInvokeLLM).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("generateSimulationDebrief", () => {
+    it("successfully parses AI JSON response and returns structured debrief", async () => {
+      mockInvokeLLM.mockClear();
+      const mockContent = JSON.stringify({
+        sbar: {
+          situation: "De-identified situation context",
+          background: "De-identified background context",
+          assessment: "De-identified assessment context",
+          recommendation: "De-identified recommendation context"
+        },
+        feedback: {
+          strengths: ["Excellent CPR quality"],
+          delays: ["Adrenaline given late"],
+          correctiveActions: ["Re-verify dosing weight guidelines"],
+          spacedRepetitionTopic: "bls"
+        }
+      });
+      mockInvokeLLM.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: mockContent
+            }
+          }
+        ]
+      });
+
+      const ctx = createAuthContext();
+      const caller = aiAssistantRouter.createCaller(ctx);
+
+      const result = await caller.generateSimulationDebrief({
+        sessionId: "session-abc-123",
+        emergencyType: "cardiac_arrest",
+        patient: {
+          name: "John Doe",
+          age: 5,
+          weightKg: 18,
+          gender: "M",
+          medicalRecordNumber: "MRN-111"
+        },
+        startTime: Date.now() - 600000,
+        endTime: Date.now(),
+        events: [
+          { timestamp: Date.now() - 500000, eventType: "intervention", description: "Started chest compressions" }
+        ],
+        overrides: [],
+        finalOutcome: "ROSC"
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.sbar.situation).toBe("De-identified situation context");
+      expect(result.feedback.strengths[0]).toBe("Excellent CPR quality");
+      expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+
+      // Verify the patient's real name 'John Doe' was NOT present in the LLM user payload to ensure de-identification
+      const callArgs = mockInvokeLLM.mock.calls[0][0];
+      expect(callArgs.messages[1].content).not.toContain("John Doe");
+    });
+  });
+});

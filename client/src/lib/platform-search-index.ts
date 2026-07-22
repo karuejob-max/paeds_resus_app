@@ -3,7 +3,7 @@ import { MICRO_COURSE_CATALOG } from "@shared/micro-course-catalog";
 
 export type SearchCategory = "Courses" | "Fellowship" | "Tools" | "Legal" | "Admin" | "Help";
 
-export type AppRole = "provider" | "parent" | "institution" | null;
+export type AppRole = "provider" | "institution" | null;
 
 export type PlatformSearchItem = {
   id: string;
@@ -228,13 +228,11 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
     keywords: ["quote", "onboarding"],
   }),
   item({
-    id: "parent-safe-truth",
-    label: "Parent Safe-Truth",
-    href: "/parent-safe-truth",
+    id: "safe-truth",
+    label: "Safe-Truth",
+    href: "/safe-truth",
     category: "Help",
-    keywords: ["family", "guardian"],
-    requiresAuth: true,
-    allowedRoles: ["parent"],
+    keywords: ["family", "guardian", "parent"],
   }),
 
   // Help

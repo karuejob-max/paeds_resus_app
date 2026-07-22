@@ -38,9 +38,10 @@
 import { protectedProcedure, adminProcedure, router, publicProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db";
-import { reEvaluateAfterImplementationOutcome } from "../lib/fpkb-pattern-detector";
+import { reEvaluateAfterImplementationOutcome, FAILURE_DOWNGRADE_PATH, SUCCESS_DOWNGRADE_PATH, reviewWindowDaysFor } from "../lib/fpkb-pattern-detector";
+import { runAiDiscovery } from "../lib/ai-pattern-aggregator";
 import {
   kbFailureModes,
   kbSuccessFactors,
@@ -51,6 +52,7 @@ import {
   kbGovernanceAudit,
   kbInterventions,
   kbImplementations,
+  kbReviewSchedule,
 } from "../../drizzle/schema";
 
 function newId(): string {
@@ -215,6 +217,11 @@ export const fpkbRouter = router({
         supportingObservationCount: 0,
         knowledgeStatus: "ACTIVE",
         createdBy: String(ctx.user.id),
+        // SIGNAL / CANDIDATE_SUCCESS review window is 6 months (§7.3) — without
+        // this, a manually-curated pattern would never be caught by the
+        // confidence-downgrade job (gap #14), since `reviewDueAt IS NULL`
+        // never matches a "< now" staleness check.
+        reviewDueAt: new Date(Date.now() + 182 * 86_400_000),
       });
 
       await logGovernanceAudit({
@@ -588,5 +595,238 @@ export const fpkbRouter = router({
       }
 
       return { id };
+    }),
+
+  // AI-Driven Pattern Aggregator discovery scan
+  runAiPatternDiscovery: adminProcedure
+    .mutation(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      return await runAiDiscovery(db);
+    }),
+
+  // Approve and promote an AI proposed pattern to formal signal
+  approveProposedPattern: adminProcedure
+    .input(
+      z.object({
+        patternTrack: z.enum(["FAILURE", "SUCCESS"]),
+        patternName: z.string().min(1),
+        primaryDomain: z.enum(["RECOGNITION", "ESCALATION", "VASCULAR_ACCESS", "TREATMENT", "REFERRAL", "MONITORING", "COMMUNICATION", "RESOURCE_AVAILABILITY"]),
+        description: z.string().min(1),
+        evidenceBasis: z.string().min(1),
+        cadreScope: z.enum(["nursing", "medical", "all"]),
+        associatedObservations: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      const id = newId();
+      const prefix = input.patternTrack === "FAILURE" ? "FP-AI-" : "SP-AI-";
+      const code = `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const confidenceDimensions = JSON.stringify({
+        clinical: "AI_detected",
+        statistical: "unstructured_text_clustering",
+        external_evidence: "none",
+        platform_replication: "pending",
+        geographic_diversity: "pending",
+        recency: new Date().toISOString(),
+      });
+
+      await db.insert(kbPatterns).values({
+        id,
+        patternTrack: input.patternTrack,
+        patternCode: code,
+        patternName: input.patternName,
+        primaryDomain: input.primaryDomain,
+        description: input.description,
+        confidenceLevel: input.patternTrack === "FAILURE" ? "SIGNAL" : "CANDIDATE_SUCCESS",
+        confidenceDimensions,
+        supportingObservationCount: input.associatedObservations.length,
+        geographicScope: JSON.stringify(["KE"]), // Default pilot country
+        cadreScope: JSON.stringify([input.cadreScope]),
+        knowledgeStatus: "ACTIVE",
+        firstDetectedAt: new Date(),
+        lastConfirmedAt: new Date(),
+        createdBy: String(ctx.user.id),
+      });
+
+      // Write associated observations to kb_pattern_observations
+      if (input.associatedObservations.length > 0) {
+        const now = new Date();
+        const obsPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        for (const obsId of input.associatedObservations) {
+          const isCareSignal = obsId.startsWith("care-signal");
+          await db.insert(kbPatternObservations).values({
+            id: newId(),
+            patternId: id,
+            observationSource: isCareSignal ? "CARE_SIGNAL" : "SAFE_TRUTH",
+            observationId: obsId.replace("care-signal-", "").replace("parent-truth-", ""),
+            observationTable: isCareSignal ? "careSignalEvents" : "parentSafeTruthSubmissions",
+            observationPeriod: obsPeriod,
+            linkedAt: new Date(),
+            linkedBy: String(ctx.user.id),
+          });
+        }
+      }
+
+      await logGovernanceAudit({
+        actorUserId: String(ctx.user.id),
+        actionType: "PATTERN_CREATED",
+        entityType: "PATTERN",
+        entityId: id,
+        newState: { code, patternName: input.patternName, evidenceBasis: input.evidenceBasis },
+        reasoning: `AI-discovered pattern approved by Knowledge Steward. Evidence basis: ${input.evidenceBasis}`,
+      });
+
+      return { success: true, patternId: id, patternCode: code };
+    }),
+
+  // ── Pattern review queue (gap-analysis #12, FPKB_SCHEMA_V1.md §7.4) ──────
+
+  /**
+   * All open (PENDING or IN_PROGRESS) review tasks, ordered by how overdue
+   * they are — §7.4: "Pattern review queue: all kb_review_schedule rows
+   * with status = IN_PROGRESS or PENDING, ordered by review_due_at."
+   * Populated by runConfidenceDowngrade's daily job (see
+   * server/lib/fpkb-pattern-detector.ts) — this endpoint is read-only.
+   */
+  listPatternReviewQueue: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    const tasks = await db
+      .select({
+        id: kbReviewSchedule.id,
+        patternId: kbReviewSchedule.patternId,
+        reviewDueAt: kbReviewSchedule.reviewDueAt,
+        reviewType: kbReviewSchedule.reviewType,
+        reviewStatus: kbReviewSchedule.reviewStatus,
+        createdAt: kbReviewSchedule.createdAt,
+        patternCode: kbPatterns.patternCode,
+        patternName: kbPatterns.patternName,
+        confidenceLevel: kbPatterns.confidenceLevel,
+        patternTrack: kbPatterns.patternTrack,
+        knowledgeStatus: kbPatterns.knowledgeStatus,
+        lastConfirmedAt: kbPatterns.lastConfirmedAt,
+      })
+      .from(kbReviewSchedule)
+      .innerJoin(kbPatterns, eq(kbPatterns.id, kbReviewSchedule.patternId))
+      .where(inArray(kbReviewSchedule.reviewStatus, ["PENDING", "IN_PROGRESS"]))
+      .orderBy(kbReviewSchedule.reviewDueAt);
+
+    return { tasks };
+  }),
+
+  /**
+   * A Knowledge Steward resolving a review task — the human half of §7.2's
+   * two-clock design (see runConfidenceDowngrade's doc comment for the
+   * automated half). Resolving a task here BEFORE the automated fallback
+   * threshold hits is exactly what's supposed to happen for a pattern
+   * that's still valid but simply hasn't had fresh submissions.
+   */
+  completePatternReview: adminProcedure
+    .input(
+      z.object({
+        reviewScheduleId: z.string(),
+        outcome: z.enum([
+          "CONFIDENCE_MAINTAINED",
+          "CONFIDENCE_UPGRADED",
+          "CONFIDENCE_DOWNGRADED",
+          "PATTERN_RETIRED",
+          "PATTERN_SPLIT",
+          "DEFERRED_TO_NEXT_CYCLE",
+        ]),
+        notes: z.string().max(4000).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [task] = await db
+        .select()
+        .from(kbReviewSchedule)
+        .where(eq(kbReviewSchedule.id, input.reviewScheduleId))
+        .limit(1);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Review task not found." });
+      if (task.reviewStatus === "COMPLETED") {
+        throw new TRPCError({ code: "CONFLICT", message: "This review task was already resolved." });
+      }
+
+      const [pattern] = await db.select().from(kbPatterns).where(eq(kbPatterns.id, task.patternId)).limit(1);
+      if (!pattern) throw new TRPCError({ code: "NOT_FOUND", message: "Pattern not found." });
+
+      const now = new Date();
+
+      // Resolving a task early — the whole point of the review-task clock —
+      // resets BOTH clocks: extends reviewDueAt for the next cycle, and
+      // (for anything other than an explicit downgrade/retire) resets
+      // lastConfirmedAt too, since a human just confirmed the pattern is
+      // still good, which is functionally equivalent to reconfirming
+      // evidence for the automated-fallback clock's purposes.
+      const patternUpdate: Partial<typeof kbPatterns.$inferInsert> = {
+        reviewDueAt: new Date(now.getTime() + reviewWindowDaysFor(pattern.confidenceLevel) * 86_400_000),
+      };
+
+      if (input.outcome === "CONFIDENCE_MAINTAINED" || input.outcome === "DEFERRED_TO_NEXT_CYCLE") {
+        patternUpdate.lastConfirmedAt = now;
+      } else if (input.outcome === "CONFIDENCE_DOWNGRADED") {
+        const downgradePath = pattern.patternTrack === "FAILURE" ? FAILURE_DOWNGRADE_PATH : SUCCESS_DOWNGRADE_PATH;
+        const nextLevel = downgradePath[pattern.confidenceLevel];
+        if (nextLevel) {
+          patternUpdate.confidenceLevel = nextLevel as (typeof kbPatterns.$inferSelect)["confidenceLevel"];
+          patternUpdate.lastConfirmedAt = now;
+        }
+      } else if (input.outcome === "PATTERN_RETIRED") {
+        patternUpdate.knowledgeStatus = "RETIRED";
+        patternUpdate.retiredAt = now;
+        patternUpdate.retiredReason = input.notes ?? "Retired by Knowledge Steward review.";
+      }
+      // CONFIDENCE_UPGRADED / PATTERN_SPLIT: no automatic field change here —
+      // upgrades already happen via the evidence-driven path
+      // (recomputePatternConfidence), and a split creates a new pattern
+      // entirely (out of scope for this endpoint) — this outcome just
+      // records the reviewer's decision for the audit trail.
+
+      await db.update(kbPatterns).set(patternUpdate).where(eq(kbPatterns.id, pattern.id));
+
+      await db
+        .update(kbReviewSchedule)
+        .set({
+          reviewStatus: "COMPLETED",
+          reviewOutcome: input.outcome,
+          reviewedAt: now,
+          reviewedBy: String(ctx.user.id),
+          reviewNotes: input.notes ?? null,
+          nextReviewDueAt: patternUpdate.reviewDueAt as Date | undefined,
+        })
+        .where(eq(kbReviewSchedule.id, task.id));
+
+      await logGovernanceAudit({
+        actorUserId: String(ctx.user.id),
+        actionType: "OTHER",
+        entityType: "PATTERN",
+        entityId: pattern.id,
+        previousState: { confidenceLevel: pattern.confidenceLevel, knowledgeStatus: pattern.knowledgeStatus },
+        newState: { outcome: input.outcome },
+        reasoning: input.notes
+          ? `Knowledge Steward review: ${input.outcome}. ${input.notes}`
+          : `Knowledge Steward review: ${input.outcome}.`,
+      });
+
+      return { success: true };
     }),
 });

@@ -6,6 +6,8 @@ import { TrainingSimulationGate } from "./components/TrainingSimulationGate";
 import { AspirationalSurfaceGate } from "./components/AspirationalSurfaceGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
+import { PendingAdminInviteBanner } from "./components/PendingAdminInviteBanner";
+import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
@@ -23,7 +25,7 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
-const ParentSafeTruth = lazy(() => import("./pages/ParentSafeTruth"));
+const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
@@ -83,6 +85,8 @@ const CourseIntubationEssentials = lazy(() => import("./pages/CourseIntubationEs
 const CourseInstructor = lazy(() => import("./pages/CourseInstructor"));
 const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
+const InstitutionalRecovery = lazy(() => import("./pages/InstitutionalRecovery"));
+const AdminInstitutionalRecovery = lazy(() => import("./pages/AdminInstitutionalRecovery"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
@@ -154,6 +158,7 @@ function Router() {
         Skip to main content
       </a>
       <Header />
+      <PendingAdminInviteBanner />
       <main id="main-content" className="flex-1" role="main">
         <LegalReconsentGate>
         <Suspense
@@ -171,13 +176,19 @@ function Router() {
           <Route path="/feedback" component={FeedbackPage} />
           <Route path="/my-cne-certificates" component={MyCneCertificates} />
           <Route path="/home" component={Home} />
-          <Route path="/parent-safe-truth" component={ParentSafeTruth} />
+          {/* 2026-07-19 (account-types PR1): the OLD authenticated Safe-Truth
+              flow is retired along with the parent userType — nobody can log
+              in as a parent anymore, so this route now redirects into the
+              unauthenticated /safe-truth flow. parentSafeTruthSubmissions
+              (the underlying table/history) is untouched — only this UI
+              entry point changes. */}
+          <Route path="/parent-safe-truth">{() => <Redirect to="/safe-truth" />}</Route>
+          <Route path="/safe-truth" component={SafeTruthV1} />
           <Route path="/care-signal">{() => (
             <RoleGate allowed={["provider"]}>
               <CareSignal />
             </RoleGate>
           )}</Route>
-          <Route path="/safe-truth">{() => <Redirect to="/care-signal" />}</Route>
           {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
           <Route path="/institutional-portal">{() => (
             <RoleGate allowed={["institution"]}>
@@ -328,7 +339,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/personal-impact">{() => (
-            <RoleGate allowed={["provider", "parent"]}>
+            <RoleGate allowed={["provider"]}>
               <PersonalImpactDashboard />
             </RoleGate>
           )}</Route>
@@ -434,6 +445,13 @@ function Router() {
               <InstitutionalOnboarding />
             </RoleGate>
           )}</Route>
+          {/* Public — no login required, since the scenario is "nobody at this institution can log in" (North Star §6.1). */}
+          <Route path="/institutional-recovery" component={InstitutionalRecovery} />
+          <Route path="/admin-institutional-recovery">{() => (
+            <AdminGate>
+              <AdminInstitutionalRecovery />
+            </AdminGate>
+          )}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>
              <Route path="/micro-courses">{() => (
             <ErrorBoundary>
@@ -522,7 +540,7 @@ function Router() {
           <Route path="/contact" component={RedirectToInstitutionalQuote} />
           <Route path="/resources">{() => <Redirect to="/help" />}</Route>
           <Route path="/faq">{() => <Redirect to="/help" />}</Route>
-          <Route path="/success-stories">{() => <Redirect to="/parent-safe-truth" />}</Route>
+          <Route path="/success-stories">{() => <Redirect to="/safe-truth" />}</Route>
           <Route path="/elite-fellowship">{() => <Redirect to="/fellowship" />}</Route>
           {/* / : public compound for anonymous; role home for authenticated */}
           <Route path="/" component={HomeEntry} />
@@ -532,6 +550,7 @@ function Router() {
         </Suspense>
         </LegalReconsentGate>
       </main>
+      <PaedsAIAssistant />
     </div>
   );
 }
@@ -553,13 +572,11 @@ export default App;
 
 function mapUserTypeToRole(ut: string | null | undefined): UserRole {
   if (ut === "individual") return "provider";
-  if (ut === "parent") return "parent";
   if (ut === "institutional") return "institution";
   return null;
 }
 
 function getRoleHomePath(role: UserRole): string {
-  if (role === "parent") return "/parent-safe-truth";
   if (role === "institution") return "/hospital-admin-dashboard";
   return "/home";
 }
@@ -711,7 +728,7 @@ function HomeEntry() {
     if (loading || !isAuthenticated) return;
     const dest = getRoleHomePath(roleForHome);
     if (dest === "/home") void import("./pages/Home");
-    else if (dest === "/parent-safe-truth") void import("./pages/ParentSafeTruth");
+    else if (dest === "/safe-truth") void import("./pages/SafeTruthV1");
     else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
     setLocation(dest);
   }, [isAuthenticated, loading, roleForHome, setLocation]);

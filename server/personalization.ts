@@ -1,9 +1,9 @@
 /**
  * Advanced Stakeholder Personalization Engine
- * Customizes experience for healthcare providers, institutions, parents, and learners
+ * Customizes experience for healthcare providers, institutions, and learners
  */
 
-export type StakeholderType = "healthcare_provider" | "institution" | "parent" | "learner" | "admin";
+export type StakeholderType = "healthcare_provider" | "institution" | "learner" | "admin";
 
 export interface StakeholderProfile {
   userId: number;
@@ -186,36 +186,6 @@ class PersonalizationEngine {
         relevanceScore: 85,
         reason: "Cost-effective training for your institution",
         actionUrl: "/pricing/institutional",
-      });
-    }
-
-    // Parent Recommendations
-    if (profile.stakeholderType === "parent") {
-      recommendations.push({
-        type: "course",
-        title: "First Aid for Parents",
-        description: "Essential life-saving skills for parents and caregivers",
-        relevanceScore: 95,
-        reason: "Protect your children with essential first aid knowledge",
-        actionUrl: "/courses/first-aid-parents",
-      });
-
-      recommendations.push({
-        type: "resource",
-        title: "Child Safety Guide",
-        description: "Comprehensive guide to keeping children safe",
-        relevanceScore: 90,
-        reason: "Recommended for all parents",
-        actionUrl: "/resources/child-safety",
-      });
-
-      recommendations.push({
-        type: "community",
-        title: "Parents Support Group",
-        description: "Connect with other parents and share experiences",
-        relevanceScore: 75,
-        reason: "Join a supportive community of parents",
-        actionUrl: "/community/parents",
       });
     }
 

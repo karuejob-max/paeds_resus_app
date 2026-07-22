@@ -1,16 +1,17 @@
-# AGENTS.md — Mandatory Pre-Read for All AI Agents
+# AGENTS.md — Mandatory Pre-Read for Everyone Working in This Repository
 
 > **Read this entire file before taking any action in this repository.**
-> This file is the agent-facing distillation of the Platform's Source of Truth (PSOT).
+> This applies to **anyone or anything** touching this codebase — AI agents (Manus, Cursor, Codex, Claude, etc.), contractors, and Job himself. It is not an AI-only file; it's the pre-read, full stop.
+> This file is the distillation of the Platform's Source of Truth (PSOT) for whoever is about to write code or make a decision here.
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** June 3, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** July 15, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
-**CRITICAL INSTRUCTION FOR ALL AI AGENTS (Manus, Cursor, Codex, etc.)**
+**CRITICAL INSTRUCTION FOR EVERYONE — AI AGENTS (Manus, Cursor, Codex, Claude, etc.) AND HUMANS ALIKE**
 
-If you are an AI agent operating in this repository, you **MUST** read this file and follow its instructions before executing any task.
+If you are about to take any action in this repository — writing code, reviewing a PR, applying a migration, or making a design call — you **MUST** read this file and follow its instructions first. Don't skip it because you assume it's "just for the AI tools."
 
 ### Read this first for shipping and production DB
 
@@ -72,6 +73,34 @@ High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPE
 - **Clinical harm audit before "complete":** **mmol/L** for glucose; **never KCl IV push**; **DKA — no insulin bolus**; **neonates — no benzos first-line** for seizures; spot-check seeded HTML, not just TypeScript.
 - **Honest gap docs:** Use [FELLOWSHIP_WHAT_IS_MISSING.md](docs/FELLOWSHIP_WHAT_IS_MISSING.md) for CEO — do not reassure that prod DB matches code without seed + verify evidence.
 - **CEO post-deploy sign-off:** Log **CEO sign-off: pending** in WORK_STATUS; **does not block merge** when engineering is mandated to ship ([CLINICAL_CONTENT_GOVERNANCE.md](docs/CLINICAL_CONTENT_GOVERNANCE.md)).
+- **Don't flag a doc ambiguity from one section alone (gap-analysis item #15, 2026-07-15):** A prior session flagged "CANDIDATE's review window is never stated" against Observation Architecture §7.3 — true of that section's prose, but §6.6's Pattern Record field table stated it plainly a few hundred lines away ("6 months for Signal and Candidate"). The guess made in the meantime (12 months, by analogy) was wrong and shipped as a real bug in `fpkb-pattern-detector.ts`'s downgrade pass before being caught. **Before writing "ambiguous" or "not specified" into WORK_STATUS or a code comment, grep the whole constitutional doc for the field/term in question** — field-definition tables, schemas, and glossaries often answer questions that a single narrative section leaves open. If it's still unstated after that check, it's a real ambiguity — flag it and stop; don't guess by analogy and ship the guess as if it were settled.
+- **UI copy claiming a privacy guarantee is a claim about the code, not decoration — verify it against the actual insert/query, not the label (gap-analysis item #10, 2026-07-15):** Care Signal's "Submit anonymously" checkbox said "No identity stored," but the insert code stored the real `userId` for every provider submission regardless of that checkbox — `isAnonymous` only hid identity from facility-facing views (PSOT §20.3 rule 4), it never controlled whether the platform itself retained identity. This was deliberate (a code comment cited §20.3 explicitly) but contradicted both the UI's own copy and Observation Architecture §5.5's stricter Layer 1 (no identity, no credit) / Layer 2 (token-based pseudonymity, no real `userId` ever stored) split. Fixed by adding a genuine `fellowshipTokens` table + `submissionMode` column so Layer 2 credit is possible without the platform storing who submitted. **The general rule: when a feature makes a privacy or security claim in its UI copy ("anonymous," "encrypted," "not shared," "no identity stored"), trace that claim to the exact line of code that would make it true or false before trusting either the copy or an assumption of what "should" be true — labels drift from implementation silently, and nobody notices until an agent actually reads the insert statement.**
+- **A NOT NULL column on an existing table is a strong signal to build new tables, not retrofit (gap-analysis item #11 Phase A, 2026-07-16):** Safe-Truth v1 requires genuinely no user account (Event Models §2.2). The legacy `parentSafeTruthSubmissions` table has `userId: int("userId").notNull()` — structurally incompatible, not just unused-in-practice. Rather than make it nullable and hope nothing downstream assumes it's always populated (admin dashboards, analytics, exports all likely do), built three new tables (`safeTruthSubmissions`, `safeTruthFacilityVisits`, `safeTruthDisclaimerAcks`) and left the old table/router/UI/route completely untouched. **The general rule: when a redesign's core requirement (no auth, no PII, different cardinality, etc.) conflicts with an existing table's NOT NULL constraint or structural shape, that's usually a sign to build fresh rather than loosen the old constraint — loosening it silently changes the contract for every other reader of that table, which is a much bigger and less visible blast radius than a new, clearly-named table living alongside it.**
+- **"Global from day 1" is a platform-wide requirement, not a per-feature one — check every product's data model when it's invoked (2026-07-16):** The CEO's instruction to capture country → admin_level_1 → admin_level_2 (locality) geography applied to a Safe-Truth design conversation but explicitly covered Care Signal too. Checking found the unified `facilities` table already had `adminLevel2`/`subCounty` — it just wasn't wired through Care Signal's facility-search response, payload builder, or `careSignalEvents` schema, and wasn't in Safe-Truth's field list at all. **When a CEO instruction is framed as a general principle ("global from day 1," "every submission gets X") rather than a fix to the specific thing being discussed, treat it as license — and obligation — to check other products' data models for the same gap, not just the one on the table.**
+- **`vitest.unit.config.ts`'s fast gate didn't cover `client/src/pages/**` at all (found building Safe-Truth v1 Phase B, 2026-07-16):** Every prior component test in this repo lived under `client/src/components/`; the include list and `environmentMatchGlobs` (which controls jsdom vs. node) were scoped accordingly. The first page-level component test (`SafeTruthV1.test.tsx`) silently matched zero files until both were extended to include `client/src/pages/**`. **If a new test file "passes" by reporting zero collected tests, that's not a pass — check the config's include/exclude and environment globs before trusting a clean run.**
+- **Re-verify a gap you flagged yourself before fixing it — the earlier note might be imprecise, not just stale (2026-07-17):** Gap-analysis #11's original geo work flagged "`setMyFacility`'s return shape doesn't carry `adminLevel2`" as a known follow-up. Re-checking before fixing it: `setMyFacility` returns the result of `getFacilityById`, which already carried `adminLevel2` correctly the whole time — the original flag was simply wrong (or the underlying code had already been fixed by the same PR without updating the comment). The real, narrower gap was elsewhere (`providerProfiles`'s cached prefill row had no locality column at all). **A flag written in a hurry, even one you wrote yourself an hour ago, is a hypothesis to re-check against current code — not a fact to build on top of.** Building the wrong fix on top of an inaccurate flag would have been wasted work at best and a false sense of completeness at worst.
+- **"That number doesn't appear anywhere in the doc" needs checking against every relevant document, not the one you happened to have open (gap-analysis #12, 2026-07-17):** Item #14/#15 "corrected" a prior memory of 18/24/12/6-month downgrade thresholds, calling them a misremembering, because they don't appear in Observation Architecture §7.3. They do appear — in `FPKB_SCHEMA_V1.md` §7.2, a different constitutional document entirely, one this file's own header comment had correctly cited back in gap-analysis #9. **A "this doesn't exist in the spec" claim is only as good as how many of the five constitutional documents were actually searched** — checking one document thoroughly is not the same as checking whether a number appears "anywhere in the doc[s]." This is the cross-document version of the #15 lesson above (which was about sections within one document); the same discipline applies at the multi-document level, and is more expensive to get wrong, since it can lead to un-correcting something that was already right.
+- **A conflict-free merge is not proof your change survived (account-types PR1, 2026-07-19):** Two parallel PRs (this account-types work, and the Subsidised Cohort Program's Phase 3 overflow valve) both independently added a migration numbered `0069` and both edited `drizzle/schema.ts`. The number collision was caught and fixed (renumbered to `0070`) — but a second, quieter failure slipped through underneath it: a later merge of the cohort-program PRs into `main` silently reverted the account-types PR's `schema.ts` enum edit and dropped its `WORK_STATUS.md` log entry, with **no conflict markers and no failed CI** — git's merge resolved the overlapping edits to the same file as one continuous hunk favoring the wrong side. It was only caught because a human noticed the live production database and the checked-in schema had drifted apart; nothing in the pipeline would have surfaced it otherwise. **A green CI run proves the merged result compiles and type-checks — it does not prove your specific edit is still in the file.** See the new "Shared-file collision protocol" section below for the concrete fix.
+- **The verification step itself can produce a false alarm if the search string isn't character-exact (2026-07-19, PR #315's own post-merge check):** Step 2's `Select-String "item #15 - actually closed"` came back empty on a genuinely intact merge — the actual `WORK_STATUS.md` text used an em dash (`—`), the PowerShell command used a plain hyphen (`-`). For a moment this looked exactly like the account-types drift above. **Before concluding a merge dropped something, re-run the check with a shorter, ASCII-only substring that can't have a typographic-character mismatch** (a distinctive word or two, not a whole phrase with punctuation) — and if a longer phrase is needed, copy it verbatim from the actual file rather than retyping it from memory. A false "it's gone" is cheap to create and expensive to chase if taken at face value.
+- **An em dash doesn't just break a `Select-String` match — it can break a `.ps1` file's parsing entirely (2026-07-20, `scripts/pre-merge-check.ps1`):** A script full of em dashes (used freely elsewhere in this repo's `.md` and `.ts` files) failed on the CEO's actual Windows machine with `Missing closing '}' in statement block`, at a spot where the braces were genuinely balanced — Windows PowerShell 5.1 can misread a UTF-8 `.ps1` file via the system ANSI codepage, corrupting a multi-byte character like an em dash into stray bytes that break string/token boundaries somewhere downstream of where the parser actually reports the error. This couldn't be reproduced or caught in advance — no PowerShell is available in the sandbox this session runs in, so the file was verified only via a hand-written brace tracer and file-content reasoning, both of which missed it. **Any `.ps1` file in this repo needs to be plain ASCII — no em dashes, smart quotes, or other typographic characters — even though that convention is fine, and used constantly, in this repo's `.md` and `.ts` files.** A useful pre-ship check going forward: `python3 -c "open('file.ps1', encoding='ascii').read()"` (or equivalent) raises immediately on any non-ASCII byte.
+- **A zip built for the CEO to apply is a snapshot, not a live diff — it goes stale the moment `main` moves after you build it, even if your branch's own git history is fine (fellowship-recovery PR #321, 2026-07-20):** A session built a zip containing `drizzle/schema.ts` and `package.json` from a local checkout captured before PR #320 (the `bsn_intern` → `noi` rename) had merged. The CEO applied it with `Expand-Archive -Force` on a branch whose commit history genuinely *did* have PR #320 as an ancestor — but `-Force` overwrites each file's on-disk content wholesale with whatever the zip snapshot contains, regardless of what the branch's own git log says. Result: `designationEnum` silently reverted `noi` back to `bsn_intern`, and the `db:apply-0072` line vanished from `package.json` — both with no merge conflict, because extracting a zip never diffs against the file's current state, it just replaces it. CI caught this one only because the regression happened to break a type check (`institution.ts` disagreeing with the reverted enum); a change that touched data or logic but not types could have shipped silently, the same way the account-types drift above did. **The general rule: for any of the four high-collision files, a zip is not "build once, ship whenever" — re-fetch `origin/main` and diff the zip's copy of that file against the fresh version immediately before creating the zip, not just before starting the session's edits. If the file moved on `main` in that gap, rebuild the zip's copy from the fresh version with your edit reapplied; don't ship the stale snapshot and rely on the branch's ancestry to save it.**
+
+### Shared-file collision protocol (multi-agent repo — read before touching schema.ts, WORK_STATUS.md, package.json, or AGENTS.md)
+
+This repo has multiple agents (Manus, Codex, Cursor, Claude, etc.) working in parallel, often on unrelated features that both happen to touch the same file. Four files see the most collisions because nearly every PR touches at least one: **`drizzle/schema.ts`**, **`docs/WORK_STATUS.md`**, **`package.json`** (migration script entries), and **`AGENTS.md`** itself. The 2026-07-19 incident above is the concrete example of what goes wrong and why the existing "fetch before editing" convention isn't sufficient on its own — the fetch was current when the PR was built, but another PR landed on the same file in the gap before merge, and the merge silently dropped one side's edit without a conflict.
+
+**Do all of this, not just the first step:**
+
+**A script now automates steps 1, 1a, and 4 below in one command:** `scripts/pre-merge-check.ps1` (run from the repo root before merging any PR) re-fetches `origin/main`, reports drift on each of the four high-collision files, reports whether the branch is behind and can auto-merge (`-AutoMerge`), and cross-checks every `scripts/apply-00NN-*.mjs` file against `package.json` in both directions — including a direct duplicate-number check, the exact failure mode hit twice already (0069 claimed by two PRs' scripts in the same window). It does NOT replace step 1b or step 2 below — those need a change-specific substring only you know.
+
+1. **Fetch `origin/main` immediately before you start** (existing convention) — but also **fetch again immediately before you merge**, not just before you begin. Run `git log HEAD..origin/main --oneline -- <file>` for each of the four high-collision files your PR touches. If anything landed on that file since your branch's base, treat the upcoming merge as untrusted until step 2 confirms it.
+1a. **If your branch is behind `main` (GitHub will say "out-of-date with the base branch"), update it before merging the PR, not after:** `git fetch origin main && git merge origin/main`, resolve anything that conflicts, `git push`, then merge the PR. Merging an out-of-date branch and letting GitHub's own merge commit reconcile it is the same untrusted-until-verified situation as any other collision on these four files — a clean auto-merge there is not proof either side survived intact, same as step 2 below. Bring the branch current yourself, on your own machine, where you can actually see what changed, rather than trusting GitHub's merge UI to get it right silently.
+1b. **When packaging a zip for the CEO to apply (not pushing directly from a sandbox with `origin` access), re-fetch `origin/main` and diff the zip's copy of each of the four high-collision files against it immediately before creating the zip — not just before you started editing.** A zip is a snapshot; `Expand-Archive -Force` overwrites a file's on-disk content wholesale with whatever's in the snapshot, regardless of what the target branch's own git history says. If `main` moved on one of these files after your session started but before you package, the snapshot is stale even though the branch's ancestry looks fine — rebuild the zip's copy of that file from the fresh `origin/main` version with your edit reapplied, don't ship the old one. See the 2026-07-20 lesson above for the concrete incident this caused.
+2. **After your PR merges, re-fetch and verify your specific change is actually there** — a green CI run and a conflict-free merge only prove the merged result compiles; they do not prove your specific edit survived. Grep the merged file on `origin/main` for the exact thing you added: `git show origin/main:<file> | grep -n "<what you added>"`. For a schema/enum change, this is not optional — do it every time, immediately after merge.
+3. **For `WORK_STATUS.md` specifically:** insert new entries as the first entry after the `---` header (reverse-chronological), and re-check that position is still correct immediately before merging — if another PR's entry landed above where you expected, your insertion point has moved and a blind reapply can collide.
+4. **For migration numbers specifically:** re-check the highest `apply-00NN` number right before naming a new one (existing convention) — and additionally, after your migration PR merges, confirm on `origin/main` that your migration number wasn't claimed by a parallel PR in the same window (`ls scripts/apply-00NN-*` on the freshly-fetched `main`).
+5. **Keep PRs touching these four files small and merge them fast.** The smaller the diff and the shorter it sits open before merging, the smaller the collision window.
+6. **If you find a drift like this one** (checked-in file doesn't match what a merged PR should have produced): don't just silently re-apply and move on. Log the original incident and the fix as separate, dated `WORK_STATUS.md` entries — this file's own convention already asks for that, and the record is what let this one get caught and traced at all.
 
 ---
 
@@ -89,6 +118,8 @@ The file `docs/PLATFORM_SOURCE_OF_TRUTH.md` is the canonical reference for the e
 ## 2. The Global Ambition
 
 Paeds Resus is building toward recognition as the **global benchmark for paediatric resuscitation science in LMICs** — by WHO, Harvard, CDC, and Ministries of Health. Every technical decision you make must support this level of clinical rigour, data integrity, and institutional trust.
+
+**Concrete mechanism for "global from day 1" (CEO instruction, 2026-07-16):** every submission across Care Signal and Safe-Truth captures country → admin_level_1 (county/state/province) → admin_level_2 (locality), for geographic pattern mapping. `shared/geo-taxonomy.ts` is the single source of truth for country ISO2 codes and per-country admin-level labels (labels vary — "County" in Kenya, "District" in Uganda). Only Kenya has a populated admin_level_1 options list today (single-country pilot); the shape is ready for more countries without a redesign. When adding a new product surface that captures location, wire it through this config rather than inventing another inline country/label map.
 
 ---
 
@@ -170,6 +201,21 @@ Paeds Resus (Organisation & Platform)
 │   ├── Institutional review workflow
 │   └── National Aggregate Signal (MOH/WHO surveillance dashboard)
 ├── Parent Safe-Truth (Product — Family Safety Information)
+│   └── **Safe-Truth v1 redesign (gap-analysis #11) — all three phases
+│       code-complete.** No-auth architecture + schema
+│       (`safeTruthSubmissions`, `safeTruthFacilityVisits`,
+│       `safeTruthDisclaimerAcks`, `safeTruthV1` router), the full
+│       caregiver-facing form (`SafeTruthV1.tsx`, live at `/safe-truth` —
+│       the old redirect-to-Care-Signal bug is fixed), and the facility
+│       fuzzy-matcher + Care Signal event-code linkage job
+│       (`server/lib/safe-truth-facility-matcher.ts`) are all shipped.
+│       **Runs automatically** — scheduled daily at 04:50 server time in
+│       `server/scheduler.ts` (execute mode, CEO decision 2026-07-17,
+│       after initially shipping CLI-only). `pnpm run safe-truth:match-facilities`
+│       still works manually too, for on-demand runs or dry-run inspection.
+│       The OLD authenticated flow (`parent-safetruth.ts`,
+│       `ParentSafeTruthForm.tsx`, route `/parent-safe-truth`) is left
+│       running alongside the new one, not removed — both coexist.
 └── Institutional Portal (Surface — Hospital Management & ERT)
     ├── Hospital Admin Dashboard
     ├── ERT (Emergency Response Team) management
@@ -187,7 +233,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 | :--- | :--- | :--- |
 | **A — Micro-Courses** | Complete **every** active ADF micro-course in the MECE catalog. | `certificates` / `enrollments` DB rows per course. |
 | **B — ResusGPS** | ≥3 attributable cases **per taught condition** (server-side, anti-gaming). | `analyticsEvents` |
-| **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` |
+| **C — Care Signal** | 24 consecutive qualifying months of monthly reporting (EAT), with grace/catch-up rules. | `careSignalEvents` (+ `fellowshipTokens` for pseudonymous submissions, gap-analysis #10) |
 
 **Critical rules (from PSOT §17 and FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md):**
 
@@ -196,6 +242,7 @@ A provider who completes all three pillars earns the title **Paeds Resus Fellow*
 - **BLS, ACLS, PALS are NOT required** for fellowship qualification. They are optional, standalone AHA-certified offerings on a separate track.
 - **Care Signal ≠ Safe-Truth.** Care Signal is the staff incident/near-miss reporting product (fellowship pillar C). Safe-Truth is the parent/guardian product. Never mix them.
 - **Do not** show "Fellow" title or fellowship progress UI until the §11 launch checklist in FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md fully passes.
+- **Pillar C has three submission modes, not a binary anonymous/named toggle** (Observation Architecture §5.5, gap-analysis #10): `named` (real `userId`, full credit), `pseudonymous` (no `userId` — a `fellowshipTokens` row instead, still full credit), `anonymous` (no identity anywhere, no credit — the true Layer 1). `isAnonymous` on `careSignalEvents` is legacy/display-only now (hides from facility views per PSOT §20.3 rule 4) — `submissionMode` is the source of truth for identity storage and credit eligibility. See `server/lib/fellowship-token.ts` and `drizzle/schema.ts`'s `fellowshipTokens` doc comment before touching this.
 
 **Canonical detail:** `docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md` and PSOT §17.
 
@@ -242,6 +289,8 @@ Every new table in `drizzle/schema.ts` MUST have a corresponding migration scrip
 - **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths.
 - **Migration scripts use `scripts/db-connection-config.mjs`** for SSL + IPv4 (Aiven configuration).
 - **All migrations are idempotent** (safe to re-run) — use `IF NOT EXISTS` / `tableExists()` checks to prevent "table already exists" errors.
+- **Migration numbers can collide across parallel PRs — `git fetch origin main` and check the highest existing `apply-00NN-*.mjs` right before naming a new one, not just at session start.** Building #11 Phase C, migration 0066 was picked (the next free number at branch time), but a different parallel PR claimed 0066 for something unrelated and merged first. Caught during the routine pre-edit fetch/rebase, not after a production collision — renumbered to 0067 before shipping. Multiple agents working the same repo concurrently makes this a real, recurring risk, not a one-off.
+- **When a migration's raw SQL references an EXISTING column (e.g. `ALTER TABLE ... AFTER \`someColumn\``), verify the literal DB column-name string in `drizzle/schema.ts` — do not assume it matches the JS property name.** Several older columns use snake_case DB names under a camelCase JS field (e.g. `eventId: varchar("event_id", ...)` on `careSignalEvents` — the JS property is `eventId`, the real column is `event_id`). Migration 0064 shipped with `AFTER \`eventId\`` and failed on production with `ER_BAD_FIELD_ERROR` before this was caught and fixed. Grep schema.ts for the field, read the string literal inside the column-builder call, and use that exact string in raw SQL.
 
 ### Seed script requirements
 
@@ -272,7 +321,47 @@ Code merged to `main` is **NOT done** for database features until:
 
 ---
 
-## 10. Key Files to Read Before Major Work
+## 10. The Subsidised ACLS/BLS Cohort Program & Phase Gates
+
+The Subsidised Cohort Program is a 6-month training pathway offering discounted pricing (KES 15,000 instead of KES 20,000) for affiliated facility members (e.g., interns at CHM).
+
+### The Three-Phase Progression & Gating Rules
+The program is split into three gates, enforced server-side inside `bookHandsOnSession` (`server/routers/courses.ts`):
+1. **Phase 1 (Cognitive):** Done on `elearning.heart.org`. Learners upload completion proof URLs from `LearnerDashboard.tsx`. Approved by facility coordinators via the `Phase1ProofReviewWidget` on the Staff tab of `InstitutionalPortal.tsx`.
+2. **Phase 2 (Online Simulations):** Unlocked only after Phase 1 proof approval. Requires booking online sessions via the training calendar. Learner must attend a minimum of 3 sessions as a `team_member` and 3 as a `team_leader` and be signed off on competency by an instructor.
+   - **Waitlist Priority:** If simulations are overbooked, the booking waitlist algorithm prioritizes learners with a higher payment percentage (total paid / KES 15,000) with registration timestamp as a tiebreaker.
+3. **Phase 3 (Physical Megacodes):** Unlocked only when Phase 2 simulations are complete AND the learner has paid their fees in full (total paid $\ge$ KES 15,000).
+
+### Facility matching (CEO decision, 2026-07-19)
+Cohort training is same-facility by design — the clinical value of Phase 2 (shared mental models, team roles, closed-loop communication) depends on training with the people you'll actually work a code with.
+- **Phase 2 (online):** strictly same-facility. `bookHandsOnSession` compares the session's `institutionalAccountId` against the learner's own; a mismatch is a hard `FORBIDDEN`, no override exists.
+- **Phase 3 (hands-on):** same-facility by default, with a controlled overflow valve — a platform admin (`ctx.user.role === "admin"`) can call `approvePhase3CrossFacilityOverflow` to grant one named learner permission to book one named out-of-facility session, so a small facility that hasn't reached 8 Phase-3-ready learners doesn't bottleneck them. Each approval is a logged row in `phase3CrossFacilityApprovals`, not a standing permission.
+
+### Payment terms (CEO decision, 2026-07-19)
+- All payments under this program, including instalments, are **non-refundable** — Terms of Use §6.4 (`docs/legal/TERMS_OF_USE_FULL.md`), synced in `client/src/legal/terms-of-use.ts` §9. `termsOfUse` bumped to 1.1.0 in `shared/legal-versions.ts` — this re-triggers the consent gate for every existing user.
+- **Intern deferred-payment lockout:** for staff with an intern-type `designation` (`noi`, `coi_bsc`, `coi_diploma`, `moi`), if 4 months have passed since `enrollmentDate` (falling back to `createdAt`) with **zero** payment recorded, Phase 2 booking is blocked until a payment is made (in full or as an instalment). This is a zero-paid check, not a not-fully-paid check — the existing Phase 3 full-payment gate already covers partial payers. Surfaced proactively via `getPhaseSummary`'s `paymentDeadline`/`paymentLockoutActive` fields, not just enforced silently.
+
+### Subsidy eligibility & nurse instalment pace (CEO decision, 2026-07-19)
+- **Eligible for the KES 15,000 subsidised rate: "any nurse, or intern"** — not just anyone linked to a subsidised-program facility. Enforced in `payments.ts`'s `getIndividualBalance`: `permanent_doctor` and undeclared `other` pay the standard rate (20,000/10,000) even at a linked facility.
+- **Nurses must have a licence number on file** (`providerProfiles.licenseNumber`) to qualify for the subsidised rate — the verification step. **Interns just need to have declared an intern designation**, no licence required.
+- **Self-service declaration:** `institution.declareMyDesignation` — for learners auto-linked via `syncProviderProfileFacility` (which defaults `designation` to `"other"`), lets them declare nurse (with licence number, written to `providerProfiles`) or intern designation themselves, rather than waiting on a coordinator's `addStaffMember`/`bulkImportStaff`.
+- **Nurse instalment-pace gate:** unlike interns, nurses get no deferral window — they must keep pace with **KES 2,500/month from enrolment** to keep Phase 2 booking access (`bookHandsOnSession`). Computed as full elapsed months since `enrollmentDate` × 2,500 (floor — grace within the current month before that month's instalment is due). Surfaced via `getPhaseSummary`'s `nursePaceRequiredByNow`/`nursePaceLockoutActive`.
+- **Phase 1 (online coursework) requires no payment** — only current Terms of Use consent (already enforced platform-wide, not cohort-specific). This was true before this session too; noted here since the CEO confirmed it explicitly.
+
+### BLS-before-ACLS/PALS prerequisite (CEO decision, 2026-07-19, platform-wide)
+"One must complete BLS to start ACLS or PALS" — enforced in `courses.ts`'s `ensureAhaEnrollment` for **all learners**, not just the cohort program (PALS isn't part of this program at all). Deliberate interpretation, flagged not assumed: "complete" reads as full BLS certification (`enrollments.practicalSkillsSignedOff`), not just the cognitive/online modules — if the intent was cognitive-only, it's a one-field swap to `cognitiveModulesComplete`.
+
+### Key Files & Locations
+- **Database Schema:** `drizzle/schema.ts` (new columns on `institutionalStaffMembers` and `trainingAttendance`; tables `individualInstallmentPayments`, `phase3CrossFacilityApprovals`). No new migration for the 2026-07-19 eligibility/pace/BLS-gate work — reuses existing `institutionalStaffMembers.designation`, `providerProfiles.licenseNumber`, and `enrollments.practicalSkillsSignedOff`.
+- **Migration & Apply Scripts:** `drizzle/0045_*.sql` + `scripts/apply-0066-cohort-phase-gates.mjs` (`pnpm run db:apply-0066`); `scripts/apply-0070-phase3-cross-facility-overflow.mjs` (`pnpm run db:apply-0070`).
+- **Backend Routing:** `courses.ts` (`getPhaseSummary`, `bookHandsOnSession` facility + phase + payment gates, `approvePhase3CrossFacilityOverflow`, `ensureAhaEnrollment` BLS gate), `institution.ts` (`uploadPhase1Proof` + `approvePhase1Proof` + `declareMyDesignation`), `payments.ts` (`getIndividualBalance` — designation-gated eligibility).
+- **Frontend Pages:** `LearnerDashboard.tsx` (payment ledger, `Phase1ProofUploadCard`), `InstitutionalPortal.tsx` (cohort progress analytics, `Phase1ProofReviewWidget`). **Known gap:** no frontend UI yet for `declareMyDesignation` — backend-only as of 2026-07-19, see `docs/INSTITUTIONAL_BACKLOG_BOARD.md` INST-16.
+- **Legal:** `docs/legal/TERMS_OF_USE_FULL.md` §6.4, `client/src/legal/terms-of-use.ts` §9, `shared/legal-versions.ts`.
+- **Tests:** `shared/waitlist.test.ts` (unit tests for the booking priority queue).
+
+---
+
+## 11. Key Files to Read Before Major Work
 
 | File | Purpose |
 | :--- | :--- |
@@ -292,7 +381,7 @@ Code merged to `main` is **NOT done** for database features until:
 
 ---
 
-## 11. Contact & Ownership
+## 12. Contact & Ownership
 
 - **CEO / Owner:** Job Karue — PICU Nurse, Entrepreneur, ERT Chair
 - **Email:** paedsresus254@gmail.com

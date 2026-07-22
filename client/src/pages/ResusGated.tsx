@@ -12,31 +12,17 @@ import ResusGPS from "./ResusGPS";
 import { AlertCircle, ArrowLeft, RefreshCcw, Siren } from "lucide-react";
 
 function mapUserTypeToRole(userType: string | null | undefined): UserRole {
-  if (userType === "parent") return "parent";
   if (userType === "institutional") return "institution";
   if (userType === "individual") return "provider";
   return null;
 }
 
 function getRoleHomePath(role: UserRole): string {
-  if (role === "parent") return "/parent-safe-truth";
   if (role === "institution") return "/hospital-admin-dashboard";
   return "/home";
 }
 
 function getResusGateCopy(role: UserRole) {
-  if (role === "parent") {
-    return {
-      errorFallback: "Try again or return to parent resources. If you need the provider workspace, switch roles from the account menu first.",
-      unavailableCta: "Return to parent resources",
-      unavailableDestination: "/parent-safe-truth",
-      accessAlert:
-        "ResusGPS is part of the provider workspace. To use it as a clinician, switch to Provider from the account menu first.",
-      accessCta: "Back to parent resources",
-      accessDestination: "/parent-safe-truth",
-    };
-  }
-
   if (role === "institution") {
     return {
       errorFallback:

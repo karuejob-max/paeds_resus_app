@@ -4,7 +4,9 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Award, BookOpen, Download, FileText, GraduationCap, Loader2, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -27,10 +29,6 @@ export default function LearnerDashboard() {
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
-  const { data: parentStats, isLoading: parentStatsLoading } = trpc.parentSafeTruth.getSafeTruthStats.useQuery(
-    undefined,
-    { enabled: isAuthenticated && selectedRole === "parent" }
-  );
   const utils = trpc.useUtils();
   const { track } = useProviderConversionAnalytics("/learner-dashboard");
   const downloadCert = trpc.certificates.download.useMutation();
@@ -307,14 +305,14 @@ export default function LearnerDashboard() {
     );
   }
 
+  const firstEnrollmentId = myMicroEnrollments?.[0]?.id;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">Welcome, {user?.name}!</h1>
         <p className="text-lg text-muted-foreground mb-8">
-          {selectedRole === "parent"
-            ? "Share your healthcare journey and help improve pediatric care"
-            : selectedRole === "provider"
+          {selectedRole === "provider"
             ? "Log clinical events and contribute to system improvements"
             : "Manage your institution's training programs"}
         </p>
@@ -332,77 +330,6 @@ export default function LearnerDashboard() {
               </div>
             </CardContent>
           </Card>
-        ) : selectedRole === "parent" ? (
-          <div className="space-y-6">
-            {parentStatsLoading ? (
-              <Card>
-                <CardContent className="pt-6 flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading your Safe-Truth submissions…
-                </CardContent>
-              </Card>
-            ) : parentStats ? (
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Submissions this month</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-foreground">{parentStats.submissionsThisMonth}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total stories shared</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-foreground">{parentStats.totalSubmissions}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Last submission</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xl font-semibold text-foreground">
-                      {parentStats.lastSubmission
-                        ? new Date(parentStats.lastSubmission).toLocaleDateString()
-                        : "—"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : null}
-            <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Your Stories
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Share your healthcare journey to help improve pediatric care</p>
-                <Button className="w-full" onClick={() => navigate("/parent-safe-truth")}>
-                  Share Your Story
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Community Impact
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Your feedback helps improve care for families</p>
-                <Button variant="outline" className="w-full" onClick={() => navigate("/personal-impact")}>View Impact</Button>
-              </CardContent>
-            </Card>
-            </div>
-          </div>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
             {lifecycleResumeNudge && (
@@ -622,6 +549,13 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
+            {firstEnrollmentId && (
+              <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
+            )}
+
+            <DesignationDeclarationCard />
+            <Phase1ProofUploadCard />
+
             {/* My Certificates */}
             <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
               <CardHeader>
@@ -787,5 +721,306 @@ export default function LearnerDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number }) {
+  const { data: balanceData, isLoading, refetch } = trpc.payments.getIndividualBalance.useQuery({ enrollmentId });
+  const [payAmount, setPayAmount] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const initiateMutation = trpc.payments.initiateSTKPush.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message || "STK Push initiated successfully");
+      setPayAmount("");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to initiate payment");
+    }
+  });
+
+  if (isLoading) return <p className="text-sm text-slate-500 py-4 text-center">Loading payment ledger...</p>;
+  if (!balanceData) return null;
+
+  const handlePay = () => {
+    const amountVal = parseFloat(payAmount);
+    if (Number.isNaN(amountVal) || amountVal <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (!phone.match(/^254\d{9}$/)) {
+      toast.error("Please enter phone in format 254XXXXXXXXX");
+      return;
+    }
+    initiateMutation.mutate({
+      phoneNumber: phone,
+      amount: amountVal * 100, // convert to cents
+      courseId: "acls",
+      courseName: "ACLS Program Installment",
+    });
+  };
+
+  return (
+    <Card className="mt-6 md:col-span-3 border-blue-200 bg-blue-50/10">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-900">
+          <Award className="w-5 h-5 text-blue-700" />
+          Installment Payment Ledger
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Total Program Fee</span>
+            <span className="font-semibold text-slate-900">KES {balanceData.basePrice.toLocaleString()}</span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Total Paid So Far</span>
+            <span className="font-semibold text-green-700">KES {balanceData.totalPaid.toLocaleString()}</span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Remaining Balance</span>
+            <span className={`font-semibold ${balanceData.balance > 0 ? "text-amber-700" : "text-green-700"}`}>
+              KES {balanceData.balance.toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-white p-3 rounded-lg border shadow-sm">
+            <span className="text-xs text-slate-500 block">Payment Status</span>
+            <span className={`font-bold ${balanceData.isPaidInFull ? "text-green-700" : "text-amber-700"}`}>
+              {balanceData.isPaidInFull ? "Paid in Full" : "Pending Balance"}
+            </span>
+          </div>
+        </div>
+
+        {balanceData.balance > 0 && (
+          <div className="bg-white p-4 rounded-lg border space-y-3">
+            <h4 className="text-sm font-semibold text-slate-800">Make an Installment Payment</h4>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">M-Pesa Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="254XXXXXXXXX"
+                  className="w-full text-sm border p-2 rounded"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Amount (KES)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 5000"
+                  className="w-full text-sm border p-2 rounded"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={handlePay}
+                  disabled={initiateMutation.isPending}
+                >
+                  {initiateMutation.isPending ? "Processing..." : "Initiate M-Pesa Pay"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DesignationDeclarationCard() {
+  const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
+  const [designation, setDesignation] = useState<
+    "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other" | ""
+  >("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+
+  const declareMutation = trpc.institution.declareMyDesignation.useMutation({
+    onSuccess: () => {
+      toast.success("Thanks — your designation has been recorded.");
+      void refetch();
+    },
+    onError: (err) => toast.error(err.message || "Could not save your designation"),
+  });
+
+  if (isLoading) return null;
+  // Only relevant for learners already linked to a cohort-program institution
+  if (!phase) return null;
+  // Already declared — nothing to do here. "other" is the un-declared default,
+  // so this card keeps showing until the learner picks something real.
+  if (phase.designation && phase.designation !== "other") return null;
+
+  const isNurseSelected = designation === "permanent_nurse";
+
+  const handleSubmit = () => {
+    if (!designation) {
+      toast.error("Please select your designation.");
+      return;
+    }
+    if (isNurseSelected && !licenseNumber.trim()) {
+      toast.error("A licence number is required to register as a nurse.");
+      return;
+    }
+    declareMutation.mutate({
+      designation,
+      licenseNumber: isNurseSelected ? licenseNumber.trim() : undefined,
+    });
+  };
+
+  return (
+    <Card id="designation-declaration" className="mt-6 md:col-span-3 border-blue-200 bg-blue-50/20">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-900">
+          <Users className="w-5 h-5 text-blue-700" />
+          Confirm Your Role
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-slate-700">
+          To unlock the KES 15,000 subsidised rate for the ACLS/BLS Cohort Program, tell us which of these you are.
+          Nurses will also need to provide a licence number — interns don't need one.
+        </p>
+        <div className="bg-white p-4 rounded-lg border space-y-3">
+          <Select value={designation} onValueChange={(v) => setDesignation(v as typeof designation)}>
+            <SelectTrigger id="designation-select">
+              <SelectValue placeholder="Select your designation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="noi">NOI (Nursing Officer Intern)</SelectItem>
+              <SelectItem value="coi_bsc">Clinical Officer Intern (BSc)</SelectItem>
+              <SelectItem value="coi_diploma">Clinical Officer Intern (Diploma)</SelectItem>
+              <SelectItem value="moi">MOI (Medical Officer Intern)</SelectItem>
+              <SelectItem value="permanent_nurse">Permanent Nurse</SelectItem>
+              <SelectItem value="permanent_doctor">Permanent Doctor</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {isNurseSelected && (
+            <Input
+              id="designation-license-number"
+              type="text"
+              placeholder="Your nursing licence number"
+              value={licenseNumber}
+              onChange={(e) => setLicenseNumber(e.target.value)}
+            />
+          )}
+
+          <Button
+            id="designation-submit-btn"
+            className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+            onClick={handleSubmit}
+            disabled={declareMutation.isPending || !designation}
+          >
+            {declareMutation.isPending ? "Saving..." : "Confirm"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Phase1ProofUploadCard() {
+  const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
+  const [proofUrl, setProofUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const uploadMutation = trpc.institution.uploadPhase1Proof.useMutation({
+    onSuccess: () => {
+      toast.success("Proof submitted! Your coordinator will review it shortly.");
+      setProofUrl("");
+      void refetch();
+    },
+    onError: (err) => toast.error(err.message || "Upload failed"),
+  });
+
+  if (isLoading) return null;
+  // Only show this card if the learner is in a linked cohort program
+  if (!phase) return null;
+  // Hide once approved
+  if (phase.phase1ProofApproved) return null;
+
+  const handleSubmit = () => {
+    if (!proofUrl.startsWith("http")) {
+      toast.error("Please paste a valid URL (starting with http)");
+      return;
+    }
+    uploadMutation.mutate({ staffMemberId: phase.staffMemberId, proofUrl });
+  };
+
+  // Suppress unused variable warning — submitting is set for future UX expansion
+  void submitting;
+
+  return (
+    <Card id="phase1-proof-upload" className="mt-6 md:col-span-3 border-amber-200 bg-amber-50/20">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-amber-900">
+          <Upload className="w-5 h-5 text-amber-700" />
+          Phase 1 Completion Proof
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {phase.phase1ProofUploaded && !phase.phase1ProofApproved ? (
+          <div className="flex items-start gap-3 bg-amber-100 rounded-lg p-4 border border-amber-300">
+            <Loader2 className="w-5 h-5 text-amber-700 mt-0.5 shrink-0 animate-spin" />
+            <div>
+              <p className="font-semibold text-amber-900 text-sm">Proof submitted — awaiting coordinator review</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Your Phase 1 certificate has been received. You will be advanced to Phase 2 once your coordinator approves it.
+                You can re-submit with a new link below if you uploaded the wrong document.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white p-4 rounded-lg border space-y-3">
+            <p className="text-sm text-slate-700">
+              To unlock Phase 2 simulations, paste the public link to your{" "}
+              <a href="https://elearning.heart.org" target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                elearning.heart.org
+              </a>{" "}
+              completion screenshot or certificate PDF below.
+            </p>
+            <div className="flex gap-2">
+              <input
+                id="phase1-proof-url-input"
+                type="url"
+                placeholder="https://drive.google.com/file/d/..."
+                className="flex-1 text-sm border p-2 rounded"
+                value={proofUrl}
+                onChange={(e) => setProofUrl(e.target.value)}
+              />
+              <Button
+                id="phase1-proof-submit-btn"
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleSubmit}
+                disabled={uploadMutation.isPending || !proofUrl}
+              >
+                {uploadMutation.isPending ? "Submitting..." : "Submit Proof"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 mt-2">
+          {([
+            { label: "Cognitive Modules", done: true },
+            { label: "AHA Prework Link", done: phase.phase1ProofUploaded },
+            { label: "Coordinator Approved", done: phase.phase1ProofApproved },
+          ] as const).map(({ label, done }) => (
+            <div key={label} className={`flex items-center gap-2 text-xs p-2 rounded-md border ${
+              done ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-500"
+            }`}>
+              <CheckCircle2 className={`w-4 h-4 shrink-0 ${done ? "text-green-600" : "text-slate-300"}`} />
+              {label}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

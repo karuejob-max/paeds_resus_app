@@ -350,4 +350,113 @@ export const paymentsRouter = router({
         );
       }
     }),
+
+  getIndividualBalance: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { getDb } = await import("../db");
+        const { payments, enrollments, courses, institutionalStaffMembers, providerProfiles } = await import("../../drizzle/schema");
+        const { eq, and, sum } = await import("drizzle-orm");
+
+        const db = await getDb();
+        if (!db) {
+          throw new Error("Database unavailable");
+        }
+
+        const enrollmentRows = await db
+          .select({
+            id: enrollments.id,
+            courseId: enrollments.courseId,
+            userId: enrollments.userId,
+            programType: enrollments.programType,
+          })
+          .from(enrollments)
+          .where(eq(enrollments.id, input.enrollmentId))
+          .limit(1);
+
+        if (enrollmentRows.length === 0) {
+          throw new Error("Enrollment not found");
+        }
+
+        const enrollment = enrollmentRows[0];
+
+        const paymentsSum = await db
+          .select({ total: sum(payments.amount) })
+          .from(payments)
+          .where(and(
+            eq(payments.enrollmentId, input.enrollmentId),
+            eq(payments.status, "completed")
+          ));
+
+        const totalPaid = Number(paymentsSum[0]?.total ?? 0) / 100;
+
+        let basePrice = 20000.00;
+
+        // Subsidy eligibility (CEO decision, 2026-07-19): "Any nurse, or intern" —
+        // not just anyone linked to a subsidised-program facility. A permanent_doctor
+        // or undeclared "other" pays standard price even if their facility runs the
+        // program. Nurses must have a licence number on file (providerProfiles) to
+        // qualify — that's the verification step; interns just need to have declared
+        // themselves as an intern designation, no licence required.
+        const NURSE_DESIGNATION = "permanent_nurse" as const;
+        const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
+
+        const staffRows = await db
+          .select({
+            id: institutionalStaffMembers.id,
+            institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+            designation: institutionalStaffMembers.designation,
+          })
+          .from(institutionalStaffMembers)
+          .where(and(
+            eq(institutionalStaffMembers.userId, enrollment.userId),
+            eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+          ))
+          .limit(1);
+
+        if (staffRows.length > 0) {
+          const { designation } = staffRows[0];
+          let eligible = false;
+          if (designation === NURSE_DESIGNATION) {
+            const [profile] = await db
+              .select({ licenseNumber: providerProfiles.licenseNumber })
+              .from(providerProfiles)
+              .where(eq(providerProfiles.userId, enrollment.userId))
+              .limit(1);
+            eligible = !!profile?.licenseNumber && profile.licenseNumber.trim().length > 0;
+          } else if (designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+            eligible = true;
+          }
+
+          if (eligible) {
+            basePrice = 15000.00;
+          }
+
+          await db
+            .update(institutionalStaffMembers)
+            .set({
+              totalPaidAmount: String(totalPaid),
+              phaseStatus: totalPaid >= basePrice ? "phase_3" : undefined,
+              updatedAt: new Date()
+            })
+            .where(eq(institutionalStaffMembers.id, staffRows[0].id));
+        }
+
+        const balance = Math.max(0, basePrice - totalPaid);
+        const isPaidInFull = balance <= 0;
+
+        return {
+          totalPaid,
+          basePrice,
+          balance,
+          isPaidInFull,
+        };
+      } catch (error) {
+        console.error("Error getting balance:", error);
+        throw new Error(
+          error instanceof Error ? error.message : "Failed to get payment balance"
+        );
+      }
+    }),
 });

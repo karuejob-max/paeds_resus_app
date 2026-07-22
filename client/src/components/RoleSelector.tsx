@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { ChevronDown } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 
-type UserRoleType = "parent" | "provider" | "institution";
+type UserRoleType = "provider" | "institution";
 
 interface RoleSelectorProps {
   onRoleChange?: (role: UserRoleType) => void;
@@ -17,16 +17,10 @@ export default function RoleSelector({ onRoleChange }: RoleSelectorProps) {
 
   const roleOptions: { value: UserRoleType; label: string; color: string; description: string }[] = [
     {
-      value: "parent",
-      label: "Parent / Caregiver",
-      color: "bg-green-50 border-green-200 hover:bg-green-100",
-      description: "Access parent resources and courses",
-    },
-    {
       value: "provider",
-      label: "Healthcare Provider",
+      label: "Individual account",
       color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-      description: "Access clinical protocols, Care Signal, and parent Safe-Truth",
+      description: "Courses, Care Signal, and ResusGPS",
     },
     {
       value: "institution",
@@ -81,8 +75,6 @@ export default function RoleSelector({ onRoleChange }: RoleSelectorProps) {
 
   const getRoleColor = (roleVal: UserRoleType | null) => {
     switch (roleVal) {
-      case "parent":
-        return "text-green-700 bg-green-100";
       case "provider":
         return "text-blue-700 bg-blue-100";
       case "institution":

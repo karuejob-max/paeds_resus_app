@@ -7,6 +7,8 @@ import {
   institutionalAccounts,
   institutionalInquiries,
   institutionalStaffMembers,
+  institutionalAccountAdmins,
+  institutionalAdminInvites,
   quotations,
   contracts,
   trainingSchedules,
@@ -21,7 +23,10 @@ import {
   careFacilities,
   kmhflFacilities,
   careSignalEvents,
+  individualInstallmentPayments,
+  providerProfiles,
 } from "../../drizzle/schema";
+import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
   daysBackForTimeframe,
   gapCountsToArray,
@@ -30,10 +35,10 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
-import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
   rollupInstitutionalAnalyticsForAccount,
@@ -176,11 +181,14 @@ export const institutionRouter = router({
       });
     }
 
-    const rows = await db
-      .select()
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id));
+    const institutionIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = institutionIds.length
+      ? await db
+          .select()
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, institutionIds))
+          .orderBy(desc(institutionalAccounts.id))
+      : [];
 
     return {
       institution: rows[0] ?? null,
@@ -202,12 +210,15 @@ export const institutionRouter = router({
         showPilotBadge: false,
       };
     }
-    const rows = await db
-      .select({ id: institutionalAccounts.id })
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id))
-      .limit(1);
+    const pilotAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = pilotAdminIds.length
+      ? await db
+          .select({ id: institutionalAccounts.id })
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, pilotAdminIds))
+          .orderBy(desc(institutionalAccounts.id))
+          .limit(1)
+      : [];
     const institutionId = rows[0]?.id ?? null;
     const institutionInPilotList = isInstitutionInPilotProgram(
       institutionId,
@@ -228,15 +239,18 @@ export const institutionRouter = router({
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       }
-      const rows = await db
-        .select({
-          id: institutionalAccounts.id,
-          companyName: institutionalAccounts.companyName,
-        })
-        .from(institutionalAccounts)
-        .where(eq(institutionalAccounts.userId, ctx.user.id))
-        .orderBy(desc(institutionalAccounts.id))
-        .limit(1);
+      const csAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = csAdminIds.length
+        ? await db
+            .select({
+              id: institutionalAccounts.id,
+              companyName: institutionalAccounts.companyName,
+            })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, csAdminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
       const inst = rows[0];
       if (!inst?.companyName?.trim()) {
         throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
@@ -392,6 +406,16 @@ export const institutionRouter = router({
         contactPhone: z.string().min(1),
         contactDesignation: z.string().min(1),
         programInterest: z.array(z.string()),
+        /**
+         * North Star §6.1: "A minimum of two named admin contacts must
+         * always be registered." Required for every new institutional
+         * account going forward — existing accounts registered before this
+         * field existed are grandfathered (see the multi-admin dashboard
+         * prompt to add one, not a hard block on existing active accounts).
+         */
+        secondAdminName: z.string().min(1),
+        secondAdminEmail: z.string().email(),
+        secondAdminPhone: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -418,6 +442,13 @@ export const institutionRouter = router({
         };
       }
 
+      if (input.secondAdminEmail.toLowerCase() === input.contactEmail.toLowerCase()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The second admin needs to be a different person from the primary contact — this is what protects the account if one of you becomes unreachable.",
+        });
+      }
+
       const accountResult = await db.insert(institutionalAccounts).values({
         userId: ctx.user.id,
         companyName: input.institutionName,
@@ -426,10 +457,46 @@ export const institutionRouter = router({
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
+        registrationNumber: input.registrationNumber,
         status: "prospect",
       });
 
       const institutionId = (accountResult as unknown as { insertId: number }).insertId;
+
+      // Primary admin — the registering user themselves.
+      await db.insert(institutionalAccountAdmins).values({
+        institutionalAccountId: institutionId,
+        userId: ctx.user.id,
+        addedByUserId: null,
+      });
+
+      // Second admin (North Star §6.1) — link immediately if that email
+      // already has a platform account, otherwise create a pending invite
+      // claimed on their next login. Same lookup-or-invite pattern as
+      // institutionAdmins.invite.
+      const [secondAdminUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, input.secondAdminEmail))
+        .limit(1);
+
+      if (secondAdminUser) {
+        await db.insert(institutionalAccountAdmins).values({
+          institutionalAccountId: institutionId,
+          userId: secondAdminUser.id,
+          addedByUserId: ctx.user.id,
+        });
+      } else {
+        await db.insert(institutionalAdminInvites).values({
+          institutionalAccountId: institutionId,
+          invitedEmail: input.secondAdminEmail,
+          invitedName: input.secondAdminName,
+          invitedPhone: input.secondAdminPhone,
+          invitedByUserId: ctx.user.id,
+          source: "registration",
+          status: "pending",
+        });
+      }
 
       await db.insert(institutionalInquiries).values({
         companyName: input.institutionName,
@@ -558,6 +625,15 @@ export const institutionRouter = router({
           "support_staff",
           "other",
         ]),
+        designation: z.enum([
+          "noi",
+          "coi_bsc",
+          "coi_diploma",
+          "moi",
+          "permanent_nurse",
+          "permanent_doctor",
+          "other",
+        ]).optional(),
         department: z.string().optional(),
         yearsOfExperience: z.number().optional(),
       })
@@ -579,9 +655,11 @@ export const institutionRouter = router({
         staffEmail: input.staffEmail,
         staffPhone: input.staffPhone || null,
         staffRole: input.staffRole,
+        designation: input.designation || "other",
         department: input.department || null,
         yearsOfExperience: input.yearsOfExperience || 0,
         enrollmentStatus: "pending",
+        facilityLinkStatus: "linked", // manual add by admin is auto-approved
       });
 
       return {
@@ -610,6 +688,15 @@ export const institutionRouter = router({
               "support_staff",
               "other",
             ]),
+            designation: z.enum([
+              "noi",
+              "coi_bsc",
+              "coi_diploma",
+              "moi",
+              "permanent_nurse",
+              "permanent_doctor",
+              "other",
+            ]).optional(),
             department: z.string().optional(),
             yearsOfExperience: z.number().optional(),
           })
@@ -638,9 +725,11 @@ export const institutionRouter = router({
             staffEmail: staff.staffEmail,
             staffPhone: staff.staffPhone || null,
             staffRole: staff.staffRole,
+            designation: staff.designation || "other",
             department: staff.department || null,
             yearsOfExperience: staff.yearsOfExperience || 0,
             enrollmentStatus: "pending",
+            facilityLinkStatus: "linked", // manual bulk import is auto-approved
           });
 
           imported.push({
@@ -1962,13 +2051,15 @@ export const institutionRouter = router({
       });
     }
 
-    const rows = await db
-      .select({ id: institutionalAccounts.id })
-      .from(institutionalAccounts)
-      .where(eq(institutionalAccounts.userId, ctx.user.id))
-      .orderBy(desc(institutionalAccounts.id))
-      .limit(1);
-
+    const pendingAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = pendingAdminIds.length
+      ? await db
+          .select({ id: institutionalAccounts.id })
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, pendingAdminIds))
+          .orderBy(desc(institutionalAccounts.id))
+          .limit(1)
+      : [];
     const institutionId = rows[0]?.id;
     if (!institutionId) {
       return { count: 0, items: [] as { id: number; gapIdentified: string; careSignalEventId: number | null; createdAt: Date }[] };
@@ -1998,4 +2089,285 @@ export const institutionRouter = router({
       items: fromCareSignal,
     };
   }),
+
+  runResusGpsAudit: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+      return await runResusGpsAuditForInstitution(db, input.institutionId);
+    }),
+
+  importResusGpsAuditAction: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        gapIdentified: z.string().min(1),
+        systemChange: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await db.insert(institutionalActionLogs).values({
+        institutionalAccountId: input.institutionId,
+        createdByUserId: ctx.user ? ctx.user.id : null,
+        gapIdentified: input.gapIdentified,
+        systemChange: input.systemChange,
+        status: "open",
+        notes: "Imported from Automated ResusGPS Quality Audit.",
+      });
+
+      return { success: true };
+    }),
+
+  getCohortProgress: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const cohortStats = await db
+        .select({
+          designation: institutionalStaffMembers.designation,
+          totalCount: sql<number>`count(${institutionalStaffMembers.id})`,
+          blsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%bls%' then 1 else 0 end)`,
+          aclsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%acls%' then 1 else 0 end)`,
+          phase2CompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.phaseStatus} in ('phase_3', 'completed') then 1 else 0 end)`
+        })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId))
+        .groupBy(institutionalStaffMembers.designation);
+
+      return cohortStats;
+    }),
+
+  getPendingLinkRequests: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return await db
+        .select()
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.facilityLinkStatus, "pending")
+        ));
+    }),
+
+  approveStaffFacilityLink: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number(),
+        staffMemberId: z.number(),
+        approve: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const status = input.approve ? "linked" : "rejected";
+      const enrollmentStatus = input.approve ? "enrolled" : "dropped";
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          facilityLinkStatus: status,
+          enrollmentStatus: enrollmentStatus,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(institutionalStaffMembers.id, input.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+        ));
+
+      return { success: true, status };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PROOF-1: Learner uploads their AHA elearning.heart.org proof URL.
+  // Sets phase1ProofUrl on their institutionalStaffMember row.
+  // Does NOT advance phaseStatus — that requires admin approval below.
+  // ─────────────────────────────────────────────────────────────────────────
+  uploadPhase1Proof: protectedProcedure
+    .input(
+      z.object({
+        staffMemberId: z.number().int().positive(),
+        proofUrl: z.string().url("Must be a valid URL"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Learner can only update their own row
+      const [row] = await db
+        .select({ id: institutionalStaffMembers.id, userId: institutionalStaffMembers.userId })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.id, input.staffMemberId))
+        .limit(1);
+
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Staff record not found" });
+      if (row.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only upload proof for your own record" });
+      }
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({
+          phase1ProofUrl: input.proofUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(institutionalStaffMembers.id, input.staffMemberId));
+
+      return { success: true };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-PROOF-2: Institutional coordinator approves or rejects a learner's
+  // Phase 1 proof. Approval advances phaseStatus to "phase_2".
+  // ─────────────────────────────────────────────────────────────────────────
+  approvePhase1Proof: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        staffMemberId: z.number().int().positive(),
+        approve: z.boolean(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      if (input.approve) {
+        await db
+          .update(institutionalStaffMembers)
+          .set({
+            phase1ProofApprovedAt: new Date(),
+            phaseStatus: "phase_2",
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(institutionalStaffMembers.id, input.staffMemberId),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+          ));
+      } else {
+        // Rejection: clear the proof URL so learner must re-upload
+        await db
+          .update(institutionalStaffMembers)
+          .set({
+            phase1ProofUrl: null,
+            phase1ProofApprovedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(institutionalStaffMembers.id, input.staffMemberId),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+          ));
+      }
+
+      return { success: true, approved: input.approve };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COHORT-SELF-SERVICE: Subsidised ACLS/BLS Cohort Program (CEO decision,
+  // 2026-07-19). A learner who was auto-linked to their facility via
+  // `syncProviderProfileFacility` lands with `designation: "other"` and no
+  // subsidised-eligibility signal. This lets them declare it themselves:
+  // nurses provide a licence number (verification step, stored on their
+  // existing `providerProfiles` row — no duplicate column), interns just
+  // declare which intern designation they are. Eligibility itself is
+  // evaluated in `payments.getIndividualBalance`, not here — this only
+  // records the declaration.
+  // ─────────────────────────────────────────────────────────────────────────
+  declareMyDesignation: protectedProcedure
+    .input(z.object({
+      designation: z.enum(["noi", "coi_bsc", "coi_diploma", "moi", "permanent_nurse", "permanent_doctor", "other"]),
+      licenseNumber: z.string().trim().min(1).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      if (input.designation === "permanent_nurse" && !input.licenseNumber) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A licence number is required to register as a nurse." });
+      }
+
+      const staffRow = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.userId, ctx.user.id),
+          inArray(institutionalStaffMembers.facilityLinkStatus, ["linked", "pending"])
+        ))
+        .limit(1);
+
+      if (staffRow.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No institutional facility link found for your account yet." });
+      }
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({ designation: input.designation, updatedAt: new Date() })
+        .where(eq(institutionalStaffMembers.id, staffRow[0].id));
+
+      if (input.designation === "permanent_nurse" && input.licenseNumber) {
+        const existingProfile = await db
+          .select({ id: providerProfiles.id })
+          .from(providerProfiles)
+          .where(eq(providerProfiles.userId, ctx.user.id))
+          .limit(1);
+
+        if (existingProfile.length > 0) {
+          await db
+            .update(providerProfiles)
+            .set({ licenseNumber: input.licenseNumber, updatedAt: new Date() })
+            .where(eq(providerProfiles.userId, ctx.user.id));
+        } else {
+          await db.insert(providerProfiles).values({
+            userId: ctx.user.id,
+            licenseNumber: input.licenseNumber,
+          });
+        }
+      }
+
+      return { success: true, designation: input.designation };
+    }),
 });

@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, XCircle, AlertCircle, ChevronRight, RotateCcw } from 'lucide-react';
 import type { ModuleQuiz, QuizQuestion } from '@/lib/courseContent';
+import QuizGuideCard from '@/components/QuizGuideCard';
 
 interface ModuleQuizProps {
   quiz: ModuleQuiz;
@@ -46,6 +47,17 @@ export function ModuleQuiz({ quiz, onComplete, onSkip }: ModuleQuizProps) {
     passed: false,
     showFeedback: false,
   });
+
+  useEffect(() => {
+    if (!state.submitted) {
+      document.body.setAttribute('data-active-exam', 'true');
+    } else {
+      document.body.removeAttribute('data-active-exam');
+    }
+    return () => {
+      document.body.removeAttribute('data-active-exam');
+    };
+  }, [state.submitted]);
 
   const currentQuestion = quiz.questions[state.currentQuestionIndex];
   const totalQuestions = quiz.questions.length;
@@ -190,6 +202,15 @@ export function ModuleQuiz({ quiz, onComplete, onSkip }: ModuleQuizProps) {
                         <p className="font-medium text-xs text-slate-600 mb-1">Explanation:</p>
                         <p className="text-slate-700">{question.explanation}</p>
                       </div>
+                      {question.explanation && (
+                        <QuizGuideCard
+                          question={question.text}
+                          options={question.options || []}
+                          correctOption={question.correctAnswer}
+                          userAnswer={userAnswer}
+                          explanation={question.explanation}
+                        />
+                      )}
                     </div>
                   </div>
                 );

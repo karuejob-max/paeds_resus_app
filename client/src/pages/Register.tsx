@@ -21,7 +21,7 @@ import { buildLoginUrl, readSafeNextPathFromSearch } from "@/lib/authRedirect";
 import type { PhoneCountryMode } from "@shared/user-phone";
 import { normalizeUserPhone } from "@shared/user-phone";
 
-type UserType = "individual" | "parent" | "institutional";
+type UserType = "individual" | "institutional";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -113,7 +113,7 @@ export default function Register() {
         <CardHeader>
           <CardTitle>Create account</CardTitle>
           <CardDescription>
-            One minute to get started. You can switch between provider, parent, and hospital tools later from the menu.
+            One minute to get started. You can switch between individual and hospital tools later from the menu.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -127,11 +127,17 @@ export default function Register() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="individual">Healthcare provider (clinical staff)</SelectItem>
-                  <SelectItem value="parent">Parent or caregiver</SelectItem>
+                  <SelectItem value="individual">Individual account (courses, ResusGPS, Care Signal)</SelectItem>
                   <SelectItem value="institutional">Hospital or institution</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-sm text-muted-foreground">
+                Parent or caregiver? Safe-Truth needs no account —{" "}
+                <a href="/safe-truth" className="underline">
+                  share your story here
+                </a>
+                .
+              </p>
             </div>
 
             <div className="space-y-2">

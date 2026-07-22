@@ -1,25 +1,24 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Stethoscope, Users, Building2, X } from "lucide-react";
+import { Stethoscope, Building2, X } from "lucide-react";
 
 interface RoleSelectionPromptProps {
-  onRoleSelected: (role: "parent" | "provider" | "institution") => void;
+  onRoleSelected: (role: "provider" | "institution") => void;
   onClose?: () => void;
 }
 
 export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSelectionPromptProps) {
-  const [selectedRole, setSelectedRole] = useState<"parent" | "provider" | "institution" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"provider" | "institution" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRoleSelect = async (role: "parent" | "provider" | "institution") => {
+  const handleRoleSelect = async (role: "provider" | "institution") => {
     setIsLoading(true);
     try {
       localStorage.setItem("userRole", role);
       setSelectedRole(role);
       
       const routeMap: Record<string, string> = {
-        parent: "/parent-hub",
         provider: "/providers",
         institution: "/institutional",
       };
@@ -36,17 +35,9 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
 
   const roles = [
     {
-      id: "parent",
-      label: "Parent / Caregiver",
-      description: "Access resources for parents and caregivers, including child health tips and emergency guidance",
-      icon: Users,
-      color: "from-green-500 to-emerald-600",
-      textColor: "text-green-600",
-    },
-    {
       id: "provider",
-      label: "Healthcare Provider",
-      description: "Access clinical protocols, Care Signal reporting, and professional development resources",
+      label: "Individual account",
+      description: "Courses, ResusGPS, and Care Signal — for clinical staff, students, or anyone taking a course like Heartsaver",
       icon: Stethoscope,
       color: "from-blue-500 to-indigo-600",
       textColor: "text-blue-600",

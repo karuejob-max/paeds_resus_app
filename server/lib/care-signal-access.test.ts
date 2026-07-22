@@ -10,13 +10,15 @@ describe("care-signal-access", () => {
   it("treats individual and institutional users as providers", () => {
     expect(isCareSignalProviderUser({ userType: "individual" })).toBe(true);
     expect(isCareSignalProviderUser({ userType: "institutional" })).toBe(true);
-    expect(isCareSignalProviderUser({ userType: "parent" })).toBe(false);
     expect(isCareSignalProviderUser({ userType: null })).toBe(false);
   });
 
-  it("returns Parent Safe-Truth copy for parent accounts", () => {
+  it("points non-providers to Safe-Truth (no account needed) in the denial copy", () => {
+    // userType "parent" is retired (North Star §6.1) but the access-check
+    // functions still take a bare `string | null` — this exercises the
+    // generic non-provider path any unrecognized/legacy value would hit.
     expect(getCareSignalAccessDeniedMessage({ userType: "parent" })).toContain(
-      "Parent Safe-Truth"
+      "Safe-Truth"
     );
   });
 
@@ -39,14 +41,14 @@ describe("care-signal-access", () => {
     ).not.toThrow();
   });
 
-  it("blocks parent accounts with FORBIDDEN", () => {
+  it("blocks non-provider accounts with FORBIDDEN", () => {
     try {
       assertCareSignalProviderOrAdmin({ role: "user", userType: "parent" });
       expect.fail("expected throw");
     } catch (error) {
       expect(error).toBeInstanceOf(TRPCError);
       expect((error as TRPCError).code).toBe("FORBIDDEN");
-      expect((error as TRPCError).message).toContain("Parent Safe-Truth");
+      expect((error as TRPCError).message).toContain("Safe-Truth");
     }
   });
 });
