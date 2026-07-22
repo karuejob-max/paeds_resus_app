@@ -101,7 +101,6 @@
     "db:apply-0054": "node scripts/apply-0054-cne-signature.mjs",
     "db:apply-0055": "node scripts/apply-0055-cadre-hnd-msn.mjs",
     "db:apply-0056": "node scripts/apply-0056-care-signal-v3-columns.mjs",
-    "db:apply-0074": "node scripts/apply-0074-cpd-code.mjs",
     "db:apply-0057": "node scripts/apply-0057-fpkb-schema.mjs",
     "db:apply-0058": "node scripts/apply-0058-fpkb-seed.mjs",
     "db:apply-0059": "node scripts/apply-0059-global-facilities.mjs",
@@ -119,6 +118,7 @@
     "db:apply-0071": "node scripts/apply-0071-institutional-multi-admin-recovery.mjs",
     "db:apply-0072": "node scripts/apply-0072-rename-bsn-intern-to-noi.mjs",
     "db:apply-0073": "node scripts/apply-0073-fellowship-recovery-lookup-hash.mjs",
+    "db:apply-0074": "node scripts/apply-0074-cpd-code.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
