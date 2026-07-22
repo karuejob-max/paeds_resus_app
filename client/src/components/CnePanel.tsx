@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { trpc } from "@/lib/trpc";
 import SignaturePad from "@/components/SignaturePad";
@@ -53,6 +53,17 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
   const openEvent = events.find((e) => e.isOpen) ?? null;
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const effectiveEventId = selectedEventId ?? openEvent?.id ?? events[0]?.id ?? null;
+  const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
+
+  const [cpdCodeInput, setCpdCodeInput] = useState("");
+
+  useEffect(() => {
+    if (selectedEvent) {
+      setCpdCodeInput(selectedEvent.cpdCode ?? "");
+    } else {
+      setCpdCodeInput("");
+    }
+  }, [selectedEvent]);
 
   const attendeesQuery = trpc.cne.listAttendees.useQuery(
     { institutionId, eventId: effectiveEventId ?? undefined },
@@ -88,10 +99,19 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
 
   const closeEventMutation = trpc.cne.closeEvent.useMutation({
     onSuccess: () => {
-      toast.success("Event closed");
+      toast.success("CNE Event closed");
       void utils.cne.listEvents.invalidate({ institutionId });
     },
-    onError: (err) => toast.error(err.message || "Failed to close event"),
+  });
+
+  const updateCpdCodeMutation = trpc.cne.updateCpdCode.useMutation({
+    onSuccess: () => {
+      toast.success("CPD secret code updated");
+      void utils.cne.listEvents.invalidate({ institutionId });
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to update CPD code");
+    },
   });
 
   const updateSignatureMutation = trpc.cne.updateSignature.useMutation({
@@ -133,8 +153,6 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
       toast.error((err as Error).message || "Failed to export CSV");
     }
   };
-
-  const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -374,6 +392,47 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
                   : "Select an event to view registrations"}
               </CardDescription>
             </div>
+            {selectedEvent && (
+              <div className="w-full mt-4 p-4 border border-border rounded-lg bg-muted/20 flex flex-col md:flex-row md:items-end gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="cpd-code-input" className="text-sm font-medium">
+                    NCK CPD Portal Secret Code
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Enter the secret code received from NCK for this training session. 
+                    Attendees will see this next to their certificate to claim points on the NCK portal.
+                  </p>
+                  <Input
+                    id="cpd-code-input"
+                    placeholder="e.g. CPD-2026-CONSOLATA-XXXX"
+                    value={cpdCodeInput}
+                    onChange={(e) => setCpdCodeInput(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    updateCpdCodeMutation.mutate({
+                      institutionId,
+                      eventId: selectedEvent.id,
+                      cpdCode: cpdCodeInput.trim() || null,
+                    })
+                  }
+                  disabled={
+                    updateCpdCodeMutation.isPending ||
+                    (selectedEvent.cpdCode ?? "") === cpdCodeInput.trim()
+                  }
+                >
+                  {updateCpdCodeMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save Code
+                </Button>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="outline"

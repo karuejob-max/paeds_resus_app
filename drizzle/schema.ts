@@ -2859,6 +2859,7 @@ export const cneEvents = mysqlTable("cneEvents", {
   openedAt: timestamp("openedAt"),
   closedAt: timestamp("closedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  cpdCode: varchar("cpdCode", { length: 128 }),
 });
 
 export type CneEvent = typeof cneEvents.$inferSelect;
@@ -2882,6 +2883,20 @@ export const cneAttendees = mysqlTable("cneAttendees", {
 
 export type CneAttendee = typeof cneAttendees.$inferSelect;
 export type InsertCneAttendee = typeof cneAttendees.$inferInsert;
+
+/** Logs tracking when CPD secret codes are revealed to attendees for auditing/sharing prevention. */
+export const cpdCodeRevealLogs = mysqlTable("cpdCodeRevealLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  cneAttendeeId: int("cneAttendeeId").notNull(),
+  cneEventId: int("cneEventId").notNull(),
+  revealedAt: timestamp("revealedAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: varchar("userAgent", { length: 512 }),
+});
+
+export type CpdCodeRevealLog = typeof cpdCodeRevealLogs.$inferSelect;
+export type InsertCpdCodeRevealLog = typeof cpdCodeRevealLogs.$inferInsert;
 
 /** Kenya Master Health Facility Registry (KMHFL) facilities seed table for institutional onboarding autocomplete. */
 export const kmhflFacilities = mysqlTable("kmhflFacilities", {

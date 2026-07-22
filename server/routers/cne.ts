@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { institutionalAccounts, cneEvents, cneAttendees } from "../../drizzle/schema";
+import { institutionalAccounts, cneEvents, cneAttendees, cpdCodeRevealLogs } from "../../drizzle/schema";
 
 /** Shared cadre enum for input validation, matching the cneAttendees.cadre column. */
 const cadreEnum = z.enum(["BSN", "MSN", "KRCHN", "KRN", "KRNM", "ERN", "HND", "Student Nurse", "Other"]);
@@ -417,6 +417,83 @@ export const cneRouter = router({
       return { csv, count: rows.length };
     }),
 
+  /** Admin: set/update the NCK CPD secret code for a CNE event. */
+  updateCpdCode: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        eventId: z.number().int().positive(),
+        cpdCode: z.string().trim().max(128).nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [event] = await db
+        .select({ id: cneEvents.id })
+        .from(cneEvents)
+        .where(
+          and(
+            eq(cneEvents.id, input.eventId),
+            eq(cneEvents.institutionalAccountId, input.institutionId)
+          )
+        )
+        .limit(1);
+      if (!event) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
+      }
+      await db
+        .update(cneEvents)
+        .set({ cpdCode: input.cpdCode })
+        .where(eq(cneEvents.id, input.eventId));
+      return { success: true as const };
+    }),
+
+  /** Self-service: log when a nurse reveals the CPD secret code for auditing. */
+  logCpdCodeReveal: protectedProcedure
+    .input(
+      z.object({
+        attendeeId: z.number().int().positive(),
+        eventId: z.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const email = (ctx.user.email ?? "").trim().toLowerCase();
+      if (!email) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "User has no email address configured" });
+      }
+      
+      // Verify attendee belongs to the user and the event
+      const [attendee] = await db
+        .select({ id: cneAttendees.id })
+        .from(cneAttendees)
+        .where(
+          and(
+            eq(cneAttendees.id, input.attendeeId),
+            eq(cneAttendees.cneEventId, input.eventId),
+            eq(cneAttendees.email, email)
+          )
+        )
+        .limit(1);
+      if (!attendee) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Access denied to attendee record" });
+      }
+
+      const ip = ctx.req?.ip || ctx.req?.socket?.remoteAddress || null;
+      const userAgent = ctx.req?.headers?.["user-agent"] || null;
+
+      await db.insert(cpdCodeRevealLogs).values({
+        userId: ctx.user.id,
+        cneAttendeeId: input.attendeeId,
+        cneEventId: input.eventId,
+        ipAddress: ip,
+        userAgent: userAgent,
+      });
+
+      return { success: true as const };
+    }),
+
   /**
    * Self-service (any authenticated user): list the logged-in nurse's own CNE
    * attendance records, matched by email. Returns enough data to render a list
@@ -436,6 +513,7 @@ export const cneRouter = router({
     const rows = await db
       .select({
         attendeeId: cneAttendees.id,
+        eventId: cneAttendees.cneEventId,
         fullName: cneAttendees.fullName,
         cadre: cneAttendees.cadre,
         cadreOther: cneAttendees.cadreOther,
@@ -444,6 +522,7 @@ export const cneRouter = router({
         eventName: cneEvents.name,
         eventDate: cneEvents.eventDate,
         institutionName: institutionalAccounts.companyName,
+        cpdCode: cneEvents.cpdCode,
       })
       .from(cneAttendees)
       .leftJoin(cneEvents, eq(cneAttendees.cneEventId, cneEvents.id))
@@ -457,6 +536,7 @@ export const cneRouter = router({
       email,
       records: rows.map((r) => ({
         attendeeId: r.attendeeId,
+        eventId: r.eventId,
         fullName: r.fullName,
         cadre: r.cadre,
         cadreOther: r.cadreOther,
@@ -465,6 +545,7 @@ export const cneRouter = router({
         eventName: r.eventName ?? "CNE Session",
         eventDate: r.eventDate ?? "",
         institutionName: r.institutionName ?? "Healthcare Institution",
+        cpdCode: r.cpdCode ?? null,
       })),
     };
   }),
