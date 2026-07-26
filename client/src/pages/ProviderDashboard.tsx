@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Award,
   BookOpen,
+  Building2,
   CheckCircle2,
   Clock,
   Download,
@@ -19,6 +20,7 @@ import {
   Loader2,
   RefreshCcw,
   Siren,
+  Users,
   ChevronRight,
 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
@@ -240,6 +242,70 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               Welcome back{user.name ? `, ${user.name.split(" ")[0]}` : ""}
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Paeds Resus Provider Workspace</p>
+          </div>
+        </div>
+
+        {/* ── Identity strip — one part of a five-part system ─────────────────
+            North Star v2.0 §2.3/2.4: Paeds Resus is explicitly not a training
+            company, but this Hub's only content (Fellowship + AHA cards) makes
+            that easy to miss for anyone who lands for one specific course.
+            Permanent, not dismissible — and each item routes to the real
+            product, not just naming it. */}
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <p className="text-sm text-slate-900 mb-2">
+            You're using one part of a five-part learning system.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "resus" });
+                setLocation("/resus");
+              }}
+            >
+              <Siren className="h-3.5 w-3.5" /> ResusGPS
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "fellowship" });
+                setLocation("/fellowship");
+              }}
+            >
+              <GraduationCap className="h-3.5 w-3.5" /> Fellowship
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "care_signal" });
+                setLocation("/care-signal");
+              }}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" /> Care Signal
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "safe_truth" });
+                setLocation("/safe-truth");
+              }}
+            >
+              <Users className="h-3.5 w-3.5" /> Safe-Truth
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "hospital_ers" });
+                setLocation("/for-institutions");
+              }}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Hospital ERS
+            </button>
           </div>
         </div>
 
