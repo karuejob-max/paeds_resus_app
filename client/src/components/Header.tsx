@@ -250,6 +250,13 @@ export default function Header() {
 
           {/* Desktop Navigation - Only Essential Items */}
           <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
+            {/* Always visible regardless of auth state or role — someone who logged in for one
+                specific course (CNE, an AHA cert) should still be able to see we're more than that. */}
+            <Link href="/about">
+              <span className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg">
+                About
+              </span>
+            </Link>
             {primaryNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
@@ -421,7 +428,11 @@ export default function Header() {
                       </div>
 
                       {/* Public pages — reachable regardless of account/role (e.g. filing a
-                          Safe-Truth report needs no account and shouldn't require signing out) */}
+                          Safe-Truth report needs no account and shouldn't require signing out).
+                          Safe-Truth and Care Signal must never be labelled ambiguously against
+                          each other (North Star v2.0 §5.4) — the label and subtitle below exist
+                          specifically to stop a provider mistaking this for their own reporting
+                          tool, which is Care Signal, in the main nav above. */}
                       <div className="py-2 space-y-1 border-t border-border">
                         <p className="px-3 pt-1 pb-1 text-xs font-semibold text-muted-foreground">Explore</p>
                         <Link href="/safe-truth">
@@ -429,7 +440,10 @@ export default function Header() {
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
-                            Safe-Truth (share a story)
+                            <p>Refer a family to Safe-Truth</p>
+                            <p className="text-xs text-muted-foreground font-normal">
+                              For parents/caregivers — no account needed. Not your Care Signal report.
+                            </p>
                           </div>
                         </Link>
                         <Link href="/help">
@@ -492,6 +506,13 @@ export default function Header() {
         {/* Mobile Navigation */}
             {mobileMenuOpen && (
           <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t border-border pt-4" aria-label="Mobile navigation">
+            {/* Always visible regardless of auth state or role — same reasoning as the desktop
+                About link above. */}
+            <Link href="/about" onClick={() => setMobileMenuOpen(false)}>
+              <span className="block px-3 py-2 text-sm text-foreground font-medium hover:bg-accent rounded transition cursor-pointer">
+                About
+              </span>
+            </Link>
             {!isAuthenticated && (
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
@@ -516,7 +537,10 @@ export default function Header() {
               <div className="px-3 py-2 mb-2 space-y-1 border-b border-border pb-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Explore</p>
                 <Link href="/safe-truth" onClick={() => setMobileMenuOpen(false)}>
-                  <span className="block py-2 text-sm text-foreground font-medium">Safe-Truth (share a story)</span>
+                  <span className="block py-2 text-sm text-foreground font-medium">Refer a family to Safe-Truth</span>
+                  <span className="block pb-1 text-xs text-muted-foreground">
+                    For parents/caregivers — no account needed. Not your Care Signal report.
+                  </span>
                 </Link>
                 <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
                   <span className="block py-2 text-sm text-foreground/90">Help</span>
@@ -556,8 +580,12 @@ export default function Header() {
               </div>
             )}
 
-            {/* Mobile Navigation Links */}
-            {navigation.map((link) => (
+            {/* Mobile Navigation Links — same primary/learn split as the desktop row above,
+                rendered as a labeled section instead of a dropdown (no room for a popover
+                inside an already-scrolling mobile menu). Care Signal's own prominence comes
+                from being in primaryNavItems, not grouped under Learn — same reasoning as
+                desktop. */}
+            {primaryNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
                   className="block px-3 py-2 text-foreground/90 hover:bg-accent hover:text-primary rounded transition cursor-pointer font-medium text-sm"
@@ -568,6 +596,22 @@ export default function Header() {
                 </span>
               </Link>
             ))}
+            {learnNavItems.length > 0 && (
+              <div className="px-3 pt-3 mt-1 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Learn</p>
+                {learnNavItems.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    <span
+                      className="block px-3 py-2 text-foreground/90 hover:bg-accent hover:text-primary rounded transition cursor-pointer font-medium text-sm"
+                      onClick={() => setMobileMenuOpen(false)}
+                      onTouchStart={link.href === "/aha-courses" ? prefetchAhaHub : undefined}
+                    >
+                      {link.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </nav>
         )}
       </div>
