@@ -37,7 +37,7 @@ export default function Institutional() {
 
   const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>("bls");
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
