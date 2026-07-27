@@ -551,6 +551,14 @@ Every time mock data is removed and replaced with truth, every time a clinical p
 
 ***The purpose of Paeds Resus is not merely to teach. Not merely to certify. Not merely to analyse. Its purpose is to ensure that what works actually happens — regardless of geography, institutional prestige, or resource setting. And to make sure that when it does not happen, the system learns why, changes itself, and gives the next child a different story.***
 
+## Adopted Amendments
+
+*North Star v2.1 (docs/NORTH_STAR_V2_1_ADDENDUM_FELLOWSHIP.md), adopted
+2026-07-27, specifies the Fellowship Pillar A certification requirement
+(BLS+ACLS+PALS+NRP), extends Pillar A to include CNE participation, defines
+the Fellow Instructor tier, and sets Fellowship eligibility and grandfathering
+policy. Read it alongside §5.2 and §6.2 below, which it amends.*
+
 ## Document Classification and Review
 
 *This document is the North Star for Paeds Resus Limited. It does not replace the PSoT for binding technical decisions or the Observation Architecture v1.1 for data and learning governance decisions. It provides the strategic, clinical, ethical, and institutional identity foundation that those decisions must serve. Review triggers: changes to the theory of change, the product architecture, the strategic direction, the account model, the revenue strategy, or the institutional identity. It is a living document, not a historical record.*
