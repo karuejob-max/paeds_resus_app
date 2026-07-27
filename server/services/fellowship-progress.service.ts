@@ -282,9 +282,39 @@ export async function calculateCareSignalPillar(userId: number): Promise<CareSig
   if (!db) return emptyCareSignalPillarResult();
 
   try {
-    const allEvents = await db.query.careSignalEvents.findMany({
+    const namedEvents = await db.query.careSignalEvents.findMany({
       where: (events) => eq(events.userId, userId),
     });
+
+    // Merge in Care Signal events submitted under any pseudonymous
+    // Fellowship token(s) this provider has since explicitly linked to
+    // their real account (fellowship.linkPseudonymousToken). Closes a
+    // gap documented since item #10 shipped (2026-07-15): "no merge/dedup
+    // logic if a provider contributes via both a named account and a
+    // separately linked token" — in practice this meant a linked token's
+    // Care Signal history was tracked on the fellowshipTokens row itself
+    // (see syncFellowshipTokenProgress) but never actually counted toward
+    // the provider's real Fellowship qualification once linked, which is
+    // the opposite of what linking is supposed to achieve. No double-
+    // counting risk in this union: a careSignalEvents row has either
+    // userId XOR fellowshipTokenId set, never both (submission mode is
+    // fixed at filing time — see care-signal-events.ts), so a report
+    // can appear in at most one of these two queries.
+    const linkedTokens = await db.query.fellowshipTokens.findMany({
+      where: (tokens) => eq(tokens.linkedUserId, userId),
+    });
+    const linkedTokenEvents = linkedTokens.length
+      ? await db.query.careSignalEvents.findMany({
+          where: (events) =>
+            inArray(
+              events.fellowshipTokenId,
+              linkedTokens.map((t) => t.tokenId)
+            ),
+        })
+      : [];
+
+    const allEvents = [...namedEvents, ...linkedTokenEvents];
+
     const eatNow = new Date(Date.now() + 3 * 60 * 60 * 1000);
     const currentYear = eatNow.getUTCFullYear();
     const currentMonth = eatNow.getUTCMonth() + 1;
@@ -302,6 +332,14 @@ export async function calculateCareSignalPillar(userId: number): Promise<CareSig
     );
     const windowYears = [...new Set(timelineKeys.map((k) => Number(k.slice(0, 4))))];
 
+    // Grace usage stays userId-keyed only — a still-documented, narrower
+    // simplification (see calculateCareSignalPillarForToken's doc
+    // comment): a pseudonymous streak gets no manual grace exceptions
+    // before linking. Once linked, this function is what actually counts
+    // the token's history, but any grace exception a provider needed
+    // *during* the pseudonymous period still can't be granted
+    // retroactively — that's a separate, smaller gap than the one this
+    // fix closes, and is left as-is rather than silently expanded here.
     const graceUsage = await db.query.fellowshipGraceUsage.findMany({
       where: (grace) => and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
     });
