@@ -12,7 +12,7 @@
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { getDb, createFellowshipToken, getFellowshipTokenByTokenId, updateFellowshipToken, findFellowshipTokenByRecoveryCode } from "../db";
+import { getDb, createFellowshipToken, getFellowshipTokenByTokenId, updateFellowshipToken, findFellowshipTokenByRecoveryCode, getFellowshipProgress } from "../db";
 import { eq, and, desc } from "drizzle-orm";
 import { resusGPSSessions, resusGPSCases, certificates, users } from "../../drizzle/schema";
 import { getResusGpsAccessForClient } from "../lib/resusgps-access";
@@ -100,7 +100,55 @@ export const fellowshipRouter = router({
       };
     } catch (error) {
       console.error("[Fellowship] Error in getProgress:", error);
-      // Return default 0% progress on error
+      // Fall back to the last-known-good cached row (fellowshipProgress), written by
+      // the most recent successful sync, instead of hardcoded zeros. A transient
+      // failure here (DB blip, one bad row) used to make a Fellow's real streak
+      // appear to reset to 0 on that page load, even though nothing was actually
+      // lost — the cached snapshot from their last successful Care Signal/CNE
+      // submission still has the real numbers. Only show true zeros if there is no
+      // cached row at all (a genuinely new Fellow with nothing synced yet).
+      let cached: Awaited<ReturnType<typeof getFellowshipProgress>> = null;
+      try {
+        cached = await getFellowshipProgress(ctx.user.id);
+      } catch (cacheError) {
+        console.error("[Fellowship] Error reading cached progress in fallback:", cacheError);
+      }
+      if (cached) {
+        const cachedStreak = cached.careSignalStreak ?? 0;
+        const cachedIsQualified = cached.isQualified ?? false;
+        return {
+          coursesPillar: {
+            completed: cached.coursesCompleted ?? 0,
+            required: cached.totalCoursesRequired ?? getFellowshipMicroCourseRequiredCount(),
+            percentage: cached.coursesPercentage ?? 0,
+            legacyCourses: 0,
+          },
+          resusGPSPillar: {
+            casesCompleted: cached.resusGPSCasesCompleted ?? 0,
+            conditionsWithThreshold: cached.conditionsWithThreshold ?? 0,
+            totalConditionsTaught: cached.totalConditionsTaught ?? 0,
+            percentage: cached.resusGPSPercentage ?? 0,
+            casesByCondition: {},
+            conditionBreakdown: [],
+            casesStillNeeded: 0,
+            incompleteConditions: 0,
+          },
+          careSignalPillar: {
+            streak: cachedStreak,
+            eventsSubmitted: cached.careSignalEventsSubmitted ?? 0,
+            reportsThisMonth: 0,
+            percentage: cached.careSignalPercentage ?? 0,
+            monthsRemaining: Math.max(0, 24 - cachedStreak),
+            monthlyTimeline: [],
+          },
+          isQualified: cachedIsQualified,
+          overallPercentage: cached.overallPercentage ?? 0,
+          resusGpsAccessExpiresAt: null as Date | null,
+          fellowTitleEnabled: FELLOWSHIP_LAUNCH_READINESS.fellowTitleEnabled,
+          canDisplayFellowTitle: canDisplayFellowTitle(cachedIsQualified),
+        };
+      }
+      // No cached row exists at all — a genuinely new Fellow. Zeros are accurate here.
       return {
         coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
         resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {}, conditionBreakdown: [], casesStillNeeded: 0, incompleteConditions: 0 },
