@@ -1,4 +1,4 @@
-# North Star v2.1 — Addendum: Fellowship Pillar A, Practice, and Instructor Sequencing
+# North Star v2.1 — Addendum: Fellowship Pillar A/C, Practice, and Instructor Sequencing
 
 **Status: ADOPTED. Signed off by leadership (CEO) 2026-07-27. Supersedes the
 corresponding parts of NORTH_STAR_V2.md's Fellowship section (previously
@@ -14,10 +14,35 @@ Pillar A to "defined certification **and** micro-course requirements," but no
 certification requirement has ever been implemented — Pillar A today checks only
 the 29 micro-courses. This addendum specifies what that certification requirement
 actually is, and extends the model in two ways leadership has not yet ratified:
-CNE inclusion in Pillar A, and a Fellow-status prerequisite for a new instructor
+CNE inclusion in Pillar C, and a Fellow-status prerequisite for a new instructor
 tier.
 
 ---
+
+## Pillar A and Pillar C, in full — nothing removed, two things added
+
+To be explicit, since this addendum only ever amends by addition: **neither
+Pillar A nor Pillar C loses anything it already had.**
+
+Pillar A is one-time completion requirements — things proven once, not proven
+monthly. The pre-existing 29-microcourse requirement
+(`getFellowshipMicroCourseRequiredCount()`) is untouched. §1 below adds the
+certification requirement §5.2 always committed to but never implemented.
+
+| Pillar A component | Status |
+|---|---|
+| 29 fellowship micro-courses | **Unchanged** — already implemented, already enforced |
+| BLS + ACLS + PALS + NRP certification | **New** — specified in §1, not yet implemented |
+
+Pillar C is ongoing monthly discipline — things proven every month, with the
+same grace mechanism applying to both. CNE joins Care Signal here, not Pillar
+A, because it is monthly-recurring like Care Signal, not a one-time
+completion like a certification or a course.
+
+| Pillar C component | Status |
+|---|---|
+| Care Signal, ≥1 eligible submission/month, 24 consecutive months | **Unchanged** — already implemented, already enforced |
+| CNE, 1 qualifying session/month | **New** — specified in §3, not yet implemented, shares Care Signal's existing grace mechanism |
 
 ## 1. Pillar A certification floor: BLS + ACLS + PALS + NRP
 
@@ -55,25 +80,27 @@ only, on the grounds that eligibility and community identity are different
 levers — Fellowship's content and culture can stay nursing-forward, where the
 platform's roots are, without narrowing who is allowed to earn the title.
 
-## 3. CNE inclusion in Pillar A: monthly cadence, mirroring the Care Signal
-   grace model
+## 3. CNE joins Pillar C: monthly cadence, mirroring the Care Signal grace
+   model
 
-Pillar A's certification-and-micro-course requirement is extended to include
-CNE participation, at a rate of **one qualifying CNE session per month across
-the 24-month pathway** — structurally parallel to Pillar C's existing monthly
-Care Signal objective, so a Fellow is proving two forms of monthly discipline
-side by side, not one.
+Pillar C's Care Signal requirement is joined by CNE participation, at a rate
+of **one qualifying CNE session per month across the 24-month pathway** —
+structurally parallel to Care Signal's existing monthly objective, so a
+Fellow is proving two forms of monthly discipline side by side, not one. CNE
+joins Pillar C rather than Pillar A because it is a recurring monthly
+requirement like Care Signal, not a one-time completion like a course or
+certification.
 
-CNE follows the **same grace model already implemented for Pillar C**
+CNE follows the **same grace model already implemented for Care Signal**
 (`fellowship-care-signal-streak.ts`): up to 2 grace months per calendar year
 where a missed month does not break the streak, each followed by a mandatory
 catch-up month. No new grace policy is introduced — CNE inherits Care Signal's
 existing rules rather than defining a second, divergent one.
 
-**Reminder notification:** both Pillar C (Care Signal) and the new CNE
-requirement send a notification **one week before the current month closes**
-if that month's objective is not yet met, giving the Fellow a chance to submit
-before a grace gets consumed. This extends the existing lifecycle-nudge system
+**Reminder notification:** both the Care Signal and CNE components of Pillar C
+send a notification **one week before the current month closes** if that
+month's objective is not yet met, giving the Fellow a chance to submit before
+a grace gets consumed. This extends the existing lifecycle-nudge system
 (`notifications.getLifecycleNudges`) rather than introducing a separate
 notification channel.
 
