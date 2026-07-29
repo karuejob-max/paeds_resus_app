@@ -490,6 +490,7 @@ export const careSignalEventsRouter = router({
           ...(input.event_id ? { eventId: input.event_id } : {}),
           // ── v3 narrative and patterns ────────────────────────────────────────
           ...(input.raw_narrative ? { rawNarrative: input.raw_narrative } : {}),
+          redactedNarrative: null,
           ...(input.failure_mode_codes?.length
             ? { failureModeCodes: JSON.stringify(input.failure_mode_codes) }
             : {}),

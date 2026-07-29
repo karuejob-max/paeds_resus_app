@@ -197,6 +197,7 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   failureModeCodes: text("failure_mode_codes"),
   successFactorCodes: text("success_factor_codes"),
   rawNarrative: text("raw_narrative"),
+  redactedNarrative: text("redacted_narrative"),
   temporalIntervals: text("temporal_intervals"),
   eventId: varchar("event_id", { length: 36 }),
   // ── Fellowship pseudonymous token model (migration 0064, gap-analysis #10) ─
