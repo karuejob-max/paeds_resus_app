@@ -52,6 +52,8 @@ export const users = mysqlTable("users", {
   /** Parent Safe-Truth guardian acknowledgment (migration 0044) */
   safeTruthGuardianAckAt: timestamp("safeTruthGuardianAckAt"),
   safeTruthGuardianAckVersion: varchar("safeTruthGuardianAckVersion", { length: 16 }),
+  cadre: varchar("cadre", { length: 128 }),
+  cadreOther: varchar("cadreOther", { length: 128 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -3347,7 +3349,7 @@ export const cneAttendees = mysqlTable("cneAttendees", {
   fullName: varchar("fullName", { length: 256 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 32 }).notNull(),
-  cadre: mysqlEnum("cadre", ["BSN", "MSN", "KRCHN", "KRN", "KRNM", "ERN", "HND", "Student Nurse", "Other"]).notNull(),
+  cadre: varchar("cadre", { length: 128 }).notNull(),
   cadreOther: varchar("cadreOther", { length: 128 }),
   higherDiploma: varchar("higherDiploma", { length: 256 }),
   department: varchar("department", { length: 256 }).notNull(),

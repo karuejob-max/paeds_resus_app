@@ -121,6 +121,7 @@
     "db:apply-0074": "node scripts/apply-0074-cpd-code.mjs",
     "db:apply-0075": "node scripts/apply-0075-instructor-competency-mentorship.mjs",
     "db:apply-0076": "node scripts/apply-0076-care-signal-redacted-narrative.mjs",
+    "db:apply-0077": "node scripts/apply-0077-user-cadre.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
