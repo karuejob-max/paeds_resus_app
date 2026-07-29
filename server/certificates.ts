@@ -14,6 +14,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
+import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 import {
@@ -157,8 +158,13 @@ async function assignInstructorNumberIfNeeded(
   const num = `INS-${year}-${String(userId).padStart(5, "0")}`;
   await db
     .update(users)
-    .set({ instructorNumber: num, instructorCertifiedAt: new Date() })
+    .set({ instructorNumber: num, instructorCertifiedAt: new Date(), instructorTier: "provisional" })
     .where(eq(users.id, userId));
+
+  // Now that they're instructor-certified, grant qualification for any
+  // provider course they've already completed themselves (CEO decision,
+  // 2026-07-21 — per-course competency, not one global instructor flag).
+  await syncInstructorQualificationsForUser(db, userId);
 }
 
 /**
@@ -547,6 +553,18 @@ export async function signOffPracticalSkills(
     };
   }
 
+  // Per-course competency (CEO decision, 2026-07-21): being a generally
+  // approved instructor is not enough — they must be specifically
+  // qualified for THIS course (i.e., have completed it themselves).
+  const qualified = await isInstructorQualifiedForCourse(db, instructorUserId, enrollment.programType);
+  if (!qualified) {
+    return {
+      success: false,
+      certificateIssued: false,
+      error: `This instructor is not yet qualified to sign off ${enrollment.programType.toUpperCase()} — they must have completed ${enrollment.programType.toUpperCase()} themselves first.`,
+    };
+  }
+
   // Record the sign-off
   await db
     .update(enrollments)
@@ -561,6 +579,13 @@ export async function signOffPracticalSkills(
   console.log(
     `[Certificates] Practical skills signed off for enrollment ${enrollmentId} by instructor ${instructorUserId} (${instructorName})`
   );
+
+  // This learner may themselves be instructor-certified already and just
+  // completed a provider course for the first time — check if that grants
+  // them a new teaching qualification.
+  if (enrollment.userId) {
+    await syncInstructorQualificationsForUser(db, enrollment.userId);
+  }
 
   // Attempt to issue the certificate now that practical is done
   const certResult = await issueCertificateForEnrollmentIfEligible(enrollmentId);

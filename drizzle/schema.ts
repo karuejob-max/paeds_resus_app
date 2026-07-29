@@ -30,6 +30,8 @@ export const users = mysqlTable("users", {
   /** Unique Paeds Resus instructor ID after completing the Instructor Course (certificate issued). */
   instructorNumber: varchar("instructorNumber", { length: 32 }).unique(),
   instructorCertifiedAt: timestamp("instructorCertifiedAt"),
+  /** Provisional -> qualified -> lead_instructor (CEO decision, 2026-07-21; renamed from "faculty" to avoid echoing Fellowship-program language). Null until instructorApprovedAt is set. */
+  instructorTier: mysqlEnum("instructorTier", ["provisional", "qualified", "lead_instructor"]),
   /** Rolling ResusGPS access window: extended by 30 days when a fellowship micro-course is completed (null = unrestricted legacy). */
   resusGpsAccessExpiresAt: timestamp("resusGpsAccessExpiresAt"),
   /** Legal consent — Terms of Use click-wrap (migration 0044) */
@@ -1265,6 +1267,57 @@ export const phase3CrossFacilityApprovals = mysqlTable("phase3CrossFacilityAppro
   staffMemberId: int("staffMemberId").notNull(),
   scheduleId: int("scheduleId").notNull(),
   approvedByUserId: int("approvedByUserId").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Instructor per-course competency & mentorship pathway (CEO decision,
+// 2026-07-21). "Not all instructors are the same" — an instructor's global
+// instructorApprovedAt/instructorCertifiedAt flags are necessary but not
+// sufficient; they must also have personally completed a given provider
+// course (BLS/ACLS/PALS/etc.) to be qualified to instruct that specific
+// course. Separately, a new instructor progresses through three tiers
+// (users.instructorTier): provisional -> qualified -> lead_instructor, gated by a
+// NAMED mentor's manual confirmation of independently-led groups — not
+// auto-computed from attendance data, since "was this genuinely
+// independent and well-run" is a real credentialing judgment call.
+// ─────────────────────────────────────────────────────────────────────────
+
+// One row per (userId, programType) the instructor is qualified to teach.
+// Auto-populated when both instructorCertifiedAt is set AND the user has a
+// completed (practicalSkillsSignedOff) enrollment in that programType
+// themselves — whichever of the two conditions completes second is what
+// triggers the insert.
+export const instructorQualifications = mysqlTable("instructorQualifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
+  qualifiedAt: timestamp("qualifiedAt").defaultNow().notNull(),
+});
+
+// One mentor for a mentee's whole provisional period (CEO: "a named
+// mentor", not a different one per group). Set by an admin/lead instructor,
+// or by the bootstrap override for founder-trained instructors who predate
+// this system.
+export const instructorMentorships = mysqlTable("instructorMentorships", {
+  id: int("id").autoincrement().primaryKey(),
+  menteeUserId: int("menteeUserId").notNull().unique(),
+  mentorUserId: int("mentorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// One row per independently-led group the mentor has manually confirmed.
+// 3 confirmed rows for a mentorship -> mentee promoted to "qualified".
+// 10 distinct mentees promoted to "qualified" under one mentor -> that
+// mentor promoted to "lead_instructor" (counted directly off instructorMentorships
+// + users.instructorTier, no separate table needed for that count).
+export const instructorMentorshipGroups = mysqlTable("instructorMentorshipGroups", {
+  id: int("id").autoincrement().primaryKey(),
+  mentorshipId: int("mentorshipId").notNull(),
+  institutionalAccountId: int("institutionalAccountId"),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
+  confirmedByUserId: int("confirmedByUserId").notNull(),
   notes: varchar("notes", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

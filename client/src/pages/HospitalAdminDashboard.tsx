@@ -267,7 +267,15 @@ export default function HospitalAdminDashboard() {
   );
 
   const { data: assignableInstructors } = trpc.institution.listAssignableInstructors.useQuery(
-    { institutionId: institutionId! },
+    { institutionId: institutionId!, programType: scheduleForm.programType },
+    { enabled: !!institutionId }
+  );
+
+  // Separate query for the edit form — it can have a different course
+  // selected than the create form, and instructor qualification is now
+  // course-specific (CEO decision, 2026-07-21), so these can't share one list.
+  const { data: assignableInstructorsForEdit } = trpc.institution.listAssignableInstructors.useQuery(
+    { institutionId: institutionId!, programType: scheduleEditForm.programType },
     { enabled: !!institutionId }
   );
 
@@ -1537,7 +1545,7 @@ export default function HospitalAdminDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {(assignableInstructors ?? []).map((p) => (
+                        {(assignableInstructorsForEdit ?? []).map((p) => (
                           <SelectItem key={p.id} value={String(p.id)}>
                             {p.name ?? p.email ?? `User ${p.id}`}
                           </SelectItem>

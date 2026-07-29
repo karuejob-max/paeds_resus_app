@@ -25,6 +25,7 @@ import {
   careSignalEvents,
   individualInstallmentPayments,
   providerProfiles,
+  instructorQualifications,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
@@ -833,7 +834,15 @@ export const institutionRouter = router({
 
   /** Approved platform instructors (admin-assigned) for session assignment. */
   listAssignableInstructors: protectedProcedure
-    .input(z.object({ institutionId: z.number().int().positive() }))
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      // Per-course competency (CEO decision, 2026-07-21): "not all
+      // instructors are the same" — when a programType is given, only
+      // instructors specifically qualified for that course are returned,
+      // not every globally-approved instructor. Optional for backward
+      // compatibility with any caller that hasn't been updated to pass it yet.
+      programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).optional(),
+    }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
@@ -843,12 +852,38 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      if (input.programType) {
+        return await db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            instructorNumber: users.instructorNumber,
+            instructorTier: users.instructorTier,
+          })
+          .from(users)
+          .innerJoin(instructorQualifications, and(
+            eq(instructorQualifications.userId, users.id),
+            eq(instructorQualifications.programType, input.programType)
+          ))
+          .where(
+            and(
+              isNotNull(users.instructorApprovedAt),
+              isNotNull(users.instructorCertifiedAt),
+              isNotNull(users.instructorNumber)
+            )
+          )
+          .orderBy(asc(users.name));
+      }
+
       return await db
         .select({
           id: users.id,
           name: users.name,
           email: users.email,
           instructorNumber: users.instructorNumber,
+          instructorTier: users.instructorTier,
         })
         .from(users)
         .where(
