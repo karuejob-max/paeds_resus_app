@@ -19,8 +19,8 @@ import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 
 const Login = lazy(() => import("./pages/Login"));
-const CneRegister = lazy(() => import("./pages/CneRegister"));
-const MyCneCertificates = lazy(() => import("./pages/MyCneCertificates"));
+const CpdRegister = lazy(() => import("./pages/CpdRegister"));
+const MyCpdCertificates = lazy(() => import("./pages/MyCpdCertificates"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -168,13 +168,15 @@ function Router() {
         >
           <Switch>
           <Route path="/login" component={Login} />
-          <Route path="/cne/register/:institutionId" component={CneRegister} />
+          <Route path="/cpd/register/:institutionId" component={CpdRegister} />
+          <Route path="/cne/register/:institutionId">{({ institutionId }) => <Redirect to={`/cpd/register/${institutionId}`} />}</Route>
           <Route path="/register" component={Register} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/account" component={AccountSettings} />
           <Route path="/feedback" component={FeedbackPage} />
-          <Route path="/my-cne-certificates" component={MyCneCertificates} />
+          <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
+          <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
           <Route path="/home" component={Home} />
           {/* 2026-07-19 (account-types PR1): the OLD authenticated Safe-Truth
               flow is retired along with the parent userType — nobody can log

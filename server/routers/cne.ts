@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { institutionalAccounts, cneEvents, cneAttendees, cpdCodeRevealLogs } from "../../drizzle/schema";
+import { institutionalAccounts, cneEvents, cneAttendees, cpdCodeRevealLogs, institutionalStaffMembers } from "../../drizzle/schema";
 
 /** Shared cadre validator for input validation, matching the cneAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -226,7 +226,7 @@ export const cneRouter = router({
   /** Public: the currently open event for an institution (or null). Used by the registration page. */
   currentEvent: publicProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await requireDb();
       const [event] = await db
         .select({
@@ -251,6 +251,28 @@ export const cneRouter = router({
         .from(institutionalAccounts)
         .where(eq(institutionalAccounts.id, input.institutionId))
         .limit(1);
+
+      let userDepartment: string | null = null;
+      if (ctx.user?.id) {
+        const staffRows = await db
+          .select({
+            department: institutionalStaffMembers.department,
+            instId: institutionalStaffMembers.institutionalAccountId,
+          })
+          .from(institutionalStaffMembers)
+          .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+
+        const currentStaff = staffRows.find((r) => r.instId === input.institutionId);
+        if (currentStaff?.department) {
+          userDepartment = currentStaff.department;
+        } else {
+          const fallbackStaff = staffRows.find((r) => r.department?.trim());
+          if (fallbackStaff?.department) {
+            userDepartment = fallbackStaff.department;
+          }
+        }
+      }
+
       return {
         event: {
           id: event.id,
@@ -258,6 +280,7 @@ export const cneRouter = router({
           eventDate: event.eventDate,
           institutionName: inst?.institutionName ?? null,
         },
+        userDepartment,
       };
     }),
 

@@ -125,6 +125,7 @@ export default function CneRegister() {
       const uCadreOther = (user as any).cadreOther ?? "";
 
       const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(uCadreOther);
+      const prefillDept = currentEventQuery.data?.userDepartment || "";
 
       form.reset({
         fullName: user.name || "",
@@ -133,10 +134,10 @@ export default function CneRegister() {
         cadre: uCadre,
         cadreOther: (uCadreOther && !isStandardSub) ? uCadreOther : "",
         subSpecialty: isStandardSub ? uCadreOther : "",
-        department: "",
+        department: prefillDept,
       });
     }
-  }, [user, form]);
+  }, [user, form, currentEventQuery.data?.userDepartment]);
 
   const cadre = form.watch("cadre");
   const cadreOther = form.watch("cadreOther");
@@ -187,7 +188,7 @@ export default function CneRegister() {
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">Invalid registration link</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This CNE registration link is not valid. Please scan the QR code provided by your
+          This CPD registration link is not valid. Please scan the QR code provided by your
           institution.
         </p>
       </div>
@@ -212,7 +213,7 @@ export default function CneRegister() {
           <CardContent className="space-y-4 text-center">
             <p className="text-sm text-slate-600">
               To prevent proxy registration, you must be signed in to your Paeds Resus
-              account on this device to check-in for the CNE event.
+              account on this device to check-in for the CPD event.
             </p>
             <Button
               className="w-full mt-2"
@@ -220,7 +221,7 @@ export default function CneRegister() {
                 window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
               }}
             >
-              Sign in / Sign up to Register
+              Sign In to Register
             </Button>
           </CardContent>
         </Card>
@@ -232,14 +233,14 @@ export default function CneRegister() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
-      <Card>
-        <CardHeader className="text-center">
+      <Card className="border-slate-100 shadow-sm">
+        <CardHeader className="text-center pb-2">
           {event?.institutionName ? (
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
               {event.institutionName}
             </p>
           ) : null}
-          <CardTitle className="text-xl">Continuing Nursing Education</CardTitle>
+          <CardTitle className="text-xl">Continuous Professional Development (CPD)</CardTitle>
           <p className="text-sm text-muted-foreground">Attendance Registration</p>
         </CardHeader>
         <CardContent>
@@ -252,12 +253,12 @@ export default function CneRegister() {
               <CheckCircle className="mb-4 h-12 w-12 text-green-500" />
               <p className="text-lg font-semibold">You're registered!</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your attendance has been recorded. Your certificate will be issued by the CNE
+                Your attendance has been recorded. Your certificate will be issued by the CPD
                 coordinator.
               </p>
               <div className="flex flex-col gap-2.5 mt-6 w-full">
-                <Button className="w-full" onClick={() => window.location.href = "/my-certificates"}>
-                  View My Certificates
+                <Button className="w-full" onClick={() => window.location.href = "/my-cpd-certificates"}>
+                  View My CPD Certificates
                 </Button>
                 <p className="text-[11px] text-muted-foreground">
                   To prevent proxy registration, you can only register your own account.
@@ -269,7 +270,7 @@ export default function CneRegister() {
               <CalendarClock className="mb-4 h-12 w-12 text-muted-foreground" />
               <p className="text-lg font-semibold">Registration is closed</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                There is no CNE event open for registration right now. Please check with your CNE
+                There is no CPD event open for registration right now. Please check with your CPD
                 coordinator.
               </p>
             </div>
@@ -347,7 +348,7 @@ export default function CneRegister() {
                     const userCadre = (user as any)?.cadre ?? "";
                     const userCadreOther = (user as any)?.cadreOther ?? "";
                     const requiresOther = ["Other Staff", "Other Intern", "Other Student"].includes(cadre);
-                    const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(cadre);
+                    const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student", "RCO HND"].includes(cadre);
                     
                     let currentCadreOther = "";
                     if (requiresOther) {
