@@ -312,7 +312,15 @@ export const cneRouter = router({
         });
       }
 
-      const requiresOther = ["Other", "Consultant Physician", "MSN", "HND"].includes(input.cadre);
+      const requiresOther = [
+        "Other",
+        "Consultant Physician",
+        "MSN",
+        "HND",
+        "Consultant Physician Student",
+        "MSN Student",
+        "HND Student",
+      ].includes(input.cadre);
       if (requiresOther && !input.cadreOther?.trim()) {
         throw new TRPCError({
           code: "BAD_REQUEST",

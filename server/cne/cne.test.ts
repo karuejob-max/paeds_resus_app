@@ -60,6 +60,13 @@ describe("formatCadreLabel", () => {
     expect(formatCadreLabel("Other")).toBe("Other");
     expect(formatCadreLabel("Other", "   ")).toBe("Other");
   });
+
+  it("formats subspecialties for MSN, HND, and Consultant Physician", () => {
+    expect(formatCadreLabel("MSN", "Paediatric Critical Care")).toBe("MSN (Paediatric Critical Care)");
+    expect(formatCadreLabel("HND", "Nurse Anaesthesia")).toBe("HND (Nurse Anaesthesia)");
+    expect(formatCadreLabel("Consultant Physician", "Paediatrician")).toBe("Consultant Physician (Paediatrician)");
+    expect(formatCadreLabel("Consultant Physician Student", "Paediatrician")).toBe("Consultant Physician Student (Paediatrician)");
+  });
 });
 
 describe("cneCertificateFilename", () => {
