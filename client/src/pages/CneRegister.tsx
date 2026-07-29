@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,6 +52,7 @@ export default function CneRegister() {
   const institutionId = Number(params.institutionId);
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
+  const { user, loading: authLoading, sessionSettled } = useAuth();
 
   const currentEventQuery = trpc.cne.currentEvent.useQuery(
     { institutionId },
@@ -71,6 +73,20 @@ export default function CneRegister() {
       department: "",
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        fullName: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        cadre: (user.providerType === "nurse" ? "KRCHN" : "Other") as any,
+        cadreOther: "",
+        hndSubspecialty: "",
+        department: "",
+      });
+    }
+  }, [user, form]);
 
   const cadre = form.watch("cadre");
 
@@ -108,6 +124,40 @@ export default function CneRegister() {
     );
   }
 
+  if (authLoading || !sessionSettled) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <Card className="border-amber-100 bg-amber-50/10">
+          <CardHeader className="text-center">
+            <CardTitle className="text-lg text-slate-800 font-bold">Authentication Required</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-sm text-slate-600">
+              To prevent proxy registration, you must be signed in to your Paeds Resus
+              account on this device to check-in for the CNE event.
+            </p>
+            <Button
+              className="w-full mt-2"
+              onClick={() => {
+                window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+              }}
+            >
+              Sign in / Sign up to Register
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const event = currentEventQuery.data?.event ?? null;
 
   return (
@@ -135,9 +185,14 @@ export default function CneRegister() {
                 Your attendance has been recorded. Your certificate will be issued by the CNE
                 coordinator.
               </p>
-              <Button className="mt-6" variant="outline" onClick={() => setSubmitted(false)}>
-                Register another nurse
-              </Button>
+              <div className="flex flex-col gap-2.5 mt-6 w-full">
+                <Button className="w-full" onClick={() => window.location.href = "/my-certificates"}>
+                  View My Certificates
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  To prevent proxy registration, you can only register your own account.
+                </p>
+              </div>
             </div>
           ) : !event ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -176,7 +231,7 @@ export default function CneRegister() {
                       <FormItem>
                         <FormLabel>Email *</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@example.com" {...field} />
+                          <Input type="email" placeholder="you@example.com" {...field} disabled className="bg-slate-50 cursor-not-allowed text-slate-500" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
