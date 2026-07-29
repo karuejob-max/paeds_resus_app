@@ -368,6 +368,54 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
           </CardContent>
         </Card>
 
+        {/* ── Care Signal ────────────────────────────────────────────────────── */}
+        <Card className="border-red-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-4 text-white">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-8 w-8 opacity-90" />
+              <div>
+                <h2 className="font-bold text-lg leading-tight">Care Signal</h2>
+                <p className="text-white/90 text-xs mt-0.5">
+                  Report near-misses · Drive quality improvement
+                </p>
+              </div>
+            </div>
+          </div>
+          <CardContent className="px-5 py-4 space-y-3">
+            {fellowshipProgress?.careSignalPillar && fellowshipProgress.careSignalPillar.streak > 0 ? (
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>{fellowshipProgress.careSignalPillar.streak} of 24 month streak</span>
+                  <span className="font-semibold text-slate-700">
+                    {fellowshipProgress.careSignalPillar.percentage}%
+                  </span>
+                </div>
+                <Progress value={fellowshipProgress.careSignalPillar.percentage} className="h-2" />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Report a near-miss or safety concern — every report improves the system for the
+                next patient, and builds your Fellowship Pillar C streak.
+              </p>
+            )}
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-between"
+              onClick={() => {
+                track("provider_conversion", "care_signal_card_click", {});
+                setLocation("/care-signal");
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {fellowshipProgress?.careSignalPillar && fellowshipProgress.careSignalPillar.streak > 0
+                  ? "Continue Care Signal"
+                  : "Report to Care Signal"}
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* ── AHA Courses ───────────────────────────────────────────────────── */}
         <Card className="border-brand-orange/25 overflow-hidden">
           <div className="bg-gradient-to-r from-brand-orange to-[var(--brand-orange-hover)] px-5 py-4 text-white">
