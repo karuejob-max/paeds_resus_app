@@ -1,4 +1,16 @@
 /**
+ * NOTE (2026-07-29): this module checks Phase 3 (full physical AHA
+ * certification) — the `certificates` table row only exists once someone
+ * completes hands-on training. That's the correct check for someone
+ * pursuing full AHA certification, but per CEO clarification, it is NOT
+ * the right check for Fellowship eligibility — Fellowship requires Phase 2
+ * completion (instructor-signed-off online team simulations), not the full
+ * physical certification. Use server/lib/fellowship-phase2-completion.ts
+ * for Fellowship purposes. This module was never wired into
+ * calculateCoursesPillar, so nothing live was ever incorrect — it's kept
+ * as-is because it's still the right tool for "does this person hold full
+ * AHA certification," just not for Fellowship.
+ *
  * Fellowship Pillar A certification floor (North Star v2.1 addendum §1):
  * BLS + ACLS + PALS + NRP, uniform across cadres, all four required and
  * currently valid (not expired) — not gated by cadre, and not satisfied by
