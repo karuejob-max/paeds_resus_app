@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
 import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 
 const registrationSchema = z
   .object({
@@ -54,7 +55,15 @@ const registrationSchema = z
   )
   .refine(
     (data) => {
-      const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(data.cadre);
+      const hasSubspecialty = [
+        "Consultant Physician",
+        "MSN",
+        "HND",
+        "Consultant Physician Student",
+        "MSN Student",
+        "HND Student",
+        "RCO HND",
+      ].includes(data.cadre);
       if (hasSubspecialty && !data.subSpecialty?.trim()) return false;
       return true;
     },
@@ -115,13 +124,7 @@ export default function CneRegister() {
       const uCadre = (user as any).cadre ?? "";
       const uCadreOther = (user as any).cadreOther ?? "";
 
-      const isStandardSub = [
-        "Paediatrician",
-        "Other Specialist",
-        "Paediatric Critical Care",
-        "Neonatology",
-        "Emergency Nursing"
-      ].includes(uCadreOther);
+      const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(uCadreOther);
 
       form.reset({
         fullName: user.name || "",
@@ -142,7 +145,15 @@ export default function CneRegister() {
   const onSubmit = async (values: RegistrationValues) => {
     try {
       const requiresOther = ["Other Staff", "Other Intern", "Other Student"].includes(values.cadre);
-      const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(values.cadre);
+      const hasSubspecialty = [
+        "Consultant Physician",
+        "MSN",
+        "HND",
+        "Consultant Physician Student",
+        "MSN Student",
+        "HND Student",
+        "RCO HND",
+      ].includes(values.cadre);
 
       let finalCadreOther = undefined;
       if (requiresOther) {

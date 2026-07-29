@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CadreProgressiveSelectorProps {
   value: string;
@@ -28,7 +33,29 @@ export function getTaxonomyFromCadre(cadreVal: string) {
 
   const isStudent =
     cadreVal.endsWith("Student") ||
-    ["Nursing Student", "Clinical Officer Student", "MBChB Student"].includes(cadreVal);
+    [
+      "Nursing Student",
+      "Clinical Officer Student",
+      "MBChB Student",
+      "Pharmacy Student",
+      "Dental Surgery Student",
+      "Other Medical Student",
+      "Diploma in Clinical Medicine Student",
+      "BSc Clinical Medicine Student",
+      "Other Clinical Officer Student",
+      "BSN Student",
+      "BSM Student",
+      "KRCHN Student",
+      "KRNM Student",
+      "KRN Student",
+      "KRM Student",
+      "KECHN Student",
+      "Other Certificate Nursing Student",
+      "Other Diploma Nursing Student",
+      "Other Nursing Student",
+      "Consultant Physician Student",
+      "Other Student",
+    ].includes(cadreVal);
   const isIntern = ["MOI", "NOI", "COI", "Other Intern"].includes(cadreVal);
 
   if (isIntern) {
@@ -36,48 +63,73 @@ export function getTaxonomyFromCadre(cadreVal: string) {
     role = cadreVal;
   } else if (isStudent) {
     category = "Student";
-    if (
+    if (["Consultant Physician Student", "Other Student"].includes(cadreVal)) {
+      role = cadreVal;
+    } else if (
       [
-        "Nursing Student",
-        "Clinical Officer Student",
         "MBChB Student",
-        "Other Student",
-        "Consultant Physician Student",
-        "MO Student",
-        "RCO Student",
+        "Pharmacy Student",
+        "Dental Surgery Student",
+        "Other Medical Student",
       ].includes(cadreVal)
     ) {
-      role = cadreVal;
+      role = "Medical Student";
+    } else if (
+      [
+        "Diploma in Clinical Medicine Student",
+        "BSc Clinical Medicine Student",
+        "Other Clinical Officer Student",
+      ].includes(cadreVal)
+    ) {
+      role = "Clinical Officer Student";
     } else {
-      role = "RN Student";
-      if (cadreVal.startsWith("MSN")) rnLevel = "MSN";
-      else if (cadreVal.startsWith("HND")) rnLevel = "HND";
-      else if (cadreVal.startsWith("ERN")) rnLevel = "ERN";
-      else if (["BSN Student", "BSM Student"].includes(cadreVal)) {
-        rnLevel = "Undergraduate";
+      role = "Nursing Student";
+      if (["BSN Student", "BSM Student", "Other BSN Student"].includes(cadreVal)) {
+        rnLevel = "BSN Student";
         rnSub = cadreVal;
       } else if (
-        ["KRCHN Student", "KRNM Student", "KRN Student", "KRM Student"].includes(cadreVal)
+        [
+          "KRCHN Student",
+          "KRNM Student",
+          "KRN Student",
+          "KRM Student",
+          "Other Diploma Nursing Student",
+        ].includes(cadreVal)
       ) {
-        rnLevel = "Diploma";
+        rnLevel = "Diploma Student";
         rnSub = cadreVal;
+      } else if (["KECHN Student", "Other Certificate Nursing Student"].includes(cadreVal)) {
+        rnLevel = "Certificate Student";
+        rnSub = cadreVal;
+      } else {
+        rnLevel = "Other Nursing Student";
       }
     }
   } else {
     category = "Staff";
-    if (["Consultant Physician", "MO", "RCO", "Other Staff"].includes(cadreVal)) {
+    if (["Consultant Physician", "MO", "Other Staff"].includes(cadreVal)) {
       role = cadreVal;
+    } else if (["RCO", "RCO HND", "BSc. Clin. Med", "Dip Clin. Med", "Other RCO"].includes(cadreVal)) {
+      role = "RCO";
+      if (cadreVal === "RCO HND") rnLevel = "HND";
+      else if (cadreVal === "BSc. Clin. Med") rnLevel = "BSc. Clin. Med";
+      else if (cadreVal === "Dip Clin. Med") rnLevel = "Dip Clin. Med";
+      else if (cadreVal === "Other RCO") rnLevel = "Other RCO";
     } else {
       role = "RN";
       if (cadreVal === "MSN") rnLevel = "MSN";
       else if (cadreVal === "HND") rnLevel = "HND";
-      else if (cadreVal === "ERN") rnLevel = "ERN";
-      else if (["BSN", "BSM"].includes(cadreVal)) {
+      else if (["BSN", "BSM", "Other Undergraduate"].includes(cadreVal)) {
         rnLevel = "Undergraduate";
         rnSub = cadreVal;
-      } else if (["KRCHN", "KRNM", "KRN", "KRM"].includes(cadreVal)) {
+      } else if (["KRCHN", "KRNM", "KRN", "KRM", "Other Diploma RN"].includes(cadreVal)) {
         rnLevel = "Diploma";
         rnSub = cadreVal;
+      } else if (["KECHN", "Other Certificate RN"].includes(cadreVal)) {
+        rnLevel = "Certificate";
+        rnSub = cadreVal;
+      } else {
+        rnLevel = "Other RN";
       }
     }
   }
@@ -90,12 +142,25 @@ function getLeafValue(category: string, role: string, rnLevel: string, rnSub: st
     return role;
   }
   if (category === "Student") {
-    if (role === "RN Student") {
-      if (rnLevel === "MSN") return "MSN Student";
-      if (rnLevel === "HND") return "HND Student";
-      if (rnLevel === "ERN") return "ERN Student";
-      if (rnLevel === "Undergraduate") return rnSub;
-      if (rnLevel === "Diploma") return rnSub;
+    if (role === "Medical Student") {
+      return rnLevel;
+    }
+    if (role === "Clinical Officer Student") {
+      return rnLevel;
+    }
+    if (role === "Nursing Student") {
+      if (rnLevel === "BSN Student") {
+        return rnSub;
+      }
+      if (rnLevel === "Diploma Student") {
+        return rnSub;
+      }
+      if (rnLevel === "Certificate Student") {
+        return rnSub;
+      }
+      if (rnLevel === "Other Nursing Student") {
+        return "Other Nursing Student";
+      }
       return "";
     }
     return role;
@@ -104,15 +169,162 @@ function getLeafValue(category: string, role: string, rnLevel: string, rnSub: st
     if (role === "RN") {
       if (rnLevel === "MSN") return "MSN";
       if (rnLevel === "HND") return "HND";
-      if (rnLevel === "ERN") return "ERN";
       if (rnLevel === "Undergraduate") return rnSub;
       if (rnLevel === "Diploma") return rnSub;
+      if (rnLevel === "Certificate") return rnSub;
+      if (rnLevel === "Other RN") return "Other RN";
       return "";
+    }
+    if (role === "RCO") {
+      if (rnLevel === "HND") return "RCO HND";
+      if (rnLevel === "BSc. Clin. Med") return "BSc. Clin. Med";
+      if (rnLevel === "Dip Clin. Med") return "Dip Clin. Med";
+      if (rnLevel === "Other RCO") return "Other RCO";
+      return "RCO";
     }
     return role;
   }
   return "";
 }
+
+interface SearchableDropdownProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+}
+
+export function SearchableDropdown({
+  value,
+  onChange,
+  options,
+  placeholder = "Select option...",
+  searchPlaceholder = "Search option...",
+  emptyText = "No option found.",
+}: SearchableDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+        >
+          <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList className="max-h-[250px]">
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt.value}
+                  value={opt.label}
+                  onSelect={() => {
+                    onChange(value === opt.value ? "" : opt.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === opt.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {opt.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const CONSULTANT_SPECIALTIES = [
+  { value: "General Paediatrician", label: "General Paediatrician" },
+  { value: "Paediatric Cardiologist", label: "Paediatric Cardiologist" },
+  { value: "Paediatric Nephrologist", label: "Paediatric Nephrologist" },
+  { value: "Paediatric Oncologist / Haematologist", label: "Paediatric Oncologist / Haematologist" },
+  { value: "Paediatric Neurologist", label: "Paediatric Neurologist" },
+  { value: "Paediatric Endocrinologist", label: "Paediatric Endocrinologist" },
+  { value: "Paediatric Pulmonologist / Respirologist", label: "Paediatric Pulmonologist / Respirologist" },
+  { value: "Paediatric Gastroenterologist", label: "Paediatric Gastroenterologist" },
+  { value: "Neonatologist", label: "Neonatologist" },
+  { value: "Paediatric Critical Care Specialist", label: "Paediatric Critical Care Specialist" },
+  { value: "Paediatric Emergency Medicine Specialist", label: "Paediatric Emergency Medicine Specialist" },
+  { value: "Paediatric Infectious Disease Specialist", label: "Paediatric Infectious Disease Specialist" },
+  { value: "Paediatric Rheumatologist", label: "Paediatric Rheumatologist" },
+  { value: "Paediatric Allergist / Immunologist", label: "Paediatric Allergist / Immunologist" },
+  { value: "Other Specialist", label: "Other Specialist" },
+  { value: "Other", label: "Other" },
+];
+
+const MSN_SPECIALTIES = [
+  { value: "Paediatric Critical Care Nursing", label: "Paediatric Critical Care Nursing" },
+  { value: "Neonatal Nursing", label: "Neonatal Nursing" },
+  { value: "Midwifery / Reproductive Health Nursing", label: "Midwifery / Reproductive Health Nursing" },
+  { value: "Nephrology / Renal Nursing", label: "Nephrology / Renal Nursing" },
+  { value: "Oncology and Palliative Care Nursing", label: "Oncology and Palliative Care Nursing" },
+  { value: "Critical Care Nursing (Intensive Care)", label: "Critical Care Nursing (Intensive Care)" },
+  { value: "Trauma & Emergency Nursing", label: "Trauma & Emergency Nursing" },
+  { value: "Medical Surgical Nursing", label: "Medical Surgical Nursing" },
+  { value: "Nursing Education / Leadership", label: "Nursing Education / Leadership" },
+  { value: "Community Health Nursing", label: "Community Health Nursing" },
+  { value: "Mental Health and Psychiatric Nursing", label: "Mental Health and Psychiatric Nursing" },
+  { value: "Other", label: "Other" },
+];
+
+const HND_SPECIALTIES = [
+  { value: "Paediatric Critical Care Nursing", label: "Paediatric Critical Care Nursing" },
+  { value: "Critical Care Nursing (Intensive Care)", label: "Critical Care Nursing (Intensive Care)" },
+  { value: "Trauma & Emergency Nursing (Accident & Emergency)", label: "Trauma & Emergency Nursing (Accident & Emergency)" },
+  { value: "Nurse Anaesthesia Nursing (KRNA)", label: "Nurse Anaesthesia Nursing (KRNA)" },
+  { value: "Peri-Operative Nursing (Theatre Nursing)", label: "Peri-Operative Nursing (Theatre Nursing)" },
+  { value: "Stoma and Wound Care Nursing", label: "Stoma and Wound Care Nursing" },
+  { value: "Infection Prevention and Control Nursing", label: "Infection Prevention and Control Nursing" },
+  { value: "Nephrology Nursing (Renal)", label: "Nephrology Nursing (Renal)" },
+  { value: "Cardiovascular / Cardiac Nursing", label: "Cardiovascular / Cardiac Nursing" },
+  { value: "Oncology Nursing", label: "Oncology Nursing" },
+  { value: "Pediatric Oncology Nursing", label: "Pediatric Oncology Nursing" },
+  { value: "Diabetes Nursing", label: "Diabetes Nursing" },
+  { value: "Ophthalmic Nursing (Eye Care)", label: "Ophthalmic Nursing (Eye Care)" },
+  { value: "Ear, Nose, and Throat (ENT) Nursing", label: "Ear, Nose, and Throat (ENT) Nursing" },
+  { value: "Neonatal Nursing", label: "Neonatal Nursing" },
+  { value: "Paediatric Nursing", label: "Paediatric Nursing" },
+  { value: "Midwifery / Reproductive Health Nursing", label: "Midwifery / Reproductive Health Nursing" },
+  { value: "Psychiatric / Mental Health Nursing", label: "Psychiatric / Mental Health Nursing" },
+  { value: "Geriatric Nursing (Aged Care)", label: "Geriatric Nursing (Aged Care)" },
+  { value: "Community Health / Public Health Nursing", label: "Community Health / Public Health Nursing" },
+  { value: "Family Health Nursing", label: "Family Health Nursing" },
+  { value: "Palliative Care Nursing", label: "Palliative Care Nursing" },
+  { value: "Other", label: "Other" },
+];
+
+const CLINICAL_MED_SPECIALTIES = [
+  { value: "Anaesthesia", label: "Anaesthesia" },
+  { value: "Paediatrics", label: "Paediatrics" },
+  { value: "Ophthalmology / Cataract Surgery", label: "Ophthalmology / Cataract Surgery" },
+  { value: "Orthopaedics", label: "Orthopaedics" },
+  { value: "ENT / Audiology", label: "ENT / Audiology" },
+  { value: "Reproductive Health / Medicine", label: "Reproductive Health / Medicine" },
+  { value: "Dermatology", label: "Dermatology" },
+  { value: "Oncology", label: "Oncology" },
+  { value: "Chest / Pulmonology Medicine", label: "Chest / Pulmonology Medicine" },
+  { value: "Emergency Medicine / Critical Care", label: "Emergency Medicine / Critical Care" },
+  { value: "Other", label: "Other" },
+];
 
 export default function CadreProgressiveSelector({
   value,
@@ -163,7 +375,7 @@ export default function CadreProgressiveSelector({
     setLocalRnSub("");
 
     if (
-      ["Consultant Physician", "Consultant Physician Student", "MSN", "HND", "MSN Student", "HND Student"].includes(
+      ["Consultant Physician", "Consultant Physician Student", "MSN", "HND", "MSN Student", "HND Student", "RCO HND"].includes(
         newRole
       )
     ) {
@@ -196,30 +408,160 @@ export default function CadreProgressiveSelector({
 
   const showPhysicianSpecialty =
     localRole === "Consultant Physician" || localRole === "Consultant Physician Student";
-  const showNurseSpecialty = localRnLevel === "MSN" || localRnLevel === "HND";
+  const showNurseSpecialty = (localRole === "RN" && (localRnLevel === "MSN" || localRnLevel === "HND"));
+  const showClinicalMedSpecialty = (localRole === "RCO" && localRnLevel === "HND");
 
   const showFreeTextDetails =
     ["Other Staff", "Other Intern", "Other Student"].includes(localRole) ||
+    ["Other Medical Student", "Other Clinical Officer Student", "Other Nursing Student", "Other BSN Student", "Other Diploma Student", "Other Certificate Student", "Other Diploma Nursing Student", "Other Certificate Nursing Student", "Other RN", "Other Diploma RN", "Other Certificate RN", "Other RCO"].includes(localRnSub) ||
+    ["Other Medical Student", "Other Clinical Officer Student", "Other Nursing Student", "Other RCO"].includes(localRnLevel) ||
     subSpecialtyValue === "Other";
+
+  // Option lists
+  const categoryOptions = [
+    { value: "Staff", label: "Staff" },
+    { value: "Intern", label: "Intern" },
+    { value: "Student", label: "Student" },
+  ];
+
+  const getRoleOptions = () => {
+    if (localCategory === "Staff") {
+      return [
+        { value: "Consultant Physician", label: "Doctor / Consultant Physician" },
+        { value: "MO", label: "MO (Medical Officer)" },
+        { value: "RCO", label: "RCO (Clinical Officer)" },
+        { value: "RN", label: "RN (Registered Nurse)" },
+        { value: "Other Staff", label: "Other Staff" },
+      ];
+    }
+    if (localCategory === "Intern") {
+      return [
+        { value: "MOI", label: "MOI (Medical Officer Intern)" },
+        { value: "NOI", label: "NOI (Nursing Officer Intern)" },
+        { value: "COI", label: "COI (Clinical Officer Intern)" },
+        { value: "Other Intern", label: "Other Intern" },
+      ];
+    }
+    if (localCategory === "Student") {
+      return [
+        { value: "Medical Student", label: "Medical Student" },
+        { value: "Nursing Student", label: "Nursing Student" },
+        { value: "Clinical Officer Student", label: "Clinical Officer Student" },
+        { value: "Consultant Physician Student", label: "Medical Student - Specialist Track" },
+        { value: "Other Student", label: "Other Student" },
+      ];
+    }
+    return [];
+  };
+
+  const getLevelOptions = () => {
+    if (localRole === "RN") {
+      return [
+        { value: "MSN", label: "MSN" },
+        { value: "HND", label: "HND" },
+        { value: "Undergraduate", label: "Undergraduate" },
+        { value: "Diploma", label: "Diploma" },
+        { value: "Certificate", label: "Certificate" },
+        { value: "Other RN", label: "Other RN" },
+      ];
+    }
+    if (localRole === "RCO") {
+      return [
+        { value: "HND", label: "HND" },
+        { value: "BSc. Clin. Med", label: "BSc. Clin. Med" },
+        { value: "Dip Clin. Med", label: "Dip Clin. Med" },
+        { value: "Other RCO", label: "Other RCO" },
+      ];
+    }
+    if (localRole === "Medical Student") {
+      return [
+        { value: "MBChB Student", label: "MBChB Student" },
+        { value: "Pharmacy Student", label: "Pharmacy Student" },
+        { value: "Dental Surgery Student", label: "Dental and Surgery Student" },
+        { value: "Other Medical Student", label: "Other Medical Student" },
+      ];
+    }
+    if (localRole === "Clinical Officer Student") {
+      return [
+        { value: "BSc Clinical Medicine Student", label: "BSc Clinical Medicine Student" },
+        { value: "Diploma in Clinical Medicine Student", label: "Diploma in Clinical Medicine Student" },
+        { value: "Other Clinical Officer Student", label: "Other Clinical Officer Student" },
+      ];
+    }
+    if (localRole === "Nursing Student") {
+      return [
+        { value: "BSN Student", label: "BSN Student" },
+        { value: "Diploma Student", label: "Diploma Student" },
+        { value: "Certificate Student", label: "Certificate Student" },
+        { value: "Other Nursing Student", label: "Other Nursing Student" },
+      ];
+    }
+    return [];
+  };
+
+  const getSubOptions = () => {
+    if (localRnLevel === "Undergraduate") {
+      return [
+        { value: "BSN", label: "BSN" },
+        { value: "BSM", label: "BSM" },
+        { value: "Other Undergraduate", label: "Other Undergraduate" },
+      ];
+    }
+    if (localRnLevel === "Diploma") {
+      return [
+        { value: "KRCHN", label: "KRCHN" },
+        { value: "KRNM", label: "KRNM" },
+        { value: "KRN", label: "KRN" },
+        { value: "KRM", label: "KRM" },
+        { value: "Other Diploma RN", label: "Other Diploma RN" },
+      ];
+    }
+    if (localRnLevel === "Certificate") {
+      return [
+        { value: "KECHN", label: "KECHN" },
+        { value: "Other Certificate RN", label: "Other Certificate RN" },
+      ];
+    }
+    if (localRnLevel === "BSN Student") {
+      return [
+        { value: "BSN Student", label: "BSN Student" },
+        { value: "BSM Student", label: "BSM Student" },
+        { value: "Other BSN Student", label: "Other BSN Student" },
+      ];
+    }
+    if (localRnLevel === "Diploma Student") {
+      return [
+        { value: "KRCHN Student", label: "KRCHN Student" },
+        { value: "KRNM Student", label: "KRNM Student" },
+        { value: "KRN Student", label: "KRN Student" },
+        { value: "KRM Student", label: "KRM Student" },
+        { value: "Other Diploma Nursing Student", label: "Other Diploma Nursing Student" },
+      ];
+    }
+    if (localRnLevel === "Certificate Student") {
+      return [
+        { value: "KECHN Student", label: "KECHN Student" },
+        { value: "Other Certificate Nursing Student", label: "Other Certificate Nursing Student" },
+      ];
+    }
+    return [];
+  };
 
   return (
     <div className="space-y-4">
-      {/* Category selection */}
+      {/* T1: Category selection */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Category *</Label>
-        <Select value={localCategory} onValueChange={handleCategoryChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Category (Staff, Intern, Student)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Staff">Staff</SelectItem>
-            <SelectItem value="Intern">Intern</SelectItem>
-            <SelectItem value="Student">Student</SelectItem>
-          </SelectContent>
-        </Select>
+        <SearchableDropdown
+          value={localCategory}
+          onChange={handleCategoryChange}
+          options={categoryOptions}
+          placeholder="Select Category (Staff, Intern, Student)"
+          searchPlaceholder="Search category..."
+        />
       </div>
 
-      {/* Role / Profession Selection */}
+      {/* T2: Role / Profession Selection */}
       {localCategory && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">
@@ -229,116 +571,66 @@ export default function CadreProgressiveSelector({
                 ? "Intern Role *"
                 : "Student Path *"}
           </Label>
-          <Select value={localRole} onValueChange={handleRoleChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue
-                placeholder={
-                  localCategory === "Staff"
-                    ? "Select Role"
-                    : localCategory === "Intern"
-                      ? "Select Intern Path"
-                      : "Select Student Path"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {localCategory === "Staff" && (
-                <>
-                  <SelectItem value="Consultant Physician">Doctor / Consultant Physician</SelectItem>
-                  <SelectItem value="MO">MO (Medical Officer)</SelectItem>
-                  <SelectItem value="RCO">RCO (Clinical Officer)</SelectItem>
-                  <SelectItem value="RN">RN (Registered Nurse)</SelectItem>
-                  <SelectItem value="Other Staff">Other Staff</SelectItem>
-                </>
-              )}
-              {localCategory === "Intern" && (
-                <>
-                  <SelectItem value="MOI">MOI (Medical Officer Intern)</SelectItem>
-                  <SelectItem value="NOI">NOI (Nursing Officer Intern)</SelectItem>
-                  <SelectItem value="COI">COI (Clinical Officer Intern)</SelectItem>
-                  <SelectItem value="Other Intern">Other Intern</SelectItem>
-                </>
-              )}
-              {localCategory === "Student" && (
-                <>
-                  <SelectItem value="Consultant Physician Student">
-                    Medical Student - Specialist Track
-                  </SelectItem>
-                  <SelectItem value="MO Student">Medical Student - MBChB</SelectItem>
-                  <SelectItem value="RCO Student">Clinical Officer Student</SelectItem>
-                  <SelectItem value="RN Student">Nursing Student - RN Track</SelectItem>
-                  <SelectItem value="Nursing Student">Nursing Student - General</SelectItem>
-                  <SelectItem value="Clinical Officer Student">Clinical Officer Student - General</SelectItem>
-                  <SelectItem value="MBChB Student">Medical Student - Undergraduate</SelectItem>
-                  <SelectItem value="Other Student">Other Student</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
+          <SearchableDropdown
+            value={localRole}
+            onChange={handleRoleChange}
+            options={getRoleOptions()}
+            placeholder={
+              localCategory === "Staff"
+                ? "Select Role"
+                : localCategory === "Intern"
+                  ? "Select Intern Path"
+                  : "Select Student Path"
+            }
+            searchPlaceholder="Search role..."
+          />
         </div>
       )}
 
-      {/* T3: Level (RN / RN Student Level Selection) */}
-      {(localRole === "RN" || localRole === "RN Student") && (
-        <div className="space-y-1.5 transition-all duration-300 ease-in-out">
-          <Label className="text-sm font-medium">Nurse Qualification Level *</Label>
-          <Select value={localRnLevel} onValueChange={handleLevelChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Nurse Level" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MSN">MSN</SelectItem>
-              <SelectItem value="HND">HND</SelectItem>
-              <SelectItem value="Undergraduate">Undergraduate</SelectItem>
-              <SelectItem value="Diploma">Diploma</SelectItem>
-              <SelectItem value="ERN">ERN</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* T4: Sub-Qualification Level (for Undergraduate / Diploma) */}
-      {(localRnLevel === "Undergraduate" || localRnLevel === "Diploma") && (
+      {/* T3: Level (RN / RCO / Student Level Selection / Specialty level) */}
+      {(localRole === "RN" ||
+        localRole === "RCO" ||
+        localRole === "Medical Student" ||
+        localRole === "Clinical Officer Student" ||
+        localRole === "Nursing Student") && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">
-            {localRnLevel === "Undergraduate" ? "Degree Type *" : "Diploma Type *"}
+            {localRole === "RN"
+              ? "Nurse Qualification Level *"
+              : localRole === "RCO"
+                ? "Clinical Officer Level *"
+                : localRole === "Medical Student"
+                  ? "Medical Program *"
+                  : localRole === "Clinical Officer Student"
+                    ? "Clinical Officer Program *"
+                    : "Nursing Path *"}
           </Label>
-          <Select value={localRnSub} onValueChange={handleSubChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue
-                placeholder={localRnLevel === "Undergraduate" ? "Select Degree" : "Select Diploma Type"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {localRnLevel === "Undergraduate" ? (
-                localCategory === "Student" ? (
-                  <>
-                    <SelectItem value="BSN Student">BSN Student</SelectItem>
-                    <SelectItem value="BSM Student">BSM Student</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="BSN">BSN</SelectItem>
-                    <SelectItem value="BSM">BSM</SelectItem>
-                  </>
-                )
-              ) : localCategory === "Student" ? (
-                <>
-                  <SelectItem value="KRCHN Student">KRCHN Student</SelectItem>
-                  <SelectItem value="KRNM Student">KRNM Student</SelectItem>
-                  <SelectItem value="KRN Student">KRN Student</SelectItem>
-                  <SelectItem value="KRM Student">KRM Student</SelectItem>
-                </>
-              ) : (
-                <>
-                  <SelectItem value="KRCHN">KRCHN</SelectItem>
-                  <SelectItem value="KRNM">KRNM</SelectItem>
-                  <SelectItem value="KRN">KRN</SelectItem>
-                  <SelectItem value="KRM">KRM</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
+          <SearchableDropdown
+            value={localRnLevel}
+            onChange={handleLevelChange}
+            options={getLevelOptions()}
+            placeholder="Select option"
+            searchPlaceholder="Search..."
+          />
+        </div>
+      )}
+
+      {/* T4: Sub-Qualification Level */}
+      {(localRnLevel === "Undergraduate" ||
+        localRnLevel === "Diploma" ||
+        localRnLevel === "Certificate" ||
+        localRnLevel === "BSN Student" ||
+        localRnLevel === "Diploma Student" ||
+        localRnLevel === "Certificate Student") && (
+        <div className="space-y-1.5 transition-all duration-300 ease-in-out">
+          <Label className="text-sm font-medium">Specific Cadre *</Label>
+          <SearchableDropdown
+            value={localRnSub}
+            onChange={handleSubChange}
+            options={getSubOptions()}
+            placeholder="Select specific cadre"
+            searchPlaceholder="Search specific cadre..."
+          />
         </div>
       )}
 
@@ -346,50 +638,75 @@ export default function CadreProgressiveSelector({
       {showPhysicianSpecialty && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">Specialty / Highest Qualification *</Label>
-          <Select
+          <SearchableDropdown
             value={subSpecialtyValue}
-            onValueChange={(val) => {
+            onChange={(val) => {
               onSubSpecialtyChange(val);
               if (val !== "Other") {
                 onCadreOtherChange("");
               }
             }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select specialty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Paediatrician">Paediatrician</SelectItem>
-              <SelectItem value="Other Specialist">Other Specialist</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
+            options={CONSULTANT_SPECIALTIES}
+            placeholder="Select specialty"
+            searchPlaceholder="Search specialty..."
+          />
         </div>
       )}
 
-      {/* T5: MSN or HND Subspecialty Dropdown */}
-      {showNurseSpecialty && (
+      {/* T5: MSN Subspecialty Dropdown */}
+      {localRole === "RN" && localRnLevel === "MSN" && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">Subspecialty / Highest Qualification *</Label>
-          <Select
+          <SearchableDropdown
             value={subSpecialtyValue}
-            onValueChange={(val) => {
+            onChange={(val) => {
               onSubSpecialtyChange(val);
               if (val !== "Other") {
                 onCadreOtherChange("");
               }
             }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select subspecialty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Paediatric Critical Care">Paediatric Critical Care</SelectItem>
-              <SelectItem value="Neonatology">Neonatology</SelectItem>
-              <SelectItem value="Emergency Nursing">Emergency Nursing</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
+            options={MSN_SPECIALTIES}
+            placeholder="Select subspecialty"
+            searchPlaceholder="Search subspecialty..."
+          />
+        </div>
+      )}
+
+      {/* T5: HND Subspecialty Dropdown */}
+      {localRole === "RN" && localRnLevel === "HND" && (
+        <div className="space-y-1.5 transition-all duration-300 ease-in-out">
+          <Label className="text-sm font-medium">Subspecialty / Highest Qualification *</Label>
+          <SearchableDropdown
+            value={subSpecialtyValue}
+            onChange={(val) => {
+              onSubSpecialtyChange(val);
+              if (val !== "Other") {
+                onCadreOtherChange("");
+              }
+            }}
+            options={HND_SPECIALTIES}
+            placeholder="Select subspecialty"
+            searchPlaceholder="Search subspecialty..."
+          />
+        </div>
+      )}
+
+      {/* T5: Clinical Officer HND Subspecialty Dropdown */}
+      {showClinicalMedSpecialty && (
+        <div className="space-y-1.5 transition-all duration-300 ease-in-out">
+          <Label className="text-sm font-medium">Clinical Med Subspecialty *</Label>
+          <SearchableDropdown
+            value={subSpecialtyValue}
+            onChange={(val) => {
+              onSubSpecialtyChange(val);
+              if (val !== "Other") {
+                onCadreOtherChange("");
+              }
+            }}
+            options={CLINICAL_MED_SPECIALTIES}
+            placeholder="Select subspecialty"
+            searchPlaceholder="Search subspecialty..."
+          />
         </div>
       )}
 
