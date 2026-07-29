@@ -162,13 +162,27 @@ Refund requests: support@paeds-resus.com with payment reference, phone number, a
 
 ### 6.4 Subsidised ACLS/BLS Cohort Program payments
 
-This section applies specifically to the subsidised, phased, competency-based ACLS/BLS cohort programme for institutional nurses and interns (KES 15,000, Kenya pricing), and takes precedence over §6.3 for that programme where the two differ.
+This section applies to the subsidised, phased, competency-based ACLS/BLS cohort programme (KES 15,000, Kenya pricing) and takes precedence over §6.3 for that programme where the two differ. The programme runs as **two distinct tracks with different payment rules** depending on your designation — read the subsection that applies to you. Where a rule isn't specific to one track, it applies to both.
 
-- **All payments made under this programme — including partial and installment payments — are non-refundable**, regardless of whether you complete the programme, withdraw, or are unable to progress for any reason. §6.3's "Course not started" refund window does not apply to this programme.
-- Payment may be made upfront, in monthly instalments (nurses), or deferred to a later point in your internship (interns), as arranged with your institutional coordinator.
+**Rules that apply to everyone in the programme, regardless of track:**
+- **All payments made under this programme — including partial and instalment payments — are non-refundable**, regardless of whether you complete the programme, withdraw, or are unable to progress for any reason. §6.3's "Course not started" refund window does not apply to this programme.
 - **Phase 3** (physical skills integration: hands-on Megacode simulation, final AHA cognitive exam, and certification) requires your account balance to be paid in full before you may book it.
-- **Interns specifically:** if four months have passed since you joined the programme and no payment has been recorded on your account, you will lose the ability to book further Phase 2 online simulation sessions until a payment (in full or as an instalment) is made. Progress already recorded (proof uploads, completed simulations) is not deleted while access is paused, and booking access resumes once a payment is recorded.
 - This non-refundable policy does not override your **non-waivable rights** under the Kenya Consumer Protection Act or other mandatory law (§6.5).
+
+#### 6.4.1 IERP — Intern Emergency Readiness Program
+
+Applies if your designation is an intern designation (NOI, Clinical Officer Intern, or Medical Officer Intern).
+
+- No payment is required to begin — you may start Phase 1 (online coursework) and Phase 2 (online team simulations) at no upfront cost.
+- You may pay in full or defer payment to a later point in your internship, in one to three instalments, as arranged with your institutional coordinator.
+- **If four months have passed since you joined the programme and no payment has been recorded on your account**, you will lose the ability to book further Phase 2 online simulation sessions until a payment (in full or as an instalment) is made. Progress already recorded (proof uploads, completed simulations) is not deleted while access is paused, and booking access resumes once a payment is recorded.
+
+#### 6.4.2 Nurse Cohort Program
+
+Applies if your designation is Permanent Nurse.
+
+- Registration requires a valid nursing licence number on file.
+- **Payment of KES 2,500 per month is required from enrolment — there is no deferral period.** Your account balance is checked against a running total of KES 2,500 for each full month since you joined; if your payments fall behind that pace, you will lose the ability to book further Phase 2 online simulation sessions until your payments catch up. Progress already recorded is not deleted while access is paused, and booking access resumes once you're caught up.
 
 ### 6.5 Consumer protection
 
