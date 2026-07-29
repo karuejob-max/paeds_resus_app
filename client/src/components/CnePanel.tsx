@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { trpc } from "@/lib/trpc";
 import SignaturePad from "@/components/SignaturePad";
@@ -26,6 +26,7 @@ import {
   FileArchive,
   Copy,
   Check,
+  Printer,
 } from "lucide-react";
 
 interface CnePanelProps {
@@ -48,6 +49,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
   const [newEventName, setNewEventName] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   const events = eventsQuery.data ?? [];
   const openEvent = events.find((e) => e.isOpen) ?? null;
@@ -132,6 +134,59 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
     } catch {
       toast.error("Could not copy link");
     }
+  };
+
+  /**
+   * QRCodeSVG renders as inline SVG markup, not a discrete image resource, so a
+   * browser's right-click "Save/Print image" doesn't work on it the way it does
+   * on an <img>, and printing the whole dashboard page (Ctrl+P) drags in nav
+   * chrome nobody wants on a printed sheet. This opens a small, isolated window
+   * with just the QR SVG (cloned from what's already rendered, so it's always
+   * in sync with the current event's link) plus the event name/date, and
+   * triggers print directly — the standard fix for "can't print an inline SVG."
+   */
+  const printQrCode = () => {
+    const svgEl = qrCodeRef.current?.querySelector("svg");
+    if (!svgEl) {
+      toast.error("QR code isn't ready yet — try again in a moment.");
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=480,height=620");
+    if (!printWindow) {
+      toast.error("Pop-up blocked — allow pop-ups for this site to print the QR code.");
+      return;
+    }
+    const eventLabel = openEvent
+      ? `${openEvent.name} — ${openEvent.eventDate}`
+      : selectedEvent
+        ? `${selectedEvent.name} — ${selectedEvent.eventDate}`
+        : "";
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CNE Registration QR Code</title>
+          <style>
+            body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 24px; }
+            h1 { font-size: 18px; margin: 0 0 8px; }
+            p { font-size: 14px; color: #444; margin: 0 0 24px; }
+            .qr-box { display: inline-block; border: 1px solid #ccc; border-radius: 12px; padding: 24px; }
+            .footer { margin-top: 24px; font-size: 12px; color: #888; }
+          </style>
+        </head>
+        <body>
+          <h1>Scan to register for CNE</h1>
+          ${eventLabel ? `<p>${eventLabel}</p>` : ""}
+          <div class="qr-box">${svgEl.outerHTML}</div>
+          <p class="footer">No login required</p>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
   };
 
   const downloadCsv = async () => {
@@ -239,7 +294,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-            <div className="rounded-lg border bg-white p-3">
+            <div ref={qrCodeRef} className="rounded-lg border bg-white p-3">
               {publicUrl ? <QRCodeSVG value={publicUrl} size={148} /> : null}
             </div>
             <div className="flex-1 space-y-2">
@@ -252,6 +307,9 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
+                </Button>
+                <Button variant="outline" onClick={printQrCode} disabled={!publicUrl} title="Print QR code" aria-label="Print QR code">
+                  <Printer className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
