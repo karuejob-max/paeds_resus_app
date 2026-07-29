@@ -13,6 +13,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from "@/components/ui/select";
 import {
   Form,
@@ -24,26 +27,41 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, CalendarClock } from "lucide-react";
+import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
 
 const registrationSchema = z
   .object({
     fullName: z.string().min(2, "Please enter your full name"),
     email: z.string().email("Enter a valid email address"),
     phone: z.string().min(5, "Enter a valid phone number"),
-    cadre: z.enum(["BSN", "MSN", "KRCHN", "KRN", "KRNM", "ERN", "HND", "Student Nurse", "Other"]),
+    cadre: z.string().min(1, "Select your professional cadre"),
     cadreOther: z.string().optional(),
-    hndSubspecialty: z.string().optional(),
+    subSpecialty: z.string().optional(),
     department: z.string().min(1, "Department is required"),
   })
-  .refine((data) => data.cadre !== "Other" || (data.cadreOther?.trim().length ?? 0) > 0, {
-    message: "Please specify your cadre",
-    path: ["cadreOther"],
-  })
-  .refine((data) => data.cadre !== "HND" || (data.hndSubspecialty?.trim().length ?? 0) > 0, {
-    message: "Please specify your subspecialty (e.g. KRPCCN)",
-    path: ["hndSubspecialty"],
-  });
+  .refine(
+    (data) => {
+      const requiresOther = ["Other Staff", "Other Intern", "Other Student"].includes(data.cadre);
+      if (requiresOther && !data.cadreOther?.trim()) return false;
+      if (data.subSpecialty === "Other" && !data.cadreOther?.trim()) return false;
+      return true;
+    },
+    {
+      message: "Please specify details",
+      path: ["cadreOther"],
+    }
+  )
+  .refine(
+    (data) => {
+      const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(data.cadre);
+      if (hasSubspecialty && !data.subSpecialty?.trim()) return false;
+      return true;
+    },
+    {
+      message: "Highest qualification subspecialty is required",
+      path: ["subSpecialty"],
+    }
+  );
 
 type RegistrationValues = z.infer<typeof registrationSchema>;
 
@@ -60,6 +78,23 @@ export default function CneRegister() {
   );
 
   const submitMutation = trpc.cne.submitRegistration.useMutation();
+  const utils = trpc.useUtils();
+  const updateProfileMutation = trpc.auth.updateMyProfile.useMutation({
+    onSuccess: async () => {
+      toast({
+        title: "Profile updated",
+        description: "Your professional cadre has been updated in your profile settings.",
+      });
+      await utils.auth.me.invalidate();
+    },
+    onError: (err) => {
+      toast({
+        title: "Profile update failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  });
 
   const form = useForm<RegistrationValues>({
     resolver: zodResolver(registrationSchema),
@@ -67,38 +102,61 @@ export default function CneRegister() {
       fullName: "",
       email: "",
       phone: "",
-      cadre: "KRCHN",
+      cadre: "",
       cadreOther: "",
-      hndSubspecialty: "",
+      subSpecialty: "",
       department: "",
     },
   });
 
   useEffect(() => {
     if (user) {
+      const uCadre = (user as any).cadre ?? "";
+      const uCadreOther = (user as any).cadreOther ?? "";
+
+      const isStandardSub = [
+        "Paediatrician",
+        "Other Specialist",
+        "Paediatric Critical Care",
+        "Neonatology",
+        "Emergency Nursing"
+      ].includes(uCadreOther);
+
       form.reset({
         fullName: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
-        cadre: (user.providerType === "nurse" ? "KRCHN" : "Other") as any,
-        cadreOther: "",
-        hndSubspecialty: "",
+        cadre: uCadre,
+        cadreOther: (uCadreOther && !isStandardSub) ? uCadreOther : "",
+        subSpecialty: isStandardSub ? uCadreOther : "",
         department: "",
       });
     }
   }, [user, form]);
 
   const cadre = form.watch("cadre");
+  const cadreOther = form.watch("cadreOther");
+  const subSpecialty = form.watch("subSpecialty");
 
   const onSubmit = async (values: RegistrationValues) => {
     try {
+      const requiresOther = ["Other Staff", "Other Intern", "Other Student"].includes(values.cadre);
+      const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(values.cadre);
+
+      let finalCadreOther = undefined;
+      if (requiresOther) {
+        finalCadreOther = values.cadreOther;
+      } else if (hasSubspecialty) {
+        finalCadreOther = values.subSpecialty === "Other" ? values.cadreOther : values.subSpecialty;
+      }
+
       await submitMutation.mutateAsync({
         institutionId,
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
         cadre: values.cadre,
-        cadreOther: values.cadre === "Other" ? values.cadreOther : values.cadre === "HND" ? values.hndSubspecialty?.trim() : undefined,
+        cadreOther: finalCadreOther,
         department: values.department,
       });
       setSubmitted(true);
@@ -255,59 +313,199 @@ export default function CneRegister() {
                     name="cadre"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cadre *</FormLabel>
-                        <Select value={field.value} onValueChange={field.onChange}>
+                        <FormLabel>Professional Cadre *</FormLabel>
+                        <Select value={field.value} onValueChange={(val) => {
+                          field.onChange(val);
+                          form.setValue("subSpecialty", "");
+                          form.setValue("cadreOther", "");
+                        }}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select your cadre" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="BSN">BSN</SelectItem>
-                            <SelectItem value="MSN">MSN</SelectItem>
-                            <SelectItem value="KRCHN">KRCHN</SelectItem>
-                            <SelectItem value="KRN">KRN</SelectItem>
-                            <SelectItem value="KRNM">KRNM</SelectItem>
-                            <SelectItem value="ERN">ERN</SelectItem>
-                            <SelectItem value="HND">HND (Higher National Diploma)</SelectItem>
-                            <SelectItem value="Student Nurse">Student Nurse</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                          <SelectContent className="max-h-[300px]">
+                            <SelectGroup>
+                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Staff</SelectLabel>
+                              <SelectItem value="Consultant Physician">Consultant Physician</SelectItem>
+                              <SelectItem value="MO">MO</SelectItem>
+                              <SelectItem value="RCO">RCO</SelectItem>
+                              <SelectItem value="MSN" className="pl-4">— RN: MSN</SelectItem>
+                              <SelectItem value="HND" className="pl-4">— RN: HND</SelectItem>
+                              <SelectItem value="BSN" className="pl-6">—— Undergraduate: BSN</SelectItem>
+                              <SelectItem value="BSM" className="pl-6">—— Undergraduate: BSM</SelectItem>
+                              <SelectItem value="KRCHN" className="pl-6">—— Diploma: KRCHN</SelectItem>
+                              <SelectItem value="KRNM" className="pl-6">—— Diploma: KRNM</SelectItem>
+                              <SelectItem value="KRN" className="pl-6">—— Diploma: KRN</SelectItem>
+                              <SelectItem value="KRM" className="pl-6">—— Diploma: KRM</SelectItem>
+                              <SelectItem value="ERN" className="pl-4">— RN: ERN</SelectItem>
+                              <SelectItem value="Other Staff">Other Staff</SelectItem>
+                            </SelectGroup>
+                            <SelectSeparator />
+                            <SelectGroup>
+                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Intern</SelectLabel>
+                              <SelectItem value="MOI">MOI (Medical Officer Intern)</SelectItem>
+                              <SelectItem value="NOI">NOI (Nursing Officer Intern)</SelectItem>
+                              <SelectItem value="COI">COI (Clinical Officer Intern)</SelectItem>
+                              <SelectItem value="Other Intern">Other Intern</SelectItem>
+                            </SelectGroup>
+                            <SelectSeparator />
+                            <SelectGroup>
+                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Student</SelectLabel>
+                              <SelectItem value="Nursing Student">Nursing Student</SelectItem>
+                              <SelectItem value="Clinical Officer Student">Clinical Officer Student</SelectItem>
+                              <SelectItem value="MBChB Student">MBChB Student</SelectItem>
+                              <SelectItem value="MSN Student" className="pl-4">— MSN Student</SelectItem>
+                              <SelectItem value="HND Student" className="pl-4">— HND Student</SelectItem>
+                              <SelectItem value="BSN Student" className="pl-4">— BSN Student</SelectItem>
+                              <SelectItem value="BSM Student" className="pl-4">— BSM Student</SelectItem>
+                              <SelectItem value="KRCHN Student" className="pl-4">— KRCHN Student</SelectItem>
+                              <SelectItem value="KRNM Student" className="pl-4">— KRNM Student</SelectItem>
+                              <SelectItem value="KRN Student" className="pl-4">— KRN Student</SelectItem>
+                              <SelectItem value="KRM Student" className="pl-4">— KRM Student</SelectItem>
+                              <SelectItem value="ERN Student" className="pl-4">— ERN Student</SelectItem>
+                              <SelectItem value="Consultant Physician Student">Consultant Physician Student</SelectItem>
+                              <SelectItem value="MO Student">MO Student</SelectItem>
+                              <SelectItem value="RCO Student">RCO Student</SelectItem>
+                              <SelectItem value="Other Student">Other Student</SelectItem>
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  {cadre === "HND" ? (
+
+                  {/* Subspecialties for Consultant Physician */}
+                  {(cadre === "Consultant Physician" || cadre === "Consultant Physician Student") && (
                     <FormField
                       control={form.control}
-                      name="hndSubspecialty"
+                      name="subSpecialty"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Subspecialty *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. KRPCCN, KRMHN, KRON" {...field} />
-                          </FormControl>
+                          <FormLabel>Highest Qualification / Specialty *</FormLabel>
+                          <Select value={field.value} onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val !== "Other") {
+                              form.setValue("cadreOther", "");
+                            }
+                          }}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select specialty" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Paediatrician">Paediatrician</SelectItem>
+                              <SelectItem value="Other Specialist">Other Specialist</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  ) : null}
-                  {cadre === "Other" ? (
+                  )}
+
+                  {/* Subspecialties for MSN or HND */}
+                  {["MSN", "HND", "MSN Student", "HND Student"].includes(cadre) && (
+                    <FormField
+                      control={form.control}
+                      name="subSpecialty"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Highest Level of Qualification / Specialty *</FormLabel>
+                          <Select value={field.value} onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val !== "Other") {
+                              form.setValue("cadreOther", "");
+                            }
+                          }}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select subspecialty" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Paediatric Critical Care">Paediatric Critical Care</SelectItem>
+                              <SelectItem value="Neonatology">Neonatology</SelectItem>
+                              <SelectItem value="Emergency Nursing">Emergency Nursing</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Free text input if 'Other' is chosen */}
+                  {(["Other Staff", "Other Intern", "Other Student"].includes(cadre) || subSpecialty === "Other") && (
                     <FormField
                       control={form.control}
                       name="cadreOther"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Specify Cadre *</FormLabel>
+                          <FormLabel>Please specify details *</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. Clinical Officer" {...field} />
+                            <Input placeholder="e.g. Clinical Officer Anaesthetist" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  ) : null}
+                  )}
+
+                  {/* Soft profile nudge */}
+                  {(() => {
+                    const userCadre = (user as any)?.cadre ?? "";
+                    const userCadreOther = (user as any)?.cadreOther ?? "";
+                    const requiresOther = ["Other Staff", "Other Intern", "Other Student"].includes(cadre);
+                    const hasSubspecialty = ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(cadre);
+                    
+                    let currentCadreOther = "";
+                    if (requiresOther) {
+                      currentCadreOther = cadreOther || "";
+                    } else if (hasSubspecialty) {
+                      currentCadreOther = subSpecialty === "Other" ? (cadreOther || "") : (subSpecialty || "");
+                    }
+
+                    const isDifferent = cadre && (cadre !== userCadre || currentCadreOther !== userCadreOther);
+
+                    if (!isDifferent) return null;
+
+                    return (
+                      <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 dark:border-blue-900/30 dark:bg-blue-950/20">
+                        <div className="flex gap-2.5">
+                          <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+                              Cadre Profile Alignment
+                            </p>
+                            <p className="text-[11px] leading-relaxed text-blue-700/90 dark:text-blue-400/90">
+                              Your selected cadre differs from (or is missing on) your profile. Update your Paeds Resus profile cadre so other features on the platform reflect your correct qualifications?
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2.5 text-[11px] font-medium border-blue-200 bg-white hover:bg-blue-50 hover:text-blue-800 dark:border-blue-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+                              disabled={updateProfileMutation.isPending}
+                              onClick={() => {
+                                updateProfileMutation.mutate({
+                                  name: user?.name || "",
+                                  cadre: cadre,
+                                  cadreOther: currentCadreOther || null,
+                                });
+                              }}
+                            >
+                              {updateProfileMutation.isPending ? "Updating..." : "Update Profile Cadre"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <FormField
                     control={form.control}

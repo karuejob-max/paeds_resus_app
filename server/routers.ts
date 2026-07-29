@@ -350,12 +350,14 @@ export const appRouter = router({
         }).catch(() => {});
         return { success: true };
       }),
-    updateMyProfile: protectedProcedure
+     updateMyProfile: protectedProcedure
       .input(
         z.object({
           name: z.string().min(1, "Name is required").max(200),
           phoneMode: z.enum(["ke", "intl"]).optional(),
           phoneValue: z.string().max(64).optional(),
+          cadre: z.string().trim().max(128).optional().nullable(),
+          cadreOther: z.string().trim().max(128).optional().nullable(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -379,11 +381,20 @@ export const appRouter = router({
         await updateUserContactInfo(ctx.user.id, {
           name: input.name.trim(),
           phone,
+          cadre: input.cadre !== undefined ? input.cadre : undefined,
+          cadreOther: input.cadreOther !== undefined ? input.cadreOther : undefined,
         });
         await db.createAuditLog({
           userId: ctx.user.id,
           action: "PROFILE_UPDATED",
-          details: { fields: ["name", "phone"] },
+          details: {
+            fields: [
+              "name",
+              input.phoneValue !== undefined ? "phone" : null,
+              input.cadre !== undefined ? "cadre" : null,
+              input.cadreOther !== undefined ? "cadreOther" : null,
+            ].filter((f): f is string => f !== null)
+          },
           timestamp: new Date(),
         }).catch(() => {});
         return { success: true };

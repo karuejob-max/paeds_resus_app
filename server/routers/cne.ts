@@ -6,8 +6,8 @@ import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { institutionalAccounts, cneEvents, cneAttendees, cpdCodeRevealLogs } from "../../drizzle/schema";
 
-/** Shared cadre enum for input validation, matching the cneAttendees.cadre column. */
-const cadreEnum = z.enum(["BSN", "MSN", "KRCHN", "KRN", "KRNM", "ERN", "HND", "Student Nurse", "Other"]);
+/** Shared cadre validator for input validation, matching the cneAttendees.cadre column. */
+const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
 
 async function requireDb() {
   const db = await getDb();
@@ -312,17 +312,11 @@ export const cneRouter = router({
         });
       }
 
-      if (input.cadre === "Other" && !input.cadreOther?.trim()) {
+      const requiresOther = ["Other", "Consultant Physician", "MSN", "HND"].includes(input.cadre);
+      if (requiresOther && !input.cadreOther?.trim()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Please specify your cadre when selecting 'Other'.",
-        });
-      }
-
-      if (input.cadre === "HND" && !input.cadreOther?.trim()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Please specify your subspecialty (e.g. KRPCCN) when selecting HND.",
+          message: `Please specify your subspecialty or details for ${input.cadre}.`,
         });
       }
 
@@ -349,7 +343,7 @@ export const cneRouter = router({
         email: normalizedEmail,
         phone: input.phone,
         cadre: input.cadre,
-        cadreOther: (input.cadre === "Other" || input.cadre === "HND") ? input.cadreOther?.trim() ?? null : null,
+        cadreOther: requiresOther ? input.cadreOther?.trim() ?? null : null,
         higherDiploma: null,
         department: input.department,
       });
