@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { getProgramIdentity } from "@shared/program-identity";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -553,6 +554,7 @@ export default function LearnerDashboard() {
               <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
             )}
 
+            <ProgramIdentityBadge />
             <DesignationDeclarationCard />
             <Phase1ProofUploadCard />
 
@@ -833,6 +835,19 @@ function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number
   );
 }
 
+function ProgramIdentityBadge() {
+  const { data: phase, isLoading } = trpc.courses.getPhaseSummary.useQuery();
+  if (isLoading || !phase?.programIdentity?.programName) return null;
+
+  return (
+    <div className="mt-6 md:col-span-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 flex items-center gap-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">You're on</span>
+      <span className="text-sm font-bold text-blue-900">{phase.programIdentity.programName}</span>
+      <span className="text-xs text-slate-500">— {phase.programIdentity.programFullName}</span>
+    </div>
+  );
+}
+
 function DesignationDeclarationCard() {
   const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
   const [designation, setDesignation] = useState<
@@ -910,6 +925,24 @@ function DesignationDeclarationCard() {
               onChange={(e) => setLicenseNumber(e.target.value)}
             />
           )}
+
+          {designation && (() => {
+            const preview = getProgramIdentity(designation);
+            return (
+              <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
+                {preview.programName && (
+                  <p className="font-semibold text-blue-900 mb-1">
+                    You'll be on: {preview.programFullName}
+                  </p>
+                )}
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {preview.rules.map((rule) => (
+                    <li key={rule}>{rule}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           <Button
             id="designation-submit-btn"

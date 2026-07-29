@@ -79,6 +79,9 @@ export function initializeScheduler() {
   // Legal ops: monthly retention dry-run log (execute via `pnpm run retention:cleanup -- --execute`)
   scheduleRetentionCleanupDryRun();
 
+  // Care Signal: LLM narrative redaction job (runs every 10 minutes)
+  scheduleCareSignalRedaction();
+
   console.log("[Scheduler] All scheduled tasks initialized");
 }
 
@@ -404,6 +407,26 @@ function generateSMSMessage(reminderType: string): string {
   };
 
   return messages[reminderType] || "Hello from Paeds Resus!";
+}
+
+/**
+ * Schedule the Care Signal LLM narrative redaction job to run every 10 minutes.
+ */
+function scheduleCareSignalRedaction() {
+  cron.schedule("*/10 * * * *", async () => {
+    try {
+      const db = await requireDb();
+      const { redactPendingNarratives } = await import("./lib/care-signal-redact");
+      const result = await redactPendingNarratives(db);
+      if (result.processed > 0) {
+        console.log(
+          `[Scheduler] Care Signal narrative redaction completed: processed=${result.processed} succeeded=${result.succeeded} failed=${result.failed}`
+        );
+      }
+    } catch (error) {
+      console.error("[Scheduler] Care Signal narrative redaction failed:", error);
+    }
+  });
 }
 
 /**
