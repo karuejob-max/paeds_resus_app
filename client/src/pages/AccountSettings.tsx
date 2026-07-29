@@ -19,6 +19,7 @@ import { trpc } from "@/lib/trpc";
 import type { PhoneCountryMode } from "@shared/user-phone";
 import { normalizeUserPhone } from "@shared/user-phone";
 import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 
 export default function AccountSettings() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -42,15 +43,21 @@ export default function AccountSettings() {
     setCadre(uCadre);
 
     const cOther = (user as any).cadreOther ?? "";
-    const isStandardSub = [
-      "Paediatrician",
-      "Other Specialist",
-      "Paediatric Critical Care",
-      "Neonatology",
-      "Emergency Nursing"
-    ].includes(cOther);
+    const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(cOther);
 
-    if (cOther && !isStandardSub && ["Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student"].includes(uCadre)) {
+    if (
+      cOther &&
+      !isStandardSub &&
+      [
+        "Consultant Physician",
+        "MSN",
+        "HND",
+        "Consultant Physician Student",
+        "MSN Student",
+        "HND Student",
+        "RCO HND",
+      ].includes(uCadre)
+    ) {
       setCadreOther("Other");
       setCustomOther(cOther);
     } else {
