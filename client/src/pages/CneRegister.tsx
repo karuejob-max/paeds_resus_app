@@ -28,6 +28,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
+import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
 
 const registrationSchema = z
   .object({
@@ -312,149 +313,23 @@ export default function CneRegister() {
                     control={form.control}
                     name="cadre"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Professional Cadre *</FormLabel>
-                        <Select value={field.value} onValueChange={(val) => {
-                          field.onChange(val);
-                          form.setValue("subSpecialty", "");
-                          form.setValue("cadreOther", "");
-                        }}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select your cadre" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-[300px]">
-                            <SelectGroup>
-                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Staff</SelectLabel>
-                              <SelectItem value="Consultant Physician">Consultant Physician</SelectItem>
-                              <SelectItem value="MO">MO</SelectItem>
-                              <SelectItem value="RCO">RCO</SelectItem>
-                              <SelectItem value="MSN" className="pl-4">— RN: MSN</SelectItem>
-                              <SelectItem value="HND" className="pl-4">— RN: HND</SelectItem>
-                              <SelectItem value="BSN" className="pl-6">—— Undergraduate: BSN</SelectItem>
-                              <SelectItem value="BSM" className="pl-6">—— Undergraduate: BSM</SelectItem>
-                              <SelectItem value="KRCHN" className="pl-6">—— Diploma: KRCHN</SelectItem>
-                              <SelectItem value="KRNM" className="pl-6">—— Diploma: KRNM</SelectItem>
-                              <SelectItem value="KRN" className="pl-6">—— Diploma: KRN</SelectItem>
-                              <SelectItem value="KRM" className="pl-6">—— Diploma: KRM</SelectItem>
-                              <SelectItem value="ERN" className="pl-4">— RN: ERN</SelectItem>
-                              <SelectItem value="Other Staff">Other Staff</SelectItem>
-                            </SelectGroup>
-                            <SelectSeparator />
-                            <SelectGroup>
-                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Intern</SelectLabel>
-                              <SelectItem value="MOI">MOI (Medical Officer Intern)</SelectItem>
-                              <SelectItem value="NOI">NOI (Nursing Officer Intern)</SelectItem>
-                              <SelectItem value="COI">COI (Clinical Officer Intern)</SelectItem>
-                              <SelectItem value="Other Intern">Other Intern</SelectItem>
-                            </SelectGroup>
-                            <SelectSeparator />
-                            <SelectGroup>
-                              <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Student</SelectLabel>
-                              <SelectItem value="Nursing Student">Nursing Student</SelectItem>
-                              <SelectItem value="Clinical Officer Student">Clinical Officer Student</SelectItem>
-                              <SelectItem value="MBChB Student">MBChB Student</SelectItem>
-                              <SelectItem value="MSN Student" className="pl-4">— MSN Student</SelectItem>
-                              <SelectItem value="HND Student" className="pl-4">— HND Student</SelectItem>
-                              <SelectItem value="BSN Student" className="pl-4">— BSN Student</SelectItem>
-                              <SelectItem value="BSM Student" className="pl-4">— BSM Student</SelectItem>
-                              <SelectItem value="KRCHN Student" className="pl-4">— KRCHN Student</SelectItem>
-                              <SelectItem value="KRNM Student" className="pl-4">— KRNM Student</SelectItem>
-                              <SelectItem value="KRN Student" className="pl-4">— KRN Student</SelectItem>
-                              <SelectItem value="KRM Student" className="pl-4">— KRM Student</SelectItem>
-                              <SelectItem value="ERN Student" className="pl-4">— ERN Student</SelectItem>
-                              <SelectItem value="Consultant Physician Student">Consultant Physician Student</SelectItem>
-                              <SelectItem value="MO Student">MO Student</SelectItem>
-                              <SelectItem value="RCO Student">RCO Student</SelectItem>
-                              <SelectItem value="Other Student">Other Student</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                      <FormItem className="space-y-0">
+                        <FormControl>
+                          <CadreProgressiveSelector
+                            value={field.value}
+                            onChange={(val) => {
+                              field.onChange(val);
+                            }}
+                            cadreOtherValue={form.watch("cadreOther") || ""}
+                            onCadreOtherChange={(val) => form.setValue("cadreOther", val)}
+                            subSpecialtyValue={form.watch("subSpecialty") || ""}
+                            onSubSpecialtyChange={(val) => form.setValue("subSpecialty", val)}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  {/* Subspecialties for Consultant Physician */}
-                  {(cadre === "Consultant Physician" || cadre === "Consultant Physician Student") && (
-                    <FormField
-                      control={form.control}
-                      name="subSpecialty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Highest Qualification / Specialty *</FormLabel>
-                          <Select value={field.value} onValueChange={(val) => {
-                            field.onChange(val);
-                            if (val !== "Other") {
-                              form.setValue("cadreOther", "");
-                            }
-                          }}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select specialty" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Paediatrician">Paediatrician</SelectItem>
-                              <SelectItem value="Other Specialist">Other Specialist</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-
-                  {/* Subspecialties for MSN or HND */}
-                  {["MSN", "HND", "MSN Student", "HND Student"].includes(cadre) && (
-                    <FormField
-                      control={form.control}
-                      name="subSpecialty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Highest Level of Qualification / Specialty *</FormLabel>
-                          <Select value={field.value} onValueChange={(val) => {
-                            field.onChange(val);
-                            if (val !== "Other") {
-                              form.setValue("cadreOther", "");
-                            }
-                          }}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select subspecialty" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Paediatric Critical Care">Paediatric Critical Care</SelectItem>
-                              <SelectItem value="Neonatology">Neonatology</SelectItem>
-                              <SelectItem value="Emergency Nursing">Emergency Nursing</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-
-                  {/* Free text input if 'Other' is chosen */}
-                  {(["Other Staff", "Other Intern", "Other Student"].includes(cadre) || subSpecialty === "Other") && (
-                    <FormField
-                      control={form.control}
-                      name="cadreOther"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Please specify details *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Clinical Officer Anaesthetist" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
 
                   {/* Soft profile nudge */}
                   {(() => {
