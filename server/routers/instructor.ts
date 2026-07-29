@@ -10,6 +10,9 @@ import {
   enrollments,
   courses,
   institutionalAccounts,
+  instructorQualifications,
+  instructorMentorships,
+  instructorMentorshipGroups,
 } from "../../drizzle/schema";
 import { signOffPracticalSkills } from "../certificates";
 
@@ -31,10 +34,32 @@ export const instructorRouter = router({
         instructorNumber: users.instructorNumber,
         instructorCertifiedAt: users.instructorCertifiedAt,
         instructorApprovedAt: users.instructorApprovedAt,
+        instructorTier: users.instructorTier,
       })
       .from(users)
       .where(eq(users.id, ctx.user.id))
       .limit(1);
+
+    const qualifications = await db
+      .select({ programType: instructorQualifications.programType })
+      .from(instructorQualifications)
+      .where(eq(instructorQualifications.userId, ctx.user.id));
+
+    const [mentorship] = await db
+      .select({ id: instructorMentorships.id, mentorUserId: instructorMentorships.mentorUserId })
+      .from(instructorMentorships)
+      .where(eq(instructorMentorships.menteeUserId, ctx.user.id))
+      .limit(1);
+
+    let confirmedGroupCount = 0;
+    if (mentorship) {
+      const groups = await db
+        .select({ id: instructorMentorshipGroups.id })
+        .from(instructorMentorshipGroups)
+        .where(eq(instructorMentorshipGroups.mentorshipId, mentorship.id));
+      confirmedGroupCount = groups.length;
+    }
+
     return {
       certified: Boolean(row?.instructorCertifiedAt && row?.instructorNumber),
       instructorNumber: row?.instructorNumber ?? null,
@@ -44,6 +69,11 @@ export const instructorRouter = router({
       portalUnlocked: Boolean(
         row?.instructorNumber && row?.instructorCertifiedAt && row?.instructorApprovedAt
       ),
+      instructorTier: row?.instructorTier ?? null,
+      qualifiedCourses: qualifications.map((q: { programType: string }) => q.programType),
+      mentorUserId: mentorship?.mentorUserId ?? null,
+      confirmedGroupCount,
+      groupsNeededForQualified: Math.max(0, 3 - confirmedGroupCount),
     };
   }),
 
@@ -311,4 +341,160 @@ export const instructorRouter = router({
 
       return { success: true };
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MENTORSHIP PATHWAY (CEO decision, 2026-07-21): provisional -> qualified
+  // -> lead_instructor. Admin-only to assign a mentor (keeps this a deliberate
+  // pairing decision, not self-service). A mentor confirms groups their
+  // mentee led independently; 3 confirmed groups auto-promotes the mentee
+  // to qualified; 10 mentees taken to qualified auto-promotes the mentor
+  // to lead_instructor.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  assignMentor: protectedProcedure
+    .input(z.object({ menteeUserId: z.number().int().positive(), mentorUserId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only platform admins can assign an instructor mentor." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const existing = await db
+        .select({ id: instructorMentorships.id })
+        .from(instructorMentorships)
+        .where(eq(instructorMentorships.menteeUserId, input.menteeUserId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This instructor already has a mentor assigned for their provisional period." });
+      }
+
+      await db.insert(instructorMentorships).values({
+        menteeUserId: input.menteeUserId,
+        mentorUserId: input.mentorUserId,
+      });
+
+      return { success: true };
+    }),
+
+  confirmMentorshipGroup: protectedProcedure
+    .input(z.object({
+      menteeUserId: z.number().int().positive(),
+      programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]),
+      institutionalAccountId: z.number().int().positive().optional(),
+      notes: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [mentorship] = await db
+        .select({ id: instructorMentorships.id, mentorUserId: instructorMentorships.mentorUserId })
+        .from(instructorMentorships)
+        .where(eq(instructorMentorships.menteeUserId, input.menteeUserId))
+        .limit(1);
+
+      if (!mentorship) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "This instructor has no mentor assigned." });
+      }
+      if (mentorship.mentorUserId !== ctx.user.id && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only this instructor's assigned mentor (or an admin) can confirm a group." });
+      }
+
+      await db.insert(instructorMentorshipGroups).values({
+        mentorshipId: mentorship.id,
+        institutionalAccountId: input.institutionalAccountId,
+        programType: input.programType,
+        confirmedByUserId: ctx.user.id,
+        notes: input.notes,
+      });
+
+      const groups = await db
+        .select({ id: instructorMentorshipGroups.id })
+        .from(instructorMentorshipGroups)
+        .where(eq(instructorMentorshipGroups.mentorshipId, mentorship.id));
+
+      let promoted = false;
+      if (groups.length >= 3) {
+        await db
+          .update(users)
+          .set({ instructorTier: "qualified" })
+          .where(and(eq(users.id, input.menteeUserId), eq(users.instructorTier, "provisional")));
+        promoted = true;
+
+        // Lead Instructor check: has this mentor now taken 10 distinct mentees to "qualified"?
+        const mentorMentorships = await db
+          .select({ menteeUserId: instructorMentorships.menteeUserId })
+          .from(instructorMentorships)
+          .where(eq(instructorMentorships.mentorUserId, mentorship.mentorUserId));
+
+        let qualifiedMenteeCount = 0;
+        for (const m of mentorMentorships) {
+          const [menteeUser] = await db
+            .select({ instructorTier: users.instructorTier })
+            .from(users)
+            .where(eq(users.id, m.menteeUserId))
+            .limit(1);
+          if (menteeUser?.instructorTier === "qualified" || menteeUser?.instructorTier === "lead_instructor") {
+            qualifiedMenteeCount++;
+          }
+        }
+        if (qualifiedMenteeCount >= 10) {
+          await db
+            .update(users)
+            .set({ instructorTier: "lead_instructor" })
+            .where(and(eq(users.id, mentorship.mentorUserId), eq(users.instructorTier, "qualified")));
+        }
+      }
+
+      return { success: true, groupCount: groups.length, promotedToQualified: promoted };
+    }),
+
+  /** Bootstrap override (CEO decision, 2026-07-21): for instructors trained
+   * directly by the CEO before this system existed, who have no real
+   * mentor to log into it. Admin-only, direct tier assignment. */
+  setInstructorTierOverride: protectedProcedure
+    .input(z.object({ userId: z.number().int().positive(), tier: z.enum(["provisional", "qualified", "lead_instructor"]) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only platform admins can override an instructor's tier." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      await db.update(users).set({ instructorTier: input.tier }).where(eq(users.id, input.userId));
+      return { success: true };
+    }),
+
+  /** For a mentor's own portal view: who they're mentoring and progress toward lead instructor. */
+  getMyMentees: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    const mentorships = await db
+      .select({ id: instructorMentorships.id, menteeUserId: instructorMentorships.menteeUserId })
+      .from(instructorMentorships)
+      .where(eq(instructorMentorships.mentorUserId, ctx.user.id));
+
+    const result = [];
+    for (const m of mentorships) {
+      const [mentee] = await db
+        .select({ name: users.name, instructorTier: users.instructorTier })
+        .from(users)
+        .where(eq(users.id, m.menteeUserId))
+        .limit(1);
+      const groups = await db
+        .select({ id: instructorMentorshipGroups.id })
+        .from(instructorMentorshipGroups)
+        .where(eq(instructorMentorshipGroups.mentorshipId, m.id));
+      result.push({
+        menteeUserId: m.menteeUserId,
+        menteeName: mentee?.name ?? "Unknown",
+        instructorTier: mentee?.instructorTier ?? null,
+        confirmedGroupCount: groups.length,
+      });
+    }
+    return result;
+  }),
 });
