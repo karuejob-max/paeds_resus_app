@@ -14,6 +14,7 @@ import {
 } from '../lib/micro-course-catalog';
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
+import { getProgramIdentity } from '../../shared/program-identity';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
@@ -1347,6 +1348,7 @@ export const coursesRouter = router({
       staffMemberId: s.id,
       phaseStatus: s.phaseStatus,
       designation: s.designation,
+      programIdentity: getProgramIdentity(s.designation),
       phase1ProofUploaded: !!s.phase1ProofUrl,
       phase1ProofApproved: !!s.phase1ProofApprovedAt,
       memberSessions,

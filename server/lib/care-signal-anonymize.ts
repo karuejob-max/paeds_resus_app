@@ -53,7 +53,11 @@ export async function anonymizeCareSignalEventRows(
   const facilityNames = await getKnownFacilityNames(db);
 
   const rows = await db
-    .select({ id: careSignalEvents.id, rawNarrative: careSignalEvents.rawNarrative })
+    .select({
+      id: careSignalEvents.id,
+      rawNarrative: careSignalEvents.rawNarrative,
+      redactedNarrative: careSignalEvents.redactedNarrative,
+    })
     .from(careSignalEvents)
     .where(inArray(careSignalEvents.id, eventIds));
 
@@ -66,15 +70,21 @@ export async function anonymizeCareSignalEventRows(
     await tx.execute(sql`SET @RAW_NARRATIVE_LEGAL_OVERRIDE_REASON = ${reason}`);
 
     for (const row of rows) {
-      const deidentifiedNarrative = row.rawNarrative
-        ? deidentifyRawNarrative(row.rawNarrative, facilityNames).text
-        : row.rawNarrative;
+      const deidentifiedNarrative = row.redactedNarrative
+        ? row.redactedNarrative
+        : row.rawNarrative
+          ? deidentifyRawNarrative(row.rawNarrative, facilityNames).text
+          : row.rawNarrative;
 
       if (row.rawNarrative) narrativesRedacted++;
 
       await tx
         .update(careSignalEvents)
-        .set({ userId: null, rawNarrative: deidentifiedNarrative })
+        .set({
+          userId: null,
+          rawNarrative: deidentifiedNarrative,
+          redactedNarrative: deidentifiedNarrative,
+        })
         .where(eq(careSignalEvents.id, row.id));
     }
   });
