@@ -318,4 +318,47 @@ describe("CNE Router CPD Code Procedures", () => {
     expect(res.records).toHaveLength(1);
     expect(res.records[0].cpdCode).toBe("TEST-CPD-123");
   });
+
+  it("allows submitting registration when authenticated and email matches session", async () => {
+    const mockLimit1 = vi.fn().mockResolvedValue([{ id: 100 }]);
+    const mockOrderBy1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
+    const mockWhere1 = vi.fn().mockReturnValue({ orderBy: mockOrderBy1 });
+    const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
+    mockSelect.mockReturnValueOnce({ from: mockFrom1 });
+
+    const mockLimit2 = vi.fn().mockResolvedValue([]);
+    const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
+    const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
+    mockSelect.mockReturnValueOnce({ from: mockFrom2 });
+
+    const mockValues = vi.fn().mockResolvedValue({ success: true });
+    mockInsert.mockReturnValue({ values: mockValues });
+
+    const caller = appRouter.createCaller(mockContext);
+    const res = await caller.cne.submitRegistration({
+      institutionId: 1,
+      fullName: "Test Nurse",
+      email: "nurse@test.com",
+      phone: "+254712345678",
+      cadre: "KRCHN",
+      department: "Pediatrics",
+    });
+
+    expect(res.success).toBe(true);
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("throws FORBIDDEN when submitting registration with email different from session", async () => {
+    const caller = appRouter.createCaller(mockContext);
+    await expect(
+      caller.cne.submitRegistration({
+        institutionId: 1,
+        fullName: "Proxy Nurse",
+        email: "other@test.com",
+        phone: "+254712345678",
+        cadre: "KRCHN",
+        department: "Pediatrics",
+      })
+    ).rejects.toThrow(/You can only register for yourself/);
+  });
 });

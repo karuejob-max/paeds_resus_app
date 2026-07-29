@@ -261,8 +261,8 @@ export const cneRouter = router({
       };
     }),
 
-  /** Public: submit a CNE registration. Validates the event is open and dedupes by email + event. */
-  submitRegistration: publicProcedure
+  /** Submit a CNE registration. Validates the event is open, matches the visitor session, and dedupes by email + event. */
+  submitRegistration: protectedProcedure
     .input(
       z.object({
         institutionId: z.number().int().positive(),
@@ -274,8 +274,24 @@ export const cneRouter = router({
         department: z.string().trim().min(1).max(256),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+
+      const email = (ctx.user.email ?? "").trim().toLowerCase();
+      if (!email) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your user account does not have an email address configured. Please set one in settings.",
+        });
+      }
+
+      const normalizedInputEmail = input.email.trim().toLowerCase();
+      if (normalizedInputEmail !== email) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only register for yourself using your signed-in account email.",
+        });
+      }
 
       // Event must be open for this institution.
       const [event] = await db
