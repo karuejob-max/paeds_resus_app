@@ -91,7 +91,7 @@ export default function Header() {
         { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
         { label: "AHA", href: "/aha-courses", icon: "🩺", group: "learn" },
-        { label: "My CNE", href: "/my-cne-certificates", icon: "📜", group: "learn" },
+        { label: "My CPD", href: "/my-cpd-certificates", icon: "📜", group: "learn" },
       ];
       if (instructorStatus?.portalUnlocked) {
         items.push({ label: "Instructor", href: "/instructor-portal", icon: "🎓" });

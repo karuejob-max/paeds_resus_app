@@ -23,12 +23,12 @@ import { Award, Download, Loader2, Inbox, Key } from "lucide-react";
 import CpdClaimDialog from "@/components/CpdClaimDialog";
 
 /**
- * Self-service CNE certificate portal for any logged-in user (nurse). Lists all
- * CNE attendance records matched to the user's account email and lets them
+ * Self-service CPD certificate portal for any logged-in user. Lists all
+ * CPD attendance records matched to the user's account email and lets them
  * download each certificate as a PDF via the existing Express route
- * (/api/cne/certificate/:attendeeId), which authorizes the nurse by matching email.
+ * (/api/cne/certificate/:attendeeId), which authorizes the user by matching email.
  */
-export default function MyCneCertificates() {
+export default function MyCpdCertificates() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -73,9 +73,9 @@ export default function MyCneCertificates() {
           <Award className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My CNE Certificates</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">My CPD Certificates</h1>
           <p className="text-sm text-muted-foreground">
-            Continuing Nursing Education sessions you have attended.
+            Continuous Professional Development sessions you have attended.
           </p>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function MyCneCertificates() {
           <CardDescription>
             {matchedEmail
               ? `Showing certificates linked to ${matchedEmail}. Registered with a different email? Use that account to see those records.`
-              : "Your account has no email on file, so we cannot match CNE registrations."}
+              : "Your account has no email on file, so we cannot match CPD registrations."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,9 +113,9 @@ export default function MyCneCertificates() {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <Inbox className="h-7 w-7 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium">No CNE certificates yet</p>
+              <p className="text-sm font-medium">No CPD certificates yet</p>
               <p className="max-w-md text-xs text-muted-foreground">
-                When you register for a CNE session using this account&apos;s email
+                When you register for a CPD session using this account&apos;s email
                 {matchedEmail ? ` (${matchedEmail})` : ""}, your certificate will appear here for
                 download.
               </p>

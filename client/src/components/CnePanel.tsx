@@ -78,7 +78,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
 
   const publicUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/cne/register/${institutionId}`;
+    return `${window.location.origin}/cpd/register/${institutionId}`;
   }, [institutionId]);
 
   const updateCoordinatorMutation = trpc.cne.updateCoordinator.useMutation({
