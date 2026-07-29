@@ -15,6 +15,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { isLegalDocumentPath } from "@/lib/legal-routes";
+import { LEGAL_CHANGE_SUMMARY, LEGAL_DOCUMENT_VERSIONS } from "@shared/legal-versions";
 
 /** Blocks stale Terms/Privacy until user re-accepts current versions. */
 export function LegalReconsentGate({ children }: { children: React.ReactNode }) {
@@ -69,9 +70,8 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
-            Our Terms of Use were updated to add payment terms for the Subsidised ACLS/BLS Cohort Program —
-            cohort payments (including instalments) are non-refundable, and Phase 3 (hands-on assessment)
-            requires payment in full. This doesn't change anything else about your account.
+            {LEGAL_CHANGE_SUMMARY[LEGAL_DOCUMENT_VERSIONS.termsOfUse] ??
+              "Our Terms of Use or Privacy Policy were updated. Please review and re-accept to continue."}
           </p>
 
           <ul className="space-y-2 text-sm font-medium">
