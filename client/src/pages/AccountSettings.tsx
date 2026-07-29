@@ -18,7 +18,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import type { PhoneCountryMode } from "@shared/user-phone";
 import { normalizeUserPhone } from "@shared/user-phone";
-import { CNE_CADRE_TAXONOMY } from "@/lib/cadre-taxonomy";
+import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
 
 export default function AccountSettings() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -199,108 +199,14 @@ export default function AccountSettings() {
               </div>
               <div className="space-y-2 border-t pt-4">
                 <Label>Professional Cadre</Label>
-                <Select value={cadre} onValueChange={(v) => {
-                  setCadre(v);
-                  setCadreOther("");
-                  setCustomOther("");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your cadre" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    <SelectGroup>
-                      <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Staff</SelectLabel>
-                      <SelectItem value="Consultant Physician">Consultant Physician</SelectItem>
-                      <SelectItem value="MO">MO</SelectItem>
-                      <SelectItem value="RCO">RCO</SelectItem>
-                      <SelectItem value="MSN" className="pl-4">— RN: MSN</SelectItem>
-                      <SelectItem value="HND" className="pl-4">— RN: HND</SelectItem>
-                      <SelectItem value="BSN" className="pl-6">—— Undergraduate: BSN</SelectItem>
-                      <SelectItem value="BSM" className="pl-6">—— Undergraduate: BSM</SelectItem>
-                      <SelectItem value="KRCHN" className="pl-6">—— Diploma: KRCHN</SelectItem>
-                      <SelectItem value="KRNM" className="pl-6">—— Diploma: KRNM</SelectItem>
-                      <SelectItem value="KRN" className="pl-6">—— Diploma: KRN</SelectItem>
-                      <SelectItem value="KRM" className="pl-6">—— Diploma: KRM</SelectItem>
-                      <SelectItem value="ERN" className="pl-4">— RN: ERN</SelectItem>
-                      <SelectItem value="Other Staff">Other Staff</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Intern</SelectLabel>
-                      <SelectItem value="MOI">MOI (Medical Officer Intern)</SelectItem>
-                      <SelectItem value="NOI">NOI (Nursing Officer Intern)</SelectItem>
-                      <SelectItem value="COI">COI (Clinical Officer Intern)</SelectItem>
-                      <SelectItem value="Other Intern">Other Intern</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel className="font-bold text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">Student</SelectLabel>
-                      <SelectItem value="Nursing Student">Nursing Student</SelectItem>
-                      <SelectItem value="Clinical Officer Student">Clinical Officer Student</SelectItem>
-                      <SelectItem value="MBChB Student">MBChB Student</SelectItem>
-                      <SelectItem value="MSN Student" className="pl-4">— MSN Student</SelectItem>
-                      <SelectItem value="HND Student" className="pl-4">— HND Student</SelectItem>
-                      <SelectItem value="BSN Student" className="pl-4">— BSN Student</SelectItem>
-                      <SelectItem value="BSM Student" className="pl-4">— BSM Student</SelectItem>
-                      <SelectItem value="KRCHN Student" className="pl-4">— KRCHN Student</SelectItem>
-                      <SelectItem value="KRNM Student" className="pl-4">— KRNM Student</SelectItem>
-                      <SelectItem value="KRN Student" className="pl-4">— KRN Student</SelectItem>
-                      <SelectItem value="KRM Student" className="pl-4">— KRM Student</SelectItem>
-                      <SelectItem value="ERN Student" className="pl-4">— ERN Student</SelectItem>
-                      <SelectItem value="Consultant Physician Student">Consultant Physician Student</SelectItem>
-                      <SelectItem value="MO Student">MO Student</SelectItem>
-                      <SelectItem value="RCO Student">RCO Student</SelectItem>
-                      <SelectItem value="Other Student">Other Student</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-
-                {/* Subspecialties for Consultant Physician */}
-                {(cadre === "Consultant Physician" || cadre === "Consultant Physician Student") && (
-                  <div className="space-y-1 mt-2">
-                    <Label className="text-xs text-muted-foreground">Highest Qualification / Specialty</Label>
-                    <Select value={cadreOther} onValueChange={setCadreOther}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select specialty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Paediatrician">Paediatrician</SelectItem>
-                        <SelectItem value="Other Specialist">Other Specialist</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Subspecialties for MSN or HND */}
-                {["MSN", "HND", "MSN Student", "HND Student"].includes(cadre) && (
-                  <div className="space-y-1 mt-2">
-                    <Label className="text-xs text-muted-foreground">Highest Level of Qualification / Specialty</Label>
-                    <Select value={cadreOther} onValueChange={setCadreOther}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select subspecialty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Paediatric Critical Care">Paediatric Critical Care</SelectItem>
-                        <SelectItem value="Neonatology">Neonatology</SelectItem>
-                        <SelectItem value="Emergency Nursing">Emergency Nursing</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Free text input if 'Other' is chosen */}
-                {(["Other Staff", "Other Intern", "Other Student"].includes(cadre) || cadreOther === "Other") && (
-                  <div className="space-y-1 mt-2">
-                    <Label className="text-xs text-muted-foreground">Please specify details</Label>
-                    <Input
-                      placeholder="e.g. Paediatric Nephrologist / Clinical Officer Anaesthetist"
-                      value={customOther}
-                      onChange={(e) => setCustomOther(e.target.value)}
-                    />
-                  </div>
-                )}
+                <CadreProgressiveSelector
+                  value={cadre}
+                  onChange={setCadre}
+                  cadreOtherValue={customOther}
+                  onCadreOtherChange={setCustomOther}
+                  subSpecialtyValue={cadreOther}
+                  onSubSpecialtyChange={setCadreOther}
+                />
               </div>
 
               <p className="text-xs text-muted-foreground">Email: {user.email}</p>
