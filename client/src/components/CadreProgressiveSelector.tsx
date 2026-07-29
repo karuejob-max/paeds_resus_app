@@ -85,6 +85,35 @@ export function getTaxonomyFromCadre(cadreVal: string) {
   return { category, role, rnLevel, rnSub };
 }
 
+function getLeafValue(category: string, role: string, rnLevel: string, rnSub: string): string {
+  if (category === "Intern") {
+    return role;
+  }
+  if (category === "Student") {
+    if (role === "RN Student") {
+      if (rnLevel === "MSN") return "MSN Student";
+      if (rnLevel === "HND") return "HND Student";
+      if (rnLevel === "ERN") return "ERN Student";
+      if (rnLevel === "Undergraduate") return rnSub;
+      if (rnLevel === "Diploma") return rnSub;
+      return "";
+    }
+    return role;
+  }
+  if (category === "Staff") {
+    if (role === "RN") {
+      if (rnLevel === "MSN") return "MSN";
+      if (rnLevel === "HND") return "HND";
+      if (rnLevel === "ERN") return "ERN";
+      if (rnLevel === "Undergraduate") return rnSub;
+      if (rnLevel === "Diploma") return rnSub;
+      return "";
+    }
+    return role;
+  }
+  return "";
+}
+
 export default function CadreProgressiveSelector({
   value,
   onChange,
@@ -93,15 +122,46 @@ export default function CadreProgressiveSelector({
   subSpecialtyValue,
   onSubSpecialtyChange,
 }: CadreProgressiveSelectorProps) {
-  const { category, role, rnLevel, rnSub } = getTaxonomyFromCadre(value);
+  const [localCategory, setLocalCategory] = useState("");
+  const [localRole, setLocalRole] = useState("");
+  const [localRnLevel, setLocalRnLevel] = useState("");
+  const [localRnSub, setLocalRnSub] = useState("");
+
+  // Sync from parent value
+  useEffect(() => {
+    if (value) {
+      if (value !== getLeafValue(localCategory, localRole, localRnLevel, localRnSub)) {
+        const { category, role, rnLevel, rnSub } = getTaxonomyFromCadre(value);
+        setLocalCategory(category);
+        setLocalRole(role);
+        setLocalRnLevel(rnLevel);
+        setLocalRnSub(rnSub);
+      }
+    } else {
+      if (getLeafValue(localCategory, localRole, localRnLevel, localRnSub) !== "") {
+        setLocalCategory("");
+        setLocalRole("");
+        setLocalRnLevel("");
+        setLocalRnSub("");
+      }
+    }
+  }, [value]);
 
   const handleCategoryChange = (newCat: string) => {
+    setLocalCategory(newCat);
+    setLocalRole("");
+    setLocalRnLevel("");
+    setLocalRnSub("");
     onChange("");
     onSubSpecialtyChange("");
     onCadreOtherChange("");
   };
 
   const handleRoleChange = (newRole: string) => {
+    setLocalRole(newRole);
+    setLocalRnLevel("");
+    setLocalRnSub("");
+
     if (
       ["Consultant Physician", "Consultant Physician Student", "MSN", "HND", "MSN Student", "HND Student"].includes(
         newRole
@@ -109,43 +169,37 @@ export default function CadreProgressiveSelector({
     ) {
       onSubSpecialtyChange("");
     }
-    if (
-      category === "Intern" ||
-      ["MO", "RCO", "Other Staff", "Nursing Student", "Clinical Officer Student", "MBChB Student", "Other Student", "Consultant Physician Student", "MO Student", "RCO Student"].includes(
-        newRole
-      )
-    ) {
-      onChange(newRole);
-    } else {
-      onChange("");
-    }
+
     onCadreOtherChange("");
+
+    const leaf = getLeafValue(localCategory, newRole, "", "");
+    onChange(leaf);
   };
 
   const handleLevelChange = (newLevel: string) => {
-    if (["MSN", "HND", "ERN"].includes(newLevel)) {
-      const finalVal = category === "Student" ? `${newLevel} Student` : newLevel;
-      onChange(finalVal);
-    } else {
-      onChange("");
-    }
+    setLocalRnLevel(newLevel);
+    setLocalRnSub("");
     onSubSpecialtyChange("");
     onCadreOtherChange("");
+
+    const leaf = getLeafValue(localCategory, localRole, newLevel, "");
+    onChange(leaf);
   };
 
   const handleSubChange = (newSub: string) => {
-    onChange(newSub);
+    setLocalRnSub(newSub);
     onCadreOtherChange("");
+
+    const leaf = getLeafValue(localCategory, localRole, localRnLevel, newSub);
+    onChange(leaf);
   };
 
-  // Determine specialty prompt details
   const showPhysicianSpecialty =
-    value === "Consultant Physician" || value === "Consultant Physician Student";
-  const showNurseSpecialty = ["MSN", "HND", "MSN Student", "HND Student"].includes(value);
+    localRole === "Consultant Physician" || localRole === "Consultant Physician Student";
+  const showNurseSpecialty = localRnLevel === "MSN" || localRnLevel === "HND";
 
-  // Determine free text details prompt
   const showFreeTextDetails =
-    ["Other Staff", "Other Intern", "Other Student"].includes(value) ||
+    ["Other Staff", "Other Intern", "Other Student"].includes(localRole) ||
     subSpecialtyValue === "Other";
 
   return (
@@ -153,7 +207,7 @@ export default function CadreProgressiveSelector({
       {/* Category selection */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Category *</Label>
-        <Select value={category} onValueChange={handleCategoryChange}>
+        <Select value={localCategory} onValueChange={handleCategoryChange}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select Category (Staff, Intern, Student)" />
           </SelectTrigger>
@@ -166,29 +220,29 @@ export default function CadreProgressiveSelector({
       </div>
 
       {/* Role / Profession Selection */}
-      {category && (
+      {localCategory && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">
-            {category === "Staff"
+            {localCategory === "Staff"
               ? "Staff Role *"
-              : category === "Intern"
+              : localCategory === "Intern"
                 ? "Intern Role *"
                 : "Student Path *"}
           </Label>
-          <Select value={role} onValueChange={handleRoleChange}>
+          <Select value={localRole} onValueChange={handleRoleChange}>
             <SelectTrigger className="w-full">
               <SelectValue
                 placeholder={
-                  category === "Staff"
+                  localCategory === "Staff"
                     ? "Select Role"
-                    : category === "Intern"
+                    : localCategory === "Intern"
                       ? "Select Intern Path"
                       : "Select Student Path"
                 }
               />
             </SelectTrigger>
             <SelectContent>
-              {category === "Staff" && (
+              {localCategory === "Staff" && (
                 <>
                   <SelectItem value="Consultant Physician">Doctor / Consultant Physician</SelectItem>
                   <SelectItem value="MO">MO (Medical Officer)</SelectItem>
@@ -197,7 +251,7 @@ export default function CadreProgressiveSelector({
                   <SelectItem value="Other Staff">Other Staff</SelectItem>
                 </>
               )}
-              {category === "Intern" && (
+              {localCategory === "Intern" && (
                 <>
                   <SelectItem value="MOI">MOI (Medical Officer Intern)</SelectItem>
                   <SelectItem value="NOI">NOI (Nursing Officer Intern)</SelectItem>
@@ -205,7 +259,7 @@ export default function CadreProgressiveSelector({
                   <SelectItem value="Other Intern">Other Intern</SelectItem>
                 </>
               )}
-              {category === "Student" && (
+              {localCategory === "Student" && (
                 <>
                   <SelectItem value="Consultant Physician Student">
                     Medical Student - Specialist Track
@@ -225,10 +279,10 @@ export default function CadreProgressiveSelector({
       )}
 
       {/* T3: Level (RN / RN Student Level Selection) */}
-      {(role === "RN" || role === "RN Student") && (
+      {(localRole === "RN" || localRole === "RN Student") && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">Nurse Qualification Level *</Label>
-          <Select value={rnLevel} onValueChange={handleLevelChange}>
+          <Select value={localRnLevel} onValueChange={handleLevelChange}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Nurse Level" />
             </SelectTrigger>
@@ -244,20 +298,20 @@ export default function CadreProgressiveSelector({
       )}
 
       {/* T4: Sub-Qualification Level (for Undergraduate / Diploma) */}
-      {(rnLevel === "Undergraduate" || rnLevel === "Diploma") && (
+      {(localRnLevel === "Undergraduate" || localRnLevel === "Diploma") && (
         <div className="space-y-1.5 transition-all duration-300 ease-in-out">
           <Label className="text-sm font-medium">
-            {rnLevel === "Undergraduate" ? "Degree Type *" : "Diploma Type *"}
+            {localRnLevel === "Undergraduate" ? "Degree Type *" : "Diploma Type *"}
           </Label>
-          <Select value={rnSub} onValueChange={handleSubChange}>
+          <Select value={localRnSub} onValueChange={handleSubChange}>
             <SelectTrigger className="w-full">
               <SelectValue
-                placeholder={rnLevel === "Undergraduate" ? "Select Degree" : "Select Diploma Type"}
+                placeholder={localRnLevel === "Undergraduate" ? "Select Degree" : "Select Diploma Type"}
               />
             </SelectTrigger>
             <SelectContent>
-              {rnLevel === "Undergraduate" ? (
-                category === "Student" ? (
+              {localRnLevel === "Undergraduate" ? (
+                localCategory === "Student" ? (
                   <>
                     <SelectItem value="BSN Student">BSN Student</SelectItem>
                     <SelectItem value="BSM Student">BSM Student</SelectItem>
@@ -268,7 +322,7 @@ export default function CadreProgressiveSelector({
                     <SelectItem value="BSM">BSM</SelectItem>
                   </>
                 )
-              ) : category === "Student" ? (
+              ) : localCategory === "Student" ? (
                 <>
                   <SelectItem value="KRCHN Student">KRCHN Student</SelectItem>
                   <SelectItem value="KRNM Student">KRNM Student</SelectItem>
