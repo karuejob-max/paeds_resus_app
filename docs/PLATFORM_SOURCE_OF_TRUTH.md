@@ -392,6 +392,31 @@ For each enrolment, the learner should experience a **clear linear path**:
 ### 17.5 Profile and contact
 
 - **Required** for Paeds Resus Fellowship enrollment: cadre, facility, department, country, region, town.
+- **Provider Cadre Taxonomy Hierarchy (Single Source of Truth):**
+  - **1st: Staff**
+    - `Consultant Physician` (requires subspecialty: `Paediatrician`, `Other Specialist`, `Other` [requires custom details])
+    - `MO` (Medical Officer)
+    - `RCO` (Registered Clinical Officer)
+    - `RN` (Registered Nurse) - organized as:
+      - `MSN` (requires subspecialty: `Paediatric Critical Care`, `Neonatology`, `Emergency Nursing`, `Other` [requires custom details])
+      - `HND` (requires subspecialty: `Paediatric Critical Care`, `Neonatology`, `Emergency Nursing`, `Other` [requires custom details])
+      - **Undergraduate**: `BSN`, `BSM`
+      - **Diploma**: `KRCHN`, `KRNM`, `KRN`, `KRM`
+      - `ERN`
+      - `Other RN` [requires custom details]
+    - `Other Staff` [requires custom details]
+  - **2nd: Intern**
+    - `MOI` (Medical Officer Intern)
+    - `NOI` (Nursing Officer Intern)
+    - `COI` (Clinical Officer Intern)
+    - `Other Intern` [requires custom details]
+  - **3rd: Student**
+    - `Nursing Student`
+    - `Clinical Officer Student`
+    - `MBChB Student`
+    - Student versions of all Staff cadres (e.g. `BSN Student`, `KRCHN Student`, `MSN Student`, `Consultant Physician Student`, etc.)
+    - `Other Student` [requires custom details]
+  - **Nudge Policy**: Staff are nudged to fill in their highest level of qualification/specialty (especially MSN, HND, and Consultant Physician). All dropdown paths must include an "Other" option for custom specification.
 - **Email / mobile** for **optional** future programmes (e.g. small groups) — **separate consent** per purpose.
 
 ### 17.6 Public facilities

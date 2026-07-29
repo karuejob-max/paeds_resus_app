@@ -217,6 +217,8 @@ describe("CNE Router CPD Code Procedures", () => {
     instructorNumber: null,
     instructorCertifiedAt: null,
     resusGpsAccessExpiresAt: null,
+    cadre: null,
+    cadreOther: null,
   };
 
   const mockContext: TrpcContext = {

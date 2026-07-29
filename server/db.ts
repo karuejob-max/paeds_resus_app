@@ -196,6 +196,8 @@ export async function getUserByOpenId(openId: string) {
       resusGpsAckVersion: null,
       safeTruthGuardianAckAt: null,
       safeTruthGuardianAckVersion: null,
+      cadre: null,
+      cadreOther: null,
     };
   }
 }
@@ -251,6 +253,8 @@ export async function getUserById(userId: number) {
       resusGpsAckVersion: null,
       safeTruthGuardianAckAt: null,
       safeTruthGuardianAckVersion: null,
+      cadre: null,
+      cadreOther: null,
     };
   }
 }
@@ -312,6 +316,8 @@ export async function getUserByEmail(email: string) {
         resusGpsAckVersion: null,
         safeTruthGuardianAckAt: null,
         safeTruthGuardianAckVersion: null,
+        cadre: null,
+        cadreOther: null,
       };
     }
     throw err;
@@ -342,13 +348,32 @@ export async function createUserWithPassword(data: {
 
 export async function updateUserContactInfo(
   userId: number,
-  data: { name: string; phone: string | null }
+  data: {
+    name: string;
+    phone: string | null;
+    cadre?: string | null;
+    cadreOther?: string | null;
+  }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+
+  const updateData: Record<string, any> = {
+    name: data.name,
+    phone: data.phone,
+    updatedAt: new Date(),
+  };
+
+  if (data.cadre !== undefined) {
+    updateData.cadre = data.cadre;
+  }
+  if (data.cadreOther !== undefined) {
+    updateData.cadreOther = data.cadreOther;
+  }
+
   await db
     .update(users)
-    .set({ name: data.name, phone: data.phone, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(users.id, userId));
 }
 

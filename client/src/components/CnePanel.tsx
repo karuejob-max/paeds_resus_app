@@ -178,7 +178,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
           <h1>Scan to register for CNE</h1>
           ${eventLabel ? `<p>${eventLabel}</p>` : ""}
           <div class="qr-box">${svgEl.outerHTML}</div>
-          <p class="footer">No login required</p>
+          <p class="footer">Paeds Resus login required</p>
         </body>
       </html>
     `);
@@ -289,7 +289,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
             <QrCode className="h-5 w-5" /> Registration QR Code
           </CardTitle>
           <CardDescription>
-            Nurses scan this code (or open the link) to register — no login required.
+            Nurses scan this code (or open the link) to register — Paeds Resus login required.
           </CardDescription>
         </CardHeader>
         <CardContent>
