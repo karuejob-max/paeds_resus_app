@@ -559,6 +559,13 @@ Every time mock data is removed and replaced with truth, every time a clinical p
 the Fellow Instructor tier, and sets Fellowship eligibility and grandfathering
 policy. Read it alongside §5.2 and §6.2 below, which it amends.*
 
+*North Star v2.2 (docs/NORTH_STAR_V2_2_ADDENDUM_INSTRUCTOR_JOURNEY.md),
+adopted 2026-07-29, documents the already-live Instructor Journey
+(provisional → qualified → lead_instructor), how it differs from per-course
+instructor qualification, and how it relates to (and is independent from)
+the Fellow Instructor tier defined in v2.1. No new engineering — this
+brings an existing operational system into the constitution.*
+
 ## Document Classification and Review
 
 *This document is the North Star for Paeds Resus Limited. It does not replace the PSoT for binding technical decisions or the Observation Architecture v1.1 for data and learning governance decisions. It provides the strategic, clinical, ethical, and institutional identity foundation that those decisions must serve. Review triggers: changes to the theory of change, the product architecture, the strategic direction, the account model, the revenue strategy, or the institutional identity. It is a living document, not a historical record.*
