@@ -93,6 +93,20 @@ export const enrollments = mysqlTable("enrollments", {
   practicalSignedOffAt: timestamp("practicalSignedOffAt"),
   practicalSignedOffByUserId: int("practicalSignedOffByUserId"),
   practicalSignedOffByName: varchar("practicalSignedOffByName", { length: 255 }),
+  /**
+   * Fellowship grandfathering (North Star v2.1 addendum §6, CEO decision
+   * 2026-07-29): a lead_instructor can mark a course as fully meeting its
+   * Fellowship requirement for a learner who completed physical, in-person
+   * training before the online Phase 2 simulation model existed and has no
+   * digital trail of cognitive/precourse/simulation completion to check
+   * against. Deliberately a full override (not a partial waiver of just
+   * the simulation count) -- see getFellowshipPillarACourseStatus in
+   * server/lib/fellowship-phase2-completion.ts.
+   */
+  fellowshipGrandfathered: boolean("fellowshipGrandfathered").default(false).notNull(),
+  fellowshipGrandfatheredAt: timestamp("fellowshipGrandfatheredAt"),
+  fellowshipGrandfatheredByUserId: int("fellowshipGrandfatheredByUserId"),
+  fellowshipGrandfatheredByName: varchar("fellowshipGrandfatheredByName", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

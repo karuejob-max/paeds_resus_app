@@ -127,4 +127,37 @@ describe("getFellowshipPillarACourseStatus", () => {
     expect(status.met).toBe(false);
     expect(status.courses.every((c) => !c.met)).toBe(true);
   });
+
+  it("grandfathering overrides everything -- met true even with no cognitive, no precourse, no simulations", () => {
+    const status = getFellowshipPillarACourseStatus(
+      [{ programType: "acls", cognitiveModulesComplete: false, ahaPrecourseCompleted: false, fellowshipGrandfathered: true }],
+      []
+    );
+    const acls = status.courses.find((c) => c.course === "acls")!;
+    expect(acls.met).toBe(true);
+    expect(acls.grandfathered).toBe(true);
+  });
+
+  it("grandfathering on one course does not grandfather the others", () => {
+    const status = getFellowshipPillarACourseStatus(
+      [
+        { programType: "acls", cognitiveModulesComplete: false, ahaPrecourseCompleted: false, fellowshipGrandfathered: true },
+        { programType: "pals", cognitiveModulesComplete: true, ahaPrecourseCompleted: true },
+      ],
+      []
+    );
+    expect(status.met).toBe(false); // pals still needs its simulations
+    const pals = status.courses.find((c) => c.course === "pals")!;
+    expect(pals.grandfathered).toBe(false);
+    expect(pals.met).toBe(false);
+  });
+
+  it("grandfathering works for bls too, even though bls doesn't normally need it", () => {
+    const status = getFellowshipPillarACourseStatus(
+      [{ programType: "bls", cognitiveModulesComplete: false, ahaPrecourseCompleted: false, fellowshipGrandfathered: true }],
+      []
+    );
+    const bls = status.courses.find((c) => c.course === "bls")!;
+    expect(bls.met).toBe(true);
+  });
 });

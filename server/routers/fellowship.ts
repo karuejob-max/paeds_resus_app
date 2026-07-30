@@ -26,6 +26,7 @@ import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catal
 import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
 import { canDisplayFellowTitle, FELLOWSHIP_LAUNCH_READINESS } from "../../shared/fellowship-launch-gate";
+import { grandfatherFellowshipCourseCompletion } from "../lib/fellowship-grandfather";
 
 function extractInsertId(result: unknown): number {
   if (Array.isArray(result)) {
@@ -549,6 +550,30 @@ export const fellowshipRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "This token isn't linked to your account." });
       }
       await updateFellowshipToken(input.tokenId, { titleDisplayRevokedAt: new Date() });
+      return { success: true };
+    }),
+
+  /**
+   * Fellowship Phase 2 grandfathering (North Star v2.1 addendum §6): a
+   * Lead Instructor marks a course as fully meeting its Fellowship
+   * requirement for a learner who completed physical, in-person training
+   * before the online Phase 2 simulation model existed. See
+   * server/lib/fellowship-grandfather.ts for the full auth/eligibility
+   * logic this delegates to.
+   */
+  grandfatherCourseCompletion: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+      const instructorName = u?.name ?? "Lead Instructor";
+
+      const result = await grandfatherFellowshipCourseCompletion(input.enrollmentId, ctx.user.id, instructorName);
+      if (!result.success) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: result.error ?? "Grandfathering failed" });
+      }
       return { success: true };
     }),
 });
