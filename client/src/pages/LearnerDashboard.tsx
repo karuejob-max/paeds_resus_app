@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { getProgramIdentity } from "@shared/program-identity";
+import { inferDesignationFromCadre } from "@shared/cadre-designation-mapping";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -850,10 +851,26 @@ function ProgramIdentityBadge() {
 
 function DesignationDeclarationCard() {
   const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
+  const { user } = useAuth();
   const [designation, setDesignation] = useState<
     "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other" | ""
   >("");
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [prefilled, setPrefilled] = useState(false);
+
+  // Pre-select from the user's existing cadre where it's unambiguous (CEO
+  // decision, 2026-07-21) — e.g. any RN-family cadre already implies
+  // "Permanent Nurse" regardless of sub-specialty, so don't make them
+  // re-enter a fact they've already told the platform once elsewhere.
+  // Still shown as an editable selection, not locked, in case it's wrong.
+  useEffect(() => {
+    if (prefilled || designation) return;
+    const inferred = inferDesignationFromCadre((user as any)?.cadre);
+    if (inferred) {
+      setDesignation(inferred);
+      setPrefilled(true);
+    }
+  }, [user, designation, prefilled]);
 
   const declareMutation = trpc.institution.declareMyDesignation.useMutation({
     onSuccess: () => {
@@ -901,6 +918,11 @@ function DesignationDeclarationCard() {
           Nurses will also need to provide a licence number — interns don't need one.
         </p>
         <div className="bg-white p-4 rounded-lg border space-y-3">
+          {prefilled && (
+            <p className="text-xs text-blue-700">
+              We've pre-selected this based on your profile — change it below if it's not right.
+            </p>
+          )}
           <Select value={designation} onValueChange={(v) => setDesignation(v as typeof designation)}>
             <SelectTrigger id="designation-select">
               <SelectValue placeholder="Select your designation" />

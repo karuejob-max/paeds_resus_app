@@ -13,6 +13,7 @@ import {
   users,
   institutionalStaffMembers,
 } from "../../drizzle/schema";
+import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 
 export type FacilitySearchResult = {
@@ -336,7 +337,12 @@ export async function syncProviderProfileFacility(
           staffEmail: user.email || "",
           staffPhone: user.phone || null,
           staffRole: staffRole,
-          designation: "other",
+          // Auto-apply designation from the user's already-declared cadre
+          // where it's unambiguous (CEO decision, 2026-07-21) — e.g. any
+          // RN-family cadre implies "permanent_nurse" regardless of which
+          // sub-specialty they picked. Falls back to "other" (unchanged
+          // behaviour) for anything not covered by inferDesignationFromCadre.
+          designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
           facilityLinkStatus: "pending",
           enrollmentStatus: "pending",
         });
