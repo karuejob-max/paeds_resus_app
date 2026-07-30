@@ -15,6 +15,7 @@ import {
   fellowshipProgress,
   users,
   enrollments,
+  cpdCodeRevealLogs,
 } from "../../drizzle/schema";
 import {
   computeCareSignalStreak,
@@ -355,6 +356,62 @@ export async function calculateCareSignalPillar(userId: number): Promise<CareSig
     );
   } catch (error) {
     console.error("[Fellowship] Error calculating Care Signal pillar:", error);
+    return emptyCareSignalPillarResult();
+  }
+}
+
+/**
+ * CPD's own Pillar C stream (North Star v2.1 addendum §3, joined
+ * 2026-07-30): 1 qualifying CPD session per month, sharing Care Signal's
+ * streak/grace algorithm as a template but with its own independent grace
+ * budget (fellowshipGraceUsage.requirementType = 'cpd'). Deliberately
+ * reuses computeCareSignalPillarFromEvents unmodified rather than forking
+ * the streak math -- the function was always generic (month-keyed event
+ * counts + grace rows in, streak/percentage/timeline out), so there's
+ * nothing Care-Signal-specific to strip out.
+ *
+ * "First session of the month counts" (CEO decision, 2026-07-29): a
+ * cpdCodeRevealLogs row is created the moment a user claims/reveals their
+ * CPD code for an event they attended (server/routers/cpd.ts) -- one row
+ * per (user, event). If a user attends more than one CPD event in the
+ * same month, computeCareSignalPillarFromEvents's monthly event COUNT
+ * would show >1, but the streak algorithm only checks whether a month has
+ * >=1 event, not how many -- so extra sessions in a month don't add value
+ * beyond the first, which is exactly the intended rule.
+ */
+export async function calculateCpdPillar(userId: number): Promise<CareSignalPillarResult> {
+  const db = await getDb();
+  if (!db) return emptyCareSignalPillarResult();
+
+  try {
+    const revealLogs = await db.query.cpdCodeRevealLogs.findMany({
+      where: (logs) => eq(logs.userId, userId),
+    });
+    const allEvents = revealLogs.map((log) => ({ eventDate: log.revealedAt }));
+
+    const eatNow = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const currentYear = eatNow.getUTCFullYear();
+    const currentMonth = eatNow.getUTCMonth() + 1;
+    const eventsByMonthForGraceLookup: Record<string, number> = {};
+    allEvents.forEach((event) => {
+      const eatEvent = new Date(new Date(event.eventDate).getTime() + 3 * 60 * 60 * 1000);
+      const key = monthKeyEAT(eatEvent.getUTCFullYear(), eatEvent.getUTCMonth() + 1);
+      eventsByMonthForGraceLookup[key] = (eventsByMonthForGraceLookup[key] || 0) + 1;
+    });
+    const timelineKeys = computeCareSignalTimelineKeys(eventsByMonthForGraceLookup, currentYear, currentMonth, 24);
+    const windowYears = [...new Set(timelineKeys.map((k) => Number(k.slice(0, 4))))];
+
+    const graceUsage = await db.query.fellowshipGraceUsage.findMany({
+      where: (grace) =>
+        and(eq(grace.userId, userId), eq(grace.requirementType, "cpd"), inArray(grace.year, windowYears)),
+    });
+
+    return computeCareSignalPillarFromEvents(
+      allEvents,
+      graceUsage.map((g) => ({ year: g.year, month: g.month }))
+    );
+  } catch (error) {
+    console.error("[Fellowship] Error calculating CPD pillar:", error);
     return emptyCareSignalPillarResult();
   }
 }
