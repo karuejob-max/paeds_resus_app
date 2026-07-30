@@ -70,7 +70,7 @@ import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
 import { institutionAdminsRouter } from "./routers/institution-admins";
 import { institutionRecoveryRouter } from "./routers/institution-recovery";
-import { cneRouter } from "./routers/cne";
+import { cpdRouter } from "./routers/cpd";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
 import { predictiveAnalyticsRouter } from "./routers/predictive-analytics";
@@ -469,7 +469,7 @@ export const appRouter = router({
   institution: institutionRouter,
   institutionAdmins: institutionAdminsRouter,
   institutionRecovery: institutionRecoveryRouter,
-  cne: cneRouter,
+  cpd: cpdRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
   localization: localizationRouter,

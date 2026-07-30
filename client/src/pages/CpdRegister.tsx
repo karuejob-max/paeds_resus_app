@@ -75,19 +75,19 @@ const registrationSchema = z
 
 type RegistrationValues = z.infer<typeof registrationSchema>;
 
-export default function CneRegister() {
+export default function CpdRegister() {
   const params = useParams();
   const institutionId = Number(params.institutionId);
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const { user, loading: authLoading, sessionSettled } = useAuth();
 
-  const currentEventQuery = trpc.cne.currentEvent.useQuery(
+  const currentEventQuery = trpc.cpd.currentEvent.useQuery(
     { institutionId },
     { enabled: Number.isInteger(institutionId) && institutionId > 0 }
   );
 
-  const submitMutation = trpc.cne.submitRegistration.useMutation();
+  const submitMutation = trpc.cpd.submitRegistration.useMutation();
   const utils = trpc.useUtils();
   const updateProfileMutation = trpc.auth.updateMyProfile.useMutation({
     onSuccess: async () => {

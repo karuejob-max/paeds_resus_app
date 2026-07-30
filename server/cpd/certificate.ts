@@ -2,20 +2,20 @@ import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
 
 /**
- * CNE certificate generator — A5 landscape, fully programmatic (no external image
+ * CPD certificate generator — A5 landscape, fully programmatic (no external image
  * assets, so it survives esbuild bundling in production). Kept intentionally separate
  * from the main app's pdf-lib certificate system (server/certificate-pdf.ts).
  */
 
-export type CneCadre = string;
+export type CpdCadre = string;
 
-export interface CneCertificateData {
+export interface CpdCertificateData {
   fullName: string;
-  cadre: CneCadre;
+  cadre: CpdCadre;
   cadreOther?: string | null;
   eventName: string;
   eventDate: string;
-  /** Defaults to "CNE Coordinator" if the institution has not set a name. */
+  /** Defaults to "CPD Coordinator" if the institution has not set a name. */
   coordinatorName?: string | null;
   /**
    * Optional base64 PNG data URL of the coordinator's drawn signature
@@ -25,6 +25,8 @@ export interface CneCertificateData {
    */
   coordinatorSignature?: string | null;
   institutionName: string;
+  approvingCouncil?: string | null;
+  cpdPoints?: string | number | null;
 }
 
 /**
@@ -58,7 +60,7 @@ const COLORS = {
 };
 
 /** Human-readable cadre label, expanding "Other" to the free-text value when present. */
-export function formatCadreLabel(cadre: CneCadre, cadreOther?: string | null): string {
+export function formatCadreLabel(cadre: CpdCadre, cadreOther?: string | null): string {
   const cOther = (cadreOther ?? "").trim();
   if (cadre === "Other") {
     return cOther.length ? cOther : "Other";
@@ -70,8 +72,8 @@ export function formatCadreLabel(cadre: CneCadre, cadreOther?: string | null): s
   return cadre;
 }
 
-/** Safe download filename, e.g. "CNE-Certificate-Jane-Doe-Sepsis-Update.pdf". */
-export function cneCertificateFilename(fullName: string, eventName: string): string {
+/** Safe download filename, e.g. "CPD-Certificate-Jane-Doe-Sepsis-Update.pdf". */
+export function cpdCertificateFilename(fullName: string, eventName: string): string {
   const slug = (value: string) =>
     value
       .normalize("NFKD")
@@ -80,14 +82,14 @@ export function cneCertificateFilename(fullName: string, eventName: string): str
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .slice(0, 60) || "attendee";
-  return `CNE-Certificate-${slug(fullName)}-${slug(eventName)}.pdf`;
+  return `CPD-Certificate-${slug(fullName)}-${slug(eventName)}.pdf`;
 }
 
 /**
- * Generate the CNE certificate and return a readable PassThrough stream of the PDF bytes.
+ * Generate the CPD certificate and return a readable PassThrough stream of the PDF bytes.
  * Caller is responsible for piping the stream to an HTTP response or buffering it.
  */
-export function generateCneCertificatePdf(data: CneCertificateData): PassThrough {
+export function generateCpdCertificatePdf(data: CpdCertificateData): PassThrough {
   const doc = new PDFDocument({
     size: "A5",
     layout: "landscape",
@@ -100,7 +102,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
   const W = doc.page.width; // ~595.28 (A5 landscape width)
   const H = doc.page.height; // ~419.53
 
-  const coordinator = (data.coordinatorName ?? "").trim() || "CNE Coordinator";
+  const coordinator = (data.coordinatorName ?? "").trim() || "CPD Coordinator";
   const institution = (data.institutionName ?? "").trim() || "Healthcare Institution";
   const cadreLabel = formatCadreLabel(data.cadre, data.cadreOther);
   const signatureImage = decodeSignaturePng(data.coordinatorSignature);
@@ -147,7 +149,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
     .fillColor(COLORS.cyan)
     .font("Helvetica")
     .fontSize(9)
-    .text("CONTINUING NURSING EDUCATION", 40, headerY + 22, {
+    .text("CONTINUOUS PROFESSIONAL DEVELOPMENT", 40, headerY + 22, {
       width: W - 80,
       align: "center",
       characterSpacing: 2,
@@ -222,7 +224,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
     .fillColor(COLORS.muted)
     .font("Helvetica")
     .fontSize(9)
-    .text("has attended the Continuing Nursing Education session", 40, eventY, {
+    .text("has attended the Continuous Professional Development session", 40, eventY, {
       width: W - 80,
       align: "center",
     });
@@ -236,6 +238,20 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
     .font("Helvetica")
     .fontSize(10)
     .text(`Held on ${data.eventDate}`, 40, eventY + 31, { width: W - 80, align: "center" });
+
+  if (data.approvingCouncil && data.cpdPoints) {
+    doc
+      .fillColor(COLORS.navySoft)
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .text(`${data.approvingCouncil} Approved: ${data.cpdPoints} CPD Points`, 40, eventY + 46, { width: W - 80, align: "center" });
+  } else if (data.cpdPoints) {
+    doc
+      .fillColor(COLORS.navySoft)
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .text(`CPD Points: ${data.cpdPoints}`, 40, eventY + 46, { width: W - 80, align: "center" });
+  }
 
   // --- Footer: seal (left) + signature (right) --------------------------------
   const footerBaseY = H - 70;
@@ -253,7 +269,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
       .filter(Boolean)
       .slice(0, 3)
       .join("")
-      .toUpperCase() || "CNE";
+      .toUpperCase() || "CPD";
   doc
     .fillColor(COLORS.navy)
     .font("Helvetica-Bold")
@@ -295,7 +311,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
     } catch (err) {
       // Never fail certificate generation because of a signature image.
       doc.restore();
-      console.error("[CNE] failed to embed coordinator signature image:", err);
+      console.error("[CPD] failed to embed coordinator signature image:", err);
     }
   }
 
@@ -309,7 +325,7 @@ export function generateCneCertificatePdf(data: CneCertificateData): PassThrough
     .fillColor(COLORS.muted)
     .font("Helvetica")
     .fontSize(7)
-    .text("CNE Coordinator", sigX, sigLineY + 17, { width: sigWidth, align: "center" });
+    .text("CPD Coordinator", sigX, sigLineY + 17, { width: sigWidth, align: "center" });
 
   doc.end();
   return stream;

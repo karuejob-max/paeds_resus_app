@@ -3,17 +3,17 @@ import { ZipArchive } from "archiver";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db";
 import { sdk } from "../_core/sdk";
-import { institutionalAccounts, cneEvents, cneAttendees } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees } from "../../drizzle/schema";
 import type { User } from "../../drizzle/schema";
 import { isInstitutionAdmin } from "../lib/institution-access";
 import {
-  generateCneCertificatePdf,
-  cneCertificateFilename,
-  type CneCertificateData,
+  generateCpdCertificatePdf,
+  cpdCertificateFilename,
+  type CpdCertificateData,
 } from "./certificate";
 
 /**
- * Express routes for CNE certificate downloads. These stream binary payloads
+ * Express routes for CPD certificate downloads. These stream binary payloads
  * (single PDF + bulk ZIP) that tRPC's JSON transport can't handle efficiently.
  * Auth uses the same session flow as tRPC (sdk.authenticateRequest), plus an
  * institution-access check so only an institution admin (or a platform admin)
@@ -55,31 +55,38 @@ async function userCanAccessInstitution(
 
 async function buildCertificateData(
   db: Db,
-  attendee: typeof cneAttendees.$inferSelect
-): Promise<CneCertificateData> {
+  attendee: typeof cpdAttendees.$inferSelect
+): Promise<CpdCertificateData> {
   const [event] = await db
-    .select({ name: cneEvents.name, eventDate: cneEvents.eventDate })
-    .from(cneEvents)
-    .where(eq(cneEvents.id, attendee.cneEventId))
+    .select({
+      name: cpdEvents.name,
+      eventDate: cpdEvents.eventDate,
+      approvingCouncil: cpdEvents.approvingCouncil,
+      cpdPoints: cpdEvents.cpdPoints,
+    })
+    .from(cpdEvents)
+    .where(eq(cpdEvents.id, attendee.cpdEventId))
     .limit(1);
   const [inst] = await db
     .select({
       institutionName: institutionalAccounts.companyName,
-      coordinatorName: institutionalAccounts.cneCoordinatorName,
-      coordinatorSignature: institutionalAccounts.cneCoordinatorSignature,
+      coordinatorName: institutionalAccounts.cpdCoordinatorName,
+      coordinatorSignature: institutionalAccounts.cpdCoordinatorSignature,
     })
     .from(institutionalAccounts)
     .where(eq(institutionalAccounts.id, attendee.institutionalAccountId))
     .limit(1);
   return {
     fullName: attendee.fullName,
-    cadre: attendee.cadre as CneCertificateData["cadre"],
+    cadre: attendee.cadre as CpdCertificateData["cadre"],
     cadreOther: attendee.cadreOther,
-    eventName: event?.name ?? "CNE Session",
+    eventName: event?.name ?? "CPD Session",
     eventDate: event?.eventDate ?? "",
     coordinatorName: inst?.coordinatorName ?? null,
     coordinatorSignature: inst?.coordinatorSignature ?? null,
     institutionName: inst?.institutionName ?? "Healthcare Institution",
+    approvingCouncil: event?.approvingCouncil ?? null,
+    cpdPoints: event?.cpdPoints ?? null,
   };
 }
 
@@ -93,9 +100,17 @@ function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   });
 }
 
-export function registerCneRoutes(app: Express): void {
-  // Single certificate PDF: GET /api/cne/certificate/:attendeeId
-  app.get("/api/cne/certificate/:attendeeId", async (req: Request, res: Response) => {
+export function registerCpdRoutes(app: Express): void {
+  // Legacy CNE route compatibility redirects
+  app.get("/api/cne/certificate/:attendeeId", (req: Request, res: Response) => {
+    res.redirect(301, `/api/cpd/certificate/${req.params.attendeeId}`);
+  });
+  app.get("/api/cne/certificate/bulk/:eventId", (req: Request, res: Response) => {
+    res.redirect(301, `/api/cpd/certificate/bulk/${req.params.eventId}`);
+  });
+
+  // Single certificate PDF: GET /api/cpd/certificate/:attendeeId
+  app.get("/api/cpd/certificate/:attendeeId", async (req: Request, res: Response) => {
     const attendeeId = Number(req.params.attendeeId);
     if (!Number.isInteger(attendeeId) || attendeeId <= 0) {
       return res.status(400).json({ error: "Invalid attendee id" });
@@ -108,14 +123,14 @@ export function registerCneRoutes(app: Express): void {
 
     const [attendee] = await db
       .select()
-      .from(cneAttendees)
-      .where(eq(cneAttendees.id, attendeeId))
+      .from(cpdAttendees)
+      .where(eq(cpdAttendees.id, attendeeId))
       .limit(1);
     if (!attendee) return res.status(404).json({ error: "Attendee not found" });
 
     // Access is granted to: (a) the owning institution / admin (existing behavior),
-    // or (b) the nurse themselves — when the logged-in user's email matches the
-    // attendee's email. This powers the self-service "My CNE Certificates" portal
+    // or (b) the user themselves — when the logged-in user's email matches the
+    // attendee's email. This powers the self-service "My CPD Certificates" portal
     // without weakening institution/admin access.
     const userEmail = (user.email ?? "").trim().toLowerCase();
     const isOwnCertificate = userEmail.length > 0 && userEmail === attendee.email.trim().toLowerCase();
@@ -127,19 +142,19 @@ export function registerCneRoutes(app: Express): void {
     }
 
     const data = await buildCertificateData(db, attendee);
-    const filename = cneCertificateFilename(data.fullName, data.eventName);
+    const filename = cpdCertificateFilename(data.fullName, data.eventName);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    const pdfStream = generateCneCertificatePdf(data);
+    const pdfStream = generateCpdCertificatePdf(data);
     pdfStream.on("error", (err) => {
-      console.error("[CNE] certificate stream error:", err);
+      console.error("[CPD] certificate stream error:", err);
       if (!res.headersSent) res.status(500).json({ error: "Certificate generation failed" });
     });
     pdfStream.pipe(res);
   });
 
-  // Bulk ZIP of all certificates for an event: GET /api/cne/certificate/bulk/:eventId
-  app.get("/api/cne/certificate/bulk/:eventId", async (req: Request, res: Response) => {
+  // Bulk ZIP of all certificates for an event: GET /api/cpd/certificate/bulk/:eventId
+  app.get("/api/cpd/certificate/bulk/:eventId", async (req: Request, res: Response) => {
     const eventId = Number(req.params.eventId);
     if (!Number.isInteger(eventId) || eventId <= 0) {
       return res.status(400).json({ error: "Invalid event id" });
@@ -152,8 +167,8 @@ export function registerCneRoutes(app: Express): void {
 
     const [event] = await db
       .select()
-      .from(cneEvents)
-      .where(eq(cneEvents.id, eventId))
+      .from(cpdEvents)
+      .where(eq(cpdEvents.id, eventId))
       .limit(1);
     if (!event) return res.status(404).json({ error: "Event not found" });
 
@@ -163,11 +178,11 @@ export function registerCneRoutes(app: Express): void {
 
     const attendees = await db
       .select()
-      .from(cneAttendees)
+      .from(cpdAttendees)
       .where(
         and(
-          eq(cneAttendees.cneEventId, eventId),
-          eq(cneAttendees.institutionalAccountId, event.institutionalAccountId)
+          eq(cpdAttendees.cpdEventId, eventId),
+          eq(cpdAttendees.institutionalAccountId, event.institutionalAccountId)
         )
       );
 
@@ -175,13 +190,13 @@ export function registerCneRoutes(app: Express): void {
       return res.status(404).json({ error: "No registrations found for this event" });
     }
 
-    const zipName = cneCertificateFilename("ALL", event.name).replace(/\.pdf$/i, ".zip");
+    const zipName = cpdCertificateFilename("ALL", event.name).replace(/\.pdf$/i, ".zip");
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="${zipName}"`);
 
     const archive = new ZipArchive({ zlib: { level: 9 } });
     archive.on("error", (err: Error) => {
-      console.error("[CNE] bulk zip error:", err);
+      console.error("[CPD] bulk zip error:", err);
       if (!res.headersSent) res.status(500).json({ error: "ZIP generation failed" });
     });
     archive.pipe(res);
@@ -189,8 +204,8 @@ export function registerCneRoutes(app: Express): void {
     const usedNames = new Set<string>();
     for (const attendee of attendees) {
       const data = await buildCertificateData(db, attendee);
-      const buffer = await streamToBuffer(generateCneCertificatePdf(data));
-      let name = cneCertificateFilename(data.fullName, data.eventName);
+      const buffer = await streamToBuffer(generateCpdCertificatePdf(data));
+      let name = cpdCertificateFilename(data.fullName, data.eventName);
       // Avoid name collisions within the ZIP.
       if (usedNames.has(name)) {
         name = name.replace(/\.pdf$/i, `-${attendee.id}.pdf`);

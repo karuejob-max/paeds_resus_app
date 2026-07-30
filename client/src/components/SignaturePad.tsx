@@ -18,7 +18,7 @@ interface SignaturePadProps {
 /**
  * Lightweight HTML5 canvas signature pad — no external libraries. Supports mouse
  * and touch/pen input, exports a base64 PNG data URL via onSave. Designed for the
- * CNE Coordinator to draw the signature embedded on certificates.
+ * CPD Coordinator to draw the signature embedded on certificates.
  */
 export default function SignaturePad({
   initialDataUrl,

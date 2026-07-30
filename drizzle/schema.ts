@@ -234,10 +234,10 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   companyName: varchar("companyName", { length: 255 }).notNull(),
-  /** CNE service: name printed on the certificate signature line (migration 0052). */
-  cneCoordinatorName: varchar("cneCoordinatorName", { length: 255 }),
-  /** CNE service: base64 PNG data URL of the coordinator's drawn signature, embedded above the certificate signature line (migration 0054). */
-  cneCoordinatorSignature: text("cneCoordinatorSignature"),
+  /** CPD service: name printed on the certificate signature line (migration 0078). */
+  cpdCoordinatorName: varchar("cpdCoordinatorName", { length: 255 }),
+  /** CPD service: base64 PNG data URL of the coordinator's drawn signature, embedded above the certificate signature line (migration 0078). */
+  cpdCoordinatorSignature: text("cpdCoordinatorSignature"),
   industry: varchar("industry", { length: 255 }),
   staffCount: int("staffCount"),
   contactName: varchar("contactName", { length: 255 }).notNull(),
@@ -3319,11 +3319,11 @@ export type AhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferSelect;
 export type InsertAhaPracticeLabAttempt = typeof ahaPracticeLabAttempts.$inferInsert;
 
 /**
- * CNE (Continuing Nursing Education) attendance automation service (migration 0052).
+ * CPD (Continuous Professional Development) attendance automation service (migration 0078).
  * Multi-tenant: every event/attendee is scoped to an institutionalAccounts.id.
  * One open event per institution at a time (admin opens/closes; public registers while open).
  */
-export const cneEvents = mysqlTable("cneEvents", {
+export const cpdEvents = mysqlTable("cpdEvents", {
   id: int("id").autoincrement().primaryKey(),
   /** Owning institution (institutionalAccounts.id). */
   institutionalAccountId: int("institutionalAccountId").notNull(),
@@ -3335,15 +3335,17 @@ export const cneEvents = mysqlTable("cneEvents", {
   closedAt: timestamp("closedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   cpdCode: varchar("cpdCode", { length: 128 }),
+  approvingCouncil: varchar("approvingCouncil", { length: 128 }),
+  cpdPoints: decimal("cpdPoints", { precision: 4, scale: 1 }),
 });
 
-export type CneEvent = typeof cneEvents.$inferSelect;
-export type InsertCneEvent = typeof cneEvents.$inferInsert;
+export type CpdEvent = typeof cpdEvents.$inferSelect;
+export type InsertCpdEvent = typeof cpdEvents.$inferInsert;
 
-/** Public CNE registrations (one row per nurse per event). */
-export const cneAttendees = mysqlTable("cneAttendees", {
+/** Public CPD registrations (one row per registrant per event). */
+export const cpdAttendees = mysqlTable("cpdAttendees", {
   id: int("id").autoincrement().primaryKey(),
-  cneEventId: int("cneEventId").notNull(),
+  cpdEventId: int("cpdEventId").notNull(),
   /** Denormalized owning institution for fast tenant scoping on certificate routes. */
   institutionalAccountId: int("institutionalAccountId").notNull(),
   fullName: varchar("fullName", { length: 256 }).notNull(),
@@ -3356,15 +3358,15 @@ export const cneAttendees = mysqlTable("cneAttendees", {
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
 });
 
-export type CneAttendee = typeof cneAttendees.$inferSelect;
-export type InsertCneAttendee = typeof cneAttendees.$inferInsert;
+export type CpdAttendee = typeof cpdAttendees.$inferSelect;
+export type InsertCpdAttendee = typeof cpdAttendees.$inferInsert;
 
 /** Logs tracking when CPD secret codes are revealed to attendees for auditing/sharing prevention. */
 export const cpdCodeRevealLogs = mysqlTable("cpdCodeRevealLogs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  cneAttendeeId: int("cneAttendeeId").notNull(),
-  cneEventId: int("cneEventId").notNull(),
+  cpdAttendeeId: int("cpdAttendeeId").notNull(),
+  cpdEventId: int("cpdEventId").notNull(),
   revealedAt: timestamp("revealedAt").defaultNow().notNull(),
   ipAddress: varchar("ipAddress", { length: 45 }),
   userAgent: varchar("userAgent", { length: 512 }),

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   formatCadreLabel,
-  cneCertificateFilename,
-  generateCneCertificatePdf,
+  cpdCertificateFilename,
+  generateCpdCertificatePdf,
   decodeSignaturePng,
 } from "./certificate";
-import { buildAttendeeCsv } from "../routers/cne";
+import { buildAttendeeCsv } from "../routers/cpd";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import type { User } from "../../drizzle/schema";
@@ -32,7 +32,7 @@ vi.mock("../lib/institution-access", () => ({
 }));
 
 /**
- * DB-optional unit tests for the pure CNE helpers (no database required), so
+ * DB-optional unit tests for the pure CPD helpers (no database required), so
  * they pass in the fast `test:unit` gate with DATABASE_URL unset.
  */
 
@@ -70,21 +70,24 @@ describe("formatCadreLabel", () => {
   });
 });
 
-describe("cneCertificateFilename", () => {
+describe("cpdCertificateFilename", () => {
   it("produces a safe, slugged filename", () => {
-    expect(cneCertificateFilename("Jane Wanjiku Mwangi", "Sepsis Update")).toBe(
-      "CNE-Certificate-Jane-Wanjiku-Mwangi-Sepsis-Update.pdf"
+    expect(cpdCertificateFilename("Jane Wanjiku Mwangi", "Sepsis Update")).toBe(
+      "CPD-Certificate-Jane-Wanjiku-Mwangi-Sepsis-Update.pdf"
     );
   });
 
   it("strips unsafe characters and collapses whitespace", () => {
-    const name = cneCertificateFilename("Dr. O'Brien / Nurse", "A&B  Course!!");
-    expect(name).toMatch(/^CNE-Certificate-[\w-]+\.pdf$/);
-    expect(name).not.toMatch(/[^\w.-]/);
+    const name = cpdCertificateFilename("Dr. O'Brien / Nurse", "A&B  Course!!");
+    expect(name).toMatch(/^CPD-Certificate-[\w-]+\.pdf$/);
+    expect(name).not.toContain("'");
+    expect(name).not.toContain("/");
+    expect(name).not.toContain("&");
+    expect(name).not.toContain("!");
   });
 
-  it("falls back to 'attendee' for empty input", () => {
-    expect(cneCertificateFilename("", "")).toBe("CNE-Certificate-attendee-attendee.pdf");
+  it("falls back gracefully when inputs are blank", () => {
+    expect(cpdCertificateFilename("", "")).toBe("CPD-Certificate-attendee-attendee.pdf");
   });
 });
 
@@ -125,9 +128,9 @@ describe("buildAttendeeCsv", () => {
   });
 });
 
-describe("generateCneCertificatePdf", () => {
+describe("generateCpdCertificatePdf", () => {
   it("produces a non-empty PDF buffer with a valid header", async () => {
-    const stream = generateCneCertificatePdf({
+    const stream = generateCpdCertificatePdf({
       fullName: "Jane Wanjiku Mwangi",
       cadre: "KRCHN",
       eventName: "Paediatric Sepsis Update",
@@ -141,7 +144,7 @@ describe("generateCneCertificatePdf", () => {
   });
 
   it("works without a coordinator name (defaults gracefully)", async () => {
-    const stream = generateCneCertificatePdf({
+    const stream = generateCpdCertificatePdf({
       fullName: "Test Nurse",
       cadre: "Other",
       cadreOther: "Clinical Officer",
@@ -156,10 +159,10 @@ describe("generateCneCertificatePdf", () => {
 
   // A real, pdfkit-decodable 120x48 PNG, base64-encoded as a data URL.
   const validSignaturePng =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAAwCAYAAADab77TAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAA/0lEQVR4nO2VwREDMRDC7k8b9LL9V5RUkQEueujvQZb9yPeBe+0GT/oAcAjmEhwFcwmOJ1p/+CXwBzsvAcEFQ2kUCnZeAoILhtIoFOy8BAQXDKVRKNh5CQguGEqjULDzEhBcMJRGoWDnJSC4YCiNQsHOS0BwwVAahYKdl4DggqE0CgU7LwHBBUNpFAp2XgKCC4bSKBTsvAQEFwylUSjYeQkILhhKo1Cw8xIQXDCURqFg5yUguGAojULBzktAcMFQGoWCnZeA4IKhNAoFOy8BwQVDaRQKdl4CgguG0igU7LwEBBcMpVEo2HkJCC4YSqNQsPMSEFwwlEahYOcl/FLwF5NKymGd5D34AAAAAElFTkSuQmCC";
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAAwCAYAAADab77TAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAA/0lEQVR4nO2VwREDMRDC7k8b9LL9V5RUkQEueujvQZb9yPeBe+0GT/oAcAjmEhwFcwmOJ1p/+CXwBzsvAcEFQ2kUCnZeAoILhtIoFOy8BAQXDKVRKNh5CQguGEqjULDzEhBcMJRGoWDnJSC4YCiNQsHOS0BwwVAahYKdl4DggqE0CgU7LwDggqE0CgU7LwEBBcMpVEo2HkJCC4YSqNQsPMSEFwwlEahYOcl/FLwF5NKymGd5D34AAAAAElFTkSuQmCC";
 
   it("embeds a valid signature image without breaking generation", async () => {
-    const stream = generateCneCertificatePdf({
+    const stream = generateCpdCertificatePdf({
       fullName: "Signed Nurse",
       cadre: "KRN",
       eventName: "Signed Session",
@@ -174,7 +177,7 @@ describe("generateCneCertificatePdf", () => {
   });
 
   it("ignores a malformed signature and still produces a valid PDF", async () => {
-    const stream = generateCneCertificatePdf({
+    const stream = generateCpdCertificatePdf({
       fullName: "Test Nurse",
       cadre: "BSN",
       eventName: "Session",
@@ -206,7 +209,7 @@ describe("decodeSignaturePng", () => {
   });
 });
 
-describe("CNE Router CPD Code Procedures", () => {
+describe("CPD Router Procedures", () => {
   const mockUser: User = {
     id: 10,
     openId: "test-user-10",
@@ -245,7 +248,7 @@ describe("CNE Router CPD Code Procedures", () => {
   };
 
   it("updates CPD code for an event when authorized", async () => {
-    // Mock cneEvents query
+    // Mock cpdEvents query
     const mockLimit = vi.fn().mockResolvedValue([{ id: 100 }]);
     const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
@@ -257,7 +260,7 @@ describe("CNE Router CPD Code Procedures", () => {
     mockUpdate.mockReturnValue({ set: mockSet });
 
     const caller = appRouter.createCaller(mockAdminContext);
-    const res = await caller.cne.updateCpdCode({
+    const res = await caller.cpd.updateCpdCode({
       institutionId: 1,
       eventId: 100,
       cpdCode: "TEST-CPD-123",
@@ -268,8 +271,8 @@ describe("CNE Router CPD Code Procedures", () => {
     expect(mockSet).toHaveBeenCalledWith({ cpdCode: "TEST-CPD-123" });
   });
 
-  it("logs CPD code reveal when nurse views the code", async () => {
-    // Mock cneAttendees query
+  it("logs CPD code reveal when user views the code", async () => {
+    // Mock cpdAttendees query
     const mockLimit = vi.fn().mockResolvedValue([{ id: 500 }]);
     const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
@@ -280,7 +283,7 @@ describe("CNE Router CPD Code Procedures", () => {
     mockInsert.mockReturnValue({ values: mockValues });
 
     const caller = appRouter.createCaller(mockContext);
-    const res = await caller.cne.logCpdCodeReveal({
+    const res = await caller.cpd.logCpdCodeReveal({
       attendeeId: 500,
       eventId: 100,
     });
@@ -290,8 +293,8 @@ describe("CNE Router CPD Code Procedures", () => {
     expect(mockValues).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 10,
-        cneAttendeeId: 500,
-        cneEventId: 100,
+        cpdAttendeeId: 500,
+        cpdEventId: 100,
         ipAddress: "127.0.0.1",
         userAgent: "test-agent",
       })
@@ -322,7 +325,7 @@ describe("CNE Router CPD Code Procedures", () => {
     mockSelect.mockReturnValue({ from: mockFrom });
 
     const caller = appRouter.createCaller(mockContext);
-    const res = await caller.cne.myCertificates();
+    const res = await caller.cpd.myCertificates();
 
     expect(res.email).toBe("nurse@test.com");
     expect(res.records).toHaveLength(1);
@@ -345,7 +348,7 @@ describe("CNE Router CPD Code Procedures", () => {
     mockInsert.mockReturnValue({ values: mockValues });
 
     const caller = appRouter.createCaller(mockContext);
-    const res = await caller.cne.submitRegistration({
+    const res = await caller.cpd.submitRegistration({
       institutionId: 1,
       fullName: "Test Nurse",
       email: "nurse@test.com",
@@ -361,7 +364,7 @@ describe("CNE Router CPD Code Procedures", () => {
   it("throws FORBIDDEN when submitting registration with email different from session", async () => {
     const caller = appRouter.createCaller(mockContext);
     await expect(
-      caller.cne.submitRegistration({
+      caller.cpd.submitRegistration({
         institutionId: 1,
         fullName: "Proxy Nurse",
         email: "other@test.com",

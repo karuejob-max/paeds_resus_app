@@ -4,9 +4,9 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { institutionalAccounts, cneEvents, cneAttendees, cpdCodeRevealLogs, institutionalStaffMembers } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers } from "../../drizzle/schema";
 
-/** Shared cadre validator for input validation, matching the cneAttendees.cadre column. */
+/** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
 
 async function requireDb() {
@@ -73,8 +73,8 @@ export function buildAttendeeCsv(
   return lines.join("\r\n");
 }
 
-export const cneRouter = router({
-  /** Admin: set the CNE Coordinator name that prints on certificate signature lines. */
+export const cpdRouter = router({
+  /** Admin: set the CPD Coordinator name that prints on certificate signature lines. */
   updateCoordinator: protectedProcedure
     .input(
       z.object({
@@ -87,12 +87,12 @@ export const cneRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await db
         .update(institutionalAccounts)
-        .set({ cneCoordinatorName: input.coordinatorName, updatedAt: new Date() })
+        .set({ cpdCoordinatorName: input.coordinatorName, updatedAt: new Date() })
         .where(eq(institutionalAccounts.id, input.institutionId));
       return { success: true as const, coordinatorName: input.coordinatorName };
     }),
 
-  /** Admin: read the current CNE Coordinator name + signature for this institution. */
+  /** Admin: read the current CPD Coordinator name + signature for this institution. */
   getSettings: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -100,8 +100,8 @@ export const cneRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [row] = await db
         .select({
-          coordinatorName: institutionalAccounts.cneCoordinatorName,
-          coordinatorSignature: institutionalAccounts.cneCoordinatorSignature,
+          coordinatorName: institutionalAccounts.cpdCoordinatorName,
+          coordinatorSignature: institutionalAccounts.cpdCoordinatorSignature,
           institutionName: institutionalAccounts.companyName,
         })
         .from(institutionalAccounts)
@@ -115,8 +115,8 @@ export const cneRouter = router({
     }),
 
   /**
-   * Admin: save (or clear) the CNE Coordinator's drawn signature.
-   * Stored as a base64 PNG data URL on institutionalAccounts.cneCoordinatorSignature,
+   * Admin: save (or clear) the CPD Coordinator's drawn signature.
+   * Stored as a base64 PNG data URL on institutionalAccounts.cpdCoordinatorSignature,
    * embedded above the certificate signature line. Pass null/empty to clear it.
    */
   updateSignature: protectedProcedure
@@ -139,7 +139,7 @@ export const cneRouter = router({
       const value = input.signature && input.signature.trim().length ? input.signature.trim() : null;
       await db
         .update(institutionalAccounts)
-        .set({ cneCoordinatorSignature: value, updatedAt: new Date() })
+        .set({ cpdCoordinatorSignature: value, updatedAt: new Date() })
         .where(eq(institutionalAccounts.id, input.institutionId));
       return { success: true as const, hasSignature: value !== null };
     }),
@@ -151,6 +151,8 @@ export const cneRouter = router({
         institutionId: z.number().int().positive(),
         name: z.string().trim().min(1).max(256),
         eventDate: z.string().trim().min(1).max(64),
+        approvingCouncil: z.string().trim().max(128).nullable().optional(),
+        cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -159,20 +161,22 @@ export const cneRouter = router({
       const now = new Date();
       // Close any open events first (only one open event per institution).
       await db
-        .update(cneEvents)
+        .update(cpdEvents)
         .set({ isOpen: false, closedAt: now })
         .where(
           and(
-            eq(cneEvents.institutionalAccountId, input.institutionId),
-            eq(cneEvents.isOpen, true)
+            eq(cpdEvents.institutionalAccountId, input.institutionId),
+            eq(cpdEvents.isOpen, true)
           )
         );
-      const result = await db.insert(cneEvents).values({
+      const result = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
         isOpen: true,
         openedAt: now,
+        approvingCouncil: input.approvingCouncil ?? null,
+        cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
       return { success: true as const, eventId };
@@ -190,12 +194,12 @@ export const cneRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [event] = await db
-        .select({ id: cneEvents.id })
-        .from(cneEvents)
+        .select({ id: cpdEvents.id })
+        .from(cpdEvents)
         .where(
           and(
-            eq(cneEvents.id, input.eventId),
-            eq(cneEvents.institutionalAccountId, input.institutionId)
+            eq(cpdEvents.id, input.eventId),
+            eq(cpdEvents.institutionalAccountId, input.institutionId)
           )
         )
         .limit(1);
@@ -203,13 +207,13 @@ export const cneRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
       }
       await db
-        .update(cneEvents)
+        .update(cpdEvents)
         .set({ isOpen: false, closedAt: new Date() })
-        .where(eq(cneEvents.id, input.eventId));
+        .where(eq(cpdEvents.id, input.eventId));
       return { success: true as const };
     }),
 
-  /** Admin: list all events for this institution (newest first). */
+  /** Admin: list all CPD events for this institution (newest first). */
   listEvents: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -217,9 +221,9 @@ export const cneRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const rows = await db
         .select()
-        .from(cneEvents)
-        .where(eq(cneEvents.institutionalAccountId, input.institutionId))
-        .orderBy(desc(cneEvents.id));
+        .from(cpdEvents)
+        .where(eq(cpdEvents.institutionalAccountId, input.institutionId))
+        .orderBy(desc(cpdEvents.id));
       return rows;
     }),
 
@@ -230,19 +234,19 @@ export const cneRouter = router({
       const db = await requireDb();
       const [event] = await db
         .select({
-          id: cneEvents.id,
-          name: cneEvents.name,
-          eventDate: cneEvents.eventDate,
-          institutionalAccountId: cneEvents.institutionalAccountId,
+          id: cpdEvents.id,
+          name: cpdEvents.name,
+          eventDate: cpdEvents.eventDate,
+          institutionalAccountId: cpdEvents.institutionalAccountId,
         })
-        .from(cneEvents)
+        .from(cpdEvents)
         .where(
           and(
-            eq(cneEvents.institutionalAccountId, input.institutionId),
-            eq(cneEvents.isOpen, true)
+            eq(cpdEvents.institutionalAccountId, input.institutionId),
+            eq(cpdEvents.isOpen, true)
           )
         )
-        .orderBy(desc(cneEvents.id))
+        .orderBy(desc(cpdEvents.id))
         .limit(1);
       if (!event) return { event: null };
       // Public-facing institution name for the form header.
@@ -284,7 +288,7 @@ export const cneRouter = router({
       };
     }),
 
-  /** Submit a CNE registration. Validates the event is open, matches the visitor session, and dedupes by email + event. */
+  /** Submit a CPD registration. Validates the event is open, matches the visitor session, and dedupes by email + event. */
   submitRegistration: protectedProcedure
     .input(
       z.object({
@@ -318,20 +322,20 @@ export const cneRouter = router({
 
       // Event must be open for this institution.
       const [event] = await db
-        .select({ id: cneEvents.id })
-        .from(cneEvents)
+        .select({ id: cpdEvents.id })
+        .from(cpdEvents)
         .where(
           and(
-            eq(cneEvents.institutionalAccountId, input.institutionId),
-            eq(cneEvents.isOpen, true)
+            eq(cpdEvents.institutionalAccountId, input.institutionId),
+            eq(cpdEvents.isOpen, true)
           )
         )
-        .orderBy(desc(cneEvents.id))
+        .orderBy(desc(cpdEvents.id))
         .limit(1);
       if (!event) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Registration is closed. No CNE event is currently open.",
+          message: "Registration is closed. No CPD event is currently open.",
         });
       }
 
@@ -355,10 +359,10 @@ export const cneRouter = router({
       // Duplicate guard: one registration per email per event.
       const normalizedEmail = input.email.trim().toLowerCase();
       const existing = await db
-        .select({ id: cneAttendees.id })
-        .from(cneAttendees)
+        .select({ id: cpdAttendees.id })
+        .from(cpdAttendees)
         .where(
-          and(eq(cneAttendees.cneEventId, event.id), eq(cneAttendees.email, normalizedEmail))
+          and(eq(cpdAttendees.cpdEventId, event.id), eq(cpdAttendees.email, normalizedEmail))
         )
         .limit(1);
       if (existing.length) {
@@ -368,8 +372,8 @@ export const cneRouter = router({
         });
       }
 
-      await db.insert(cneAttendees).values({
-        cneEventId: event.id,
+      await db.insert(cpdAttendees).values({
+        cpdEventId: event.id,
         institutionalAccountId: input.institutionId,
         fullName: input.fullName,
         email: normalizedEmail,
@@ -396,15 +400,15 @@ export const cneRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const whereClause = input.eventId
         ? and(
-            eq(cneAttendees.institutionalAccountId, input.institutionId),
-            eq(cneAttendees.cneEventId, input.eventId)
+            eq(cpdAttendees.institutionalAccountId, input.institutionId),
+            eq(cpdAttendees.cpdEventId, input.eventId)
           )
-        : eq(cneAttendees.institutionalAccountId, input.institutionId);
+        : eq(cpdAttendees.institutionalAccountId, input.institutionId);
       const rows = await db
         .select()
-        .from(cneAttendees)
+        .from(cpdAttendees)
         .where(whereClause)
-        .orderBy(desc(cneAttendees.id));
+        .orderBy(desc(cpdAttendees.id));
       return rows;
     }),
 
@@ -421,27 +425,27 @@ export const cneRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const whereClause = input.eventId
         ? and(
-            eq(cneAttendees.institutionalAccountId, input.institutionId),
-            eq(cneAttendees.cneEventId, input.eventId)
+            eq(cpdAttendees.institutionalAccountId, input.institutionId),
+            eq(cpdAttendees.cpdEventId, input.eventId)
           )
-        : eq(cneAttendees.institutionalAccountId, input.institutionId);
+        : eq(cpdAttendees.institutionalAccountId, input.institutionId);
       const rows = await db
         .select({
-          fullName: cneAttendees.fullName,
-          email: cneAttendees.email,
-          phone: cneAttendees.phone,
-          cadre: cneAttendees.cadre,
-          cadreOther: cneAttendees.cadreOther,
-          higherDiploma: cneAttendees.higherDiploma,
-          department: cneAttendees.department,
-          submittedAt: cneAttendees.submittedAt,
-          eventName: cneEvents.name,
-          eventDate: cneEvents.eventDate,
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          phone: cpdAttendees.phone,
+          cadre: cpdAttendees.cadre,
+          cadreOther: cpdAttendees.cadreOther,
+          higherDiploma: cpdAttendees.higherDiploma,
+          department: cpdAttendees.department,
+          submittedAt: cpdAttendees.submittedAt,
+          eventName: cpdEvents.name,
+          eventDate: cpdEvents.eventDate,
         })
-        .from(cneAttendees)
-        .leftJoin(cneEvents, eq(cneAttendees.cneEventId, cneEvents.id))
+        .from(cpdAttendees)
+        .leftJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id))
         .where(whereClause)
-        .orderBy(desc(cneAttendees.id));
+        .orderBy(desc(cpdAttendees.id));
       const csv = buildAttendeeCsv(
         rows.map((r) => ({
           fullName: r.fullName,
@@ -459,7 +463,7 @@ export const cneRouter = router({
       return { csv, count: rows.length };
     }),
 
-  /** Admin: set/update the NCK CPD secret code for a CNE event. */
+  /** Admin: set/update the CPD secret code for a CPD event. */
   updateCpdCode: protectedProcedure
     .input(
       z.object({
@@ -472,12 +476,12 @@ export const cneRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [event] = await db
-        .select({ id: cneEvents.id })
-        .from(cneEvents)
+        .select({ id: cpdEvents.id })
+        .from(cpdEvents)
         .where(
           and(
-            eq(cneEvents.id, input.eventId),
-            eq(cneEvents.institutionalAccountId, input.institutionId)
+            eq(cpdEvents.id, input.eventId),
+            eq(cpdEvents.institutionalAccountId, input.institutionId)
           )
         )
         .limit(1);
@@ -485,13 +489,13 @@ export const cneRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
       }
       await db
-        .update(cneEvents)
+        .update(cpdEvents)
         .set({ cpdCode: input.cpdCode })
-        .where(eq(cneEvents.id, input.eventId));
+        .where(eq(cpdEvents.id, input.eventId));
       return { success: true as const };
     }),
 
-  /** Self-service: log when a nurse reveals the CPD secret code for auditing. */
+  /** Self-service: log when a user reveals the CPD secret code for auditing. */
   logCpdCodeReveal: protectedProcedure
     .input(
       z.object({
@@ -508,13 +512,13 @@ export const cneRouter = router({
       
       // Verify attendee belongs to the user and the event
       const [attendee] = await db
-        .select({ id: cneAttendees.id })
-        .from(cneAttendees)
+        .select({ id: cpdAttendees.id })
+        .from(cpdAttendees)
         .where(
           and(
-            eq(cneAttendees.id, input.attendeeId),
-            eq(cneAttendees.cneEventId, input.eventId),
-            eq(cneAttendees.email, email)
+            eq(cpdAttendees.id, input.attendeeId),
+            eq(cpdAttendees.cpdEventId, input.eventId),
+            eq(cpdAttendees.email, email)
           )
         )
         .limit(1);
@@ -527,8 +531,8 @@ export const cneRouter = router({
 
       await db.insert(cpdCodeRevealLogs).values({
         userId: ctx.user.id,
-        cneAttendeeId: input.attendeeId,
-        cneEventId: input.eventId,
+        cpdAttendeeId: input.attendeeId,
+        cpdEventId: input.eventId,
         ipAddress: ip,
         userAgent: userAgent,
       });
@@ -537,13 +541,9 @@ export const cneRouter = router({
     }),
 
   /**
-   * Self-service (any authenticated user): list the logged-in nurse's own CNE
+   * Self-service (any authenticated user): list the logged-in user's own CPD
    * attendance records, matched by email. Returns enough data to render a list
-   * and link each row to its certificate PDF (/api/cne/certificate/:attendeeId).
-   *
-   * Email is normalized to lowercase for matching, consistent with how
-   * registrations are stored (submitRegistration lowercases on insert) and how
-   * the rest of the codebase looks up users by email.
+   * and link each row to its certificate PDF (/api/cpd/certificate/:attendeeId).
    */
   myCertificates: protectedProcedure.query(async ({ ctx }) => {
     const email = (ctx.user.email ?? "").trim().toLowerCase();
@@ -554,26 +554,28 @@ export const cneRouter = router({
     const db = await requireDb();
     const rows = await db
       .select({
-        attendeeId: cneAttendees.id,
-        eventId: cneAttendees.cneEventId,
-        fullName: cneAttendees.fullName,
-        cadre: cneAttendees.cadre,
-        cadreOther: cneAttendees.cadreOther,
-        department: cneAttendees.department,
-        submittedAt: cneAttendees.submittedAt,
-        eventName: cneEvents.name,
-        eventDate: cneEvents.eventDate,
+        attendeeId: cpdAttendees.id,
+        eventId: cpdAttendees.cpdEventId,
+        fullName: cpdAttendees.fullName,
+        cadre: cpdAttendees.cadre,
+        cadreOther: cpdAttendees.cadreOther,
+        department: cpdAttendees.department,
+        submittedAt: cpdAttendees.submittedAt,
+        eventName: cpdEvents.name,
+        eventDate: cpdEvents.eventDate,
         institutionName: institutionalAccounts.companyName,
-        cpdCode: cneEvents.cpdCode,
+        cpdCode: cpdEvents.cpdCode,
+        approvingCouncil: cpdEvents.approvingCouncil,
+        cpdPoints: cpdEvents.cpdPoints,
       })
-      .from(cneAttendees)
-      .leftJoin(cneEvents, eq(cneAttendees.cneEventId, cneEvents.id))
+      .from(cpdAttendees)
+      .leftJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id))
       .leftJoin(
         institutionalAccounts,
-        eq(cneAttendees.institutionalAccountId, institutionalAccounts.id)
+        eq(cpdAttendees.institutionalAccountId, institutionalAccounts.id)
       )
-      .where(eq(cneAttendees.email, email))
-      .orderBy(desc(cneAttendees.id));
+      .where(eq(cpdAttendees.email, email))
+      .orderBy(desc(cpdAttendees.id));
     return {
       email,
       records: rows.map((r) => ({
@@ -584,13 +586,15 @@ export const cneRouter = router({
         cadreOther: r.cadreOther,
         department: r.department,
         submittedAt: r.submittedAt,
-        eventName: r.eventName ?? "CNE Session",
+        eventName: r.eventName ?? "CPD Session",
         eventDate: r.eventDate ?? "",
         institutionName: r.institutionName ?? "Healthcare Institution",
         cpdCode: r.cpdCode ?? null,
+        approvingCouncil: r.approvingCouncil ?? null,
+        cpdPoints: r.cpdPoints ?? null,
       })),
     };
   }),
 });
 
-export type CneRouter = typeof cneRouter;
+export type CpdRouter = typeof cpdRouter;
