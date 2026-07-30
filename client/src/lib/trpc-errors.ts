@@ -21,6 +21,9 @@ export function isCareSignalParentRedirectMessage(message: string): boolean {
 export function getAiAssistantErrorMessage(error: unknown): string {
   if (error instanceof TRPCClientError) {
     const code = (error.data as { code?: string } | undefined)?.code;
+    if (typeof error.message === "string" && error.message.includes("temporarily paused")) {
+      return error.message;
+    }
     if (code === "UNAUTHORIZED") {
       return "Your session has expired. Please sign in again to keep using the AI Guide.";
     }
