@@ -14,7 +14,7 @@ Pillar A to "defined certification **and** micro-course requirements," but no
 certification requirement has ever been implemented — Pillar A today checks only
 the 29 micro-courses. This addendum specifies what that certification requirement
 actually is, and extends the model in two ways leadership has not yet ratified:
-CNE inclusion in Pillar C, and a Fellow-status prerequisite for a new instructor
+CPD inclusion in Pillar C, and a Fellow-status prerequisite for a new instructor
 tier.
 
 ---
@@ -35,14 +35,14 @@ certification requirement §5.2 always committed to but never implemented.
 | BLS + ACLS + PALS + NRP certification | **New** — specified in §1, not yet implemented |
 
 Pillar C is ongoing monthly discipline — things proven every month, with the
-same grace mechanism applying to both. CNE joins Care Signal here, not Pillar
+same grace mechanism applying to both. CPD joins Care Signal here, not Pillar
 A, because it is monthly-recurring like Care Signal, not a one-time
 completion like a certification or a course.
 
 | Pillar C component | Status |
 |---|---|
 | Care Signal, ≥1 eligible submission/month, 24 consecutive months | **Unchanged** — already implemented, already enforced |
-| CNE, 1 qualifying session/month | **New** — specified in §3, not yet implemented, shares Care Signal's existing grace mechanism |
+| CPD, 1 qualifying session/month | **New** — specified in §3, not yet implemented, shares Care Signal's existing grace mechanism |
 
 ## 1. Pillar A certification floor: BLS + ACLS + PALS + NRP
 
@@ -80,24 +80,24 @@ only, on the grounds that eligibility and community identity are different
 levers — Fellowship's content and culture can stay nursing-forward, where the
 platform's roots are, without narrowing who is allowed to earn the title.
 
-## 3. CNE joins Pillar C: monthly cadence, mirroring the Care Signal grace
+## 3. CPD joins Pillar C: monthly cadence, mirroring the Care Signal grace
    model
 
-Pillar C's Care Signal requirement is joined by CNE participation, at a rate
-of **one qualifying CNE session per month across the 24-month pathway** —
+Pillar C's Care Signal requirement is joined by CPD participation, at a rate
+of **one qualifying CPD session per month across the 24-month pathway** —
 structurally parallel to Care Signal's existing monthly objective, so a
-Fellow is proving two forms of monthly discipline side by side, not one. CNE
+Fellow is proving two forms of monthly discipline side by side, not one. CPD
 joins Pillar C rather than Pillar A because it is a recurring monthly
 requirement like Care Signal, not a one-time completion like a course or
 certification.
 
-CNE follows the **same grace model already implemented for Care Signal**
+CPD follows the **same grace model already implemented for Care Signal**
 (`fellowship-care-signal-streak.ts`): up to 2 grace months per calendar year
 where a missed month does not break the streak, each followed by a mandatory
-catch-up month. No new grace policy is introduced — CNE inherits Care Signal's
+catch-up month. No new grace policy is introduced — CPD inherits Care Signal's
 existing rules rather than defining a second, divergent one.
 
-**Reminder notification:** both the Care Signal and CNE components of Pillar C
+**Reminder notification:** both the Care Signal and CPD components of Pillar C
 send a notification **one week before the current month closes** if that
 month's objective is not yet met, giving the Fellow a chance to submit before
 a grace gets consumed. This extends the existing lifecycle-nudge system
@@ -111,7 +111,7 @@ Care Signal, Safe-Truth feeding back into each other. An individual's own path
 through Pillar A/B/C is not that loop; it is their personal discipline within it.
 §5.2 already calls Fellowship "a 24-month discipline pathway" — this addendum
 proposes **Practice** as the UI/nav label for this grouping (Fellowship, AHA
-certifications, CNE, and eventually Instructor progression), on the grounds that
+certifications, CPD, and eventually Instructor progression), on the grounds that
 it is the word clinicians already use for their own clinical practice, and does
 not overload "Learning," which the constitution reserves for the system-level
 loop.
@@ -164,9 +164,9 @@ prestige label stacked on a prerequisite:
 ## 6. Grandfathering: credit past months as met
 
 Any provider currently mid-Pillar-A or mid-Pillar-C when this ships is credited
-for all past months as though each month's objective (CNE session, Care Signal
+for all past months as though each month's objective (CPD session, Care Signal
 report) was met — no retroactive penalty, no re-proving history. This applies
-uniformly to the existing Pillar C streak and the newly added CNE requirement:
+uniformly to the existing Pillar C streak and the newly added CPD requirement:
 a Fellow's clock does not reset, and no one is asked to backfill evidence for
 months that already passed under the pre-addendum rules. Only compliance from
 the ship date forward is newly enforced.
@@ -181,8 +181,8 @@ the ship date forward is newly enforced.
   is open to all healthcare personnel is a deliberate choice, not an open
   question — see §2.
 
-**Resolved since first draft:** a qualifying month's CNE requirement is met by
-the Fellow's *first* CNE session that month — if more than one is attended in
+**Resolved since first draft:** a qualifying month's CPD requirement is met by
+the Fellow's *first* CPD session that month — if more than one is attended in
 the same month, only the first counts toward that month's objective (§3).
 
 ## Review trigger

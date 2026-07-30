@@ -104,7 +104,7 @@ export const fellowshipRouter = router({
       // the most recent successful sync, instead of hardcoded zeros. A transient
       // failure here (DB blip, one bad row) used to make a Fellow's real streak
       // appear to reset to 0 on that page load, even though nothing was actually
-      // lost — the cached snapshot from their last successful Care Signal/CNE
+      // lost — the cached snapshot from their last successful Care Signal/CPD
       // submission still has the real numbers. Only show true zeros if there is no
       // cached row at all (a genuinely new Fellow with nothing synced yet).
       let cached: Awaited<ReturnType<typeof getFellowshipProgress>> = null;

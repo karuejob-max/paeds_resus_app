@@ -555,7 +555,7 @@ Every time mock data is removed and replaced with truth, every time a clinical p
 
 *North Star v2.1 (docs/NORTH_STAR_V2_1_ADDENDUM_FELLOWSHIP.md), adopted
 2026-07-27, specifies the Fellowship Pillar A certification requirement
-(BLS+ACLS+PALS+NRP), extends Pillar C to include CNE participation, defines
+(BLS+ACLS+PALS+NRP), extends Pillar C to include CPD participation, defines
 the Fellow Instructor tier, and sets Fellowship eligibility and grandfathering
 policy. Read it alongside §5.2 and §6.2 below, which it amends.*
 

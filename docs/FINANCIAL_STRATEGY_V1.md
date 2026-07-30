@@ -25,7 +25,7 @@ Classification: Confidential — Internal Strategic Document
 | Business | What it is | Time horizon | What it feeds |
 |---|---|---|---|
 | 1. Education | AHA certifications, micro-courses, Fellowship fees | **Now** — primary cash engine | Observations for the Learning System; workforce for the other businesses |
-| 2. Quality Improvement | Productised ERS packages, premium institutional analytics, CNE/CPD | **Medium term** (2027–2028) | Implementation evidence the Learning System needs to evaluate its own recommendations |
+| 2. Quality Improvement | Productised ERS packages, premium institutional analytics, CPD | **Medium term** (2027–2028) | Implementation evidence the Learning System needs to evaluate its own recommendations |
 | 3. Learning Network | Intelligence licensing, peer-learning facilitation, government partnerships, annual knowledge report | **Long term** (2029+) — requires data density | The moat; what makes Businesses 1 and 2 more valuable |
 | 4. Decision Support | ResusGPS updated by confirmed knowledge, procured by institutions/governments | **Long term** — regulatory positioning required | More observations; closes the adaptive loop |
 
@@ -159,9 +159,16 @@ Institutions that are registered on the platform and contributing Care Signal da
 
 Premium analytics is the first product where the Learning System's intelligence becomes directly billable. Its value depends entirely on the density and quality of the Care Signal dataset. It is not viable until the dataset contains enough observations from enough facilities to make the comparisons and pattern detections meaningful. Target: 10+ facilities contributing Care Signal data consistently for 6+ months before premium analytics is launched.
 
-### 4.3  CNE and CPD Institutional Delivery
+### 4.3  CPD Institutional Delivery
 
-Continuing Nursing Education (CNE) and Continuing Professional Development (CPD) events delivered at the institutional level represent a recurring revenue opportunity. Hospitals and professional associations have budgets for CPD that do not face the same price sensitivity as individual provider spending.
+Continuing Professional Development (CPD) events delivered at the
+institutional level represent a recurring revenue opportunity. Hospitals and
+professional associations have budgets for CPD that do not face the same
+price sensitivity as individual provider spending. CPD sessions carry the
+relevant professional council's approval where applicable (e.g. NCK,
+KMPDC, COC) — points earned count toward the attendee's own licensure
+renewal, which is a meaningful part of the value proposition to both the
+individual attendee and the institution sponsoring the session.
 
 The model: Paeds Resus designs and delivers structured CPD events — simulation days, case review sessions, resuscitation update workshops — for institutional clients on a per-event or annual retainer basis. These events are designed to feed back into the platform: participants are onboarded to ResusGPS and Care Signal as part of the event, so the CPD event generates new platform users and new observation contributors.
 
@@ -267,7 +274,7 @@ The four businesses are sequential. Each stage funds the next and makes it more 
 | Paeds Resus Fellowship | Active enrollment. Fee structure defined. | Growing cohort of active Fellows. Care Signal volume increasing with enrollment. | Established credential. International recognition. 1,000+ active Fellows generating monthly Care Signal data. |
 | Productised ERS Package | Pilot institutional partnerships. Scope and pricing defined. | Recurring annual review fees from established partnerships. 10+ institutional clients. | Network of accredited-pathway facilities. Premium analytics standard. |
 | Premium Institutional Analytics | Not yet viable — requires data density. | Piloted with 10+ contributing facilities. Gap trend reports and benchmarking. | Standard subscription for all institutional partners. |
-| CNE / CPD Institutional Events | Ad hoc delivery. | Structured retainer agreements with institutional clients. | Integrated into ERS package as annual CPD component. |
+| CPD Institutional Events | Ad hoc delivery. | Structured retainer agreements with institutional clients. | Integrated into ERS package as annual CPD component. |
 | Intelligence Licensing (Knowledge Base) | Not yet viable. | First licensing conversations when 3+ countries and 1,000+ observations confirmed. | Annual knowledge report licensed to ministries and funders. |
 | Peer-Learning Facilitation | Not yet viable. | First peer-learning referrals when Validated Success Patterns exist. | Recurring model generating revenue and Implementation records simultaneously. |
 | Government / Ministry Partnerships | Relationship building. | First data-sharing agreement with national endorsement. | Multi-country partnerships. Platform embedded in national QI frameworks. |
