@@ -341,7 +341,12 @@ export async function calculateCareSignalPillar(userId: number): Promise<CareSig
     // retroactively — that's a separate, smaller gap than the one this
     // fix closes, and is left as-is rather than silently expanded here.
     const graceUsage = await db.query.fellowshipGraceUsage.findMany({
-      where: (grace) => and(eq(grace.userId, userId), inArray(grace.year, windowYears)),
+      // requirementType filter added when CPD grace joined this table
+      // (North Star v2.1 addendum §3) -- without it, a CPD grace row would
+      // silently also count toward the Care Signal streak, defeating the
+      // whole point of giving each an independent budget.
+      where: (grace) =>
+        and(eq(grace.userId, userId), eq(grace.requirementType, "care_signal"), inArray(grace.year, windowYears)),
     });
 
     return computeCareSignalPillarFromEvents(
