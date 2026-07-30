@@ -26,7 +26,7 @@ import CpdClaimDialog from "@/components/CpdClaimDialog";
  * Self-service CPD certificate portal for any logged-in user. Lists all
  * CPD attendance records matched to the user's account email and lets them
  * download each certificate as a PDF via the existing Express route
- * (/api/cne/certificate/:attendeeId), which authorizes the user by matching email.
+ * (/api/cpd/certificate/:attendeeId), which authorizes the user by matching email.
  */
 export default function MyCpdCertificates() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -38,6 +38,8 @@ export default function MyCpdCertificates() {
     eventId: number;
     eventName: string;
     cpdCode: string;
+    approvingCouncil: string | null;
+    cpdPoints: string | number | null;
   } | null>(null);
 
   // Redirect unauthenticated users to login (consistent with other authed pages).
@@ -47,7 +49,7 @@ export default function MyCpdCertificates() {
     }
   }, [loading, isAuthenticated, setLocation]);
 
-  const certificatesQuery = trpc.cne.myCertificates.useQuery(undefined, {
+  const certificatesQuery = trpc.cpd.myCertificates.useQuery(undefined, {
     enabled: Boolean(user),
     staleTime: 30_000,
   });
@@ -127,6 +129,7 @@ export default function MyCpdCertificates() {
                   <TableHead>Session</TableHead>
                   <TableHead>Institution</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Approved Points</TableHead>
                   <TableHead>Cadre</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -137,6 +140,19 @@ export default function MyCpdCertificates() {
                     <TableCell className="font-medium">{r.eventName}</TableCell>
                     <TableCell className="text-sm">{r.institutionName}</TableCell>
                     <TableCell className="text-sm">{r.eventDate}</TableCell>
+                    <TableCell className="text-sm">
+                      {r.approvingCouncil && r.cpdPoints ? (
+                        <Badge variant="outline" className="border-cyan-500/30 text-cyan-600 bg-cyan-50/20">
+                          {r.approvingCouncil}: {r.cpdPoints} pts
+                        </Badge>
+                      ) : r.cpdPoints ? (
+                        <Badge variant="outline" className="border-cyan-500/30 text-cyan-600 bg-cyan-50/20">
+                          {r.cpdPoints} pts
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{cadreLabel(r.cadre, r.cadreOther)}</Badge>
                     </TableCell>
@@ -152,6 +168,8 @@ export default function MyCpdCertificates() {
                                 eventId: r.eventId,
                                 eventName: r.eventName,
                                 cpdCode: r.cpdCode as string,
+                                approvingCouncil: r.approvingCouncil ?? null,
+                                cpdPoints: r.cpdPoints ?? null,
                               });
                               setClaimDialogOpen(true);
                             }}
@@ -164,7 +182,7 @@ export default function MyCpdCertificates() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            window.open(`/api/cne/certificate/${r.attendeeId}`, "_blank")
+                            window.open(`/api/cpd/certificate/${r.attendeeId}`, "_blank")
                           }
                         >
                           <Download className="mr-1 h-3.5 w-3.5" />
@@ -189,6 +207,8 @@ export default function MyCpdCertificates() {
           eventName={selectedRecord.eventName}
           cpdCode={selectedRecord.cpdCode}
           userEmail={user.email || ""}
+          approvingCouncil={selectedRecord.approvingCouncil}
+          cpdPoints={selectedRecord.cpdPoints}
         />
       )}
     </div>

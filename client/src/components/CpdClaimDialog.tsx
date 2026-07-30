@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { AlertTriangle, Check, Clock, Copy, ExternalLink, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +23,8 @@ interface CpdClaimDialogProps {
   eventName: string;
   cpdCode: string;
   userEmail: string;
+  approvingCouncil?: string | null;
+  cpdPoints?: string | number | null;
 }
 
 interface CpdCanvasProps {
@@ -111,13 +114,15 @@ export default function CpdClaimDialog({
   eventName,
   cpdCode,
   userEmail,
+  approvingCouncil,
+  cpdPoints,
 }: CpdClaimDialogProps) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const logRevealMutation = trpc.cne.logCpdCodeReveal.useMutation({
+  const logRevealMutation = trpc.cpd.logCpdCodeReveal.useMutation({
     onSuccess: () => {
       setRevealed(true);
       setTimeLeft(60);
@@ -177,10 +182,17 @@ export default function CpdClaimDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">Claim NCK CPD Points</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">Claim CPD Points</DialogTitle>
           <DialogDescription className="font-medium text-slate-700">
             {eventName}
           </DialogDescription>
+          {cpdPoints && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Badge variant="outline" className="border-cyan-500/30 text-cyan-600 bg-cyan-50/20 text-xs py-0.5">
+                {approvingCouncil ? `${approvingCouncil} Approved` : "CPD Approved"}: {cpdPoints} Points
+              </Badge>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="space-y-4 py-2">

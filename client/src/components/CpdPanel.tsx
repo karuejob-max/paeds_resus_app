@@ -29,25 +29,28 @@ import {
   Printer,
 } from "lucide-react";
 
-interface CnePanelProps {
+interface CpdPanelProps {
   institutionId: number;
 }
 
 /**
- * Self-contained admin UI for the multi-institutional CNE attendance service.
- * Lets an institution admin set the CNE Coordinator name, open/close events,
+ * Self-contained admin UI for the multi-institutional CPD attendance service.
+ * Lets an institution admin set the CPD Coordinator name, open/close events,
  * view registrations, share the public QR/link, and download certificates
  * (single PDF + bulk ZIP) via the streaming Express routes.
  */
-export default function CnePanel({ institutionId }: CnePanelProps) {
+export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
-  const settingsQuery = trpc.cne.getSettings.useQuery({ institutionId });
-  const eventsQuery = trpc.cne.listEvents.useQuery({ institutionId });
+  const settingsQuery = trpc.cpd.getSettings.useQuery({ institutionId });
+  const eventsQuery = trpc.cpd.listEvents.useQuery({ institutionId });
 
   const [coordinatorName, setCoordinatorName] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
+  const [approvingCouncil, setApprovingCouncil] = useState("NCK");
+  const [customCouncil, setCustomCouncil] = useState("");
+  const [cpdPoints, setCpdPoints] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +70,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
     }
   }, [selectedEvent]);
 
-  const attendeesQuery = trpc.cne.listAttendees.useQuery(
+  const attendeesQuery = trpc.cpd.listAttendees.useQuery(
     { institutionId, eventId: effectiveEventId ?? undefined },
     { enabled: effectiveEventId != null }
   );
@@ -81,45 +84,48 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
     return `${window.location.origin}/cpd/register/${institutionId}`;
   }, [institutionId]);
 
-  const updateCoordinatorMutation = trpc.cne.updateCoordinator.useMutation({
+  const updateCoordinatorMutation = trpc.cpd.updateCoordinator.useMutation({
     onSuccess: () => {
-      toast.success("CNE Coordinator updated");
-      void utils.cne.getSettings.invalidate({ institutionId });
+      toast.success("CPD Coordinator updated");
+      void utils.cpd.getSettings.invalidate({ institutionId });
     },
     onError: (err) => toast.error(err.message || "Failed to update coordinator"),
   });
 
-  const openEventMutation = trpc.cne.openEvent.useMutation({
+  const openEventMutation = trpc.cpd.openEvent.useMutation({
     onSuccess: () => {
       toast.success("Event opened for registration");
       setNewEventName("");
       setNewEventDate("");
-      void utils.cne.listEvents.invalidate({ institutionId });
+      setApprovingCouncil("NCK");
+      setCustomCouncil("");
+      setCpdPoints("");
+      void utils.cpd.listEvents.invalidate({ institutionId });
     },
     onError: (err) => toast.error(err.message || "Failed to open event"),
   });
 
-  const closeEventMutation = trpc.cne.closeEvent.useMutation({
+  const closeEventMutation = trpc.cpd.closeEvent.useMutation({
     onSuccess: () => {
-      toast.success("CNE Event closed");
-      void utils.cne.listEvents.invalidate({ institutionId });
+      toast.success("CPD Event closed");
+      void utils.cpd.listEvents.invalidate({ institutionId });
     },
   });
 
-  const updateCpdCodeMutation = trpc.cne.updateCpdCode.useMutation({
+  const updateCpdCodeMutation = trpc.cpd.updateCpdCode.useMutation({
     onSuccess: () => {
       toast.success("CPD secret code updated");
-      void utils.cne.listEvents.invalidate({ institutionId });
+      void utils.cpd.listEvents.invalidate({ institutionId });
     },
     onError: (err) => {
       toast.error(err.message || "Failed to update CPD code");
     },
   });
 
-  const updateSignatureMutation = trpc.cne.updateSignature.useMutation({
+  const updateSignatureMutation = trpc.cpd.updateSignature.useMutation({
     onSuccess: (res) => {
       toast.success(res.hasSignature ? "Signature saved" : "Signature cleared");
-      void utils.cne.getSettings.invalidate({ institutionId });
+      void utils.cpd.getSettings.invalidate({ institutionId });
     },
     onError: (err) => toast.error(err.message || "Failed to save signature"),
   });
@@ -165,7 +171,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>CNE Registration QR Code</title>
+          <title>CPD Registration QR Code</title>
           <style>
             body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 24px; }
             h1 { font-size: 18px; margin: 0 0 8px; }
@@ -175,7 +181,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
           </style>
         </head>
         <body>
-          <h1>Scan to register for CNE</h1>
+          <h1>Scan to register for CPD</h1>
           ${eventLabel ? `<p>${eventLabel}</p>` : ""}
           <div class="qr-box">${svgEl.outerHTML}</div>
           <p class="footer">Paeds Resus login required</p>
@@ -191,7 +197,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
 
   const downloadCsv = async () => {
     try {
-      const result = await utils.cne.exportCsv.fetch({
+      const result = await utils.cpd.exportCsv.fetch({
         institutionId,
         eventId: effectiveEventId ?? undefined,
       });
@@ -199,7 +205,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cne-attendees-${effectiveEventId ?? "all"}.csv`;
+      a.download = `cpd-attendees-${effectiveEventId ?? "all"}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -214,7 +220,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
       {/* Coordinator settings */}
       <Card>
         <CardHeader>
-          <CardTitle>CNE Coordinator</CardTitle>
+          <CardTitle>CPD Coordinator</CardTitle>
           <CardDescription>
             This name is printed on the signature line of every certificate your institution issues.
           </CardDescription>
@@ -222,9 +228,9 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <Label htmlFor="cne-coordinator">Coordinator name</Label>
+              <Label htmlFor="cpd-coordinator">Coordinator name</Label>
               <Input
-                id="cne-coordinator"
+                id="cpd-coordinator"
                 placeholder="e.g. Job Karue, RN"
                 value={coordinatorValue}
                 onChange={(e) => setCoordinatorName(e.target.value)}
@@ -325,44 +331,93 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
       {/* Open a new event */}
       <Card>
         <CardHeader>
-          <CardTitle>CNE Events</CardTitle>
+          <CardTitle>CPD Events</CardTitle>
           <CardDescription>
             Open an event to start accepting registrations. Opening a new event automatically closes
             any event currently open.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
             <div>
-              <Label htmlFor="cne-event-name">Event name</Label>
+              <Label htmlFor="cpd-event-name">Event name</Label>
               <Input
-                id="cne-event-name"
+                id="cpd-event-name"
                 placeholder="e.g. Paediatric Sepsis Update"
                 value={newEventName}
                 onChange={(e) => setNewEventName(e.target.value)}
               />
             </div>
             <div>
-              <Label htmlFor="cne-event-date">Event date</Label>
+              <Label htmlFor="cpd-event-date">Event date</Label>
               <Input
-                id="cne-event-date"
+                id="cpd-event-date"
                 placeholder="e.g. 12 June 2026"
                 value={newEventDate}
                 onChange={(e) => setNewEventDate(e.target.value)}
               />
             </div>
+            <div>
+              <Label htmlFor="cpd-approving-council">Approving Council</Label>
+              <select
+                id="cpd-approving-council"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={approvingCouncil}
+                onChange={(e) => setApprovingCouncil(e.target.value)}
+              >
+                <option value="NCK">NCK (Nursing Council)</option>
+                <option value="KMPDC">KMPDC (Medical Council)</option>
+                <option value="COC">COC (Clinical Officers Council)</option>
+                <option value="Other">Other / Custom</option>
+                <option value="None">None / Not Approved</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="cpd-points">CPD Points</Label>
+              <Input
+                id="cpd-points"
+                type="number"
+                step="0.5"
+                min="0"
+                placeholder="e.g. 3.0"
+                value={cpdPoints}
+                onChange={(e) => setCpdPoints(e.target.value)}
+              />
+            </div>
+          </div>
+          {approvingCouncil === "Other" && (
+            <div className="max-w-md">
+              <Label htmlFor="cpd-custom-council">Specify Council Name</Label>
+              <Input
+                id="cpd-custom-council"
+                placeholder="e.g. Pharmacy and Poisons Board"
+                value={customCouncil}
+                onChange={(e) => setCustomCouncil(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex justify-end">
             <Button
-              onClick={() =>
+              onClick={() => {
+                const finalCouncil = approvingCouncil === "None"
+                  ? null
+                  : approvingCouncil === "Other"
+                    ? customCouncil.trim()
+                    : approvingCouncil;
+                const pointsNum = cpdPoints.trim() ? Number(cpdPoints) : null;
                 openEventMutation.mutate({
                   institutionId,
                   name: newEventName.trim(),
                   eventDate: newEventDate.trim(),
-                })
-              }
+                  approvingCouncil: finalCouncil,
+                  cpdPoints: pointsNum,
+                });
+              }}
               disabled={
                 openEventMutation.isPending ||
                 newEventName.trim().length === 0 ||
-                newEventDate.trim().length === 0
+                newEventDate.trim().length === 0 ||
+                (approvingCouncil === "Other" && customCouncil.trim().length === 0)
               }
             >
               {openEventMutation.isPending ? (
@@ -506,7 +561,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
                 disabled={!effectiveEventId || attendees.length === 0}
                 onClick={() => {
                   if (effectiveEventId) {
-                    window.open(`/api/cne/certificate/bulk/${effectiveEventId}`, "_blank");
+                    window.open(`/api/cpd/certificate/bulk/${effectiveEventId}`, "_blank");
                   }
                 }}
               >
@@ -548,7 +603,7 @@ export default function CnePanel({ institutionId }: CnePanelProps) {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          window.open(`/api/cne/certificate/${a.id}`, "_blank")
+                          window.open(`/api/cpd/certificate/${a.id}`, "_blank")
                         }
                       >
                         <Download className="mr-1 h-3.5 w-3.5" />

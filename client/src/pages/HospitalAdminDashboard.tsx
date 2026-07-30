@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
-import CnePanel from "@/components/CnePanel";
+import CpdPanel from "@/components/CpdPanel";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
@@ -676,7 +676,7 @@ export default function HospitalAdminDashboard() {
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="safe-truth">Safe Truth</TabsTrigger>
             <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
-            <TabsTrigger value="cne">CNE</TabsTrigger>
+            <TabsTrigger value="cpd">CPD</TabsTrigger>
             <TabsTrigger value="guidelines-audit">Guideline Audit</TabsTrigger>
             <TabsTrigger value="ai-patterns">AI Pattern Inbox</TabsTrigger>
             <TabsTrigger value="resusgps-audit">ResusGPS Audit</TabsTrigger>
@@ -2342,12 +2342,12 @@ export default function HospitalAdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="cne" className="space-y-6">
+          <TabsContent value="cpd" className="space-y-6">
             {institutionId ? (
-              <CnePanel institutionId={institutionId} />
+              <CpdPanel institutionId={institutionId} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                Link your hospital account to manage CNE events.
+                Link your hospital account to manage CPD events.
               </p>
             )}
           </TabsContent>

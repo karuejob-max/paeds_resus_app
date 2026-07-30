@@ -11,7 +11,7 @@ export interface CadreGroup {
   options: CadreOption[];
 }
 
-export const CNE_CADRE_TAXONOMY: CadreGroup[] = [
+export const CPD_CADRE_TAXONOMY: CadreGroup[] = [
   {
     group: "Staff",
     options: [
@@ -232,7 +232,7 @@ export function getAllCadreValues(): string[] {
       }
     }
   };
-  for (const group of CNE_CADRE_TAXONOMY) {
+  for (const group of CPD_CADRE_TAXONOMY) {
     addOptions(group.options);
   }
   return values;
