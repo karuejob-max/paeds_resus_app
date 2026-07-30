@@ -39,6 +39,15 @@ export interface FellowshipEnrollmentInput {
   programType: string;
   cognitiveModulesComplete: boolean;
   ahaPrecourseCompleted: boolean;
+  /**
+   * Set by a lead_instructor for a learner who completed physical,
+   * in-person training before the online Phase 2 simulation model existed
+   * (North Star v2.1 addendum §6). A full override for this course — not a
+   * partial waiver of just the simulation count — since grandfathered
+   * learners typically have no digital trail for cognitive/precourse
+   * completion either.
+   */
+  fellowshipGrandfathered?: boolean;
 }
 
 export interface FellowshipSimulationAttendanceInput {
@@ -50,13 +59,14 @@ export interface FellowshipSimulationAttendanceInput {
 
 export interface FellowshipCoursePhase2Status {
   course: FellowshipRequiredCourse;
-  /** Always true for bls (no Phase 2 component); for others, cognitive + AHA precourse + 3 team_member + 3 team_leader, each instructor-signed-off. */
+  /** Always true for bls (no Phase 2 component); for others, cognitive + AHA precourse + 3 team_member + 3 team_leader, each instructor-signed-off. Also true if grandfathered. */
   met: boolean;
   cognitiveComplete: boolean;
   ahaPrecourseComplete: boolean;
   /** N/A (always true) for bls */
   teamMemberSessionsPassed: number;
   teamLeaderSessionsPassed: number;
+  grandfathered: boolean;
 }
 
 export interface FellowshipPillarACourseStatus {
@@ -81,6 +91,19 @@ export function getFellowshipPillarACourseStatus(
     const enrollment = enrollments.find((e) => e.programType === course);
     const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
     const ahaPrecourseComplete = enrollment?.ahaPrecourseCompleted ?? false;
+    const grandfathered = enrollment?.fellowshipGrandfathered ?? false;
+
+    if (grandfathered) {
+      return {
+        course,
+        met: true,
+        cognitiveComplete,
+        ahaPrecourseComplete,
+        teamMemberSessionsPassed: 0,
+        teamLeaderSessionsPassed: 0,
+        grandfathered: true,
+      };
+    }
 
     if (course === "bls") {
       // BLS Phase 2 is CPR, which isn't part of the online-simulation model —
@@ -92,6 +115,7 @@ export function getFellowshipPillarACourseStatus(
         ahaPrecourseComplete,
         teamMemberSessionsPassed: 0,
         teamLeaderSessionsPassed: 0,
+        grandfathered: false,
       };
     }
 
@@ -116,6 +140,7 @@ export function getFellowshipPillarACourseStatus(
       ahaPrecourseComplete,
       teamMemberSessionsPassed,
       teamLeaderSessionsPassed,
+      grandfathered: false,
     };
   });
 
