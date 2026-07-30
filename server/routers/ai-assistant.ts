@@ -1,7 +1,7 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { invokeLLM } from "../_core/llm";
+import { invokeLLM, LlmFeaturesDisabledError } from "../_core/llm";
 import { AI_SYSTEM_PROMPT, COMMON_QUESTIONS, EMERGENCY_CONTACTS } from "../knowledge-base";
 import {
   looksLikeBedsideClinicalRequest,
@@ -9,6 +9,26 @@ import {
   QUIZ_TUTOR_SYSTEM_PROMPT,
   BEDSIDE_REDIRECT_REPLY,
 } from "../lib/gemini-user-assist";
+
+/**
+ * Shared error handling for the 7 procedures in this file that call
+ * invokeLLM (sendMessage, getQuizTutorResponse, getQuizGuideAnalysis,
+ * getClinicalSupport, getTroubleshootingHelp, getProtocolReference,
+ * generateSimulationDebrief). Distinguishes "AI features are deliberately
+ * paused right now" (LlmFeaturesDisabledError, see server/_core/env.ts's
+ * llmFeaturesEnabled) from a genuine failure, so the AI Guide shows an
+ * honest, calm message instead of implying something is broken.
+ */
+function throwAiAssistantError(error: unknown, logLabel: string | null, fallbackMessage: string): never {
+  if (error instanceof LlmFeaturesDisabledError) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "The AI Guide is temporarily paused while we finish some backend setup. Please check back soon.",
+    });
+  }
+  if (logLabel) console.error(logLabel, error);
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: fallbackMessage });
+}
 
 /**
  * Paeds Resus AI Assistant Router
@@ -84,11 +104,7 @@ export const aiAssistantRouter = router({
           timestamp: new Date(),
         };
       } catch (error) {
-        console.error("[AI Assistant] Error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to process your message",
-        });
+        throwAiAssistantError(error, "[AI Assistant] Error:", "Failed to process your message");
       }
     }),
 
@@ -169,11 +185,7 @@ Official Explanation: ${input.explanation}`;
           timestamp: new Date(),
         };
       } catch (error) {
-        console.error("[AI Assistant] Quiz Tutor Error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate tutoring explanation",
-        });
+        throwAiAssistantError(error, "[AI Assistant] Quiz Tutor Error:", "Failed to generate tutoring explanation");
       }
     }),
 
@@ -228,11 +240,7 @@ Respond ONLY with a JSON object matching this schema:
           clinicalTakeaway: parsed.clinicalTakeaway || "Clinical takeaway unavailable.",
         };
       } catch (error) {
-        console.error("[AI Assistant] Quiz Guide Analysis Error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate detailed quiz analysis",
-        });
+        throwAiAssistantError(error, "[AI Assistant] Quiz Guide Analysis Error:", "Failed to generate detailed quiz analysis");
       }
     }),
 
@@ -282,10 +290,7 @@ Clinical Scenario: ${input.scenario}`;
           timestamp: new Date(),
         };
       } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate clinical support",
-        });
+        throwAiAssistantError(error, null, "Failed to generate clinical support");
       }
     }),
 
@@ -331,10 +336,7 @@ ${input.context ? `Additional Context: ${input.context}` : ""}`;
           timestamp: new Date(),
         };
       } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate troubleshooting help",
-        });
+        throwAiAssistantError(error, null, "Failed to generate troubleshooting help");
       }
     }),
 
@@ -380,10 +382,7 @@ ${input.query ? `Specific Question: ${input.query}` : ""}`;
           timestamp: new Date(),
         };
       } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to retrieve protocol reference",
-        });
+        throwAiAssistantError(error, null, "Failed to retrieve protocol reference");
       }
     }),
 
@@ -636,11 +635,7 @@ ${overridesText || "None"}`;
           feedback: parsed.feedback || { strengths: [], delays: [], correctiveActions: [], spacedRepetitionTopic: "general" },
         };
       } catch (error) {
-        console.error("[AI Assistant] generateSimulationDebrief error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate simulation debriefing summary",
-        });
+        throwAiAssistantError(error, "[AI Assistant] generateSimulationDebrief error:", "Failed to generate simulation debriefing summary");
       }
     }),
 });

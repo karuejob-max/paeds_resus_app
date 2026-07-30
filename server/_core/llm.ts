@@ -228,6 +228,24 @@ const resolveApiUrl = () => {
 
 const resolveApiKey = () => ENV.geminiApiKey || ENV.forgeApiKey;
 
+/**
+ * Thrown when every LLM feature is deliberately disabled (ENV.llmFeaturesEnabled
+ * is false). Callers should catch this specifically and degrade gracefully —
+ * see individual call sites for how each one currently handles it. Named
+ * distinctly from a config error (assertApiKey) so callers/monitoring can
+ * tell "we chose to pause this" apart from "something is actually broken."
+ */
+export class LlmFeaturesDisabledError extends Error {
+  constructor() {
+    super(
+      "LLM features are currently disabled (LLM_FEATURES_ENABLED is not \"true\"). " +
+        "This is a deliberate platform-wide pause, not a misconfiguration — see " +
+        "server/_core/env.ts's llmFeaturesEnabled doc comment for why."
+    );
+    this.name = "LlmFeaturesDisabledError";
+  }
+}
+
 const assertApiKey = () => {
   if (!resolveApiKey()) {
     throw new Error("GEMINI_API_KEY or BUILT_IN_FORGE_API_KEY is not configured");
@@ -280,6 +298,9 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
+  if (!ENV.llmFeaturesEnabled) {
+    throw new LlmFeaturesDisabledError();
+  }
   assertApiKey();
 
   const {

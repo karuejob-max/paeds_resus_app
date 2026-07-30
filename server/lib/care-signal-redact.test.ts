@@ -4,6 +4,15 @@ import { careSignalEvents } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { redactPendingNarratives } from "./care-signal-redact";
 
+// These tests exercise the actual processing logic and must run as if LLM
+// features are enabled -- the kill switch itself (2026-07-29) has its own
+// dedicated, DB-free tests in care-signal-redact-pause.test.ts. Without
+// this, these tests would silently break the moment LLM_FEATURES_ENABLED
+// isn't "true" in whatever environment happens to have DATABASE_URL set.
+vi.mock("../_core/env", () => ({
+  ENV: { llmFeaturesEnabled: true },
+}));
+
 // Mock invokeLLM to prevent actual external API requests
 const mockInvokeLLM = vi.fn().mockResolvedValue({
   choices: [

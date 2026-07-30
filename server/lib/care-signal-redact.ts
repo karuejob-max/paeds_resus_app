@@ -2,6 +2,7 @@ import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { careSignalEvents } from "../../drizzle/schema";
 import type { DbClient } from "../db";
 import { invokeLLM } from "../_core/llm";
+import { ENV } from "../_core/env";
 
 /**
  * Background task to redact raw narratives using Gemini (paid tier).
@@ -9,6 +10,17 @@ import { invokeLLM } from "../_core/llm";
  * calls the LLM to redact any PII / facility names, and saves the result.
  */
 export async function redactPendingNarratives(db: DbClient, limit = 10): Promise<{ processed: number; succeeded: number; failed: number }> {
+  // Deliberate platform-wide pause (2026-07-29) — see ENV.llmFeaturesEnabled's
+  // doc comment. Checked BEFORE querying for pending rows, not per-item,
+  // so a paused platform logs one clear line every 10 minutes instead of
+  // one confusing "failure" per pending narrative.
+  if (!ENV.llmFeaturesEnabled) {
+    console.log(
+      "[Redaction Job] Skipped — LLM_FEATURES_ENABLED is not \"true\". This is a deliberate pause, not an error. Narratives stay queued (redactedNarrative remains NULL) until this is turned back on."
+    );
+    return { processed: 0, succeeded: 0, failed: 0 };
+  }
+
   const pending = await db
     .select({
       id: careSignalEvents.id,
