@@ -86,7 +86,7 @@ sit in adjacent parts of the platform: **Lead Instructor (this addendum) and
 Fellow Instructor (§5 of the v2.1 Fellowship addendum) are unrelated,
 independently-earned credentials.** Lead Instructor is reached by mentoring
 other *instructors* through their provisional period. Fellow Instructor is
-reached by completing the Fellowship (BLS+ACLS+PALS+NRP, CNE, ResusGPS,
+reached by completing the Fellowship (BLS+ACLS+PALS+NRP, CPD, ResusGPS,
 Care Signal) and then the Instructor Course. A person can hold either, both,
 or neither — completing one confers nothing toward the other. This mirrors
 the same care already taken to keep the Cohort Program's own instructor
