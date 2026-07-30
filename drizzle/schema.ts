@@ -214,6 +214,27 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
   successFactorCodes: text("success_factor_codes"),
   rawNarrative: text("raw_narrative"),
   redactedNarrative: text("redacted_narrative"),
+  /**
+   * Redaction retry state (migration 0081, closing a gap found in code
+   * review 2026-07-29): before this, the only signal was
+   * `redactedNarrative IS NULL` = pending, with no way to tell "not yet
+   * attempted" apart from "has failed 40 times already" — a permanently
+   * unredactable narrative (LLM safety-filter refusal, malformed input,
+   * anything non-transient) would retry every 10 minutes forever, with
+   * zero operator visibility. `redactionAttempts` counts tries;
+   * `redactionLastAttemptAt` drives real exponential backoff (see
+   * care-signal-redact.ts's isEligibleForRetry, not just "wait for the
+   * next 10-minute cron tick regardless"); once attempts reach
+   * MAX_REDACTION_ATTEMPTS the row stops being retried automatically and
+   * needs manual attention (`redactionLastError` records why, for whoever
+   * looks). None of this affects anonymization's fallback: a row that
+   * never gets a redactedNarrative still safely falls back to the
+   * existing pattern-based redaction at the 7-year/DSAR cutoff, per
+   * care-signal-anonymize.ts.
+   */
+  redactionAttempts: int("redaction_attempts").default(0).notNull(),
+  redactionLastAttemptAt: timestamp("redaction_last_attempt_at"),
+  redactionLastError: text("redaction_last_error"),
   temporalIntervals: text("temporal_intervals"),
   eventId: varchar("event_id", { length: 36 }),
   // ── Fellowship pseudonymous token model (migration 0064, gap-analysis #10) ─

@@ -418,9 +418,9 @@ function scheduleCareSignalRedaction() {
       const db = await requireDb();
       const { redactPendingNarratives } = await import("./lib/care-signal-redact");
       const result = await redactPendingNarratives(db);
-      if (result.processed > 0) {
+      if (result.processed > 0 || result.skippedBackoff > 0) {
         console.log(
-          `[Scheduler] Care Signal narrative redaction completed: processed=${result.processed} succeeded=${result.succeeded} failed=${result.failed}`
+          `[Scheduler] Care Signal narrative redaction completed: processed=${result.processed} succeeded=${result.succeeded} failed=${result.failed} skippedBackoff=${result.skippedBackoff}`
         );
       }
     } catch (error) {

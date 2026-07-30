@@ -89,6 +89,8 @@ describe.skipIf(!hasDatabase)("Care Signal Narrative Redaction Job", () => {
         {
           id: eventId,
           rawNarrative: testEvent.rawNarrative,
+          redactionAttempts: 0,
+          redactionLastAttemptAt: null,
         }
       ]),
     };
@@ -148,6 +150,8 @@ describe.skipIf(!hasDatabase)("Care Signal Narrative Redaction Job", () => {
         {
           id: eventId,
           rawNarrative: testEvent.rawNarrative,
+          redactionAttempts: 0,
+          redactionLastAttemptAt: null,
         }
       ]),
     };
