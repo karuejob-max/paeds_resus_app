@@ -124,6 +124,7 @@
     "db:apply-0077": "node scripts/apply-0077-user-cadre.mjs",
     "db:apply-0078": "node scripts/apply-0078-cpd-rename-and-points.mjs",
     "db:apply-0079": "node scripts/apply-0079-fellowship-grandfathering.mjs",
+    "db:apply-0080": "node scripts/apply-0080-cpd-grace-requirement-type.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

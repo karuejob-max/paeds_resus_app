@@ -3043,6 +3043,16 @@ export type InsertFellowshipToken = typeof fellowshipTokens.$inferInsert;
 export const fellowshipGraceUsage = mysqlTable("fellowshipGraceUsage", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /**
+   * Which monthly Pillar C requirement this grace was used against — Care
+   * Signal and CPD each get their own independent grace budget (up to 2
+   * per calendar year each), not a shared pool (North Star v2.1 addendum
+   * §3, CEO decision 2026-07-29: CPD "inherits Care Signal's existing
+   * rules" as a template, not a shared allowance). Defaults to
+   * care_signal since every row before this column existed was implicitly
+   * Care Signal grace.
+   */
+  requirementType: mysqlEnum("requirementType", ["care_signal", "cpd"]).default("care_signal").notNull(),
   /** Calendar year (EAT) when grace was used */
   year: int("year").notNull(),
   /** Month (1-12, EAT) when grace was used */
