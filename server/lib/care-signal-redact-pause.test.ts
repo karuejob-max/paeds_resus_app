@@ -34,7 +34,7 @@ describe("redactPendingNarratives kill-switch path (LLM_FEATURES_ENABLED=false, 
 
     const result = await redactPendingNarratives(dbThatThrowsIfQueried);
 
-    expect(result).toEqual({ processed: 0, succeeded: 0, failed: 0 });
+    expect(result).toEqual({ processed: 0, succeeded: 0, failed: 0, skippedBackoff: 0 });
   });
 
   it("never calls invokeLLM while paused", async () => {
