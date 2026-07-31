@@ -129,7 +129,7 @@ export const fellowshipRouter = router({
             conditionsWithThreshold: cached.conditionsWithThreshold ?? 0,
             totalConditionsTaught: cached.totalConditionsTaught ?? 0,
             percentage: cached.resusGPSPercentage ?? 0,
-            casesByCondition: {},
+            casesByCondition: {} as Record<string, number>,
             conditionBreakdown: [],
             casesStillNeeded: 0,
             incompleteConditions: 0,
@@ -152,7 +152,7 @@ export const fellowshipRouter = router({
       // No cached row exists at all — a genuinely new Fellow. Zeros are accurate here.
       return {
         coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
-        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {}, conditionBreakdown: [], casesStillNeeded: 0, incompleteConditions: 0 },
+        resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {} as Record<string, number>, conditionBreakdown: [], casesStillNeeded: 0, incompleteConditions: 0 },
         careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0, monthsRemaining: 24, monthlyTimeline: [] },
         isQualified: false,
         overallPercentage: 0,
