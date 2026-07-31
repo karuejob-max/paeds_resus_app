@@ -19,6 +19,7 @@
     "test:api": "vitest run server/routers/role-boundary-provider-api.test.ts",
     "test:api:enrollment": "vitest run server/routers/enrollment-payment-flows.test.ts",
     "test:db": "node scripts/test-db-connection.mjs",
+    "check:db-test-coverage": "node scripts/check-db-test-coverage.mjs",
     "test:db:integration": "vitest run server/recommendation-engine.test.ts server/learning-cpr.test.ts server/session-details.test.ts server/care-signal-analytics.test.ts server/resus-integration-e2e.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:holistic": "playwright test e2e/holistic-loop.spec.ts",

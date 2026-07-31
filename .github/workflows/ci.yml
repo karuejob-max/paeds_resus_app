@@ -31,6 +31,9 @@ jobs:
       - name: Unit + clinical engine tests
         run: pnpm run test:unit && pnpm run test:clinical
 
+      - name: Report DB-dependent suites not exercised this run
+        run: pnpm run check:db-test-coverage
+
       - name: Sprint 1 rollup verify
         run: pnpm run verify:sprint1
 
