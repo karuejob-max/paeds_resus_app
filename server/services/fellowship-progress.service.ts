@@ -16,7 +16,16 @@ import {
   users,
   enrollments,
   cpdCodeRevealLogs,
+  institutionalStaffMembers,
+  trainingAttendance,
+  trainingSchedules,
+  courses,
 } from "../../drizzle/schema";
+import {
+  getFellowshipPillarACourseStatus,
+  FELLOWSHIP_REQUIRED_COURSES,
+  type FellowshipPillarACourseStatus,
+} from "../lib/fellowship-phase2-completion";
 import {
   computeCareSignalStreak,
   computeCareSignalTimelineKeys,
@@ -37,15 +46,34 @@ import {
 
 export type FellowshipPillarStatus = Awaited<ReturnType<typeof calculateFellowshipStatus>>;
 
-export async function calculateCoursesPillar(userId: number) {
+export type CoursesPillarResult = {
+  completed: number;
+  required: number;
+  percentage: number;
+  legacyCourses: number;
+  phase2: FellowshipPillarACourseStatus;
+};
+
+export async function calculateCoursesPillar(userId: number): Promise<CoursesPillarResult> {
   const db = await getDb();
+  const totalRequired = getFellowshipMicroCourseRequiredCount();
+  const emptyPhase2: FellowshipPillarACourseStatus = {
+    courses: FELLOWSHIP_REQUIRED_COURSES.map((course) => ({
+      course,
+      met: false,
+      cognitiveComplete: false,
+      ahaPrecourseComplete: false,
+      teamMemberSessionsPassed: 0,
+      teamLeaderSessionsPassed: 0,
+      grandfathered: false,
+    })),
+    met: false,
+  };
   if (!db) {
-    const required = getFellowshipMicroCourseRequiredCount();
-    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
+    return { completed: 0, required: totalRequired, percentage: 0, legacyCourses: 0, phase2: emptyPhase2 };
   }
 
   try {
-    const totalRequired = getFellowshipMicroCourseRequiredCount();
     const completedCerts = await db.query.certificates.findMany({
       where: (certs) => eq(certs.userId, userId),
     });
@@ -64,12 +92,62 @@ export async function calculateCoursesPillar(userId: number) {
       ["bls", "acls", "pals", "instructor"].includes(c.programType)
     ).length;
     const completed = completedMicroRows.filter((r) => pillarIds.has(r.courseId)).length;
-    const percentage = Math.min(100, Math.round((completed / totalRequired) * 100));
-    return { completed, required: totalRequired, percentage, legacyCourses };
+
+    // Phase 2 (North Star v2.1 addendum §1 as corrected): BLS+ACLS+PALS+NRP
+    // course-completion status, joined via the learner's institutional
+    // staff record(s) -- trainingAttendance is keyed by staffMemberId, not
+    // userId directly, since Phase 2 simulations run through the same
+    // Cohort Program session infrastructure regardless of whether the
+    // attendee happens to also be pursuing Fellowship (CEO decision,
+    // 2026-07-29: "this rule doesn't change because someone is doing
+    // fellowship"). A user can have more than one staff-member record
+    // (changed institutions), so this aggregates across all of them.
+    const fellowshipEnrollments = await db.query.enrollments.findMany({
+      where: (e) => and(eq(e.userId, userId), inArray(e.programType, [...FELLOWSHIP_REQUIRED_COURSES])),
+    });
+    const staffMemberRows = await db
+      .select({ id: institutionalStaffMembers.id })
+      .from(institutionalStaffMembers)
+      .where(eq(institutionalStaffMembers.userId, userId));
+    const staffMemberIds = staffMemberRows.map((r) => r.id);
+    const attendanceRows = staffMemberIds.length
+      ? await db
+          .select({
+            coursesProgramType: courses.programType,
+            simulationRole: trainingAttendance.simulationRole,
+            simulationCompetencyPassed: trainingAttendance.simulationCompetencyPassed,
+          })
+          .from(trainingAttendance)
+          .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
+          .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+          .where(inArray(trainingAttendance.staffMemberId, staffMemberIds))
+      : [];
+
+    const phase2 = getFellowshipPillarACourseStatus(
+      fellowshipEnrollments.map((e) => ({
+        programType: e.programType,
+        cognitiveModulesComplete: e.cognitiveModulesComplete,
+        ahaPrecourseCompleted: e.ahaPrecourseCompleted ?? false,
+        fellowshipGrandfathered: e.fellowshipGrandfathered ?? false,
+      })),
+      attendanceRows
+    );
+    const phase2CoursesMet = phase2.courses.filter((c) => c.met).length;
+
+    // Blended total: micro-courses (29) + the 4 required-course Phase 2
+    // statuses, as one combined item count -- not an average of two
+    // percentages. This means 100% is reachable only when BOTH streams
+    // are individually complete; there's no way to "make up" a Phase 2
+    // shortfall with extra micro-courses or vice versa, since each side
+    // is capped at its own required count.
+    const combinedRequired = totalRequired + FELLOWSHIP_REQUIRED_COURSES.length;
+    const combinedCompleted = completed + phase2CoursesMet;
+    const percentage = Math.min(100, Math.round((combinedCompleted / combinedRequired) * 100));
+
+    return { completed, required: totalRequired, percentage, legacyCourses, phase2 };
   } catch (error) {
     console.error("[Fellowship] Error calculating courses pillar:", error);
-    const required = getFellowshipMicroCourseRequiredCount();
-    return { completed: 0, required, percentage: 0, legacyCourses: 0 };
+    return { completed: 0, required: totalRequired, percentage: 0, legacyCourses: 0, phase2: emptyPhase2 };
   }
 }
 
@@ -446,15 +524,43 @@ export async function calculateCareSignalPillarForToken(
   }
 }
 
-export async function calculateFellowshipStatus(userId: number) {
+export async function calculateFellowshipStatus(userId: number): Promise<{
+  coursesPillar: CoursesPillarResult;
+  resusGPSPillar: Awaited<ReturnType<typeof calculateResusGPSPillar>>;
+  careSignalPillar: CareSignalPillarResult & { cpd: CareSignalPillarResult };
+  isQualified: boolean;
+  overallPercentage: number;
+}> {
   const coursesPillar = await calculateCoursesPillar(userId);
   const resusGPSPillar = await calculateResusGPSPillar(userId);
-  const careSignalPillar = await calculateCareSignalPillar(userId);
+  const careSignalOnly = await calculateCareSignalPillar(userId);
+  const cpdOnly = await calculateCpdPillar(userId);
+
+  // Pillar C, blended (North Star v2.1 addendum §3): CPD joined Care
+  // Signal here, each with its own independent streak/grace budget --
+  // "met" requires BOTH at 24/24, not either one alone or an average that
+  // could paper over one stream lagging behind. All the existing
+  // Care-Signal-specific fields below (streak, eventsSubmitted,
+  // reportsThisMonth, monthsRemaining, monthlyTimeline) keep their
+  // pre-existing meaning unchanged -- they were always Care Signal's own
+  // numbers and still are. `percentage` is the one field whose meaning
+  // changes: it now reflects the combined Pillar C total (both streams
+  // averaged), matching the same "percentage is the authoritative combined
+  // number, sub-fields carry the breakdown" pattern used for Pillar A
+  // above. `cpd` is new -- CPD's full breakdown (its own streak,
+  // monthlyTimeline, etc.), for the same kind of drill-down UI Pillar A's
+  // `phase2` field is meant to feed.
+  const careSignalPillar = {
+    ...careSignalOnly,
+    percentage: Math.min(100, Math.round((careSignalOnly.percentage + cpdOnly.percentage) / 2)),
+    cpd: cpdOnly,
+  };
 
   const isQualified =
     coursesPillar.percentage === 100 &&
     resusGPSPillar.percentage === 100 &&
-    careSignalPillar.percentage === 100;
+    careSignalOnly.percentage === 100 &&
+    cpdOnly.percentage === 100;
 
   const overallPercentage = Math.round(
     (coursesPillar.percentage + resusGPSPillar.percentage + careSignalPillar.percentage) / 3
