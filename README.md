@@ -62,7 +62,7 @@ Paeds Resus is an **Adaptive Learning System** — a paediatric survival infrast
 | **Education** | AHA certifications (BLS 6h · ACLS 16h · PALS 16h · NRP · Heartsaver · Instructor), micro-courses, Paeds Resus Fellowship |
 | **Care Signal** | Provider-facing QI reporting — currently incident reporting; target: the first real-time paediatric emergency surveillance network in LMICs |
 | **Safe-Truth** | Caregiver-facing channel (no login required) — captures the journey before the ward: delays, barriers, pre-hospital experience |
-| **Hospital ERS** | Institutional Emergency Readiness System — nurse-led ERT 24/7, ResusGPS + Care Signal across the facility, readiness audits, institutional dashboard |
+| **Hospital ERS / IERMS™** | Institutional Emergency Readiness Management System™ — nurse-led ERT 24/7, ResusGPS + Care Signal across the facility, 100-point readiness audits ([`docs/institutional/IERMS_STANDARD_V1.md`](docs/institutional/IERMS_STANDARD_V1.md)), institutional dashboard |
 
 Full platform architecture: **[`docs/PAEDS_RESUS_COHERENT_PICTURE.md`](docs/PAEDS_RESUS_COHERENT_PICTURE.md)**.
 
