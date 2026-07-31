@@ -1,5 +1,13 @@
 # Multi-Institutional Cohort ACLS/BLS Program Integration Plan
 
+> **⚠️ Superseded in part by `IERP_NERP_PROGRAM_V2_SPEC.md` (2026-07-31).**
+> This document is the original 2026-07-17 technical design; parts of it
+> (payment gating in §3.2, the 2-role simulation model in §2.3/§4.2's rule,
+> institution-mediated enrollment throughout) have been replaced by the v2
+> respec. Where they disagree, the v2 spec is authoritative. This document
+> hasn't been rewritten section-by-section yet — that's tracked as the next
+> engineering pass, not done here.
+
 This document details the technical architecture, database schema changes, API routes, and algorithms required to support the multi-institutional, subsidized 6-month Intern ACLS & BLS Training Program. It coordinates individual provider dashboards with institutional aggregate reporting, and manages flexible individual payment schedules and prioritised Phase 2 waitlists across multiple facilities.
 
 ---
@@ -24,7 +32,7 @@ graph TD
     subgraph "Phase 2: Online Sims"
         Phase2 --> P2_Book[Evening Slot Booking]
         P2_Book --> P2_Role{Simulation Role}
-        P2_Role -->|Team Member| P2_Mem[Min. 3 Completed]
+        P2_Role -->|Team Member| P2_Mem[Min. 6 Completed, 1 per named role]
         P2_Role -->|Team Leader| P2_Led[Min. 3 Completed]
         P2_Mem & P2_Led --> P2_Comp{Competency Sign-Off}
     end
