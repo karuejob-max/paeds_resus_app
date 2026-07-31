@@ -10,32 +10,33 @@ We're not a training company with extra features. We're an adaptive learning sys
 
 Kenya is the proving ground, not the ceiling. See [`docs/NORTH_STAR_V2.md`](docs/NORTH_STAR_V2.md) for the full mission, theory of change, and what we're building toward.
 
-### Documentation map (start here)
+### Documentation map — read in this order
 
-Read in this order before deep work:
+> **Every agent, developer, and collaborator must read `docs/PAEDS_RESUS_COHERENT_PICTURE.md` before any other document.** The README's old map sent agents to `PLATFORM_SOURCE_OF_TRUTH.md` first — that document answers *What we build*. You need to understand *Why* and *How we learn* before *What* makes any sense.
 
-1. **[`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md)** — Binding product and technical decisions (auth, roles, report definitions, deployment, priority order).
-2. **[`docs/STRATEGIC_FOUNDATION.md`](docs/STRATEGIC_FOUNDATION.md)** — Why the platform exists, one holistic problem, theory of change, honest success criteria (near-term execution framing).
-3. **[`docs/WORK_STATUS.md`](docs/WORK_STATUS.md)** — What was done, in progress, critique.
-4. **[`docs/AI_TEAM_WORKFLOW.md`](docs/AI_TEAM_WORKFLOW.md)** — How collaborators sync via git.
-5. **[`docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md)** — Pre-merge checks.
-6. **[`docs/PRE_MERGE_CHECKLIST.md`](docs/PRE_MERGE_CHECKLIST.md)** — `pnpm run ci:gate` before PRs; **[`docs/STAGING_BRANCH_SETUP.md`](docs/STAGING_BRANCH_SETUP.md)** — `develop` / staging / production flow.
+| Step | Document | Question it answers |
+|------|----------|---------------------|
+| **1** | **[`docs/PAEDS_RESUS_COHERENT_PICTURE.md`](docs/PAEDS_RESUS_COHERENT_PICTURE.md)** | Who Paeds Resus actually is — the mandatory entry point |
+| **2** | [`docs/NORTH_STAR_V2.md`](docs/NORTH_STAR_V2.md) | *Why* we exist — mission, theory of change, financial strategy |
+| **3** | [`docs/OBSERVATION_ARCHITECTURE_V1_1.md`](docs/OBSERVATION_ARCHITECTURE_V1_1.md) | *How* we learn — observation model, transformation pipeline, learning governance |
+| **4** | [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md) | *What* we build — binding technical and product decisions, priority order |
+| **5** | [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md) | What was done, in progress, blocked |
+| **6** | [`docs/AI_TEAM_WORKFLOW.md`](docs/AI_TEAM_WORKFLOW.md) | How collaborators sync via git |
+| **7** | [`docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md`](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md) | Pre-merge checks |
 
-Long-range or aspirational multi-year material (not near-term commitments) lives under **[`docs/archive/`](docs/archive/)** — see [`docs/archive/README.md`](docs/archive/README.md).
+**Conflict resolution:** Technical implementation → PSoT wins. Strategic direction → North Star wins. Data architecture → Observation Architecture wins. Update the losing document. Never silently diverge.
 
-**Sprint 1 (Measurement Truth MVP):** [`docs/PRODUCT_BACKLOG_PRIORITIZED.md`](docs/PRODUCT_BACKLOG_PRIORITIZED.md) (Sprint 1 section), [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md), [`docs/EVENT_TAXONOMY.md`](docs/EVENT_TAXONOMY.md).
+Long-range aspirational material (not near-term commitments) lives under **[`docs/archive/`](docs/archive/)** — see [`docs/archive/README.md`](docs/archive/README.md). Do not treat figures there as committed.
 
-**Courses & Fellowship (portfolio, MECE map, pricing narrative):** [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md). **24-slot micro-course backlog (SKU list):** [`docs/MICRO_COURSE_CATALOG_BACKLOG.md`](docs/MICRO_COURSE_CATALOG_BACKLOG.md). **Paeds Resus Fellowship (automation-only, Care Signal vs parent Safe-Truth, launch checklist):** [`docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md`](docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) ([`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md) §17). **Parallel backlog (Cursor + Manus):** [`docs/PARALLEL_BACKLOG_FELLOWSHIP_AND_SCALE.md`](docs/PARALLEL_BACKLOG_FELLOWSHIP_AND_SCALE.md) · [`docs/PARALLEL_BACKLOG_EXECUTION_PLAN.md`](docs/PARALLEL_BACKLOG_EXECUTION_PLAN.md) · [`docs/MESSAGE_FOR_MANUS_PARALLEL_BACKLOG.md`](docs/MESSAGE_FOR_MANUS_PARALLEL_BACKLOG.md).
+**Courses & Fellowship:** [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) · [`docs/MICRO_COURSE_CATALOG_BACKLOG.md`](docs/MICRO_COURSE_CATALOG_BACKLOG.md) · [`docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md`](docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
-**Clinical protocols (authoritative + ResusGPS map):** [`docs/clinical-protocols/README.md`](docs/clinical-protocols/README.md) — narrative, evidence alignment, and code mapping; **[`docs/clinical-protocols/RESUSGPS_REGISTRY.md`](docs/clinical-protocols/RESUSGPS_REGISTRY.md)** lists pathway IDs and files.
+**Clinical protocols (authoritative + ResusGPS map):** [`docs/clinical-protocols/README.md`](docs/clinical-protocols/README.md) — [`docs/clinical-protocols/RESUSGPS_REGISTRY.md`](docs/clinical-protocols/RESUSGPS_REGISTRY.md) lists pathway IDs.
 
-**E2E test course (PALS, KES 100):** [`docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md`](docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md) — enroll, M-Pesa, modules, certificate; run `pnpm run seed:pals-course` once against your DB.
+**E2E test courses:** [`docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md`](docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md) · [`docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md`](docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md).
 
-**E2E Paediatric septic shock (PALS micro-course, KES 200):** [`docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md`](docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md) — apply `pnpm run db:apply-0029` once; catalog ensured on enroll.
+**Admin analytics spot-check:** `pnpm run verify:analytics` (optional `VERIFY_LAST_DAYS=7`).
 
-**Admin analytics spot-check:** with `DATABASE_URL` set, run `pnpm run verify:analytics` (optional `VERIFY_LAST_DAYS=7`) — counts `analyticsEvents` by `eventType` for the same rolling window as Admin → Reports (see [`docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md`](docs/SPRINT_1_IMPLEMENTATION_CHECKLIST.md)).
-
-**B2B instructor + Instructor Course:** production DB needs `pnpm run db:apply-0027` once (`users.instructorApprovedAt`) and `pnpm run db:apply-0028` once (`programType` includes `instructor`; `users.instructorNumber`, `users.instructorCertifiedAt`; see `.env.example`).
+**B2B instructor + Instructor Course:** `pnpm run db:apply-0027` + `pnpm run db:apply-0028` once against production DB.
 
 ### Product and backlog docs
 
@@ -47,48 +48,23 @@ Long-range or aspirational multi-year material (not near-term commitments) lives
 
 ---
 
-## Platform Overview
+## What Paeds Resus Is
 
-### Core Features
+Paeds Resus is an **Adaptive Learning System** — a paediatric survival infrastructure platform. It is not a training company, not a hospital management system, and not a ResusGPS app. Those are components. The identity is the closed learning loop that connects them:
 
-#### 1. **Institutional Training Programs**
-- **BLS (Basic Life Support)** - 8 hours, foundational resuscitation skills
-- **ACLS (Advanced Cardiovascular Life Support)** - 16 hours, advanced cardiac care
-- **PALS (Pediatric Advanced Life Support)** - 16 hours, pediatric-specific protocols
-- **Paeds Resus Fellowship** - Three-pillar mastery program (Courses, ResusGPS, Care Signal)
+> Clinical events → structured observation → confirmed patterns → updated guidance → better outcomes for the next child.
 
-#### 2. **Hospital Management System**
-- Institutional registration and subscription management
-- Bulk staff import (CSV upload)
-- Real-time progress tracking dashboard
-- Enrollment and certification management
-- Revenue and ROI analytics
+### The five products
 
-#### 3. **Payment Processing**
-- M-Pesa integration for Kenyan hospitals
-- Flexible subscription plans (Basic, Professional, Enterprise)
-- Automated billing and payment tracking
-- Invoice generation and reporting
+| Product | Role |
+|---|---|
+| **ResusGPS** | Point-of-care bedside guidance — structured ABCDE flows, weight-based dosing, CPR-GPS cardiac arrest workflow |
+| **Education** | AHA certifications (BLS 6h · ACLS 16h · PALS 16h · NRP · Heartsaver · Instructor), micro-courses, Paeds Resus Fellowship |
+| **Care Signal** | Provider-facing QI reporting — currently incident reporting; target: the first real-time paediatric emergency surveillance network in LMICs |
+| **Safe-Truth** | Caregiver-facing channel (no login required) — captures the journey before the ward: delays, barriers, pre-hospital experience |
+| **Hospital ERS** | Institutional Emergency Readiness System — nurse-led ERT 24/7, ResusGPS + Care Signal across the facility, readiness audits, institutional dashboard |
 
-#### 4. **Certificate Management**
-- Branded PDF certificates with verification codes
-- Digital certificate repository
-- Certificate verification system
-- Expiry tracking and renewal reminders
-
-#### 5. **Safe-Truth Incident Reporting**
-- Confidential incident reporting system
-- System gap identification and categorization
-- Outcome tracking (survived, neurologically intact, poor outcome)
-- Recommendations and compliance tracking
-- Incident analytics and trend analysis
-
-#### 6. **Analytics & Reporting**
-- Enrollment trends and demographics
-- Course completion rates by program
-- Geographic distribution analysis
-- Revenue and ROI metrics
-- Compliance reporting (GDPR, HIPAA, PCI-DSS, ISO 27001)
+Full platform architecture: **[`docs/PAEDS_RESUS_COHERENT_PICTURE.md`](docs/PAEDS_RESUS_COHERENT_PICTURE.md)**.
 
 ---
 
@@ -472,12 +448,15 @@ Manus, Codex, Cursor, and developers share one source of truth in the repo. **No
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/PLATFORM_SOURCE_OF_TRUTH.md](docs/PLATFORM_SOURCE_OF_TRUTH.md) | Canonical decisions, definitions, priorities |
+| [docs/PAEDS_RESUS_COHERENT_PICTURE.md](docs/PAEDS_RESUS_COHERENT_PICTURE.md) | **Read this first** — who Paeds Resus is, constitutional hierarchy, all products |
+| [docs/NORTH_STAR_V2.md](docs/NORTH_STAR_V2.md) | *Why* we exist — mission, theory of change |
+| [docs/OBSERVATION_ARCHITECTURE_V1_1.md](docs/OBSERVATION_ARCHITECTURE_V1_1.md) | *How* we learn — observation model, learning governance |
+| [docs/PLATFORM_SOURCE_OF_TRUTH.md](docs/PLATFORM_SOURCE_OF_TRUTH.md) | *What* we build — binding technical and product decisions |
 | [docs/WORK_STATUS.md](docs/WORK_STATUS.md) | Done, in progress, blocked, critique (everyone updates here) |
 | [docs/AI_TEAM_WORKFLOW.md](docs/AI_TEAM_WORKFLOW.md) | How to read/update and scrutinize each other's work |
 | [docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md](docs/ENGINEERING_ACCEPTANCE_CHECKLIST.md) | Sprint/PR checklist before merge |
 
-**Workflow:** Before work, read PLATFORM_SOURCE_OF_TRUTH and WORK_STATUS. After work, update WORK_STATUS and run the acceptance checklist. Commit so the next person sees the latest.
+**Workflow:** Before work, read PAEDS_RESUS_COHERENT_PICTURE → WORK_STATUS → PSoT. After work, update WORK_STATUS and run the acceptance checklist. Commit so the next person sees the latest.
 
 ---
 
