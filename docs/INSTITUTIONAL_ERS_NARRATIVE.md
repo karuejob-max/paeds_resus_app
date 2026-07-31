@@ -1,12 +1,8 @@
-# Paeds Resus Hospital Emergency Readiness System (ERS)
-
-
+# Paeds Resus Hospital Emergency Readiness System (ERS / IERMS™)
 
 **Audience:** CEO, hospital medical directors, nursing leadership, county health teams  
-
-**Status:** Active institutional narrative — May 2026  
-
-**Related:** [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) · [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md) · [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md)
+**Status:** Active institutional narrative & IERMS™ Framework — July 2026  
+**Related:** [IERMS_STANDARD_V1.md](./institutional/IERMS_STANDARD_V1.md) · [IERMS_AUDIT_SCORECARD_V1.md](./institutional/IERMS_AUDIT_SCORECARD_V1.md) · [IERMS_IMPLEMENTATION_SUITE.md](./institutional/IERMS_IMPLEMENTATION_SUITE.md) · [PILOT_HOSPITAL_MOU_TEMPLATE](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) · [INSTITUTIONAL_B2B_ADDENDUM](./legal/INSTITUTIONAL_B2B_ADDENDUM.md)
 
 
 

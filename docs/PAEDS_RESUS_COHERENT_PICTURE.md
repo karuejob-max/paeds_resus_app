@@ -28,11 +28,24 @@ Read in this order:
 
 ## 1. What Paeds Resus Actually Is
 
-Paeds Resus is **not** a training company. It is not a ResusGPS app. It is not a BLS/ACLS provider.
+## 2. Who Paeds Resus Is — The Core Identity
 
-It is an **Adaptive Learning System** — a paediatric survival infrastructure platform. Every product it builds, every course it certifies, and every observation it collects exists to serve one closed learning loop:
+Paeds Resus is an **Adaptive Learning System** — a paediatric survival infrastructure platform for low- and middle-income countries (LMICs).
 
-> **Clinical events → structured observation → confirmed patterns → updated guidance → better outcomes for the next child.**
+It is **not** a training company. It is **not** a hospital management system. It is **not** a ResusGPS app. Those are components. The identity is the **closed learning loop** that connects them.
+
+### The Child at Both Ends of the Loop
+
+Everything Paeds Resus builds begins and ends with the child:
+
+> **On one end** is the child who died (*The Book of the Unforgotten* — capturing system failures, honoring lost lives, recording failure patterns).  
+> **On the other end** is the child who lives because the system learned.
+
+This cycle can never stop. Eliminating preventable childhood deaths is an ongoing commitment; we can never comfortably claim all preventable deaths have been eliminated. Therefore, the system must continuously observe, adapt, and learn—ensuring the readiness infrastructure is always prepared for the next child or patient who needs it.
+
+In African referral health systems without isolated paediatric hospitals, paediatric care occurs within general facilities where paediatric wards experience high Patient:Nurse ratios. Paeds Resus is a **Family-Centered Organization**—our resuscitation infrastructure protects the mother who collapses in Maternity, the teenager with a heart block in ER, and the infant in septic shock in the paediatric ward. 
+
+This establishes **Whole-Hospital Reciprocity** ("scratch my back, I'll scratch yours"): adult ward and ER nurses willingly respond to a Paeds Code Blue because the trained ERT also responds to Code Blues in adult, emergency, and maternity units. Furthermore, from an institutional economics standpoint, training 100 RNs in ACLS provides a hospital-wide emergency baseline with superior unit economics, complemented by targeted PALS certification for high-risk paediatric and NBU units.
 
 The closest institutional analogue is **aviation safety**. Every near-miss reported makes the whole system safer. The incident database is not the product. Fewer children dying from the same preventable failure is the product.
 
@@ -77,7 +90,7 @@ The oxygen was present and not administered. The antibiotic was on the shelf and
 | **Education** (AHA + Fellowship + Micro-courses) | BLS (6h) · ACLS (16h) · PALS (16h) · NRP · Heartsaver · Instructor Course · Micro-courses · Paeds Resus Fellowship. Credentialing that changes behaviour — not certificates for their own sake. | [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) · [`docs/NORTH_STAR_V2.md`](./NORTH_STAR_V2.md) §5.2 |
 | **Care Signal** | Provider-facing QI reporting. Currently: incident reporting for Fellowship Pillar C and facility QI. Target: the first real-time, provider-sourced epidemiological surveillance network for paediatric emergency system failures in LMICs. **This network does not exist anywhere else.** | [`docs/CARE_SIGNAL_STRATEGY_AND_ROADMAP.md`](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md) · [`docs/CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md`](./CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md) |
 | **Safe-Truth** | Caregiver-facing channel — accessible without any login. Captures the journey before the ward: pre-hospital delays, facilities that turned families away, advice that falsely reassured. **Never conflate with Care Signal.** | [`docs/OBSERVATION_ARCHITECTURE_V1_1.md`](./OBSERVATION_ARCHITECTURE_V1_1.md) §3.3 |
-| **Hospital ERS** | Institutional Emergency Readiness System — hospital-wide nurse-led ERT 24/7, ResusGPS and Care Signal deployed across the facility, readiness audits, institutional dashboard. System readiness, not seat count. | [`docs/INSTITUTIONAL_ERS_NARRATIVE.md`](./INSTITUTIONAL_ERS_NARRATIVE.md) |
+| **Hospital ERS / IERMS™** | Institutional Emergency Readiness Management System™ — hospital-wide nurse-led ERT 24/7, ResusGPS and Care Signal deployed across the facility, readiness audits (100-point scorecard), institutional dashboard. System readiness, not seat count. | [`docs/institutional/IERMS_STANDARD_V1.md`](./institutional/IERMS_STANDARD_V1.md) · [`docs/INSTITUTIONAL_ERS_NARRATIVE.md`](./INSTITUTIONAL_ERS_NARRATIVE.md) |
 
 **Non-negotiable naming rule:** ResusGPS is one product. Paeds Resus is the organisation and platform. Never interchangeable. Safe-Truth and Care Signal are different products with different audiences, different data tables, and different purposes.
 
@@ -313,6 +326,9 @@ After reading the constitutional three (North Star → Observation Architecture 
 | Fellowship automation rules, grace periods, launch gate | [`docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md`](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md) |
 | Micro-course portfolio, ADF map, tier pricing | [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) |
 | Micro-course SKU catalog (24 named slots) | [`docs/MICRO_COURSE_CATALOG_BACKLOG.md`](./MICRO_COURSE_CATALOG_BACKLOG.md) |
+| Hospital ERS / IERMS™ Standard v1.0 | [`docs/institutional/IERMS_STANDARD_V1.md`](./institutional/IERMS_STANDARD_V1.md) |
+| IERMS™ 100-Point Audit Scorecard | [`docs/institutional/IERMS_AUDIT_SCORECARD_V1.md`](./institutional/IERMS_AUDIT_SCORECARD_V1.md) |
+| IERMS™ 90-Day Implementation Suite | [`docs/institutional/IERMS_IMPLEMENTATION_SUITE.md`](./institutional/IERMS_IMPLEMENTATION_SUITE.md) |
 | Hospital ERS institutional narrative | [`docs/INSTITUTIONAL_ERS_NARRATIVE.md`](./INSTITUTIONAL_ERS_NARRATIVE.md) |
 | Care Signal strategy and implementation roadmap | [`docs/CARE_SIGNAL_STRATEGY_AND_ROADMAP.md`](./CARE_SIGNAL_STRATEGY_AND_ROADMAP.md) |
 | Care Signal world-changing potential | [`docs/CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md`](./CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md) |
