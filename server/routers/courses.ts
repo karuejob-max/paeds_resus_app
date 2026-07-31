@@ -15,6 +15,7 @@ import {
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { getProgramIdentity } from '../../shared/program-identity';
+import { notifyBookingWaitlistPromoted } from '../lib/cohort-program-notifications';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
@@ -1122,6 +1123,7 @@ export const coursesRouter = router({
                   .set({ enrolledCount: Math.max(0, (session.enrolledCount ?? 1) - 1) + 1 })
                   .where(eq(trainingSchedules.id, input.scheduleId));
                 promotedStaffMemberId = winner.staffMemberId;
+                void notifyBookingWaitlistPromoted(db, input.scheduleId, winner.staffMemberId);
               }
             }
           }

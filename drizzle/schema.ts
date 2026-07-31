@@ -1277,6 +1277,17 @@ export const trainingAttendance = mysqlTable("trainingAttendance", {
 });
 
 // Individual Installment Payments
+// NOTE (2026-07-31 investigation, not yet acted on beyond this comment):
+// this table matches the original 2026-07-17 design spec
+// (docs/COHORT_ACLS_PROGRAM_INTEGRATION.md §2.2) for a dedicated per-instalment
+// ledger, but the balance-calculation code that actually shipped
+// (server/routers/payments.ts) sums the generic `payments` table instead --
+// this table has no writer anywhere in the codebase. `payments` doesn't carry
+// `phoneNumber` or a uniquely-constrained M-Pesa receipt column the way this
+// table does, so it isn't a strict duplicate, but nothing currently relies on
+// those extra columns either. Needs a real decision (CEO call, not an
+// engineering default): retire this table, or add its two extra columns to
+// `payments` and drop this one -- not both left as parallel, divergent ledgers.
 export const individualInstallmentPayments = mysqlTable("individualInstallmentPayments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
