@@ -15,6 +15,7 @@ import {
   instructorMentorshipGroups,
 } from "../../drizzle/schema";
 import { signOffPracticalSkills } from "../certificates";
+import { notifyMentorshipTierPromoted } from "../lib/cohort-program-notifications";
 
 export const instructorRouter = router({
   /** Certification + platform approval flags for the instructor journey. */
@@ -300,6 +301,86 @@ export const instructorRouter = router({
     }),
 
   // ─────────────────────────────────────────────────────────────────────────
+  // "Sign off all eligible" — one click instead of clicking through every
+  // learner. Reuses the exact same signOffPracticalSkills call (and its
+  // eligibility rules) per learner, so no new judgment call is introduced;
+  // this is purely a time-saver over the per-learner button. Skips learners
+  // who are already signed off or have no resolvable enrollment for this
+  // course, same as the individual button already does implicitly.
+  // ─────────────────────────────────────────────────────────────────────────
+  signOffAllEligible: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [schedule] = await db
+        .select({ instructorId: trainingSchedules.instructorId, courseId: trainingSchedules.courseId })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!schedule) throw new TRPCError({ code: "NOT_FOUND", message: "Training session not found" });
+
+      const [u] = await db
+        .select({ name: users.name, instructorApprovedAt: users.instructorApprovedAt, role: users.role })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1);
+      if (!u) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      if (ctx.user.role !== "admin" && schedule.instructorId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You are not the assigned instructor for this session." });
+      }
+      if (!u.instructorApprovedAt && u.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only approved instructors or admins can sign off practical skills assessments.",
+        });
+      }
+
+      const attendanceRows = await db
+        .select({ staffMemberId: trainingAttendance.staffMemberId })
+        .from(trainingAttendance)
+        .where(eq(trainingAttendance.trainingScheduleId, input.scheduleId));
+
+      const enrollmentRows = await db
+        .select({
+          id: enrollments.id,
+          userId: enrollments.userId,
+          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+        })
+        .from(enrollments)
+        .where(eq(enrollments.courseId, schedule.courseId))
+        .orderBy(desc(enrollments.createdAt));
+
+      const enrollmentByUserId = new Map(enrollmentRows.map((e) => [e.userId, e]));
+      const instructorName = u.name ?? "Instructor";
+
+      let signedCount = 0;
+      let certificatesIssuedCount = 0;
+      const skipped: { userId: number; reason: string }[] = [];
+
+      for (const att of attendanceRows) {
+        const enrollment = enrollmentByUserId.get(att.staffMemberId);
+        if (!enrollment) {
+          skipped.push({ userId: att.staffMemberId, reason: "No matching enrollment for this course" });
+          continue;
+        }
+        if (enrollment.practicalSkillsSignedOff) {
+          continue; // already signed off — not a skip worth reporting, just a no-op
+        }
+        const result = await signOffPracticalSkills(enrollment.id, ctx.user.id, instructorName);
+        if (result.success) {
+          signedCount++;
+          if (result.certificateIssued) certificatesIssuedCount++;
+        } else {
+          skipped.push({ userId: att.staffMemberId, reason: result.error ?? "Sign-off failed" });
+        }
+      }
+
+      return { success: true as const, signedCount, certificatesIssuedCount, skipped };
+    }),
+
+  // ─────────────────────────────────────────────────────────────────────────
   // AHA-CERT-1: Update attendance status for a learner in a session
   // ─────────────────────────────────────────────────────────────────────────
   updateAttendance: protectedProcedure
@@ -422,6 +503,7 @@ export const instructorRouter = router({
           .set({ instructorTier: "qualified" })
           .where(and(eq(users.id, input.menteeUserId), eq(users.instructorTier, "provisional")));
         promoted = true;
+        void notifyMentorshipTierPromoted(db, input.menteeUserId, "qualified");
 
         // Lead Instructor check: has this mentor now taken 10 distinct mentees to "qualified"?
         const mentorMentorships = await db
@@ -445,6 +527,7 @@ export const instructorRouter = router({
             .update(users)
             .set({ instructorTier: "lead_instructor" })
             .where(and(eq(users.id, mentorship.mentorUserId), eq(users.instructorTier, "qualified")));
+          void notifyMentorshipTierPromoted(db, mentorship.mentorUserId, "lead_instructor");
         }
       }
 

@@ -51,6 +51,20 @@ function SessionRoster({ scheduleId }: { scheduleId: number }) {
     },
     onError: (err) => toast.error(err.message),
   });
+  const signOffAllMutation = trpc.instructor.signOffAllEligible.useMutation({
+    onSuccess: (data) => {
+      if (data.signedCount === 0 && data.skipped.length === 0) {
+        toast.success("Everyone eligible is already signed off.");
+      } else {
+        toast.success(
+          `Signed off ${data.signedCount} learner(s)${data.certificatesIssuedCount > 0 ? `, ${data.certificatesIssuedCount} certificate(s) issued` : ""}` +
+            (data.skipped.length > 0 ? ` — ${data.skipped.length} skipped (see below)` : "")
+        );
+      }
+      rosterQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   if (rosterQuery.isLoading) {
     return (
@@ -65,8 +79,26 @@ function SessionRoster({ scheduleId }: { scheduleId: number }) {
     return <p className="text-sm text-muted-foreground py-2">No learners registered for this session yet.</p>;
   }
 
+  const eligibleCount = roster.filter((l) => !l.practicalSkillsSignedOff && l.enrollmentId).length;
+
   return (
     <div className="space-y-3 mt-3">
+      {eligibleCount > 1 && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-7 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+          disabled={signOffAllMutation.isPending}
+          onClick={() => signOffAllMutation.mutate({ scheduleId })}
+        >
+          {signOffAllMutation.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ClipboardCheck className="h-3 w-3" />
+          )}
+          Sign off all eligible ({eligibleCount})
+        </Button>
+      )}
       {roster.map((learner) => (
         <div
           key={learner.userId}

@@ -499,6 +499,56 @@ export const emailTemplates: Record<string, EmailTemplate> = {
       "portalUrl",
     ],
   },
+
+  bookingWaitlistPromoted: {
+    id: "booking-waitlist-promoted",
+    name: "Promoted off the waitlist into a session",
+    subject: "You're in — a spot opened up for {{courseTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">You're off the waitlist</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{learnerName}},</p>
+          <p>A spot opened up in <strong>{{courseTitle}}</strong> and you've been moved from the waitlist into a confirmed booking.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background: white; border-radius: 6px;">
+            <tr><td style="padding: 8px 12px; border-bottom: 1px solid #eee;"><strong>When</strong></td><td style="padding: 8px 12px;">{{scheduledSummary}}</td></tr>
+            <tr><td style="padding: 8px 12px;"><strong>Location</strong></td><td style="padding: 8px 12px;">{{locationLine}}</td></tr>
+          </table>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View my bookings</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{learnerName}},\\n\\nA spot opened up in {{courseTitle}} and you've been moved from the waitlist into a confirmed booking.\\n\\nWhen: {{scheduledSummary}}\\nLocation: {{locationLine}}\\n\\nView your bookings: {{dashboardUrl}}\\n\\nPaeds Resus Limited`,
+    variables: ["learnerName", "courseTitle", "scheduledSummary", "locationLine", "dashboardUrl"],
+  },
+
+  mentorshipTierPromoted: {
+    id: "mentorship-tier-promoted",
+    name: "Instructor promoted to a new mentorship tier",
+    subject: "You've reached {{newTier}} instructor status",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Instructor tier update</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{instructorName}},</p>
+          <p>Congratulations — you've been promoted to <strong>{{newTier}}</strong> instructor status on the platform.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{portalUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Open instructor portal</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{instructorName}},\\n\\nCongratulations — you've been promoted to {{newTier}} instructor status on the platform.\\n\\nInstructor portal: {{portalUrl}}\\n\\nPaeds Resus Limited`,
+    variables: ["instructorName", "newTier", "portalUrl"],
+  },
 };
 
 /**
