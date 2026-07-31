@@ -558,6 +558,7 @@ export default function LearnerDashboard() {
             <ProgramIdentityBadge />
             <DesignationDeclarationCard />
             <Phase1ProofUploadCard />
+            <MyBookingsCard />
 
             {/* My Certificates */}
             <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
@@ -975,6 +976,113 @@ function DesignationDeclarationCard() {
             {declareMutation.isPending ? "Saving..." : "Confirm"}
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MyBookingsCard() {
+  const { data: bookings, isLoading, refetch } = trpc.courses.getMyHandsOnBookings.useQuery();
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  const cancelMutation = trpc.courses.cancelHandsOnSession.useMutation({
+    onSuccess: (result) => {
+      if (result.alreadyCancelled) {
+        toast.success("Booking already cancelled.");
+      } else if (result.promoted) {
+        toast.success("Booking cancelled — a waitlisted learner has been promoted into your slot.");
+      } else {
+        toast.success("Booking cancelled.");
+      }
+      setCancellingId(null);
+      void refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Could not cancel this booking");
+      setCancellingId(null);
+    },
+  });
+
+  // No cohort-program bookings at all yet — nothing to show. Distinct from
+  // "loading," which renders nothing rather than an empty-state flash.
+  if (isLoading) return null;
+  if (!bookings || bookings.length === 0) return null;
+
+  const statusLabel: Record<string, string> = {
+    registered: "Registered",
+    attended: "Attended",
+    absent: "Absent",
+    cancelled: "Cancelled",
+    waitlisted: "Waitlisted",
+  };
+  const statusStyle: Record<string, string> = {
+    registered: "bg-green-50 border-green-200 text-green-800",
+    attended: "bg-blue-50 border-blue-200 text-blue-800",
+    absent: "bg-slate-50 border-slate-200 text-slate-500",
+    cancelled: "bg-slate-50 border-slate-200 text-slate-400 line-through decoration-slate-300",
+    waitlisted: "bg-amber-50 border-amber-200 text-amber-800",
+  };
+  const trainingTypeLabel: Record<string, string> = {
+    online: "Phase 1 · Online",
+    hands_on: "Phase 3 · Hands-on",
+    hybrid: "Phase 2 · Online Simulation",
+  };
+
+  const handleCancel = (scheduleId: number) => {
+    setCancellingId(scheduleId);
+    cancelMutation.mutate({ scheduleId });
+  };
+
+  return (
+    <Card id="my-bookings" className="mt-6 md:col-span-3">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2">
+          <BookOpen className="w-5 h-5" />
+          My Cohort Program Bookings
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {bookings.map((b) => {
+          const canCancel = b.attendanceStatus === "registered" || b.attendanceStatus === "waitlisted";
+          const isCancellingThis = cancelMutation.isPending && cancellingId === b.scheduleId;
+          return (
+            <div
+              key={b.attendanceId}
+              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border ${
+                statusStyle[b.attendanceStatus ?? ""] ?? "bg-slate-50 border-slate-200"
+              }`}
+            >
+              <div>
+                <p className="font-semibold text-sm">
+                  {b.courseTitle} — {trainingTypeLabel[b.trainingType] ?? b.trainingType}
+                </p>
+                <p className="text-xs mt-0.5">
+                  {b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString() : "Date TBC"}
+                  {b.startTime ? ` · ${b.startTime}${b.endTime ? `–${b.endTime}` : ""}` : ""}
+                  {b.location ? ` · ${b.location}` : ""}
+                </p>
+                {b.instructorName && (
+                  <p className="text-xs mt-0.5 opacity-80">Instructor: {b.instructorName}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-medium px-2 py-1 rounded-full border bg-white/60">
+                  {statusLabel[b.attendanceStatus ?? ""] ?? b.attendanceStatus}
+                </span>
+                {canCancel && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={cancelMutation.isPending}
+                    onClick={() => handleCancel(b.scheduleId)}
+                  >
+                    {isCancellingThis ? "Cancelling..." : "Cancel"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
