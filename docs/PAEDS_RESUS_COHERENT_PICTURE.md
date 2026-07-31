@@ -28,11 +28,22 @@ Read in this order:
 
 ## 1. What Paeds Resus Actually Is
 
-Paeds Resus is **not** a training company. It is not a ResusGPS app. It is not a BLS/ACLS provider.
+## 2. Who Paeds Resus Is — The Core Identity
 
-It is an **Adaptive Learning System** — a paediatric survival infrastructure platform. Every product it builds, every course it certifies, and every observation it collects exists to serve one closed learning loop:
+Paeds Resus is an **Adaptive Learning System** — a paediatric survival infrastructure platform for low- and middle-income countries (LMICs).
 
-> **Clinical events → structured observation → confirmed patterns → updated guidance → better outcomes for the next child.**
+It is **not** a training company. It is **not** a hospital management system. It is **not** a ResusGPS app. Those are components. The identity is the **closed learning loop** that connects them.
+
+### The Child at Both Ends of the Loop
+
+Everything Paeds Resus builds begins and ends with the child:
+
+> **On one end** is the child who died (*The Book of the Unforgotten* — capturing system failures, honoring lost lives, recording failure patterns).  
+> **On the other end** is the child who lives because the system learned.
+
+This cycle can never stop. Eliminating preventable childhood deaths is an ongoing commitment; we can never comfortably claim all preventable deaths have been eliminated. Therefore, the system must continuously observe, adapt, and learn—ensuring the readiness infrastructure is always prepared for the next child or patient who needs it.
+
+In African referral health systems without isolated paediatric hospitals, paediatric care occurs within general facilities where paediatric wards experience high Patient:Nurse ratios. The **Institutional Emergency Readiness Management System™ (IERMS™)** mobilizes the hospital's entire 24/7 emergency infrastructure (nurse-led ERT) to protect paediatric patients and all acute care populations.
 
 The closest institutional analogue is **aviation safety**. Every near-miss reported makes the whole system safer. The incident database is not the product. Fewer children dying from the same preventable failure is the product.
 

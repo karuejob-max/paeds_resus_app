@@ -8,13 +8,26 @@
 
 ---
 
-## 1. Executive Summary & Purpose
+## 1. Executive Summary & Philosophy
 
-The **Institutional Emergency Readiness Management System™ (IERMS™)** is the canonical, evidence-based standard for hospital-wide emergency readiness with **paediatric priority framing**. 
+The **Institutional Emergency Readiness Management System™ (IERMS™)** is the canonical, evidence-based standard for hospital-wide emergency readiness with **paediatric priority framing**.
 
-Preventable paediatric deaths in acute care facilities rarely stem from lack of individual clinical goodwill; they stem from **system failures at the point of care**: delayed recognition of decompensation, fragmented team activation, absence of bedside decision support, unstocked emergency supplies, and lack of systemic near-miss feedback loops (the *Know-Do Gap*).
+### The Child at Both Ends of the Loop
 
-IERMS™ moves health facilities away from transactional, isolated seat-buying (e.g. purchasing ACLS certificates for individual CV enhancement) toward a **high-reliability hospital emergency ecosystem**. It provides an integrated, quantifiable framework across 5 core readiness domains.
+The IERMS™ is Paeds Resus's primary mechanism for closing the learning loop across health institutions:
+
+> **On one end** is the child who died (*The Book of the Unforgotten* — capturing systemic failure patterns, honoring every life lost, recording where the system broke).  
+> **On the other end** is the child who lives because the system learned.
+
+This cycle can **never stop**. Eliminating preventable childhood deaths is an infinite commitment. We can never comfortably declare that all preventable deaths have been eliminated; therefore, every institution adopting IERMS™ becomes a node in a perpetual, self-correcting Adaptive Learning System.
+
+### Whole-Hospital Emergency Response with Paediatric Priority
+
+In low- and middle-income country (LMIC) health systems, specialized isolated paediatric hospitals rarely exist in regional or county referral networks. Paediatric care occurs within general hospitals where paediatric wards face high Patient:Nurse/Provider ratios. 
+
+Preventable paediatric deaths rarely stem from lack of individual goodwill; they stem from **systemic execution gaps at the point of care**: delayed recognition of decompensation, fragmented activation pathways, absence of bedside decision support, unstocked emergency supplies, and lack of blameless near-miss feedback loops (the *Know-Do Gap*).
+
+IERMS™ addresses this reality by **mobilizing the entire hospital emergency infrastructure** (a 24/7 nurse-led Emergency Response Team) with paediatric priority. This whole-hospital mobilization protects children while simultaneously elevating emergency care for all acute patient populations across the facility.
 
 ---
 
