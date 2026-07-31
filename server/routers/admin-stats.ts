@@ -27,6 +27,7 @@ import {
   supportTickets,
   mpesaWebhookLog,
   adminAlertDispatches,
+  instructorMentorships,
 } from "../../drizzle/schema";
 import {
   listCareSignalFacilities,
@@ -431,6 +432,7 @@ export const adminStatsRouter = router({
           instructorApprovedAt: users.instructorApprovedAt,
           instructorCertifiedAt: users.instructorCertifiedAt,
           instructorNumber: users.instructorNumber,
+          instructorTier: users.instructorTier,
         })
         .from(users);
       const result = await (whereCombined ? listBase.where(whereCombined) : listBase)
@@ -438,11 +440,28 @@ export const adminStatsRouter = router({
         .limit(limit)
         .offset(offset);
 
+      // Mentor lookup, only for the instructors on this page — a second,
+      // narrow query rather than a join, since instructorMentorships is a
+      // 1:1-per-mentee relation and this only matters for a handful of rows.
+      const instructorIds = result.filter((u) => u.instructorTier).map((u) => u.id);
+      const mentorshipByMentee = new Map<number, number>();
+      if (instructorIds.length > 0) {
+        const mentorships = await db
+          .select({ menteeUserId: instructorMentorships.menteeUserId, mentorUserId: instructorMentorships.mentorUserId })
+          .from(instructorMentorships)
+          .where(inArray(instructorMentorships.menteeUserId, instructorIds));
+        for (const m of mentorships) mentorshipByMentee.set(m.menteeUserId, m.mentorUserId);
+      }
+      const resultWithMentor = result.map((u) => ({
+        ...u,
+        mentorUserId: mentorshipByMentee.get(u.id) ?? null,
+      }));
+
       const countBase = db.select({ count: sql<number>`count(*)` }).from(users);
       const countResult = await (whereCombined ? countBase.where(whereCombined) : countBase);
       const total = Number(countResult[0]?.count ?? 0);
 
-      return { users: result, total };
+      return { users: resultWithMentor, total };
     }),
 
   /**

@@ -177,6 +177,135 @@ function SessionRoster({ scheduleId }: { scheduleId: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// My mentees — mentor's view of provisional instructors they're mentoring
+// (CEO decision, 2026-07-21). Confirming a group is a real credentialing
+// judgment call the mentor makes deliberately, not attendance-data-derived —
+// see AGENTS.md §10 for the full mentorship-tier design.
+// ─────────────────────────────────────────────────────────────────────────────
+const PROGRAM_TYPES = ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"] as const;
+
+function ConfirmGroupForm({ menteeUserId, onDone }: { menteeUserId: number; onDone: () => void }) {
+  const [programType, setProgramType] = useState<(typeof PROGRAM_TYPES)[number]>("bls");
+  const [notes, setNotes] = useState("");
+
+  const confirmMutation = trpc.instructor.confirmMentorshipGroup.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.promotedToQualified
+          ? `Group confirmed — this instructor has reached Qualified (${data.groupCount}/3 groups).`
+          : `Group confirmed (${data.groupCount}/3 toward Qualified).`
+      );
+      setNotes("");
+      onDone();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2 mt-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={programType}
+          onChange={(e) => setProgramType(e.target.value as (typeof PROGRAM_TYPES)[number])}
+          className="text-xs border border-border rounded px-2 py-1 bg-background"
+        >
+          {PROGRAM_TYPES.map((p) => (
+            <option key={p} value={p}>
+              {p.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="Notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="flex-1 min-w-[140px] text-xs border border-border rounded px-2 py-1 bg-background"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-7 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+          disabled={confirmMutation.isPending}
+          onClick={() =>
+            confirmMutation.mutate({
+              menteeUserId,
+              programType,
+              notes: notes.trim() || undefined,
+            })
+          }
+        >
+          {confirmMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardCheck className="h-3 w-3" />}
+          Confirm independently-led group
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Only confirm a group this instructor genuinely led independently, start to finish, across all three phases.
+      </p>
+    </div>
+  );
+}
+
+function MyMenteesCard() {
+  const menteesQuery = trpc.instructor.getMyMentees.useQuery();
+  const [expandedMenteeId, setExpandedMenteeId] = useState<number | null>(null);
+
+  const mentees = menteesQuery.data ?? [];
+  if (menteesQuery.isLoading) return null;
+  // Not mentoring anyone — nothing to show. Avoids an empty card for the
+  // vast majority of instructors who aren't (yet) mentors.
+  if (mentees.length === 0) return null;
+
+  return (
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          My mentees
+        </CardTitle>
+        <CardDescription>
+          Instructors in their provisional period who you're mentoring. Confirm a group once you've seen them lead it
+          independently, start to finish — 3 confirmed groups promotes them to Qualified.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {mentees.map((m) => (
+          <div key={m.menteeUserId} className="rounded-lg border border-border p-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <p className="font-medium text-foreground text-sm">{m.menteeName}</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {(m.instructorTier ?? "provisional").replace("_", " ")} · {m.confirmedGroupCount}/3 groups confirmed
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 gap-1.5 text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => setExpandedMenteeId(expandedMenteeId === m.menteeUserId ? null : m.menteeUserId)}
+                disabled={m.instructorTier === "qualified" || m.instructorTier === "lead_instructor"}
+              >
+                <ClipboardCheck className="h-3.5 w-3.5" />
+                {expandedMenteeId === m.menteeUserId ? "Cancel" : "Confirm a group"}
+              </Button>
+            </div>
+            {expandedMenteeId === m.menteeUserId && (
+              <ConfirmGroupForm
+                menteeUserId={m.menteeUserId}
+                onDone={() => {
+                  setExpandedMenteeId(null);
+                  void menteesQuery.refetch();
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InstructorPortal() {
@@ -396,8 +525,31 @@ export default function InstructorPortal() {
                 You can be assigned to institutional sessions and see your schedule below.
               </p>
             )}
+            {s?.instructorTier && (
+              <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-2">
+                <p className="text-sm text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4 shrink-0" />
+                  Mentorship tier: <span className="font-semibold capitalize">{s.instructorTier.replace("_", " ")}</span>
+                </p>
+                {s.instructorTier === "provisional" && (
+                  <p className="text-xs text-muted-foreground">
+                    {s.mentorUserId
+                      ? `${s.confirmedGroupCount} of 3 independently-led groups confirmed by your mentor. ${s.groupsNeededForQualified} more to reach Qualified.`
+                      : "Waiting for a platform admin to assign you a mentor before you can start logging confirmed groups."}
+                  </p>
+                )}
+                {s.instructorTier === "qualified" && (
+                  <p className="text-xs text-muted-foreground">
+                    Mentor 10 provisional instructors to Qualified to reach Lead Instructor. See "My mentees" below if you're mentoring anyone.
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* My mentees card — only relevant if this instructor is mentoring anyone */}
+        <MyMenteesCard />
 
         {/* AHA Certificate Workflow Info */}
         {unlocked && (

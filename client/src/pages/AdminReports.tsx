@@ -252,6 +252,16 @@ export default function AdminReports() {
     onError: (e) => toast.error(e.message || "Could not update instructor status"),
   });
 
+  const assignMentorMutation = trpc.instructor.assignMentor.useMutation({
+    onSuccess: () => {
+      void utils.adminStats.getUsers.invalidate();
+      toast.success("Mentor assigned.");
+      setMentorInputByMenteeId({});
+    },
+    onError: (e) => toast.error(e.message || "Could not assign mentor"),
+  });
+  const [mentorInputByMenteeId, setMentorInputByMenteeId] = useState<Record<number, string>>({});
+
   const SUMMATIVE_RESET_PROGRAMS = new Set(["bls", "acls", "pals", "nrp", "heartsaver"]);
 
   const resetSummativeMutation = trpc.adminLearning.resetSummativeAttempts.useMutation({
@@ -924,6 +934,7 @@ export default function AdminReports() {
                           <th className="text-left py-2">Type</th>
                           <th className="text-left py-2">Instructor #</th>
                           <th className="text-left py-2">B2B instructor</th>
+                          <th className="text-left py-2">Mentor</th>
                           <th className="text-left py-2">Joined</th>
                           <th className="text-left py-2">Courses</th>
                           <th className="text-left py-2">Fellowship</th>
@@ -981,6 +992,46 @@ export default function AdminReports() {
                                 >
                                   Approve
                                 </Button>
+                              )}
+                            </td>
+                            <td className="py-2 align-top">
+                              {"instructorTier" in u && u.instructorTier ? (
+                                "mentorUserId" in u && u.mentorUserId ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    Mentor: user #{u.mentorUserId}
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="number"
+                                      placeholder="Mentor user ID"
+                                      value={mentorInputByMenteeId[u.id] ?? ""}
+                                      onChange={(e) =>
+                                        setMentorInputByMenteeId((prev) => ({ ...prev, [u.id]: e.target.value }))
+                                      }
+                                      className="w-24 text-xs border border-border rounded px-1.5 py-1 bg-background"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8"
+                                      disabled={assignMentorMutation.isPending || !mentorInputByMenteeId[u.id]}
+                                      onClick={() => {
+                                        const mentorUserId = Number(mentorInputByMenteeId[u.id]);
+                                        if (!mentorUserId || mentorUserId <= 0) {
+                                          toast.error("Enter a valid mentor user ID");
+                                          return;
+                                        }
+                                        assignMentorMutation.mutate({ menteeUserId: u.id, mentorUserId });
+                                      }}
+                                    >
+                                      Assign
+                                    </Button>
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
                               )}
                             </td>
                             <td className="py-2">
