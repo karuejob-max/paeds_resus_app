@@ -1,5 +1,14 @@
 # Cohort ACLS/BLS Internship Training Guide
 
+> **⚠️ See `IERP_NERP_PROGRAM_V2_SPEC.md` for the current, canonical program
+> design (2026-07-31 respec).** This guide is being updated to match; where
+> the two disagree, the v2 spec wins. Key changes not yet fully reflected
+> below: self-service enrollment with no coordinator/facility-admin gate at
+> any phase; Phase 2 is role-based booking (team leader, 6 named team-member
+> roles, observer) with instructor-declared availability, not a flat
+> capacity count; nurses get a free BLS cognitive period before any payment
+> is required; no "hybrid" session type.
+
 Welcome to the **Multi-Institutional Advanced Cardiovascular Life Support (ACLS) & Basic Life Support (BLS) Training Program**. This 6-month program is subsidized and structured to fit your busy internship schedule, offering a flexible learning pathway and payment options.
 
 ---
@@ -38,9 +47,9 @@ In this initial phase, you will master the core algorithms and theories.
 Here, you will practice virtual team dynamics and leadership roles in pediatric and adult resuscitation codes.
 * **Booking Sessions:** Book scheduled evening simulation sessions directly through the training calendar on your learner dashboard.
 * **Simulation Roles:**
-  * You must participate in at least **3 simulations as a team member**.
+  * You must participate in at least **6 simulations as a team member**, with at least 1 in each of the 6 named team-member roles (Airway & Ventilation, Compressor 1, Compressor 2, Monitor/Defib/CPR Coach, IV/IO Access & Meds, Scribe).
   * You must participate in at least **3 simulations as a team leader**.
-* **Completion Requirement:** Moving to Phase 3 is based on **proven competence**, not just the number of sessions attended. The 3/3 rule is simply the minimum practice baseline.
+* **Completion Requirement:** Moving to Phase 3 is based on **proven competence, confirmed by the instructor who ran each session**, not just the number of sessions booked. The 6/3 rule is the minimum practice baseline.
 
 ### 🏥 Phase 3: Physical Simulations & Final Assessment
 The final phase is a high-intensity, hands-on workshop at the hospital, where you will practice with state-of-the-art simulators.
@@ -64,7 +73,7 @@ We understand that internship stipends can experience administrative delays. The
 ## 🚀 How to Enroll
 
 1. Go to the **Paeds Resus Portal** and create an individual account.
-2. Complete your **Provider Profile** and select your primary affiliated facility.
-3. Select your designation: **BSN Intern, Clinical Officer Intern (BSc), Diploma COI, or MOI**.
+2. Complete your **Provider Profile** and select your primary facility, whether or not it's already listed on the platform.
+3. Select your designation: **Nursing Officer Intern (NOI), Clinical Officer Intern — BSc or Diploma (COI), Medical Officer Intern (MOI)**, or **Permanent Nurse**.
 4. Go to **Courses**, select **ACLS & BLS Training**, and click **Enroll**.
-5. Once your Facility Admin approves your institutional link request, you are officially in the cohort! You can monitor your dashboard progress and begin Phase 1 immediately.
+5. **No facility admin approval is required to enroll or to progress through any phase** — this program runs self-service, learner to learner, whether or not your facility has a coordinator on the platform. Begin Phase 1 immediately.
