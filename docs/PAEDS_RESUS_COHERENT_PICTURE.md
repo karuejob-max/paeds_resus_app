@@ -43,7 +43,9 @@ Everything Paeds Resus builds begins and ends with the child:
 
 This cycle can never stop. Eliminating preventable childhood deaths is an ongoing commitment; we can never comfortably claim all preventable deaths have been eliminated. Therefore, the system must continuously observe, adapt, and learn—ensuring the readiness infrastructure is always prepared for the next child or patient who needs it.
 
-In African referral health systems without isolated paediatric hospitals, paediatric care occurs within general facilities where paediatric wards experience high Patient:Nurse ratios. The **Institutional Emergency Readiness Management System™ (IERMS™)** mobilizes the hospital's entire 24/7 emergency infrastructure (nurse-led ERT) to protect paediatric patients and all acute care populations.
+In African referral health systems without isolated paediatric hospitals, paediatric care occurs within general facilities where paediatric wards experience high Patient:Nurse ratios. Paeds Resus is a **Family-Centered Organization**—our resuscitation infrastructure protects the mother who collapses in Maternity, the teenager with a heart block in ER, and the infant in septic shock in the paediatric ward. 
+
+This establishes **Whole-Hospital Reciprocity** ("scratch my back, I'll scratch yours"): adult ward and ER nurses willingly respond to a Paeds Code Blue because the trained ERT also responds to Code Blues in adult, emergency, and maternity units. Furthermore, from an institutional economics standpoint, training 100 RNs in ACLS provides a hospital-wide emergency baseline with superior unit economics, complemented by targeted PALS certification for high-risk paediatric and NBU units.
 
 The closest institutional analogue is **aviation safety**. Every near-miss reported makes the whole system safer. The incident database is not the product. Fewer children dying from the same preventable failure is the product.
 

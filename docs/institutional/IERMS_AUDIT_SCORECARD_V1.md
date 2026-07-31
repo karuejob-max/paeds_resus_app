@@ -35,10 +35,11 @@
 
 | Item Code | Evaluation Criterion | Max Pts | Score | Audit Method / Verification |
 |-----------|----------------------|---------|-------|------------------------------|
-| **D1.1** | Formal executive-signed Code Blue / Emergency Response Policy active. | 5 | | Document inspection & signature check |
-| **D1.2** | 24/7 ERT Nurse Duty Roster published in all clinical departments. | 5 | | Spot-check current shift duty roster |
-| **D1.3** | Cross-unit activation pathway functional (tested via drill/simulation). | 5 | | Unannounced mock code drill response time |
-| **D1.4** | First qualified responder arrives at scene in `< 3 minutes`. | 5 | | Mock drill stopwatch measurement |
+| **D1.1** | Formal executive sign-off & Emergency Readiness Committee (ERC) active. | 4 | | Executive charter & ERC meeting minutes |
+| **D1.2** | Emergency Readiness Coordinators & Unit Team Leaders (UTLs) designated. | 4 | | Staff appointment letters & roster audit |
+| **D1.3** | 24/7 ERT Roster with ERTL (Team Leader) published across all wards. | 4 | | Shift duty roster inspection |
+| **D1.4** | Whole-Hospital Reciprocity tested via cross-unit mock drill. | 4 | | Paeds/Adult cross-unit mock code response |
+| **D1.5** | 5-Stage Resuscitation Chain time-to-response `< 3 minutes`. | 4 | | Unannounced drill stopwatch measurement |
 
 ---
 

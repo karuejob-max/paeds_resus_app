@@ -71,17 +71,25 @@ An institution is certified as IERMS™ Compliant when it meets quantifiable ben
 
 ### Domain 1: Governance, Policy & 24/7 Nurse-Led ERT Activation
 
-- **1.1 Institutional Emergency Policy:** The facility must possess an active, executive-approved Emergency Response Policy designating Code Blue (cardiac/respiratory arrest) and Code Yellow (paediatric rapid decompensation/pre-arrest).
-- **1.2 Real-World Staffing Adaptation:** Acknowledging the African referral baseline (~2 nurses per department per shift), the ERT protocol mandates **cross-unit team activation**. One nurse remains at the bedside to maintain ward coverage while a designated primary responder mobilizes across departments.
-- **1.3 24/7 Activation Roster:** Every shift must have a designated, trained ERT Team Leader and Primary Responders published on the central nursing roster.
-- **1.4 Time-to-Response Target:** Code Blue activation to first qualified responder at bedside within **< 3 minutes** hospital-wide.
+- **1.1 Institutional Governance Hierarchy:** The facility must establish a 6-tier emergency governance framework:
+  1. **Hospital Executive:** Executive Sponsor & Legal Sign-Off (CEO / Medical Director / CNO).
+  2. **Emergency Readiness Committee (ERC):** Multi-disciplinary steering committee (Medical, Nursing, Quality, Pharmacy, Engineering).
+  3. **Emergency Readiness Coordinators (ERCs):** Designated operational leads overseeing hospital-wide readiness day-to-day.
+  4. **Unit Team Leaders (UTLs):** Ward/Unit nursing leads responsible for shift rosters and daily equipment audits.
+  5. **Emergency Response Team (ERT):** Multi-disciplinary responders for Code Blue/Yellow activations.
+  6. **Emergency Response Team Leader (ERTL):** Scene commander during an active code response.
+- **1.2 The 5-Stage Resuscitation Chain:** All emergency workflows must enforce the 5-stage clinical continuum:
+  $$\text{Recognition} \longrightarrow \text{Activation} \longrightarrow \text{Response} \longrightarrow \text{Stabilization} \longrightarrow \text{Recovery}$$
+- **1.3 Real-World Staffing & Whole-Hospital Reciprocity:** Acknowledging the African referral baseline (~2 nurses/shift), the ERT protocol enforces **Whole-Hospital Reciprocity** ("scratch my back, I'll scratch yours"). Paeds ward nurses and adult ER/ward nurses form a shared ERT network—responding mutually to Code Blues across adult, maternity, and paediatric units.
+- **1.4 24/7 Activation Roster:** Every shift must publish designated ERTL and ERT Primary Responders on the central roster.
+- **1.5 Time-to-Response Target:** Code Blue activation to first qualified responder at bedside within **< 3 minutes** hospital-wide.
 
 ---
 
 ### Domain 2: Point-of-Care Bedside Guidance (ResusGPS Deployment)
 
-- **2.1 Mobile & Tablet Availability:** ResusGPS must be deployed on dedicated ward tablets or verified point-of-care mobile devices in ER, Paediatric Ward, NBU/NICU, ICU, and General Surgical Wards.
-- **2.2 Bedside Utilization Standard:** ResusGPS must be used for active guidance during paediatric resuscitation and critical stabilization:
+- **2.1 Mobile & Tablet Availability:** ResusGPS must be deployed on dedicated ward tablets or verified point-of-care mobile devices in ER, Paediatric Ward, NBU/NICU, ICU, Maternity, and General Surgical Wards.
+- **2.2 Bedside Utilization Standard:** ResusGPS must be used for active guidance during paediatric and adult resuscitation & critical stabilization:
   - Weight-based drug & fluid volume calculator (preventing 10x dosing errors).
   - Visual ABCDE structured assessment & stabilization flow.
   - Interactive visual CPR Clock (2-minute cycle prompts, epinephrine timer).
@@ -100,15 +108,16 @@ An institution is certified as IERMS™ Compliant when it meets quantifiable ben
 
 ### Domain 4: Clinical Workforce Competency & AHA-Aligned Training Mesh
 
-- **4.1 Role-Mapped Training Mesh:** Facilities do not purchase generic seat bundles. Training is targeted by clinical role:
+- **4.1 Family-Centered Training & ACLS Economics:** Paeds Resus is a **Family-Centered Organization**. Training 100 RNs in ACLS provides a hospital-wide emergency baseline with superior unit economics and broad adult/maternity coverage, supported by targeted PALS certification for high-risk paediatric and NBU units.
+- **4.2 Role-Mapped Training Distribution:** Training is targeted by clinical role:
   - **Paediatric Emergency & NBU/NICU Nurses:** PALS + NRP + Micro-courses.
   - **Adult/General Ward & ER Nurses:** BLS + ACLS + Paediatric Priority Modules.
   - **Medical Officers & Emergency Physicians:** ACLS + PALS.
   - **Support & Triage Staff:** High-Quality BLS.
-- **4.2 Prerequisite & Pace Governance:** Strict compliance with platform gates:
+- **4.3 Prerequisite & Pace Governance:** Strict compliance with platform gates:
   - BLS completion prerequisite before ACLS/PALS hands-on sign-off.
   - Nurse instalment pace rules (KES 2,500/month) respected without artificial lockouts.
-- **4.3 Institutional Instructor Pathway:** Facility develops internal instructor capacity through the Paeds Resus 3-tier instructor pipeline (Provisional → Qualified → Lead Instructor) with formal mentor confirmation.
+- **4.4 Institutional Instructor Pathway:** Facility develops internal instructor capacity through the Paeds Resus 3-tier instructor pipeline (Provisional → Qualified → Lead Instructor) with formal mentor confirmation.
 
 ---
 

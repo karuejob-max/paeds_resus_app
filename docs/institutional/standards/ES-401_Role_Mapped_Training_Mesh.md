@@ -8,7 +8,15 @@
 
 ---
 
-## 1. Role-Mapped Training Distribution
+## 1. Family-Centered Training & ACLS Economics
+
+Paeds Resus is a **Family-Centered Organization**. We protect the mother who collapses in Maternity, the teenager with a heart block in ER, and the infant in septic shock in the paediatric ward.
+
+From an institutional perspective, **training 100 RNs in ACLS makes greater financial sense and provides broader hospital-wide coverage than training 10 isolated RNs in PALS**. ACLS forms the adult/maternity emergency baseline across general wards, supported by targeted PALS certification for high-risk paediatric and NBU units.
+
+---
+
+## 2. Role-Mapped Training Distribution
 
 Facilities do not purchase generic seat bundles. Training is mapped to clinical roles:
 - **Paediatric & NBU/NICU Nurses:** PALS + NRP + Micro-courses.

@@ -8,11 +8,20 @@
 
 ---
 
-## 1. Activation Criteria
+## 1. Scope & 5-Stage Resuscitation Chain
+
+Code Blue follows the **5-Stage Clinical Resuscitation Chain** ($\text{Recognition} \rightarrow \text{Activation} \rightarrow \text{Response} \rightarrow \text{Stabilization} \rightarrow \text{Recovery}$).
+
+Under **Whole-Hospital Reciprocity**, designated ERT responders mobilize hospital-wide to any unit (Paediatric Ward, ER, Maternity, Adult Surgical Ward) for a Code Blue activation.
+
+---
+
+## 2. Activation & Response Criteria
 
 Activate **Code Blue** immediately upon recognizing:
 - Unresponsiveness or gasping/absent breathing.
 - No definite pulse felt within 10 seconds.
+- Trigger activation signal; target response time `< 3 minutes`.
 
 ---
 
