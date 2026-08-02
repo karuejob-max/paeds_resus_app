@@ -60,4 +60,38 @@ describe("computeCareSignalPillarFromEvents (shared by named + token identity pa
     // fellowship-care-signal-streak.test.ts already.
     expect(withoutGrace.eventsSubmitted).toBe(withGrace.eventsSubmitted);
   });
+
+  it("marks a grace-covered month's timeline entry with graceUsed:true, and leaves other months false", () => {
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1;
+
+    // Integer month arithmetic (not Date.setUTCMonth) to sidestep any
+    // month-length/timezone edge cases entirely — three distinct months,
+    // oldest to newest: anchor (2 back), grace (1 back), now (current).
+    function monthsBack(year: number, month: number, n: number): { year: number; month: number } {
+      let y = year;
+      let m = month - n;
+      while (m < 1) {
+        m += 12;
+        y -= 1;
+      }
+      return { year: y, month: m };
+    }
+    const anchor = monthsBack(currentYear, currentMonth, 2);
+    const grace = monthsBack(currentYear, currentMonth, 1);
+    const anchorDate = new Date(Date.UTC(anchor.year, anchor.month - 1, 15));
+
+    const result = computeCareSignalPillarFromEvents(eventsOnDates([anchorDate.toISOString(), now.toISOString()]), [
+      { year: grace.year, month: grace.month },
+    ]);
+
+    const graceKey = `${grace.year}-${String(grace.month).padStart(2, "0")}`;
+    const graceEntry = result.monthlyTimeline.find((m) => m.monthKey === graceKey);
+    expect(graceEntry?.graceUsed).toBe(true);
+
+    const currentEntry = result.monthlyTimeline.find((m) => m.isCurrentMonth);
+    expect(currentEntry?.monthKey).not.toBe(graceKey);
+    expect(currentEntry?.graceUsed).toBe(false);
+  });
 });

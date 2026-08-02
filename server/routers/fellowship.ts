@@ -23,6 +23,8 @@ import {
 } from "../services/fellowship-progress.service";
 import { generateTokenId, generateRecoveryCode, hashRecoveryCode, verifyRecoveryCode, hashRecoveryCodeForLookup } from "../lib/fellowship-token";
 import { getFellowshipMicroCourseRequiredCount } from "../lib/micro-course-catalog";
+import { getFellowshipPillarACourseStatus } from "../lib/fellowship-phase2-completion";
+import { emptyCareSignalPillarResult } from "../services/fellowship-progress.service";
 import { getFellowshipMicrocourseResusConditionLabel, normalizeToFellowshipResusConditionId } from "../../shared/fellowship-microcourse-resus-conditions";
 import { trackEvent } from "../services/analytics.service";
 import { canDisplayFellowTitle, FELLOWSHIP_LAUNCH_READINESS } from "../../shared/fellowship-launch-gate";
@@ -123,6 +125,10 @@ export const fellowshipRouter = router({
             required: cached.totalCoursesRequired ?? getFellowshipMicroCourseRequiredCount(),
             percentage: cached.coursesPercentage ?? 0,
             legacyCourses: 0,
+            // The cached snapshot doesn't carry the Phase 2 breakdown (it's a
+            // summary row, not a detail table) — an empty status here is
+            // honest about that, not a claim that nothing's actually done.
+            phase2: getFellowshipPillarACourseStatus([], []),
           },
           resusGPSPillar: {
             casesCompleted: cached.resusGPSCasesCompleted ?? 0,
@@ -141,6 +147,10 @@ export const fellowshipRouter = router({
             percentage: cached.careSignalPercentage ?? 0,
             monthsRemaining: Math.max(0, 24 - cachedStreak),
             monthlyTimeline: [],
+            // Same reasoning as phase2 above — the cache doesn't carry CPD's
+            // own breakdown, so an honest empty result rather than 0-filled
+            // guesses that could look like a real (missing) streak.
+            cpd: emptyCareSignalPillarResult(),
           },
           isQualified: cachedIsQualified,
           overallPercentage: cached.overallPercentage ?? 0,
@@ -151,9 +161,9 @@ export const fellowshipRouter = router({
       }
       // No cached row exists at all — a genuinely new Fellow. Zeros are accurate here.
       return {
-        coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0 },
+        coursesPillar: { completed: 0, required: getFellowshipMicroCourseRequiredCount(), percentage: 0, legacyCourses: 0, phase2: getFellowshipPillarACourseStatus([], []) },
         resusGPSPillar: { casesCompleted: 0, conditionsWithThreshold: 0, totalConditionsTaught: 0, percentage: 0, casesByCondition: {} as Record<string, number>, conditionBreakdown: [], casesStillNeeded: 0, incompleteConditions: 0 },
-        careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0, monthsRemaining: 24, monthlyTimeline: [] },
+        careSignalPillar: { streak: 0, eventsSubmitted: 0, reportsThisMonth: 0, percentage: 0, monthsRemaining: 24, monthlyTimeline: [], cpd: emptyCareSignalPillarResult() },
         isQualified: false,
         overallPercentage: 0,
         resusGpsAccessExpiresAt: null as Date | null,
