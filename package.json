@@ -65,7 +65,6 @@
     "db:apply-0048": "node scripts/apply-0048-platform-feedback-tickets.mjs",
     "db:apply-0049": "node scripts/apply-0049-aha-practice-lab-attempts.mjs",
     "db:apply-0051": "node scripts/apply-0051-feedback-ticket-enhancements.mjs",
-    "db:apply-0082": "node scripts/apply-0082-ierms-portal-tables.mjs",
     "export:feedback-tickets": "node scripts/export-feedback-tickets.mjs",
     "seed:nrp": "tsx --import dotenv/config seed-nrp.ts",
     "seed:pals": "tsx --import dotenv/config server/seed.ts",
@@ -128,6 +127,7 @@
     "db:apply-0079": "node scripts/apply-0079-fellowship-grandfathering.mjs",
     "db:apply-0080": "node scripts/apply-0080-cpd-grace-requirement-type.mjs",
     "db:apply-0081": "node scripts/apply-0081-care-signal-redaction-retry-state.mjs",
+    "db:apply-0083": "node scripts/apply-0083-elearning-proof-columns.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
