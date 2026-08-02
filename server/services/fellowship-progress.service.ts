@@ -272,7 +272,7 @@ function formatCareSignalMonthLabel(monthKey: string): string {
   });
 }
 
-type CareSignalPillarResult = {
+export type CareSignalPillarResult = {
   streak: number;
   eventsSubmitted: number;
   reportsThisMonth: number;
@@ -283,10 +283,12 @@ type CareSignalPillarResult = {
     label: string;
     reportCount: number;
     isCurrentMonth: boolean;
+    /** True if this month's streak was preserved by a manually-granted grace, not an actual report. */
+    graceUsed: boolean;
   }>;
 };
 
-function emptyCareSignalPillarResult(): CareSignalPillarResult {
+export function emptyCareSignalPillarResult(): CareSignalPillarResult {
   return {
     streak: 0,
     eventsSubmitted: 0,
@@ -339,11 +341,13 @@ export function computeCareSignalPillarFromEvents(
   const monthsRemaining = Math.max(0, 24 - streak);
   const displayTimelineKeys =
     timelineKeys.length > 0 ? timelineKeys : enumerateMonthsEndingAt(currentYear, currentMonth, 24);
+  const graceUsedKeys = new Set(graceUsage.map((g) => monthKeyEAT(g.year, g.month)));
   const monthlyTimeline = displayTimelineKeys.map((monthKey) => ({
     monthKey,
     label: formatCareSignalMonthLabel(monthKey),
     reportCount: eventsByMonth[monthKey] ?? 0,
     isCurrentMonth: monthKey === currentMonthKey,
+    graceUsed: graceUsedKeys.has(monthKey),
   }));
 
   return {
