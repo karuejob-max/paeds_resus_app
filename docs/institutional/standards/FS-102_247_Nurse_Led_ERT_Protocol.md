@@ -8,13 +8,20 @@
 
 ---
 
-## 1. 24/7 ERT Roster Requirements
+## 1. 24/7 ERT Rostering & Shift UTL Allocation
 
-1. **Shift Roster Publication:** Every clinical department must publish a 24/7 ERT designation on the official nursing duty roster.
-2. **Team Roles:**
-   - **ERT Team Leader:** Certified in ACLS + PALS / NRP, responsible for overall resuscitation coordination and debriefing.
-   - **Primary Responders:** Nurses certified in BLS + PALS/ACLS, designated for immediate cross-unit mobilization.
-   - **Bedside Ward Nurse:** Remains at scene to maintain continuous ward coverage for other patients.
+1. **Unit Team Leader (UTL) Allocation:**
+   - Every clinical department assigns **one nurse per shift** (morning, evening, night) as the Unit Team Leader (UTL) during monthly duty roster preparation.
+   - **Crucial Distinction:** The UTL is **not** the overall Ward In-Charge. The UTL role is shift-allocated ahead of time.
+   - **Dual Responsibility:** The UTL (a) ensures their specific department is fully prepared for medical emergencies during their shift (daily crash cart seal check, ResusGPS PWA status), and (b) represents their department on the hospital's active Emergency Response Team (ERT).
+
+2. **Facility Pole Architecture (North & South Poles):**
+   - An ERT is formed by combining the duty UTLs across a group of 6–8 departments.
+   - For larger facilities ($> 8$ departments, e.g. 12–16 departments), the facility is geographically split into **Poles** (e.g., *North Pole* and *South Pole*), with each Pole maintaining its own dedicated 6–8 department ERT.
+
+3. **Weekly Departmental ERTL Rotation:**
+   - Within a Pole, each department rotates weekly to produce the **Emergency Response Team Leader (ERTL)**.
+   - During that department's assigned week, whichever nurse is on duty as the UTL for that department automatically serves as the **ERTL (Scene Commander)** for the entire Pole for that shift.
 
 ---
 

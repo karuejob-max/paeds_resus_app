@@ -1,6 +1,6 @@
 # Fellowship assessment audit
 
-**Generated:** 2026-07-29 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-08-02 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Executive summary (after remediation)
 

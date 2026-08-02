@@ -26,6 +26,13 @@ import {
   individualInstallmentPayments,
   providerProfiles,
   instructorQualifications,
+  facilityPoles,
+  facilityDepartments,
+  ertlWeeklyRotations,
+  shiftUtlRosters,
+  iermsAuditScorecards,
+  equipmentAuditLogs,
+  iermsImplementationTrackers,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import {
@@ -2498,5 +2505,491 @@ export const institutionRouter = router({
       }
 
       return { success: true, designation: input.designation };
+    }),
+
+  // ============================================
+  // IERMS™ GOVERNANCE & POLE PROCEDURES
+  // ============================================
+
+  updateStaffGovernanceRole: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      staffMemberId: z.number(),
+      governanceRole: z.enum([
+        "executive", "erc_chair", "erc_member", "er_coordinator",
+        "unit_team_leader", "ert_leader", "ert_responder", "general_staff"
+      ]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      await db
+        .update(institutionalStaffMembers)
+        .set({ governanceRole: input.governanceRole, updatedAt: new Date() })
+        .where(and(
+          eq(institutionalStaffMembers.id, input.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
+        ));
+
+      return { success: true };
+    }),
+
+  getFacilityPoles: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return db
+        .select()
+        .from(facilityPoles)
+        .where(eq(facilityPoles.institutionId, input.institutionId));
+    }),
+
+  createFacilityPole: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleName: z.string().trim().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [result] = await db.insert(facilityPoles).values({
+        institutionId: input.institutionId,
+        poleName: input.poleName,
+        description: input.description,
+      });
+
+      return { success: true, poleId: result.insertId };
+    }),
+
+  getFacilityDepartments: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return db
+        .select()
+        .from(facilityDepartments)
+        .where(eq(facilityDepartments.institutionId, input.institutionId));
+    }),
+
+  assignDepartmentToPole: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      departmentName: z.string().trim().min(1),
+      poleId: z.number().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [existing] = await db
+        .select()
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.departmentName, input.departmentName)
+        ))
+        .limit(1);
+
+      if (existing) {
+        await db
+          .update(facilityDepartments)
+          .set({ poleId: input.poleId })
+          .where(eq(facilityDepartments.id, existing.id));
+      } else {
+        await db.insert(facilityDepartments).values({
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          departmentName: input.departmentName,
+        });
+      }
+
+      return { success: true };
+    }),
+
+  getWeeklyErtlRotation: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleId: z.number(),
+      weekNumber: z.number(),
+      year: z.number(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [rotation] = await db
+        .select()
+        .from(ertlWeeklyRotations)
+        .where(and(
+          eq(ertlWeeklyRotations.institutionId, input.institutionId),
+          eq(ertlWeeklyRotations.poleId, input.poleId),
+          eq(ertlWeeklyRotations.weekNumber, input.weekNumber),
+          eq(ertlWeeklyRotations.year, input.year)
+        ))
+        .limit(1);
+
+      return rotation ?? null;
+    }),
+
+  setWeeklyErtlRotation: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleId: z.number(),
+      departmentId: z.number(),
+      weekNumber: z.number(),
+      year: z.number(),
+      startDate: z.string(),
+      endDate: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [existing] = await db
+        .select()
+        .from(ertlWeeklyRotations)
+        .where(and(
+          eq(ertlWeeklyRotations.institutionId, input.institutionId),
+          eq(ertlWeeklyRotations.poleId, input.poleId),
+          eq(ertlWeeklyRotations.weekNumber, input.weekNumber),
+          eq(ertlWeeklyRotations.year, input.year)
+        ))
+        .limit(1);
+
+      if (existing) {
+        await db
+          .update(ertlWeeklyRotations)
+          .set({ departmentId: input.departmentId, startDate: new Date(input.startDate), endDate: new Date(input.endDate) })
+          .where(eq(ertlWeeklyRotations.id, existing.id));
+      } else {
+        await db.insert(ertlWeeklyRotations).values({
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          departmentId: input.departmentId,
+          weekNumber: input.weekNumber,
+          year: input.year,
+          startDate: new Date(input.startDate),
+          endDate: new Date(input.endDate),
+        });
+      }
+
+      return { success: true };
+    }),
+
+  // ============================================
+  // IERMS™ SHIFT UTL ROSTER PROCEDURES
+  // ============================================
+
+  getShiftUtlRoster: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleId: z.number(),
+      shiftDate: z.string(),
+      shiftType: z.enum(["morning", "evening", "night"]),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return db
+        .select()
+        .from(shiftUtlRosters)
+        .where(and(
+          eq(shiftUtlRosters.institutionId, input.institutionId),
+          eq(shiftUtlRosters.poleId, input.poleId),
+          eq(shiftUtlRosters.shiftDate, new Date(input.shiftDate)),
+          eq(shiftUtlRosters.shiftType, input.shiftType)
+        ));
+    }),
+
+  submitShiftUtlRoster: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleId: z.number(),
+      departmentId: z.number(),
+      shiftDate: z.string(),
+      shiftType: z.enum(["morning", "evening", "night"]),
+      utlUserId: z.number(),
+      isShiftErtl: z.boolean().default(false),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [existing] = await db
+        .select()
+        .from(shiftUtlRosters)
+        .where(and(
+          eq(shiftUtlRosters.institutionId, input.institutionId),
+          eq(shiftUtlRosters.poleId, input.poleId),
+          eq(shiftUtlRosters.departmentId, input.departmentId),
+          eq(shiftUtlRosters.shiftDate, new Date(input.shiftDate)),
+          eq(shiftUtlRosters.shiftType, input.shiftType)
+        ))
+        .limit(1);
+
+      if (existing) {
+        await db
+          .update(shiftUtlRosters)
+          .set({ utlUserId: input.utlUserId, isShiftErtl: input.isShiftErtl, status: "active" })
+          .where(eq(shiftUtlRosters.id, existing.id));
+      } else {
+        await db.insert(shiftUtlRosters).values({
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          departmentId: input.departmentId,
+          shiftDate: new Date(input.shiftDate),
+          shiftType: input.shiftType,
+          utlUserId: input.utlUserId,
+          isShiftErtl: input.isShiftErtl,
+        });
+      }
+
+      return { success: true };
+    }),
+
+  // ============================================
+  // IERMS™ AUDIT SCORECARD PROCEDURES
+  // ============================================
+
+  getLatestIermsAuditScorecard: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [scorecard] = await db
+        .select()
+        .from(iermsAuditScorecards)
+        .where(eq(iermsAuditScorecards.institutionId, input.institutionId))
+        .orderBy(desc(iermsAuditScorecards.auditDate))
+        .limit(1);
+
+      return scorecard ?? null;
+    }),
+
+  submitIermsAuditScorecard: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      domain1Score: z.number().min(0).max(20),
+      domain2Score: z.number().min(0).max(20),
+      domain3Score: z.number().min(0).max(20),
+      domain4Score: z.number().min(0).max(20),
+      domain5Score: z.number().min(0).max(20),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const totalScore = input.domain1Score + input.domain2Score + input.domain3Score + input.domain4Score + input.domain5Score;
+      
+      let accreditationLevel: "level_1_unprepared" | "level_2_baseline" | "level_3_certified" | "level_4_exemplar";
+      if (totalScore >= 90) {
+        accreditationLevel = "level_4_exemplar";
+      } else if (totalScore >= 70) {
+        accreditationLevel = "level_3_certified";
+      } else if (totalScore >= 50) {
+        accreditationLevel = "level_2_baseline";
+      } else {
+        accreditationLevel = "level_1_unprepared";
+      }
+
+      const validUntil = new Date();
+      validUntil.setFullYear(validUntil.getFullYear() + 1); // 1 year validity
+
+      const [result] = await db.insert(iermsAuditScorecards).values({
+        institutionId: input.institutionId,
+        auditorUserId: ctx.user.id,
+        domain1Score: input.domain1Score,
+        domain2Score: input.domain2Score,
+        domain3Score: input.domain3Score,
+        domain4Score: input.domain4Score,
+        domain5Score: input.domain5Score,
+        totalScore,
+        accreditationLevel,
+        notes: input.notes,
+        validUntil,
+      });
+
+      return { success: true, scorecardId: result.insertId, totalScore, accreditationLevel };
+    }),
+
+  // ============================================
+  // IERMS™ EQUIPMENT AUDIT PROCEDURES
+  // ============================================
+
+  getEquipmentAuditLogs: protectedProcedure
+    .input(z.object({ institutionId: z.number(), limit: z.number().default(50) }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      return db
+        .select()
+        .from(equipmentAuditLogs)
+        .where(eq(equipmentAuditLogs.institutionId, input.institutionId))
+        .orderBy(desc(equipmentAuditLogs.auditDate))
+        .limit(input.limit);
+    }),
+
+  submitEquipmentAuditLog: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      department: z.string().trim().min(1),
+      auditType: z.enum(["daily_seal_check", "monthly_100_percent"]),
+      cartSealIntact: z.boolean(),
+      hasPaedsAirways: z.boolean(),
+      hasPaedsBvm: z.boolean(),
+      hasIoNeedles: z.boolean(),
+      hasPaedsDefibPads: z.boolean(),
+      hasPaedsSuction: z.boolean(),
+      deficitsFound: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [result] = await db.insert(equipmentAuditLogs).values({
+        institutionId: input.institutionId,
+        department: input.department,
+        auditedByUserId: ctx.user.id,
+        auditType: input.auditType,
+        cartSealIntact: input.cartSealIntact,
+        hasPaedsAirways: input.hasPaedsAirways,
+        hasPaedsBvm: input.hasPaedsBvm,
+        hasIoNeedles: input.hasIoNeedles,
+        hasPaedsDefibPads: input.hasPaedsDefibPads,
+        hasPaedsSuction: input.hasPaedsSuction,
+        deficitsFound: input.deficitsFound,
+      });
+
+      // If deficits were found, create an Action Log entry automatically!
+      if (!input.cartSealIntact || !input.hasPaedsAirways || !input.hasPaedsBvm || !input.hasIoNeedles || !input.hasPaedsDefibPads || !input.hasPaedsSuction || input.deficitsFound) {
+        const deficitList = [
+          !input.cartSealIntact ? "Crash cart seal broken" : null,
+          !input.hasPaedsAirways ? "Paediatric oral airways missing" : null,
+          !input.hasPaedsBvm ? "Paediatric bag-valve-mask missing" : null,
+          !input.hasIoNeedles ? "IO needles missing" : null,
+          !input.hasPaedsDefibPads ? "Paediatric defib pads missing" : null,
+          !input.hasPaedsSuction ? "Paediatric suction catheters missing" : null,
+          input.deficitsFound ? `Other deficits: ${input.deficitsFound}` : null,
+        ].filter(Boolean).join("; ");
+
+        await db.insert(institutionalActionLogs).values({
+          institutionalAccountId: input.institutionId,
+          createdByUserId: ctx.user.id,
+          gapIdentified: `[Equipment Deficit - ${input.department}] ${deficitList}`,
+          systemChange: `Restock and verify equipment in ${input.department} crash cart.`,
+          status: "open",
+        });
+      }
+
+      return { success: true, auditLogId: result.insertId };
+    }),
+
+  getEquipmentDeficitAlerts: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const logs = await db
+        .select()
+        .from(equipmentAuditLogs)
+        .where(eq(equipmentAuditLogs.institutionId, input.institutionId))
+        .orderBy(desc(equipmentAuditLogs.auditDate))
+        .limit(20);
+
+      const openDeficits = logs.filter(
+        (l) => !l.cartSealIntact || !l.hasPaedsAirways || !l.hasPaedsBvm || !l.hasIoNeedles || !l.hasPaedsDefibPads || !l.hasPaedsSuction || !!l.deficitsFound
+      );
+
+      return { count: openDeficits.length, deficits: openDeficits };
+    }),
+
+  // ============================================
+  // IERMS™ 90-DAY IMPLEMENTATION TRACKER PROCEDURES
+  // ============================================
+
+  getImplementationTracker: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [tracker] = await db
+        .select()
+        .from(iermsImplementationTrackers)
+        .where(eq(iermsImplementationTrackers.institutionId, input.institutionId))
+        .limit(1);
+
+      if (!tracker) {
+        const [result] = await db.insert(iermsImplementationTrackers).values({
+          institutionId: input.institutionId,
+        });
+        const [newTracker] = await db
+          .select()
+          .from(iermsImplementationTrackers)
+          .where(eq(iermsImplementationTrackers.id, result.insertId))
+          .limit(1);
+        return newTracker;
+      }
+
+      return tracker;
+    }),
+
+  updateImplementationTrackerPhase: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      phase: z.enum(["phase1MouStatus", "phase2ErtStatus", "phase3TrainingStatus", "phase4AuditStatus"]),
+      status: z.enum(["pending", "in_progress", "completed"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [tracker] = await db
+        .select()
+        .from(iermsImplementationTrackers)
+        .where(eq(iermsImplementationTrackers.institutionId, input.institutionId))
+        .limit(1);
+
+      if (tracker) {
+        await db
+          .update(iermsImplementationTrackers)
+          .set({ [input.phase]: input.status, lastUpdated: new Date() })
+          .where(eq(iermsImplementationTrackers.id, tracker.id));
+      } else {
+        await db.insert(iermsImplementationTrackers).values({
+          institutionId: input.institutionId,
+          [input.phase]: input.status,
+        });
+      }
+
+      return { success: true };
     }),
 });

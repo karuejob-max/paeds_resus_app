@@ -29,6 +29,10 @@ import { ResusGpsAuditPanel } from "@/components/ResusGpsAuditPanel";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
+import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
+import { ErtRosterPanel } from "@/components/ErtRosterPanel";
+import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
+import { IermsImplementationTrackerWidget } from "@/components/IermsImplementationTrackerWidget";
 import {
   BarChart3,
   Users,
@@ -344,6 +348,16 @@ export default function HospitalAdminDashboard() {
       }
     },
     onError: (e) => toast.error(e.message || "Could not save action log entry."),
+  });
+
+  const updateStaffGovernanceRoleMutation = trpc.institution.updateStaffGovernanceRole.useMutation({
+    onSuccess: () => {
+      toast.success("Governance role updated!");
+      if (institutionId) {
+        void utils.institution.getStaffMembers.invalidate({ institutionId });
+      }
+    },
+    onError: (e) => toast.error(e.message || "Could not update governance role."),
   });
 
   const updateActionLogStatusMutation = trpc.institution.updateActionLogStatus.useMutation({
@@ -665,9 +679,12 @@ export default function HospitalAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-14 mb-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-17 mb-8 gap-1 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="ert-roster">24/7 ERT Roster</TabsTrigger>
+            <TabsTrigger value="ierms-audit">IERMS™ Audit</TabsTrigger>
+            <TabsTrigger value="equipment-audit">Equipment Audit</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="incidents">Incidents</TabsTrigger>
             <TabsTrigger value="action-log">Action log</TabsTrigger>
@@ -684,6 +701,7 @@ export default function HospitalAdminDashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
+            <IermsImplementationTrackerWidget institutionId={institutionId} />
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1003,27 +1021,49 @@ export default function HospitalAdminDashboard() {
                       <thead>
                         <tr className="border-b">
                           <th className="text-left py-3 px-4 font-semibold">Name</th>
-                          <th className="text-left py-3 px-4 font-semibold">Role</th>
+                          <th className="text-left py-3 px-4 font-semibold">Clinical Role</th>
+                          <th className="text-left py-3 px-4 font-semibold">IERMS™ Governance Role</th>
                           <th className="text-left py-3 px-4 font-semibold">Department</th>
                           <th className="text-left py-3 px-4 font-semibold">Status</th>
-                          <th className="text-left py-3 px-4 font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {staffData.map((staff: any) => (
                           <tr key={staff.id} className="border-b hover:bg-slate-50">
-                            <td className="py-3 px-4">{staff.staffName}</td>
+                            <td className="py-3 px-4 font-medium">{staff.staffName}</td>
                             <td className="py-3 px-4 capitalize">{staff.staffRole}</td>
+                            <td className="py-3 px-4">
+                              <Select
+                                value={staff.governanceRole || "general_staff"}
+                                onValueChange={(val) => {
+                                  if (!institutionId) return;
+                                  updateStaffGovernanceRoleMutation.mutate({
+                                    institutionId,
+                                    staffMemberId: staff.id,
+                                    governanceRole: val as any,
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="w-[175px] h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="general_staff">General Staff</SelectItem>
+                                  <SelectItem value="executive">Hospital Executive</SelectItem>
+                                  <SelectItem value="erc_chair">ERC Chair</SelectItem>
+                                  <SelectItem value="erc_member">ERC Member</SelectItem>
+                                  <SelectItem value="er_coordinator">ER Coordinator</SelectItem>
+                                  <SelectItem value="unit_team_leader">Unit Team Leader (UTL)</SelectItem>
+                                  <SelectItem value="ert_leader">ERT Leader (ERTL)</SelectItem>
+                                  <SelectItem value="ert_responder">ERT Responder</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
                             <td className="py-3 px-4">{staff.department || "—"}</td>
                             <td className="py-3 px-4">
                               <Badge variant="outline" className="bg-blue-50">
                                 Active
                               </Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <Button variant="ghost" size="sm">
-                                View
-                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -2368,6 +2408,26 @@ export default function HospitalAdminDashboard() {
                 Link your hospital account to run ResusGPS Quality Audits.
               </p>
             )}
+          </TabsContent>
+          {/* IERMS Audit Tab */}
+          <TabsContent value="ierms-audit" className="space-y-6">
+            {institutionId ? (
+              <IermsAuditScorecardPanel institutionId={institutionId} />
+            ) : null}
+          </TabsContent>
+
+          {/* 24/7 ERT Roster Tab */}
+          <TabsContent value="ert-roster" className="space-y-6">
+            {institutionId ? (
+              <ErtRosterPanel institutionId={institutionId} />
+            ) : null}
+          </TabsContent>
+
+          {/* Equipment Audit Tab */}
+          <TabsContent value="equipment-audit" className="space-y-6">
+            {institutionId ? (
+              <EquipmentAuditPanel institutionId={institutionId} />
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>
