@@ -52,15 +52,15 @@ Hospital emergency readiness requires explicit accountability across six defined
 - **Responsibilities:** Manages day-to-day IERMS operations, oversees ResusGPS deployment, tracks training coverage rollup, ensures 30-day closure of FPKB action items.
 
 ### 4. Unit Team Leaders (UTLs)
-- **Composition:** Ward In-Charges / Senior Ward Nurses across all clinical units.
-- **Responsibilities:** Verifies shift-by-shift 24/7 ERT roster, conducts daily crash cart seal/checklist audits, ensures ward tablet PWA offline readiness.
+- **Composition:** Designated shift nurse assigned per department during monthly duty roster preparation for every shift (morning, evening, night). **Not the Ward In-Charge.**
+- **Responsibilities:** Dual role: (1) Ensures shift emergency readiness for their specific department (daily crash cart seal check, ResusGPS PWA status); (2) Serves on the active Emergency Response Team (ERT) for their Pole.
 
 ### 5. Emergency Response Team (ERT)
-- **Composition:** Certified BLS/ACLS/PALS responders from ER, ICU, Paediatrics, Maternity, and General Wards.
+- **Composition:** The combined 6–8 duty UTLs across the departments constituting a Pole (e.g. North Pole / South Pole).
 - **Responsibilities:** Responds immediately (< 3 mins) to hospital-wide Code Blue/Yellow calls under Whole-Hospital Reciprocity.
 
 ### 6. Emergency Response Team Leader (ERTL)
-- **Composition:** Senior ACLS/PALS certified nurse or physician on shift.
+- **Composition:** The on-duty UTL from whichever department is currently on **Weekly ERTL Rotation** for that Pole.
 - **Responsibilities:** Functions as hands-off Scene Commander during code response, directs closed-loop communication (SBAR), conducts 5-minute post-event GAS debrief.
 
 ---
