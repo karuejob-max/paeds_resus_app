@@ -1150,6 +1150,17 @@ export const designationEnum = mysqlEnum("designation", [
   "other"
 ]);
 
+export const governanceRoleEnum = mysqlEnum("governance_role", [
+  "executive",               // Hospital Executive (CEO / Medical Director / CNO)
+  "erc_chair",              // Emergency Readiness Committee Chair
+  "erc_member",             // Emergency Readiness Committee Member
+  "er_coordinator",         // Emergency Readiness Coordinator (Operational Lead)
+  "unit_team_leader",       // Unit Team Leader (UTL / Ward In-Charge)
+  "ert_leader",             // ERT Team Leader (ERTL)
+  "ert_responder",          // ERT Primary Responder
+  "general_staff"           // Staff Member
+]);
+
 // Institutional Staff Members
 export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers", {
   id: int("id").autoincrement().primaryKey(),
@@ -1160,6 +1171,7 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   staffPhone: varchar("staffPhone", { length: 20 }),
   staffRole: mysqlEnum("staffRole", ["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).notNull(),
   designation: designationEnum.default("other"),
+  governanceRole: governanceRoleEnum.default("general_staff"),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]).default("staff_member"),
   department: varchar("department", { length: 255 }),
   yearsOfExperience: int("yearsOfExperience").default(0),
@@ -3819,3 +3831,119 @@ export const careSignalRawNarrativeAudit = mysqlTable("care_signal_raw_narrative
   changedAt: timestamp("changed_at").defaultNow().notNull(),
 });
 export type CareSignalRawNarrativeAuditRow = typeof careSignalRawNarrativeAudit.$inferSelect;
+
+// ============================================
+// IERMS™ INSTITUTIONAL READINESS TABLES
+// ============================================
+
+// 1. Facility Poles (Geographic ERT Zones)
+export const facilityPoles = mysqlTable("facility_poles", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleName: varchar("pole_name", { length: 128 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type FacilityPole = typeof facilityPoles.$inferSelect;
+export type InsertFacilityPole = typeof facilityPoles.$inferInsert;
+
+// 2. Department Mapping to Poles
+export const facilityDepartments = mysqlTable("facility_departments", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id"),
+  departmentName: varchar("department_name", { length: 128 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type FacilityDepartment = typeof facilityDepartments.$inferSelect;
+export type InsertFacilityDepartment = typeof facilityDepartments.$inferInsert;
+
+// 3. Weekly ERTL Department Rotation
+export const ertlWeeklyRotations = mysqlTable("ertl_weekly_rotations", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  weekNumber: int("week_number").notNull(),
+  year: int("year").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type ErtlWeeklyRotation = typeof ertlWeeklyRotations.$inferSelect;
+export type InsertErtlWeeklyRotation = typeof ertlWeeklyRotations.$inferInsert;
+
+// 4. Shift UTL & ERT Roster
+export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  shiftDate: date("shift_date").notNull(),
+  shiftType: mysqlEnum("shift_type", ["morning", "evening", "night"]).notNull(),
+  utlUserId: int("utl_user_id").notNull(),
+  isShiftErtl: boolean("is_shift_ertl").default(false).notNull(),
+  readinessSignOffAt: timestamp("readiness_signoff_at"),
+  status: mysqlEnum("status", ["active", "completed", "absent"]).default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type ShiftUtlRoster = typeof shiftUtlRosters.$inferSelect;
+export type InsertShiftUtlRoster = typeof shiftUtlRosters.$inferInsert;
+
+// 5. IERMS Facility Audit Scorecards
+export const iermsAuditScorecards = mysqlTable("ierms_audit_scorecards", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  auditorUserId: int("auditor_user_id").notNull(),
+  auditDate: timestamp("audit_date").defaultNow().notNull(),
+  domain1Score: int("domain1_score").notNull(),
+  domain2Score: int("domain2_score").notNull(),
+  domain3Score: int("domain3_score").notNull(),
+  domain4Score: int("domain4_score").notNull(),
+  domain5Score: int("domain5_score").notNull(),
+  totalScore: int("total_score").notNull(),
+  accreditationLevel: mysqlEnum("accreditation_level", [
+    "level_1_unprepared",
+    "level_2_baseline",
+    "level_3_certified",
+    "level_4_exemplar"
+  ]).notNull(),
+  notes: text("notes"),
+  validUntil: timestamp("valid_until").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type IermsAuditScorecard = typeof iermsAuditScorecards.$inferSelect;
+export type InsertIermsAuditScorecard = typeof iermsAuditScorecards.$inferInsert;
+
+// 6. Equipment Audit Logs
+export const equipmentAuditLogs = mysqlTable("equipment_audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  department: varchar("department", { length: 128 }).notNull(),
+  auditedByUserId: int("audited_by_user_id").notNull(),
+  auditType: mysqlEnum("audit_type", ["daily_seal_check", "monthly_100_percent"]).notNull(),
+  cartSealIntact: boolean("cart_seal_intact").default(true).notNull(),
+  hasPaedsAirways: boolean("has_paeds_airways").default(true).notNull(),
+  hasPaedsBvm: boolean("has_paeds_bvm").default(true).notNull(),
+  hasIoNeedles: boolean("has_io_needles").default(true).notNull(),
+  hasPaedsDefibPads: boolean("has_paeds_defib_pads").default(true).notNull(),
+  hasPaedsSuction: boolean("has_paeds_suction").default(true).notNull(),
+  deficitsFound: text("deficits_found"),
+  auditDate: timestamp("audit_date").defaultNow().notNull(),
+});
+export type EquipmentAuditLog = typeof equipmentAuditLogs.$inferSelect;
+export type InsertEquipmentAuditLog = typeof equipmentAuditLogs.$inferInsert;
+
+// 7. 90-Day Implementation Tracker
+export const iermsImplementationTrackers = mysqlTable("ierms_implementation_trackers", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  phase1MouStatus: mysqlEnum("phase1_status", ["pending", "in_progress", "completed"]).default("pending").notNull(),
+  phase2ErtStatus: mysqlEnum("phase2_status", ["pending", "in_progress", "completed"]).default("pending").notNull(),
+  phase3TrainingStatus: mysqlEnum("phase3_status", ["pending", "in_progress", "completed"]).default("pending").notNull(),
+  phase4AuditStatus: mysqlEnum("phase4_status", ["pending", "in_progress", "completed"]).default("pending").notNull(),
+  targetCompletionDate: date("target_completion_date"),
+  lastUpdated: timestamp("last_updated").defaultNow().onUpdateNow().notNull(),
+});
+export type IermsImplementationTracker = typeof iermsImplementationTrackers.$inferSelect;
+export type InsertIermsImplementationTracker = typeof iermsImplementationTrackers.$inferInsert;
