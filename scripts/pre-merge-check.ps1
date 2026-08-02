@@ -137,6 +137,30 @@ if (-not $problem) {
   Write-Host "   not necessarily something this PR broke. Check before assuming it's new.)" -ForegroundColor Gray
 }
 
+# Active migration-number reservations (see reserve-migration-number.ps1).
+# A reservation branch still present after its real PR merged just means
+# nobody cleaned it up yet -- not itself a problem, but worth seeing here
+# so it doesn't get forgotten indefinitely.
+Write-Host ""
+Write-Host "=== Active migration-number reservations ===" -ForegroundColor Cyan
+$allRemoteBranchLines = git ls-remote --heads origin
+$foundAnyReservation = $false
+foreach ($line in $allRemoteBranchLines) {
+  if ($line -match "refs/heads/migration-reserved-(\d{4})") {
+    $foundAnyReservation = $true
+    $num = $matches[1]
+    $alreadyUsed = $packageJsonContent -like "*db:apply-$num*"
+    if ($alreadyUsed) {
+      Write-Host "  migration-reserved-$num -- its real PR appears to have merged (db:apply-$num exists). Safe to delete: git push origin --delete migration-reserved-$num" -ForegroundColor Gray
+    } else {
+      Write-Host "  migration-reserved-$num -- still active, no matching db:apply-$num in package.json yet." -ForegroundColor Yellow
+    }
+  }
+}
+if (-not $foundAnyReservation) {
+  Write-Host "  None." -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "=== Reminder: this script does NOT do everything ===" -ForegroundColor Cyan
 Write-Host "  - Step 1b (if this PR came from a zip): re-diff the zip's copy of" -ForegroundColor Gray
