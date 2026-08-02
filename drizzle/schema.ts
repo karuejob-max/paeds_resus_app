@@ -107,6 +107,25 @@ export const enrollments = mysqlTable("enrollments", {
   fellowshipGrandfatheredAt: timestamp("fellowshipGrandfatheredAt"),
   fellowshipGrandfatheredByUserId: int("fellowshipGrandfatheredByUserId"),
   fellowshipGrandfatheredByName: varchar("fellowshipGrandfatheredByName", { length: 255 }),
+  /**
+   * NOTE (2026-08-01): ahaPrecourseCompleted/ahaCertificateUrl above have
+   * zero usage anywhere in the codebase -- an earlier, never-wired-up
+   * attempt at this same idea. Superseded by the columns below, which match
+   * the CEO's 2026-07-31 respec (docs/IERP_NERP_PROGRAM_V2_SPEC.md §3):
+   * two distinct elearning.heart.org documents per course (Video Prework +
+   * Precourse Self-Assessment, the latter with a pass/fail result), gated
+   * on this enrollment's own cognitiveModulesComplete plus the learner's
+   * separate BLS enrollment's cognitiveModulesComplete (BLS-cognitive is a
+   * prerequisite for every other course's elearning step, same spirit as
+   * the platform-wide BLS-before-ACLS/PALS rule in ensureAhaEnrollment, but
+   * checked against the lighter cognitive-modules bar here, not full
+   * certification -- see the upload gate for the reasoning).
+   */
+  videoPreworkCertificateUrl: text("videoPreworkCertificateUrl"),
+  precourseAssessmentCertificateUrl: text("precourseAssessmentCertificateUrl"),
+  precourseAssessmentPassed: boolean("precourseAssessmentPassed").default(false),
+  elearningProofSubmittedAt: timestamp("elearningProofSubmittedAt"),
+  elearningProofVerifiedAt: timestamp("elearningProofVerifiedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -1276,7 +1276,128 @@ export const coursesRouter = router({
     }),
 
   // ─────────────────────────────────────────────────────────────────────────
-  // COHORT-PHASE-1: Return the current learner's cohort phase summary so the
+  // NERP/IERP v2 respec (docs/IERP_NERP_PROGRAM_V2_SPEC.md §3, CEO 2026-07-31):
+  // gates elearning.heart.org proof upload behind platform cognitive-module
+  // completion, both directions. Deliberately self-service -- keyed only on
+  // ctx.user.id + enrollments, no institutionalStaffMembers/facility-link
+  // dependency, per the same respec's §2 (no coordinator gate, any phase).
+  // BLS has no elearning.heart.org step of its own (Paeds-Resus-certified,
+  // not AHA); this only applies to acls/pals/nrp.
+  // ─────────────────────────────────────────────────────────────────────────
+  getElearningProofStatus: protectedProcedure
+    .input(z.object({ programType: z.enum(['acls', 'pals', 'nrp']) }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [blsRow] = await db
+        .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, 'bls')))
+        .limit(1);
+      const [courseRow] = await db
+        .select({
+          id: enrollments.id,
+          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+          videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
+          precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
+          precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
+          elearningProofSubmittedAt: enrollments.elearningProofSubmittedAt,
+          elearningProofVerifiedAt: enrollments.elearningProofVerifiedAt,
+        })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+        .limit(1);
+
+      const blsCognitiveComplete = !!blsRow?.cognitiveModulesComplete;
+      const courseCognitiveComplete = !!courseRow?.cognitiveModulesComplete;
+      const eligibleToUpload = blsCognitiveComplete && courseCognitiveComplete;
+      const alreadySubmitted = !!courseRow?.elearningProofSubmittedAt;
+      const verified = !!courseRow?.elearningProofVerifiedAt;
+
+      let guidance: string;
+      if (verified) {
+        guidance = "Verified. You're clear to move on to Phase 2 booking once it's available for this course.";
+      } else if (alreadySubmitted) {
+        guidance = "Submitted — pending verification. No action needed right now.";
+      } else if (!blsCognitiveComplete) {
+        guidance = "Finish the BLS cognitive modules on this platform first — that's a prerequisite before elearning.heart.org proof can be uploaded for any other course.";
+      } else if (!courseCognitiveComplete) {
+        guidance = `Finish the ${input.programType.toUpperCase()} cognitive modules on this platform first, then come back here to upload your elearning.heart.org proof.`;
+      } else {
+        guidance = `You're ready. Go to elearning.heart.org, sign in (or create an account), and complete the ${input.programType.toUpperCase()} Video Prework and Precourse Self-Assessment — then upload both certificates here.`;
+      }
+
+      return {
+        blsCognitiveComplete,
+        courseCognitiveComplete,
+        eligibleToUpload,
+        alreadySubmitted,
+        verified,
+        videoPreworkCertificateUrl: courseRow?.videoPreworkCertificateUrl ?? null,
+        precourseAssessmentCertificateUrl: courseRow?.precourseAssessmentCertificateUrl ?? null,
+        precourseAssessmentPassed: courseRow?.precourseAssessmentPassed ?? null,
+        guidance,
+      };
+    }),
+
+  submitElearningProof: protectedProcedure
+    .input(
+      z.object({
+        programType: z.enum(['acls', 'pals', 'nrp']),
+        videoPreworkCertificateUrl: z.string().url("Must be a valid URL"),
+        precourseAssessmentCertificateUrl: z.string().url("Must be a valid URL"),
+        precourseAssessmentPassed: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [blsRow] = await db
+        .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, 'bls')))
+        .limit(1);
+      if (!blsRow?.cognitiveModulesComplete) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Finish the BLS cognitive modules on this platform before uploading elearning.heart.org proof for any other course.",
+        });
+      }
+
+      const [courseRow] = await db
+        .select({ id: enrollments.id, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+        .limit(1);
+      if (!courseRow || !courseRow.cognitiveModulesComplete) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Finish the ${input.programType.toUpperCase()} cognitive modules on this platform before uploading elearning.heart.org proof for this course.`,
+        });
+      }
+
+      if (!input.precourseAssessmentPassed) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The Precourse Self-Assessment must show a passed score. If you haven't passed yet, retake it on elearning.heart.org before uploading.",
+        });
+      }
+
+      await db
+        .update(enrollments)
+        .set({
+          videoPreworkCertificateUrl: input.videoPreworkCertificateUrl,
+          precourseAssessmentCertificateUrl: input.precourseAssessmentCertificateUrl,
+          precourseAssessmentPassed: input.precourseAssessmentPassed,
+          elearningProofSubmittedAt: new Date(),
+        })
+        .where(eq(enrollments.id, courseRow.id));
+
+      return { success: true };
+    }),
+
   // frontend can display gates accurately and explain what is blocking them.
   // ─────────────────────────────────────────────────────────────────────────
   getPhaseSummary: protectedProcedure.query(async ({ ctx }) => {
