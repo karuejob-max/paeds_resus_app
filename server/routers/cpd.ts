@@ -1,7 +1,7 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, like, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users } from "../../drizzle/schema";
@@ -144,6 +144,52 @@ export const cpdRouter = router({
       return { success: true as const, hasSignature: value !== null };
     }),
 
+  /** Admin: search platform users / staff for presenter autocomplete. */
+  searchPresenters: protectedProcedure
+    .input(
+      z.object({
+        query: z.string().trim().min(1).max(100),
+        institutionId: z.number().int().positive().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      if (input.institutionId) {
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      }
+      const q = `%${input.query.toLowerCase()}%`;
+
+      const userMatches = await db
+        .select({
+          id: users.id,
+          fullName: users.name,
+          email: users.email,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+          department: institutionalStaffMembers.department,
+        })
+        .from(users)
+        .leftJoin(
+          institutionalStaffMembers,
+          eq(users.id, institutionalStaffMembers.userId)
+        )
+        .where(
+          or(
+            like(sql`LOWER(${users.name})`, q),
+            like(sql`LOWER(${users.email})`, q)
+          )
+        )
+        .limit(10);
+
+      return userMatches.map((u) => ({
+        id: u.id,
+        fullName: u.fullName || u.email || "Unknown Clinician",
+        email: u.email || "",
+        cadre: u.cadre === "Other" ? u.cadreOther || "Other" : u.cadre || null,
+        department: u.department || null,
+      }));
+    }),
+
   /** Admin: open a new event. Closes any currently open event for this institution first. */
   openEvent: protectedProcedure
     .input(
@@ -154,6 +200,7 @@ export const cpdRouter = router({
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
         eventType: z.enum(["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).default("cpd_general"),
+        presenterUserId: z.number().int().positive().nullable().optional(),
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
@@ -184,6 +231,7 @@ export const cpdRouter = router({
         approvingCouncil: input.approvingCouncil ?? null,
         cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
         eventType: input.eventType || "cpd_general",
+        presenterUserId: input.presenterUserId ?? null,
         presenterName: input.presenterName ?? null,
         presenterCadre: input.presenterCadre ?? null,
         presenterDepartment: input.presenterDepartment ?? null,
@@ -201,6 +249,7 @@ export const cpdRouter = router({
         institutionId: z.number().int().positive(),
         eventId: z.number().int().positive(),
         eventType: z.enum(["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).optional(),
+        presenterUserId: z.number().int().positive().nullable().optional(),
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
@@ -229,6 +278,7 @@ export const cpdRouter = router({
 
       const updateData: Record<string, unknown> = {};
       if (input.eventType !== undefined) updateData.eventType = input.eventType;
+      if (input.presenterUserId !== undefined) updateData.presenterUserId = input.presenterUserId;
       if (input.presenterName !== undefined) updateData.presenterName = input.presenterName;
       if (input.presenterCadre !== undefined) updateData.presenterCadre = input.presenterCadre;
       if (input.presenterDepartment !== undefined) updateData.presenterDepartment = input.presenterDepartment;

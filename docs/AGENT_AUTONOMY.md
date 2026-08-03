@@ -15,7 +15,8 @@ Before writing code or running destructive commands:
 1. **[AGENTS.md](../AGENTS.md)** — brand, products, fellowship rules, non-negotiable data rules.
 2. **[WORK_STATUS.md](./WORK_STATUS.md)** — Done, In progress, Blocked, Critique / review.
 3. **PSOT** — [PLATFORM_SOURCE_OF_TRUTH.md](./PLATFORM_SOURCE_OF_TRUTH.md), especially §19–22 and §21 document registry.
-4. **[CRITICAL_FIX_PLAYBOOK.md](./CRITICAL_FIX_PLAYBOOK.md)** — when fixing any learner-facing or production bug.
+4. **[PREMORTEM_AND_FAILURE_MODE_GUIDE.md](./PREMORTEM_AND_FAILURE_MODE_GUIDE.md)** — mandatory premortem methodology, 360-degree critique & failure mode analysis before coding.
+5. **[CRITICAL_FIX_PLAYBOOK.md](./CRITICAL_FIX_PLAYBOOK.md)** — when fixing any learner-facing or production bug.
 
 If AGENTS.md and PSOT conflict, **PSOT wins**; then update AGENTS.md to match.
 

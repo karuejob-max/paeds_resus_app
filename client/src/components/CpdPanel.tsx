@@ -34,6 +34,7 @@ import {
   Edit,
   TrendingUp,
   AlertTriangle,
+  UserCheck,
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 
@@ -52,20 +53,41 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [newEventName, setNewEventName] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [eventType, setEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
+  
+  // Presenter Autocomplete State (Open Event)
+  const [presenterUserId, setPresenterUserId] = useState<number | null>(null);
   const [presenterName, setPresenterName] = useState("");
   const [presenterCadre, setPresenterCadre] = useState("");
   const [presenterDepartment, setPresenterDepartment] = useState("");
+  const [showPresenterSuggestions, setShowPresenterSuggestions] = useState(false);
+
   const [approvingCouncil, setApprovingCouncil] = useState("NCK");
   const [customCouncil, setCustomCouncil] = useState("");
   const [cpdPoints, setCpdPoints] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
+  // Presenter Autocomplete State (Edit Event)
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [editPresenterUserId, setEditPresenterUserId] = useState<number | null>(null);
   const [editPresenterName, setEditPresenterName] = useState("");
   const [editPresenterCadre, setEditPresenterCadre] = useState("");
   const [editPresenterDept, setEditPresenterDept] = useState("");
   const [editEventType, setEditEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
+  const [editCpdPoints, setEditCpdPoints] = useState("");
+  const [editApprovingCouncil, setEditApprovingCouncil] = useState("NCK");
+  const [showEditPresenterSuggestions, setShowEditPresenterSuggestions] = useState(false);
+
+  // Search queries for autocomplete
+  const presenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
+    { query: presenterName, institutionId },
+    { enabled: showPresenterSuggestions && presenterName.trim().length >= 2 }
+  );
+
+  const editPresenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
+    { query: editPresenterName, institutionId },
+    { enabled: showEditPresenterSuggestions && editPresenterName.trim().length >= 2 }
+  );
 
   const events = eventsQuery.data ?? [];
   const openEvent = events.find((e) => e.isOpen) ?? null;
@@ -110,12 +132,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       toast.success("Event opened for registration");
       setNewEventName("");
       setNewEventDate("");
+      setPresenterUserId(null);
       setPresenterName("");
       setPresenterCadre("");
       setPresenterDepartment("");
       setApprovingCouncil("NCK");
       setCustomCouncil("");
       setCpdPoints("");
+      setShowPresenterSuggestions(false);
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -126,6 +150,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
     onSuccess: () => {
       toast.success("Event presenter & details updated");
       setEditingEventId(null);
+      setShowEditPresenterSuggestions(false);
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -536,14 +561,44 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Label htmlFor="cpd-presenter-name">Presenter Name</Label>
+            <div className="relative">
+              <Label htmlFor="cpd-presenter-name">
+                Presenter Name {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
+              </Label>
               <Input
                 id="cpd-presenter-name"
-                placeholder="e.g. Dr. Sarah Hassan"
+                placeholder="Type name to search platform clinicians..."
                 value={presenterName}
-                onChange={(e) => setPresenterName(e.target.value)}
+                onChange={(e) => {
+                  setPresenterName(e.target.value);
+                  setPresenterUserId(null);
+                  setShowPresenterSuggestions(true);
+                }}
+                onFocus={() => setShowPresenterSuggestions(true)}
               />
+              {showPresenterSuggestions && presenterSearchQuery.data && presenterSearchQuery.data.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
+                  {presenterSearchQuery.data.map((user) => (
+                    <div
+                      key={user.id}
+                      className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+                      onClick={() => {
+                        setPresenterUserId(user.id);
+                        setPresenterName(user.fullName);
+                        if (user.cadre) setPresenterCadre(user.cadre);
+                        if (user.department) setPresenterDepartment(user.department);
+                        setShowPresenterSuggestions(false);
+                      }}
+                    >
+                      <div>
+                        <span className="font-semibold">{user.fullName}</span>
+                        <span className="text-muted-foreground ml-1">({user.email})</span>
+                      </div>
+                      {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
@@ -628,6 +683,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   name: newEventName.trim(),
                   eventDate: newEventDate.trim(),
                   eventType,
+                  presenterUserId,
                   presenterName: presenterName.trim() || null,
                   presenterCadre: presenterCadre.trim() || null,
                   presenterDepartment: presenterDepartment.trim() || null,
@@ -722,10 +778,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                           title="Edit Presenter & Details"
                           onClick={() => {
                             setEditingEventId(event.id);
+                            setEditPresenterUserId(event.presenterUserId || null);
                             setEditPresenterName(event.presenterName || "");
                             setEditPresenterCadre(event.presenterCadre || "");
                             setEditPresenterDept(event.presenterDepartment || "");
                             setEditEventType((event.eventType as any) || "cne");
+                            setEditCpdPoints(event.cpdPoints || "");
+                            setEditApprovingCouncil(event.approvingCouncil || "NCK");
+                            setShowEditPresenterSuggestions(false);
                           }}
                         >
                           <Edit className="h-3.5 w-3.5 text-muted-foreground" />
@@ -755,18 +815,95 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           {editingEventId && (
             <Card className="mt-4 border-purple-200 bg-purple-50/20">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Edit / Backfill Event Presenter</CardTitle>
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span>Edit / Backfill CPD Event Details</span>
+                  <Badge variant="outline" className="uppercase text-[10px]">{editEventType}</Badge>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-3">
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div>
-                    <Label className="text-xs">Presenter Name</Label>
+                    <Label className="text-xs">Category / Event Type *</Label>
+                    <select
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                      value={editEventType}
+                      onChange={(e) => setEditEventType(e.target.value as any)}
+                    >
+                      <option value="cne">CNE (Continuing Nursing Education)</option>
+                      <option value="cme">CME (Continuing Medical Education)</option>
+                      <option value="cpd_general">CPD (General Interprofessional)</option>
+                      <option value="grand_rounds">Grand Rounds</option>
+                      <option value="journal_club">Journal Club / Audit</option>
+                      <option value="workshop">Skills Workshop</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approving Council</Label>
+                    <select
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                      value={editApprovingCouncil}
+                      onChange={(e) => setEditApprovingCouncil(e.target.value)}
+                    >
+                      <option value="NCK">NCK (Nursing Council of Kenya)</option>
+                      <option value="KMPDC">KMPDC (Medical Council)</option>
+                      <option value="COC">COC (Clinical Officers Council)</option>
+                      <option value="Other">Other / Custom</option>
+                      <option value="None">None / Not Approved</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">CPD Points</Label>
                     <Input
-                      size={30}
+                      type="number"
+                      step="0.5"
+                      min="0"
                       className="h-8 text-xs"
-                      value={editPresenterName}
-                      onChange={(e) => setEditPresenterName(e.target.value)}
+                      placeholder="e.g. 2.0"
+                      value={editCpdPoints}
+                      onChange={(e) => setEditCpdPoints(e.target.value)}
                     />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="relative">
+                    <Label className="text-xs">
+                      Presenter Name {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
+                    </Label>
+                    <Input
+                      className="h-8 text-xs"
+                      placeholder="Search clinician..."
+                      value={editPresenterName}
+                      onChange={(e) => {
+                        setEditPresenterName(e.target.value);
+                        setEditPresenterUserId(null);
+                        setShowEditPresenterSuggestions(true);
+                      }}
+                      onFocus={() => setShowEditPresenterSuggestions(true)}
+                    />
+                    {showEditPresenterSuggestions && editPresenterSearchQuery.data && editPresenterSearchQuery.data.length > 0 && (
+                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
+                        {editPresenterSearchQuery.data.map((user) => (
+                          <div
+                            key={user.id}
+                            className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+                            onClick={() => {
+                              setEditPresenterUserId(user.id);
+                              setEditPresenterName(user.fullName);
+                              if (user.cadre) setEditPresenterCadre(user.cadre);
+                              if (user.department) setEditPresenterDept(user.department);
+                              setShowEditPresenterSuggestions(false);
+                            }}
+                          >
+                            <div>
+                              <span className="font-semibold">{user.fullName}</span>
+                              <span className="text-muted-foreground ml-1">({user.email})</span>
+                            </div>
+                            {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs">Presenter Cadre</Label>
@@ -792,7 +929,8 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     </select>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+
+                <div className="flex justify-end gap-2 pt-1">
                   <Button variant="ghost" size="sm" onClick={() => setEditingEventId(null)}>
                     Cancel
                   </Button>
@@ -802,10 +940,13 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                       updateEventPresenterMutation.mutate({
                         institutionId,
                         eventId: editingEventId,
+                        eventType: editEventType,
+                        presenterUserId: editPresenterUserId,
                         presenterName: editPresenterName.trim() || null,
                         presenterCadre: editPresenterCadre.trim() || null,
                         presenterDepartment: editPresenterDept.trim() || null,
-                        eventType: editEventType,
+                        cpdPoints: editCpdPoints.trim() ? Number(editCpdPoints) : null,
+                        approvingCouncil: editApprovingCouncil === "None" ? null : editApprovingCouncil,
                       })
                     }
                   >
