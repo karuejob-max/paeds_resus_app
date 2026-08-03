@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
+import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +74,8 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [presenterUserId, setPresenterUserId] = useState<number | null>(null);
   const [presenterName, setPresenterName] = useState("");
   const [presenterCadre, setPresenterCadre] = useState("");
+  const [presenterSubSpecialty, setPresenterSubSpecialty] = useState("");
+  const [presenterCustomOther, setPresenterCustomOther] = useState("");
   const [presenterDepartment, setPresenterDepartment] = useState("");
   const [showPresenterSuggestions, setShowPresenterSuggestions] = useState(false);
 
@@ -86,11 +90,127 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [editPresenterUserId, setEditPresenterUserId] = useState<number | null>(null);
   const [editPresenterName, setEditPresenterName] = useState("");
   const [editPresenterCadre, setEditPresenterCadre] = useState("");
+  const [editPresenterSubSpecialty, setEditPresenterSubSpecialty] = useState("");
+  const [editPresenterCustomOther, setEditPresenterCustomOther] = useState("");
   const [editPresenterDept, setEditPresenterDept] = useState("");
   const [editEventType, setEditEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
   const [editCpdPoints, setEditCpdPoints] = useState("");
   const [editApprovingCouncil, setEditApprovingCouncil] = useState("NCK");
   const [showEditPresenterSuggestions, setShowEditPresenterSuggestions] = useState(false);
+
+  // Helper functions for parsing and setting presenter cadre
+  const setPresenterCadreFromUser = (
+    userCadre: string | null,
+    userCadreOther: string | null,
+    isEdit: boolean
+  ) => {
+    const cadre = userCadre || "";
+    let subSpecialty = "";
+    let customOther = "";
+
+    if (cadre) {
+      const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(userCadreOther || "");
+      if (userCadreOther && !isStandardSub && [
+        "Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student", "RCO HND"
+      ].includes(cadre)) {
+        subSpecialty = "Other";
+        customOther = userCadreOther;
+      } else {
+        subSpecialty = userCadreOther || "";
+        customOther = ["Other Staff", "Other Intern", "Other Student"].includes(cadre) ? (userCadreOther || "") : "";
+      }
+    }
+
+    if (isEdit) {
+      setEditPresenterCadre(cadre);
+      setEditPresenterSubSpecialty(subSpecialty);
+      setEditPresenterCustomOther(customOther);
+    } else {
+      setPresenterCadre(cadre);
+      setPresenterSubSpecialty(subSpecialty);
+      setPresenterCustomOther(customOther);
+    }
+  };
+
+  const parsePresenterCadre = (presenterCadreString: string) => {
+    const val = presenterCadreString.trim();
+    if (!val) {
+      return { cadre: "", cadreOther: "", customOther: "" };
+    }
+
+    const parts = val.split(" - ");
+    if (parts.length === 2) {
+      const cadre = parts[0];
+      const cadreOther = parts[1];
+      const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(cadreOther);
+      if (!isStandardSub && [
+        "Consultant Physician", "MSN", "HND", "Consultant Physician Student", "MSN Student", "HND Student", "RCO HND"
+      ].includes(cadre)) {
+        return { cadre, cadreOther: "Other", customOther: cadreOther };
+      }
+      return {
+        cadre,
+        cadreOther,
+        customOther: ["Other Staff", "Other Intern", "Other Student"].includes(cadre) ? cadreOther : ""
+      };
+    }
+
+    const standardCadres = [
+      "Consultant Physician", "MO", "RCO", "RN", "Other Staff",
+      "MOI", "NOI", "COI", "Other Intern",
+      "Medical Student", "Nursing Student", "Clinical Officer Student", "Consultant Physician Student", "Other Student"
+    ];
+    if (standardCadres.includes(val)) {
+      return { cadre: val, cadreOther: "", customOther: "" };
+    }
+
+    if (ALL_STANDARD_SPECIALTIES.includes(val)) {
+      const consultantSpecialties = [
+        "General Paediatrician", "Paediatric Cardiologist", "Paediatric Nephrologist",
+        "Paediatric Oncologist / Haematologist", "Paediatric Neurologist", "Paediatric Endocrinologist",
+        "Paediatric Pulmonologist / Respirologist", "Paediatric Gastroenterologist", "Neonatologist",
+        "Paediatric Critical Care Specialist", "Paediatric Emergency Medicine Specialist",
+        "Paediatric Infectious Disease Specialist", "Paediatric Rheumatologist", "Paediatric Allergist / Immunologist",
+        "Other Specialist"
+      ];
+      if (consultantSpecialties.includes(val)) {
+        return { cadre: "Consultant Physician", cadreOther: val, customOther: "" };
+      }
+
+      const msnSpecialties = [
+        "Paediatric Critical Care Nursing", "Neonatal Nursing", "Midwifery / Reproductive Health Nursing",
+        "Nephrology / Renal Nursing", "Oncology and Palliative Care Nursing", "Critical Care Nursing (Intensive Care)",
+        "Trauma & Emergency Nursing", "Medical Surgical Nursing", "Nursing Education / Leadership",
+        "Community Health Nursing", "Mental Health and Psychiatric Nursing"
+      ];
+      if (msnSpecialties.includes(val)) {
+        return { cadre: "MSN", cadreOther: val, customOther: "" };
+      }
+
+      const hndSpecialties = [
+        "Nurse Anaesthesia Nursing (KRNA)", "Peri-Operative Nursing (Theatre Nursing)",
+        "Stoma and Wound Care Nursing", "Infection Prevention and Control Nursing", "Nephrology Nursing (Renal)",
+        "Cardiovascular / Cardiac Nursing", "Oncology Nursing", "Pediatric Oncology Nursing", "Diabetes Nursing",
+        "Ophthalmic Nursing (Eye Care)", "Ear, Nose, and Throat (ENT) Nursing", "Paediatric Nursing",
+        "Psychiatric / Mental Health Nursing", "Geriatric Nursing (Aged Care)", "Community Health / Public Health Nursing",
+        "Family Health Nursing", "Palliative Care Nursing"
+      ];
+      if (hndSpecialties.includes(val)) {
+        return { cadre: "HND", cadreOther: val, customOther: "" };
+      }
+
+      const coSpecialties = [
+        "Anaesthesia", "Paediatrics", "Ophthalmology / Cataract Surgery", "Orthopaedics",
+        "ENT / Audiology", "Reproductive Health / Medicine", "Dermatology", "Oncology",
+        "Chest / Pulmonology Medicine", "Emergency Medicine / Critical Care"
+      ];
+      if (coSpecialties.includes(val)) {
+        return { cadre: "RCO HND", cadreOther: val, customOther: "" };
+      }
+    }
+
+    return { cadre: "Other Staff", cadreOther: "", customOther: val };
+  };
 
   // Search queries for autocomplete
   const presenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
@@ -157,6 +277,8 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       setPresenterUserId(null);
       setPresenterName("");
       setPresenterCadre("");
+      setPresenterSubSpecialty("");
+      setPresenterCustomOther("");
       setPresenterDepartment("");
       setApprovingCouncil("NCK");
       setCustomCouncil("");
@@ -675,7 +797,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                                   setEditingEventId(event.id);
                                   setEditPresenterUserId(event.presenterUserId || null);
                                   setEditPresenterName(event.presenterName || "");
-                                  setEditPresenterCadre(event.presenterCadre || "");
+                                  const parsed = parsePresenterCadre(event.presenterCadre || "");
+                                  setEditPresenterCadre(parsed.cadre);
+                                  setEditPresenterSubSpecialty(parsed.cadreOther);
+                                  setEditPresenterCustomOther(parsed.customOther);
                                   setEditPresenterDept(event.presenterDepartment || "");
                                   setEditEventType((event.eventType as any) || "cne");
                                   setEditCpdPoints(event.cpdPoints || "");
@@ -804,7 +929,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                                   onClick={() => {
                                     setEditPresenterUserId(user.id);
                                     setEditPresenterName(user.fullName);
-                                    if (user.cadre) setEditPresenterCadre(user.cadre);
+                                    setPresenterCadreFromUser(user.cadre, user.cadreOther, true);
                                     if (user.department) setEditPresenterDept(user.department);
                                     setShowEditPresenterSuggestions(false);
                                   }}
@@ -813,17 +938,25 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                                     <span className="font-semibold">{user.fullName}</span>
                                     <span className="text-muted-foreground ml-1">({user.email})</span>
                                   </div>
+                                  {user.cadre && (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
+                                    </Badge>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           )}
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <Label className="text-xs">Presenter Cadre</Label>
-                          <Input
-                            className="h-8 text-xs"
+                          <CadreProgressiveSelector
                             value={editPresenterCadre}
-                            onChange={(e) => setEditPresenterCadre(e.target.value)}
+                            onChange={setEditPresenterCadre}
+                            cadreOtherValue={editPresenterCustomOther}
+                            onCadreOtherChange={setEditPresenterCustomOther}
+                            subSpecialtyValue={editPresenterSubSpecialty}
+                            onSubSpecialtyChange={setEditPresenterSubSpecialty}
                           />
                         </div>
                         <div className="sm:col-span-2 md:col-span-3">
@@ -841,7 +974,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() =>
+                          onClick={() => {
+                            const isOtherCadre = ["Other Staff", "Other Intern", "Other Student"].includes(editPresenterCadre);
+                            const finalEditPresenterCadreOther = isOtherCadre ? editPresenterCustomOther : (editPresenterSubSpecialty === "Other" ? editPresenterCustomOther : editPresenterSubSpecialty);
+
                             updateEventPresenterMutation.mutate({
                               institutionId,
                               eventId: editingEventId,
@@ -849,11 +985,12 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                               presenterUserId: editPresenterUserId,
                               presenterName: editPresenterName.trim() || null,
                               presenterCadre: editPresenterCadre.trim() || null,
+                              presenterCadreOther: finalEditPresenterCadreOther.trim() || null,
                               presenterDepartment: editPresenterDept.trim() || null,
                               cpdPoints: editCpdPoints.trim() ? Number(editCpdPoints) : null,
                               approvingCouncil: editApprovingCouncil === "None" ? null : editApprovingCouncil,
-                            })
-                          }
+                            });
+                          }}
                         >
                           Save Changes
                         </Button>
@@ -938,7 +1075,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                           onClick={() => {
                             setPresenterUserId(user.id);
                             setPresenterName(user.fullName);
-                            if (user.cadre) setPresenterCadre(user.cadre);
+                            setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
                             if (user.department) setPresenterDepartment(user.department);
                             setShowPresenterSuggestions(false);
                           }}
@@ -947,19 +1084,25 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                             <span className="font-semibold">{user.fullName}</span>
                             <span className="text-muted-foreground ml-1">({user.email})</span>
                           </div>
-                          {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
+                          {user.cadre && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
+                            </Badge>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                <div>
+                <div className="space-y-1">
                   <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
-                  <Input
-                    id="cpd-presenter-cadre"
-                    placeholder="e.g. Consultant Paediatrician"
+                  <CadreProgressiveSelector
                     value={presenterCadre}
-                    onChange={(e) => setPresenterCadre(e.target.value)}
+                    onChange={setPresenterCadre}
+                    cadreOtherValue={presenterCustomOther}
+                    onCadreOtherChange={setPresenterCustomOther}
+                    subSpecialtyValue={presenterSubSpecialty}
+                    onSubSpecialtyChange={setPresenterSubSpecialty}
                   />
                 </div>
                 <div className="sm:col-span-3">
@@ -1007,7 +1150,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     id="cpd-custom-council"
                     placeholder="e.g. Pharmacy and Poisons Board"
                     value={customCouncil}
-                    onChange={(e) => setNewEventName(e.target.value)}
+                    onChange={(e) => setCustomCouncil(e.target.value)}
                   />
                 </div>
               )}
@@ -1021,6 +1164,9 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                         ? customCouncil.trim()
                         : approvingCouncil;
                     const pointsNum = cpdPoints.trim() ? Number(cpdPoints) : null;
+                    const isOtherCadre = ["Other Staff", "Other Intern", "Other Student"].includes(presenterCadre);
+                    const finalPresenterCadreOther = isOtherCadre ? presenterCustomOther : (presenterSubSpecialty === "Other" ? presenterCustomOther : presenterSubSpecialty);
+
                     openEventMutation.mutate({
                       institutionId,
                       name: newEventName.trim(),
@@ -1029,6 +1175,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                       presenterUserId,
                       presenterName: presenterName.trim() || null,
                       presenterCadre: presenterCadre.trim() || null,
+                      presenterCadreOther: finalPresenterCadreOther.trim() || null,
                       presenterDepartment: presenterDepartment.trim() || null,
                       approvingCouncil: finalCouncil,
                       cpdPoints: pointsNum,

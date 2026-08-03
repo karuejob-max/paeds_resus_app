@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { GLOBAL_DEPARTMENTS, parseDepartmentString, formatDepartmentString } from "@/lib/clinical-departments";
@@ -18,58 +18,52 @@ export function DepartmentSelectors({
 }: DepartmentSelectorsProps) {
   const parsed = parseDepartmentString(value);
 
-  const [parent, setParent] = useState(parsed.parent || "");
-  const [sub, setSub] = useState(parsed.sub || "");
-  
-  // Custom text fields
-  const [customParent, setCustomParent] = useState(parsed.isCustomParent ? parsed.parent : "");
-  const [customSub, setCustomSub] = useState(parsed.isCustomSub ? parsed.sub : "");
+  // Derive Parent Dropdown Value
+  const parent = parsed.isCustomParent ? "Other" : (parsed.parent || "");
 
-  // Update internal state when value prop changes from outside
-  useEffect(() => {
-    const nextParsed = parseDepartmentString(value);
-    setParent(nextParsed.isCustomParent ? "Other" : nextParsed.parent);
-    setSub(nextParsed.isCustomSub ? "Other" : nextParsed.sub);
-    setCustomParent(nextParsed.isCustomParent ? nextParsed.parent : "");
-    setCustomSub(nextParsed.isCustomSub ? nextParsed.sub : "");
-  }, [value]);
+  // Derive Sub Dropdown Value
+  let sub = "";
+  if (parsed.sub === "Other" || parsed.isCustomSub) {
+    sub = "Other";
+  } else if (parsed.sub) {
+    sub = parsed.sub;
+  }
+
+  // Derive Custom Text Values
+  const customParent = parsed.isCustomParent ? parsed.parent : "";
+  const customSub = parsed.isCustomSub ? parsed.sub : "";
 
   // Handle Parent Dropdown change
   const handleParentChange = (newParent: string) => {
-    setParent(newParent);
     if (newParent === "Other") {
-      setSub("Other");
-      setCustomSub("");
       onChange(formatDepartmentString(customParent || "Other", "Other"));
+    } else if (newParent === "") {
+      onChange("");
     } else {
       const match = GLOBAL_DEPARTMENTS.find(d => d.name === newParent);
       const defaultSub = match && match.subs.length > 0 ? match.subs[0] : "General";
-      setSub(defaultSub);
-      setCustomSub("");
       onChange(formatDepartmentString(newParent, defaultSub));
     }
   };
 
   // Handle Sub Dropdown change
   const handleSubChange = (newSub: string) => {
-    setSub(newSub);
     if (newSub === "Other") {
       onChange(formatDepartmentString(parent === "Other" ? (customParent || "Other") : parent, customSub || "Other"));
+    } else if (newSub === "") {
+      onChange(formatDepartmentString(parent === "Other" ? (customParent || "Other") : parent, ""));
     } else {
-      setCustomSub("");
       onChange(formatDepartmentString(parent === "Other" ? (customParent || "Other") : parent, newSub));
     }
   };
 
   // Handle Custom Parent Text input change
   const handleCustomParentChange = (newCustomParent: string) => {
-    setCustomParent(newCustomParent);
     onChange(formatDepartmentString(newCustomParent || "Other", sub === "Other" ? (customSub || "Other") : sub));
   };
 
   // Handle Custom Sub Text input change
   const handleCustomSubChange = (newCustomSub: string) => {
-    setCustomSub(newCustomSub);
     onChange(formatDepartmentString(parent === "Other" ? (customParent || "Other") : parent, newCustomSub || "Other"));
   };
 

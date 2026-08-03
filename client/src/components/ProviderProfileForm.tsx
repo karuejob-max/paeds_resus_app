@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
+import { DepartmentSelectors } from "./DepartmentSelectors";
 
 interface ProviderProfileFormProps {
   onComplete?: () => void;
@@ -34,6 +35,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     bio: "",
     certifications: [] as string[],
     languages: ["English"] as string[],
+    department: "",
   });
 
   const [newCertification, setNewCertification] = useState("");
@@ -69,6 +71,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
         bio: profile.bio || "",
         certifications: profile.certifications ? JSON.parse(profile.certifications) : [],
         languages: profile.languages ? JSON.parse(profile.languages) : ["English"],
+        department: (profile as any).department || "",
       });
       setCompletionPercentage(profile.profileCompletionPercentage || 0);
     }
@@ -198,6 +201,13 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                     max="60"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <DepartmentSelectors
+                  value={formData.department}
+                  onChange={(val) => setFormData(prev => ({ ...prev, department: val }))}
+                />
               </div>
 
               {/* Certifications */}

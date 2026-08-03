@@ -61,6 +61,7 @@ export const providerRouter = router({
         bio: z.string().optional(),
         certifications: z.array(z.string()).optional(),
         languages: z.array(z.string()).optional(),
+        department: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
