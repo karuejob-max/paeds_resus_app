@@ -459,4 +459,73 @@ export const paymentsRouter = router({
         );
       }
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Self-service payment ledger (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.2):
+  // getIndividualBalance above needs an enrollmentId the learner has no
+  // natural way to know. This finds their priced enrollment automatically
+  // (BLS is free per §6.3, so the first non-BLS enrollment -- acls/pals/nrp
+  // -- is the one with a real balance) and returns everything the frontend
+  // needs to show "paid so far / remaining" plus fire initiateSTKPush
+  // directly, without a second round-trip to look up the enrollment.
+  // ─────────────────────────────────────────────────────────────────────────
+  getMyPaymentLedger: protectedProcedure.query(async ({ ctx }) => {
+    const { getDb } = await import("../db");
+    const { payments, enrollments, courses, institutionalStaffMembers, providerProfiles } = await import("../../drizzle/schema");
+    const { eq, and, sum, ne } = await import("drizzle-orm");
+
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+
+    const [pricedEnrollment] = await db
+      .select({ id: enrollments.id, programType: enrollments.programType, courseId: enrollments.courseId, courseTitle: courses.title })
+      .from(enrollments)
+      .innerJoin(courses, eq(enrollments.courseId, courses.id))
+      .where(and(eq(enrollments.userId, ctx.user.id), ne(enrollments.programType, "bls")))
+      .limit(1);
+
+    if (!pricedEnrollment) {
+      return { hasPricedEnrollment: false as const };
+    }
+
+    const paymentsSum = await db
+      .select({ total: sum(payments.amount) })
+      .from(payments)
+      .where(and(eq(payments.enrollmentId, pricedEnrollment.id), eq(payments.status, "completed")));
+    const totalPaid = Number(paymentsSum[0]?.total ?? 0) / 100;
+
+    let basePrice = 20000.0;
+    const [staffRow] = await db
+      .select({ designation: institutionalStaffMembers.designation })
+      .from(institutionalStaffMembers)
+      .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+      .limit(1);
+    if (staffRow) {
+      const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
+      let eligible = false;
+      if (staffRow.designation === "permanent_nurse") {
+        const [profile] = await db
+          .select({ licenseNumber: providerProfiles.licenseNumber })
+          .from(providerProfiles)
+          .where(eq(providerProfiles.userId, ctx.user.id))
+          .limit(1);
+        eligible = !!profile?.licenseNumber && profile.licenseNumber.trim().length > 0;
+      } else if (staffRow.designation && (INTERN_DESIGNATIONS as readonly string[]).includes(staffRow.designation)) {
+        eligible = true;
+      }
+      if (eligible) basePrice = 15000.0;
+    }
+
+    const balance = Math.max(0, basePrice - totalPaid);
+    return {
+      hasPricedEnrollment: true as const,
+      enrollmentId: pricedEnrollment.id,
+      courseId: pricedEnrollment.courseId,
+      courseTitle: pricedEnrollment.courseTitle,
+      totalPaid,
+      basePrice,
+      balance,
+      isPaidInFull: balance <= 0,
+    };
+  }),
 });

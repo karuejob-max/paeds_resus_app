@@ -1268,6 +1268,34 @@ export const coursesRouter = router({
           }
         }
 
+        // NERP payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3, CEO
+        // 2026-07-31 respec): BLS cognitive is free for nurses -- no payment
+        // gate above this line touches it. Moving past BLS into ACLS/PALS/
+        // NRP cognitive work requires the starting month's KES 2,500
+        // minimum. Interns are untouched by this gate (their rules are
+        // unchanged: full payment for Phase 3, 4-month zero-payment lock --
+        // see bookHandsOnSession/bookPhase2Role, not here). Same
+        // institutionalStaffMembers.totalPaidAmount field the existing
+        // booking-time gates already use, for consistency -- not a new
+        // payment ledger.
+        if (input.programType === 'acls' || input.programType === 'pals' || input.programType === 'nrp') {
+          const [staffRow] = await database
+            .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount })
+            .from(institutionalStaffMembers)
+            .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, 'linked')))
+            .limit(1);
+          if (staffRow?.designation === 'permanent_nurse') {
+            const paid = Number(staffRow.totalPaidAmount ?? 0);
+            if (paid < 2500) {
+              return {
+                success: false,
+                enrollmentId: 0,
+                error: `Accessing ${input.programType.toUpperCase()} requires the starting month's minimum payment of KES 2,500 (BLS itself stays free). Make a payment to unlock this course.`,
+              };
+            }
+          }
+        }
+
         // Return existing enrollment id if present
         const existing = await database
           .select({ id: enrollments.id })
@@ -1548,6 +1576,68 @@ export const coursesRouter = router({
         .limit(1);
       if (!session || session.trainingType !== "online" || session.status === "cancelled") {
         throw new TRPCError({ code: "NOT_FOUND", message: "Session not found or no longer available." });
+      }
+
+      // Phase/payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3). No
+      // facility-matching check here, deliberately -- §4.1 makes Phase 2
+      // booking cross-program by design (IERP/NERP/standard learners share
+      // sessions), reversing the old same-facility-only rule that still
+      // applies to bookHandsOnSession's Phase 3 path. Note: this still
+      // reads phaseStatus/totalPaidAmount off institutionalStaffMembers,
+      // same field the pre-respec gates used -- the new self-service
+      // elearning-proof flow (slice 1) doesn't yet advance phaseStatus on
+      // verification, so that wiring is still an open gap, not silently
+      // assumed fixed here.
+      const [staffRow] = await db
+        .select({
+          phaseStatus: institutionalStaffMembers.phaseStatus,
+          totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+          designation: institutionalStaffMembers.designation,
+          enrollmentDate: institutionalStaffMembers.enrollmentDate,
+          createdAt: institutionalStaffMembers.createdAt,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+        .limit(1);
+
+      if (staffRow) {
+        const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt } = staffRow;
+        if (phaseStatus === "phase_1") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Complete Phase 1 (cognitive modules + elearning.heart.org proof) before booking a Phase 2 simulation.",
+          });
+        }
+
+        const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
+        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
+        const joinedAt = enrollmentDate ?? createdAt;
+        const paid = Number(totalPaidAmount ?? 0);
+
+        if (designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
+          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "It has been more than 4 months since you joined with no payment recorded. Make a payment (in full or as an instalment) to regain Phase 2 booking access.",
+            });
+          }
+        } else if (designation === "permanent_nurse") {
+          // BLS is free (§6.3) -- this gate only fires once a nurse is
+          // actually booking a Phase 2 session, which per the platform-wide
+          // BLS-before-ACLS/PALS rule can't happen on the BLS course itself.
+          const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
+          const MONTHLY_INSTALMENT_KES = 2500;
+          if (joinedAt) {
+            const monthsElapsed = Math.floor((Date.now() - new Date(joinedAt).getTime()) / ONE_MONTH_MS);
+            const requiredByNow = Math.max(0, monthsElapsed) * MONTHLY_INSTALMENT_KES;
+            if (paid < requiredByNow) {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: `Your instalment payments are behind schedule (KES ${paid} paid of KES ${requiredByNow} expected at KES 2,500/month). Make a payment to regain Phase 2 booking access.`,
+              });
+            }
+          }
+        }
       }
 
       const [existing] = await db
