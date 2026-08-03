@@ -559,6 +559,7 @@ export default function LearnerDashboard() {
             <DesignationDeclarationCard />
             <Phase1ProofUploadCard />
             <MyBookingsCard />
+            <Phase2BookingCard />
 
             {/* My Certificates */}
             <Card id="my-certificates" className="md:col-span-3 scroll-mt-20">
@@ -1083,6 +1084,236 @@ function MyBookingsCard() {
             </div>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+const PHASE2_ROLE_LABELS: Record<string, string> = {
+  team_leader: "Team Leader",
+  team_member_airway_ventilation: "Airway & Ventilation",
+  team_member_compressor_1: "Compressor 1",
+  team_member_compressor_2: "Compressor 2",
+  team_member_monitor_defib_cpr_coach: "Monitor/Defib/CPR Coach",
+  team_member_iv_io_meds: "IV/IO Access & Meds",
+  team_member_scribe: "Scribe",
+  observer: "Observer",
+};
+const PHASE2_ROLE_ORDER = [
+  "team_leader",
+  "team_member_airway_ventilation",
+  "team_member_compressor_1",
+  "team_member_compressor_2",
+  "team_member_monitor_defib_cpr_coach",
+  "team_member_iv_io_meds",
+  "team_member_scribe",
+  "observer",
+];
+
+function Phase2CompletionProgress() {
+  const { data, isLoading } = trpc.courses.getPhase2CompletionStatus.useQuery();
+  if (isLoading || !data) return null;
+
+  const pct = Math.round(
+    ((Math.min(data.teamLeaderCount, data.teamLeaderRequired) + Math.min(data.teamMemberSessionsTotal, data.teamMemberSessionsRequired)) /
+      (data.teamLeaderRequired + data.teamMemberSessionsRequired)) *
+      100
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">Phase 2 progress</span>
+        <span className="text-muted-foreground">{data.phase2Complete ? "Complete" : `${pct}%`}</span>
+      </div>
+      <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className={`p-2 rounded border ${data.teamLeaderMet ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200"}`}>
+          Team Leader: {data.teamLeaderCount}/{data.teamLeaderRequired}
+        </div>
+        <div className={`p-2 rounded border ${data.teamMemberMet ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200"}`}>
+          Team Member: {data.teamMemberSessionsTotal}/{data.teamMemberSessionsRequired} ({data.teamMemberRolesCovered}/{data.teamMemberRolesRequired} roles covered)
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {Object.entries(data.teamMemberRoleCounts).map(([role, count]) => (
+          <div
+            key={role}
+            className={`text-[11px] p-1.5 rounded border text-center ${
+              (count as number) > 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500"
+            }`}
+          >
+            {PHASE2_ROLE_LABELS[role] ?? role}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Phase2BookingCard() {
+  const sessionsQuery = trpc.courses.listPhase2Sessions.useQuery({});
+  const [bookingScheduleId, setBookingScheduleId] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [claimingScheduleId, setClaimingScheduleId] = useState<number | null>(null);
+  const [claimRole, setClaimRole] = useState<string>("");
+  const [claimNotes, setClaimNotes] = useState("");
+
+  const bookMutation = trpc.courses.bookPhase2Role.useMutation({
+    onSuccess: () => {
+      toast.success("Booked! You'll see this under My Bookings.");
+      setBookingScheduleId(null);
+      setSelectedRole("");
+      void sessionsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const claimMutation = trpc.courses.submitRetrospectiveRoleClaim.useMutation({
+    onSuccess: () => {
+      toast.success("Claim submitted — the instructor who ran that session will review it.");
+      setClaimingScheduleId(null);
+      setClaimRole("");
+      setClaimNotes("");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const sessions = sessionsQuery.data ?? [];
+
+  return (
+    <Card className="mt-6 md:col-span-3">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Phase 2 — Online Simulations
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Phase2CompletionProgress />
+
+        {sessionsQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading sessions…
+          </p>
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No instructors have declared Phase 2 availability yet — check back soon.</p>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map((s: any) => {
+              const openRoles = PHASE2_ROLE_ORDER.filter((r) => (s.roleAvailability[r]?.available ?? 0) > 0);
+              const isFull = openRoles.length === 0;
+              return (
+                <div key={s.id} className="rounded-lg border border-border p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-sm">{s.courseTitle}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.scheduledDate ? new Date(s.scheduledDate).toLocaleDateString() : "Date TBC"}
+                        {s.startTime ? ` · ${s.startTime}${s.endTime ? `–${s.endTime}` : ""}` : ""}
+                        {s.instructorName ? ` · Instructor: ${s.instructorName}` : ""}
+                      </p>
+                    </div>
+                    {!isFull && bookingScheduleId !== s.id && (
+                      <Button size="sm" variant="outline" onClick={() => setBookingScheduleId(s.id)}>
+                        Book a role
+                      </Button>
+                    )}
+                    {isFull && <span className="text-xs text-slate-500 font-medium">Fully booked</span>}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {PHASE2_ROLE_ORDER.map((r) => {
+                      const avail = s.roleAvailability[r];
+                      if (!avail) return null;
+                      const taken = avail.available <= 0;
+                      return (
+                        <span
+                          key={r}
+                          className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                            taken ? "bg-slate-100 border-slate-200 text-slate-400 line-through" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          }`}
+                        >
+                          {PHASE2_ROLE_LABELS[r]} ({avail.available}/{avail.capacity})
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {bookingScheduleId === s.id && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                        <SelectTrigger className="w-[220px] h-8 text-xs">
+                          <SelectValue placeholder="Pick your role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {openRoles.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {PHASE2_ROLE_LABELS[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        disabled={!selectedRole || bookMutation.isPending}
+                        onClick={() => bookMutation.mutate({ scheduleId: s.id, role: selectedRole as any })}
+                      >
+                        {bookMutation.isPending ? "Booking..." : "Confirm booking"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setBookingScheduleId(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="mt-2">
+                    {claimingScheduleId === s.id ? (
+                      <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                        <Select value={claimRole} onValueChange={setClaimRole}>
+                          <SelectTrigger className="w-[220px] h-8 text-xs bg-white">
+                            <SelectValue placeholder="Which role did you fill?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PHASE2_ROLE_ORDER.map((r) => (
+                              <SelectItem key={r} value={r}>
+                                {PHASE2_ROLE_LABELS[r]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Notes (optional)"
+                          value={claimNotes}
+                          onChange={(e) => setClaimNotes(e.target.value)}
+                          className="h-8 text-xs w-[180px] bg-white"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!claimRole || claimMutation.isPending}
+                          onClick={() => claimMutation.mutate({ scheduleId: s.id, role: claimRole as any, notes: claimNotes || undefined })}
+                        >
+                          Submit claim
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setClaimingScheduleId(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        className="text-[11px] text-muted-foreground underline underline-offset-2"
+                        onClick={() => setClaimingScheduleId(s.id)}
+                      >
+                        Filled in for a no-show in this session? Claim a role retrospectively
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

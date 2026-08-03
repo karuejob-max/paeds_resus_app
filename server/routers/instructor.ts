@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, desc } from "drizzle-orm";
+import { eq, and, isNotNull, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -13,6 +13,7 @@ import {
   instructorQualifications,
   instructorMentorships,
   instructorMentorshipGroups,
+  retrospectiveRoleClaims,
 } from "../../drizzle/schema";
 import { signOffPracticalSkills } from "../certificates";
 import { notifyMentorshipTierPromoted } from "../lib/cohort-program-notifications";
@@ -151,6 +152,73 @@ export const instructorRouter = router({
     });
 
     return { assignments, eligible: true as const };
+  }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Instructor's own view of self-declared Phase 2 sessions
+  // (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.4). Deliberately separate from
+  // getMyAssignments above -- that query inner-joins institutionalAccounts,
+  // which would silently exclude these sessions entirely (they have
+  // institutionalAccountId = null by design, since they're self-service and
+  // cross-program, not tied to one institution). Bundles bookings and
+  // pending retrospective claims for each session in one call so the
+  // instructor's "manage my Phase 2 sessions" view doesn't need N+1 calls.
+  // ─────────────────────────────────────────────────────────────────────────
+  getMyPhase2Sessions: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    const sessions = await db
+      .select({
+        id: trainingSchedules.id,
+        courseId: trainingSchedules.courseId,
+        courseTitle: courses.title,
+        scheduledDate: trainingSchedules.scheduledDate,
+        startTime: trainingSchedules.startTime,
+        endTime: trainingSchedules.endTime,
+        location: trainingSchedules.location,
+        status: trainingSchedules.status,
+      })
+      .from(trainingSchedules)
+      .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+      .where(and(eq(trainingSchedules.instructorId, ctx.user.id), eq(trainingSchedules.trainingType, "online")))
+      .orderBy(desc(trainingSchedules.scheduledDate));
+
+    if (sessions.length === 0) return [];
+
+    const scheduleIds = sessions.map((s) => s.id);
+    const allBookings = await db
+      .select({
+        id: trainingAttendance.id,
+        trainingScheduleId: trainingAttendance.trainingScheduleId,
+        staffMemberId: trainingAttendance.staffMemberId,
+        learnerName: users.name,
+        simulationRole: trainingAttendance.simulationRole,
+        attendanceStatus: trainingAttendance.attendanceStatus,
+        simulationCompetencyPassed: trainingAttendance.simulationCompetencyPassed,
+      })
+      .from(trainingAttendance)
+      .innerJoin(users, eq(trainingAttendance.staffMemberId, users.id))
+      .where(inArray(trainingAttendance.trainingScheduleId, scheduleIds));
+
+    const pendingClaims = await db
+      .select({
+        id: retrospectiveRoleClaims.id,
+        trainingScheduleId: retrospectiveRoleClaims.trainingScheduleId,
+        claimantUserId: retrospectiveRoleClaims.claimantUserId,
+        claimantName: users.name,
+        role: retrospectiveRoleClaims.role,
+        notes: retrospectiveRoleClaims.notes,
+      })
+      .from(retrospectiveRoleClaims)
+      .innerJoin(users, eq(retrospectiveRoleClaims.claimantUserId, users.id))
+      .where(and(inArray(retrospectiveRoleClaims.trainingScheduleId, scheduleIds), eq(retrospectiveRoleClaims.status, "pending")));
+
+    return sessions.map((s) => ({
+      ...s,
+      bookings: allBookings.filter((b) => b.trainingScheduleId === s.id),
+      pendingClaims: pendingClaims.filter((c) => c.trainingScheduleId === s.id),
+    }));
   }),
 
   // ─────────────────────────────────────────────────────────────────────────

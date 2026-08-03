@@ -5,6 +5,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { instructorResources } from "@/const/instructorResources";
@@ -338,6 +340,212 @@ function MyMenteesCard() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 role-based booking — instructor side
+// (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.4, §4.5). Self-service: declaring
+// availability directly creates a bookable session, no coordinator
+// involved. Separate from the coordinator-assigned sessions above
+// (getMyAssignments) since these have no institution attached.
+// ─────────────────────────────────────────────────────────────────────────────
+const PHASE2_ROLE_LABELS: Record<string, string> = {
+  team_leader: "Team Leader",
+  team_member_airway_ventilation: "Airway & Ventilation",
+  team_member_compressor_1: "Compressor 1",
+  team_member_compressor_2: "Compressor 2",
+  team_member_monitor_defib_cpr_coach: "Monitor/Defib/CPR Coach",
+  team_member_iv_io_meds: "IV/IO Access & Meds",
+  team_member_scribe: "Scribe",
+  observer: "Observer",
+};
+
+function DeclareAvailabilityForm({ onDone }: { onDone: () => void }) {
+  const coursesQuery = trpc.courses.listAhaPrograms.useQuery();
+  const [courseId, setCourseId] = useState<string>("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [startTime, setStartTime] = useState("20:30");
+  const [endTime, setEndTime] = useState("21:30");
+  const [location, setLocation] = useState("");
+
+  const declareMutation = trpc.courses.declareInstructorAvailability.useMutation({
+    onSuccess: () => {
+      toast.success("Availability declared — learners can now book this session.");
+      onDone();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Select value={courseId} onValueChange={setCourseId}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Course" />
+          </SelectTrigger>
+          <SelectContent>
+            {(coursesQuery.data ?? []).map((c: any) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="h-9 text-sm" />
+        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="h-9 text-sm" />
+        <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="h-9 text-sm" />
+        <Input
+          placeholder="Location / link (optional)"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          className="h-9 text-sm sm:col-span-2"
+        />
+      </div>
+      <Button
+        size="sm"
+        disabled={!courseId || !scheduledDate || declareMutation.isPending}
+        onClick={() =>
+          declareMutation.mutate({
+            courseId: Number(courseId),
+            scheduledDate: new Date(scheduledDate),
+            startTime,
+            endTime,
+            location: location || undefined,
+          })
+        }
+      >
+        {declareMutation.isPending ? "Declaring..." : "Declare this slot"}
+      </Button>
+      <p className="text-xs text-muted-foreground">Ideally a 1-hour evening slot, e.g. 8:30–9:30pm — but any time works.</p>
+    </div>
+  );
+}
+
+function Phase2AvailabilityCard() {
+  const sessionsQuery = trpc.instructor.getMyPhase2Sessions.useQuery();
+  const [declaring, setDeclaring] = useState(false);
+
+  const confirmMutation = trpc.courses.confirmPhase2Role.useMutation({
+    onSuccess: () => {
+      toast.success("Confirmed.");
+      void sessionsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const reviewClaimMutation = trpc.courses.reviewRetrospectiveRoleClaim.useMutation({
+    onSuccess: (_data, vars) => {
+      toast.success(vars.approve ? "Claim approved." : "Claim rejected.");
+      void sessionsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const sessions = sessionsQuery.data ?? [];
+
+  return (
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5" />
+          Phase 2 sessions I'm running
+        </CardTitle>
+        <CardDescription>Declare when you're free to run an online simulation, then confirm roles and review claims after each session.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {declaring ? (
+          <DeclareAvailabilityForm onDone={() => { setDeclaring(false); void sessionsQuery.refetch(); }} />
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setDeclaring(true)}>
+            Declare new availability
+          </Button>
+        )}
+
+        {sessions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">You haven't declared any Phase 2 sessions yet.</p>
+        ) : (
+          sessions.map((s: any) => (
+            <div key={s.id} className="rounded-lg border border-border p-3 space-y-2">
+              <p className="font-medium text-sm">
+                {s.courseTitle} — {s.scheduledDate ? new Date(s.scheduledDate).toLocaleDateString() : "Date TBC"}
+                {s.startTime ? ` · ${s.startTime}${s.endTime ? `–${s.endTime}` : ""}` : ""}
+              </p>
+
+              {s.bookings.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No bookings yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {s.bookings.map((b: any) => (
+                    <div key={b.id} className="flex items-center justify-between text-xs rounded border border-border p-2">
+                      <span>
+                        {b.learnerName} — {PHASE2_ROLE_LABELS[b.simulationRole] ?? b.simulationRole}
+                        {b.simulationCompetencyPassed && <span className="ml-1.5 text-green-700 font-medium">✓ confirmed</span>}
+                      </span>
+                      {!b.simulationCompetencyPassed && (
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[11px] px-2 border-emerald-300 text-emerald-700"
+                            disabled={confirmMutation.isPending}
+                            onClick={() => confirmMutation.mutate({ attendanceId: b.id, passed: true })}
+                          >
+                            Confirm
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[11px] px-2 border-red-200 text-red-600"
+                            disabled={confirmMutation.isPending}
+                            onClick={() => confirmMutation.mutate({ attendanceId: b.id, passed: false })}
+                          >
+                            Didn't fill role
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {s.pendingClaims.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-border">
+                  <p className="text-xs font-medium text-amber-700">Retrospective claims pending your review</p>
+                  {s.pendingClaims.map((c: any) => (
+                    <div key={c.id} className="flex items-center justify-between text-xs rounded border border-amber-200 bg-amber-50 p-2">
+                      <span>
+                        {c.claimantName} claims <strong>{PHASE2_ROLE_LABELS[c.role] ?? c.role}</strong>
+                        {c.notes ? ` — "${c.notes}"` : ""}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[11px] px-2 border-emerald-300 text-emerald-700 bg-white"
+                          disabled={reviewClaimMutation.isPending}
+                          onClick={() => reviewClaimMutation.mutate({ claimId: c.id, approve: true })}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[11px] px-2 border-red-200 text-red-600 bg-white"
+                          disabled={reviewClaimMutation.isPending}
+                          onClick={() => reviewClaimMutation.mutate({ claimId: c.id, approve: false })}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InstructorPortal() {
@@ -582,6 +790,7 @@ export default function InstructorPortal() {
 
         {/* My mentees card — only relevant if this instructor is mentoring anyone */}
         <MyMenteesCard />
+        <Phase2AvailabilityCard />
 
         {/* AHA Certificate Workflow Info */}
         {unlocked && (
