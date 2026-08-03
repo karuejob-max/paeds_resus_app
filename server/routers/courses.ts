@@ -19,8 +19,9 @@ import { notifyBookingWaitlistPromoted } from '../lib/cohort-program-notificatio
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals } from '../../drizzle/schema';
-import { eq, and, asc, inArray, desc, sum } from 'drizzle-orm';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims } from '../../drizzle/schema';
+import { assertNoInstructorDoubleBooking } from '../lib/instructor-double-booking-guard';
+import { eq, and, asc, inArray, desc, sum, gte, sql, ne } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { syncFellowshipProgressForUser } from "../services/fellowship-progress.service";
@@ -92,6 +93,26 @@ async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
   );
   return enriched;
 }
+
+// Phase 2 role-based booking (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.2, CEO
+// 2026-07-31 respec). Per-role capacity for a Phase 2 session: team_leader
+// and each named team_member_* role max 1, observer up to 7 (1 + 6 + 7 = 14
+// total, hence maxCapacity 14 when declaring availability below).
+const PHASE2_NAMED_TEAM_MEMBER_ROLES = [
+  "team_member_airway_ventilation",
+  "team_member_compressor_1",
+  "team_member_compressor_2",
+  "team_member_monitor_defib_cpr_coach",
+  "team_member_iv_io_meds",
+  "team_member_scribe",
+] as const;
+const PHASE2_ROLE_CAPACITY: Record<string, number> = {
+  team_leader: 1,
+  ...Object.fromEntries(PHASE2_NAMED_TEAM_MEMBER_ROLES.map((r) => [r, 1])),
+  observer: 7,
+};
+const PHASE2_BOOKABLE_ROLES = ["team_leader", ...PHASE2_NAMED_TEAM_MEMBER_ROLES, "observer"] as const;
+const PHASE2_SESSION_CAPACITY = Object.values(PHASE2_ROLE_CAPACITY).reduce((a, b) => a + b, 0);
 
 export const coursesRouter = router({
   /**
@@ -1397,6 +1418,321 @@ export const coursesRouter = router({
 
       return { success: true };
     }),
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Phase 2 role-based booking (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4). Self-
+  // service throughout, no coordinator involved: an approved instructor
+  // declares their own availability, which directly creates a bookable
+  // session (institutionalAccountId left null -- cross-program, not tied
+  // to one institution, per §4.1). A role only counts toward completion
+  // once the instructor who ran the session confirms it (§4.5).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  declareInstructorAvailability: protectedProcedure
+    .input(
+      z.object({
+        courseId: z.number().int().positive(),
+        scheduledDate: z.coerce.date(),
+        startTime: z.string().min(1),
+        endTime: z.string().min(1),
+        location: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [u] = await db
+        .select({ name: users.name, instructorApprovedAt: users.instructorApprovedAt, role: users.role })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1);
+      if (!u?.instructorApprovedAt && u?.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only approved instructors can declare Phase 2 availability." });
+      }
+
+      await assertNoInstructorDoubleBooking(db, {
+        instructorId: ctx.user.id,
+        scheduledDate: input.scheduledDate,
+        startTime: input.startTime,
+        endTime: input.endTime,
+      });
+
+      const [inserted] = await db.insert(trainingSchedules).values({
+        institutionalAccountId: null,
+        courseId: input.courseId,
+        trainingType: "online",
+        scheduledDate: input.scheduledDate,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        location: input.location ?? null,
+        instructorId: ctx.user.id,
+        instructorName: u?.name ?? undefined,
+        maxCapacity: PHASE2_SESSION_CAPACITY,
+        enrolledCount: 0,
+        status: "scheduled",
+      });
+
+      return { success: true, scheduleId: (inserted as { insertId: number }).insertId };
+    }),
+
+  // Calendar listing for learners choosing a session. Sorted oldest-
+  // declared-first (§4.4's "first-declared-first-open" -- a display/sort
+  // order, not a hard lock; every non-full session stays bookable, per the
+  // CEO's own clarification that a learner can pick any open session).
+  listPhase2Sessions: protectedProcedure
+    .input(z.object({ courseId: z.number().int().positive().optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const conditions = [eq(trainingSchedules.trainingType, "online"), ne(trainingSchedules.status, "cancelled")];
+      if (input.courseId) conditions.push(eq(trainingSchedules.courseId, input.courseId));
+
+      const sessions = await db
+        .select({
+          id: trainingSchedules.id,
+          courseId: trainingSchedules.courseId,
+          courseTitle: courses.title,
+          scheduledDate: trainingSchedules.scheduledDate,
+          startTime: trainingSchedules.startTime,
+          endTime: trainingSchedules.endTime,
+          location: trainingSchedules.location,
+          instructorId: trainingSchedules.instructorId,
+          instructorName: trainingSchedules.instructorName,
+          createdAt: trainingSchedules.createdAt,
+        })
+        .from(trainingSchedules)
+        .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+        .where(and(...conditions))
+        .orderBy(asc(trainingSchedules.createdAt));
+
+      if (sessions.length === 0) return [];
+
+      const scheduleIds = sessions.map((s) => s.id);
+      const bookings = await db
+        .select({
+          trainingScheduleId: trainingAttendance.trainingScheduleId,
+          simulationRole: trainingAttendance.simulationRole,
+        })
+        .from(trainingAttendance)
+        .where(
+          and(
+            inArray(trainingAttendance.trainingScheduleId, scheduleIds),
+            ne(trainingAttendance.attendanceStatus, "cancelled")
+          )
+        );
+
+      return sessions.map((s) => {
+        const taken = bookings.filter((b) => b.trainingScheduleId === s.id);
+        const roleAvailability = Object.fromEntries(
+          PHASE2_BOOKABLE_ROLES.map((role) => {
+            const takenCount = taken.filter((b) => b.simulationRole === role).length;
+            return [role, { capacity: PHASE2_ROLE_CAPACITY[role], taken: takenCount, available: PHASE2_ROLE_CAPACITY[role] - takenCount }];
+          })
+        );
+        return { ...s, roleAvailability };
+      });
+    }),
+
+  bookPhase2Role: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive(), role: z.enum(PHASE2_BOOKABLE_ROLES) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [session] = await db
+        .select({ id: trainingSchedules.id, status: trainingSchedules.status, trainingType: trainingSchedules.trainingType })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!session || session.trainingType !== "online" || session.status === "cancelled") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found or no longer available." });
+      }
+
+      const [existing] = await db
+        .select({ id: trainingAttendance.id })
+        .from(trainingAttendance)
+        .where(
+          and(
+            eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+            eq(trainingAttendance.staffMemberId, ctx.user.id),
+            ne(trainingAttendance.attendanceStatus, "cancelled")
+          )
+        )
+        .limit(1);
+      if (existing) {
+        throw new TRPCError({ code: "CONFLICT", message: "You already have a booking for this session. Cancel it first if you want a different role." });
+      }
+
+      const takenCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(trainingAttendance)
+        .where(
+          and(
+            eq(trainingAttendance.trainingScheduleId, input.scheduleId),
+            eq(trainingAttendance.simulationRole, input.role),
+            ne(trainingAttendance.attendanceStatus, "cancelled")
+          )
+        );
+      const capacity = PHASE2_ROLE_CAPACITY[input.role];
+      if (Number(takenCount[0]?.count ?? 0) >= capacity) {
+        throw new TRPCError({ code: "CONFLICT", message: `That role is already fully booked for this session. Pick a different role or session.` });
+      }
+
+      await db.insert(trainingAttendance).values({
+        trainingScheduleId: input.scheduleId,
+        staffMemberId: ctx.user.id,
+        attendanceStatus: "registered",
+        simulationRole: input.role,
+      });
+
+      return { success: true };
+    }),
+
+  // A role only counts toward Phase 2 completion once the instructor who
+  // ran the session confirms it (§4.5) -- admin can confirm on any
+  // instructor's behalf (§4.5's "admin override on all of it").
+  confirmPhase2Role: protectedProcedure
+    .input(z.object({ attendanceId: z.number().int().positive(), passed: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [row] = await db
+        .select({ scheduleInstructorId: trainingSchedules.instructorId, scheduleId: trainingAttendance.trainingScheduleId })
+        .from(trainingAttendance)
+        .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
+        .where(eq(trainingAttendance.id, input.attendanceId))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found." });
+
+      const [u] = await db.select({ role: users.role }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+      if (row.scheduleInstructorId !== ctx.user.id && u?.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the instructor who ran this session (or an admin) can confirm a role." });
+      }
+
+      await db
+        .update(trainingAttendance)
+        .set({
+          simulationCompetencyPassed: input.passed,
+          attendanceStatus: input.passed ? "attended" : "absent",
+        })
+        .where(eq(trainingAttendance.id, input.attendanceId));
+
+      return { success: true };
+    }),
+
+  // Someone (often an observer) who filled a no-show's role can claim it
+  // after the fact; the session's instructor must approve before it counts
+  // (§4.5). Deliberately doesn't require the claimant to have had any
+  // existing booking for this session.
+  submitRetrospectiveRoleClaim: protectedProcedure
+    .input(z.object({ scheduleId: z.number().int().positive(), role: z.enum(PHASE2_BOOKABLE_ROLES), notes: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [session] = await db
+        .select({ id: trainingSchedules.id })
+        .from(trainingSchedules)
+        .where(eq(trainingSchedules.id, input.scheduleId))
+        .limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found." });
+
+      await db.insert(retrospectiveRoleClaims).values({
+        trainingScheduleId: input.scheduleId,
+        claimantUserId: ctx.user.id,
+        role: input.role,
+        notes: input.notes ?? null,
+        status: "pending",
+      });
+
+      return { success: true };
+    }),
+
+  reviewRetrospectiveRoleClaim: protectedProcedure
+    .input(z.object({ claimId: z.number().int().positive(), approve: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [claim] = await db
+        .select({
+          id: retrospectiveRoleClaims.id,
+          status: retrospectiveRoleClaims.status,
+          scheduleInstructorId: trainingSchedules.instructorId,
+        })
+        .from(retrospectiveRoleClaims)
+        .innerJoin(trainingSchedules, eq(retrospectiveRoleClaims.trainingScheduleId, trainingSchedules.id))
+        .where(eq(retrospectiveRoleClaims.id, input.claimId))
+        .limit(1);
+      if (!claim) throw new TRPCError({ code: "NOT_FOUND", message: "Claim not found." });
+      if (claim.status !== "pending") {
+        throw new TRPCError({ code: "CONFLICT", message: `This claim was already ${claim.status}.` });
+      }
+
+      const [u] = await db.select({ role: users.role }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+      if (claim.scheduleInstructorId !== ctx.user.id && u?.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the instructor who ran this session (or an admin) can review this claim." });
+      }
+
+      await db
+        .update(retrospectiveRoleClaims)
+        .set({
+          status: input.approve ? "approved" : "rejected",
+          reviewedByUserId: ctx.user.id,
+          reviewedAt: new Date(),
+        })
+        .where(eq(retrospectiveRoleClaims.id, input.claimId));
+
+      return { success: true };
+    }),
+
+  // Completion status: 3 team-leader + 6 team-member (1 per named role),
+  // counting both instructor-confirmed bookings and approved retrospective
+  // claims -- either path counts equally toward completion (§4.5).
+  getPhase2CompletionStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+    const confirmedBookings = await db
+      .select({ simulationRole: trainingAttendance.simulationRole })
+      .from(trainingAttendance)
+      .where(and(eq(trainingAttendance.staffMemberId, ctx.user.id), eq(trainingAttendance.simulationCompetencyPassed, true)));
+
+    const approvedClaims = await db
+      .select({ role: retrospectiveRoleClaims.role })
+      .from(retrospectiveRoleClaims)
+      .where(and(eq(retrospectiveRoleClaims.claimantUserId, ctx.user.id), eq(retrospectiveRoleClaims.status, "approved")));
+
+    const confirmedRoles = [...confirmedBookings.map((b) => b.simulationRole), ...approvedClaims.map((c) => c.role)];
+
+    const teamLeaderCount = confirmedRoles.filter((r) => r === "team_leader").length;
+    const teamMemberRoleCounts = Object.fromEntries(
+      PHASE2_NAMED_TEAM_MEMBER_ROLES.map((role) => [role, confirmedRoles.filter((r) => r === role).length])
+    );
+    const teamMemberRolesCovered = PHASE2_NAMED_TEAM_MEMBER_ROLES.filter((role) => teamMemberRoleCounts[role] > 0).length;
+    const teamMemberSessionsTotal = PHASE2_NAMED_TEAM_MEMBER_ROLES.reduce((sum, role) => sum + teamMemberRoleCounts[role], 0);
+
+    const teamLeaderMet = teamLeaderCount >= 3;
+    // Both the total-session count AND full role coverage are required --
+    // 6 sessions all in the same role doesn't satisfy "1 per named role."
+    const teamMemberMet = teamMemberSessionsTotal >= 6 && teamMemberRolesCovered >= PHASE2_NAMED_TEAM_MEMBER_ROLES.length;
+
+    return {
+      teamLeaderCount,
+      teamLeaderRequired: 3,
+      teamLeaderMet,
+      teamMemberRoleCounts,
+      teamMemberRolesCovered,
+      teamMemberRolesRequired: PHASE2_NAMED_TEAM_MEMBER_ROLES.length,
+      teamMemberSessionsTotal,
+      teamMemberSessionsRequired: 6,
+      teamMemberMet,
+      phase2Complete: teamLeaderMet && teamMemberMet,
+    };
+  }),
 
   // frontend can display gates accurately and explain what is blocking them.
   // ─────────────────────────────────────────────────────────────────────────

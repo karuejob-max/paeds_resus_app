@@ -129,6 +129,7 @@
     "db:apply-0080": "node scripts/apply-0080-cpd-grace-requirement-type.mjs",
     "db:apply-0081": "node scripts/apply-0081-care-signal-redaction-retry-state.mjs",
     "db:apply-0083": "node scripts/apply-0083-elearning-proof-columns.mjs",
+    "db:apply-0084": "node scripts/apply-0084-phase2-role-based-booking.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
