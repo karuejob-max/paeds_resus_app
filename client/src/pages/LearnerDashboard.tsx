@@ -551,6 +551,8 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
+            <ProgressAndLedgerCard />
+
             {firstEnrollmentId && (
               <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
             )}
@@ -1314,6 +1316,133 @@ function Phase2BookingCard() {
             })}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProgressAndLedgerCard() {
+  const { data: phase } = trpc.courses.getPhaseSummary.useQuery();
+  const { data: phase2 } = trpc.courses.getPhase2CompletionStatus.useQuery();
+  const { data: ledger, isLoading: ledgerLoading, refetch: refetchLedger } = trpc.payments.getMyPaymentLedger.useQuery();
+  const [phoneNumber, setPhoneNumber] = useState("");
+
+  const stkMutation = trpc.payments.initiateSTKPush.useMutation({
+    onSuccess: () => {
+      toast.success("STK push sent — check your phone to complete payment.");
+      setTimeout(() => void refetchLedger(), 3000);
+    },
+    onError: (err: any) => toast.error(err.message || "Could not initiate payment"),
+  });
+
+  // Phase 1: done once past phase_1. Phase 2: from getPhase2CompletionStatus.
+  // Phase 3: done once phaseStatus reaches phase_3/completed. Falls back to
+  // treating an unknown phase as not-yet-started rather than erroring —
+  // this card should degrade gracefully for a learner with no linked
+  // facility yet (self-service, §2), not block on it.
+  const phase1Done = !!phase && phase.phaseStatus !== "phase_1";
+  const phase2Done = !!phase2?.phase2Complete;
+  const phase3Done = phase?.phaseStatus === "phase_3" || phase?.phaseStatus === "completed";
+  const phasesDoneCount = [phase1Done, phase2Done, phase3Done].filter(Boolean).length;
+  const overallPct = Math.round((phasesDoneCount / 3) * 100);
+
+  return (
+    <Card className="md:col-span-3">
+      <CardHeader>
+        <CardTitle className="text-lg font-bold">My Progress</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <div className="flex items-center justify-between text-sm mb-1.5">
+            <span className="font-medium">Overall</span>
+            <span className="text-muted-foreground">{overallPct}%</span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${overallPct}%` }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            { label: "Phase 1 — Cognitive", done: phase1Done, detail: phase ? (phase.phaseStatus === "phase_1" ? "In progress" : "Complete") : "—" },
+            {
+              label: "Phase 2 — Simulations",
+              done: phase2Done,
+              detail: phase2 ? `Leader ${phase2.teamLeaderCount}/${phase2.teamLeaderRequired} · Member ${phase2.teamMemberSessionsTotal}/${phase2.teamMemberSessionsRequired}` : "—",
+            },
+            { label: "Phase 3 — Hands-on", done: phase3Done, detail: phase3Done ? "Complete" : phase2Done ? "Unlocked" : "Locked until Phase 2 is done" },
+          ].map((p) => (
+            <div key={p.label} className={`p-2.5 rounded-lg border text-xs ${p.done ? "bg-green-50 border-green-200 text-green-800" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+              <p className="font-semibold">{p.label}</p>
+              <p className="mt-0.5">{p.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-3 border-t border-border">
+          <p className="text-sm font-medium mb-2">Payment ledger</p>
+          {ledgerLoading ? (
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+            </p>
+          ) : !ledger?.hasPricedEnrollment ? (
+            <p className="text-xs text-muted-foreground">Enroll in ACLS, PALS, or NRP to see your payment ledger (BLS is free).</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2 rounded border border-border bg-muted/30">
+                  <p className="text-muted-foreground">Paid so far</p>
+                  <p className="font-semibold text-sm">KES {ledger.totalPaid.toLocaleString()}</p>
+                </div>
+                <div className="p-2 rounded border border-border bg-muted/30">
+                  <p className="text-muted-foreground">Remaining</p>
+                  <p className="font-semibold text-sm">{ledger.isPaidInFull ? "Paid in full" : `KES ${ledger.balance.toLocaleString()}`}</p>
+                </div>
+              </div>
+              {!ledger.isPaidInFull && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="2547XXXXXXXX"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={!phoneNumber || stkMutation.isPending}
+                      onClick={() => {
+                        // Accepts common local formats (07.../+254.../254...)
+                        // and normalizes to the 254XXXXXXXXX shape the
+                        // backend actually requires -- the raw regex error
+                        // otherwise fires for the majority of ways a Kenyan
+                        // learner would naturally type their own number.
+                        let normalized = phoneNumber.replace(/[\s-]/g, "");
+                        if (normalized.startsWith("+")) normalized = normalized.slice(1);
+                        if (normalized.startsWith("0")) normalized = `254${normalized.slice(1)}`;
+                        if (!/^254\d{9}$/.test(normalized)) {
+                          toast.error("Enter a valid Kenyan number, e.g. 0712345678 or 254712345678.");
+                          return;
+                        }
+                        stkMutation.mutate({
+                          phoneNumber: normalized,
+                          amount: Math.min(ledger.balance, 2500),
+                          courseId: String(ledger.courseId),
+                          courseName: ledger.courseTitle,
+                        });
+                      }}
+                    >
+                      {stkMutation.isPending ? "Sending..." : "Pay via M-Pesa"}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Instalment of KES {Math.min(ledger.balance, 2500).toLocaleString()} — enter your M-Pesa number and confirm the prompt on your phone.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
