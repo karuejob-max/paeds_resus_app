@@ -167,10 +167,13 @@ export default function Header() {
                     (e.target as HTMLImageElement).src = "/paeds-resus-logo-brand.png";
                   }}
                 />
-                <span className="font-bold text-base text-foreground tracking-tight">Paeds Resus</span>
+                <span className="font-bold text-base text-foreground tracking-tight hidden sm:inline">Paeds Resus</span>
+                <span className="font-bold text-base text-foreground tracking-tight sm:hidden">PR</span>
               </div>
             </Link>
-            <ThemeToggle />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Role Pill — mobile always-visible indicator (taps to open hamburger menu) */}
@@ -504,8 +507,12 @@ export default function Header() {
         </div>
 
         {/* Mobile Navigation */}
-            {mobileMenuOpen && (
+        {mobileMenuOpen && (
           <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t border-border pt-4" aria-label="Mobile navigation">
+            <div className="flex items-center justify-between px-3 pb-3 mb-2 border-b border-border">
+              <span className="text-xs font-semibold text-muted-foreground">Appearance</span>
+              <ThemeToggle />
+            </div>
             {/* Always visible regardless of auth state or role — same reasoning as the desktop
                 About link above. */}
             <Link href="/about" onClick={() => setMobileMenuOpen(false)}>

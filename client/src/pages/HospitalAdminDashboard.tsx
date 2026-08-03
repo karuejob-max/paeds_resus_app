@@ -677,27 +677,151 @@ export default function HospitalAdminDashboard() {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
+        {/* Main Content Tabs - Reorganized into 5 Canonical IERMS™ Pillars */}
+        {(() => {
+          const PILLAR_DEFINITIONS = [
+            {
+              id: "overview",
+              label: "Overview & Strategy",
+              icon: BarChart3,
+              subTabs: [
+                { id: "overview", label: "Dashboard & Rollout" },
+                { id: "quotations", label: "Quotations & Billing" },
+              ],
+            },
+            {
+              id: "workforce",
+              label: "Workforce & Operations",
+              icon: Users,
+              subTabs: [
+                { id: "staff", label: "Staff Roster" },
+                { id: "ert-roster", label: "24/7 ERT Roster" },
+                { id: "schedule", label: "Training Schedule" },
+                { id: "cpd", label: "CPD & Training" },
+                { id: "progress", label: "Staff Progress" },
+              ],
+            },
+            {
+              id: "readiness",
+              label: "Readiness & Audits",
+              icon: Award,
+              subTabs: [
+                { id: "ierms-audit", label: "IERMS™ 100-Pt Audit" },
+                { id: "equipment-audit", label: "Equipment & Cart Audit" },
+                { id: "resusgps-audit", label: "ResusGPS Adoption Audit" },
+                { id: "reports", label: "Institutional Reports" },
+              ],
+            },
+            {
+              id: "care-signal",
+              label: "Care Signal & QI",
+              icon: AlertTriangle,
+              subTabs: [
+                { id: "care-signal", label: "Care Signal Feed" },
+                { id: "action-log", label: "System Action Log" },
+                { id: "incidents", label: "Clinical Incidents" },
+              ],
+            },
+            {
+              id: "governance",
+              label: "Clinical Governance",
+              icon: FileText,
+              subTabs: [
+                { id: "guidelines-audit", label: "Guideline Audit" },
+                { id: "ai-patterns", label: "AI Pattern Inbox" },
+                { id: "safe-truth", label: "Safe Truth Reports" },
+              ],
+            },
+          ];
+
+          const currentPillar =
+            PILLAR_DEFINITIONS.find((p) => p.subTabs.some((st) => st.id === activeTab)) ||
+            PILLAR_DEFINITIONS[0];
+
+          return (
+            <div className="space-y-4 mb-8">
+              {/* Primary 5-Pillar Navigation Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 p-1.5 bg-muted/60 dark:bg-muted/30 rounded-xl border border-border/80">
+                {PILLAR_DEFINITIONS.map((pillar) => {
+                  const Icon = pillar.icon;
+                  const isActive = currentPillar.id === pillar.id;
+                  const hasAlert = pillar.id === "care-signal" && (pendingCareSignalActions?.count ?? 0) > 0;
+
+                  return (
+                    <button
+                      type="button"
+                      key={pillar.id}
+                      onClick={() => {
+                        if (currentPillar.id !== pillar.id) {
+                          setActiveTab(pillar.subTabs[0].id);
+                        }
+                      }}
+                      className={`relative flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                        isActive
+                          ? "bg-background text-primary shadow-sm border border-border/80"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                      <span className="truncate">{pillar.label}</span>
+                      {hasAlert && (
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Secondary Sub-Nav Bar (Desktop Sub-Pills / Mobile Select) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-card rounded-lg border border-border/60 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <span>Category:</span>
+                  <span className="font-bold text-foreground">{currentPillar.label}</span>
+                </div>
+
+                {/* Mobile Sub-Nav Selector */}
+                <div className="sm:hidden">
+                  <Select value={activeTab} onValueChange={setActiveTab}>
+                    <SelectTrigger className="w-full h-9 text-xs">
+                      <SelectValue placeholder="Select section..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentPillar.subTabs.map((st) => (
+                        <SelectItem key={st.id} value={st.id} className="text-xs">
+                          {st.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Desktop Sub-Nav Pills */}
+                <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
+                  {currentPillar.subTabs.map((st) => {
+                    const isSubActive = activeTab === st.id;
+                    return (
+                      <button
+                        type="button"
+                        key={st.id}
+                        onClick={() => setActiveTab(st.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          isSubActive
+                            ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Main Content Tabs (TabsContent Containers) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-17 mb-8 gap-1 h-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="staff">Staff</TabsTrigger>
-            <TabsTrigger value="ert-roster">24/7 ERT Roster</TabsTrigger>
-            <TabsTrigger value="ierms-audit">IERMS™ Audit</TabsTrigger>
-            <TabsTrigger value="equipment-audit">Equipment Audit</TabsTrigger>
-            <TabsTrigger value="schedule">Schedule</TabsTrigger>
-            <TabsTrigger value="incidents">Incidents</TabsTrigger>
-            <TabsTrigger value="action-log">Action log</TabsTrigger>
-            <TabsTrigger value="quotations">Quotations</TabsTrigger>
-            <TabsTrigger value="progress">Progress</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="safe-truth">Safe Truth</TabsTrigger>
-            <TabsTrigger value="care-signal">Care Signal</TabsTrigger>
-            <TabsTrigger value="cpd">CPD</TabsTrigger>
-            <TabsTrigger value="guidelines-audit">Guideline Audit</TabsTrigger>
-            <TabsTrigger value="ai-patterns">AI Pattern Inbox</TabsTrigger>
-            <TabsTrigger value="resusgps-audit">ResusGPS Audit</TabsTrigger>
-          </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
