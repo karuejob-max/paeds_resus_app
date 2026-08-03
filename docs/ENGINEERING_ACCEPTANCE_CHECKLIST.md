@@ -48,6 +48,7 @@ Use this before marking work "done" or before merge. Codex, Manus, Cursor, and d
 
 ---
 
-## After you finish
+## After you finish (Definition of Done)
 
-- [ ] [WORK_STATUS.md](./WORK_STATUS.md) updated: your work under **Done**, **In progress** adjusted, and any **Critique / review** you want to leave for others.
+- [ ] **`WORK_STATUS.md` Documentation (Mandatory):** [WORK_STATUS.md](./WORK_STATUS.md) updated with a dated entry under **Done** (who, what, PR URL, merge commit hash, verify output), **In progress** adjusted, and any **Critique / review** left for others.
+- [ ] **Reserved Branch / Migration Cleanup:** Delete any placeholder reservation branch from remote (`git push origin --delete migration-reserved-00XX`) once the real PR has merged.
