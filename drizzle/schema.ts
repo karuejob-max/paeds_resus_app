@@ -1678,6 +1678,7 @@ export const providerProfiles = mysqlTable("providerProfiles", {
   facilityPhone: varchar("facilityPhone", { length: 20 }),
   facilityEmail: varchar("facilityEmail", { length: 320 }),
   averagePatientLoad: int("averagePatientLoad"), // Patients per day
+  department: varchar("department", { length: 255 }),
   profileCompleted: boolean("profileCompleted").default(false),
   profileCompletionPercentage: int("profileCompletionPercentage").default(0),
   bio: text("bio"),

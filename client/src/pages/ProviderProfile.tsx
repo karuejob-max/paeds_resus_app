@@ -36,7 +36,17 @@ export default function ProviderProfile() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">{user?.name || "Provider Profile"}</h1>
-          <p className="text-gray-600 mt-2">Manage your professional profile and view your performance metrics</p>
+          <div className="flex flex-wrap gap-2 items-center mt-2 text-sm text-gray-600">
+            <span>Manage your professional profile and view your performance metrics</span>
+            {profile?.department && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span className="font-semibold text-blue-600 bg-blue-50/80 px-2.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-400">
+                  {profile.department}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Profile Completion Status */}

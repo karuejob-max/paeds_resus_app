@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc, or, like, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles } from "../../drizzle/schema";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -16,6 +16,60 @@ async function requireDb() {
   }
   return db;
 }
+
+async function syncUserProfileDepartment(db: any, userId: number, department: string) {
+  if (!userId || !department) return;
+
+  const [profile] = await db
+    .select({ id: providerProfiles.id })
+    .from(providerProfiles)
+    .where(eq(providerProfiles.userId, userId))
+    .limit(1);
+
+  if (profile) {
+    await db
+      .update(providerProfiles)
+      .set({ department, updatedAt: new Date() })
+      .where(eq(providerProfiles.userId, userId));
+  } else {
+    await db.insert(providerProfiles).values({
+      userId,
+      department,
+      profileCompleted: false,
+      profileCompletionPercentage: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+}
+
+function formatEventPresenterCadre(cadre: string | null, cadreOther: string | null): string | null {
+  if (!cadre) return null;
+  const otherTrimmed = cadreOther?.trim();
+  if (!otherTrimmed) return cadre;
+
+  const isOther = [
+    "Other", "Other Staff", "Other Student", "Other Intern", "Other RN", "Other RCO",
+    "Other Diploma RN", "Other Certificate RN", "Other Diploma Student", "Other Certificate Student"
+  ].includes(cadre);
+
+  if (isOther || cadre === otherTrimmed) {
+    return otherTrimmed;
+  }
+  return `${cadre} - ${otherTrimmed}`;
+}
+
+async function syncUserCadre(db: any, userId: number, cadre: string | null, cadreOther: string | null) {
+  if (!userId || !cadre) return;
+  await db
+    .update(users)
+    .set({
+      cadre,
+      cadreOther: cadreOther?.trim() || null,
+    })
+    .where(eq(users.id, userId));
+}
+
 
 /** Build a CSV string from attendee rows (RFC-4180 quoting). */
 export function buildAttendeeCsv(
@@ -185,7 +239,8 @@ export const cpdRouter = router({
         id: u.id,
         fullName: u.fullName || u.email || "Unknown Clinician",
         email: u.email || "",
-        cadre: u.cadre === "Other" ? u.cadreOther || "Other" : u.cadre || null,
+        cadre: u.cadre || null,
+        cadreOther: u.cadreOther || null,
         department: u.department || null,
       }));
     }),
@@ -203,6 +258,7 @@ export const cpdRouter = router({
         presenterUserId: z.number().int().positive().nullable().optional(),
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
+        presenterCadreOther: z.string().trim().max(128).nullable().optional(),
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
         scheduledStartTime: z.string().trim().max(10).nullable().optional(),
         scheduledEndTime: z.string().trim().max(10).nullable().optional(),
@@ -233,12 +289,22 @@ export const cpdRouter = router({
         eventType: input.eventType || "cpd_general",
         presenterUserId: input.presenterUserId ?? null,
         presenterName: input.presenterName ?? null,
-        presenterCadre: input.presenterCadre ?? null,
+        presenterCadre: formatEventPresenterCadre(input.presenterCadre ?? null, input.presenterCadreOther ?? null),
         presenterDepartment: input.presenterDepartment ?? null,
         scheduledStartTime: input.scheduledStartTime ?? null,
         scheduledEndTime: input.scheduledEndTime ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
+
+      if (input.presenterUserId) {
+        if (input.presenterDepartment) {
+          await syncUserProfileDepartment(db, input.presenterUserId, input.presenterDepartment);
+        }
+        if (input.presenterCadre) {
+          await syncUserCadre(db, input.presenterUserId, input.presenterCadre, input.presenterCadreOther ?? null);
+        }
+      }
+
       return { success: true as const, eventId };
     }),
 
@@ -252,6 +318,7 @@ export const cpdRouter = router({
         presenterUserId: z.number().int().positive().nullable().optional(),
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
+        presenterCadreOther: z.string().trim().max(128).nullable().optional(),
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
@@ -280,12 +347,34 @@ export const cpdRouter = router({
       if (input.eventType !== undefined) updateData.eventType = input.eventType;
       if (input.presenterUserId !== undefined) updateData.presenterUserId = input.presenterUserId;
       if (input.presenterName !== undefined) updateData.presenterName = input.presenterName;
-      if (input.presenterCadre !== undefined) updateData.presenterCadre = input.presenterCadre;
+      if (input.presenterCadre !== undefined) {
+        updateData.presenterCadre = formatEventPresenterCadre(input.presenterCadre, input.presenterCadreOther ?? null);
+      }
       if (input.presenterDepartment !== undefined) updateData.presenterDepartment = input.presenterDepartment;
       if (input.cpdPoints !== undefined) updateData.cpdPoints = input.cpdPoints ? String(input.cpdPoints) : null;
       if (input.approvingCouncil !== undefined) updateData.approvingCouncil = input.approvingCouncil;
 
       await db.update(cpdEvents).set(updateData).where(eq(cpdEvents.id, input.eventId));
+
+      // Resolve final presenterUserId, presenterDepartment to sync
+      const [finalEvent] = await db
+        .select({
+          presenterUserId: cpdEvents.presenterUserId,
+          presenterDepartment: cpdEvents.presenterDepartment,
+        })
+        .from(cpdEvents)
+        .where(eq(cpdEvents.id, input.eventId))
+        .limit(1);
+
+      if (finalEvent?.presenterUserId) {
+        if (finalEvent.presenterDepartment) {
+          await syncUserProfileDepartment(db, finalEvent.presenterUserId, finalEvent.presenterDepartment);
+        }
+        if (input.presenterCadre !== undefined) {
+          await syncUserCadre(db, finalEvent.presenterUserId, input.presenterCadre, input.presenterCadreOther ?? null);
+        }
+      }
+
       return { success: true as const };
     }),
 
@@ -383,21 +472,33 @@ export const cpdRouter = router({
 
       let userDepartment: string | null = null;
       if (ctx.user?.id) {
-        const staffRows = await db
-          .select({
-            department: institutionalStaffMembers.department,
-            instId: institutionalStaffMembers.institutionalAccountId,
-          })
-          .from(institutionalStaffMembers)
-          .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+        // 1. Try to fetch from providerProfiles
+        const [profile] = await db
+          .select({ department: providerProfiles.department })
+          .from(providerProfiles)
+          .where(eq(providerProfiles.userId, ctx.user.id))
+          .limit(1);
 
-        const currentStaff = staffRows.find((r) => r.instId === input.institutionId);
-        if (currentStaff?.department) {
-          userDepartment = currentStaff.department;
+        if (profile?.department) {
+          userDepartment = profile.department;
         } else {
-          const fallbackStaff = staffRows.find((r) => r.department?.trim());
-          if (fallbackStaff?.department) {
-            userDepartment = fallbackStaff.department;
+          // 2. Fallback to institutionalStaffMembers
+          const staffRows = await db
+            .select({
+              department: institutionalStaffMembers.department,
+              instId: institutionalStaffMembers.institutionalAccountId,
+            })
+            .from(institutionalStaffMembers)
+            .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+
+          const currentStaff = staffRows.find((r) => r.instId === input.institutionId);
+          if (currentStaff?.department) {
+            userDepartment = currentStaff.department;
+          } else {
+            const fallbackStaff = staffRows.find((r) => r.department?.trim());
+            if (fallbackStaff?.department) {
+              userDepartment = fallbackStaff.department;
+            }
           }
         }
       }
@@ -537,6 +638,9 @@ export const cpdRouter = router({
           })
           .where(eq(users.id, ctx.user.id));
       }
+
+      // Auto-populate user's profile department from registration
+      await syncUserProfileDepartment(db, ctx.user.id, input.department);
 
       // 2. Auto-Staff Population: Auto-create institutional staff member record if not yet linked
       const [existingStaff] = await db
