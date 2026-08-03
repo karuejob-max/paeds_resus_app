@@ -327,9 +327,27 @@ export const cpdRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const rows = await db
-        .select()
+        .select({
+          id: cpdEvents.id,
+          name: cpdEvents.name,
+          eventDate: cpdEvents.eventDate,
+          isOpen: cpdEvents.isOpen,
+          closedAt: cpdEvents.closedAt,
+          openedAt: cpdEvents.openedAt,
+          eventType: cpdEvents.eventType,
+          presenterUserId: cpdEvents.presenterUserId,
+          presenterName: cpdEvents.presenterName,
+          presenterCadre: cpdEvents.presenterCadre,
+          presenterDepartment: cpdEvents.presenterDepartment,
+          cpdPoints: cpdEvents.cpdPoints,
+          approvingCouncil: cpdEvents.approvingCouncil,
+          cpdCode: cpdEvents.cpdCode,
+          attendeeCount: sql<number>`COUNT(${cpdAttendees.id})`.mapWith(Number),
+        })
         .from(cpdEvents)
+        .leftJoin(cpdAttendees, eq(cpdEvents.id, cpdAttendees.cpdEventId))
         .where(eq(cpdEvents.institutionalAccountId, input.institutionId))
+        .groupBy(cpdEvents.id)
         .orderBy(desc(cpdEvents.id));
       return rows;
     }),
@@ -926,6 +944,94 @@ export const cpdRouter = router({
       cadreDistribution: Object.entries(cadreBreakdown).map(([cadre, count]) => ({ cadre, count })),
     };
   }),
+
+  /**
+   * Admin: permanently delete a CPD event (intended for test/dummy sessions only).
+   *
+   * Premortem Defences:
+   * 1. If any cpdAttendees rows exist, requires a strict super-confirmation phrase.
+   * 2. Requires caller to type the exact event name as irreversibility confirmation.
+   * 3. Cascades in order: cpdCodeRevealLogs → cpdAttendees → cpdEvents.
+   */
+  deleteEvent: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        eventId: z.number().int().positive(),
+        /** Must exactly match the event's name (trimmed, case-insensitive). */
+        confirmName: z.string().trim().min(1).max(256),
+        /** Required super-confirm phrase if the event has registered attendees. */
+        confirmAttendeesPhrase: z.string().trim().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      // 1. Verify the event belongs to this institution.
+      const [event] = await db
+        .select({ id: cpdEvents.id, name: cpdEvents.name })
+        .from(cpdEvents)
+        .where(
+          and(
+            eq(cpdEvents.id, input.eventId),
+            eq(cpdEvents.institutionalAccountId, input.institutionId)
+          )
+        )
+        .limit(1);
+
+      if (!event) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
+      }
+
+      // 2. Super-confirm check if any attendees are registered.
+      const attendeeRows = await db
+        .select({ id: cpdAttendees.id })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.cpdEventId, input.eventId))
+        .limit(1);
+
+      if (attendeeRows.length > 0) {
+        // Count them fully for validation.
+        const [countRow] = await db
+          .select({ n: sql<number>`COUNT(*)` })
+          .from(cpdAttendees)
+          .where(eq(cpdAttendees.cpdEventId, input.eventId));
+        const n = Number(countRow?.n ?? 1);
+        const expectedPhrase = `DELETE SESSION WITH ${n} ATTENDEES`;
+
+        if (
+          !input.confirmAttendeesPhrase ||
+          input.confirmAttendeesPhrase.trim().toLowerCase() !== expectedPhrase.toLowerCase()
+        ) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `This event has ${n} registered attendee${n === 1 ? "" : "s"}. To delete it anyway, you must provide the super-confirmation phrase: "${expectedPhrase}".`,
+          });
+        }
+      }
+
+      // 3. Confirm the typed name matches (case-insensitive, trimmed).
+      if (input.confirmName.trim().toLowerCase() !== event.name.trim().toLowerCase()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Event name confirmation did not match. Please type the exact event name to confirm deletion.",
+        });
+      }
+
+      // 4. Cascade delete in dependency order.
+      //    cpdCodeRevealLogs → cpdAttendees → cpdEvents
+      await db.delete(cpdCodeRevealLogs).where(eq(cpdCodeRevealLogs.cpdEventId, input.eventId));
+      await db.delete(cpdAttendees).where(eq(cpdAttendees.cpdEventId, input.eventId));
+      await db.delete(cpdEvents).where(eq(cpdEvents.id, input.eventId));
+
+      return { success: true as const };
+    }),
 });
+
+/**
+ * Admin: permanently delete a CPD event (intended for test/dummy sessions only).
+ * Guards against accidental deletion — see the deleteEvent procedure inside the router.
+ */
 
 export type CpdRouter = typeof cpdRouter;

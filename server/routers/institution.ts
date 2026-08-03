@@ -33,6 +33,8 @@ import {
   iermsAuditScorecards,
   equipmentAuditLogs,
   iermsImplementationTrackers,
+  cpdEvents,
+  cpdAttendees,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import { assertNoInstructorDoubleBooking as assertNoInstructorDoubleBookingShared } from "../lib/instructor-double-booking-guard";
@@ -1386,6 +1388,7 @@ export const institutionRouter = router({
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
+      // --- AHA Training roster stats (unchanged) ---
       const staff = await db
         .select()
         .from(institutionalStaffMembers)
@@ -1396,13 +1399,51 @@ export const institutionRouter = router({
       const completedStaff = staff.filter((s) => s.enrollmentStatus === "completed").length;
       const certifiedStaff = staff.filter((s) => s.certificationStatus === "certified").length;
 
+      // --- IERMS-era CPD metrics ---
+      // Count of CPD events held by this institution (any state — open or closed).
+      const [cpdEventsRow] = await db
+        .select({ n: sql<number>`COUNT(*)` })
+        .from(cpdEvents)
+        .where(eq(cpdEvents.institutionalAccountId, input.institutionId));
+      const totalCpdEvents = Number(cpdEventsRow?.n ?? 0);
+
+      // Unique individuals who have registered for at least one CPD event at this institution.
+      // cpdAttendees uses email as the unique identifier (no userId column in schema).
+      const [cpdAttendeesRow] = await db
+        .select({ n: sql<number>`COUNT(DISTINCT ${cpdAttendees.email})` })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
+      const totalCpdAttendees = Number(cpdAttendeesRow?.n ?? 0);
+
+      // Platform staff = union of explicit roster member emails + CPD attendee emails.
+      // Both email sets are normalized to lowercase for deduplication accuracy.
+      // institutionalStaffMembers uses staffEmail (not email).
+      const cpdAttendeeEmailRows = await db
+        .selectDistinct({ email: cpdAttendees.email })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
+
+      const emailUnion = new Set<string>();
+      for (const s of staff) {
+        if (s.staffEmail) emailUnion.add(s.staffEmail.toLowerCase());
+      }
+      for (const r of cpdAttendeeEmailRows) {
+        if (r.email) emailUnion.add(r.email.toLowerCase());
+      }
+      const totalPlatformStaff = emailUnion.size || totalStaff;
+
       return {
+        // AHA training metrics (retained for backward compatibility)
         totalStaff,
         enrolledStaff,
         completedStaff,
         certifiedStaff,
         completionRate: totalStaff > 0 ? Math.round((completedStaff / totalStaff) * 100) : 0,
         certificationRate: totalStaff > 0 ? Math.round((certifiedStaff / totalStaff) * 100) : 0,
+        // IERMS-era CPD + platform staff metrics
+        totalCpdEvents,
+        totalCpdAttendees,
+        totalPlatformStaff,
       };
     }),
 
@@ -2933,4 +2974,167 @@ export const institutionRouter = router({
 
       return { success: true };
     }),
+
+  /**
+   * Admin: retrieve all platform-linked staff members (roster + CPD attendees) for this institution,
+   * merged by email, and showing their enrollment status specifically for the given program type.
+   */
+  getPlatformStaffForProgram: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      // 1. Fetch roster staff
+      const rosterStaff = await db
+        .select()
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+      // 2. Fetch CPD attendees scoped to this institution
+      const cpdAttendeesList = await db
+        .select({
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          phone: cpdAttendees.phone,
+          cadre: cpdAttendees.cadre,
+          department: cpdAttendees.department,
+        })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
+
+      // 3. Normalize emails and merge into unique set
+      const staffMap = new Map<string, {
+        name: string;
+        email: string;
+        phone: string;
+        role: string;
+        department: string;
+        isRoster: boolean;
+        isCpd: boolean;
+      }>();
+
+      for (const s of rosterStaff) {
+        if (s.staffEmail) {
+          const emailKey = s.staffEmail.trim().toLowerCase();
+          staffMap.set(emailKey, {
+            name: s.staffName,
+            email: s.staffEmail,
+            phone: s.staffPhone || "",
+            role: s.staffRole,
+            department: s.department || "",
+            isRoster: true,
+            isCpd: false,
+          });
+        }
+      }
+
+      for (const c of cpdAttendeesList) {
+        if (c.email) {
+          const emailKey = c.email.trim().toLowerCase();
+          if (!staffMap.has(emailKey)) {
+            staffMap.set(emailKey, {
+              name: c.fullName,
+              email: c.email,
+              phone: c.phone || "",
+              role: c.cadre || "other",
+              department: c.department || "",
+              isRoster: false,
+              isCpd: true,
+            });
+          } else {
+            const existing = staffMap.get(emailKey)!;
+            existing.isCpd = true;
+          }
+        }
+      }
+
+      const allEmails = Array.from(staffMap.keys());
+      if (allEmails.length === 0) return [];
+
+      // 4. Resolve platform accounts via users table
+      const platformUsers = await db
+        .select({
+          id: users.id,
+          email: users.email,
+        })
+        .from(users)
+        .where(inArray(sql`LOWER(${users.email})`, allEmails));
+
+      const userEmailMap = new Map<string, number>();
+      for (const u of platformUsers) {
+        if (u.email) {
+          userEmailMap.set(u.email.trim().toLowerCase(), u.id);
+        }
+      }
+
+      const userIds = Array.from(userEmailMap.values());
+
+      // 5. Query enrollments for specified program type
+      let programEnrollments: Array<any> = [];
+      if (userIds.length > 0) {
+        programEnrollments = await db
+          .select({
+            id: enrollments.id,
+            userId: enrollments.userId,
+            paymentStatus: enrollments.paymentStatus,
+            cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+            practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+            trainingDate: enrollments.trainingDate,
+          })
+          .from(enrollments)
+          .where(
+            and(
+              eq(enrollments.programType, input.programType),
+              inArray(enrollments.userId, userIds)
+            )
+          );
+      }
+
+      const enrollmentMap = new Map<number, typeof programEnrollments[number]>();
+      for (const e of programEnrollments) {
+        enrollmentMap.set(e.userId, e);
+      }
+
+      // 6. Map everything to unified response
+      return Array.from(staffMap.values()).map((s) => {
+        const emailKey = s.email.trim().toLowerCase();
+        const userId = userEmailMap.get(emailKey) ?? null;
+        const enrollment = userId ? enrollmentMap.get(userId) : null;
+
+        let status: "not_enrolled" | "enrolled" | "cognitive_completed" | "completed" = "not_enrolled";
+        if (enrollment) {
+          if (enrollment.cognitiveModulesComplete && enrollment.practicalSkillsSignedOff) {
+            status = "completed";
+          } else if (enrollment.cognitiveModulesComplete) {
+            status = "cognitive_completed";
+          } else {
+            status = "enrolled";
+          }
+        }
+
+        return {
+          name: s.name,
+          email: s.email,
+          phone: s.phone,
+          role: s.role,
+          department: s.department,
+          isRoster: s.isRoster,
+          isCpd: s.isCpd,
+          userId,
+          status,
+          trainingDate: enrollment?.trainingDate ?? null,
+          paymentStatus: enrollment?.paymentStatus ?? null,
+        };
+      });
+    }),
 });
+

@@ -120,7 +120,7 @@ export default function InstitutionalPortal() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Institutional Portal</h1>
-          <p className="text-lg text-slate-600">Manage your facility's training program and track impact</p>
+          <p className="text-lg text-slate-600">IERMS™ — Integrated Emergency Readiness Management System: training, CPD, Care Signal QI, and clinical governance for your facility</p>
         </div>
 
         {/* First-time welcome (after onboarding) */}

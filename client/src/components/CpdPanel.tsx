@@ -35,8 +35,21 @@ import {
   TrendingUp,
   AlertTriangle,
   UserCheck,
+  Trash2,
+  Calendar,
+  BarChart3,
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CpdPanelProps {
   institutionId: number;
@@ -97,6 +110,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
 
   const [cpdCodeInput, setCpdCodeInput] = useState("");
   const [staffSearch, setStaffSearch] = useState("");
+
+  // Navigation Tabs for new users (avoid vertical scrolling fatigue)
+  const [cpdSubTab, setCpdSubTab] = useState<"overview" | "sessions" | "new_session" | "settings">("overview");
+
+  // Delete event state
+  const [deleteTargetEvent, setDeleteTargetEvent] = useState<{ id: number; name: string; isOpen: boolean; attendeeCount: number } | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deleteConfirmAttendeesInput, setDeleteConfirmAttendeesInput] = useState("");
 
   useEffect(() => {
     if (selectedEvent) {
@@ -163,6 +184,18 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
+  });
+
+  const deleteEventMutation = trpc.cpd.deleteEvent.useMutation({
+    onSuccess: () => {
+      toast.success("CPD event permanently deleted.");
+      setDeleteTargetEvent(null);
+      setDeleteConfirmInput("");
+      setDeleteConfirmAttendeesInput("");
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Failed to delete event"),
   });
 
   const updateCpdCodeMutation = trpc.cpd.updateCpdCode.useMutation({
@@ -264,889 +297,1085 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       s.email.toLowerCase().includes(staffSearch.toLowerCase()) ||
       s.department.toLowerCase().includes(staffSearch.toLowerCase()) ||
       s.cadre.toLowerCase().includes(staffSearch.toLowerCase())
-  );
+  );  return (
+    <>
+      {/* Sub-tab navigation header for new users */}
+      <div className="flex flex-wrap gap-2 border-b pb-4 mb-6">
+        <Button
+          variant={cpdSubTab === "overview" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("overview")}
+          className="text-xs font-semibold gap-2"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Overview & Analytics
+        </Button>
+        <Button
+          variant={cpdSubTab === "sessions" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("sessions")}
+          className="text-xs font-semibold gap-2"
+        >
+          <Calendar className="h-4 w-4" />
+          Sessions & Check-In
+        </Button>
+        <Button
+          variant={cpdSubTab === "new_session" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("new_session")}
+          className="text-xs font-semibold gap-2"
+        >
+          <PlusCircle className="h-4 w-4" />
+          Open New Session
+        </Button>
+        <Button
+          variant={cpdSubTab === "settings" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("settings")}
+          className="text-xs font-semibold gap-2"
+        >
+          <Building2 className="h-4 w-4" />
+          Coordinator & Settings
+        </Button>
+      </div>
 
-  return (
-    <div className="space-y-6">
-      {/* 📊 Institutional Learning Radar Summary */}
-      {analytics && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-blue-100 bg-gradient-to-br from-blue-50/50 to-white dark:border-blue-900/30 dark:from-blue-950/20 dark:to-background">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                Total CPD Sessions
-              </CardTitle>
-              <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.totalEvents}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {analytics.summary.cneCount} CNEs · {analytics.summary.cmeCount} CMEs · {analytics.summary.workshopCount} Workshops
-              </p>
-            </CardContent>
-          </Card>
+      <div className="space-y-6">
+        {/* --- OVERVIEW & ANALYTICS TAB --- */}
+        {cpdSubTab === "overview" && (
+          <>
+            {/* 📊 Institutional Learning Radar Summary */}
+            {analytics && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card className="border-blue-100 bg-gradient-to-br from-blue-50/50 to-white dark:border-blue-900/30 dark:from-blue-950/20 dark:to-background">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                      Total CPD Sessions
+                    </CardTitle>
+                    <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics.summary.totalEvents}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {analytics.summary.cneCount} CNEs · {analytics.summary.cmeCount} CMEs · {analytics.summary.workshopCount} Workshops
+                    </p>
+                  </CardContent>
+                </Card>
 
-          <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white dark:border-emerald-900/30 dark:from-emerald-950/20 dark:to-background">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-                Total Registrations
-              </CardTitle>
-              <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.totalAttendees}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Across all clinical departments
-              </p>
-            </CardContent>
-          </Card>
+                <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white dark:border-emerald-900/30 dark:from-emerald-950/20 dark:to-background">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                      Total Registrations
+                    </CardTitle>
+                    <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics.summary.totalAttendees}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Across all clinical departments
+                    </p>
+                  </CardContent>
+                </Card>
 
-          <Card className="border-purple-100 bg-gradient-to-br from-purple-50/50 to-white dark:border-purple-900/30 dark:from-purple-950/20 dark:to-background">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-200">
-                Points Issued
-              </CardTitle>
-              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.totalPointsIssued}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Council accredited points minted
-              </p>
-            </CardContent>
-          </Card>
+                <Card className="border-purple-100 bg-gradient-to-br from-purple-50/50 to-white dark:border-purple-900/30 dark:from-purple-950/20 dark:to-background">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-200">
+                      Points Issued
+                    </CardTitle>
+                    <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics.summary.totalPointsIssued}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Council accredited points minted
+                    </p>
+                  </CardContent>
+                </Card>
 
-          <Card className="border-amber-100 bg-gradient-to-br from-amber-50/50 to-white dark:border-amber-900/30 dark:from-amber-950/20 dark:to-background">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                Active Departments
-              </CardTitle>
-              <Building2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.departmentHeatmap.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Participating hospital units
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 🏆 Department Leaderboard & Presenter Hall of Fame */}
-      {analytics && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Presenting Department Leaderboard */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-blue-600" /> Departmental CPD Activity
-              </CardTitle>
-              <CardDescription>
-                Which departments present most vs. which are being left behind
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {analytics.departmentHeatmap.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No departmental data yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {analytics.departmentHeatmap.slice(0, 6).map((dept) => (
-                    <div key={dept.department} className="flex items-center justify-between border-b pb-2 text-sm">
-                      <div>
-                        <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
-                        <div className="text-xs text-muted-foreground">
-                          {dept.presentedCount} sessions presented
-                        </div>
-                      </div>
-                      <Badge variant={dept.attendedCount > 5 ? "default" : "secondary"}>
-                        {dept.attendedCount} Attendees
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Presenter Hall of Fame */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-600" /> Internal Faculty & Presenters
-              </CardTitle>
-              <CardDescription>
-                Clinicians and educators leading CPD presentations
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {analytics.presenterLeaderboard.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
-                  <AlertTriangle className="h-8 w-8 text-amber-500 mb-2 opacity-80" />
-                  <p className="text-sm font-medium">No Presenters Logged Yet</p>
-                  <p className="text-xs max-w-xs mt-1">
-                    Assign presenters to your CPD events below to build your hospital's internal faculty leaderboard.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {analytics.presenterLeaderboard.slice(0, 6).map((p) => (
-                    <div key={p.presenterName} className="flex items-center justify-between border-b pb-2 text-sm">
-                      <div>
-                        <span className="font-medium text-slate-800 dark:text-slate-200">{p.presenterName}</span>
-                        <div className="text-xs text-muted-foreground">
-                          {p.cadre} · {p.department}
-                        </div>
-                      </div>
-                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200">
-                        {p.sessionCount} {p.sessionCount === 1 ? "Session" : "Sessions"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Coordinator settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CPD Coordinator</CardTitle>
-          <CardDescription>
-            This name is printed on the signature line of every certificate your institution issues.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <Label htmlFor="cpd-coordinator">Coordinator name</Label>
-              <Input
-                id="cpd-coordinator"
-                placeholder="e.g. Job Karue, RN"
-                value={coordinatorValue}
-                onChange={(e) => setCoordinatorName(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={() =>
-                updateCoordinatorMutation.mutate({
-                  institutionId,
-                  coordinatorName: coordinatorValue.trim(),
-                })
-              }
-              disabled={
-                updateCoordinatorMutation.isPending || coordinatorValue.trim().length === 0
-              }
-            >
-              {updateCoordinatorMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Save
-            </Button>
-          </div>
-
-          <div className="mt-6 space-y-2 border-t pt-6">
-            <div>
-              <Label>Coordinator signature</Label>
-              <p className="text-xs text-muted-foreground">
-                Draw the signature once. It is embedded above the signature line on every certificate.
-              </p>
-            </div>
-            {settingsQuery.isLoading ? (
-              <div className="flex py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <Card className="border-amber-100 bg-gradient-to-br from-amber-50/50 to-white dark:border-amber-900/30 dark:from-amber-950/20 dark:to-background">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                      Active Departments
+                    </CardTitle>
+                    <Building2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics.departmentHeatmap.length}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Participating hospital units
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            ) : (
-              <SignaturePad
-                initialDataUrl={savedSignature}
-                saving={updateSignatureMutation.isPending}
-                onSave={(dataUrl) =>
-                  updateSignatureMutation.mutate({ institutionId, signature: dataUrl })
-                }
-                onClear={() => {
-                  if (savedSignature) {
-                    updateSignatureMutation.mutate({ institutionId, signature: null });
-                  }
-                }}
-              />
             )}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* QR code + public link */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5 text-blue-600" /> Registration QR Code
-          </CardTitle>
-          <CardDescription>
-            Nurses and doctors scan this code to check-in — Paeds Resus login required.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-            <div ref={qrCodeRef} className="rounded-lg border bg-white p-3 shadow-sm">
-              {publicUrl ? <QRCodeSVG value={publicUrl} size={148} /> : null}
-            </div>
-            <div className="flex-1 space-y-2">
-              <Label>Public registration link</Label>
-              <div className="flex gap-2">
-                <Input readOnly value={publicUrl} className="font-mono text-xs" />
-                <Button variant="outline" onClick={copyLink}>
-                  {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Button variant="outline" onClick={printQrCode} disabled={!publicUrl} title="Print QR code">
-                  <Printer className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {openEvent
-                  ? `Open event: ${openEvent.name} (${openEvent.eventDate})`
-                  : "No event is currently open. Open one below to accept registrations."}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Open a new event */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Open CPD Event</CardTitle>
-          <CardDescription>
-            Configure CNE/CME classification, presenter attributes, and points for upcoming or live sessions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            <div>
-              <Label htmlFor="cpd-event-name">Event title *</Label>
-              <Input
-                id="cpd-event-name"
-                placeholder="e.g. Pediatric Shock & Fluid Resuscitation"
-                value={newEventName}
-                onChange={(e) => setNewEventName(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cpd-event-date">Event date *</Label>
-              <Input
-                id="cpd-event-date"
-                placeholder="e.g. 12 August 2026"
-                value={newEventDate}
-                onChange={(e) => setNewEventDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cpd-event-type">Category / Type *</Label>
-              <select
-                id="cpd-event-type"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={eventType}
-                onChange={(e) => setEventType(e.target.value as any)}
-              >
-                <option value="cne">CNE (Continuing Nursing Education)</option>
-                <option value="cme">CME (Continuing Medical Education)</option>
-                <option value="cpd_general">CPD (General Interprofessional)</option>
-                <option value="grand_rounds">Grand Rounds</option>
-                <option value="journal_club">Journal Club / Audit</option>
-                <option value="workshop">Skills Workshop</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="relative">
-              <Label htmlFor="cpd-presenter-name">
-                Presenter Name {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
-              </Label>
-              <Input
-                id="cpd-presenter-name"
-                placeholder="Type name to search platform clinicians..."
-                value={presenterName}
-                onChange={(e) => {
-                  setPresenterName(e.target.value);
-                  setPresenterUserId(null);
-                  setShowPresenterSuggestions(true);
-                }}
-                onFocus={() => setShowPresenterSuggestions(true)}
-              />
-              {showPresenterSuggestions && presenterSearchQuery.data && presenterSearchQuery.data.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                  {presenterSearchQuery.data.map((user) => (
-                    <div
-                      key={user.id}
-                      className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                      onClick={() => {
-                        setPresenterUserId(user.id);
-                        setPresenterName(user.fullName);
-                        if (user.cadre) setPresenterCadre(user.cadre);
-                        if (user.department) setPresenterDepartment(user.department);
-                        setShowPresenterSuggestions(false);
-                      }}
-                    >
-                      <div>
-                        <span className="font-semibold">{user.fullName}</span>
-                        <span className="text-muted-foreground ml-1">({user.email})</span>
-                      </div>
-                      {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
-              <Input
-                id="cpd-presenter-cadre"
-                placeholder="e.g. Consultant Paediatrician"
-                value={presenterCadre}
-                onChange={(e) => setPresenterCadre(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cpd-presenter-dept">Presenting Department</Label>
-              <select
-                id="cpd-presenter-dept"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={presenterDepartment}
-                onChange={(e) => setPresenterDepartment(e.target.value)}
-              >
-                <option value="">Select Department</option>
-                {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
-                  <option key={d.id} value={d.name}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2">
-            <div>
-              <Label htmlFor="cpd-approving-council">Approving Council</Label>
-              <select
-                id="cpd-approving-council"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={approvingCouncil}
-                onChange={(e) => setApprovingCouncil(e.target.value)}
-              >
-                <option value="NCK">NCK (Nursing Council of Kenya)</option>
-                <option value="KMPDC">KMPDC (Medical Council)</option>
-                <option value="COC">COC (Clinical Officers Council)</option>
-                <option value="Other">Other / Custom</option>
-                <option value="None">None / Not Approved</option>
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="cpd-points">CPD Points</Label>
-              <Input
-                id="cpd-points"
-                type="number"
-                step="0.5"
-                min="0"
-                placeholder="e.g. 2.0"
-                value={cpdPoints}
-                onChange={(e) => setCpdPoints(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {approvingCouncil === "Other" && (
-            <div className="max-w-md">
-              <Label htmlFor="cpd-custom-council">Specify Council Name</Label>
-              <Input
-                id="cpd-custom-council"
-                placeholder="e.g. Pharmacy and Poisons Board"
-                value={customCouncil}
-                onChange={(e) => setCustomCouncil(e.target.value)}
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end pt-2">
-            <Button
-              onClick={() => {
-                const finalCouncil = approvingCouncil === "None"
-                  ? null
-                  : approvingCouncil === "Other"
-                    ? customCouncil.trim()
-                    : approvingCouncil;
-                const pointsNum = cpdPoints.trim() ? Number(cpdPoints) : null;
-                openEventMutation.mutate({
-                  institutionId,
-                  name: newEventName.trim(),
-                  eventDate: newEventDate.trim(),
-                  eventType,
-                  presenterUserId,
-                  presenterName: presenterName.trim() || null,
-                  presenterCadre: presenterCadre.trim() || null,
-                  presenterDepartment: presenterDepartment.trim() || null,
-                  approvingCouncil: finalCouncil,
-                  cpdPoints: pointsNum,
-                });
-              }}
-              disabled={
-                openEventMutation.isPending ||
-                newEventName.trim().length === 0 ||
-                newEventDate.trim().length === 0 ||
-                (approvingCouncil === "Other" && customCouncil.trim().length === 0)
-              }
-            >
-              {openEventMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <PlusCircle className="mr-2 h-4 w-4" />
-              )}
-              Open Event
-            </Button>
-          </div>
-
-          {/* Events list */}
-          {eventsQuery.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Presenter</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow
-                    key={event.id}
-                    className={event.id === effectiveEventId ? "bg-muted/40" : undefined}
-                  >
-                    <TableCell className="font-medium">
-                      <div>{event.name}</div>
-                      {event.cpdPoints && (
-                        <div className="text-xs text-muted-foreground">
-                          {event.cpdPoints} Points · {event.approvingCouncil || "Standard"}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="uppercase text-[10px]">
-                        {event.eventType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {event.presenterName ? (
-                        <div className="text-xs">
-                          <span className="font-semibold">{event.presenterName}</span>
-                          <div className="text-muted-foreground">{event.presenterDepartment || "General"}</div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">Unassigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{event.eventDate}</TableCell>
-                    <TableCell>
-                      {event.isOpen ? (
-                        <Badge className="bg-emerald-600">Open</Badge>
-                      ) : (
-                        <Badge variant="secondary">Closed</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedEventId(event.id)}
-                        >
-                          View
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Edit Presenter & Details"
-                          onClick={() => {
-                            setEditingEventId(event.id);
-                            setEditPresenterUserId(event.presenterUserId || null);
-                            setEditPresenterName(event.presenterName || "");
-                            setEditPresenterCadre(event.presenterCadre || "");
-                            setEditPresenterDept(event.presenterDepartment || "");
-                            setEditEventType((event.eventType as any) || "cne");
-                            setEditCpdPoints(event.cpdPoints || "");
-                            setEditApprovingCouncil(event.approvingCouncil || "NCK");
-                            setShowEditPresenterSuggestions(false);
-                          }}
-                        >
-                          <Edit className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                        {event.isOpen ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              closeEventMutation.mutate({ institutionId, eventId: event.id })
-                            }
-                            disabled={closeEventMutation.isPending}
-                          >
-                            <Ban className="mr-1 h-3.5 w-3.5" />
-                            Close
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {/* Edit Presenter Modal/Inline Card */}
-          {editingEventId && (
-            <Card className="mt-4 border-purple-200 bg-purple-50/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>Edit / Backfill CPD Event Details</span>
-                  <Badge variant="outline" className="uppercase text-[10px]">{editEventType}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                  <div>
-                    <Label className="text-xs">Category / Event Type *</Label>
-                    <select
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                      value={editEventType}
-                      onChange={(e) => setEditEventType(e.target.value as any)}
-                    >
-                      <option value="cne">CNE (Continuing Nursing Education)</option>
-                      <option value="cme">CME (Continuing Medical Education)</option>
-                      <option value="cpd_general">CPD (General Interprofessional)</option>
-                      <option value="grand_rounds">Grand Rounds</option>
-                      <option value="journal_club">Journal Club / Audit</option>
-                      <option value="workshop">Skills Workshop</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Approving Council</Label>
-                    <select
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                      value={editApprovingCouncil}
-                      onChange={(e) => setEditApprovingCouncil(e.target.value)}
-                    >
-                      <option value="NCK">NCK (Nursing Council of Kenya)</option>
-                      <option value="KMPDC">KMPDC (Medical Council)</option>
-                      <option value="COC">COC (Clinical Officers Council)</option>
-                      <option value="Other">Other / Custom</option>
-                      <option value="None">None / Not Approved</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">CPD Points</Label>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      className="h-8 text-xs"
-                      placeholder="e.g. 2.0"
-                      value={editCpdPoints}
-                      onChange={(e) => setEditCpdPoints(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="relative">
-                    <Label className="text-xs">
-                      Presenter Name {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
-                    </Label>
-                    <Input
-                      className="h-8 text-xs"
-                      placeholder="Search clinician..."
-                      value={editPresenterName}
-                      onChange={(e) => {
-                        setEditPresenterName(e.target.value);
-                        setEditPresenterUserId(null);
-                        setShowEditPresenterSuggestions(true);
-                      }}
-                      onFocus={() => setShowEditPresenterSuggestions(true)}
-                    />
-                    {showEditPresenterSuggestions && editPresenterSearchQuery.data && editPresenterSearchQuery.data.length > 0 && (
-                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                        {editPresenterSearchQuery.data.map((user) => (
-                          <div
-                            key={user.id}
-                            className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                            onClick={() => {
-                              setEditPresenterUserId(user.id);
-                              setEditPresenterName(user.fullName);
-                              if (user.cadre) setEditPresenterCadre(user.cadre);
-                              if (user.department) setEditPresenterDept(user.department);
-                              setShowEditPresenterSuggestions(false);
-                            }}
-                          >
+            {/* 🏆 Department Leaderboard & Presenter Hall of Fame */}
+            {analytics && (
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Presenting Department Leaderboard */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-blue-600" /> Departmental CPD Activity
+                    </CardTitle>
+                    <CardDescription>
+                      Which departments present most vs. which are being left behind
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.departmentHeatmap.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No departmental data yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {analytics.departmentHeatmap.slice(0, 6).map((dept) => (
+                          <div key={dept.department} className="flex items-center justify-between border-b pb-2 text-sm">
                             <div>
-                              <span className="font-semibold">{user.fullName}</span>
-                              <span className="text-muted-foreground ml-1">({user.email})</span>
+                              <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
+                              <div className="text-xs text-muted-foreground">
+                                {dept.presentedCount} sessions presented
+                              </div>
                             </div>
-                            {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
+                            <Badge variant={dept.attendedCount > 5 ? "default" : "secondary"}>
+                              {dept.attendedCount} Attendees
+                            </Badge>
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
-                  <div>
-                    <Label className="text-xs">Presenter Cadre</Label>
+                  </CardContent>
+                </Card>
+
+                {/* Presenter Hall of Fame */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-purple-600" /> Internal Faculty & Presenters
+                    </CardTitle>
+                    <CardDescription>
+                      Clinicians and educators leading CPD presentations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.presenterLeaderboard.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                        <AlertTriangle className="h-8 w-8 text-amber-500 mb-2 opacity-80" />
+                        <p className="text-sm font-medium">No Presenters Logged Yet</p>
+                        <p className="text-xs max-w-xs mt-1">
+                          Assign presenters to your CPD events below to build your hospital's internal faculty leaderboard.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {analytics.presenterLeaderboard.slice(0, 6).map((p) => (
+                          <div key={p.presenterName} className="flex items-center justify-between border-b pb-2 text-sm">
+                            <div>
+                              <span className="font-medium text-slate-800 dark:text-slate-200">{p.presenterName}</span>
+                              <div className="text-xs text-muted-foreground">
+                                {p.cadre} · {p.department}
+                              </div>
+                            </div>
+                            <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200">
+                              {p.sessionCount} {p.sessionCount === 1 ? "Session" : "Sessions"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Staff Attendance & Locum Matrix */}
+            {analytics && (
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">Staff CPD Ledger & Locum Matrix</CardTitle>
+                      <CardDescription>
+                        Detailed attendance records per staff member with locum/outreach flags
+                      </CardDescription>
+                    </div>
                     <Input
-                      className="h-8 text-xs"
-                      value={editPresenterCadre}
-                      onChange={(e) => setEditPresenterCadre(e.target.value)}
+                      placeholder="Search staff or department..."
+                      className="max-w-xs h-8 text-xs"
+                      value={staffSearch}
+                      onChange={(e) => setStaffSearch(e.target.value)}
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs">Presenting Department</Label>
-                    <select
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                      value={editPresenterDept}
-                      onChange={(e) => setEditPresenterDept(e.target.value)}
-                    >
-                      <option value="">Select Dept</option>
-                      {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
-                        <option key={d.id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                </CardHeader>
+                <CardContent>
+                  {filteredStaffMatrix.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No matching staff attendance found.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Staff Name</TableHead>
+                          <TableHead>Cadre & Department</TableHead>
+                          <TableHead>CNEs Attended</TableHead>
+                          <TableHead>CMEs Attended</TableHead>
+                          <TableHead>Total CPDs</TableHead>
+                          <TableHead className="text-right">Attendance Type</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStaffMatrix.map((staff) => (
+                          <TableRow key={staff.email}>
+                            <TableCell className="font-medium">
+                              <div>{staff.fullName}</div>
+                              <div className="text-[11px] text-muted-foreground">{staff.email}</div>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {staff.cadre} · <span className="font-medium text-slate-700 dark:text-slate-300">{staff.department}</span>
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold text-blue-600">{staff.cneAttended}</TableCell>
+                            <TableCell className="text-xs font-semibold text-emerald-600">{staff.cmeAttended}</TableCell>
+                            <TableCell className="text-xs font-bold">{staff.totalAttended}</TableCell>
+                            <TableCell className="text-right">
+                              {staff.isLocum ? (
+                                <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950">
+                                  Locum / Outreach
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Primary Staff</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
 
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="ghost" size="sm" onClick={() => setEditingEventId(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      updateEventPresenterMutation.mutate({
-                        institutionId,
-                        eventId: editingEventId,
-                        eventType: editEventType,
-                        presenterUserId: editPresenterUserId,
-                        presenterName: editPresenterName.trim() || null,
-                        presenterCadre: editPresenterCadre.trim() || null,
-                        presenterDepartment: editPresenterDept.trim() || null,
-                        cpdPoints: editCpdPoints.trim() ? Number(editCpdPoints) : null,
-                        approvingCouncil: editApprovingCouncil === "None" ? null : editApprovingCouncil,
-                      })
-                    }
-                  >
-                    Save Changes
-                  </Button>
+        {/* --- SESSIONS & CHECK-IN TAB --- */}
+        {cpdSubTab === "sessions" && (
+          <>
+            {/* QR code + public link */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5 text-blue-600" /> Registration QR Code
+                </CardTitle>
+                <CardDescription>
+                  Nurses and doctors scan this code to check-in — Paeds Resus login required.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+                  <div ref={qrCodeRef} className="rounded-lg border bg-white p-3 shadow-sm">
+                    {publicUrl ? <QRCodeSVG value={publicUrl} size={148} /> : null}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label>Public registration link</Label>
+                    <div className="flex gap-2">
+                      <Input readOnly value={publicUrl} className="font-mono text-xs" />
+                      <Button variant="outline" onClick={copyLink}>
+                        {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="outline" onClick={printQrCode} disabled={!publicUrl} title="Print QR code">
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {openEvent
+                        ? `Open event: ${openEvent.name} (${openEvent.eventDate})`
+                        : "No event is currently open. Open one below to accept registrations."}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Staff Attendance & Locum Matrix */}
-      {analytics && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">Staff CPD Ledger & Locum Matrix</CardTitle>
+            {/* Events list */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All CPD Sessions</CardTitle>
                 <CardDescription>
-                  Detailed attendance records per staff member with locum/outreach flags
+                  Click 'View' to see registrations and verify certificates for any event below.
                 </CardDescription>
-              </div>
-              <Input
-                placeholder="Search staff or department..."
-                className="max-w-xs h-8 text-xs"
-                value={staffSearch}
-                onChange={(e) => setStaffSearch(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredStaffMatrix.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No matching staff attendance found.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Staff Name</TableHead>
-                    <TableHead>Cadre & Department</TableHead>
-                    <TableHead>CNEs Attended</TableHead>
-                    <TableHead>CMEs Attended</TableHead>
-                    <TableHead>Total CPDs</TableHead>
-                    <TableHead className="text-right">Attendance Type</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStaffMatrix.map((staff) => (
-                    <TableRow key={staff.email}>
-                      <TableCell className="font-medium">
-                        <div>{staff.fullName}</div>
-                        <div className="text-[11px] text-muted-foreground">{staff.email}</div>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {staff.cadre} · <span className="font-medium text-slate-700 dark:text-slate-300">{staff.department}</span>
-                      </TableCell>
-                      <TableCell className="text-xs font-semibold text-blue-600">{staff.cneAttended}</TableCell>
-                      <TableCell className="text-xs font-semibold text-emerald-600">{staff.cmeAttended}</TableCell>
-                      <TableCell className="text-xs font-bold">{staff.totalAttended}</TableCell>
-                      <TableCell className="text-right">
-                        {staff.isLocum ? (
-                          <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950">
-                            Locum / Outreach
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Primary Staff</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              </CardHeader>
+              <CardContent>
+                {eventsQuery.isLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : events.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No events yet.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Event</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Presenter</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Attendees</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {events.map((event) => (
+                        <TableRow
+                          key={event.id}
+                          className={event.id === effectiveEventId ? "bg-muted/40" : undefined}
+                        >
+                          <TableCell className="font-medium">
+                            <div>{event.name}</div>
+                            {event.cpdPoints && (
+                              <div className="text-xs text-muted-foreground">
+                                {event.cpdPoints} Points · {event.approvingCouncil || "Standard"}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="uppercase text-[10px]">
+                              {event.eventType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {event.presenterName ? (
+                              <div className="text-xs">
+                                <span className="font-semibold">{event.presenterName}</span>
+                                <div className="text-muted-foreground">{event.presenterDepartment || "General"}</div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{event.eventDate}</TableCell>
+                          <TableCell>
+                            {event.isOpen ? (
+                              <Badge className="bg-emerald-600">Open</Badge>
+                            ) : (
+                              <Badge variant="secondary">Closed</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-slate-50 font-mono">
+                              {(event as any).attendeeCount ?? 0}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedEventId(event.id)}
+                              >
+                                View
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Edit Presenter & Details"
+                                onClick={() => {
+                                  setEditingEventId(event.id);
+                                  setEditPresenterUserId(event.presenterUserId || null);
+                                  setEditPresenterName(event.presenterName || "");
+                                  setEditPresenterCadre(event.presenterCadre || "");
+                                  setEditPresenterDept(event.presenterDepartment || "");
+                                  setEditEventType((event.eventType as any) || "cne");
+                                  setEditCpdPoints(event.cpdPoints || "");
+                                  setEditApprovingCouncil(event.approvingCouncil || "NCK");
+                                  setShowEditPresenterSuggestions(false);
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                              {event.isOpen ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    closeEventMutation.mutate({ institutionId, eventId: event.id })
+                                  }
+                                  disabled={closeEventMutation.isPending}
+                                >
+                                  <Ban className="mr-1 h-3.5 w-3.5" />
+                                  Close
+                                </Button>
+                              ) : null}
+                              {/* Delete button — supports both empty sessions & sessions with attendees via super-confirm */}
+                              {!event.isOpen && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Delete CPD session (irreversible)"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => {
+                                    setDeleteTargetEvent({
+                                      id: event.id,
+                                      name: event.name,
+                                      isOpen: event.isOpen,
+                                      attendeeCount: (event as any).attendeeCount ?? 0,
+                                    });
+                                    setDeleteConfirmInput("");
+                                    setDeleteConfirmAttendeesInput("");
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
 
-      {/* Registrations for selected event */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Registrations</CardTitle>
+                {/* Edit Presenter Modal/Inline Card */}
+                {editingEventId && (
+                  <Card className="mt-4 border-purple-200 bg-purple-50/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        <span>Edit / Backfill CPD Event Details</span>
+                        <Badge variant="outline" className="uppercase text-[10px]">{editEventType}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                        <div>
+                          <Label className="text-xs">Category / Event Type *</Label>
+                          <select
+                            className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            value={editEventType}
+                            onChange={(e) => setEditEventType(e.target.value as any)}
+                          >
+                            <option value="cne">CNE (Continuing Nursing Education)</option>
+                            <option value="cme">CME (Continuing Medical Education)</option>
+                            <option value="cpd_general">CPD (General Interprofessional)</option>
+                            <option value="grand_rounds">Grand Rounds</option>
+                            <option value="journal_club">Journal Club / Audit</option>
+                            <option value="workshop">Skills Workshop</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Approving Council</Label>
+                          <select
+                            className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            value={editApprovingCouncil}
+                            onChange={(e) => setEditApprovingCouncil(e.target.value)}
+                          >
+                            <option value="NCK">NCK (Nursing Council of Kenya)</option>
+                            <option value="KMPDC">KMPDC (Medical Council)</option>
+                            <option value="COC">COC (Clinical Officers Council)</option>
+                            <option value="Other">Other / Custom</option>
+                            <option value="None">None / Not Approved</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">CPD Points</Label>
+                          <Input
+                            type="number"
+                            step="0.5"
+                            className="h-8 text-xs"
+                            value={editCpdPoints}
+                            onChange={(e) => setEditCpdPoints(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="relative">
+                          <Label className="text-xs">
+                            Presenter Name {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
+                          </Label>
+                          <Input
+                            className="h-8 text-xs"
+                            placeholder="Type to search..."
+                            value={editPresenterName}
+                            onChange={(e) => {
+                              setEditPresenterName(e.target.value);
+                              setEditPresenterUserId(null);
+                              setShowEditPresenterSuggestions(true);
+                            }}
+                            onFocus={() => setShowEditPresenterSuggestions(true)}
+                          />
+                          {showEditPresenterSuggestions && editPresenterSearchQuery.data && editPresenterSearchQuery.data.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
+                              {editPresenterSearchQuery.data.map((user) => (
+                                <div
+                                  key={user.id}
+                                  className="cursor-pointer rounded-sm px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+                                  onClick={() => {
+                                    setEditPresenterUserId(user.id);
+                                    setEditPresenterName(user.fullName);
+                                    if (user.cadre) setEditPresenterCadre(user.cadre);
+                                    if (user.department) setEditPresenterDept(user.department);
+                                    setShowEditPresenterSuggestions(false);
+                                  }}
+                                >
+                                  <div>
+                                    <span className="font-semibold">{user.fullName}</span>
+                                    <span className="text-muted-foreground ml-1">({user.email})</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs">Presenter Cadre</Label>
+                          <Input
+                            className="h-8 text-xs"
+                            value={editPresenterCadre}
+                            onChange={(e) => setEditPresenterCadre(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Presenting Department</Label>
+                          <select
+                            className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            value={editPresenterDept}
+                            onChange={(e) => setEditPresenterDept(e.target.value)}
+                          >
+                            <option value="">Select Department</option>
+                            {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <Button variant="ghost" size="sm" onClick={() => setEditingEventId(null)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            updateEventPresenterMutation.mutate({
+                              institutionId,
+                              eventId: editingEventId,
+                              eventType: editEventType,
+                              presenterUserId: editPresenterUserId,
+                              presenterName: editPresenterName.trim() || null,
+                              presenterCadre: editPresenterCadre.trim() || null,
+                              presenterDepartment: editPresenterDept.trim() || null,
+                              cpdPoints: editCpdPoints.trim() ? Number(editCpdPoints) : null,
+                              approvingCouncil: editApprovingCouncil === "None" ? null : editApprovingCouncil,
+                            })
+                          }
+                        >
+                          Save Changes
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* --- OPEN NEW SESSION TAB --- */}
+        {cpdSubTab === "new_session" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Open CPD Event</CardTitle>
               <CardDescription>
-                {selectedEvent
-                  ? `${selectedEvent.name} — ${attendees.length} registered`
-                  : "Select an event to view registrations"}
+                Configure CNE/CME classification, presenter attributes, and points for upcoming or live sessions.
               </CardDescription>
-            </div>
-            {selectedEvent && (
-              <div className="w-full mt-4 p-4 border border-border rounded-lg bg-muted/20 flex flex-col md:flex-row md:items-end gap-3">
-                <div className="flex-1">
-                  <Label htmlFor="cpd-code-input" className="text-sm font-medium">
-                    NCK / KMPDC Portal Secret Code
-                  </Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Enter the secret code received from council for this training session.
-                  </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                <div>
+                  <Label htmlFor="cpd-event-name">Event title *</Label>
                   <Input
-                    id="cpd-code-input"
-                    placeholder="e.g. CPD-2026-CONSOLATA-XXXX"
-                    value={cpdCodeInput}
-                    onChange={(e) => setCpdCodeInput(e.target.value)}
-                    className="max-w-md"
+                    id="cpd-event-name"
+                    placeholder="e.g. Pediatric Shock & Fluid Resuscitation"
+                    value={newEventName}
+                    onChange={(e) => setNewEventName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cpd-event-date">Event date *</Label>
+                  <Input
+                    id="cpd-event-date"
+                    placeholder="e.g. 12 August 2026"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cpd-event-type">Category / Type *</Label>
+                  <select
+                    id="cpd-event-type"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={eventType}
+                    onChange={(e) => setEventType(e.target.value as any)}
+                  >
+                    <option value="cne">CNE (Continuing Nursing Education)</option>
+                    <option value="cme">CME (Continuing Medical Education)</option>
+                    <option value="cpd_general">CPD (General Interprofessional)</option>
+                    <option value="grand_rounds">Grand Rounds</option>
+                    <option value="journal_club">Journal Club / Audit</option>
+                    <option value="workshop">Skills Workshop</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="relative">
+                  <Label htmlFor="cpd-presenter-name">
+                    Presenter Name {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
+                  </Label>
+                  <Input
+                    id="cpd-presenter-name"
+                    placeholder="Type name to search platform clinicians..."
+                    value={presenterName}
+                    onChange={(e) => {
+                      setPresenterName(e.target.value);
+                      setPresenterUserId(null);
+                      setShowPresenterSuggestions(true);
+                    }}
+                    onFocus={() => setShowPresenterSuggestions(true)}
+                  />
+                  {showPresenterSuggestions && presenterSearchQuery.data && presenterSearchQuery.data.length > 0 && (
+                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
+                      {presenterSearchQuery.data.map((user) => (
+                        <div
+                          key={user.id}
+                          className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+                          onClick={() => {
+                            setPresenterUserId(user.id);
+                            setPresenterName(user.fullName);
+                            if (user.cadre) setPresenterCadre(user.cadre);
+                            if (user.department) setPresenterDepartment(user.department);
+                            setShowPresenterSuggestions(false);
+                          }}
+                        >
+                          <div>
+                            <span className="font-semibold">{user.fullName}</span>
+                            <span className="text-muted-foreground ml-1">({user.email})</span>
+                          </div>
+                          {user.cadre && <Badge variant="outline" className="text-[10px]">{user.cadre}</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
+                  <Input
+                    id="cpd-presenter-cadre"
+                    placeholder="e.g. Consultant Paediatrician"
+                    value={presenterCadre}
+                    onChange={(e) => setPresenterCadre(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cpd-presenter-dept">Presenting Department</Label>
+                  <select
+                    id="cpd-presenter-dept"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={presenterDepartment}
+                    onChange={(e) => setPresenterDepartment(e.target.value)}
+                  >
+                    <option value="">Select Department</option>
+                    {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="cpd-approving-council">Approving Council</Label>
+                  <select
+                    id="cpd-approving-council"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={approvingCouncil}
+                    onChange={(e) => setApprovingCouncil(e.target.value)}
+                  >
+                    <option value="NCK">NCK (Nursing Council of Kenya)</option>
+                    <option value="KMPDC">KMPDC (Medical Council)</option>
+                    <option value="COC">COC (Clinical Officers Council)</option>
+                    <option value="Other">Other / Custom</option>
+                    <option value="None">None / Not Approved</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="cpd-points">CPD Points</Label>
+                  <Input
+                    id="cpd-points"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="e.g. 2.0"
+                    value={cpdPoints}
+                    onChange={(e) => setCpdPoints(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {approvingCouncil === "Other" && (
+                <div className="max-w-md">
+                  <Label htmlFor="cpd-custom-council">Specify Council Name</Label>
+                  <Input
+                    id="cpd-custom-council"
+                    placeholder="e.g. Pharmacy and Poisons Board"
+                    value={customCouncil}
+                    onChange={(e) => setNewEventName(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={() => {
+                    const finalCouncil = approvingCouncil === "None"
+                      ? null
+                      : approvingCouncil === "Other"
+                        ? customCouncil.trim()
+                        : approvingCouncil;
+                    const pointsNum = cpdPoints.trim() ? Number(cpdPoints) : null;
+                    openEventMutation.mutate({
+                      institutionId,
+                      name: newEventName.trim(),
+                      eventDate: newEventDate.trim(),
+                      eventType,
+                      presenterUserId,
+                      presenterName: presenterName.trim() || null,
+                      presenterCadre: presenterCadre.trim() || null,
+                      presenterDepartment: presenterDepartment.trim() || null,
+                      approvingCouncil: finalCouncil,
+                      cpdPoints: pointsNum,
+                    });
+                  }}
+                  disabled={
+                    openEventMutation.isPending ||
+                    newEventName.trim().length === 0 ||
+                    newEventDate.trim().length === 0 ||
+                    (approvingCouncil === "Other" && customCouncil.trim().length === 0)
+                  }
+                >
+                  {openEventMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Open Event
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* --- COORDINATOR & SETTINGS TAB --- */}
+        {cpdSubTab === "settings" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>CPD Coordinator</CardTitle>
+              <CardDescription>
+                This name is printed on the signature line of every certificate your institution issues.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <Label htmlFor="cpd-coordinator">Coordinator name</Label>
+                  <Input
+                    id="cpd-coordinator"
+                    placeholder="e.g. Job Karue, RN"
+                    value={coordinatorValue}
+                    onChange={(e) => setCoordinatorName(e.target.value)}
                   />
                 </div>
                 <Button
-                  size="sm"
                   onClick={() =>
-                    updateCpdCodeMutation.mutate({
+                    updateCoordinatorMutation.mutate({
                       institutionId,
-                      eventId: selectedEvent.id,
-                      cpdCode: cpdCodeInput.trim() || null,
+                      coordinatorName: coordinatorValue.trim(),
                     })
                   }
                   disabled={
-                    updateCpdCodeMutation.isPending ||
-                    (selectedEvent.cpdCode ?? "") === cpdCodeInput.trim()
+                    updateCoordinatorMutation.isPending || coordinatorValue.trim().length === 0
                   }
                 >
-                  {updateCpdCodeMutation.isPending ? (
+                  {updateCoordinatorMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Save Code
+                  Save
                 </Button>
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={downloadCsv}
-                disabled={attendees.length === 0}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
-              </Button>
-              <Button
-                size="sm"
-                disabled={!effectiveEventId || attendees.length === 0}
-                onClick={() => {
-                  if (effectiveEventId) {
-                    window.open(`/api/cpd/certificate/bulk/${effectiveEventId}`, "_blank");
-                  }
-                }}
-              >
-                <FileArchive className="mr-2 h-4 w-4" />
-                Download all (ZIP)
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {attendeesQuery.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : attendees.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No registrations for this event yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Cadre</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="text-right">Certificate</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendees.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium">{a.fullName}</TableCell>
-                    <TableCell>
-                      {a.cadre === "Other" ? a.cadreOther || "Other" : a.cadre}
-                    </TableCell>
-                    <TableCell>{a.department}</TableCell>
-                    <TableCell className="text-xs">{a.email}</TableCell>
-                    <TableCell className="text-right">
+
+              <div className="mt-6 space-y-2 border-t pt-6">
+                <div>
+                  <Label>Coordinator signature</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Draw the signature once. It is embedded above the signature line on every certificate.
+                  </p>
+                </div>
+                {settingsQuery.isLoading ? (
+                  <div className="flex py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <SignaturePad
+                    initialDataUrl={savedSignature}
+                    saving={updateSignatureMutation.isPending}
+                    onSave={(dataUrl) =>
+                      updateSignatureMutation.mutate({ institutionId, signature: dataUrl })
+                    }
+                    onClear={() => {
+                      if (savedSignature) {
+                        updateSignatureMutation.mutate({ institutionId, signature: null });
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Registrations for selected event — displayed under active session check-ins in the Sessions tab */}
+        {cpdSubTab === "sessions" && effectiveEventId && (
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Registrations</CardTitle>
+                  <CardDescription>
+                    {selectedEvent
+                      ? `${selectedEvent.name} — ${attendees.length} registered`
+                      : "Select an event to view registrations"}
+                  </CardDescription>
+                </div>
+                {selectedEvent && (
+                  <div className="w-full mt-4 p-4 border border-border rounded-lg bg-muted/20 flex flex-col md:flex-row md:items-end gap-3">
+                    <div className="flex-1">
+                      <Label htmlFor="cpd-code-input" className="text-sm font-medium">
+                        Verification Code (CPD Secret Code)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Setting this enables self-check-in verification logs for your attendees.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          id="cpd-code-input"
+                          placeholder="e.g. READY-PALS"
+                          value={cpdCodeInput}
+                          onChange={(e) => setCpdCodeInput(e.target.value.toUpperCase())}
+                          className="max-w-xs font-mono uppercase"
+                        />
+                        <Button
+                          onClick={() =>
+                            updateCpdCodeMutation.mutate({
+                              institutionId,
+                              eventId: effectiveEventId,
+                              cpdCode: cpdCodeInput.trim(),
+                            })
+                          }
+                          disabled={updateCpdCodeMutation.isPending}
+                        >
+                          {updateCpdCodeMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                          )}
+                          Save Code
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          window.open(`/api/cpd/certificate/${a.id}`, "_blank")
-                        }
+                        onClick={downloadCsv}
+                        disabled={attendees.length === 0}
                       >
-                        <Download className="mr-1 h-3.5 w-3.5" />
-                        PDF
+                        <Download className="mr-2 h-4 w-4" />
+                        Export CSV
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                      <Button
+                        size="sm"
+                        disabled={!effectiveEventId || attendees.length === 0}
+                        onClick={() => {
+                          if (effectiveEventId) {
+                            window.open(`/api/cpd/certificate/bulk/${effectiveEventId}`, "_blank");
+                          }
+                        }}
+                      >
+                        <FileArchive className="mr-2 h-4 w-4" />
+                        Download all (ZIP)
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {attendeesQuery.isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : attendees.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No registrations for this event yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Cadre</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="text-right">Certificate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attendees.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="font-medium">{a.fullName}</TableCell>
+                        <TableCell>
+                          {a.cadre === "Other" ? a.cadreOther || "Other" : a.cadre}
+                        </TableCell>
+                        <TableCell>{a.department}</TableCell>
+                        <TableCell className="text-xs">{a.email}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              window.open(`/api/cpd/certificate/${a.id}`, "_blank")
+                            }
+                          >
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                            PDF
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>  {/* end .space-y-6 */}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteTargetEvent !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTargetEvent(null);
+            setDeleteConfirmInput("");
+            setDeleteConfirmAttendeesInput("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Permanently Delete CPD Session
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  You are about to permanently delete:{" "}
+                  <strong>{deleteTargetEvent?.name}</strong>.
+                </p>
+
+                {deleteTargetEvent && deleteTargetEvent.attendeeCount > 0 ? (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive space-y-2">
+                    <p className="font-semibold">⚠️ WARNING: Registered Attendees Detected</p>
+                    <p className="text-xs">
+                      This session has <strong>{deleteTargetEvent.attendeeCount}</strong> registered attendee(s).
+                      Deleting it will permanently invalidate and delete all their attendance records and associated certificates!
+                    </p>
+                    <p className="text-xs font-semibold">This action cannot be undone.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-muted-foreground">
+                    <p className="font-semibold text-foreground">⚠️ This action is irreversible.</p>
+                    <p className="text-xs mt-1">
+                      All associated session records, codes, and logs will be permanently removed.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground" htmlFor="cpd-delete-confirm-input">
+                    Type the event name to confirm:
+                  </label>
+                  <Input
+                    id="cpd-delete-confirm-input"
+                    placeholder={deleteTargetEvent?.name ?? "Event name"}
+                    value={deleteConfirmInput}
+                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                    className="border-destructive/40 focus-visible:ring-destructive text-xs h-8"
+                  />
+                </div>
+
+                {deleteTargetEvent && deleteTargetEvent.attendeeCount > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-xs font-semibold text-destructive" htmlFor="cpd-delete-super-confirm-input">
+                      Type the super-confirm phrase below to authorize deleting attendees:
+                    </label>
+                    <div className="text-[11px] font-mono bg-destructive/10 text-destructive p-1.5 rounded select-all font-semibold text-center mb-1">
+                      DELETE SESSION WITH {deleteTargetEvent.attendeeCount} ATTENDEES
+                    </div>
+                    <Input
+                      id="cpd-delete-super-confirm-input"
+                      placeholder={`DELETE SESSION WITH ${deleteTargetEvent.attendeeCount} ATTENDEES`}
+                      value={deleteConfirmAttendeesInput}
+                      onChange={(e) => setDeleteConfirmAttendeesInput(e.target.value)}
+                      className="border-destructive/40 focus-visible:ring-destructive text-xs h-8 font-mono"
+                    />
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteTargetEvent(null);
+              setDeleteConfirmInput("");
+              setDeleteConfirmAttendeesInput("");
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={
+                deleteEventMutation.isPending ||
+                deleteConfirmInput.trim().toLowerCase() !== (deleteTargetEvent?.name ?? "").trim().toLowerCase() ||
+                (deleteTargetEvent !== null && deleteTargetEvent.attendeeCount > 0 &&
+                  deleteConfirmAttendeesInput.trim().toLowerCase() !== `delete session with ${deleteTargetEvent.attendeeCount} attendees`)
+              }
+              onClick={() => {
+                if (!deleteTargetEvent) return;
+                deleteEventMutation.mutate({
+                  institutionId,
+                  eventId: deleteTargetEvent.id,
+                  confirmName: deleteConfirmInput.trim(),
+                  confirmAttendeesPhrase: deleteTargetEvent.attendeeCount > 0 ? deleteConfirmAttendeesInput.trim() : undefined,
+                });
+              }}
+            >
+              {deleteEventMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Yes, permanently delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

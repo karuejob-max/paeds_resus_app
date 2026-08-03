@@ -200,6 +200,7 @@ export default function HospitalAdminDashboard() {
   });
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleListRow | null>(null);
   const [savingAttendanceForStaffId, setSavingAttendanceForStaffId] = useState<number | null>(null);
+  const [selectedProgressProgram, setSelectedProgressProgram] = useState<"all" | "bls" | "acls" | "pals" | "fellowship">("all");
   const [manualStaff, setManualStaff] = useState({
     staffName: "",
     staffEmail: "",
@@ -258,6 +259,11 @@ export default function HospitalAdminDashboard() {
   const { data: staffData, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
     { institutionId: institutionId! },
     { enabled: !!institutionId }
+  );
+
+  const { data: programStaffData, isLoading: programStaffLoading } = trpc.institution.getPlatformStaffForProgram.useQuery(
+    { institutionId: institutionId!, programType: selectedProgressProgram as any },
+    { enabled: !!institutionId && selectedProgressProgram !== "all" }
   );
 
   const { data: quotations, isLoading: quotationsLoading } = trpc.institution.getQuotations.useQuery(
@@ -569,7 +575,8 @@ export default function HospitalAdminDashboard() {
             ) : null}
           </div>
           <p className="text-lg text-muted-foreground">
-            Paediatric emergency readiness — staff roster, Care Signal QI, ResusGPS adoption, and training coverage
+            IERMS™ Institutional Emergency Readiness — workforce mesh, CPD intelligence, Care Signal QI, ResusGPS
+            adoption, and clinical governance
           </p>
         </div>
 
@@ -609,70 +616,95 @@ export default function HospitalAdminDashboard() {
           </Alert>
         ) : null}
 
-        {/* KPI Cards */}
-        <div className="grid md:grid-cols-5 gap-4 mb-8">
+        {/* KPI Cards — IERMS™-era 6-pillar metrics */}
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          {/* 1. Platform Staff — total unique users known to this institution */}
           <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Total Staff
+                Platform Staff
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-primary">{stats?.totalStaff || 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">Active members</p>
+              <p className="text-3xl font-bold text-primary">{stats?.totalPlatformStaff ?? stats?.totalStaff ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Roster + CPD-linked</p>
             </CardContent>
           </Card>
 
+          {/* 2. CPD Events held */}
           <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Enrolled
+                <Calendar className="w-4 h-4" />
+                CPD Events
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-brand-orange">{stats?.enrolledStaff || 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">In training</p>
+              <p className="text-3xl font-bold text-brand-orange">{stats?.totalCpdEvents ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Events held</p>
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                Completed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats?.completedStaff || 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">{completionRate.toFixed(1)}% rate</p>
-            </CardContent>
-          </Card>
-
+          {/* 3. Unique CPD Attendees */}
           <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Award className="w-4 h-4" />
-                Certified
+                CPD Attendees
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-sky-600 dark:text-sky-400">{stats?.totalCpdAttendees ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Unique individuals</p>
+            </CardContent>
+          </Card>
+
+          {/* 4. AHA Certified */}
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                AHA Certified
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-primary">{stats?.certifiedStaff || 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">{certificationRate.toFixed(1)}% certified</p>
+              <p className="text-xs text-muted-foreground mt-1">{certificationRate.toFixed(1)}% cert rate</p>
             </CardContent>
           </Card>
 
+          {/* 5. AHA Training Coverage */}
           <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
-                ROI
+                AHA Coverage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{completionRate.toFixed(0)}%</p>
+              <p className="text-xs text-muted-foreground mt-1">AHA completion rate</p>
+            </CardContent>
+          </Card>
+
+          {/* 6. IERMS Score placeholder — links to audit tab */}
+          <Card
+            className="border-border/80 shadow-sm cursor-pointer hover:border-primary/40 transition-colors"
+            onClick={() => setActiveTab("ierms-audit")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && setActiveTab("ierms-audit")}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                IERMS™ Score
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-muted-foreground">—</p>
-              <p className="text-xs text-muted-foreground mt-1">When analytics are available</p>
+              <p className="text-xs text-muted-foreground mt-1">Run 100-pt audit</p>
             </CardContent>
           </Card>
         </div>
@@ -2171,51 +2203,139 @@ export default function HospitalAdminDashboard() {
             </Card>
 
             <Card className="border-border/80 shadow-sm">
-              <CardHeader>
-                <CardTitle>Individual Progress</CardTitle>
-                <CardDescription>
-                  Roster from the Staff tab. Status updates when you register staff on a session and when you mark{" "}
-                  <strong>Attended</strong> (roster enrollment moves toward completed; certification stays in progress until
-                  issued). Session attendance is managed under Schedule → Roster.
-                </CardDescription>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-0 pb-3 flex-wrap gap-4">
+                <div>
+                  <CardTitle>Individual Progress & Program Census</CardTitle>
+                  <CardDescription>
+                    Roster staff and guest attendees mapped to platform learning paths.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Path/Census:</span>
+                  <select
+                    className="flex h-9 w-[220px] rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                    value={selectedProgressProgram}
+                    onChange={(e) => setSelectedProgressProgram(e.target.value as any)}
+                  >
+                    <option value="all">All Staff (Legacy Roster List)</option>
+                    <option value="bls">BLS Program Learners</option>
+                    <option value="acls">ACLS Program Learners</option>
+                    <option value="pals">PALS Program Learners</option>
+                    <option value="fellowship">Fellowship Program Learners</option>
+                  </select>
+                </div>
               </CardHeader>
               <CardContent>
-                {staffLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading staff…</p>
-                ) : !staffData?.length ? (
-                  <p className="text-sm text-muted-foreground">No staff in roster yet. Add staff on the Staff tab.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {staffData.map((person) => {
-                      const pct = enrollmentProgressPct(person.enrollmentStatus);
-                      const cert = certificationBadgeLabel(person.certificationStatus);
-                      const enroll = enrollmentStatusLabel(person.enrollmentStatus);
-                      const certTone =
-                        person.certificationStatus === "certified"
-                          ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800"
-                          : person.certificationStatus === "expired"
-                            ? "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-100"
-                            : "bg-muted text-muted-foreground border-border";
-                      return (
-                        <div key={person.id} className="border-b border-border/80 pb-4 last:border-b-0">
-                          <div className="flex justify-between mb-2 gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{person.staffName}</span>
-                            <div className="flex gap-2 flex-wrap justify-end">
-                              <Badge variant="outline" className={certTone}>
-                                {cert}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">
-                                {enroll}
-                              </Badge>
+                {selectedProgressProgram === "all" ? (
+                  staffLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading staff…</p>
+                  ) : !staffData?.length ? (
+                    <p className="text-sm text-muted-foreground">No staff in roster yet. Add staff on the Staff tab.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {staffData.map((person) => {
+                        const pct = enrollmentProgressPct(person.enrollmentStatus);
+                        const cert = certificationBadgeLabel(person.certificationStatus);
+                        const enroll = enrollmentStatusLabel(person.enrollmentStatus);
+                        const certTone =
+                          person.certificationStatus === "certified"
+                            ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800"
+                            : person.certificationStatus === "expired"
+                              ? "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-100"
+                              : "bg-muted text-muted-foreground border-border";
+                        return (
+                          <div key={person.id} className="border-b border-border/80 pb-4 last:border-b-0">
+                            <div className="flex justify-between mb-2 gap-2 flex-wrap">
+                              <span className="font-medium text-sm">{person.staffName}</span>
+                              <div className="flex gap-2 flex-wrap justify-end">
+                                <Badge variant="outline" className={certTone}>
+                                  {cert}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {enroll}
+                                </Badge>
+                              </div>
                             </div>
+                            <Progress value={pct} className="h-2" />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Enrollment progress (approx.): {pct}%
+                            </p>
                           </div>
-                          <Progress value={pct} className="h-2" />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Enrollment progress (approx.): {pct}%
-                          </p>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  )
+                ) : programStaffLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading program learners…</p>
+                ) : !programStaffData?.length ? (
+                  <p className="text-sm text-muted-foreground">No platform-linked learners found for this program.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                          <th className="py-2.5 px-3">Name / Email</th>
+                          <th className="py-2.5 px-3">Cadre & Department</th>
+                          <th className="py-2.5 px-3 text-center">Census Scope</th>
+                          <th className="py-2.5 px-3 text-center">Program Status</th>
+                          <th className="py-2.5 px-3">Training Date</th>
+                          <th className="py-2.5 px-3 text-right">Payment</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {programStaffData.map((person) => {
+                          let statusColor = "bg-slate-100 text-slate-800";
+                          let statusLabel = "Not Enrolled";
+                          if (person.status === "completed") {
+                            statusColor = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+                            statusLabel = "Completed";
+                          } else if (person.status === "cognitive_completed") {
+                            statusColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+                            statusLabel = "Cognitive Pass";
+                          } else if (person.status === "enrolled") {
+                            statusColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+                            statusLabel = "Enrolled";
+                          }
+
+                          return (
+                            <tr key={person.email} className="border-b hover:bg-muted/30">
+                              <td className="py-2.5 px-3">
+                                <div className="font-semibold text-foreground">{person.name}</div>
+                                <div className="text-[10px] text-muted-foreground">{person.email}</div>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="capitalize">{person.role.replace("_", " ")}</div>
+                                <div className="text-[10px] text-muted-foreground">{person.department || "General"}</div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {person.isRoster && person.isCpd ? (
+                                  <Badge variant="outline" className="text-[10px] border-blue-200 bg-blue-50 text-blue-700">Roster + CPD</Badge>
+                                ) : person.isRoster ? (
+                                  <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-700">Roster</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">CPD Guest</Badge>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {person.trainingDate ? new Date(person.trainingDate).toLocaleDateString() : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right capitalize">
+                                {person.paymentStatus ? (
+                                  <span className={person.paymentStatus === "completed" ? "text-green-600 font-semibold" : "text-amber-600"}>
+                                    {person.paymentStatus}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
