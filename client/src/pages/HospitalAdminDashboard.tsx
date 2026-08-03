@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import CpdPanel from "@/components/CpdPanel";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
@@ -1065,12 +1066,10 @@ export default function HospitalAdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="manual-dept">Department (optional)</Label>
-                    <Input
-                      id="manual-dept"
+                  <div className="sm:col-span-2">
+                    <DepartmentSelectors
                       value={manualStaff.department}
-                      onChange={(e) => setManualStaff((s) => ({ ...s, department: e.target.value }))}
+                      onChange={(val) => setManualStaff((s) => ({ ...s, department: val }))}
                     />
                   </div>
                 </div>
