@@ -27,32 +27,45 @@ import {
   Copy,
   Check,
   Printer,
+  Award,
+  Users,
+  Building2,
+  Sparkles,
+  Edit,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
+import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 
 interface CpdPanelProps {
   institutionId: number;
 }
 
-/**
- * Self-contained admin UI for the multi-institutional CPD attendance service.
- * Lets an institution admin set the CPD Coordinator name, open/close events,
- * view registrations, share the public QR/link, and download certificates
- * (single PDF + bulk ZIP) via the streaming Express routes.
- */
 export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
   const settingsQuery = trpc.cpd.getSettings.useQuery({ institutionId });
   const eventsQuery = trpc.cpd.listEvents.useQuery({ institutionId });
+  const analyticsQuery = trpc.cpd.getInstitutionalCpdAnalytics.useQuery({ institutionId });
 
   const [coordinatorName, setCoordinatorName] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
+  const [eventType, setEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
+  const [presenterName, setPresenterName] = useState("");
+  const [presenterCadre, setPresenterCadre] = useState("");
+  const [presenterDepartment, setPresenterDepartment] = useState("");
   const [approvingCouncil, setApprovingCouncil] = useState("NCK");
   const [customCouncil, setCustomCouncil] = useState("");
   const [cpdPoints, setCpdPoints] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [editPresenterName, setEditPresenterName] = useState("");
+  const [editPresenterCadre, setEditPresenterCadre] = useState("");
+  const [editPresenterDept, setEditPresenterDept] = useState("");
+  const [editEventType, setEditEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
 
   const events = eventsQuery.data ?? [];
   const openEvent = events.find((e) => e.isOpen) ?? null;
@@ -61,6 +74,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
 
   const [cpdCodeInput, setCpdCodeInput] = useState("");
+  const [staffSearch, setStaffSearch] = useState("");
 
   useEffect(() => {
     if (selectedEvent) {
@@ -76,8 +90,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   );
   const attendees = attendeesQuery.data ?? [];
 
-  const coordinatorValue =
-    coordinatorName ?? settingsQuery.data?.coordinatorName ?? "";
+  const coordinatorValue = coordinatorName ?? settingsQuery.data?.coordinatorName ?? "";
 
   const publicUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -97,18 +110,33 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       toast.success("Event opened for registration");
       setNewEventName("");
       setNewEventDate("");
+      setPresenterName("");
+      setPresenterCadre("");
+      setPresenterDepartment("");
       setApprovingCouncil("NCK");
       setCustomCouncil("");
       setCpdPoints("");
       void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
     onError: (err) => toast.error(err.message || "Failed to open event"),
+  });
+
+  const updateEventPresenterMutation = trpc.cpd.updateEventPresenter.useMutation({
+    onSuccess: () => {
+      toast.success("Event presenter & details updated");
+      setEditingEventId(null);
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Failed to update event details"),
   });
 
   const closeEventMutation = trpc.cpd.closeEvent.useMutation({
     onSuccess: () => {
       toast.success("CPD Event closed");
       void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
   });
 
@@ -117,9 +145,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       toast.success("CPD secret code updated");
       void utils.cpd.listEvents.invalidate({ institutionId });
     },
-    onError: (err) => {
-      toast.error(err.message || "Failed to update CPD code");
-    },
+    onError: (err) => toast.error(err.message || "Failed to update CPD code"),
   });
 
   const updateSignatureMutation = trpc.cpd.updateSignature.useMutation({
@@ -131,6 +157,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   });
 
   const savedSignature = settingsQuery.data?.coordinatorSignature ?? null;
+  const analytics = analyticsQuery.data;
 
   const copyLink = async () => {
     try {
@@ -142,24 +169,15 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
     }
   };
 
-  /**
-   * QRCodeSVG renders as inline SVG markup, not a discrete image resource, so a
-   * browser's right-click "Save/Print image" doesn't work on it the way it does
-   * on an <img>, and printing the whole dashboard page (Ctrl+P) drags in nav
-   * chrome nobody wants on a printed sheet. This opens a small, isolated window
-   * with just the QR SVG (cloned from what's already rendered, so it's always
-   * in sync with the current event's link) plus the event name/date, and
-   * triggers print directly — the standard fix for "can't print an inline SVG."
-   */
   const printQrCode = () => {
     const svgEl = qrCodeRef.current?.querySelector("svg");
     if (!svgEl) {
-      toast.error("QR code isn't ready yet — try again in a moment.");
+      toast.error("QR code isn't ready yet.");
       return;
     }
     const printWindow = window.open("", "_blank", "width=480,height=620");
     if (!printWindow) {
-      toast.error("Pop-up blocked — allow pop-ups for this site to print the QR code.");
+      toast.error("Pop-up blocked.");
       return;
     }
     const eventLabel = openEvent
@@ -215,8 +233,158 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
     }
   };
 
+  const filteredStaffMatrix = (analytics?.staffMatrix ?? []).filter(
+    (s) =>
+      s.fullName.toLowerCase().includes(staffSearch.toLowerCase()) ||
+      s.email.toLowerCase().includes(staffSearch.toLowerCase()) ||
+      s.department.toLowerCase().includes(staffSearch.toLowerCase()) ||
+      s.cadre.toLowerCase().includes(staffSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
+      {/* 📊 Institutional Learning Radar Summary */}
+      {analytics && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-blue-100 bg-gradient-to-br from-blue-50/50 to-white dark:border-blue-900/30 dark:from-blue-950/20 dark:to-background">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                Total CPD Sessions
+              </CardTitle>
+              <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.summary.totalEvents}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics.summary.cneCount} CNEs · {analytics.summary.cmeCount} CMEs · {analytics.summary.workshopCount} Workshops
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white dark:border-emerald-900/30 dark:from-emerald-950/20 dark:to-background">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                Total Registrations
+              </CardTitle>
+              <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.summary.totalAttendees}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across all clinical departments
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-100 bg-gradient-to-br from-purple-50/50 to-white dark:border-purple-900/30 dark:from-purple-950/20 dark:to-background">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-200">
+                Points Issued
+              </CardTitle>
+              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.summary.totalPointsIssued}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Council accredited points minted
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-100 bg-gradient-to-br from-amber-50/50 to-white dark:border-amber-900/30 dark:from-amber-950/20 dark:to-background">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                Active Departments
+              </CardTitle>
+              <Building2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.departmentHeatmap.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Participating hospital units
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 🏆 Department Leaderboard & Presenter Hall of Fame */}
+      {analytics && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Presenting Department Leaderboard */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-blue-600" /> Departmental CPD Activity
+              </CardTitle>
+              <CardDescription>
+                Which departments present most vs. which are being left behind
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {analytics.departmentHeatmap.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No departmental data yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.departmentHeatmap.slice(0, 6).map((dept) => (
+                    <div key={dept.department} className="flex items-center justify-between border-b pb-2 text-sm">
+                      <div>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
+                        <div className="text-xs text-muted-foreground">
+                          {dept.presentedCount} sessions presented
+                        </div>
+                      </div>
+                      <Badge variant={dept.attendedCount > 5 ? "default" : "secondary"}>
+                        {dept.attendedCount} Attendees
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Presenter Hall of Fame */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-600" /> Internal Faculty & Presenters
+              </CardTitle>
+              <CardDescription>
+                Clinicians and educators leading CPD presentations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {analytics.presenterLeaderboard.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mb-2 opacity-80" />
+                  <p className="text-sm font-medium">No Presenters Logged Yet</p>
+                  <p className="text-xs max-w-xs mt-1">
+                    Assign presenters to your CPD events below to build your hospital's internal faculty leaderboard.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.presenterLeaderboard.slice(0, 6).map((p) => (
+                    <div key={p.presenterName} className="flex items-center justify-between border-b pb-2 text-sm">
+                      <div>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{p.presenterName}</span>
+                        <div className="text-xs text-muted-foreground">
+                          {p.cadre} · {p.department}
+                        </div>
+                      </div>
+                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200">
+                        {p.sessionCount} {p.sessionCount === 1 ? "Session" : "Sessions"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Coordinator settings */}
       <Card>
         <CardHeader>
@@ -256,13 +424,11 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
             </Button>
           </div>
 
-          {/* Coordinator signature pad */}
           <div className="mt-6 space-y-2 border-t pt-6">
             <div>
               <Label>Coordinator signature</Label>
               <p className="text-xs text-muted-foreground">
-                Draw the signature once. It is embedded above the signature line on every
-                certificate. Saved signatures are shown below — drawing again replaces it.
+                Draw the signature once. It is embedded above the signature line on every certificate.
               </p>
             </div>
             {settingsQuery.isLoading ? (
@@ -277,7 +443,6 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   updateSignatureMutation.mutate({ institutionId, signature: dataUrl })
                 }
                 onClear={() => {
-                  // Only persist a clear when there is already a saved signature.
                   if (savedSignature) {
                     updateSignatureMutation.mutate({ institutionId, signature: null });
                   }
@@ -292,15 +457,15 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5" /> Registration QR Code
+            <QrCode className="h-5 w-5 text-blue-600" /> Registration QR Code
           </CardTitle>
           <CardDescription>
-            Nurses scan this code (or open the link) to register — Paeds Resus login required.
+            Nurses and doctors scan this code to check-in — Paeds Resus login required.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-            <div ref={qrCodeRef} className="rounded-lg border bg-white p-3">
+            <div ref={qrCodeRef} className="rounded-lg border bg-white p-3 shadow-sm">
               {publicUrl ? <QRCodeSVG value={publicUrl} size={148} /> : null}
             </div>
             <div className="flex-1 space-y-2">
@@ -308,13 +473,9 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               <div className="flex gap-2">
                 <Input readOnly value={publicUrl} className="font-mono text-xs" />
                 <Button variant="outline" onClick={copyLink}>
-                  {linkCopied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
+                  {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
-                <Button variant="outline" onClick={printQrCode} disabled={!publicUrl} title="Print QR code" aria-label="Print QR code">
+                <Button variant="outline" onClick={printQrCode} disabled={!publicUrl} title="Print QR code">
                   <Printer className="h-4 w-4" />
                 </Button>
               </div>
@@ -331,41 +492,96 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       {/* Open a new event */}
       <Card>
         <CardHeader>
-          <CardTitle>CPD Events</CardTitle>
+          <CardTitle>Open CPD Event</CardTitle>
           <CardDescription>
-            Open an event to start accepting registrations. Opening a new event automatically closes
-            any event currently open.
+            Configure CNE/CME classification, presenter attributes, and points for upcoming or live sessions.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div>
-              <Label htmlFor="cpd-event-name">Event name</Label>
+              <Label htmlFor="cpd-event-name">Event title *</Label>
               <Input
                 id="cpd-event-name"
-                placeholder="e.g. Paediatric Sepsis Update"
+                placeholder="e.g. Pediatric Shock & Fluid Resuscitation"
                 value={newEventName}
                 onChange={(e) => setNewEventName(e.target.value)}
               />
             </div>
             <div>
-              <Label htmlFor="cpd-event-date">Event date</Label>
+              <Label htmlFor="cpd-event-date">Event date *</Label>
               <Input
                 id="cpd-event-date"
-                placeholder="e.g. 12 June 2026"
+                placeholder="e.g. 12 August 2026"
                 value={newEventDate}
                 onChange={(e) => setNewEventDate(e.target.value)}
               />
             </div>
             <div>
+              <Label htmlFor="cpd-event-type">Category / Type *</Label>
+              <select
+                id="cpd-event-type"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={eventType}
+                onChange={(e) => setEventType(e.target.value as any)}
+              >
+                <option value="cne">CNE (Continuing Nursing Education)</option>
+                <option value="cme">CME (Continuing Medical Education)</option>
+                <option value="cpd_general">CPD (General Interprofessional)</option>
+                <option value="grand_rounds">Grand Rounds</option>
+                <option value="journal_club">Journal Club / Audit</option>
+                <option value="workshop">Skills Workshop</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="cpd-presenter-name">Presenter Name</Label>
+              <Input
+                id="cpd-presenter-name"
+                placeholder="e.g. Dr. Sarah Hassan"
+                value={presenterName}
+                onChange={(e) => setPresenterName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
+              <Input
+                id="cpd-presenter-cadre"
+                placeholder="e.g. Consultant Paediatrician"
+                value={presenterCadre}
+                onChange={(e) => setPresenterCadre(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cpd-presenter-dept">Presenting Department</Label>
+              <select
+                id="cpd-presenter-dept"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={presenterDepartment}
+                onChange={(e) => setPresenterDepartment(e.target.value)}
+              >
+                <option value="">Select Department</option>
+                {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2">
+            <div>
               <Label htmlFor="cpd-approving-council">Approving Council</Label>
               <select
                 id="cpd-approving-council"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={approvingCouncil}
                 onChange={(e) => setApprovingCouncil(e.target.value)}
               >
-                <option value="NCK">NCK (Nursing Council)</option>
+                <option value="NCK">NCK (Nursing Council of Kenya)</option>
                 <option value="KMPDC">KMPDC (Medical Council)</option>
                 <option value="COC">COC (Clinical Officers Council)</option>
                 <option value="Other">Other / Custom</option>
@@ -379,12 +595,13 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                 type="number"
                 step="0.5"
                 min="0"
-                placeholder="e.g. 3.0"
+                placeholder="e.g. 2.0"
                 value={cpdPoints}
                 onChange={(e) => setCpdPoints(e.target.value)}
               />
             </div>
           </div>
+
           {approvingCouncil === "Other" && (
             <div className="max-w-md">
               <Label htmlFor="cpd-custom-council">Specify Council Name</Label>
@@ -396,7 +613,8 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               />
             </div>
           )}
-          <div className="flex justify-end">
+
+          <div className="flex justify-end pt-2">
             <Button
               onClick={() => {
                 const finalCouncil = approvingCouncil === "None"
@@ -409,6 +627,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   institutionId,
                   name: newEventName.trim(),
                   eventDate: newEventDate.trim(),
+                  eventType,
+                  presenterName: presenterName.trim() || null,
+                  presenterCadre: presenterCadre.trim() || null,
+                  presenterDepartment: presenterDepartment.trim() || null,
                   approvingCouncil: finalCouncil,
                   cpdPoints: pointsNum,
                 });
@@ -441,6 +663,8 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Event</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Presenter</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -452,11 +676,33 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     key={event.id}
                     className={event.id === effectiveEventId ? "bg-muted/40" : undefined}
                   >
-                    <TableCell className="font-medium">{event.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{event.name}</div>
+                      {event.cpdPoints && (
+                        <div className="text-xs text-muted-foreground">
+                          {event.cpdPoints} Points · {event.approvingCouncil || "Standard"}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="uppercase text-[10px]">
+                        {event.eventType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {event.presenterName ? (
+                        <div className="text-xs">
+                          <span className="font-semibold">{event.presenterName}</span>
+                          <div className="text-muted-foreground">{event.presenterDepartment || "General"}</div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                      )}
+                    </TableCell>
                     <TableCell>{event.eventDate}</TableCell>
                     <TableCell>
                       {event.isOpen ? (
-                        <Badge>Open</Badge>
+                        <Badge className="bg-emerald-600">Open</Badge>
                       ) : (
                         <Badge variant="secondary">Closed</Badge>
                       )}
@@ -469,6 +715,20 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                           onClick={() => setSelectedEventId(event.id)}
                         >
                           View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Edit Presenter & Details"
+                          onClick={() => {
+                            setEditingEventId(event.id);
+                            setEditPresenterName(event.presenterName || "");
+                            setEditPresenterCadre(event.presenterCadre || "");
+                            setEditPresenterDept(event.presenterDepartment || "");
+                            setEditEventType((event.eventType as any) || "cne");
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                         {event.isOpen ? (
                           <Button
@@ -490,8 +750,138 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               </TableBody>
             </Table>
           )}
+
+          {/* Edit Presenter Modal/Inline Card */}
+          {editingEventId && (
+            <Card className="mt-4 border-purple-200 bg-purple-50/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Edit / Backfill Event Presenter</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label className="text-xs">Presenter Name</Label>
+                    <Input
+                      size={30}
+                      className="h-8 text-xs"
+                      value={editPresenterName}
+                      onChange={(e) => setEditPresenterName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Presenter Cadre</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      value={editPresenterCadre}
+                      onChange={(e) => setEditPresenterCadre(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Presenting Department</Label>
+                    <select
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                      value={editPresenterDept}
+                      onChange={(e) => setEditPresenterDept(e.target.value)}
+                    >
+                      <option value="">Select Dept</option>
+                      {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingEventId(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      updateEventPresenterMutation.mutate({
+                        institutionId,
+                        eventId: editingEventId,
+                        presenterName: editPresenterName.trim() || null,
+                        presenterCadre: editPresenterCadre.trim() || null,
+                        presenterDepartment: editPresenterDept.trim() || null,
+                        eventType: editEventType,
+                      })
+                    }
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </CardContent>
       </Card>
+
+      {/* Staff Attendance & Locum Matrix */}
+      {analytics && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Staff CPD Ledger & Locum Matrix</CardTitle>
+                <CardDescription>
+                  Detailed attendance records per staff member with locum/outreach flags
+                </CardDescription>
+              </div>
+              <Input
+                placeholder="Search staff or department..."
+                className="max-w-xs h-8 text-xs"
+                value={staffSearch}
+                onChange={(e) => setStaffSearch(e.target.value)}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredStaffMatrix.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No matching staff attendance found.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Staff Name</TableHead>
+                    <TableHead>Cadre & Department</TableHead>
+                    <TableHead>CNEs Attended</TableHead>
+                    <TableHead>CMEs Attended</TableHead>
+                    <TableHead>Total CPDs</TableHead>
+                    <TableHead className="text-right">Attendance Type</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStaffMatrix.map((staff) => (
+                    <TableRow key={staff.email}>
+                      <TableCell className="font-medium">
+                        <div>{staff.fullName}</div>
+                        <div className="text-[11px] text-muted-foreground">{staff.email}</div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {staff.cadre} · <span className="font-medium text-slate-700 dark:text-slate-300">{staff.department}</span>
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold text-blue-600">{staff.cneAttended}</TableCell>
+                      <TableCell className="text-xs font-semibold text-emerald-600">{staff.cmeAttended}</TableCell>
+                      <TableCell className="text-xs font-bold">{staff.totalAttended}</TableCell>
+                      <TableCell className="text-right">
+                        {staff.isLocum ? (
+                          <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950">
+                            Locum / Outreach
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Primary Staff</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Registrations for selected event */}
       <Card>
@@ -509,11 +899,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               <div className="w-full mt-4 p-4 border border-border rounded-lg bg-muted/20 flex flex-col md:flex-row md:items-end gap-3">
                 <div className="flex-1">
                   <Label htmlFor="cpd-code-input" className="text-sm font-medium">
-                    NCK CPD Portal Secret Code
+                    NCK / KMPDC Portal Secret Code
                   </Label>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Enter the secret code received from NCK for this training session. 
-                    Attendees will see this next to their certificate to claim points on the NCK portal.
+                    Enter the secret code received from council for this training session.
                   </p>
                   <Input
                     id="cpd-code-input"

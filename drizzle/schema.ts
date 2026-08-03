@@ -3479,6 +3479,13 @@ export const cpdEvents = mysqlTable("cpdEvents", {
   cpdCode: varchar("cpdCode", { length: 128 }),
   approvingCouncil: varchar("approvingCouncil", { length: 128 }),
   cpdPoints: decimal("cpdPoints", { precision: 4, scale: 1 }),
+  eventType: mysqlEnum("eventType", ["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).default("cpd_general").notNull(),
+  presenterUserId: int("presenterUserId"),
+  presenterName: varchar("presenterName", { length: 255 }),
+  presenterCadre: varchar("presenterCadre", { length: 128 }),
+  presenterDepartment: varchar("presenterDepartment", { length: 128 }),
+  scheduledStartTime: varchar("scheduledStartTime", { length: 10 }),
+  scheduledEndTime: varchar("scheduledEndTime", { length: 10 }),
 });
 
 export type CpdEvent = typeof cpdEvents.$inferSelect;
@@ -3498,6 +3505,10 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   higherDiploma: varchar("higherDiploma", { length: 256 }),
   department: varchar("department", { length: 256 }).notNull(),
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  attendanceType: mysqlEnum("attendanceType", ["primary_facility", "locum_outreach", "guest_external"]).default("primary_facility").notNull(),
+  roleInEvent: mysqlEnum("roleInEvent", ["attendee", "presenter", "co_presenter", "moderator"]).default("attendee").notNull(),
+  checkInPunctuality: mysqlEnum("checkInPunctuality", ["on_time", "late_15m", "late_30m+"]).default("on_time").notNull(),
+  clinicalTakeaway: text("clinicalTakeaway"),
 });
 
 export type CpdAttendee = typeof cpdAttendees.$inferSelect;
