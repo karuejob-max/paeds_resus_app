@@ -40,6 +40,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -825,20 +826,12 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                             onChange={(e) => setEditPresenterCadre(e.target.value)}
                           />
                         </div>
-                        <div>
-                          <Label className="text-xs">Presenting Department</Label>
-                          <select
-                            className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                        <div className="sm:col-span-2 md:col-span-3">
+                          <DepartmentSelectors
                             value={editPresenterDept}
-                            onChange={(e) => setEditPresenterDept(e.target.value)}
-                          >
-                            <option value="">Select Department</option>
-                            {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
-                              <option key={d.id} value={d.name}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={setEditPresenterDept}
+                            labelSize="xs"
+                          />
                         </div>
                       </div>
 
@@ -969,21 +962,11 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     onChange={(e) => setPresenterCadre(e.target.value)}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="cpd-presenter-dept">Presenting Department</Label>
-                  <select
-                    id="cpd-presenter-dept"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                <div className="sm:col-span-3">
+                  <DepartmentSelectors
                     value={presenterDepartment}
-                    onChange={(e) => setPresenterDepartment(e.target.value)}
-                  >
-                    <option value="">Select Department</option>
-                    {CANONICAL_CLINICAL_DEPARTMENTS.map((d) => (
-                      <option key={d.id} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setPresenterDepartment}
+                  />
                 </div>
               </div>
 

@@ -10,6 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 
 const staffFormSchema = z.object({
   staffName: z.string().min(2, "Name must be at least 2 characters"),
@@ -212,13 +213,12 @@ export function AddStaffForm({ institutionId, open, onOpenChange, onSuccess }: A
                 name="department"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Department</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., ICU, Emergency, Ward" {...field} />
+                      <DepartmentSelectors
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
-                    <FormDescription>
-                      Optional: Specify the department or unit
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

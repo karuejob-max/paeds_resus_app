@@ -28,6 +28,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
 import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 
@@ -399,49 +400,16 @@ export default function CpdRegister() {
                     name="department"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Clinical Department *</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select your department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Paediatrics & Child Health">Paediatrics & Child Health</SelectItem>
-                            <SelectItem value="Accident & Emergency (A&E / Casualty)">Accident & Emergency (A&E / Casualty)</SelectItem>
-                            <SelectItem value="Intensive Care Unit (ICU / HDU / PICU / NICU)">Intensive Care Unit (ICU / HDU / PICU / NICU)</SelectItem>
-                            <SelectItem value="Obstetrics & Gynaecology / Maternity">Obstetrics & Gynaecology / Maternity</SelectItem>
-                            <SelectItem value="Internal Medicine / Medical Ward">Internal Medicine / Medical Ward</SelectItem>
-                            <SelectItem value="Surgery / Surgical Ward">Surgery / Surgical Ward</SelectItem>
-                            <SelectItem value="Outpatient Department (OPD / GOPD)">Outpatient Department (OPD / GOPD)</SelectItem>
-                            <SelectItem value="Pharmacy & Pharmacology">Pharmacy & Pharmacology</SelectItem>
-                            <SelectItem value="Laboratory & Pathology">Laboratory & Pathology</SelectItem>
-                            <SelectItem value="Anaesthesia & Operating Theatre">Anaesthesia & Operating Theatre</SelectItem>
-                            <SelectItem value="Nursing Services / Administration">Nursing Services / Administration</SelectItem>
-                            <SelectItem value="Other">Other (Please specify)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <DepartmentSelectors
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  {form.watch("department") === "Other" && (
-                    <FormItem>
-                      <FormLabel>Specify Department Name *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g. Special Care Baby Unit (SCBU)"
-                          onChange={(e) => form.setValue("department", e.target.value)}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
 
                   <Button
                     type="submit"
