@@ -53,7 +53,27 @@ export interface FellowshipEnrollmentInput {
 export interface FellowshipSimulationAttendanceInput {
   /** courses.programType of the training this session belongs to */
   coursesProgramType: string;
-  simulationRole: "team_member" | "team_leader" | null;
+  /**
+   * Widened 2026-08-02 to match drizzle/schema.ts's simulationRoleEnum,
+   * which now also carries the Cohort Program's Phase 2 named roles
+   * (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.2). Fellowship's own counting
+   * logic below only ever matches "team_member"/"team_leader" -- unrelated
+   * to its separate 3/3 requirement -- so a named Phase 2 role here simply
+   * doesn't count toward Fellowship, same as any other non-matching value
+   * would have before. Not importing the schema enum type directly to
+   * avoid a schema.ts dependency in this otherwise-pure function file.
+   */
+  simulationRole:
+    | "team_member"
+    | "team_leader"
+    | "team_member_airway_ventilation"
+    | "team_member_compressor_1"
+    | "team_member_compressor_2"
+    | "team_member_monitor_defib_cpr_coach"
+    | "team_member_iv_io_meds"
+    | "team_member_scribe"
+    | "observer"
+    | null;
   simulationCompetencyPassed: boolean | null;
 }
 

@@ -1271,7 +1271,13 @@ export type InsertContract = typeof contracts.$inferInsert;
 // Training Schedules
 export const trainingSchedules = mysqlTable("trainingSchedules", {
   id: int("id").autoincrement().primaryKey(),
-  institutionalAccountId: int("institutionalAccountId").notNull(),
+  // Nullable as of 2026-08-02 (docs/IERP_NERP_PROGRAM_V2_SPEC.md §2, §4):
+  // instructor-declared Phase 2 sessions are self-service and cross-program
+  // (IERP/NERP/standard learners share a session) -- they genuinely don't
+  // belong to one institution. Coordinator-created sessions (Phase 3,
+  // legacy) still set this normally; only self-declared Phase 2 rows are
+  // expected to have it null.
+  institutionalAccountId: int("institutionalAccountId"),
   courseId: int("courseId").notNull(),
   trainingType: mysqlEnum("trainingType", ["online", "hands_on", "hybrid"]).notNull(),
   scheduledDate: timestamp("scheduledDate").notNull(),
@@ -1290,7 +1296,29 @@ export const trainingSchedules = mysqlTable("trainingSchedules", {
 export type TrainingSchedule = typeof trainingSchedules.$inferSelect;
 export type InsertTrainingSchedule = typeof trainingSchedules.$inferInsert;
 
-export const simulationRoleEnum = mysqlEnum("simulationRole", ["team_member", "team_leader"]);
+// Phase 2 role-based booking (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.2, CEO
+// 2026-07-31 respec) adds the six named team-member roles plus "observer"
+// below. Deliberately additive, not a replacement: "team_member" and
+// "team_leader" stay, because this enum is also used by the Fellowship
+// program's simulation tracking (fellowship-progress.service.ts) and by
+// the existing Phase 3 hands-on/hybrid booking flow in courses.ts, both of
+// which only know the old 2-value model and shouldn't be forced to change
+// just because Phase 2 booking now wants more granular roles. New,
+// self-service Phase 2 bookings use the named values; everything else
+// keeps using "team_member"/"team_leader" exactly as before. Capacity per
+// role is enforced in application code, not the schema: team_leader and
+// each named team_member_* role max 1 per session, observer up to 7.
+export const simulationRoleEnum = mysqlEnum("simulationRole", [
+  "team_member",
+  "team_leader",
+  "team_member_airway_ventilation",
+  "team_member_compressor_1",
+  "team_member_compressor_2",
+  "team_member_monitor_defib_cpr_coach",
+  "team_member_iv_io_meds",
+  "team_member_scribe",
+  "observer",
+]);
 
 // Training Attendance
 export const trainingAttendance = mysqlTable("trainingAttendance", {
@@ -1299,12 +1327,39 @@ export const trainingAttendance = mysqlTable("trainingAttendance", {
   staffMemberId: int("staffMemberId").notNull(),
   attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "attended", "absent", "cancelled", "waitlisted"]).default("registered"),
   simulationRole: simulationRoleEnum,
+  // Repurposed 2026-08-02 (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.5): now
+  // means "the instructor who ran this session confirmed the learner
+  // actually filled this role" -- a session role only counts toward Phase 2
+  // completion once this is true. Booking a slot alone (attendanceStatus =
+  // registered/attended) does not count on its own.
   simulationCompetencyPassed: boolean("simulationCompetencyPassed").default(false),
   skillsAssessmentScore: int("skillsAssessmentScore"), // 0-100
   feedback: text("feedback"),
   certificateIssued: boolean("certificateIssued").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// Retrospective role-fill claims (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.5,
+// CEO 2026-07-31 respec): when the person who booked a role doesn't show
+// and someone else present (often an observer) actually performs it
+// instead, that person can submit a claim after the fact. The instructor
+// who ran the session must approve it before it counts toward the
+// claimant's Phase 2 completion the same way a confirmed trainingAttendance
+// row does. Deliberately a separate table, not a trainingAttendance row --
+// the claimant didn't book this role ahead of time, so there's no existing
+// row to update, and keeping "how I actually got this role" (booked vs.
+// claimed) visible has real audit value.
+export const retrospectiveRoleClaims = mysqlTable("retrospectiveRoleClaims", {
+  id: int("id").autoincrement().primaryKey(),
+  trainingScheduleId: int("trainingScheduleId").notNull(),
+  claimantUserId: int("claimantUserId").notNull(),
+  role: simulationRoleEnum.notNull(),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 // Individual Installment Payments
