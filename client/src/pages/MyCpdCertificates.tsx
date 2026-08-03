@@ -70,17 +70,44 @@ export default function MyCpdCertificates() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-          <Award className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My CPD Certificates</h1>
-          <p className="text-sm text-muted-foreground">
-            Continuous Professional Development sessions you have attended.
-          </p>
-        </div>
-      </div>
+      {records.length > 0 && (() => {
+        const totalPts = records.reduce((acc, r) => acc + (Number(r.cpdPoints) || 0), 0);
+        const targetPts = 20;
+        const progressPct = Math.min(100, Math.round((totalPts / targetPts) * 100));
+
+        return (
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            <Card className="border-blue-100 bg-gradient-to-br from-blue-50/40 to-white dark:border-blue-900/30 dark:from-blue-950/20">
+              <CardHeader className="pb-1 text-xs text-muted-foreground uppercase font-semibold">Total Points Earned</CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Math.round(totalPts * 10) / 10} Pts</div>
+                <p className="text-xs text-muted-foreground mt-0.5">Minted on Paeds Resus</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/40 to-white dark:border-emerald-900/30 dark:from-emerald-950/20">
+              <CardHeader className="pb-1 text-xs text-muted-foreground uppercase font-semibold">Sessions Attended</CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{records.length}</div>
+                <p className="text-xs text-muted-foreground mt-0.5">Across partner hospitals</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-purple-100 bg-gradient-to-br from-purple-50/40 to-white dark:border-purple-900/30 dark:from-purple-950/20">
+              <CardHeader className="pb-1 text-xs text-muted-foreground uppercase font-semibold">Annual Council Renewal</CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                  <span>{progressPct}% Target Met</span>
+                  <span>{totalPts}/{targetPts} pts</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div className="h-full bg-purple-600 transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       <Card>
         <CardHeader>

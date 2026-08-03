@@ -35,6 +35,7 @@ const AdminOps = lazy(() => import("./pages/AdminOps"));
 const AdminMpesaWebhooks = lazy(() => import("./pages/AdminMpesaWebhooks"));
 const AdminFacilityCareSignal = lazy(() => import("./pages/AdminFacilityCareSignal"));
 const AdminFeedback = lazy(() => import("./pages/AdminFeedback"));
+const AdminCpdAnalytics = lazy(() => import("./pages/AdminCpdAnalytics"));
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const Help = lazy(() => import("./pages/Help"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -251,6 +252,11 @@ function Router() {
           <Route path="/admin/knowledge-stewardship">{() => (
             <AdminGate>
               <KnowledgeStewardship />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/cpd-analytics">{() => (
+            <AdminGate>
+              <AdminCpdAnalytics />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />

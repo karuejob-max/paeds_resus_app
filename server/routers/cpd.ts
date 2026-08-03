@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users } from "../../drizzle/schema";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -153,6 +153,12 @@ export const cpdRouter = router({
         eventDate: z.string().trim().min(1).max(64),
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
+        eventType: z.enum(["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).default("cpd_general"),
+        presenterName: z.string().trim().max(255).nullable().optional(),
+        presenterCadre: z.string().trim().max(128).nullable().optional(),
+        presenterDepartment: z.string().trim().max(128).nullable().optional(),
+        scheduledStartTime: z.string().trim().max(10).nullable().optional(),
+        scheduledEndTime: z.string().trim().max(10).nullable().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -177,9 +183,60 @@ export const cpdRouter = router({
         openedAt: now,
         approvingCouncil: input.approvingCouncil ?? null,
         cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
+        eventType: input.eventType || "cpd_general",
+        presenterName: input.presenterName ?? null,
+        presenterCadre: input.presenterCadre ?? null,
+        presenterDepartment: input.presenterDepartment ?? null,
+        scheduledStartTime: input.scheduledStartTime ?? null,
+        scheduledEndTime: input.scheduledEndTime ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
       return { success: true as const, eventId };
+    }),
+
+  /** Admin: update event details or backfill presenter for past/current CPDs. */
+  updateEventPresenter: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        eventId: z.number().int().positive(),
+        eventType: z.enum(["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).optional(),
+        presenterName: z.string().trim().max(255).nullable().optional(),
+        presenterCadre: z.string().trim().max(128).nullable().optional(),
+        presenterDepartment: z.string().trim().max(128).nullable().optional(),
+        cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
+        approvingCouncil: z.string().trim().max(128).nullable().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [event] = await db
+        .select({ id: cpdEvents.id })
+        .from(cpdEvents)
+        .where(
+          and(
+            eq(cpdEvents.id, input.eventId),
+            eq(cpdEvents.institutionalAccountId, input.institutionId)
+          )
+        )
+        .limit(1);
+
+      if (!event) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
+      }
+
+      const updateData: Record<string, unknown> = {};
+      if (input.eventType !== undefined) updateData.eventType = input.eventType;
+      if (input.presenterName !== undefined) updateData.presenterName = input.presenterName;
+      if (input.presenterCadre !== undefined) updateData.presenterCadre = input.presenterCadre;
+      if (input.presenterDepartment !== undefined) updateData.presenterDepartment = input.presenterDepartment;
+      if (input.cpdPoints !== undefined) updateData.cpdPoints = input.cpdPoints ? String(input.cpdPoints) : null;
+      if (input.approvingCouncil !== undefined) updateData.approvingCouncil = input.approvingCouncil;
+
+      await db.update(cpdEvents).set(updateData).where(eq(cpdEvents.id, input.eventId));
+      return { success: true as const };
     }),
 
   /** Admin: close a specific event. */
@@ -371,6 +428,21 @@ export const cpdRouter = router({
           message: "You have already registered for this event with this email.",
         });
       }
+      // Determine attendance type (primary_facility vs locum_outreach)
+      let attendanceType: "primary_facility" | "locum_outreach" | "guest_external" = "primary_facility";
+      const userStaffRows = await db
+        .select({
+          instId: institutionalStaffMembers.institutionalAccountId,
+        })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+
+      if (userStaffRows.length > 0) {
+        const matchesCurrent = userStaffRows.some((r) => r.instId === input.institutionId);
+        if (!matchesCurrent) {
+          attendanceType = "locum_outreach";
+        }
+      }
 
       await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
@@ -382,9 +454,59 @@ export const cpdRouter = router({
         cadreOther: requiresOther ? input.cadreOther?.trim() ?? null : null,
         higherDiploma: null,
         department: input.department,
+        attendanceType,
+        roleInEvent: "attendee",
+        checkInPunctuality: "on_time",
       });
 
-      return { success: true as const };
+      // 1. Auto-Profile Prefill: Update user cadre if currently empty
+      if (!ctx.user.cadre) {
+        await db
+          .update(users)
+          .set({
+            cadre: input.cadre,
+            cadreOther: requiresOther ? input.cadreOther?.trim() ?? null : null,
+          })
+          .where(eq(users.id, ctx.user.id));
+      }
+
+      // 2. Auto-Staff Population: Auto-create institutional staff member record if not yet linked
+      const [existingStaff] = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(
+          and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            eq(institutionalStaffMembers.staffEmail, normalizedEmail)
+          )
+        )
+        .limit(1);
+
+      if (!existingStaff) {
+        let staffRole: "doctor" | "nurse" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
+        const cLower = input.cadre.toLowerCase();
+        if (cLower.includes("nurse") || cLower.includes("nursing") || cLower.includes("msn") || cLower.includes("hnd")) {
+          staffRole = "nurse";
+        } else if (cLower.includes("doctor") || cLower.includes("mo") || cLower.includes("medical officer") || cLower.includes("physician") || cLower.includes("consultant")) {
+          staffRole = "doctor";
+        } else if (cLower.includes("clinical officer") || cLower.includes("rco")) {
+          staffRole = "paramedic";
+        }
+
+        await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: input.institutionId,
+          userId: ctx.user.id,
+          staffName: input.fullName,
+          staffEmail: normalizedEmail,
+          staffPhone: input.phone,
+          staffRole,
+          department: input.department,
+          enrollmentStatus: "enrolled",
+          facilityLinkStatus: "linked",
+        });
+      }
+
+      return { success: true as const, attendanceType };
     }),
 
   /** Admin: list attendees, optionally filtered to one event. */
@@ -593,6 +715,165 @@ export const cpdRouter = router({
         approvingCouncil: r.approvingCouncil ?? null,
         cpdPoints: r.cpdPoints ?? null,
       })),
+    };
+  }),
+
+  /** Admin: Institutional CPD Analytics Dashboard */
+  getInstitutionalCpdAnalytics: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const events = await db
+        .select()
+        .from(cpdEvents)
+        .where(eq(cpdEvents.institutionalAccountId, input.institutionId))
+        .orderBy(desc(cpdEvents.id));
+
+      const attendees = await db
+        .select()
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId))
+        .orderBy(desc(cpdAttendees.id));
+
+      let totalPointsIssued = 0;
+      let cneCount = 0;
+      let cmeCount = 0;
+      let generalCount = 0;
+      let workshopCount = 0;
+
+      for (const ev of events) {
+        if (ev.eventType === "cne") cneCount++;
+        else if (ev.eventType === "cme") cmeCount++;
+        else if (ev.eventType === "workshop") workshopCount++;
+        else generalCount++;
+
+        const pts = Number(ev.cpdPoints ?? 0);
+        const count = attendees.filter((a) => a.cpdEventId === ev.id).length;
+        totalPointsIssued += pts * count;
+      }
+
+      // Department Heatmap & Leaderboard
+      const deptStats: Record<string, { department: string; attendedCount: number; presentedCount: number }> = {};
+      
+      for (const a of attendees) {
+        const dept = a.department || "Unassigned";
+        if (!deptStats[dept]) {
+          deptStats[dept] = { department: dept, attendedCount: 0, presentedCount: 0 };
+        }
+        deptStats[dept].attendedCount++;
+      }
+
+      for (const ev of events) {
+        if (ev.presenterDepartment) {
+          const dept = ev.presenterDepartment;
+          if (!deptStats[dept]) {
+            deptStats[dept] = { department: dept, attendedCount: 0, presentedCount: 0 };
+          }
+          deptStats[dept].presentedCount++;
+        }
+      }
+
+      // Presenter Leaderboard
+      const presenterStats: Record<string, { presenterName: string; department: string; cadre: string; sessionCount: number }> = {};
+      for (const ev of events) {
+        if (ev.presenterName) {
+          const name = ev.presenterName;
+          if (!presenterStats[name]) {
+            presenterStats[name] = {
+              presenterName: name,
+              department: ev.presenterDepartment || "General",
+              cadre: ev.presenterCadre || "Clinician",
+              sessionCount: 0,
+            };
+          }
+          presenterStats[name].sessionCount++;
+        }
+      }
+
+      // Staff Attendance Matrix
+      const staffMap: Record<string, { fullName: string; email: string; cadre: string; department: string; cneAttended: number; cmeAttended: number; totalAttended: number; lastSignIn: Date | string; isLocum: boolean }> = {};
+      for (const a of attendees) {
+        const key = a.email.toLowerCase();
+        const ev = events.find((e) => e.id === a.cpdEventId);
+        const isCne = ev?.eventType === "cne";
+        const isCme = ev?.eventType === "cme";
+
+        if (!staffMap[key]) {
+          staffMap[key] = {
+            fullName: a.fullName,
+            email: a.email,
+            cadre: a.cadre,
+            department: a.department,
+            cneAttended: 0,
+            cmeAttended: 0,
+            totalAttended: 0,
+            lastSignIn: a.submittedAt,
+            isLocum: a.attendanceType === "locum_outreach",
+          };
+        }
+
+        if (isCne) staffMap[key].cneAttended++;
+        if (isCme) staffMap[key].cmeAttended++;
+        staffMap[key].totalAttended++;
+      }
+
+      return {
+        summary: {
+          totalEvents: events.length,
+          totalAttendees: attendees.length,
+          totalPointsIssued: Math.round(totalPointsIssued * 10) / 10,
+          cneCount,
+          cmeCount,
+          generalCount,
+          workshopCount,
+        },
+        departmentHeatmap: Object.values(deptStats).sort((a, b) => b.attendedCount - a.attendedCount),
+        presenterLeaderboard: Object.values(presenterStats).sort((a, b) => b.sessionCount - a.sessionCount),
+        staffMatrix: Object.values(staffMap).sort((a, b) => b.totalAttended - a.totalAttended),
+      };
+    }),
+
+  /** Platform Admin: Global CPD Analytics Radar */
+  getPlatformCpdAnalytics: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+    }
+    const db = await requireDb();
+
+    const allEvents = await db.select().from(cpdEvents);
+    const allAttendees = await db.select().from(cpdAttendees);
+    const allInstitutions = await db.select({ id: institutionalAccounts.id, name: institutionalAccounts.companyName }).from(institutionalAccounts);
+
+    const hospitalStats: Record<number, { id: number; name: string; eventCount: number; attendeeCount: number }> = {};
+    for (const inst of allInstitutions) {
+      hospitalStats[inst.id] = { id: inst.id, name: inst.name, eventCount: 0, attendeeCount: 0 };
+    }
+
+    for (const ev of allEvents) {
+      if (hospitalStats[ev.institutionalAccountId]) {
+        hospitalStats[ev.institutionalAccountId].eventCount++;
+      }
+    }
+
+    for (const a of allAttendees) {
+      if (hospitalStats[a.institutionalAccountId]) {
+        hospitalStats[a.institutionalAccountId].attendeeCount++;
+      }
+    }
+
+    const cadreBreakdown: Record<string, number> = {};
+    for (const a of allAttendees) {
+      const c = a.cadre || "Other";
+      cadreBreakdown[c] = (cadreBreakdown[c] || 0) + 1;
+    }
+
+    return {
+      totalPlatformEvents: allEvents.length,
+      totalPlatformAttendees: allAttendees.length,
+      hospitalLeaderboard: Object.values(hospitalStats).sort((a, b) => b.attendeeCount - a.attendeeCount),
+      cadreDistribution: Object.entries(cadreBreakdown).map(([cadre, count]) => ({ cadre, count })),
     };
   }),
 });
