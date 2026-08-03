@@ -30,9 +30,10 @@ Work is **NOT done** until **all** of the following are true (unless Blocked wit
 | Gate | Requirement |
 |------|-------------|
 | **On `origin/main`** | Changes merged to `main` with merge commit hash recorded — **not** local-only, not sandbox-only, not “PR opened but not merged” |
-| **WORK_STATUS** | Dated **Done** entry with PR URL + merge commit hash + who (Cursor / Manus / Codex) |
+| **WORK_STATUS Documentation** | Mandatory dated **Done** entry in [`WORK_STATUS.md`](./WORK_STATUS.md) with PR URL + merge commit hash + who (Cursor / Manus / Codex / Antigravity / Claude) + summary of work |
 | **Verification recorded** | Output of `pnpm run check`, `pnpm run test:unit`, or a targeted verify script (e.g. `pnpm run quiz:verify-answer`, `pnpm run db:verify-0044`) pasted or summarized in WORK_STATUS or PR body |
 | **DB-backed fixes** | Verify script run **or** row-level proof (question id, `evaluatorMatch: true`, migration applied) |
+| **Reserved Branch Cleanup** | Any placeholder reservation branch (e.g., `migration-reserved-00XX`) **MUST** be deleted from `origin` (`git push origin --delete migration-reserved-00XX`) immediately after the real PR with the completed migration/task is merged to `main`. |
 
 **Sandbox is not production.** Manus (and any isolated environment) must not mark **Done** when artifacts exist only in that environment.
 
