@@ -1,9 +1,9 @@
 # Care Signal — Data Processing Notice
 
 **Document:** CARE_SIGNAL_DATA_PROCESSING_NOTICE.md  
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Effective date:** 27 May 2026  
-**Last updated:** 19 July 2026  
+**Last updated:** 29 July 2026  
 **Status:** Counsel review draft  
 **Controller:** Paeds Resus Limited, Nairobi, Kenya  
 **Contact:** privacy@paeds-resus.com | legal@paeds-resus.com  
@@ -53,6 +53,8 @@ By submitting your first Care Signal report, you provide **explicit consent** to
 
 If you choose Pseudonymous and lose your device without having saved the recovery code, the streak tied to that token cannot be recovered — there is no plain link stored anywhere for us to look it up, by design.
 
+**Automated redaction shortly after submission.** Soon after you submit, a background job sends your free-text narrative to an LLM (currently Google Gemini, on our paid/private tier — see Section 5) to generate a redacted-derivative copy with names, phone numbers, exact dates, and facility names stripped out. Your original narrative is retained unchanged for internal quality-improvement analysis; the redacted derivative is what standard dashboards and rollups are intended to use. This is separate from, and happens much earlier than, the anonymisation described in Section 6 — see that section for what happens if the redaction pass hasn't completed yet by the time a report reaches its retention cutoff.
+
 Schema reference: `careSignalEvents` in `drizzle/schema.ts` — no patient identifier columns by design.
 
 ---
@@ -75,6 +77,7 @@ Schema reference: `careSignalEvents` in `drizzle/schema.ts` — no patient ident
 |-----------|---------------|
 | **You** | Your submission history and fellowship-related streak status |
 | **Paeds Resus operations** | Full report for moderation, appeals, and platform integrity |
+| **Automated LLM redaction service** (currently Google Gemini, paid/private tier) | The free-text narrative only, to generate the redacted derivative described in Section 3 — not used to train the provider's models, and not reviewed by a human at that provider |
 | **Facility administrators** (if your facility is registered) | **Aggregated** and facility-scoped views — not public league tables |
 | **Platform administrators** | Review queues (`/admin/care-signal-review`), national aggregate tools |
 | **MOH / WHO partners** | Only under signed governance — **not** routine public disclosure |
@@ -171,6 +174,7 @@ Version tracked as `LEGAL_DOCUMENT_VERSIONS.careSignalNotice`. Material changes 
 |---------|------|--------|
 | 1.0.0 | 2026-05-27 | Initial Care Signal notice |
 | 1.1.0 | 2026-07-19 | Catch-up revision, still pending counsel review: §3 rewritten for the three-way submission mode (named/pseudonymous/anonymous); §5 corrected — no longer claims every report is identified to Paeds Resus, since Anonymous mode genuinely has no identity link; §6 retention rewritten for anonymise-not-delete. **CEO decision (2026-07-19): re-consent existing users now** — see `PRIVACY_POLICY_FULL.md`'s matching changelog entry and `LEGAL_SIGNOFF_BACKLOG.md` item 2.1. |
+| 1.2.0 | 2026-07-29 | Closes a real disclosure gap found in code review: §6 already mentioned the automated LLM redaction pass, but only in the retention section, and only as something that happens at the 7-year/DSAR cutoff — a provider reading this document would not have learned that redaction actually happens shortly after every submission, or that a third-party AI provider processes the narrative at all before then. §3 now discloses the redaction pass where a submitter would actually encounter it (near the submission-mode explanation); §5's recipient table now lists the LLM redaction service explicitly, the same way it already lists MOH/WHO partners and platform administrators. Not treated as re-consent-triggering — this makes an existing, already-disclosed practice more complete and easier to find, not a new practice; flagged in `LEGAL_SIGNOFF_BACKLOG.md` item 2.3 for counsel to confirm that reading is correct. |
 
 ---
 

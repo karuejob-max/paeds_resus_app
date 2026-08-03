@@ -1,168 +1,141 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { getDb } from "../db";
-import { careSignalEvents } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
-import { redactPendingNarratives } from "./care-signal-redact";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// These tests exercise the actual processing logic and must run as if LLM
-// features are enabled -- the kill switch itself (2026-07-29) has its own
-// dedicated, DB-free tests in care-signal-redact-pause.test.ts. Without
-// this, these tests would silently break the moment LLM_FEATURES_ENABLED
-// isn't "true" in whatever environment happens to have DATABASE_URL set.
+/**
+ * Rewritten 2026-07-29 to close a real gap found in code review: these
+ * tests previously required a live DATABASE_URL (a describe-level guard
+ * checking for hasDatabase before running), which CI never sets --
+ * meaning they had never actually executed even once in the pipeline
+ * that's supposed to protect merges. This version fully mocks the
+ * database layer, following the same pattern already used by
+ * care-signal-redact-pause.test.ts and care-signal-redact-backoff.test.ts,
+ * so these now run for real on every CI pass with no infrastructure change.
+ *
+ * See scripts/check-db-test-coverage.mjs (added separately, also
+ * 2026-07-29) for the complementary fix: making it loud and visible in CI
+ * output whenever some OTHER test file still needs a real database and
+ * therefore silently skipped, so a green check is never mistaken for
+ * "everything ran."
+ */
+
 vi.mock("../_core/env", () => ({
   ENV: { llmFeaturesEnabled: true },
 }));
 
-// Mock invokeLLM to prevent actual external API requests
-const mockInvokeLLM = vi.fn().mockResolvedValue({
-  choices: [
-    {
-      message: {
-        role: "assistant",
-        content: "[DEFAULT REDACTED NARRATIVE]",
-      },
-    },
-  ],
-});
+const mockInvokeLLM = vi.fn();
 vi.mock("../_core/llm", () => ({
   invokeLLM: (params: any) => mockInvokeLLM(params),
 }));
 
-const hasDatabase = Boolean(process.env.DATABASE_URL);
-
-describe.skipIf(!hasDatabase)("Care Signal Narrative Redaction Job", () => {
-  let db: any;
-  const testEventType = "test_redact_job_event_type";
-
-  beforeAll(async () => {
-    db = await getDb();
-    if (!db) {
-      throw new Error("Database not available");
-    }
-    // Clean up any stray test records first
-    await db.delete(careSignalEvents).where(eq(careSignalEvents.eventType, testEventType));
-  });
-
-  afterAll(async () => {
-    // Cleanup test records
-    if (db) {
-      await db.delete(careSignalEvents).where(eq(careSignalEvents.eventType, testEventType));
-    }
-  });
-
-  it("should process and redact pending narratives", async () => {
-    // Insert a test event with raw narrative but no redacted narrative
-    const testEvent = {
-      eventDate: new Date(),
-      childAge: 12,
-      eventType: testEventType,
-      presentation: "{}",
-      chainOfSurvival: "{}",
-      systemGaps: "[]",
-      gapDetails: "{}",
-      outcome: "survived",
-      neurologicalStatus: "unknown",
-      rawNarrative: "My patient John Doe was treated at Consolata Hospital.",
-      redactedNarrative: null,
-    };
-
-    const [insertResult] = await db.insert(careSignalEvents).values(testEvent);
-    const eventId = insertResult.insertId;
-
-    // Set mock response for invokeLLM
-    mockInvokeLLM.mockResolvedValueOnce({
-      choices: [
-        {
-          message: {
-            role: "assistant",
-            content: "My patient [PATIENT] was treated at [FACILITY].",
-          },
-        },
-      ],
-    });
-
-    // Mock the DB select to return ONLY our newly inserted event
-    const mockSelect = {
+/**
+ * Builds a minimal mock DbClient covering exactly the chain shapes
+ * redactPendingNarratives actually calls: db.select().from().where().limit()
+ * for candidates, and db.update().set().where() for writing results.
+ * `candidates` is what the mocked select resolves to; `updateSpy` lets a
+ * test assert on the exact payload passed to .set(...).
+ */
+function buildMockDb(candidates: any[]) {
+  const updateSpy = vi.fn();
+  const mockDb = {
+    select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([
-        {
-          id: eventId,
-          rawNarrative: testEvent.rawNarrative,
-          redactionAttempts: 0,
-          redactionLastAttemptAt: null,
-        }
-      ]),
-    };
-    const selectSpy = vi.spyOn(db, "select").mockReturnValue(mockSelect as any);
+      limit: vi.fn().mockResolvedValue(candidates),
+    }),
+    update: vi.fn().mockReturnValue({
+      set: (payload: any) => {
+        updateSpy(payload);
+        return { where: vi.fn().mockResolvedValue(undefined) };
+      },
+    }),
+  };
+  return { mockDb, updateSpy };
+}
 
-    // Run the redaction job
-    const result = await redactPendingNarratives(db);
+describe("redactPendingNarratives (fully mocked, no database needed)", () => {
+  beforeEach(() => {
+    mockInvokeLLM.mockReset();
+  });
+
+  it("processes a pending narrative successfully and writes the redacted text plus updated retry state", async () => {
+    const { redactPendingNarratives } = await import("./care-signal-redact");
+    const rawNarrative = "My patient John Doe was treated at Consolata Hospital.";
+    const { mockDb, updateSpy } = buildMockDb([
+      { id: 42, rawNarrative, redactionAttempts: 0, redactionLastAttemptAt: null },
+    ]);
+
+    mockInvokeLLM.mockResolvedValueOnce({
+      choices: [{ message: { role: "assistant", content: "My patient [PATIENT] was treated at [FACILITY]." } }],
+    });
+
+    const result = await redactPendingNarratives(mockDb as any);
 
     expect(result.processed).toBe(1);
     expect(result.succeeded).toBe(1);
+    expect(result.failed).toBe(0);
 
-    // Verify invokeLLM was called
-    expect(mockInvokeLLM).toHaveBeenCalled();
-    const lastCallArgs = mockInvokeLLM.mock.calls[0][0];
-    expect(lastCallArgs.messages[1].content).toBe(testEvent.rawNarrative);
+    // The narrative sent to the LLM should be the raw, unredacted text.
+    expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    expect(callArgs.messages[1].content).toBe(rawNarrative);
 
-    // Restore select to check the actual database
-    selectSpy.mockRestore();
-
-    // Check database to ensure the redactedNarrative was updated correctly
-    const [updatedRow] = await db
-      .select({ redactedNarrative: careSignalEvents.redactedNarrative })
-      .from(careSignalEvents)
-      .where(eq(careSignalEvents.id, eventId));
-
-    expect(updatedRow.redactedNarrative).toBe("My patient [PATIENT] was treated at [FACILITY].");
+    // The write should carry the redacted text, an incremented attempt
+    // count, a fresh lastAttemptAt, and a cleared error field.
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    const setPayload = updateSpy.mock.calls[0][0];
+    expect(setPayload.redactedNarrative).toBe("My patient [PATIENT] was treated at [FACILITY].");
+    expect(setPayload.redactionAttempts).toBe(1);
+    expect(setPayload.redactionLastAttemptAt).toBeInstanceOf(Date);
+    expect(setPayload.redactionLastError).toBeNull();
   });
 
-  it("should gracefully handle rate limit errors by pausing processing", async () => {
-    // Insert another test event
-    const testEvent = {
-      eventDate: new Date(),
-      childAge: 12,
-      eventType: testEventType,
-      presentation: "{}",
-      chainOfSurvival: "{}",
-      systemGaps: "[]",
-      gapDetails: "{}",
-      outcome: "survived",
-      neurologicalStatus: "unknown",
-      rawNarrative: "Another raw narrative context.",
-      redactedNarrative: null,
-    };
+  it("records the failure and increments attempts on a rate-limit error, without writing a redactedNarrative", async () => {
+    const { redactPendingNarratives } = await import("./care-signal-redact");
+    const { mockDb, updateSpy } = buildMockDb([
+      { id: 7, rawNarrative: "Another raw narrative context.", redactionAttempts: 0, redactionLastAttemptAt: null },
+    ]);
 
-    const [insertResult] = await db.insert(careSignalEvents).values(testEvent);
-    const eventId = insertResult.insertId;
-
-    // Setup invokeLLM mock to throw a rate limit error (HTTP 429)
-    mockInvokeLLM.mockReset();
     mockInvokeLLM.mockRejectedValueOnce(new Error("LLM invoke failed: 429 Too Many Requests"));
 
-    // Mock select query
-    const mockSelect = {
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([
-        {
-          id: eventId,
-          rawNarrative: testEvent.rawNarrative,
-          redactionAttempts: 0,
-          redactionLastAttemptAt: null,
-        }
-      ]),
-    };
-    const selectSpy = vi.spyOn(db, "select").mockReturnValue(mockSelect as any);
+    const result = await redactPendingNarratives(mockDb as any);
 
-    // Run redaction job
-    const result = await redactPendingNarratives(db);
-
+    expect(result.processed).toBe(1);
+    expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(1);
 
-    // Clean up
-    selectSpy.mockRestore();
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    const setPayload = updateSpy.mock.calls[0][0];
+    expect(setPayload.redactedNarrative).toBeUndefined();
+    expect(setPayload.redactionAttempts).toBe(1);
+    expect(setPayload.redactionLastError).toContain("429");
+  });
+
+  it("stops processing the rest of the batch after a rate-limit error, rather than hammering every remaining candidate", async () => {
+    const { redactPendingNarratives } = await import("./care-signal-redact");
+    const { mockDb } = buildMockDb([
+      { id: 1, rawNarrative: "First narrative.", redactionAttempts: 0, redactionLastAttemptAt: null },
+      { id: 2, rawNarrative: "Second narrative.", redactionAttempts: 0, redactionLastAttemptAt: null },
+      { id: 3, rawNarrative: "Third narrative.", redactionAttempts: 0, redactionLastAttemptAt: null },
+    ]);
+
+    mockInvokeLLM.mockRejectedValueOnce(new Error("429 Too Many Requests"));
+
+    await redactPendingNarratives(mockDb as any);
+
+    // Only the first candidate should have been attempted before the
+    // batch-level early exit on a rate limit.
+    expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats an empty/whitespace-only narrative as immediately resolved, not a failure -- and never touches retry state for it", async () => {
+    const { redactPendingNarratives } = await import("./care-signal-redact");
+    const { mockDb, updateSpy } = buildMockDb([
+      { id: 9, rawNarrative: "   ", redactionAttempts: 0, redactionLastAttemptAt: null },
+    ]);
+
+    const result = await redactPendingNarratives(mockDb as any);
+
+    expect(result.succeeded).toBe(1);
+    expect(mockInvokeLLM).not.toHaveBeenCalled();
+    expect(updateSpy).toHaveBeenCalledWith({ redactedNarrative: "" });
   });
 });
