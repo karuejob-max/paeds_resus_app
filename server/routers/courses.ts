@@ -904,6 +904,15 @@ export const coursesRouter = router({
         const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt, institutionalAccountId } = staffRow[0];
         const isOnlineSession = session.trainingType === "online";
         const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
+        // institutionalAccountId can now be null on self-service staff rows
+        // (2026-08-04, §2). Currently safe: this whole legacy gate only
+        // ever runs against coordinator-created sessions, which always have
+        // a real institutionalAccountId (assertInstitutionAccess requires
+        // one), so null-staffRow vs. real-session-id correctly evaluates
+        // false. Self-service Phase 2 booking goes through bookPhase2Role
+        // instead, which has no facility check at all (§4.1, cross-program
+        // by design). Would need real null-handling here if a self-service
+        // hands_on/Phase 3 path is ever added.
         const isSameFacility = institutionalAccountId === session.institutionalAccountId;
 
         // Facility-matching (CEO decision, 2026-07-19): cohort training is

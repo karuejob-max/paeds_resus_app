@@ -1164,7 +1164,21 @@ export const governanceRoleEnum = mysqlEnum("governance_role", [
 // Institutional Staff Members
 export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers", {
   id: int("id").autoincrement().primaryKey(),
-  institutionalAccountId: int("institutionalAccountId").notNull(),
+  // Nullable as of 2026-08-04 (docs/IERP_NERP_PROGRAM_V2_SPEC.md §2, root
+  // cause found while investigating why self-service phase tracking wasn't
+  // working: syncProviderProfileFacility only ever created this row when
+  // the learner's facility mapped to a *recognized* institutional account,
+  // and declareMyDesignation hard-required the row to exist -- so a
+  // learner whose facility isn't listed on the platform (explicitly a
+  // supported case per §2) could never even declare their designation, let
+  // alone progress through any phase. Same pattern as the
+  // trainingSchedules.institutionalAccountId nullable change from slice 2:
+  // self-service rows now get created with this null and
+  // facilityLinkStatus auto-set to "linked" (no coordinator exists to
+  // approve it, per §7). Institution-scoped queries that join/filter on
+  // institutionalAccountId correctly exclude these rows -- a self-service
+  // learner shouldn't show up in any one institution's coordinator view.
+  institutionalAccountId: int("institutionalAccountId"),
   userId: int("userId"),
   staffName: varchar("staffName", { length: 255 }).notNull(),
   staffEmail: varchar("staffEmail", { length: 320 }).notNull(),
