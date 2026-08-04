@@ -1,6 +1,6 @@
 /**
  * Idempotent: adds providerProfiles.department if missing.
- * Usage: node scripts/apply-0052-provider-profile-department.mjs
+ * Usage: node scripts/apply-0086-provider-profile-department.mjs
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
