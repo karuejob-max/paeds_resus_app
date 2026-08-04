@@ -1,7 +1,7 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, or, like, sql } from "drizzle-orm";
+import { eq, and, desc, or, like, sql, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles } from "../../drizzle/schema";
@@ -870,6 +870,74 @@ export const cpdRouter = router({
       )
       .where(eq(cpdAttendees.email, email))
       .orderBy(desc(cpdAttendees.id));
+    // Find linked institutionalAccountIds for the current user
+    const userStaffLinks = await db
+      .select({ instId: institutionalStaffMembers.institutionalAccountId })
+      .from(institutionalStaffMembers)
+      .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+    
+    let linkedInstIds = userStaffLinks
+      .map((l) => l.instId)
+      .filter((id): id is number => id !== null);
+
+    // If the user has no official links, find institutions where they have registered for any CPD event
+    if (linkedInstIds.length === 0 && rows.length > 0) {
+      const attendedInstIds = new Set<number>();
+      for (const r of rows) {
+        // Find matching cpdAttendee record to get the institutionalAccountId
+        const attendee = await db
+          .select({ instId: cpdAttendees.institutionalAccountId })
+          .from(cpdAttendees)
+          .where(eq(cpdAttendees.id, r.attendeeId))
+          .limit(1);
+        if (attendee[0]?.instId) {
+          attendedInstIds.add(attendee[0].instId);
+        }
+      }
+      linkedInstIds = Array.from(attendedInstIds);
+    }
+
+    let totalCnes = 0;
+    let totalCmes = 0;
+    let myCnes = 0;
+    let myCmes = 0;
+
+    if (linkedInstIds.length > 0) {
+      // Find all cpdEvents hosted by these institutions
+      const instEvents = await db
+        .select({ id: cpdEvents.id, eventType: cpdEvents.eventType })
+        .from(cpdEvents)
+        .where(
+          and(
+            inArray(cpdEvents.institutionalAccountId, linkedInstIds),
+            eq(cpdEvents.isOpen, false) // only count completed/closed events that could have been attended
+          )
+        );
+
+      totalCnes = instEvents.filter((e) => e.eventType === "cne").length;
+      totalCmes = instEvents.filter((e) => e.eventType === "cme").length;
+
+      const instEventIds = instEvents.map((e) => e.id);
+      if (instEventIds.length > 0) {
+        // Count how many of these specific events the user has attended
+        const myAttendedRows = await db
+          .select({ eventId: cpdAttendees.cpdEventId })
+          .from(cpdAttendees)
+          .where(
+            and(
+              eq(cpdAttendees.email, email),
+              inArray(cpdAttendees.cpdEventId, instEventIds)
+            )
+          );
+
+        for (const row of myAttendedRows) {
+          const ev = instEvents.find((e) => e.id === row.eventId);
+          if (ev?.eventType === "cne") myCnes++;
+          else if (ev?.eventType === "cme") myCmes++;
+        }
+      }
+    }
+
     return {
       email,
       records: rows.map((r) => ({
@@ -887,6 +955,12 @@ export const cpdRouter = router({
         approvingCouncil: r.approvingCouncil ?? null,
         cpdPoints: r.cpdPoints ?? null,
       })),
+      attendanceStats: {
+        totalCnes,
+        totalCmes,
+        myCnes,
+        myCmes,
+      },
     };
   }),
 
@@ -964,32 +1038,134 @@ export const cpdRouter = router({
         }
       }
 
-      // Staff Attendance Matrix
-      const staffMap: Record<string, { fullName: string; email: string; cadre: string; department: string; cneAttended: number; cmeAttended: number; totalAttended: number; lastSignIn: Date | string; isLocum: boolean }> = {};
+      // Fetch institutional staff roster
+      const staffMembers = await db
+        .select()
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+      const staffMap: Record<string, {
+        fullName: string;
+        email: string;
+        cadre: string;
+        department: string;
+        cneAttended: number;
+        cmeAttended: number;
+        totalAttended: number;
+        lastSignIn: Date | string;
+        isLocum: boolean;
+      }> = {};
+
+      const getRoleDisplayName = (role: string) => {
+        if (role === "doctor") return "Doctor";
+        if (role === "nurse") return "Nurse";
+        if (role === "paramedic") return "Paramedic";
+        if (role === "midwife") return "Midwife";
+        if (role === "lab_tech") return "Lab Technician";
+        if (role === "respiratory_therapist") return "Respiratory Therapist";
+        if (role === "support_staff") return "Support Staff";
+        return "Other";
+      };
+
+      // Populate map with all roster staff (initially 0 attendance)
+      for (const sm of staffMembers) {
+        const key = sm.staffEmail.toLowerCase().trim();
+        staffMap[key] = {
+          fullName: sm.staffName,
+          email: sm.staffEmail,
+          cadre: getRoleDisplayName(sm.staffRole),
+          department: sm.department || "Unassigned",
+          cneAttended: 0,
+          cmeAttended: 0,
+          totalAttended: 0,
+          lastSignIn: "Never",
+          isLocum: false,
+        };
+      }
+
+      // Populate attendance count from cpdAttendees
       for (const a of attendees) {
-        const key = a.email.toLowerCase();
+        const key = a.email.toLowerCase().trim();
         const ev = events.find((e) => e.id === a.cpdEventId);
         const isCne = ev?.eventType === "cne";
         const isCme = ev?.eventType === "cme";
 
         if (!staffMap[key]) {
+          // Locum or Outreach clinician (not in roster)
           staffMap[key] = {
             fullName: a.fullName,
             email: a.email,
-            cadre: a.cadre,
-            department: a.department,
+            cadre: a.cadre || "Clinician",
+            department: a.department || "Unassigned",
             cneAttended: 0,
             cmeAttended: 0,
             totalAttended: 0,
-            lastSignIn: a.submittedAt,
-            isLocum: a.attendanceType === "locum_outreach",
+            lastSignIn: a.submittedAt || "Never",
+            isLocum: true,
           };
         }
 
         if (isCne) staffMap[key].cneAttended++;
         if (isCme) staffMap[key].cmeAttended++;
         staffMap[key].totalAttended++;
+        
+        // Update lastSignIn with the latest attendance timestamp
+        if (a.submittedAt) {
+          const currentLast = staffMap[key].lastSignIn;
+          if (currentLast === "Never" || new Date(a.submittedAt) > new Date(currentLast)) {
+            staffMap[key].lastSignIn = a.submittedAt;
+          }
+        }
       }
+
+      // Compute Role-based Engagement Metrics (for registered staff members)
+      const roleEngagementStats: Record<string, {
+        label: string;
+        totalStaff: number;
+        cneParticipants: number;
+        cmeParticipants: number;
+        cpdParticipants: number;
+      }> = {
+        nurse: { label: "Nurses", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        doctor: { label: "Doctors", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        paramedic: { label: "Paramedics", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        midwife: { label: "Midwives", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        lab_tech: { label: "Lab Technicians", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        respiratory_therapist: { label: "Respiratory Therapists", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        support_staff: { label: "Support Staff", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+        other: { label: "Other Staff", totalStaff: 0, cneParticipants: 0, cmeParticipants: 0, cpdParticipants: 0 },
+      };
+
+      for (const sm of staffMembers) {
+        const role = sm.staffRole || "other";
+        const stats = roleEngagementStats[role] || roleEngagementStats.other;
+        stats.totalStaff++;
+
+        const key = sm.staffEmail.toLowerCase().trim();
+        const attendance = staffMap[key];
+        if (attendance) {
+          if (attendance.cneAttended > 0) stats.cneParticipants++;
+          if (attendance.cmeAttended > 0) stats.cmeParticipants++;
+          if (attendance.totalAttended > 0) stats.cpdParticipants++;
+        }
+      }
+
+      const roleEngagement = Object.entries(roleEngagementStats).map(([role, s]) => {
+        const cneRate = s.totalStaff > 0 ? Math.round((s.cneParticipants / s.totalStaff) * 100) : 0;
+        const cmeRate = s.totalStaff > 0 ? Math.round((s.cmeParticipants / s.totalStaff) * 100) : 0;
+        const cpdRate = s.totalStaff > 0 ? Math.round((s.cpdParticipants / s.totalStaff) * 100) : 0;
+        return {
+          role,
+          label: s.label,
+          totalStaff: s.totalStaff,
+          cneParticipants: s.cneParticipants,
+          cmeParticipants: s.cmeParticipants,
+          cpdParticipants: s.cpdParticipants,
+          cneRate,
+          cmeRate,
+          cpdRate,
+        };
+      });
 
       return {
         summary: {
@@ -1004,6 +1180,7 @@ export const cpdRouter = router({
         departmentHeatmap: Object.values(deptStats).sort((a, b) => b.attendedCount - a.attendedCount),
         presenterLeaderboard: Object.values(presenterStats).sort((a, b) => b.sessionCount - a.sessionCount),
         staffMatrix: Object.values(staffMap).sort((a, b) => b.totalAttended - a.totalAttended),
+        roleEngagement,
       };
     }),
 

@@ -56,6 +56,7 @@ export default function MyCpdCertificates() {
 
   const records = certificatesQuery.data?.records ?? [];
   const matchedEmail = certificatesQuery.data?.email ?? user?.email ?? null;
+  const attendanceStats = certificatesQuery.data?.attendanceStats ?? { totalCnes: 0, totalCmes: 0, myCnes: 0, myCmes: 0 };
 
   const cadreLabel = (cadre: string, cadreOther: string | null) =>
     cadre === "Other" ? cadreOther?.trim() || "Other" : cadre;
@@ -74,9 +75,11 @@ export default function MyCpdCertificates() {
         const totalPts = records.reduce((acc, r) => acc + (Number(r.cpdPoints) || 0), 0);
         const targetPts = 20;
         const progressPct = Math.min(100, Math.round((totalPts / targetPts) * 100));
+        const cneRate = attendanceStats.totalCnes > 0 ? Math.round((attendanceStats.myCnes / attendanceStats.totalCnes) * 100) : 0;
+        const cmeRate = attendanceStats.totalCmes > 0 ? Math.round((attendanceStats.myCmes / attendanceStats.totalCmes) * 100) : 0;
 
         return (
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-blue-100 bg-gradient-to-br from-blue-50/40 to-white dark:border-blue-900/30 dark:from-blue-950/20">
               <CardHeader className="pb-1 text-xs text-muted-foreground uppercase font-semibold">Total Points Earned</CardHeader>
               <CardContent>
@@ -102,6 +105,30 @@ export default function MyCpdCertificates() {
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div className="h-full bg-purple-600 transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-cyan-100 bg-gradient-to-br from-cyan-50/40 to-white dark:border-cyan-900/30 dark:from-cyan-950/20">
+              <CardHeader className="pb-1 text-xs text-muted-foreground uppercase font-semibold">Hospital CNE/CME Rates</CardHeader>
+              <CardContent className="space-y-2 pt-1">
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold mb-0.5">
+                    <span>CNEs Attended</span>
+                    <span>{attendanceStats.myCnes}/{attendanceStats.totalCnes} ({cneRate}%)</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-full bg-cyan-600 transition-all" style={{ width: `${cneRate}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold mb-0.5">
+                    <span>CMEs Attended</span>
+                    <span>{attendanceStats.myCmes}/{attendanceStats.totalCmes} ({cmeRate}%)</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-full bg-cyan-600 transition-all" style={{ width: `${cmeRate}%` }} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
