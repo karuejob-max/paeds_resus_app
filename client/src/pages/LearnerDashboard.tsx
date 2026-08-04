@@ -307,7 +307,14 @@ export default function LearnerDashboard() {
     );
   }
 
-  const firstEnrollmentId = myMicroEnrollments?.[0]?.id;
+  // firstEnrollmentId (removed 2026-08-04): was feeding LearnerInstallmentPaymentsCard
+  // a microCourseEnrollments id where it needed a main-enrollments id -- wrong
+  // table entirely, a bug present since the original 2026-07-17 commit. Real
+  // payment ledger now lives in ProgressAndLedgerCard (getMyPaymentLedger),
+  // correctly sourced. LearnerInstallmentPaymentsCard itself is left defined
+  // but unused -- its underlying getIndividualBalance call is legitimate,
+  // just needs a real enrollments.id, which this page has no other correct
+  // source for today.
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-background py-12 px-4">
@@ -552,10 +559,6 @@ export default function LearnerDashboard() {
             </Card>
 
             <ProgressAndLedgerCard />
-
-            {firstEnrollmentId && (
-              <LearnerInstallmentPaymentsCard enrollmentId={firstEnrollmentId} />
-            )}
 
             <ProgramIdentityBadge />
             <DesignationDeclarationCard />
