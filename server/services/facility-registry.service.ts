@@ -304,6 +304,14 @@ export async function syncProviderProfileFacility(
 
   // If the facility is associated with an institutional account,
   // create a pending institutional link request if one doesn't exist already.
+  // Otherwise (2026-08-04, docs/IERP_NERP_PROGRAM_V2_SPEC.md §2): the
+  // learner's facility isn't a recognized institutional account -- an
+  // explicitly supported case for self-service enrollment, not an error.
+  // Create the row anyway, institutionalAccountId null, facilityLinkStatus
+  // auto-set to "linked" since there's no coordinator to approve it (§7).
+  // Root cause this fixes: without this row, declareMyDesignation (the
+  // very first self-service step) hard-fails with NOT_FOUND, and every
+  // phase/payment gate built across INST-25 silently has nothing to read.
   if (facility.institutionalAccountId) {
     const existingLink = await db
       .select({ id: institutionalStaffMembers.id })
@@ -344,6 +352,42 @@ export async function syncProviderProfileFacility(
           // behaviour) for anything not covered by inferDesignationFromCadre.
           designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
           facilityLinkStatus: "pending",
+          enrollmentStatus: "pending",
+        });
+      }
+    }
+  } else {
+    const existingSelfServiceRow = await db
+      .select({ id: institutionalStaffMembers.id })
+      .from(institutionalStaffMembers)
+      .where(and(eq(institutionalStaffMembers.userId, userId), isNull(institutionalStaffMembers.institutionalAccountId)))
+      .limit(1);
+
+    if (existingSelfServiceRow.length === 0) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user) {
+        let staffRole: "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
+        if (user.providerType === "nurse") staffRole = "nurse";
+        else if (user.providerType === "doctor") staffRole = "doctor";
+        else if (user.providerType === "paramedic") staffRole = "paramedic";
+        else if (user.providerType === "midwife") staffRole = "midwife";
+        else if (user.providerType === "lab_tech") staffRole = "lab_tech";
+        else if (user.providerType === "respiratory_therapist") staffRole = "respiratory_therapist";
+
+        await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: null,
+          userId: userId,
+          staffName: user.name || "Provider",
+          staffEmail: user.email || "",
+          staffPhone: user.phone || null,
+          staffRole: staffRole,
+          designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
+          facilityLinkStatus: "linked",
           enrollmentStatus: "pending",
         });
       }
