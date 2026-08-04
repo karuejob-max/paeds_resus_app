@@ -527,6 +527,50 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               </div>
             )}
 
+            {/* 📊 Staff CPD Engagement Rates */}
+            {analytics?.roleEngagement && analytics.roleEngagement.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    Staff CPD Participation & Engagement Rates
+                  </CardTitle>
+                  <CardDescription>
+                    Percentage of registered hospital staff members who have participated in at least one CNE session
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {analytics.roleEngagement.map((re) => {
+                      if (re.totalStaff === 0) return null;
+                      return (
+                        <div key={re.role} className="rounded-lg border p-3 bg-slate-50/50 dark:bg-slate-900/20 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">{re.label}</span>
+                            <Badge className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-indigo-200/50 dark:bg-indigo-950 dark:text-indigo-200">
+                              {re.cneParticipants} / {re.totalStaff} Active
+                            </Badge>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground mb-1">
+                              <span>CNE Attendance Rate</span>
+                              <span>{re.cneRate}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                              <div className="h-full bg-indigo-600 transition-all" style={{ width: `${re.cneRate}%` }} />
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground pt-1 border-t border-dashed">
+                            {re.cpdParticipants} of {re.totalStaff} ({re.cpdRate}%) attended any CPD session
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 🏆 Department Leaderboard & Presenter Hall of Fame */}
             {analytics && (
               <div className="grid gap-6 md:grid-cols-2">
