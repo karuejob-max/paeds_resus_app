@@ -381,6 +381,18 @@ export const paymentsRouter = router({
 
         const enrollment = enrollmentRows[0];
 
+        // Security fix (2026-08-04): this procedure had no ownership check
+        // at all -- any authenticated user could pass an arbitrary
+        // enrollmentId and read someone else's payment balance. Found while
+        // investigating why LearnerInstallmentPaymentsCard was showing
+        // wrong data (it was being fed a micro-course enrollment ID, a
+        // separate bug fixed by removing that call site) -- this is the
+        // deeper issue underneath it: the endpoint itself was never
+        // actually scoped to the caller.
+        if (enrollment.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new Error("You do not have access to this enrollment's payment balance.");
+        }
+
         const paymentsSum = await db
           .select({ total: sum(payments.amount) })
           .from(payments)
