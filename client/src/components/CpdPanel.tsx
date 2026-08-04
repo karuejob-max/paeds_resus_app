@@ -1339,10 +1339,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                       <div className="flex gap-2">
                         <Input
                           id="cpd-code-input"
-                          placeholder="e.g. READY-PALS"
+                          placeholder="e.g. Ready-Pals"
                           value={cpdCodeInput}
-                          onChange={(e) => setCpdCodeInput(e.target.value.toUpperCase())}
-                          className="max-w-xs font-mono uppercase"
+                          onChange={(e) => setCpdCodeInput(e.target.value)}
+                          className="max-w-xs font-mono"
                         />
                         <Button
                           onClick={() =>
