@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFellowshipPillarACourseStatus } from "./fellowship-phase2-completion";
+import { getFellowshipPillarACourseStatus, FELLOWSHIP_TEAM_MEMBER_ROLES } from "./fellowship-phase2-completion";
 
 function enrollment(programType: string, cognitive: boolean, ahaPrecourse: boolean) {
   return { programType, cognitiveModulesComplete: cognitive, ahaPrecourseCompleted: ahaPrecourse };
@@ -7,17 +7,17 @@ function enrollment(programType: string, cognitive: boolean, ahaPrecourse: boole
 
 function attendance(
   coursesProgramType: string,
-  simulationRole: "team_member" | "team_leader",
+  simulationRole: string,
   passed: boolean
 ) {
-  return { coursesProgramType, simulationRole, simulationCompetencyPassed: passed };
+  return { coursesProgramType, simulationRole: simulationRole as any, simulationCompetencyPassed: passed };
 }
 
+/** 3 team_leader sessions + 1 session in each of the 6 named team-member roles, all passed. */
 function fullSimSet(course: string) {
-  // 3 team_member + 3 team_leader, all passed
   return [
-    ...Array.from({ length: 3 }, () => attendance(course, "team_member", true)),
     ...Array.from({ length: 3 }, () => attendance(course, "team_leader", true)),
+    ...FELLOWSHIP_TEAM_MEMBER_ROLES.map((role) => attendance(course, role, true)),
   ];
 }
 
@@ -37,15 +37,15 @@ describe("getFellowshipPillarACourseStatus", () => {
     expect(bls.met).toBe(false);
   });
 
-  it("ACLS is met with cognitive + AHA precourse + exactly 3 team_member + 3 team_leader passed sessions", () => {
+  it("ACLS is met with cognitive + AHA precourse + 3 team-leader sessions + all 6 team-member roles covered", () => {
     const status = getFellowshipPillarACourseStatus(
       [enrollment("acls", true, true)],
       fullSimSet("acls")
     );
     const acls = status.courses.find((c) => c.course === "acls")!;
     expect(acls.met).toBe(true);
-    expect(acls.teamMemberSessionsPassed).toBe(3);
     expect(acls.teamLeaderSessionsPassed).toBe(3);
+    expect(acls.teamMemberRolesCovered).toHaveLength(6);
   });
 
   it("ACLS is not met without the AHA precourse gate, even with full simulations", () => {
@@ -61,7 +61,7 @@ describe("getFellowshipPillarACourseStatus", () => {
     const status = getFellowshipPillarACourseStatus(
       [enrollment("pals", true, true)],
       [
-        ...Array.from({ length: 3 }, () => attendance("pals", "team_member", true)),
+        ...FELLOWSHIP_TEAM_MEMBER_ROLES.map((role) => attendance("pals", role, true)),
         ...Array.from({ length: 2 }, () => attendance("pals", "team_leader", true)),
       ]
     );
@@ -70,11 +70,38 @@ describe("getFellowshipPillarACourseStatus", () => {
     expect(pals.teamLeaderSessionsPassed).toBe(2);
   });
 
+  it("6 sessions in the SAME team-member role does NOT satisfy the requirement -- role coverage, not just volume", () => {
+    const status = getFellowshipPillarACourseStatus(
+      [enrollment("nrp", true, true)],
+      [
+        ...Array.from({ length: 3 }, () => attendance("nrp", "team_leader", true)),
+        ...Array.from({ length: 6 }, () => attendance("nrp", "team_member_scribe", true)), // all scribe, 0 other roles
+      ]
+    );
+    const nrp = status.courses.find((c) => c.course === "nrp")!;
+    expect(nrp.teamMemberRolesCovered).toEqual(["team_member_scribe"]);
+    expect(nrp.met).toBe(false);
+  });
+
+  it("missing exactly one of the 6 named roles means not met", () => {
+    const rolesMinusOne = FELLOWSHIP_TEAM_MEMBER_ROLES.slice(0, 5);
+    const status = getFellowshipPillarACourseStatus(
+      [enrollment("nrp", true, true)],
+      [
+        ...Array.from({ length: 3 }, () => attendance("nrp", "team_leader", true)),
+        ...rolesMinusOne.map((role) => attendance("nrp", role, true)),
+      ]
+    );
+    const nrp = status.courses.find((c) => c.course === "nrp")!;
+    expect(nrp.teamMemberRolesCovered).toHaveLength(5);
+    expect(nrp.met).toBe(false);
+  });
+
   it("does not count a session where the instructor did not sign off competency", () => {
     const status = getFellowshipPillarACourseStatus(
       [enrollment("nrp", true, true)],
       [
-        ...Array.from({ length: 3 }, () => attendance("nrp", "team_member", true)),
+        ...FELLOWSHIP_TEAM_MEMBER_ROLES.map((role) => attendance("nrp", role, true)),
         ...Array.from({ length: 2 }, () => attendance("nrp", "team_leader", true)),
         attendance("nrp", "team_leader", false), // attended, not signed off -- doesn't count
       ]
@@ -90,17 +117,17 @@ describe("getFellowshipPillarACourseStatus", () => {
       fullSimSet("pals") // all sessions are PALS, not ACLS
     );
     const acls = status.courses.find((c) => c.course === "acls")!;
-    expect(acls.teamMemberSessionsPassed).toBe(0);
+    expect(acls.teamMemberRolesCovered).toHaveLength(0);
     expect(acls.teamLeaderSessionsPassed).toBe(0);
     expect(acls.met).toBe(false);
   });
 
-  it("more than the minimum still counts -- extra sessions don't break anything", () => {
+  it("more than the minimum team-leader sessions still counts -- extra sessions don't break anything", () => {
     const status = getFellowshipPillarACourseStatus(
       [enrollment("acls", true, true)],
       [
-        ...Array.from({ length: 5 }, () => attendance("acls", "team_member", true)),
-        ...Array.from({ length: 4 }, () => attendance("acls", "team_leader", true)),
+        ...FELLOWSHIP_TEAM_MEMBER_ROLES.map((role) => attendance("acls", role, true)),
+        ...Array.from({ length: 5 }, () => attendance("acls", "team_leader", true)),
       ]
     );
     const acls = status.courses.find((c) => c.course === "acls")!;
