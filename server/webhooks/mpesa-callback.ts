@@ -81,11 +81,18 @@ router.post('/mpesa/callback', async (req: Request, res: Response) => {
         .where(eq(microCourseEnrollments.id, enrollment.id));
 
       // Update payment record
+      // Migration 0088 (CEO decision 2026-08-05): previously this overwrote
+      // transactionId with the receipt number on success, discarding the
+      // CheckoutRequestID -- inconsistent with mpesa-webhook.ts, which keeps
+      // transactionId as the CheckoutRequestID throughout so callers can
+      // keep polling by it. Standardized to match: transactionId untouched,
+      // receipt and phone go in their own columns.
       await db
         ?.update(payments)
         .set({
           status: 'completed',
-          transactionId: mpesaReceiptNumber,
+          mpesaReceiptNumber: mpesaReceiptNumber ? String(mpesaReceiptNumber).trim() : null,
+          phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
         })
         .where(eq(payments.id, payment.id));
 
@@ -123,6 +130,7 @@ router.post('/mpesa/callback', async (req: Request, res: Response) => {
         ?.update(payments)
         .set({
           status: 'failed',
+          phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
         })
         .where(eq(payments.id, payment.id));
 

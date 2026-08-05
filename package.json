@@ -134,6 +134,7 @@
     "db:apply-0084": "node scripts/apply-0084-phase2-role-based-booking.mjs",
     "db:apply-0085": "node scripts/apply-0085-cpd-intelligence-engine.mjs",
     "db:apply-0087": "node scripts/apply-0087-self-service-staff-row.mjs",
+    "db:apply-0088": "node scripts/apply-0088-payments-receipt-columns.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

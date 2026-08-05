@@ -23,7 +23,6 @@ import {
   careFacilities,
   kmhflFacilities,
   careSignalEvents,
-  individualInstallmentPayments,
   providerProfiles,
   instructorQualifications,
   facilityPoles,

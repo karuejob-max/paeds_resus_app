@@ -111,11 +111,19 @@ export async function handleMpesaEnrollmentCallback(body: MpesaCallbackBody): Pr
       });
 
       // Update payment status
+      // Migration 0088: standardized to match mpesa-webhook.ts -- keep
+      // transactionId as the CheckoutRequestID, write the receipt/phone to
+      // their own columns instead of overwriting it (this file's previous
+      // behavior would have broken any lookup-by-checkout-id after
+      // completion, same bug as mpesa-callback.ts had -- moot in practice
+      // since this handler currently has no caller anywhere in the
+      // codebase, flagged separately in WORK_STATUS.md).
       await db
         .update(payments)
         .set({
           status: "completed",
-          transactionId: metadata.mpesaReceiptNumber || CheckoutRequestID,
+          mpesaReceiptNumber: metadata.mpesaReceiptNumber ? String(metadata.mpesaReceiptNumber).trim() : null,
+          phoneNumber: metadata.phoneNumber ? String(metadata.phoneNumber).trim() : null,
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id));
@@ -178,6 +186,7 @@ export async function handleMpesaEnrollmentCallback(body: MpesaCallbackBody): Pr
         .update(payments)
         .set({
           status: "failed",
+          phoneNumber: metadata.phoneNumber ? String(metadata.phoneNumber).trim() : null,
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id));
@@ -199,6 +208,7 @@ export async function handleMpesaEnrollmentCallback(body: MpesaCallbackBody): Pr
         .update(payments)
         .set({
           status: "failed",
+          phoneNumber: metadata.phoneNumber ? String(metadata.phoneNumber).trim() : null,
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id));

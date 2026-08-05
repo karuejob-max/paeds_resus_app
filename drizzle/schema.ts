@@ -143,6 +143,14 @@ export const payments = mysqlTable("payments", {
   transactionId: varchar("transactionId", { length: 255 }),
   // MPESA-4: Idempotency key to prevent duplicate webhook processing
   idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
+  // Migration 00XX (CEO decision, 2026-08-05): retired the dormant, never-
+  // wired individualInstallmentPayments table in favor of these two columns
+  // here, so every payment -- installment or not -- lives in one ledger.
+  // Nullable: only mpesa payments populate them, and only once the receipt
+  // is known (not at STK-push initiation, where transactionId still holds
+  // the CheckoutRequestID for webhook lookup -- see server/webhooks/).
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique(),
+  phoneNumber: varchar("phoneNumber", { length: 20 }),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -1376,30 +1384,7 @@ export const retrospectiveRoleClaims = mysqlTable("retrospectiveRoleClaims", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-// Individual Installment Payments
-// NOTE (2026-07-31 investigation, not yet acted on beyond this comment):
-// this table matches the original 2026-07-17 design spec
-// (docs/COHORT_ACLS_PROGRAM_INTEGRATION.md §2.2) for a dedicated per-instalment
-// ledger, but the balance-calculation code that actually shipped
-// (server/routers/payments.ts) sums the generic `payments` table instead --
-// this table has no writer anywhere in the codebase. `payments` doesn't carry
-// `phoneNumber` or a uniquely-constrained M-Pesa receipt column the way this
-// table does, so it isn't a strict duplicate, but nothing currently relies on
-// those extra columns either. Needs a real decision (CEO call, not an
-// engineering default): retire this table, or add its two extra columns to
-// `payments` and drop this one -- not both left as parallel, divergent ledgers.
-export const individualInstallmentPayments = mysqlTable("individualInstallmentPayments", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  enrollmentId: int("enrollmentId").notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentDate: timestamp("paymentDate").defaultNow().notNull(),
-  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique().notNull(),
-  phoneNumber: varchar("phoneNumber", { length: 20 }).notNull(),
-  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+
 
 // Subsidised ACLS/BLS Cohort Program — Phase 3 cross-facility overflow valve
 // (CEO decision, 2026-07-19). Phase 2 (online team simulation) is always
