@@ -549,6 +549,52 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     text: `Hello {{instructorName}},\\n\\nCongratulations — you've been promoted to {{newTier}} instructor status on the platform.\\n\\nInstructor portal: {{portalUrl}}\\n\\nPaeds Resus Limited`,
     variables: ["instructorName", "newTier", "portalUrl"],
   },
+
+  phase2RoleConfirmed: {
+    id: "phase2-role-confirmed",
+    name: "Phase 2 session role confirmed or not confirmed by instructor",
+    subject: "{{outcomeHeading}} — Phase 2 session update",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">{{outcomeHeading}}</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{learnerName}},</p>
+          <p>{{outcomeBody}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View my bookings</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{learnerName}},\\n\\n{{outcomeBody}}\\n\\nView your bookings: {{dashboardUrl}}\\n\\nPaeds Resus Limited`,
+    variables: ["learnerName", "outcomeHeading", "outcomeBody", "dashboardUrl"],
+  },
+
+  retrospectiveClaimReviewed: {
+    id: "retrospective-claim-reviewed",
+    name: "Retrospective role claim approved or rejected by instructor",
+    subject: "{{outcomeHeading}} — your role claim",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">{{outcomeHeading}}</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{claimantName}},</p>
+          <p>{{outcomeBody}}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View my bookings</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{claimantName}},\\n\\n{{outcomeBody}}\\n\\nView your bookings: {{dashboardUrl}}\\n\\nPaeds Resus Limited`,
+    variables: ["claimantName", "outcomeHeading", "outcomeBody", "dashboardUrl"],
+  },
 };
 
 /**

@@ -15,7 +15,7 @@ import {
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { getProgramIdentity } from '../../shared/program-identity';
-import { notifyBookingWaitlistPromoted } from '../lib/cohort-program-notifications';
+import { notifyBookingWaitlistPromoted, notifyPhase2RoleConfirmed, notifyRetrospectiveClaimReviewed } from '../lib/cohort-program-notifications';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
@@ -1719,6 +1719,8 @@ export const coursesRouter = router({
         })
         .where(eq(trainingAttendance.id, input.attendanceId));
 
+      void notifyPhase2RoleConfirmed(db, input.attendanceId, input.passed);
+
       return { success: true };
     }),
 
@@ -1784,6 +1786,8 @@ export const coursesRouter = router({
           reviewedAt: new Date(),
         })
         .where(eq(retrospectiveRoleClaims.id, input.claimId));
+
+      void notifyRetrospectiveClaimReviewed(db, input.claimId, input.approve);
 
       return { success: true };
     }),
