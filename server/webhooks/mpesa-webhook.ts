@@ -302,6 +302,11 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
         console.log(`[M-Pesa] Receipt: ${mpesaReceiptNumber} for checkout ${lookupId}`);
       }
 
+      // MPESA-4 migration 0088: persist the receipt/phone we already parse
+      // above (previously only logged, never written to the row itself).
+      const normalizedReceipt = mpesaReceiptNumber ? String(mpesaReceiptNumber).trim() : null;
+      const normalizedPhone = phoneNumber ? String(phoneNumber).trim() : null;
+
       try {
         await runWithRetries(
           async () => {
@@ -309,7 +314,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
               .update(payments)
               .set({
                 status: "completed",
-                // Keep transactionId = CheckoutRequestID so clients can poll by checkout id; receipt logged above
+                // Keep transactionId = CheckoutRequestID so clients can poll by checkout id; receipt now also lives in its own column below.
+                mpesaReceiptNumber: normalizedReceipt,
+                phoneNumber: normalizedPhone,
                 idempotencyKey: idempotencyKey,
                 updatedAt: new Date(),
               })
@@ -398,6 +405,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
           .update(payments)
           .set({
             status: "failed",
+            phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
             idempotencyKey: idempotencyKey,
             updatedAt: new Date(),
           })
