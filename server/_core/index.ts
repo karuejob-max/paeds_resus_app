@@ -25,6 +25,7 @@ import { initializeScheduler } from "../scheduler";
 import { initializeDatabase, runMigrations } from "./initialize";
 import { registerCanonicalDomainRedirect } from "./canonical-domain";
 import { registerCpdRoutes } from "../cpd/routes";
+import { registerInstitutionalReadinessRoutes } from "../routers/institutional-readiness-download";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -93,6 +94,8 @@ async function startServer() {
   // CPD certificate downloads (single PDF + bulk ZIP) — streamed binary responses
   // that tRPC's JSON transport can't handle. Registered before the tRPC middleware.
   registerCpdRoutes(app);
+  // INST-20 cohort readiness summary PDF — same streamed-binary reasoning as CPD certs above.
+  registerInstitutionalReadinessRoutes(app);
 
   // tRPC API
   app.use(

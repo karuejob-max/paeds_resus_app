@@ -50,6 +50,7 @@ import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql }
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
+import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
   rollupInstitutionalAnalyticsForAccount,
@@ -2263,19 +2264,7 @@ export const institutionRouter = router({
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-      const cohortStats = await db
-        .select({
-          designation: institutionalStaffMembers.designation,
-          totalCount: sql<number>`count(${institutionalStaffMembers.id})`,
-          blsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%bls%' then 1 else 0 end)`,
-          aclsCompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.certificationStatus} = 'certified' and ${institutionalStaffMembers.assignedCourses} like '%acls%' then 1 else 0 end)`,
-          phase2CompleteCount: sql<number>`sum(case when ${institutionalStaffMembers.phaseStatus} in ('phase_3', 'completed') then 1 else 0 end)`
-        })
-        .from(institutionalStaffMembers)
-        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId))
-        .groupBy(institutionalStaffMembers.designation);
-
-      return cohortStats;
+      return await getCohortProgressStats(db, input.institutionId);
     }),
 
   getPendingLinkRequests: protectedProcedure
