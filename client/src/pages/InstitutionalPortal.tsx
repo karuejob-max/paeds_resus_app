@@ -720,11 +720,19 @@ function CohortProgressWidget({ institutionId }: { institutionId: number }) {
 
   return (
     <Card className="mt-6">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2">
           <Users className="w-5 h-5 text-blue-900" />
           Intern Cohort Progress
         </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.open(`/api/institution/${institutionId}/cohort-readiness-summary.pdf`, "_blank")}
+        >
+          <FileText className="w-4 h-4 mr-1.5" />
+          Readiness summary (PDF)
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
