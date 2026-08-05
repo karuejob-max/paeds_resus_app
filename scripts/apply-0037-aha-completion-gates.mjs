@@ -10,6 +10,7 @@
  *
  * Run: node scripts/apply-0037-aha-completion-gates.mjs
  */
+import "dotenv/config";
 import mysql from "mysql2/promise";
 
 const url = process.env.DATABASE_URL;
