@@ -72,8 +72,21 @@ describe("ai-pattern-aggregator", () => {
 
   describe("fpkbRouter", () => {
     describe("runAiPatternDiscovery", () => {
-      it("triggers Gemini and returns proposed patterns list", async () => {
+      it("redacts via a first LLM call, then discovers patterns via a second, and both are scrubbed of raw PII", async () => {
         mockInvokeLLM.mockClear();
+
+        // Call 1: the redaction pass (redactObservationsWithLLM). Echo the
+        // (already prescrubbed-by-deidentifyText) input back unchanged --
+        // good enough for this test, which only cares that redaction ran
+        // as its own, first, separate call before discovery.
+        mockInvokeLLM.mockImplementationOnce(async (args: any) => {
+          const requestBody = JSON.parse(args.messages[1].content);
+          return {
+            choices: [{ message: { content: JSON.stringify({ items: requestBody.items }) } }],
+          };
+        });
+
+        // Call 2: the pattern-discovery pass.
         const mockResponse = JSON.stringify({
           proposedPatterns: [
             {
@@ -87,7 +100,6 @@ describe("ai-pattern-aggregator", () => {
             }
           ]
         });
-
         mockInvokeLLM.mockResolvedValueOnce({
           choices: [
             {
@@ -106,11 +118,41 @@ describe("ai-pattern-aggregator", () => {
         expect(result.success).toBe(true);
         expect(result.proposedPatterns.length).toBe(1);
         expect(result.proposedPatterns[0].patternName).toBe("Delayed Oxygen Administration in Triage");
-        expect(mockInvokeLLM).toHaveBeenCalledTimes(1);
+        // Redaction pass + discovery pass -- see redactObservationsWithLLM's
+        // doc comment for why this is deliberately 2, not 1.
+        expect(mockInvokeLLM).toHaveBeenCalledTimes(2);
 
-        const callArgs = mockInvokeLLM.mock.calls[0][0];
-        expect(callArgs.messages[0].content).toContain("analyst and clinical auditor");
-        expect(callArgs.messages[1].content).not.toContain("jane@example.com");
+        const redactionCallArgs = mockInvokeLLM.mock.calls[0][0];
+        expect(redactionCallArgs.messages[0].content).toContain("de-identification and redaction assistant");
+        expect(redactionCallArgs.messages[1].content).not.toContain("jane@example.com");
+
+        const discoveryCallArgs = mockInvokeLLM.mock.calls[1][0];
+        expect(discoveryCallArgs.messages[0].content).toContain("analyst and clinical auditor");
+        expect(discoveryCallArgs.messages[1].content).not.toContain("jane@example.com");
+      });
+
+      it("falls back to local-scrub-only text for an item the LLM redaction pass fails on, without dropping it", async () => {
+        mockInvokeLLM.mockClear();
+
+        // Redaction call fails outright (e.g. kill switch, network error).
+        mockInvokeLLM.mockRejectedValueOnce(new Error("LLM unavailable"));
+
+        // Discovery call still runs on the deidentifyText()-only fallback.
+        mockInvokeLLM.mockResolvedValueOnce({
+          choices: [{ message: { content: JSON.stringify({ proposedPatterns: [] }) } }],
+        });
+
+        const ctx = createAuthContext();
+        const caller = fpkbRouter.createCaller(ctx);
+        const result = await caller.runAiPatternDiscovery();
+
+        expect(result.success).toBe(true);
+        expect(mockInvokeLLM).toHaveBeenCalledTimes(2);
+        const discoveryCallArgs = mockInvokeLLM.mock.calls[1][0];
+        // The seeded row's email is still scrubbed by the local first pass
+        // even though the LLM redaction call itself failed.
+        expect(discoveryCallArgs.messages[1].content).not.toContain("jane@example.com");
+        expect(discoveryCallArgs.messages[1].content).toContain("[REDACTED EMAIL]");
       });
     });
 
