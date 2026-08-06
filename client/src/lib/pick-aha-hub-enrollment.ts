@@ -48,7 +48,7 @@ export function buildAhaHubEnrollmentMap(
   enrollments: AhaHubEnrollmentRow[] | undefined,
   hubCourseIdByProgram: Map<string, number>
 ): Map<AhaProgramType, AhaHubEnrollmentRow> {
-  const programs: AhaProgramType[] = ["bls", "acls", "pals", "heartsaver", "nrp"];
+  const programs: AhaProgramType[] = ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"];
   const map = new Map<AhaProgramType, AhaHubEnrollmentRow>();
   for (const programType of programs) {
     const picked = pickAhaHubEnrollmentForProgram(
