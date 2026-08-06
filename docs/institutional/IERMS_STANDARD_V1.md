@@ -4,7 +4,9 @@
 > **Document Status:** Published Institutional Standard — July 2026  
 > **Governance:** Clinical Stewardship Committee & Paeds Resus Advisory Council  
 > **Target Audience:** Hospital Medical Directors, Directors of Nursing Services, Hospital Quality & Safety Committees, County Health Executives, Health Insurers  
-> **Related Documents:** [INSTITUTIONAL_ERS_NARRATIVE.md](../INSTITUTIONAL_ERS_NARRATIVE.md) · [PAEDS_RESUS_COHERENT_PICTURE.md](../PAEDS_RESUS_COHERENT_PICTURE.md) · [NORTH_STAR_V2.md](../NORTH_STAR_V2.md) · [OBSERVATION_ARCHITECTURE_V1_1.md](../OBSERVATION_ARCHITECTURE_V1_1.md)
+> **Related Documents:** [INSTITUTIONAL_ERS_NARRATIVE.md](../INSTITUTIONAL_ERS_NARRATIVE.md) · [PAEDS_RESUS_COHERENT_PICTURE.md](../PAEDS_RESUS_COHERENT_PICTURE.md) · [NORTH_STAR_V2.md](../NORTH_STAR_V2.md) · [NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md](../NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md) · [OBSERVATION_ARCHITECTURE_V1_1.md](../OBSERVATION_ARCHITECTURE_V1_1.md)
+>
+> **Note (2026-08-06):** This standard's adult-resuscitation and whole-hospital scope (§1, §2.2) predates its formal reconciliation with `NORTH_STAR_V2.md` §2.1's paediatric mission statement. That reconciliation is now recorded in the v2.3 addendum linked above — this standard's scope was correct in substance, just not yet backed by an amended constitution. It is now.
 
 ---
 

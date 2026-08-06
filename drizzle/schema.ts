@@ -291,6 +291,70 @@ export const careSignalEvents = mysqlTable("careSignalEvents", {
 export type CareSignalEventRow = typeof careSignalEvents.$inferSelect;
 export type InsertCareSignalEvent = typeof careSignalEvents.$inferInsert;
 
+/**
+ * Code Signal — adult/whole-hospital resuscitation incident & near-miss
+ * reporting. CEO decision 2026-08-06 (docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md):
+ * the paediatric ERT model requires whole-hospital reciprocity (paeds and
+ * adult ward staff form one shared responder network per IERMS Domain 1.3),
+ * so the same near-miss learning discipline that exists for children needs
+ * an adult-scoped counterpart. Deliberately a SEPARATE table from
+ * `careSignalEvents`, not a shared one with a patient-type discriminator —
+ * this preserves Care Signal's paediatric-only dataset as a clean, citable
+ * research artifact and avoids retrofitting a child-shaped schema
+ * (childAge NOT NULL, paediatric-only condition/failure taxonomy) onto an
+ * adult population. See the design conversation in chat, 2026-08-06.
+ *
+ * Deliberately NOT wired into (flagged, not silently dropped — each is a
+ * separate follow-up decision):
+ *  - Fellowship credit / Pillar C (Care Signal-specific; whether adult
+ *    reporting should ever count toward a paediatric-titled Fellowship is
+ *    a real open question, not assumed either way here).
+ *  - FPKB pattern-detection engine (`kb_pattern_observations.observationSource`
+ *    enum would need a new CODE_SIGNAL value; not added in this pass).
+ *  - Institutional follow-up / admin review queue / analytics dashboard
+ *    (Care Signal's equivalents are ~1600 lines in care-signal-events.ts;
+ *    Code Signal ships submit + list only this pass).
+ *  - A dedicated versioned legal consent document (Care Signal's consent
+ *    gate is tied to `LEGAL_DOCUMENT_VERSIONS.careSignalNotice` and
+ *    explicitly promises Fellowship credit in its copy — reusing it for
+ *    Code Signal would misstate what the submission does. Code Signal's
+ *    form carries an inline, unversioned consent notice instead until a
+ *    real "Code Signal Notice" document is drafted and signed off.)
+ */
+export const codeSignalEvents = mysqlTable("codeSignalEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  facilityId: int("facilityId"),
+  eventDate: timestamp("eventDate").notNull(),
+  /** Who the patient was — not just "an adult"; mothers and staff collapsing at the bedside are explicitly in scope per the CEO's stated rationale. */
+  patientCategory: mysqlEnum("patient_category", [
+    "ADULT_PATIENT", "MOTHER_OF_PATIENT", "STAFF_MEMBER", "OTHER",
+  ]).notNull(),
+  conditionCategory: varchar("condition_category", { length: 64 }).notNull(),
+  outcomeCategory: varchar("outcome_category", { length: 64 }).notNull(),
+  roleAtTimeOfEvent: varchar("role_at_time_of_event", { length: 64 }).notNull(),
+  country: varchar("country", { length: 2 }),
+  adminLevel1: varchar("admin_level_1", { length: 128 }),
+  adminLevel2: varchar("admin_level_2", { length: 128 }),
+  facilityOwnership: varchar("facility_ownership", { length: 64 }),
+  schemaVersion: varchar("schema_version", { length: 16 }).default("1.0").notNull(),
+  reportTrack: mysqlEnum("report_track", ["FAILURE", "SUCCESS"]).default("FAILURE").notNull(),
+  failureDomains: text("failure_domains"),
+  failureModeCodes: text("failure_mode_codes"),
+  successDomains: text("success_domains"),
+  successFactorCodes: text("success_factor_codes"),
+  rawNarrative: text("raw_narrative").notNull(),
+  redactedNarrative: text("redacted_narrative"),
+  status: varchar("status", { length: 32 }).default("submitted").notNull(),
+  eventId: varchar("event_id", { length: 36 }),
+  /** Same three-mode identity model as Care Signal §5.5 — no pseudonymous-token linkage yet since Code Signal has no Fellowship pillar to accrue credit against. */
+  submissionMode: mysqlEnum("submissionMode", ["named", "anonymous"]).default("named").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CodeSignalEventRow = typeof codeSignalEvents.$inferSelect;
+export type InsertCodeSignalEvent = typeof codeSignalEvents.$inferInsert;
+
 // Institutional Accounts table
 export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   id: int("id").autoincrement().primaryKey(),

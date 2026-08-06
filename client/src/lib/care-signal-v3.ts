@@ -162,6 +162,25 @@ export const FAILURE_DOMAIN_LABELS: Record<FailureDomain, string> = {
   RESOURCE_AVAILABILITY: "Resource unavailability",
 };
 
+/**
+ * Track-neutral domain labels — audit fix, 2026-08-06. The SUCCESS track
+ * ("What went right? Select the area where the success occurred.") was
+ * reusing FAILURE_DOMAIN_LABELS, so a provider filing a success report saw
+ * checkbox options literally reading "Recognition failure", "Treatment
+ * failure", etc. Use these for the success track; FAILURE_DOMAIN_LABELS
+ * remains correct for the failure track, where "failure" is accurate.
+ */
+export const DOMAIN_LABELS: Record<FailureDomain, string> = {
+  RECOGNITION: "Recognition",
+  ESCALATION: "Escalation",
+  VASCULAR_ACCESS: "Vascular access",
+  TREATMENT: "Treatment",
+  REFERRAL: "Referral / transfer",
+  MONITORING: "Monitoring",
+  COMMUNICATION: "Communication",
+  RESOURCE_AVAILABILITY: "Resource availability",
+};
+
 export const ROLE_AT_EVENT_LABELS: Record<RoleAtTimeOfEvent, string> = {
   TEAM_LEADER: "Team leader",
   PRIMARY_CLINICIAN: "Primary clinician or nurse (directly managing patient)",

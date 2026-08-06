@@ -27,6 +27,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
 const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
+const CodeSignal = lazy(() => import("./pages/CodeSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
@@ -192,6 +193,13 @@ function Router() {
               <CareSignal />
             </RoleGate>
           )}</Route>
+          {/* Code Signal — adult/whole-hospital counterpart to Care Signal.
+              2026-08-06 CEO decision, see docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md. */}
+          <Route path="/code-signal">{() => (
+            <RoleGate allowed={["provider"]}>
+              <CodeSignal />
+            </RoleGate>
+          )}</Route>
           {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
           <Route path="/institutional-portal">{() => (
             <RoleGate allowed={["institution"]}>
@@ -274,7 +282,6 @@ function Router() {
           <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>
           <Route path="/training/bls">{() => <TrainingCourseLanding slug="bls" />}</Route>
           <Route path="/training/nrp">{() => <TrainingCourseLanding slug="nrp" />}</Route>
-          <Route path="/training/instructor">{() => <TrainingCourseLanding slug="instructor" />}</Route>
           <Route path="/training" component={TrainingHub} />
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
