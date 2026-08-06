@@ -274,6 +274,7 @@ function Router() {
           <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>
           <Route path="/training/bls">{() => <TrainingCourseLanding slug="bls" />}</Route>
           <Route path="/training/nrp">{() => <TrainingCourseLanding slug="nrp" />}</Route>
+          <Route path="/training/instructor">{() => <TrainingCourseLanding slug="instructor" />}</Route>
           <Route path="/training" component={TrainingHub} />
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
