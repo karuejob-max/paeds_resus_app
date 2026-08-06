@@ -7,6 +7,7 @@ export const AHA_COURSE_ORDER: readonly AhaProgramType[] = [
   "pals",
   "heartsaver",
   "nrp",
+  "instructor",
 ] as const;
 
 /**
@@ -21,6 +22,7 @@ export const AHA_RECOMMENDED_TOTAL_HOURS: Record<AhaProgramType, number> = {
   pals: 16,
   heartsaver: 2,
   nrp: 6,
+  instructor: 7,
 };
 
 /** @deprecated Use AHA_RECOMMENDED_TOTAL_HOURS */
@@ -43,6 +45,7 @@ export const AHA_COGNITIVE_COURSEWORK_HOURS: Record<AhaProgramType, number> = {
   pals: 10,
   heartsaver: 1,
   nrp: 3,
+  instructor: 7,
 };
 
 export type AhaCourseMetadata = {
@@ -69,7 +72,7 @@ const AHA_COURSE_METADATA: Record<AhaProgramType, AhaCourseMetadata> = {
     programType: "pals",
     badge: "PALS",
     title: "PALS (Pediatric Advanced Life Support)",
-shortDescription: "2025 AHA PALS Update — Foundational pediatric assessment, BLS, systematic ABCDE, physiology-directed algorithms, and recovery.",
+    shortDescription: "2025 AHA PALS Update — Foundational pediatric assessment, BLS, systematic ABCDE, physiology-directed algorithms, and recovery.",
   },
   heartsaver: {
     programType: "heartsaver",
@@ -84,6 +87,13 @@ shortDescription: "2025 AHA PALS Update — Foundational pediatric assessment, B
     title: "NRP (Neonatal Resuscitation Program)",
     shortDescription:
       "2025 AHA/AAP neonatal resuscitation — anticipation, initial steps, PPV, chest compressions, medications, and post-resuscitation care.",
+  },
+  instructor: {
+    programType: "instructor",
+    badge: "INS",
+    title: "Paeds Resus Instructor Course",
+    shortDescription:
+      "Train-the-trainer foundations: adult learning, course-specific delivery, objective assessment and debriefing, and mentorship.",
   },
 };
 
@@ -132,6 +142,7 @@ export function formatCognitiveCourseworkDurationLabel(programType: AhaProgramTy
     pals: 10,
     heartsaver: 7,
     nrp: 6,
+    instructor: 6,
   };
   const moduleCount = moduleCountMap[programType] || 6;
   return `Cognitive coursework: ${moduleCount} modules • ${formatCognitiveCourseworkDuration(programType)}`;
