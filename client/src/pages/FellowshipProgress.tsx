@@ -7,6 +7,7 @@
  * 3. Care Signal: 24 consecutive months of monthly reporting
  */
 
+import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +22,14 @@ import {
   FELLOWSHIP_PATHWAY_IN_PROGRESS_LABEL,
 } from "@shared/fellowship-launch-gate";
 import { FellowshipGraduationCard } from "@/components/fellowship/FellowshipGraduationCard";
+import { FellowshipPillarADetailDialog } from "@/components/fellowship/FellowshipPillarADetailDialog";
+import { FellowshipPillarCDetailDialog } from "@/components/fellowship/FellowshipPillarCDetailDialog";
 
 export default function FellowshipProgress() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
+  const [pillarADetailOpen, setPillarADetailOpen] = useState(false);
+  const [pillarCDetailOpen, setPillarCDetailOpen] = useState(false);
 
   if (!loading && !user) {
     setLocation("/login");
@@ -175,6 +180,9 @@ export default function FellowshipProgress() {
               <Button variant="outline" size="sm" className="w-full" onClick={() => setLocation("/fellowship")}>
                 View courses
               </Button>
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setPillarADetailOpen(true)}>
+                View details
+              </Button>
             </CardContent>
           </Card>
 
@@ -236,6 +244,9 @@ export default function FellowshipProgress() {
               </div>
               <Button variant="outline" size="sm" className="w-full" onClick={() => setLocation("/care-signal")}>
                 Report Incident
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setPillarCDetailOpen(true)}>
+                View details
               </Button>
             </CardContent>
           </Card>
@@ -340,6 +351,20 @@ export default function FellowshipProgress() {
           </Card>
         )}
       </div>
+
+      <FellowshipPillarADetailDialog
+        open={pillarADetailOpen}
+        onOpenChange={setPillarADetailOpen}
+        microCoursesCompleted={coursesPillar.completed}
+        microCoursesRequired={coursesPillar.required}
+        phase2Courses={coursesPillar.phase2.courses}
+      />
+      <FellowshipPillarCDetailDialog
+        open={pillarCDetailOpen}
+        onOpenChange={setPillarCDetailOpen}
+        careSignal={{ streak: careSignalPillar.streak, monthlyTimeline: careSignalPillar.monthlyTimeline }}
+        cpd={{ streak: careSignalPillar.cpd.streak, monthlyTimeline: careSignalPillar.cpd.monthlyTimeline }}
+      />
     </div>
   );
 }
