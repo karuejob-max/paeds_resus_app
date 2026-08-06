@@ -313,6 +313,7 @@ async function main() {
   if (process.argv.includes("--strict") && shallowCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 main().catch((e) => {
