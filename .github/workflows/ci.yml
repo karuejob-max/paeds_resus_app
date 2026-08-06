@@ -9,6 +9,30 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    services:
+      # MySQL 8.0 -- same version as staging/production (see docs/STAGING_DEPLOYMENT.md).
+      # Throwaway per-run container; schema is shaped fresh every run via
+      # `drizzle-kit push` below, not via the (stale, see WORK_STATUS.md)
+      # drizzle-kit migration history.
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: paeds_resus_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      # Job-wide (not step-scoped) so check:db-test-coverage's own env read
+      # correctly reports "ran for real" once the integration-test step below
+      # has actually run against this. test:unit is unaffected -- its config
+      # doesn't include these files regardless of DATABASE_URL (see
+      # vitest.unit.config.ts's include list vs. test:db:integration's).
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/paeds_resus_ci
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +54,12 @@ jobs:
 
       - name: Unit + clinical engine tests
         run: pnpm run test:unit && pnpm run test:clinical
+
+      - name: Shape CI database schema (drizzle-kit push, not migrate -- see WORK_STATUS.md for why)
+        run: npx drizzle-kit push --force
+
+      - name: DB-dependent integration tests (real MySQL)
+        run: pnpm run test:db:integration
 
       - name: Report DB-dependent suites not exercised this run
         run: pnpm run check:db-test-coverage
