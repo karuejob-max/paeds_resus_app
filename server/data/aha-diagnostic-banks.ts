@@ -335,6 +335,7 @@ const BANKS: Record<AhaAnchorProgramType, AhaDiagnosticQuestionSeed[]> = {
   pals: palsBank,
   nrp: nrpBank,
   heartsaver: blsBank.slice(0, 12),
+  instructor: [],
 };
 
 export function getAhaDiagnosticBank(programType: AhaAnchorProgramType): AhaDiagnosticQuestionSeed[] {

@@ -1,6 +1,6 @@
 # Micro-course depth audit
 
-**Generated:** 2026-08-03 · **Scope:** 29 fellowship pillar micro-courses
+**Generated:** 2026-08-06 · **Scope:** 29 fellowship pillar micro-courses
 
 ## Depth standard (Foundational + Advanced)
 
