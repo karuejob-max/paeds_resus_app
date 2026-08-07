@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, desc, inArray } from "drizzle-orm";
+import { eq, and, isNotNull, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -17,6 +17,60 @@ import {
 } from "../../drizzle/schema";
 import { signOffPracticalSkills } from "../certificates";
 import { notifyMentorshipTierPromoted } from "../lib/cohort-program-notifications";
+
+/** Helper to compute how many unique learner milestones this instructor has facilitated/assessed. */
+export async function getInstructorTaughtCounts(db: any, userId: number) {
+  // Phase 2 online simulations: simulationCompetencyPassed = true in online sessions taught by this instructor
+  const [p2AttendanceCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(trainingAttendance)
+    .innerJoin(trainingSchedules, eq(trainingAttendance.trainingScheduleId, trainingSchedules.id))
+    .where(
+      and(
+        eq(trainingSchedules.instructorId, userId),
+        eq(trainingSchedules.trainingType, "online"),
+        eq(trainingAttendance.simulationCompetencyPassed, true)
+      )
+    );
+
+  // Phase 2 online simulations: approved retrospective claims in sessions taught by this instructor
+  const [p2ClaimCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(retrospectiveRoleClaims)
+    .innerJoin(trainingSchedules, eq(retrospectiveRoleClaims.trainingScheduleId, trainingSchedules.id))
+    .where(
+      and(
+        eq(trainingSchedules.instructorId, userId),
+        eq(retrospectiveRoleClaims.status, "approved")
+      )
+    );
+
+  const phase2TaughtCount = Number(p2AttendanceCountRow?.count ?? 0) + Number(p2ClaimCountRow?.count ?? 0);
+
+  // Phase 3 hands-on practical assessments: signed off by this instructor
+  const [p3SignedCountRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.practicalSkillsSignedOff, true),
+        eq(enrollments.practicalSignedOffByUserId, userId)
+      )
+    );
+  const phase3TaughtCount = Number(p3SignedCountRow?.count ?? 0);
+
+  // 1 cohort equivalent = 7 Phase 2 completions + 8 Phase 3 completions
+  const cohortsCompleted = Math.min(
+    Math.floor(phase2TaughtCount / 7),
+    Math.floor(phase3TaughtCount / 8)
+  );
+
+  return {
+    phase2TaughtCount,
+    phase3TaughtCount,
+    cohortsCompleted,
+  };
+}
 
 export const instructorRouter = router({
   /** Certification + platform approval flags for the instructor journey. */
@@ -53,6 +107,10 @@ export const instructorRouter = router({
       .where(eq(instructorMentorships.menteeUserId, ctx.user.id))
       .limit(1);
 
+    // Dynamic learner-count calculation
+    const taughtStats = await getInstructorTaughtCounts(db, ctx.user.id);
+
+    // Retrieve manual mentor confirmed groups
     let confirmedGroupCount = 0;
     if (mentorship) {
       const groups = await db
@@ -60,6 +118,21 @@ export const instructorRouter = router({
         .from(instructorMentorshipGroups)
         .where(eq(instructorMentorshipGroups.mentorshipId, mentorship.id));
       confirmedGroupCount = groups.length;
+    }
+
+    // Merge manual and auto-calculated group counts to determine progression
+    const effectiveGroupsCompleted = Math.max(taughtStats.cohortsCompleted, confirmedGroupCount);
+
+    let currentTier = row?.instructorTier ?? null;
+
+    // Auto-promote from provisional to qualified if they hit 3 cohorts
+    if (currentTier === "provisional" && effectiveGroupsCompleted >= 3) {
+      await db
+        .update(users)
+        .set({ instructorTier: "qualified" })
+        .where(eq(users.id, ctx.user.id));
+      currentTier = "qualified";
+      void notifyMentorshipTierPromoted(db, ctx.user.id, "qualified");
     }
 
     return {
@@ -71,11 +144,16 @@ export const instructorRouter = router({
       portalUnlocked: Boolean(
         row?.instructorNumber && row?.instructorCertifiedAt && row?.instructorApprovedAt
       ),
-      instructorTier: row?.instructorTier ?? null,
+      instructorTier: currentTier,
       qualifiedCourses: qualifications.map((q: { programType: string }) => q.programType),
       mentorUserId: mentorship?.mentorUserId ?? null,
-      confirmedGroupCount,
-      groupsNeededForQualified: Math.max(0, 3 - confirmedGroupCount),
+      confirmedGroupCount: effectiveGroupsCompleted,
+      groupsNeededForQualified: Math.max(0, 3 - effectiveGroupsCompleted),
+      phase2TaughtCount: taughtStats.phase2TaughtCount,
+      phase3TaughtCount: taughtStats.phase3TaughtCount,
+      phase2TaughtRequired: 21,
+      phase3TaughtRequired: 24,
+      cohortsCompleted: taughtStats.cohortsCompleted,
     };
   }),
 
@@ -637,15 +715,23 @@ export const instructorRouter = router({
         .from(users)
         .where(eq(users.id, m.menteeUserId))
         .limit(1);
+
       const groups = await db
         .select({ id: instructorMentorshipGroups.id })
         .from(instructorMentorshipGroups)
         .where(eq(instructorMentorshipGroups.mentorshipId, m.id));
+
+      const taughtStats = await getInstructorTaughtCounts(db, m.menteeUserId);
+      const effectiveGroupsCompleted = Math.max(taughtStats.cohortsCompleted, groups.length);
+
       result.push({
         menteeUserId: m.menteeUserId,
         menteeName: mentee?.name ?? "Unknown",
         instructorTier: mentee?.instructorTier ?? null,
-        confirmedGroupCount: groups.length,
+        confirmedGroupCount: effectiveGroupsCompleted,
+        phase2TaughtCount: taughtStats.phase2TaughtCount,
+        phase3TaughtCount: taughtStats.phase3TaughtCount,
+        cohortsCompleted: taughtStats.cohortsCompleted,
       });
     }
     return result;
