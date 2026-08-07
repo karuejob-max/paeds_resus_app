@@ -27,6 +27,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
 const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
+const CodeSignal = lazy(() => import("./pages/CodeSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
@@ -190,6 +191,13 @@ function Router() {
           <Route path="/care-signal">{() => (
             <RoleGate allowed={["provider"]}>
               <CareSignal />
+            </RoleGate>
+          )}</Route>
+          {/* Code Signal — adult/whole-hospital counterpart to Care Signal.
+              2026-08-06 CEO decision, see docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md. */}
+          <Route path="/code-signal">{() => (
+            <RoleGate allowed={["provider"]}>
+              <CodeSignal />
             </RoleGate>
           )}</Route>
           {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}

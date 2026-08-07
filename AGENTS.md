@@ -384,6 +384,7 @@ A separate, platform-wide "cadre taxonomy" (`client/src/lib/cadre-taxonomy.ts`, 
 | :--- | :--- |
 | `docs/PLATFORM_SOURCE_OF_TRUTH.md` | **The canonical PSOT.** Read this for any architectural or product decision. §19–22 for global vision. |
 | `docs/CARE_SIGNAL_STRATEGY_AND_ROADMAP.md` | Full Care Signal strategy, audit, and implementation roadmap. |
+| `docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md` | Adult/whole-hospital scope decision (Code Signal), and why it doesn't change the paediatric mission. Read before touching Care Signal, Code Signal, or any "is this platform paediatric-only" question. |
 | `docs/CARE_SIGNAL_WORLD_CHANGING_POTENTIAL.md` | Strategic analysis of Care Signal's global impact potential. |
 | `RESUSGPS_DNA.md` | Core platform DNA — 7 strands, mission, success metrics. |
 | `docs/STRATEGIC_FOUNDATION.md` | Theory of change, clinical origin narrative, honest success criteria. |

@@ -114,7 +114,7 @@ Paeds Resus does not assume execution is always the problem — that assumption 
 
 - No child dies a preventable death — this is the ultimate destination, not a claim about current capability. Paeds Resus does not claim to have achieved it. It commits to working toward it.
 - Sustainable and scalable organisation — financial sustainability is not a distraction from mission. It is the precondition for mission at the scale of the problem.
-- Improve paediatric resuscitation and emergency care — the specific domain. Not all child health. Not adult care. Emergency care is where the execution gap is most acute, most visible, and most amenable to structured intervention.
+- Improve paediatric resuscitation and emergency care — the specific domain. Not all child health. Emergency care is where the execution gap is most acute, most visible, and most amenable to structured intervention. (See North Star v2.3 addendum: the operating mechanism for this mission now explicitly includes whole-hospital adult resuscitation readiness, in service of — not competing with — the paediatric mission. The mission itself is unchanged.)
 
 ### 2.2  The Institutional Identity: Aviation Safety
 
@@ -565,6 +565,13 @@ adopted 2026-07-29, documents the already-live Instructor Journey
 instructor qualification, and how it relates to (and is independent from)
 the Fellow Instructor tier defined in v2.1. No new engineering — this
 brings an existing operational system into the constitution.*
+
+*North Star v2.3 (docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md),
+adopted 2026-08-06, reconciles IERMS's whole-hospital adult-resuscitation
+scope with §2.1's paediatric mission statement: the mission is unchanged,
+the operating mechanism now explicitly includes adult resuscitation
+readiness via reciprocal Emergency Response Teams, and Code Signal is
+established as a structurally separate dataset from Care Signal.*
 
 ## Document Classification and Review
 

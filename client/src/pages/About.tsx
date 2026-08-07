@@ -29,10 +29,19 @@ export default function About() {
           the next hospital, the next country, benefits from what was learned at a bedside before them — the way
           aviation safety improves from every reported near-miss.
         </p>
+        <p className="text-lg text-muted-foreground">
+          Most LMIC hospitals don't have a separate paediatric building, and paediatric wards are rarely staffed
+          for a resuscitation team of their own — so the responders who show up for a child's code are the same
+          people who need to show up for an adult one. Code Signal, Care Signal's counterpart for adult and
+          whole-hospital events, exists because protecting that reciprocity is how paediatric outcomes actually get
+          delivered in the settings we work in. The mission stays paediatric; the team that makes it real is
+          whole-hospital.
+        </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>ResusGPS and protocols for time-critical decisions</li>
           <li>Certified courses (BLS, ACLS, PALS, fellowship pathways)</li>
           <li>Care Signal for clinicians and Safe-Truth for families — quality improvement</li>
+          <li>Code Signal for whole-hospital adult resuscitation readiness</li>
           <li>Institutional programmes, analytics, and scale</li>
         </ul>
         <div className="grid md:grid-cols-3 gap-4">
