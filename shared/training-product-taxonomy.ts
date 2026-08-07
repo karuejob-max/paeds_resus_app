@@ -8,7 +8,7 @@
 
 export type TrainingProductLine = "aha" | "fellowship" | "instructor" | "paeds_resus_adf" | "other";
 
-export type AhaOfferingCode = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
+export type AhaOfferingCode = "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
 
 export const AHA_OFFERING_LABELS: Record<AhaOfferingCode, string> = {
   bls: "BLS (Basic Life Support)",
@@ -16,9 +16,10 @@ export const AHA_OFFERING_LABELS: Record<AhaOfferingCode, string> = {
   pals: "PALS (Pediatric Advanced Life Support)",
   heartsaver: "Heartsaver CPR AED",
   nrp: "NRP (Neonatal Resuscitation Program)",
+  instructor: "Paeds Resus Instructor Course",
 };
 
-const AHA_PROGRAM_TYPES = new Set<string>(["bls", "acls", "pals", "heartsaver", "nrp"]);
+const AHA_PROGRAM_TYPES = new Set<string>(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]);
 
 /** Legacy ADF / E2E PALS micro-courses stored under enrollments.programType = pals */
 export const PALS_ADF_CATALOG_TITLE_MARKERS = [
@@ -32,9 +33,9 @@ export function isAhaProgramType(programType: string): programType is AhaOfferin
 }
 
 export function inferProductLine(programType: string): TrainingProductLine {
+  if (programType === "instructor") return "instructor";
   if (isAhaProgramType(programType)) return "aha";
   if (programType === "fellowship" || programType === "fellowship_diploma") return "fellowship";
-  if (programType === "instructor") return "instructor";
   return "other";
 }
 

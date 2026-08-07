@@ -176,7 +176,7 @@ export const learningRouter = router({
 
   /** Canonical AHA catalog row (most modules) for BLS / ACLS / PALS / Heartsaver. */
   getAhaCourseAnchor: publicProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]) }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]) }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
@@ -189,7 +189,7 @@ export const learningRouter = router({
       z.object({
         courseId: z.number(),
         /** When the URL has a stale numeric id (e.g. /micro-course/1), resolve the real row. */
-        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]).optional(),
+        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).optional(),
       })
     )
     .query(async ({ input }) => {

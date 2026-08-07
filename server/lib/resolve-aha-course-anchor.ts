@@ -10,8 +10,9 @@ import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "./ensure-nrp-catalog";
 import { ensureAhaDiagnosticQuiz } from "./ensure-aha-diagnostic-quiz";
 import { ensureAhaSummativeQuiz } from "./ensure-aha-summative-quiz";
+import { ensureInstructorCourseCatalog } from "./ensure-instructor-course-catalog";
 
-export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
+export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
 
 export async function ensureAhaProgramCatalog(
   db: any,
@@ -27,6 +28,8 @@ export async function ensureAhaProgramCatalog(
     await ensureHeartsaverCatalog(db);
   } else if (programType === "nrp") {
     await ensureNrpCatalog(db);
+  } else if (programType === "instructor") {
+    await ensureInstructorCourseCatalog(db);
   }
 }
 

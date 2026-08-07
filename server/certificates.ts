@@ -1002,18 +1002,19 @@ export async function saveAhaCognitiveCertificate(
   enrollmentId: number,
   userId: number,
   recipientName: string,
-  programType: "bls" | "acls" | "pals" | "heartsaver" | "nrp"
+  programType: "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor"
 ): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
   try {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
 
-    const cognitiveProgramType = `${programType}_cognitive` as
+    const cognitiveProgramType = (programType === "instructor" ? "instructor" : `${programType}_cognitive`) as
       | "bls_cognitive"
       | "acls_cognitive"
       | "pals_cognitive"
       | "heartsaver_cognitive"
-      | "nrp_cognitive";
+      | "nrp_cognitive"
+      | "instructor";
 
     // Idempotency: return existing cert if already issued for this enrollment
     const existing = await db

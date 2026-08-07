@@ -13,7 +13,7 @@ export function ahaCertificationFaqAnswer(courseCode: string): string {
 }
 
 export type TrainingLandingConfig = {
-  slug: "bls" | "acls" | "pals" | "nrp";
+  slug: "bls" | "acls" | "pals" | "nrp" | "instructor";
   path: string;
   title: string;
   metaDescription: string;
@@ -302,6 +302,71 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
         question: "Does ResusGPS cover neonatal emergencies?",
         answer:
           "ResusGPS includes neonatal emergency guidance for signed-in providers. Training and bedside tools work together but serve different purposes.",
+      },
+    ],
+  },
+  instructor: {
+    slug: "instructor",
+    path: "/training/instructor",
+    title: "Instructor Course Kenya — Paeds Resus Instructor | Paeds Resus",
+    metaDescription:
+      "AHA-aligned Instructor Course training in Kenya and East Africa. Enroll with Paeds Resus Limited to become a certified Resuscitation Instructor.",
+    h1: "Instructor Course in Kenya — Become a Resuscitation Instructor",
+    subtitle:
+      "Build teaching competence, master advanced debriefing, and certify as a resuscitation instructor under Paeds Resus Limited. Develop the skills to lead high-fidelity simulation and shape the future of emergency response.",
+    courseCode: "Instructor",
+    duration: ahaDurationIsoHours("instructor"),
+    priceCourseId: "instructor",
+    keywords: ["Instructor Course Kenya", "resuscitation instructor", "debriefing training", "train-the-trainer"],
+    sections: [
+      {
+        heading: "Why certify as a Resuscitation Instructor in Kenya?",
+        paragraphs: [
+          "Resuscitation Instructors play a key role in building capacity within hospitals and healthcare institutions. By learning the principles of adult learning, effective feedback, and structured debriefing, you can lead BLS, ACLS, and PALS courses, raising resuscitation standards across Kenya and East Africa.",
+          "Paeds Resus Limited coordinates the Instructor Course as a blended offering. Candidates complete self-paced online cognitive modules, receive their gatepass certificate when cognitive work is complete, and participate in an intensive, hands-on practical session. Once certified, instructors receive a unique instructor number and are eligible for teaching assignments.",
+          "Developing local instructors is vital for sustainable healthcare systems. Rather than relying on external faculty, hospitals can certify their own lead educators to conduct regular refresher courses, monitor clinical quality on the wards, and oversee mock code drills. This keeps skills sharp and response times low.",
+        ],
+      },
+      {
+        heading: "What you will learn",
+        paragraphs: [
+          "The instructor pathway covers teaching methodologies, simulator design, formative and summative assessment grading, and positive-critique debriefing patterns. Emphasis is placed on managing diverse classrooms, creating realistic scenarios, and ensuring student competence.",
+          "The cognitive portion consists of the online modules, followed by face-to-face skills demonstration and mentored practice teaching. You will gain a deep understanding of how to facilitate learning, debrief clinical simulations, and objectively assess provider performance.",
+          "Furthermore, you will explore the science of resuscitation education, including how to minimize cognitive load, use voice and body language to guide teams, and adapt scenarios to different clinical cadres. Debriefing training focus includes the Advocacy-Inquiry model and the PEARLS framework.",
+        ],
+      },
+      {
+        heading: "Certification Requirements",
+        paragraphs: [
+          "To successfully certify, candidates must complete all online coursework, score 84% or higher on the instructor exam, demonstrate impeccable CPR and clinical skills, and be monitored teaching their first course under an instructor trainer.",
+          "Instructor status is maintained by teaching at least four courses over a two-year period, keeping provider-level certifications current, and participating in platform updates.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "How do I become a Resuscitation Instructor?",
+        answer:
+          "Start by registering an account on Paeds Resus. Complete the self-paced online cognitive modules, receive your gatepass certificate, and then register for an upcoming face-to-face instructor course. After the practical class, you must be monitored teaching a live course to receive your official certification.",
+      },
+      {
+        question: "Is this course AHA-aligned?",
+        answer: ahaCertificationFaqAnswer("Instructor"),
+      },
+      {
+        question: "What are the prerequisites?",
+        answer:
+          "Candidates must hold a current provider certificate in the discipline they wish to teach (e.g., BLS, ACLS, or PALS) and demonstrate high proficiency in resuscitation skills. Prior teaching or mentoring experience is highly recommended but not strictly required.",
+      },
+      {
+        question: "How long is the instructor course valid?",
+        answer:
+          "Your instructor certification is valid for two years. To maintain active status, you must teach a minimum of four courses in your discipline during this period, participate in required educational updates, and successfully pass an instructor monitoring evaluation.",
+      },
+      {
+        question: "Does the platform support B2B assignments?",
+        answer:
+          "Yes. Certified instructors who are approved by Paeds Resus Limited can access B2B teaching assignments through the instructor portal. The portal allows you to accept course invitations, review rosters, and submit course rosters for digital card issuance.",
       },
     ],
   },

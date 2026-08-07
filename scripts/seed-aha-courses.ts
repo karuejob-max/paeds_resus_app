@@ -4,6 +4,7 @@ import { ensureBlsCatalog, ensureAclsCatalog } from "../server/lib/ensure-bls-ac
 import { ensureHeartsaverCatalog } from "../server/lib/ensure-heartsaver-catalog";
 import { ensurePalsAhaCatalog } from "../server/lib/ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "../server/lib/ensure-nrp-catalog";
+import { ensureInstructorCourseCatalog } from "../server/lib/ensure-instructor-course-catalog";
 import { resolveAhaCourseAnchor } from "../server/lib/resolve-aha-course-anchor";
 
 async function main() {
@@ -15,7 +16,7 @@ async function main() {
 
   console.log("[Seed] Ensuring all AHA course catalogs...");
   
-  const programs = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
+  const programs = ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"] as const;
   for (const program of programs) {
     console.log(`[Seed] Processing ${program.toUpperCase()}...`);
     if (program === "bls") await ensureBlsCatalog(db);
@@ -23,6 +24,7 @@ async function main() {
     else if (program === "pals") await ensurePalsAhaCatalog(db);
     else if (program === "heartsaver") await ensureHeartsaverCatalog(db);
     else if (program === "nrp") await ensureNrpCatalog(db);
+    else if (program === "instructor") await ensureInstructorCourseCatalog(db);
     
     // This also ensures quizzes
     await resolveAhaCourseAnchor(db, program);

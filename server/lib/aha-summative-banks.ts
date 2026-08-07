@@ -20,6 +20,7 @@ const BANKS: Record<AhaAnchorProgramType, AhaSummativeQuestionSeed[]> = {
   pals: PALS_2025_SUMMATIVE_QUESTIONS,
   nrp: NRP_SUMMATIVE_QUESTIONS,
   heartsaver: HEARTSAVER_SUMMATIVE_QUESTIONS,
+  instructor: [],
 };
 
 export function getAhaSummativeBank(programType: AhaAnchorProgramType): AhaSummativeQuestionSeed[] {
