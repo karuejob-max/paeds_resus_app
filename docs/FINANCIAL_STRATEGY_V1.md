@@ -344,6 +344,28 @@ The five-year test is not a revenue target. It is a revenue mix test: if after f
 - Premature accreditation: launching an accreditation scheme before the standard is credible, the audit methodology is independent, or the market has confirmed that the accreditation is worth pursuing
 - Grant dependency: operating costs funded primarily by donor grants with no path to commercial sustainability, making the platform vulnerable to funding cycles and donor priorities
 
+### 10.4  Whole-Hospital Readiness — Revenue Mix Implication (added 2026-08-06)
+
+North Star v2.3 (`docs/NORTH_STAR_V2_3_ADDENDUM_WHOLE_HOSPITAL_READINESS.md`)
+established that IERP Emergency Response Teams train and respond across
+adult and paediatric units reciprocally. This has a direct effect on
+Business 1 (Education) that this strategy document should account for
+explicitly rather than leave implicit in the addendum alone: the addressable
+learner pool for adult-scope certification (ACLS) is materially larger than
+for paediatric-scope certification (PALS) in any given facility, since every
+provider on general adult wards is now a plausible ACLS learner, not only
+paediatric-ward staff.
+
+This does not change the four-business sequencing or the five-year revenue
+mix test in §10.2 — Business 2 (Quality Improvement, now including Code
+Signal alongside Care Signal) is still expected to represent the larger
+share of revenue at five years. It does mean Business 1's near-term
+enrollment volume should be modeled with an ACLS-inclusive learner base
+going forward, not a PALS-only one. No revised enrollment projections are
+included here — this section flags the modeling implication; producing
+updated projections is separate follow-up work, not assumed or estimated in
+this pass.
+
 ## Document Classification and Review
 
 *This document is a confidential internal strategic document. It is not for external distribution without CEO approval. Review triggers: changes to product pricing, new revenue streams not covered here, entry into a new country market, significant changes to the competitive landscape, or a quarterly review of revenue mix against the targets described in Section 10. The constitutional revenue principle in Section 1.1 may not be modified without full leadership review and an explicit record of the decision.*

@@ -64,6 +64,7 @@ import {
   CHILD_AGE_BAND_LABELS,
   OUTCOME_CATEGORY_LABELS,
   FAILURE_DOMAIN_LABELS,
+  DOMAIN_LABELS,
   ROLE_AT_EVENT_LABELS,
   HOURS_SINCE_EVENT_LABELS,
   type FailureDomain,
@@ -578,14 +579,14 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
             <label className={SLABEL}>What went right? <span className="text-red-500">*</span></label>
             <p className={HINT + " mb-2"}>Select the area where the success occurred.</p>
             <div className="space-y-2">
-              {(Object.keys(FAILURE_DOMAIN_LABELS) as FailureDomain[]).map(domain => {
+              {(Object.keys(DOMAIN_LABELS) as FailureDomain[]).map(domain => {
                 const sel = form.successDomains.includes(domain);
                 const factors = SUCCESS_FACTORS.filter(f => f.domain === domain);
                 return (
                   <div key={domain} className="space-y-1">
                     <button type="button" onClick={() => toggleSuccDomain(domain)} className={cn("w-full text-left", sel ? OPT_SUC_SEL : OPT_SUC)}>
                       <Checkbox checked={sel} className="mt-0.5 shrink-0 pointer-events-none" />
-                      <span className="text-sm font-medium">{FAILURE_DOMAIN_LABELS[domain]}</span>
+                      <span className="text-sm font-medium">{DOMAIN_LABELS[domain]}</span>
                     </button>
                     {sel && factors.length > 0 && (
                       <div className="ml-6 space-y-1 pb-1">
