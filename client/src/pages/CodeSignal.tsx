@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, Shield, Users } from "lucide-react";
 import CodeSignalForm from "@/components/CodeSignalForm";
+import { CodeSignalConsentGate } from "@/components/CodeSignalConsentGate";
 import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function CodeSignal() {
@@ -48,7 +49,9 @@ export default function CodeSignal() {
             learning discipline needs to cover both.
           </CardContent>
         </Card>
-        <CodeSignalForm />
+        <CodeSignalConsentGate>
+          <CodeSignalForm />
+        </CodeSignalConsentGate>
       </div>
     </div>
   );

@@ -106,6 +106,31 @@ export async function recordCareSignalConsent(
   });
 }
 
+export async function recordCodeSignalConsent(
+  userId: number,
+  version: string,
+  meta?: { ipAddress?: string; userAgent?: string }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      codeSignalConsentAt: now,
+      codeSignalConsentVersion: version,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+  await recordUserConsentEvent({
+    userId,
+    consentType: "code_signal_qi",
+    documentVersion: version,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+}
+
 export async function recordResusGpsAck(
   userId: number,
   version: string,
@@ -199,6 +224,8 @@ export async function getUserConsentStatus(userId: number) {
       privacyVersion: users.privacyVersion,
       careSignalConsentAt: users.careSignalConsentAt,
       careSignalConsentVersion: users.careSignalConsentVersion,
+      codeSignalConsentAt: users.codeSignalConsentAt,
+      codeSignalConsentVersion: users.codeSignalConsentVersion,
       resusGpsAckAt: users.resusGpsAckAt,
       resusGpsAckVersion: users.resusGpsAckVersion,
       institutionalB2bAcceptedAt: users.institutionalB2bAcceptedAt,

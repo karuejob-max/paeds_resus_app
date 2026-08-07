@@ -36,6 +36,8 @@ export const legalRouter = router({
       termsStale: isTermsConsentStale(status ?? {}),
       requiredTermsVersion: LEGAL_DOCUMENT_VERSIONS.termsOfUse,
       requiredPrivacyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+      requiredCareSignalVersion: LEGAL_DOCUMENT_VERSIONS.careSignalNotice,
+      requiredCodeSignalVersion: LEGAL_DOCUMENT_VERSIONS.codeSignalNotice,
     };
   }),
 
@@ -52,6 +54,12 @@ export const legalRouter = router({
   acceptCareSignalConsent: protectedProcedure.mutation(async ({ ctx }) => {
     const meta = requestMeta(ctx);
     await legalDb.recordCareSignalConsent(ctx.user.id, LEGAL_DOCUMENT_VERSIONS.careSignalNotice, meta);
+    return { success: true as const };
+  }),
+
+  acceptCodeSignalConsent: protectedProcedure.mutation(async ({ ctx }) => {
+    const meta = requestMeta(ctx);
+    await legalDb.recordCodeSignalConsent(ctx.user.id, LEGAL_DOCUMENT_VERSIONS.codeSignalNotice, meta);
     return { success: true as const };
   }),
 

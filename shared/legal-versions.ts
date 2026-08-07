@@ -5,6 +5,7 @@ export const LEGAL_DOCUMENT_VERSIONS = {
   privacyPolicy: "1.1.0",
   termsOfUse: "1.2.0",
   careSignalNotice: "1.1.0",
+  codeSignalNotice: "1.0.0",
   cookieNotice: "1.0.0",
   clinicalIntendedUse: "1.0.0",
   institutionalB2bAddendum: "1.0.0",
