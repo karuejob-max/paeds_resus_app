@@ -47,6 +47,13 @@ Write-Host ""
 Write-Host "=== Pre-merge collision check for '$Branch' ===" -ForegroundColor Cyan
 Write-Host ""
 
+# Branch-fork sanity check first - catches the PR #407 failure mode (branch
+# built on top of another feature branch instead of a fresh main) before
+# the collision-file checks below even run.
+Write-Host "=== Branch fork-point check ===" -ForegroundColor Cyan
+node scripts/verify-branch-base.mjs
+Write-Host ""
+
 # Step 1: fetch fresh, immediately before checking - not relying on an
 # earlier fetch from when the branch was created.
 Write-Host "Fetching origin/main..." -ForegroundColor Gray
