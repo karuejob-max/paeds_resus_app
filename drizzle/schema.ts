@@ -43,6 +43,9 @@ export const users = mysqlTable("users", {
   /** Care Signal QI processing consent (migration 0044) */
   careSignalConsentAt: timestamp("careSignalConsentAt"),
   careSignalConsentVersion: varchar("careSignalConsentVersion", { length: 16 }),
+  /** Code Signal QI processing consent (migration 0090) */
+  codeSignalConsentAt: timestamp("codeSignalConsentAt"),
+  codeSignalConsentVersion: varchar("codeSignalConsentVersion", { length: 16 }),
   /** Institutional B2B addendum acceptance (migration 0044) */
   institutionalB2bAcceptedAt: timestamp("institutionalB2bAcceptedAt"),
   institutionalB2bVersion: varchar("institutionalB2bVersion", { length: 16 }),

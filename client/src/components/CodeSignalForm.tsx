@@ -139,19 +139,6 @@ export default function CodeSignalForm() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Deliberately unversioned inline notice — NOT the same infrastructure
-            as Care Signal's consent gate (LEGAL_DOCUMENT_VERSIONS.careSignalNotice),
-            since that copy promises Fellowship credit, which does not apply
-            here. A dedicated "Code Signal Notice" document is flagged as a
-            follow-up, not built in this pass. */}
-        <Alert>
-          <AlertDescription>
-            Code Signal is for quality improvement, not a patient medical record. Do not include patient names,
-            national IDs, or other identifiers in your narrative. Reports support facility-level learning and
-            aggregated, anonymised reporting.
-          </AlertDescription>
-        </Alert>
-
         <div>
           <label className="text-sm font-medium mb-2 block">Facility</label>
           <FacilityPicker value={facility} onChange={setFacility} required />
