@@ -36,6 +36,7 @@ import {
   type Domain,
   type FailureModeCode,
   type SuccessFactorCode,
+  type PatientCategory,
 } from "@/lib/code-signal";
 
 export default function CodeSignalForm() {
@@ -93,7 +94,7 @@ export default function CodeSignalForm() {
       const result = await submitEvent.mutateAsync({
         facilityId: facility.facilityId,
         eventDate: new Date(form.eventDate).toISOString(),
-        patientCategory: form.patientCategory as NonNullable<typeof form.patientCategory>,
+        patientCategory: form.patientCategory as PatientCategory,
         conditionCategory: form.conditionCategory,
         outcomeCategory: form.outcomeCategory,
         roleAtTimeOfEvent: form.roleAtTimeOfEvent,
