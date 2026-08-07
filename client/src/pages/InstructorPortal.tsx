@@ -39,6 +39,8 @@ function startOfTodayLocal(): Date {
 // ─────────────────────────────────────────────────────────────────────────────
 function SessionRoster({ scheduleId }: { scheduleId: number }) {
   const rosterQuery = trpc.instructor.getSessionRoster.useQuery({ scheduleId });
+  const myStatusQuery = trpc.instructor.getStatus.useQuery();
+  const isLeadInstructor = myStatusQuery.data?.instructorTier === "lead_instructor";
   const signOffMutation = trpc.instructor.signOffPracticalSkills.useMutation({
     onSuccess: (data) => {
       toast.success(data.message);
@@ -63,6 +65,13 @@ function SessionRoster({ scheduleId }: { scheduleId: number }) {
             (data.skipped.length > 0 ? ` — ${data.skipped.length} skipped (see below)` : "")
         );
       }
+      rosterQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const grandfatherMutation = trpc.fellowship.grandfatherCourseCompletion.useMutation({
+    onSuccess: () => {
+      toast.success("Fellowship course completion grandfathered.");
       rosterQuery.refetch();
     },
     onError: (err) => toast.error(err.message),
@@ -203,6 +212,46 @@ function SessionRoster({ scheduleId }: { scheduleId: number }) {
                 ? ` on ${new Date(learner.practicalSignedOffAt).toLocaleDateString()}`
                 : ""}
             </p>
+          )}
+
+          {/* Fellowship grandfathering — Lead Instructor only (North Star v2.1
+              addendum §6). For a learner who completed physical, in-person
+              training before the online Phase 2 model existed and has no
+              digital trail to check against. A full override, not a partial
+              waiver — confirmed here since it's not reversible from this
+              screen. */}
+          {isLeadInstructor && learner.enrollmentId && !learner.fellowshipGrandfathered && (
+            <div className="pt-1 border-t border-border/60 mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                disabled={grandfatherMutation.isPending}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Grandfather ${learner.name}'s Fellowship course completion? This marks it as fully met for Fellowship purposes without requiring cognitive modules, the AHA precourse assessment, or simulation sessions — only use this for someone who completed physical, in-person training before the online model existed.`
+                    )
+                  ) {
+                    return;
+                  }
+                  grandfatherMutation.mutate({ enrollmentId: learner.enrollmentId! });
+                }}
+              >
+                {grandfatherMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Shield className="h-3 w-3" />
+                )}
+                Grandfather Fellowship completion
+              </Button>
+            </div>
+          )}
+          {learner.fellowshipGrandfathered && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <Shield className="h-3 w-3" />
+              Fellowship grandfathered
+            </Badge>
           )}
         </div>
       ))}

@@ -277,6 +277,7 @@ export const instructorRouter = router({
           practicalSignedOffAt: enrollments.practicalSignedOffAt,
           practicalSignedOffByName: enrollments.practicalSignedOffByName,
           paymentStatus: enrollments.paymentStatus,
+          fellowshipGrandfathered: enrollments.fellowshipGrandfathered,
         })
         .from(enrollments)
         .where(eq(enrollments.courseId, schedule.courseId))
@@ -304,6 +305,7 @@ export const instructorRouter = router({
           practicalSignedOffByName: enrollment?.practicalSignedOffByName ?? null,
           certificateIssued: att.certificateIssued,
           paymentStatus: enrollment?.paymentStatus ?? "pending",
+          fellowshipGrandfathered: enrollment?.fellowshipGrandfathered ?? false,
         };
       });
 
