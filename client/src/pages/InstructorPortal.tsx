@@ -16,6 +16,7 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardCheck,
+  Download,
   ExternalLink,
   GraduationCap,
   Loader2,
@@ -27,6 +28,8 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { Progress } from "@/components/ui/progress";
 
 function startOfTodayLocal(): Date {
   const d = new Date();
@@ -600,11 +603,132 @@ function Phase2AvailabilityCard() {
 export default function InstructorPortal() {
   useScrollToTop();
   const { isAuthenticated, loading } = useAuth();
+  const utils = trpc.useUtils();
   const statusQuery = trpc.instructor.getStatus.useQuery(undefined, { enabled: isAuthenticated });
   const assignmentsQuery = trpc.instructor.getMyAssignments.useQuery(undefined, { enabled: isAuthenticated });
 
   // Track which assignment's roster is expanded
   const [expandedRosterId, setExpandedRosterId] = useState<number | null>(null);
+
+  // Certificate download states
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<number | null>(null);
+  const [feedbackDialog, setFeedbackDialog] = useState<{
+    certificateId: number;
+    certificateNumber: string;
+    courseLabel: string;
+  } | null>(null);
+
+  const s = statusQuery.data;
+  const certified = s?.certified;
+  const approved = s?.approved;
+  const unlocked = s?.portalUnlocked;
+
+  // Fetch certificates list to find the instructor course one
+  const certificatesQuery = trpc.certificates.getMyCertificates.useQuery(undefined, {
+    enabled: isAuthenticated && Boolean(certified),
+  });
+  const myCertificates = certificatesQuery.data?.success ? certificatesQuery.data.certificates ?? [] : [];
+
+  const downloadCert = trpc.certificates.download.useMutation();
+
+  const savePdfFromResult = (result: {
+    success?: boolean;
+    pdfBase64?: string;
+    filename?: string | null;
+    error?: string;
+  }) => {
+    if (!result.success || !result.pdfBase64) {
+      const msg =
+        result && typeof result === "object" && typeof result.error === "string"
+          ? result.error
+          : "Could not generate your certificate PDF.";
+      toast.error(msg);
+      return;
+    }
+    try {
+      const bin = atob(result.pdfBase64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename ?? "certificate.pdf";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Your browser could not save the PDF. Try another browser.");
+    }
+  };
+
+  const runCertificateDownload = (certificateNumber: string, certificateId?: number) => {
+    setDownloadingCertificateId(
+      certificateId ?? myCertificates.find((c) => c.certificateNumber === certificateNumber)?.id ?? null
+    );
+    downloadCert.mutate(
+      { certificateNumber },
+      {
+        onSettled: () => setDownloadingCertificateId(null),
+        onError: (err) => {
+          toast.error(err.message || "Download failed. Try again.");
+        },
+        onSuccess: (result) => {
+          if (!result.success) {
+            if (result.error === "feedback_required" && "certificateId" in result && typeof result.certificateId === "number") {
+              const label = "Paeds Resus Instructor Course";
+              setFeedbackDialog({
+                certificateId: result.certificateId,
+                certificateNumber,
+                courseLabel: label,
+              });
+              return;
+            }
+            const msg =
+              result && typeof result === "object" && typeof result.error === "string"
+                ? result.error
+                : "Could not generate your certificate PDF.";
+            toast.error(msg);
+            return;
+          }
+          savePdfFromResult(result);
+        },
+      }
+    );
+  };
+
+  const handleDownloadCertificate = async (
+    certificateId: number,
+    certificateNumber: string | null,
+    courseTitle: string | null | undefined,
+    programType: string
+  ) => {
+    if (!certificateNumber) return;
+    setDownloadingCertificateId(certificateId);
+    try {
+      const status = await utils.certificates.getDownloadFeedbackStatus.fetch({ certificateNumber });
+      if (!status.ok) {
+        toast.error("Certificate not found.");
+        return;
+      }
+      if (!status.submitted) {
+        const label = courseTitle?.trim() || "Paeds Resus Instructor Course";
+        setFeedbackDialog({
+          certificateId: status.certificateId,
+          certificateNumber,
+          courseLabel: label,
+        });
+        return;
+      }
+      runCertificateDownload(certificateNumber, certificateId);
+    } catch {
+      toast.error("Could not check download status. Try again.");
+    } finally {
+      setDownloadingCertificateId(null);
+    }
+  };
 
   const { upcoming, past } = useMemo(() => {
     const list = [...(assignmentsQuery.data?.assignments ?? [])];
@@ -651,11 +775,6 @@ export default function InstructorPortal() {
       </div>
     );
   }
-
-  const s = statusQuery.data;
-  const certified = s?.certified;
-  const approved = s?.approved;
-  const unlocked = s?.portalUnlocked;
 
   const renderAssignment = (a: (typeof upcoming)[0]) => (
     <li
@@ -777,10 +896,47 @@ export default function InstructorPortal() {
               </Badge>
             </div>
             {certified && s?.instructorNumber && (
-              <p className="text-sm text-foreground">
-                <span className="text-muted-foreground">Instructor number:</span>{" "}
-                <span className="font-mono font-semibold">{s.instructorNumber}</span>
-              </p>
+              <div className="space-y-2.5">
+                <p className="text-sm text-foreground">
+                  <span className="text-muted-foreground">Instructor number:</span>{" "}
+                  <span className="font-mono font-semibold">{s.instructorNumber}</span>
+                </p>
+                {(() => {
+                  const instructorCert = myCertificates.find((c) => c.programType === "instructor");
+                  if (instructorCert) {
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 h-8 text-xs w-full sm:w-auto"
+                        disabled={downloadingCertificateId === instructorCert.id}
+                        onClick={() => handleDownloadCertificate(
+                          instructorCert.id,
+                          instructorCert.certificateNumber,
+                          instructorCert.courseTitle,
+                          instructorCert.programType
+                        )}
+                      >
+                        {downloadingCertificateId === instructorCert.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        Download Instructor Certificate
+                      </Button>
+                    );
+                  }
+                  if (certificatesQuery.isLoading) {
+                    return (
+                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs w-full sm:w-auto" disabled>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Loading certificate...
+                      </Button>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             )}
             {!certified && (
               <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3">
@@ -803,9 +959,14 @@ export default function InstructorPortal() {
               </div>
             )}
             {certified && !approved && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-4 text-sm text-foreground/90">
-                You are certified with instructor number <span className="font-mono font-medium">{s?.instructorNumber}</span>.
-                A platform admin must approve you under Admin → Reports before you can be assigned to hospital sessions.
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-4 text-sm text-foreground/90 space-y-2">
+                <p>
+                  You are certified with instructor number <span className="font-mono font-medium">{s?.instructorNumber}</span>.
+                  A platform admin must approve you under Admin → Reports before you can be assigned to hospital sessions.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Expected Timeline:</strong> Platform administrators review newly certified instructors within 24–48 hours to validate credentials. You will receive an email confirmation once approved.
+                </p>
               </div>
             )}
             {unlocked && (
@@ -815,17 +976,56 @@ export default function InstructorPortal() {
               </p>
             )}
             {s?.instructorTier && (
-              <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-2">
-                <p className="text-sm text-foreground flex items-center gap-2">
+              <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3">
+                <p className="text-sm text-foreground flex items-center gap-2 font-medium">
                   <Users className="h-4 w-4 shrink-0" />
-                  Mentorship tier: <span className="font-semibold capitalize">{s.instructorTier.replace("_", " ")}</span>
+                  Mentorship tier: <span className="font-semibold capitalize text-primary">{s.instructorTier.replace("_", " ")}</span>
                 </p>
                 {s.instructorTier === "provisional" && (
-                  <p className="text-xs text-muted-foreground">
-                    {s.mentorUserId
-                      ? `${s.confirmedGroupCount} of 3 independently-led groups confirmed by your mentor. ${s.groupsNeededForQualified} more to reach Qualified.`
-                      : "Waiting for a platform admin to assign you a mentor before you can start logging confirmed groups."}
-                  </p>
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <div className="flex justify-between text-xs text-foreground mb-1">
+                        <span className="font-medium">Progression to Qualified Instructor</span>
+                        <span className="font-semibold text-primary">{s.confirmedGroupCount} / 3 cohort equivalents</span>
+                      </div>
+                      <Progress value={(s.confirmedGroupCount / 3) * 100} className="h-2" />
+                    </div>
+
+                    <div className="rounded-md bg-background/50 border border-border p-3 space-y-2.5">
+                      <p className="text-xs font-medium text-foreground">Teaching Progress toward next cohort equivalent:</p>
+                      
+                      <div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
+                          <span>Phase 2 (Online Simulations Taught)</span>
+                          <span className="font-medium text-foreground">{s.phase2TaughtCount} / {s.phase2TaughtRequired} learners</span>
+                        </div>
+                        <Progress value={Math.min(100, (s.phase2TaughtCount / s.phase2TaughtRequired) * 100)} className="h-1 bg-muted" />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
+                          <span>Phase 3 (Hands-on Assessments Signed Off)</span>
+                          <span className="font-medium text-foreground">{s.phase3TaughtCount} / {s.phase3TaughtRequired} learners</span>
+                        </div>
+                        <Progress value={Math.min(100, (s.phase3TaughtCount / s.phase3TaughtRequired) * 100)} className="h-1 bg-muted" />
+                      </div>
+
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        * Note: 1 cohort equivalent is defined as successfully facilitating 7 learners through Phase 2 and 8 learners through Phase 3. 
+                        Progress is computed dynamically from completed sessions you instruct or assess.
+                      </p>
+                    </div>
+
+                    {s.mentorUserId ? (
+                      <p className="text-xs text-muted-foreground leading-normal">
+                        <strong>Mentor Assigned:</strong> Your mentor will verify your teaching milestones. Progression to Qualified status is automated once you hit the learner counts targets.
+                      </p>
+                    ) : (
+                      <div className="rounded border border-amber-200 bg-amber-50/50 p-2.5 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/50 dark:text-amber-300">
+                        <strong>Mentor Pairing Pending:</strong> Platform admins will assign you a Qualified Mentor to verify your teaching milestones. Once paired, you can run independently-led sessions.
+                      </div>
+                    )}
+                  </div>
                 )}
                 {s.instructorTier === "qualified" && (
                   <p className="text-xs text-muted-foreground">
@@ -948,6 +1148,23 @@ export default function InstructorPortal() {
           </CardContent>
         </Card>
       </div>
+
+      {feedbackDialog ? (
+        <CertificateDownloadFeedbackDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setFeedbackDialog(null);
+          }}
+          certificateId={feedbackDialog.certificateId}
+          courseLabel={feedbackDialog.courseLabel}
+          onFeedbackSaved={() => {
+            const num = feedbackDialog.certificateNumber;
+            const cid = feedbackDialog.certificateId;
+            setFeedbackDialog(null);
+            if (num) runCertificateDownload(num, cid);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

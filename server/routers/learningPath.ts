@@ -13,6 +13,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import { ensurePaediatricSepticShockCatalog } from "../lib/ensure-paediatric-septic-shock-catalog";
 import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
+import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
 import { resolveAhaCourseAnchor } from "../lib/resolve-aha-course-anchor";
 import { markAhaCognitiveComplete } from "../certificates";
 
@@ -67,6 +68,20 @@ export const learningPathRouter = router({
           if (anchor) {
             programCourses = programCourses.filter((c: { id: number }) => c.id === anchor.id);
           }
+        }
+      }
+
+      if (input.programType === "instructor") {
+        try {
+          await ensureInstructorCourseCatalog(db);
+          // Re-query to get the newly seeded catalog course
+          programCourses = await (db as any)
+            .select()
+            .from(courses)
+            .where(eq(courses.programType, input.programType))
+            .orderBy(courses.order);
+        } catch (e) {
+          console.error("[learningPath.getPersonalizedPath] ensure Instructor catalog:", e);
         }
       }
 
