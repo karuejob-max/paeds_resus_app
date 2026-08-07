@@ -98,6 +98,16 @@ export const LearningPath: React.FC<LearningPathProps> = ({
     courseId: scopeCourseId ?? undefined,
   });
 
+  // Auto-select when there is only one course catalog row
+  useEffect(() => {
+    if (coursesQuery.data && Array.isArray(coursesQuery.data)) {
+      const filtered = coursesQuery.data.filter((c: any) => c.programType === programType);
+      if (filtered.length === 1 && selectedCourse === null) {
+        setSelectedCourse(filtered[0].id);
+      }
+    }
+  }, [coursesQuery.data, programType, selectedCourse]);
+
   const courseDetailsQuery = trpc.learning.getCourseDetails.useQuery(
     { courseId: selectedCourse! },
     { enabled: !!selectedCourse }
