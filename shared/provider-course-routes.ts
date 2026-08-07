@@ -27,9 +27,9 @@ export type ProviderCourseProgram =
   | "burns-i"
   | "burns-ii";
 
-export type AhaProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
+export type AhaProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
 
-export const AHA_PROGRAM_TYPES: readonly AhaProgramType[] = ["bls", "acls", "pals", "heartsaver", "nrp"];
+export const AHA_PROGRAM_TYPES: readonly AhaProgramType[] = ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"];
 
 export type ContinueRouteConfig = {
   destination: string;
@@ -63,6 +63,10 @@ export function getProviderCourseDestination(
 ): string {
   if (!courseId) return fallback;
 
+  if (courseId === "instructor") {
+    return enrollmentId ? `/course/instructor?enrollmentId=${enrollmentId}` : "/course/instructor";
+  }
+
   if (courseId === "pals_septic") {
     const segment = courseDbId != null ? String(courseDbId) : "pals_septic";
     return buildMicroCourseDestination(segment, "pals", enrollmentId);
@@ -71,10 +75,6 @@ export function getProviderCourseDestination(
   if (isAhaProgramSlug(courseId)) {
     const segment = courseDbId != null ? String(courseDbId) : courseId;
     return buildMicroCourseDestination(segment, courseId, enrollmentId);
-  }
-
-  if (courseId === "instructor") {
-    return enrollmentId ? `/course/instructor?enrollmentId=${enrollmentId}` : "/course/instructor";
   }
 
   if (courseId === "intubation-essentials") {

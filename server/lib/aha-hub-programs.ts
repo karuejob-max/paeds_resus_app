@@ -10,6 +10,7 @@ const HUB_PROGRAM_ORDER: readonly AhaAnchorProgramType[] = [
   "pals",
   "heartsaver",
   "nrp",
+  "instructor",
 ] as const;
 
 export async function fetchAhaHubPrograms(

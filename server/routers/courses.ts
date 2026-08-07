@@ -30,7 +30,7 @@ import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
 import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-progress";
 
-const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp'] as const;
+const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
 async function fetchMyAhaEnrollments(userId: number) {
   const database = await getDb();
@@ -145,7 +145,7 @@ export const coursesRouter = router({
       return await database
         .select()
         .from(courses)
-        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp']))
+        .where(inArray(courses.programType, ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor']))
         .orderBy(asc(courses.programType), asc(courses.order));
     } catch (error) {
       console.error('[courses.listAhaPrograms]', error);
@@ -700,7 +700,7 @@ export const coursesRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']),
+        programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor']),
         courseId: z.number().optional(),
       })
     )
@@ -820,7 +820,7 @@ export const coursesRouter = router({
   // AHA-SCHED-1: List upcoming public hands-on sessions available for booking.
   // ─────────────────────────────────────────────────────────────────────────
   listUpcomingHandsOnSessions: protectedProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp"]).optional() }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
@@ -1248,7 +1248,7 @@ export const coursesRouter = router({
   // always has a valid enrollmentId even on a first visit.
   // ─────────────────────────────────────────────────────────────────────────
   ensureAhaEnrollment: protectedProcedure
-    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp']) }))
+    .input(z.object({ programType: z.enum(['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor']) }))
     .mutation(async ({ ctx, input }) => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
       try {

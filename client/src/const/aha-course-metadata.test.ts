@@ -14,7 +14,7 @@ import {
 
 describe("AHA course metadata (CEO durations)", () => {
   it("defines all hub programs in display order", () => {
-    expect(AHA_COURSE_ORDER).toEqual(["bls", "acls", "pals", "heartsaver", "nrp"]);
+    expect(AHA_COURSE_ORDER).toEqual(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]);
   });
 
   it("uses CEO-standard AHA recommended total contact hours", () => {
@@ -24,6 +24,7 @@ describe("AHA course metadata (CEO durations)", () => {
       pals: 16,
       heartsaver: 2,
       nrp: 6,
+      instructor: 7,
     });
     expect(AHA_COURSE_HOURS).toBe(AHA_RECOMMENDED_TOTAL_HOURS);
   });
@@ -35,6 +36,7 @@ describe("AHA course metadata (CEO durations)", () => {
       pals: 10,
       heartsaver: 1,
       nrp: 3,
+      instructor: 7,
     });
     for (const programType of AHA_COURSE_ORDER) {
       expect(AHA_COGNITIVE_COURSEWORK_HOURS[programType]).toBeLessThanOrEqual(
