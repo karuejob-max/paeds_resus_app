@@ -137,6 +137,8 @@
     "db:apply-0087": "node scripts/apply-0087-self-service-staff-row.mjs",
     "db:apply-0088": "node scripts/apply-0088-payments-receipt-columns.mjs",
     "db:apply-0089": "node scripts/apply-0089-code-signal-events.mjs",
+    "db:apply-0090": "node scripts/apply-0090-code-signal-consent.mjs",
+    "db:apply-0091": "node scripts/apply-0091-code-signal-review-queue.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

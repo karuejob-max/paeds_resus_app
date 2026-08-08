@@ -353,6 +353,16 @@ export const codeSignalEvents = mysqlTable("codeSignalEvents", {
   /** Same three-mode identity model as Care Signal §5.5 — no pseudonymous-token linkage yet since Code Signal has no Fellowship pillar to accrue credit against. */
   submissionMode: mysqlEnum("submissionMode", ["named", "anonymous"]).default("named").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  /**
+   * Admin review queue fields (migration 0091, WORK_STATUS 2026-08-07 "In
+   * progress" queue item #1). Dedicated columns rather than Care Signal's
+   * `gapDetails` JSON-blob pattern — Code Signal has no equivalent legacy
+   * column to shoehorn this into, so plain typed columns are simpler here.
+   */
+  reviewOutcome: varchar("review_outcome", { length: 32 }),
+  reviewerNotes: text("reviewer_notes"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: int("reviewed_by"),
 });
 
 export type CodeSignalEventRow = typeof codeSignalEvents.$inferSelect;

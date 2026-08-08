@@ -94,6 +94,7 @@ const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
 const AdminCareSignalReview = lazy(() => import("./pages/AdminCareSignalReview"));
+const AdminCodeSignalReview = lazy(() => import("./pages/AdminCodeSignalReview"));
 const NationalAggregateSignal = lazy(() => import("./pages/NationalAggregateSignal"));
 const FacilityTrainingGaps = lazy(() => import("./pages/FacilityTrainingGaps"));
 const FellowshipDashboard = lazy(() => import("./pages/FellowshipDashboard"));
@@ -251,6 +252,11 @@ function Router() {
           <Route path="/admin/care-signal-review">{() => (
             <AdminGate>
               <AdminCareSignalReview />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/code-signal-review">{() => (
+            <AdminGate>
+              <AdminCodeSignalReview />
             </AdminGate>
           )}</Route>
           <Route path="/admin/national-signal">{() => (
@@ -450,7 +456,7 @@ function Router() {
           )}</Route>
           <Route path="/course/instructor">{() => (
             <RoleGate allowed={["provider"]}>
-              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
+              <CourseInstructor />
             </RoleGate>
           )}</Route>
           <Route path="/instructor-portal">{() => (
