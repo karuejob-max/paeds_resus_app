@@ -67,6 +67,10 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     enabled: isAuthenticated && afterPaint,
   });
 
+  const { data: myAhaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
+    enabled: isAuthenticated && afterPaint,
+  });
+
   const { data: fellowshipProgress } = trpc.fellowship.getProgress.useQuery(undefined, {
     enabled: isAuthenticated && afterPaint,
     staleTime: 30_000,
@@ -415,40 +419,162 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </Button>
           </CardContent>
         </Card>
-
         {/* ── AHA Courses ───────────────────────────────────────────────────── */}
         <Card className="border-brand-orange/25 overflow-hidden">
           <div className="bg-gradient-to-r from-brand-orange to-[var(--brand-orange-hover)] px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <BookOpen className="h-8 w-8 opacity-90" />
               <div>
-                <h2 className="font-bold text-lg leading-tight">AHA Courses</h2>
-                <p className="text-white/90 text-xs mt-0.5">BLS · ACLS · PALS · Internationally recognized</p>
+                <h2 className="font-bold text-lg leading-tight">Life Support (AHA) Training Journey</h2>
+                <p className="text-white/90 text-xs mt-0.5">Track your BLS, ACLS, PALS, and NRP progress</p>
               </div>
             </div>
           </div>
-          <CardContent className="px-5 py-4 space-y-3">
-            <p className="text-sm text-slate-600">
-              Earn internationally recognized American Heart Association certifications for BLS, ACLS, and PALS.
-            </p>
-            <Button
-              variant="cta"
-              className="w-full justify-between"
-              onClick={() => {
-                track("provider_conversion", "provider_cta_open_aha_hub", { source: "provider_home_aha_card" });
-                setLocation("/aha-courses");
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                View AHA Courses
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+          <CardContent className="px-5 py-4 space-y-4">
+            {myAhaEnrollments && myAhaEnrollments.length > 0 ? (
+              <div className="space-y-4">
+                {myAhaEnrollments.map((enrol) => {
+                  const programName = enrol.programType?.toUpperCase() || "";
+                  const cogPct = enrol.progressPercentage ?? 0;
+                  const isCogDone = !!enrol.cognitiveModulesComplete || cogPct === 100;
+                  const isPracDone = !!enrol.practicalSkillsSignedOff;
+                  const isCertified = isCogDone && isPracDone;
+
+                  return (
+                    <div key={enrol.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-800 text-sm">
+                          {enrol.courseTitle || `${programName} Course`}
+                        </span>
+                        {isCertified ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200">
+                            Certified
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                            In Progress
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Step Tracker Visual */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        {/* Step 1: Cognitive */}
+                        <div className={`p-2.5 rounded-md border ${isCogDone ? "bg-green-50 border-green-200 text-green-800" : "bg-white border-slate-200 text-slate-600"}`}>
+                          <div className="flex items-center justify-between font-semibold mb-1">
+                            <span>Step 1: Cognitive Modules</span>
+                            {isCogDone ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <span>{cogPct}%</span>
+                            )}
+                          </div>
+                          {!isCogDone && (
+                            <Progress value={cogPct} className="h-1.5 w-full bg-slate-200" />
+                          )}
+                          <p className="text-[10px] mt-1 text-slate-500">
+                            {isCogDone ? "Online modules completed successfully" : "Complete online learning modules"}
+                          </p>
+                        </div>
+
+                        {/* Step 2: Practical */}
+                        <div className={`p-2.5 rounded-md border ${isPracDone ? "bg-green-50 border-green-200 text-green-800" : "bg-white border-slate-200 text-slate-600"}`}>
+                          <div className="flex items-center justify-between font-semibold mb-1">
+                            <span>Step 2: Practical Skills / Phase 2</span>
+                            {isPracDone ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <Clock className="h-3.5 w-3.5 text-amber-600" />
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500">
+                            {isPracDone ? "Hands-on skills signed off by instructor" : "Requires sign-off at practical session"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Journey Actions */}
+                      <div className="pt-1 flex gap-2 justify-end">
+                        {!isCogDone ? (
+                          <Button
+                            size="sm"
+                            className="text-xs bg-brand-orange hover:bg-brand-orange/90 text-white"
+                            onClick={() => {
+                              track("provider_conversion", "aha_journey_continue_cog", {
+                                programType: enrol.programType,
+                                enrollmentId: enrol.id,
+                              });
+                              setLocation(`/aha-courses`);
+                            }}
+                          >
+                            Continue Cognitive Modules
+                          </Button>
+                        ) : !isPracDone ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                            onClick={() => {
+                              track("provider_conversion", "aha_journey_book_session", {
+                                programType: enrol.programType,
+                                enrollmentId: enrol.id,
+                              });
+                              setLocation("/aha-book-session");
+                            }}
+                          >
+                            Book Hands-on Session
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-emerald-800 hover:text-emerald-950"
+                            onClick={() => {
+                              setLocation("/certificates");
+                            }}
+                          >
+                            View Course Certificates
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="pt-2 text-center">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                    onClick={() => setLocation("/aha-courses")}
+                  >
+                    Manage all enrollments in AHA Certification Hub &rarr;
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-600">
+                  Earn internationally recognized American Heart Association certifications for BLS, ACLS, and PALS.
+                </p>
+                <Button
+                  variant="cta"
+                  className="w-full justify-between"
+                  onClick={() => {
+                    track("provider_conversion", "provider_cta_open_aha_hub", { source: "provider_home_aha_card" });
+                    setLocation("/aha-courses");
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    View AHA Courses
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
-
-        {/* ── Certificates section ───────────────────────────────────────────── */}
         <Card ref={certCardRef} id="my-certificates" className="scroll-mt-20">
           <CardHeader className="pb-2 pt-4 px-5">
             <div className="flex items-center justify-between">
