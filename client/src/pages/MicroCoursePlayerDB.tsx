@@ -56,7 +56,7 @@ export default function MicroCoursePlayerDB() {
   const slug = useMemo(() => {
     if (routeSlug) return routeSlug;
     const pathOnly = location.split("?")[0] ?? "";
-    const legacy = pathOnly.match(/\/course\/(bls|acls|pals|heartsaver|nrp)$/);
+    const legacy = pathOnly.match(/\/course\/(bls|acls|pals|heartsaver|nrp|instructor)$/);
     return legacy?.[1] ?? routeSlug;
   }, [routeSlug, location]);
 
@@ -72,8 +72,17 @@ export default function MicroCoursePlayerDB() {
   }, [slug]);
 
   const isAhaCourse = numericCourseId !== null || ahaProgramFromSlug !== null;
-  const coursesHubPath = isAhaCourse ? "/aha-courses" : "/fellowship";
-  const coursesHubReturnLabel = isAhaCourse ? "Return to AHA Courses" : "Return to Fellowship Dashboard";
+  const isInstructor = slug === "instructor";
+  const coursesHubPath = isInstructor
+    ? "/instructor-portal"
+    : isAhaCourse
+      ? "/aha-courses"
+      : "/fellowship";
+  const coursesHubReturnLabel = isInstructor
+    ? "Return to Instructor Portal"
+    : isAhaCourse
+      ? "Return to AHA Courses"
+      : "Return to Fellowship Dashboard";
 
   const programType = useMemo(() => {
     const params = new URLSearchParams(search);

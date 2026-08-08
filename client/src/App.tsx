@@ -450,7 +450,7 @@ function Router() {
           )}</Route>
           <Route path="/course/instructor">{() => (
             <RoleGate allowed={["provider"]}>
-              <CourseInstructor />
+              <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
             </RoleGate>
           )}</Route>
           <Route path="/instructor-portal">{() => (
