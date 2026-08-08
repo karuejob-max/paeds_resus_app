@@ -88,6 +88,12 @@ export default function Header() {
         // incident reporting, not a course; it shouldn't compete for attention
         // inside a "Learn" bucket the way Fellowship/AHA/CNE do.
         { label: "Care Signal", href: "/care-signal", icon: "🚨" },
+        // Code Signal (2026-08-07): paired directly next to Care Signal, same
+        // elevated top-level treatment, distinct icon — North Star v2.0 §5.4's
+        // "must never be labelled ambiguously" rule (already applied to
+        // Safe-Truth vs Care Signal below) applies here too. Keeping them
+        // adjacent, not scattered, is what actually prevents mix-ups.
+        { label: "Code Signal", href: "/code-signal", icon: "🫀" },
         { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
         { label: "AHA", href: "/aha-courses", icon: "🩺", group: "learn" },

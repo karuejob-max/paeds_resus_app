@@ -23,6 +23,7 @@ import {
   careFacilities,
   kmhflFacilities,
   careSignalEvents,
+  codeSignalEvents,
   providerProfiles,
   instructorQualifications,
   facilityPoles,
@@ -57,6 +58,7 @@ import {
 } from "../institutional-analytics-rollup";
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
+import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
@@ -290,6 +292,48 @@ export const institutionRouter = router({
       return getFacilityCareSignalDashboard({
         facilityId: linkedFacility?.id,
         facilityName: inst.companyName.trim(),
+        lastDays: input?.lastDays ?? 90,
+      });
+    }),
+
+  /** Code Signal counterpart of getCareSignalFacilityDashboard above — same institution-resolution logic, scoped-down metrics (see facility-code-signal.service.ts for why). */
+  getCodeSignalFacilityDashboard: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const csAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = csAdminIds.length
+        ? await db
+            .select({
+              id: institutionalAccounts.id,
+              companyName: institutionalAccounts.companyName,
+            })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, csAdminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
+      const inst = rows[0];
+      if (!inst?.companyName?.trim()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(
+          and(
+            eq(careFacilities.institutionalAccountId, inst.id),
+            isNull(careFacilities.mergedIntoId)
+          )
+        )
+        .limit(1);
+
+      return getFacilityCodeSignalDashboard({
+        facilityId: linkedFacility?.id,
         lastDays: input?.lastDays ?? 90,
       });
     }),
@@ -1905,6 +1949,7 @@ export const institutionRouter = router({
         systemChange: z.string().min(3).max(4000),
         status: z.enum(["open", "in_progress", "completed"]).default("open"),
         careSignalEventId: z.number().int().positive().optional(),
+        codeSignalEventId: z.number().int().positive().optional(),
         notes: z.string().max(4000).optional(),
       })
     )
@@ -1925,6 +1970,7 @@ export const institutionRouter = router({
         systemChange: input.systemChange.trim(),
         status: input.status,
         careSignalEventId: input.careSignalEventId ?? null,
+        codeSignalEventId: input.codeSignalEventId ?? null,
         notes: input.notes?.trim() ?? null,
       });
 
@@ -2205,6 +2251,55 @@ export const institutionRouter = router({
     return {
       count: fromCareSignal.length,
       items: fromCareSignal,
+    };
+  }),
+
+  /** Code Signal counterpart of getPendingCareSignalActions above. */
+  getPendingCodeSignalActions: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Database connection failed",
+      });
+    }
+
+    const pendingAdminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+    const rows = pendingAdminIds.length
+      ? await db
+          .select({ id: institutionalAccounts.id })
+          .from(institutionalAccounts)
+          .where(inArray(institutionalAccounts.id, pendingAdminIds))
+          .orderBy(desc(institutionalAccounts.id))
+          .limit(1)
+      : [];
+    const institutionId = rows[0]?.id;
+    if (!institutionId) {
+      return { count: 0, items: [] as { id: number; gapIdentified: string; codeSignalEventId: number | null; createdAt: Date }[] };
+    }
+
+    const pending = await db
+      .select({
+        id: institutionalActionLogs.id,
+        gapIdentified: institutionalActionLogs.gapIdentified,
+        codeSignalEventId: institutionalActionLogs.codeSignalEventId,
+        createdAt: institutionalActionLogs.createdAt,
+      })
+      .from(institutionalActionLogs)
+      .where(
+        and(
+          eq(institutionalActionLogs.institutionalAccountId, institutionId),
+          eq(institutionalActionLogs.status, "open")
+        )
+      )
+      .orderBy(desc(institutionalActionLogs.createdAt))
+      .limit(20);
+
+    const fromCodeSignal = pending.filter((p) => p.codeSignalEventId != null);
+
+    return {
+      count: fromCodeSignal.length,
+      items: fromCodeSignal,
     };
   }),
 

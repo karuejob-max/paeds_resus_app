@@ -80,6 +80,15 @@ export default function DashboardSidebar() {
             <Link href="/care-signal">
               <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
                 Care Signal
+                <span className="block text-xs text-gray-500">Paediatric events</span>
+              </div>
+            </Link>
+            {/* Paired directly under Care Signal, not elsewhere in the menu — same
+                disambiguation logic as Header.tsx (North Star v2.0 §5.4). */}
+            <Link href="/code-signal">
+              <div className="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded transition cursor-pointer">
+                Code Signal
+                <span className="block text-xs text-gray-500">Adult &amp; whole-hospital events</span>
               </div>
             </Link>
             <Link href="/parent-safe-truth">

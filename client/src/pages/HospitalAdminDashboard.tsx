@@ -24,13 +24,13 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import CpdPanel from "@/components/CpdPanel";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
-import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
 import { ResusGpsAuditPanel } from "@/components/ResusGpsAuditPanel";
 import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
+import { FacilityCodeSignalDashboard } from "@/components/FacilityCodeSignalDashboard";
 import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
@@ -231,6 +231,7 @@ export default function HospitalAdminDashboard() {
     status: "open" | "in_progress" | "completed";
     notes: string;
     careSignalEventId: number | null;
+    codeSignalEventId: number | null;
   } | null>(null);
 
   const utils = trpc.useUtils();
@@ -325,6 +326,10 @@ export default function HospitalAdminDashboard() {
   );
 
   const { data: pendingCareSignalActions } = trpc.institution.getPendingCareSignalActions.useQuery(undefined, {
+    enabled: !!institutionId,
+  });
+
+  const { data: pendingCodeSignalActions } = trpc.institution.getPendingCodeSignalActions.useQuery(undefined, {
     enabled: !!institutionId,
   });
 
@@ -618,6 +623,27 @@ export default function HospitalAdminDashboard() {
           </Alert>
         ) : null}
 
+        {(pendingCodeSignalActions?.count ?? 0) > 0 ? (
+          <Alert className="mb-6 border-amber-500/50 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>
+                {pendingCodeSignalActions?.count} Code Signal report
+                {(pendingCodeSignalActions?.count ?? 0) === 1 ? "" : "s"} need a documented system change in your
+                Action Log.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-amber-600/40"
+                onClick={() => setActiveTab("action-log")}
+              >
+                Open action log
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {/* KPI Cards — IERMS™-era 6-pillar metrics */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           {/* 1. Platform Staff — total unique users known to this institution */}
@@ -748,10 +774,11 @@ export default function HospitalAdminDashboard() {
             },
             {
               id: "care-signal",
-              label: "Care Signal & QI",
+              label: "Care Signal, Code Signal & QI",
               icon: AlertTriangle,
               subTabs: [
                 { id: "care-signal", label: "Care Signal Feed" },
+                { id: "code-signal", label: "Code Signal Feed" },
                 { id: "action-log", label: "System Action Log" },
                 { id: "incidents", label: "Clinical Incidents" },
               ],
@@ -779,7 +806,9 @@ export default function HospitalAdminDashboard() {
                 {PILLAR_DEFINITIONS.map((pillar) => {
                   const Icon = pillar.icon;
                   const isActive = currentPillar.id === pillar.id;
-                  const hasAlert = pillar.id === "care-signal" && (pendingCareSignalActions?.count ?? 0) > 0;
+                  const hasAlert =
+                    pillar.id === "care-signal" &&
+                    ((pendingCareSignalActions?.count ?? 0) > 0 || (pendingCodeSignalActions?.count ?? 0) > 0);
 
                   return (
                     <button
@@ -2202,8 +2231,6 @@ export default function HospitalAdminDashboard() {
               </CardContent>
             </Card>
 
-            {institutionId && <CohortProgressWidget institutionId={institutionId} />}
-
             <Card className="border-border/80 shadow-sm">
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-0 pb-3 flex-wrap gap-4">
                 <div>
@@ -2557,6 +2584,11 @@ export default function HospitalAdminDashboard() {
                                   Care Signal #{row.careSignalEventId}
                                 </p>
                               ) : null}
+                              {row.codeSignalEventId ? (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Code Signal #{row.codeSignalEventId}
+                                </p>
+                              ) : null}
                             </td>
                             <td className="py-3 pr-4 max-w-md">{row.systemChange}</td>
                             <td className="py-3 pr-4">
@@ -2587,6 +2619,7 @@ export default function HospitalAdminDashboard() {
                                       status: row.status as "open" | "in_progress" | "completed",
                                       notes: row.notes ?? "",
                                       careSignalEventId: row.careSignalEventId,
+                                      codeSignalEventId: row.codeSignalEventId,
                                     })
                                   }
                                 >
@@ -2622,6 +2655,27 @@ export default function HospitalAdminDashboard() {
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     Link your hospital account to see facility-level Care Signal metrics.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="code-signal" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Code Signal — facility QI</CardTitle>
+                <CardDescription>
+                  Adult and whole-hospital resuscitation reports for{" "}
+                  <strong>{myInstitution?.institution?.companyName ?? "your facility"}</strong>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {myInstitution?.institution?.companyName ? (
+                  <FacilityCodeSignalDashboard lastDays={90} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Link your hospital account to see facility-level Code Signal metrics.
                   </p>
                 )}
               </CardContent>
@@ -2686,7 +2740,9 @@ export default function HospitalAdminDashboard() {
               Document your hospital&apos;s system change and mark progress on this gap
               {resolveActionLog?.careSignalEventId
                 ? ` (from Care Signal #${resolveActionLog.careSignalEventId})`
-                : ""}
+                : resolveActionLog?.codeSignalEventId
+                  ? ` (from Code Signal #${resolveActionLog.codeSignalEventId})`
+                  : ""}
               .
             </DialogDescription>
           </DialogHeader>
