@@ -53,6 +53,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CpdPanelProps {
   institutionId: number;
@@ -64,6 +71,17 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const settingsQuery = trpc.cpd.getSettings.useQuery({ institutionId });
   const eventsQuery = trpc.cpd.listEvents.useQuery({ institutionId });
   const analyticsQuery = trpc.cpd.getInstitutionalCpdAnalytics.useQuery({ institutionId });
+
+  // Drilldown Modal states
+  const [drilldownType, setDrilldownType] = useState<"sessions" | "registrations" | "points" | "active_depts" | "role_engagement" | "dept_heatmap" | null>(null);
+  const [selectedDrilldownDept, setSelectedDrilldownDept] = useState<string | null>(null);
+  const [selectedDrilldownRole, setSelectedDrilldownRole] = useState<string | null>(null);
+
+  const allAttendeesQuery = trpc.cpd.listAttendees.useQuery(
+    { institutionId },
+    { enabled: drilldownType === "registrations" || drilldownType === "points" || drilldownType === "dept_heatmap" }
+  );
+  const allAttendees = allAttendeesQuery.data ?? [];
 
   const [coordinatorName, setCoordinatorName] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState("");
@@ -465,7 +483,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
             {/* 📊 Institutional Learning Radar Summary */}
             {analytics && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-blue-100 bg-gradient-to-br from-blue-50/50 to-white dark:border-blue-900/30 dark:from-blue-950/20 dark:to-background">
+                <Card 
+                  className="border-blue-100 bg-gradient-to-br from-blue-50/50 to-white dark:border-blue-900/30 dark:from-blue-950/20 dark:to-background cursor-pointer hover:shadow-md hover:border-blue-300 transition-all select-none"
+                  onClick={() => setDrilldownType("sessions")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-200">
                       Total CPD Sessions
@@ -480,7 +501,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   </CardContent>
                 </Card>
 
-                <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white dark:border-emerald-900/30 dark:from-emerald-950/20 dark:to-background">
+                <Card 
+                  className="border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white dark:border-emerald-900/30 dark:from-emerald-950/20 dark:to-background cursor-pointer hover:shadow-md hover:border-emerald-300 transition-all select-none"
+                  onClick={() => setDrilldownType("registrations")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
                       Total Registrations
@@ -495,7 +519,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   </CardContent>
                 </Card>
 
-                <Card className="border-purple-100 bg-gradient-to-br from-purple-50/50 to-white dark:border-purple-900/30 dark:from-purple-950/20 dark:to-background">
+                <Card 
+                  className="border-purple-100 bg-gradient-to-br from-purple-50/50 to-white dark:border-purple-900/30 dark:from-purple-950/20 dark:to-background cursor-pointer hover:shadow-md hover:border-purple-300 transition-all select-none"
+                  onClick={() => setDrilldownType("points")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-200">
                       Points Issued
@@ -510,7 +537,10 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                   </CardContent>
                 </Card>
 
-                <Card className="border-amber-100 bg-gradient-to-br from-amber-50/50 to-white dark:border-amber-900/30 dark:from-amber-950/20 dark:to-background">
+                <Card 
+                  className="border-amber-100 bg-gradient-to-br from-amber-50/50 to-white dark:border-amber-900/30 dark:from-amber-950/20 dark:to-background cursor-pointer hover:shadow-md hover:border-amber-300 transition-all select-none"
+                  onClick={() => setDrilldownType("active_depts")}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-amber-900 dark:text-amber-200">
                       Active Departments
@@ -544,7 +574,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     {analytics.roleEngagement.map((re) => {
                       if (re.totalStaff === 0) return null;
                       return (
-                        <div key={re.role} className="rounded-lg border p-3 bg-slate-50/50 dark:bg-slate-900/20 space-y-2">
+                        <div 
+                          key={re.role} 
+                          className="rounded-lg border p-3 bg-slate-50/50 dark:bg-slate-900/20 space-y-2 cursor-pointer hover:shadow-sm hover:border-indigo-300 transition-all select-none"
+                          onClick={() => {
+                            setSelectedDrilldownRole(re.label);
+                            setDrilldownType("role_engagement");
+                          }}
+                        >
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">{re.label}</span>
                             <Badge className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-indigo-200/50 dark:bg-indigo-950 dark:text-indigo-200">
@@ -590,7 +627,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                     ) : (
                       <div className="space-y-3">
                         {analytics.departmentHeatmap.slice(0, 6).map((dept) => (
-                          <div key={dept.department} className="flex items-center justify-between border-b pb-2 text-sm">
+                          <div 
+                            key={dept.department} 
+                            className="flex items-center justify-between border-b pb-2 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 p-1.5 rounded transition-colors select-none"
+                            onClick={() => {
+                              setSelectedDrilldownDept(dept.department);
+                              setDrilldownType("dept_heatmap");
+                            }}
+                          >
                             <div>
                               <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
                               <div className="text-xs text-muted-foreground">
@@ -1550,6 +1594,335 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CPD Metrics Drilldown Modal */}
+      <Dialog open={drilldownType !== null} onOpenChange={(open) => { if (!open) setDrilldownType(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              {drilldownType === "sessions" && "Total CPD Sessions"}
+              {drilldownType === "registrations" && "CPD Registrations Log"}
+              {drilldownType === "points" && "CPD Points Distribution Leaderboard"}
+              {drilldownType === "active_depts" && "Active Departments Overview"}
+              {drilldownType === "dept_heatmap" && `CPD Activity: ${selectedDrilldownDept}`}
+              {drilldownType === "role_engagement" && `CPD Engagement Detail: ${selectedDrilldownRole}`}
+            </DialogTitle>
+            <DialogDescription>
+              {drilldownType === "sessions" && "Detailed list of all CNE, CME, and workshop events conducted at the institution."}
+              {drilldownType === "registrations" && "Check-in times and details for all registrations across all CPD sessions."}
+              {drilldownType === "points" && "Total points earned by clinical team members from participating in accredited sessions."}
+              {drilldownType === "active_depts" && "Breakdown of activity, presentation volume, and check-ins by clinical unit."}
+              {drilldownType === "dept_heatmap" && `Specific check-in history and learning events recorded for ${selectedDrilldownDept}.`}
+              {drilldownType === "role_engagement" && `Detailed session check-ins for rostered staff members matching the role ${selectedDrilldownRole}.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {/* SESSIONS VIEW */}
+            {drilldownType === "sessions" && (
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Event Name</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Date</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Type</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Presenter</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Presenter Department</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Points</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Attendees</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-muted-foreground">No events recorded.</td>
+                      </tr>
+                    ) : (
+                      events.map((e) => (
+                        <tr key={e.id} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                          <td className="p-3 font-medium">{e.name}</td>
+                          <td className="p-3 whitespace-nowrap">{e.eventDate ? new Date(e.eventDate).toLocaleDateString() : "—"}</td>
+                          <td className="p-3"><Badge variant="outline" className="capitalize">{e.eventType?.replace("_", " ")}</Badge></td>
+                          <td className="p-3">{e.presenterName || "Guest / General"}</td>
+                          <td className="p-3 text-xs text-muted-foreground">{e.presenterDepartment || "—"}</td>
+                          <td className="p-3 text-center font-bold text-indigo-600">{e.cpdPoints}</td>
+                          <td className="p-3 text-center">{e.attendeeCount}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* REGISTRATIONS VIEW */}
+            {drilldownType === "registrations" && (
+              <div className="space-y-4">
+                {allAttendeesQuery.isLoading ? (
+                  <div className="flex justify-center py-8 text-muted-foreground items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Loading registrations...
+                  </div>
+                ) : (
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Attendee Name</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Cadre</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Department</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Event Attended</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Check-in Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allAttendees.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-muted-foreground">No registrations recorded.</td>
+                          </tr>
+                        ) : (
+                          allAttendees.map((a: any) => {
+                            const ev = events.find(e => e.id === a.cpdEventId);
+                            return (
+                              <tr key={a.id} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                                <td className="p-3 font-medium">{a.fullName}</td>
+                                <td className="p-3 text-xs text-muted-foreground">{a.email}</td>
+                                <td className="p-3 text-xs">{a.cadre || "—"}</td>
+                                <td className="p-3 text-xs">{a.department || "—"}</td>
+                                <td className="p-3 font-medium text-xs">{ev?.name || "Unknown Session"}</td>
+                                <td className="p-3 text-xs whitespace-nowrap">{a.submittedAt ? new Date(a.submittedAt).toLocaleString() : "—"}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* POINTS VIEW */}
+            {drilldownType === "points" && (
+              <div className="space-y-4">
+                {allAttendeesQuery.isLoading ? (
+                  <div className="flex justify-center py-8 text-muted-foreground items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Loading points leaderboard...
+                  </div>
+                ) : (
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Attendee Name</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Cadre</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Department</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Total Sessions</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Total Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const pointsMap = new Map<string, { name: string; email: string; cadre: string; department: string; points: number; count: number }>();
+                          for (const a of allAttendees) {
+                            const key = a.email.toLowerCase().trim();
+                            const ev = events.find(e => e.id === a.cpdEventId);
+                            const pts = Number(ev?.cpdPoints ?? 0);
+                            if (!pointsMap.has(key)) {
+                              pointsMap.set(key, {
+                                name: a.fullName,
+                                email: a.email,
+                                cadre: a.cadre || "Clinician",
+                                department: a.department || "General",
+                                points: 0,
+                                count: 0
+                              });
+                            }
+                            const item = pointsMap.get(key)!;
+                            item.points += pts;
+                            item.count += 1;
+                          }
+                          const pointsRows = Array.from(pointsMap.values()).sort((a, b) => b.points - a.points);
+                          if (pointsRows.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={6} className="p-6 text-center text-muted-foreground">No points accumulated yet.</td>
+                              </tr>
+                            );
+                          }
+                          return pointsRows.map((r, i) => (
+                            <tr key={r.email} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                              <td className="p-3 font-medium flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground font-mono w-4">{i + 1}.</span>
+                                {r.name}
+                              </td>
+                              <td className="p-3 text-xs text-muted-foreground">{r.email}</td>
+                              <td className="p-3 text-xs">{r.cadre}</td>
+                              <td className="p-3 text-xs">{r.department}</td>
+                              <td className="p-3 text-center">{r.count}</td>
+                              <td className="p-3 text-center font-bold text-purple-600">{r.points} CPDP</td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ACTIVE DEPTS VIEW */}
+            {drilldownType === "active_depts" && (
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Department</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Sessions Presented</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Check-in Attendances</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics?.departmentHeatmap.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-6 text-center text-muted-foreground">No departmental activity logged.</td>
+                      </tr>
+                    ) : (
+                      analytics?.departmentHeatmap.map((d) => (
+                        <tr key={d.department} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                          <td className="p-3 font-medium">{d.department}</td>
+                          <td className="p-3 text-center">{d.presentedCount}</td>
+                          <td className="p-3 text-center">{d.attendedCount}</td>
+                          <td className="p-3 text-center">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-xs h-7"
+                              onClick={() => {
+                                setSelectedDrilldownDept(d.department);
+                                setDrilldownType("dept_heatmap");
+                              }}
+                            >
+                              View Check-ins
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* DEPT HEATMAP (SPECIFIC DEPARTMENT CHECK-INS) */}
+            {drilldownType === "dept_heatmap" && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedDrilldownDept(null);
+                      setDrilldownType("active_depts");
+                    }}
+                    className="text-xs"
+                  >
+                    ← Back to Departments
+                  </Button>
+                </div>
+                {allAttendeesQuery.isLoading ? (
+                  <div className="flex justify-center py-8 text-muted-foreground items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Loading department check-ins...
+                  </div>
+                ) : (
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Attendee Name</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Cadre</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Event Name</th>
+                          <th className="p-3 font-semibold text-xs uppercase tracking-wider">Check-in Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const filtered = allAttendees.filter((a: any) => a.department === selectedDrilldownDept);
+                          if (filtered.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={5} className="p-6 text-center text-muted-foreground">No check-ins logged for this department.</td>
+                              </tr>
+                            );
+                          }
+                          return filtered.map((a: any) => {
+                            const ev = events.find(e => e.id === a.cpdEventId);
+                            return (
+                              <tr key={a.id} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                                <td className="p-3 font-medium">{a.fullName}</td>
+                                <td className="p-3 text-xs text-muted-foreground">{a.email}</td>
+                                <td className="p-3 text-xs">{a.cadre || "—"}</td>
+                                <td className="p-3 text-xs">{ev?.name || "Unknown Session"}</td>
+                                <td className="p-3 text-xs whitespace-nowrap">{a.submittedAt ? new Date(a.submittedAt).toLocaleString() : "—"}</td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ROLE ENGAGEMENT VIEW */}
+            {drilldownType === "role_engagement" && (
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Staff Member Name</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Department</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">CNE Attended</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">CME Attended</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Total CPD Attended</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Last Check-in</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = (analytics?.staffMatrix ?? []).filter((s: any) => s.cadre === selectedDrilldownRole);
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="p-6 text-center text-muted-foreground">No staff members logged under this designation.</td>
+                          </tr>
+                        );
+                      }
+                      return filtered.map((s: any) => (
+                        <tr key={s.email} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                          <td className="p-3 font-medium">{s.fullName}</td>
+                          <td className="p-3 text-xs text-muted-foreground">{s.email}</td>
+                          <td className="p-3 text-xs">{s.department || "—"}</td>
+                          <td className="p-3 text-center">{s.cneAttended}</td>
+                          <td className="p-3 text-center">{s.cmeAttended}</td>
+                          <td className="p-3 text-center font-semibold">{s.totalAttended}</td>
+                          <td className="p-3 text-xs whitespace-nowrap">{s.lastSignIn ? new Date(s.lastSignIn).toLocaleDateString() : "Never"}</td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
