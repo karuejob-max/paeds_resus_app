@@ -51,6 +51,16 @@ async function ensureHeartsaverCatalogInner(db: any): Promise<void> {
       .limit(1);
     courseId = row[0]!.id;
     console.log(`[Catalog] Created Heartsaver course (id=${courseId})`);
+  } else {
+    await db
+      .update(courses)
+      .set({
+        title: courseTitle,
+        description: courseDescription,
+        duration: 60,
+        level: "beginner",
+      })
+      .where(eq(courses.id, courseId));
   }
 
   if (courseId == null) {

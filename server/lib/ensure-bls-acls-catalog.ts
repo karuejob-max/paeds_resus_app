@@ -478,6 +478,8 @@ async function ensureCatalog(
     courseId = existing[0].id;
   }
 
+
+
   if (courseId == null) {
     await db.insert(courses).values({
       title: courseTitle,
@@ -495,6 +497,16 @@ async function ensureCatalog(
       .limit(1);
     courseId = row[0]!.id;
     console.log(`[Catalog] Created ${programType.toUpperCase()} course (id=${courseId})`);
+  } else {
+    await db
+      .update(courses)
+      .set({
+        title: courseTitle,
+        description: courseDescription,
+        duration: courseDuration,
+        level: courseLevel,
+      })
+      .where(eq(courses.id, courseId));
   }
 
   if (courseId == null) {
