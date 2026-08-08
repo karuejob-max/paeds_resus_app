@@ -1463,7 +1463,7 @@ export const institutionRouter = router({
       // Both email sets are normalized to lowercase for deduplication accuracy.
       // institutionalStaffMembers uses staffEmail (not email).
       const cpdAttendeeEmailRows = await db
-        .selectDistinct({ email: cpdAttendees.email })
+        .select({ email: cpdAttendees.email })
         .from(cpdAttendees)
         .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
 

@@ -8,7 +8,7 @@ import {
   institutionalAdminInvites,
   users,
 } from "../../drizzle/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, ne } from "drizzle-orm";
 import {
   assertInstitutionAccess,
   assertRemovalKeepsMinimumAdmins,
@@ -203,14 +203,35 @@ export const institutionAdminsRouter = router({
         .where(eq(institutionalAccounts.id, input.institutionId))
         .limit(1);
 
-      if (account?.userId === input.adminUserId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The founding admin can't be removed here — contact platform support to transfer primary ownership.",
-        });
-      }
-
       await assertRemovalKeepsMinimumAdmins(db, input.institutionId);
+
+      if (account?.userId === input.adminUserId) {
+        // If removing the founding admin, promote the next oldest admin to primary owner
+        const otherAdmins = await db
+          .select()
+          .from(institutionalAccountAdmins)
+          .where(
+            and(
+              eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId),
+              ne(institutionalAccountAdmins.userId, input.adminUserId)
+            )
+          )
+          .orderBy(institutionalAccountAdmins.createdAt);
+
+        if (!otherAdmins.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No other admin available to promote to primary owner.",
+          });
+        }
+
+        const nextAdmin = otherAdmins[0];
+
+        await db
+          .update(institutionalAccounts)
+          .set({ userId: nextAdmin.userId })
+          .where(eq(institutionalAccounts.id, input.institutionId));
+      }
 
       await db
         .delete(institutionalAccountAdmins)
@@ -297,6 +318,13 @@ export const institutionAdminsRouter = router({
           userId: ctx.user.id,
           addedByUserId: invite.invitedByUserId,
         });
+      }
+
+      if (invite.source === "recovery_approval") {
+        await db
+          .update(institutionalAccounts)
+          .set({ userId: ctx.user.id })
+          .where(eq(institutionalAccounts.id, invite.institutionalAccountId));
       }
 
       await db
