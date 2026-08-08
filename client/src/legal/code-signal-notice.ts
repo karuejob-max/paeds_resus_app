@@ -11,18 +11,21 @@ import type { LegalDocumentMeta } from "./types";
  * mother/staff-member case.
  *
  * FLAGGED, NOT YET COUNSEL-REVIEWED: this is drafted product copy, not
- * legal advice, and retention/lawful-basis specifics here are copied from
- * an existing document rather than independently verified for Code
- * Signal's adult-patient context. Treat "1.0.0" as a draft version pending
- * the same sign-off Care Signal's notice already had — do not treat its
- * presence in the codebase as equivalent to legal clearance.
+ * legal advice. The retention figure (§6) is now traced to its actual
+ * source (docs/legal/DATA_RETENTION_SCHEDULE.md, a platform-wide baseline,
+ * itself still pending counsel sign-off) rather than an unexplained
+ * carryover — see that section for the research. Lawful-basis specifics
+ * (§4) are still copied from Care Signal's notice without independent
+ * verification. Treat "1.0.0" as a draft version pending the same sign-off
+ * Care Signal's notice already had — do not treat its presence in the
+ * codebase as equivalent to legal clearance.
  */
 export const codeSignalNoticeDocument: LegalDocumentMeta = {
   title: "Code Signal — Data Processing Notice",
   version: LEGAL_DOCUMENT_VERSIONS.codeSignalNotice,
   lastUpdated: LEGAL_LAST_UPDATED,
   intro:
-    "This notice supplements the Privacy Policy and applies specifically to Code Signal — Paeds Resus quality improvement reporting for adult and whole-hospital resuscitation incidents and near-misses.",
+    "This notice supplements the Privacy Policy and applies specifically to Code Signal — Paeds Resus quality improvement reporting for adult and whole-hospital resuscitation incidents and near-misses. Code Signal is a provider-facing reporting tool: patients, relatives, and the public do not submit Code Signal reports. (Paediatric patients and families have a separate, purpose-built channel — Safe-Truth — which this notice does not cover.)",
   sections: [
     {
       id: "purpose",
@@ -62,7 +65,7 @@ export const codeSignalNoticeDocument: LegalDocumentMeta = {
       bullets: [
         "First submission and storage: consent (this notice + Privacy Policy).",
         "Facility dashboards for authorised admins: legitimate interests / B2B contract.",
-        "National aggregate (admin-only): legitimate interests / public interest in health system QI — subject to governance MOU.",
+        "National aggregate (admin-only): legitimate interests / public interest in health system QI — subject to governance MOUs. Different stakeholder types (MOH, WHO, an individual partner institution) require their own MOU, scoped to the data each is entitled to — not one blanket agreement covering all recipients.",
         "Abuse prevention (rate limits, duplicate detection): legitimate interests.",
       ],
     },
@@ -85,7 +88,7 @@ export const codeSignalNoticeDocument: LegalDocumentMeta = {
       id: "retention",
       title: "6. Retention",
       bullets: [
-        "Individual Code Signal events: 7 years from submission (counsel to confirm — carried over from Care Signal's retention default, not independently verified for Code Signal).",
+        "Individual Code Signal events: 7 years from submission. This is a platform-wide baseline (docs/legal/DATA_RETENTION_SCHEDULE.md, effective 27 May 2026, status \"counsel review draft\") applied uniformly across Care Signal, Safe-Truth, enrollments, and payments — not a figure derived specifically for Code Signal or for adult-patient data. It exceeds Kenya's standard Limitation of Actions Act (Cap 22) periods for the claim types most relevant here (3 years for tort/negligence, 6 years for contract), so it is a conservative choice for adult data, not a risky one. Still pending formal counsel sign-off platform-wide, as noted in the source document.",
         "Consent records: account lifetime + 6 years.",
         "Aggregates derived from events: may be retained in statistical form after event purge.",
       ],
