@@ -1588,6 +1588,8 @@ export const institutionalActionLogs = mysqlTable("institutionalActionLogs", {
   systemChange: text("systemChange").notNull(),
   status: mysqlEnum("status", ["open", "in_progress", "completed"]).default("open").notNull(),
   careSignalEventId: int("careSignalEventId"),
+  /** Code Signal counterpart (migration 0092) — same optional link pattern as careSignalEventId. */
+  codeSignalEventId: int("codeSignalEventId"),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
