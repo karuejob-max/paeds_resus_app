@@ -3060,6 +3060,193 @@ export const institutionRouter = router({
     }),
 
   /**
+   * Admin: retrieve all platform-linked staff members (roster + CPD attendees) with their progress
+   * stats across all program types (BLS, ACLS, PALS, NRP, Heartsaver, Instructor) for aggregation.
+   */
+  getPlatformStaffProgressStats: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      // 1. Fetch roster staff
+      const rosterStaff = await db
+        .select()
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+
+      // 2. Fetch CPD attendees scoped to this institution
+      const cpdAttendeesList = await db
+        .select({
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          phone: cpdAttendees.phone,
+          cadre: cpdAttendees.cadre,
+          department: cpdAttendees.department,
+        })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
+
+      // 3. Normalize emails and merge into unique set
+      const staffMap = new Map<string, {
+        name: string;
+        email: string;
+        phone: string;
+        role: string;
+        department: string;
+        isRoster: boolean;
+        isCpd: boolean;
+      }>();
+
+      for (const s of rosterStaff) {
+        if (s.staffEmail) {
+          const emailKey = s.staffEmail.trim().toLowerCase();
+          staffMap.set(emailKey, {
+            name: s.staffName,
+            email: s.staffEmail,
+            phone: s.staffPhone || "",
+            role: s.staffRole,
+            department: s.department || "",
+            isRoster: true,
+            isCpd: false,
+          });
+        }
+      }
+
+      for (const c of cpdAttendeesList) {
+        if (c.email) {
+          const emailKey = c.email.trim().toLowerCase();
+          if (!staffMap.has(emailKey)) {
+            staffMap.set(emailKey, {
+              name: c.fullName,
+              email: c.email,
+              phone: c.phone || "",
+              role: c.cadre || "other",
+              department: c.department || "",
+              isRoster: false,
+              isCpd: true,
+            });
+          } else {
+            const existing = staffMap.get(emailKey)!;
+            existing.isCpd = true;
+          }
+        }
+      }
+
+      const allEmails = Array.from(staffMap.keys());
+      if (allEmails.length === 0) return [];
+
+      // 4. Resolve platform accounts via users table
+      const platformUsers = await db
+        .select({
+          id: users.id,
+          email: users.email,
+        })
+        .from(users)
+        .where(inArray(sql`LOWER(${users.email})`, allEmails));
+
+      const userEmailMap = new Map<string, number>();
+      for (const u of platformUsers) {
+        if (u.email) {
+          userEmailMap.set(u.email.trim().toLowerCase(), u.id);
+        }
+      }
+
+      const userIds = Array.from(userEmailMap.values());
+
+      // 5. Query ALL enrollments for these userIds across AHA courses
+      const programs = ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"] as const;
+      let allEnrollments: Array<any> = [];
+      if (userIds.length > 0) {
+        allEnrollments = await db
+          .select({
+            id: enrollments.id,
+            userId: enrollments.userId,
+            paymentStatus: enrollments.paymentStatus,
+            cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+            practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+            trainingDate: enrollments.trainingDate,
+            programType: enrollments.programType,
+            courseId: enrollments.courseId,
+          })
+          .from(enrollments)
+          .where(
+            and(
+              inArray(enrollments.programType, programs),
+              inArray(enrollments.userId, userIds)
+            )
+          );
+      }
+
+      // Enrich with progress percentage
+      const enrichedEnrollments = await Promise.all(
+        allEnrollments.map(async (e) => {
+          const pct = await computeAhaEnrollmentProgress(db, e.userId, {
+            id: e.id,
+            userId: e.userId,
+            programType: e.programType,
+            courseId: e.courseId,
+            cognitiveModulesComplete: e.cognitiveModulesComplete,
+          });
+          return { ...e, progressPercentage: pct };
+        })
+      );
+
+      // Group enrollments by userId
+      const enrollmentsByUser = new Map<number, typeof enrichedEnrollments>();
+      for (const e of enrichedEnrollments) {
+        if (!enrollmentsByUser.has(e.userId)) {
+          enrollmentsByUser.set(e.userId, []);
+        }
+        enrollmentsByUser.get(e.userId)!.push(e);
+      }
+
+      // 6. Map everything to unified response containing stats for each program
+      return Array.from(staffMap.values()).map((s) => {
+        const emailKey = s.email.trim().toLowerCase();
+        const userId = userEmailMap.get(emailKey) ?? null;
+        const userEnrs = userId ? (enrollmentsByUser.get(userId) ?? []) : [];
+
+        // Build a map of program progress stats
+        const programStats: Record<string, {
+          enrolled: boolean;
+          progressPercentage: number;
+          cognitiveModulesComplete: boolean;
+          practicalSkillsSignedOff: boolean;
+        }> = {};
+
+        for (const prog of programs) {
+          const enr = userEnrs.find((e) => e.programType === prog);
+          programStats[prog] = {
+            enrolled: !!enr,
+            progressPercentage: enr?.progressPercentage ?? 0,
+            cognitiveModulesComplete: enr?.cognitiveModulesComplete ?? false,
+            practicalSkillsSignedOff: enr?.practicalSkillsSignedOff ?? false,
+          };
+        }
+
+        return {
+          name: s.name,
+          email: s.email,
+          phone: s.phone,
+          role: s.role,
+          department: s.department,
+          isRoster: s.isRoster,
+          isCpd: s.isCpd,
+          userId,
+          programStats,
+        };
+      });
+    }),
+
+  /**
    * Admin: retrieve all platform-linked staff members (roster + CPD attendees) for this institution,
    * merged by email, and showing their enrollment status specifically for the given program type.
    */

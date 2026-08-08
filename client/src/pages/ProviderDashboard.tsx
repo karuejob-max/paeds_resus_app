@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -504,7 +505,13 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                                 programType: enrol.programType,
                                 enrollmentId: enrol.id,
                               });
-                              setLocation(`/aha-courses`);
+                              const dest = getProviderCourseDestination(
+                                enrol.programType,
+                                enrol.id,
+                                "/aha-courses",
+                                enrol.courseId ?? undefined
+                              );
+                              setLocation(dest);
                             }}
                           >
                             Continue Cognitive Modules
