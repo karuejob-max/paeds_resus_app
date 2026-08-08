@@ -252,6 +252,23 @@ export default function AdminHub() {
               </div>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-amber-200 hover:border-amber-400"
+            onClick={() => setLocation("/admin/code-signal-review")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-600" />
+                  Code Signal review queue
+                </CardTitle>
+                <CardDescription>
+                  Review and close provider-submitted adult/whole-hospital resuscitation reports
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
         </div>
 
         {/* ── Maintenance Tools ─────────────────────────────────────────────── */}
