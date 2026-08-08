@@ -570,6 +570,11 @@ export async function ensureInstructorCourseCatalog(db: any): Promise<void> {
       .where(and(eq(modules.courseId, courseId), eq(modules.title, moduleDef.title)))
       .limit(1);
 
+    let moduleContent = moduleDef.content;
+    if (!moduleContent && moduleDef.sections && moduleDef.sections.length > 0) {
+      moduleContent = moduleDef.sections.map(s => s.content.trim()).join("\n\n");
+    }
+
     let moduleId: number;
     if (modExisting.length > 0) {
       moduleId = modExisting[0].id;
@@ -577,7 +582,7 @@ export async function ensureInstructorCourseCatalog(db: any): Promise<void> {
       await db.update(modules)
         .set({
           description: moduleDef.description,
-          content: moduleDef.content,
+          content: moduleContent,
           duration: moduleDef.duration,
           order: moduleDef.order,
         })
@@ -587,7 +592,7 @@ export async function ensureInstructorCourseCatalog(db: any): Promise<void> {
         courseId,
         title: moduleDef.title,
         description: moduleDef.description,
-        content: moduleDef.content,
+        content: moduleContent,
         duration: moduleDef.duration,
         order: moduleDef.order,
       });
