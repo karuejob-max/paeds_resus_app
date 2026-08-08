@@ -24,6 +24,7 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import CpdPanel from "@/components/CpdPanel";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
+import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
 import { ResusGpsAuditPanel } from "@/components/ResusGpsAuditPanel";
@@ -2200,6 +2201,8 @@ export default function HospitalAdminDashboard() {
                 })}
               </CardContent>
             </Card>
+
+            {institutionId && <CohortProgressWidget institutionId={institutionId} />}
 
             <Card className="border-border/80 shadow-sm">
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-0 pb-3 flex-wrap gap-4">
